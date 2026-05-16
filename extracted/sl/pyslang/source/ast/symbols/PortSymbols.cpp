@@ -467,11 +467,12 @@ public:
     }
 
     Symbol* createPort(const EmptyNonAnsiPortSyntax& syntax) {
-        auto port = comp.emplace<PortSymbol>("", syntax.placeholder.location(),
-                                             /* isAnsiPort */ false);
+        auto loc = syntax.placeholder.location();
+        auto port = comp.emplace<PortSymbol>("", loc, /* isAnsiPort */ false);
         port->direction = ArgumentDirection::In;
         port->setSyntax(syntax);
         port->isNullPort = true;
+        scope.addDiag(diag::NullPort, loc);
         return port;
     }
 
@@ -823,7 +824,19 @@ public:
                     }
                 }
                 else {
-                    scope.addDiag(diag::UnconnectedNamedPort, instance.location) << port.name;
+                    DiagCode code;
+                    switch (port.direction) {
+                        case ArgumentDirection::Out:
+                            code = diag::UnconnectedOutputPort;
+                            break;
+                        case ArgumentDirection::InOut:
+                            code = diag::UnconnectedInOutPort;
+                            break;
+                        default:
+                            code = diag::UnconnectedInputPort;
+                            break;
+                    }
+                    scope.addDiag(code, instance.location) << port.name;
                 }
             }
             return emptyConnection(port);
@@ -877,6 +890,24 @@ public:
             if (conn.expr)
                 return createConnection(port, *conn.expr, attrs);
 
+            if (!port.isNullPort && port.direction != ArgumentDirection::Ref) {
+                DiagCode code;
+                switch (port.direction) {
+                    case ArgumentDirection::Out:
+                        code = diag::EmptyOutputPortConn;
+                        break;
+                    case ArgumentDirection::InOut:
+                        code = diag::EmptyInOutPortConn;
+                        break;
+                    default:
+                        code = diag::EmptyInputPortConn;
+                        break;
+                }
+                auto& diag = scope.addDiag(code, conn.name.range());
+                diag << port.name;
+                if (port.direction == ArgumentDirection::In && port.hasInitializer())
+                    diag.addNote(diag::EmptyInputPortConnDefault, port.location);
+            }
             return emptyConnection(port);
         }
 
@@ -1173,7 +1204,7 @@ private:
 
         SmallVector<const Symbol*> newElems;
         auto& arr = sym->as<InstanceArraySymbol>();
-        if (arr.range.isLittleEndian() != portDims[0].isLittleEndian()) {
+        if (arr.range.isDescending() != portDims[0].isDescending()) {
             for (auto elem : std::views::reverse(arr.elements))
                 newElems.push_back(rewireIfaceArrayIndices(elem, name, loc, subPortDims));
         }
@@ -1268,7 +1299,7 @@ private:
                 // are in reversed order we need to reverse our index here.
                 auto& array = symbol->as<InstanceArraySymbol>();
                 size_t index = instance.arrayPath[i];
-                if (instanceDims[i].isLittleEndian() != array.range.isLittleEndian())
+                if (instanceDims[i].isDescending() != array.range.isDescending())
                     index = array.elements.size() - index - 1;
 
                 symbol = array.elements[index];

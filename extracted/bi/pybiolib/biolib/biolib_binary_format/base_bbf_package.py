@@ -1,12 +1,11 @@
 class BioLibBinaryFormatBasePackage:
-
     def __init__(self, bbf=None):
         self.version = 1
         self.bbf = bbf if bbf else bytearray()
         self.pointer = 0
 
     def get_data(self, offset, output_type='bytes'):
-        bbf_bytes = self.bbf[self.pointer:self.pointer + offset]
+        bbf_bytes = self.bbf[self.pointer : self.pointer + offset]
         self.pointer += offset
         if output_type == 'str':
             return bbf_bytes.decode()
@@ -20,5 +19,6 @@ class BioLibBinaryFormatBasePackage:
             raise Exception(f'Unsupported BioLib Binary Format version: Got {version} expected {self.version}')
 
         if package_type != expected_package_type:
-            raise Exception(f'Unsupported BioLib Binary Format type: Got {package_type} expected '
-                            f'{expected_package_type}')
+            raise Exception(
+                f'Unsupported BioLib Binary Format type: Got {package_type} expected {expected_package_type}'
+            )

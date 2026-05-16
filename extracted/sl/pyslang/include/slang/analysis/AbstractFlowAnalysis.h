@@ -42,9 +42,11 @@ protected:
     ConstantValue tryEvalBool(const Expression& expr) const;
 
     enum class WillExecute { Yes, No, Maybe };
+
+    using ForLoopVars = SmallVector<std::pair<ConstantValue*, const VariableSymbol*>>;
+
     WillExecute tryGetLoopIterValues(const ForLoopStatement& stmt,
-                                     SmallVector<ConstantValue>& values,
-                                     SmallVector<ConstantValue*>& localPtrs);
+                                     SmallVector<ConstantValue>& values, ForLoopVars& iterVars);
 
     bool isFullyCovered(const CaseStatement& stmt, const Statement* knownBranch,
                         bool isKnown) const;
@@ -55,9 +57,24 @@ protected:
     /// Set to true if we're currently walking through an unrolled for loop.
     bool inUnrolledForLoop = false;
 
+    /// Set to true while the main flow pass is visiting the body of a for/foreach
+    /// loop. Prevents nested loops encountered during that traversal from
+    /// re-triggering checkLoopVars; checkLoopVars already handles nested loops
+    /// internally via its own visitor.
+    bool inCheckLoopVars = false;
+
     /// An optional diagnostics collection. If provided, warnings encountered during
     /// analysis will be added to it.
     Diagnostics* diagnostics;
+
+    /// Perform loop variable checks in a single pass over the loop body:
+    ///   - Warn when a loop variable (for loops) is both stepped in the header
+    ///     and incremented/decremented inside the body (double-step).
+    ///   - Warn when none of the variables in the stop condition are ever
+    ///     modified by the step expressions or the body (for loops only).
+    ///   - Warn when a loop variable is referenced inside a fork-join_any or
+    ///     fork-join_none block in the body (captures stale value).
+    void checkLoopVars(const Statement& loopStmt);
 
     /// An EvalContext that can be used for constant evaluation during analysis.
     mutable EvalContext evalContext;
@@ -91,6 +108,10 @@ public:
 
 protected:
     using FlowAnalysisBase::FlowAnalysisBase;
+
+    // ------------------------------------------------------------------------
+    // Current state management
+    // ------------------------------------------------------------------------
 
     /// Gets the current flow state.
     TState& getState() { return state; }
@@ -141,7 +162,28 @@ protected:
     /// Gets the set of states at various return points in a subroutine.
     std::span<const TState> getReturnStates() const { return returnStates; }
 
-    // **** Statement Visitors ****
+    // ------------------------------------------------------------------------
+    // Visitor hooks
+    // ------------------------------------------------------------------------
+
+    /// Called before entering a timing control expression (wait condition, event
+    /// references in wait_order, etc.). Derived classes can override to suppress
+    /// implicit sensitivity tracking inside timing expressions.
+    void enterTimingControlExpr() {}
+
+    /// Called after leaving a timing control expression.
+    void leaveTimingControlExpr() {}
+
+    /// Called before entering an assertion action block.
+    /// Derived classes can override to suppress implicit sensitivity tracking.
+    void enterAssertionActionBlock() {}
+
+    /// Called after leaving an assertion action block.
+    void leaveAssertionActionBlock() {}
+
+    // ------------------------------------------------------------------------
+    // Statement visitors
+    // ------------------------------------------------------------------------
 
     void visitStmt(const InvalidStatement&) { bad = true; }
 
@@ -407,13 +449,8 @@ protected:
         for (auto init : stmt.initializers)
             visit(*init);
 
-        for (auto var : stmt.loopVars) {
-            if (auto init = var->getInitializer())
-                visit(*init);
-        }
-
         SmallVector<ConstantValue> iterValues;
-        SmallVector<ConstantValue*> localPtrs;
+        ForLoopVars iterVars;
         auto oldForLoopSteps = forLoopSteps;
         auto bodyWillExecute = WillExecute::Maybe;
         TState bodyState, exitState;
@@ -428,10 +465,14 @@ protected:
             // If we have a deterministic set of iteration values we can "unroll" the
             // loop and get finer grained tracking of data flow within it.
             if (!cv)
-                bodyWillExecute = tryGetLoopIterValues(stmt, iterValues, localPtrs);
+                bodyWillExecute = tryGetLoopIterValues(stmt, iterValues, iterVars);
+            else
+                bodyWillExecute = cv.isTrue() ? WillExecute::Yes : WillExecute::No;
         }
         else {
-            // If there's no stop expression, the loop is infinite.
+            // If there's no stop expression, the loop is infinite, so the
+            // body always executes at least once.
+            bodyWillExecute = WillExecute::Yes;
             bodyState = std::move(state);
             exitState = (DERIVED).unreachableState();
         }
@@ -439,6 +480,10 @@ protected:
         auto oldBreakStates = std::move(breakStates);
         breakStates.clear();
         setState(std::move(bodyState));
+
+        auto savedCheckLoopVars = std::exchange(inCheckLoopVars, true);
+        if (!savedCheckLoopVars)
+            checkLoopVars(stmt);
 
         if (iterValues.empty()) {
             if (bodyWillExecute == WillExecute::No)
@@ -452,10 +497,9 @@ protected:
             // We have a set of iteration values that we can use to unroll the loop.
             auto savedUnrollFlag = std::exchange(inUnrolledForLoop, true);
             for (size_t i = 0; i < iterValues.size();) {
-                for (auto local : localPtrs)
+                for (auto& [local, _] : iterVars)
                     *local = std::move(iterValues[i++]);
 
-                // TODO: give up if state becomes unreachable?
                 visit(stmt.body);
                 for (auto step : stmt.steps)
                     visit(*step);
@@ -464,12 +508,11 @@ protected:
         }
 
         // Clean up any locals we may have created.
-        if (!localPtrs.empty()) {
-            for (auto var : stmt.loopVars)
-                evalContext.deleteLocal(var);
-        }
+        for (auto& [_, var] : iterVars)
+            evalContext.deleteLocal(var);
 
         forLoopSteps = oldForLoopSteps;
+        inCheckLoopVars = savedCheckLoopVars;
 
         if (bodyWillExecute == WillExecute::Yes)
             (DERIVED).meetState(exitState, state);
@@ -501,7 +544,13 @@ protected:
         auto currState = (DERIVED).copyState(state);
         auto oldBreakStates = std::move(breakStates);
         breakStates.clear();
+
+        auto savedCheckLoopVars = std::exchange(inCheckLoopVars, true);
         visit(stmt.body);
+
+        if (!savedCheckLoopVars)
+            checkLoopVars(stmt);
+        inCheckLoopVars = savedCheckLoopVars;
 
         // If all loop dims are fixed size then the loop is guaranteed to execute.
         bool allFixed = !stmt.loopDims.empty();
@@ -552,7 +601,10 @@ protected:
     }
 
     void visitStmt(const WaitStatement& stmt) {
+        // The wait condition is a timing control expression.
+        (DERIVED).enterTimingControlExpr();
         visitCondition(stmt.cond);
+        (DERIVED).leaveTimingControlExpr();
 
         // The body is never executed until the condition is true.
         setState(std::move(stateWhenTrue));
@@ -560,8 +612,11 @@ protected:
     }
 
     void visitStmt(const WaitOrderStatement& stmt) {
+        // Event references in wait_order are timing control expressions.
+        (DERIVED).enterTimingControlExpr();
         for (auto expr : stmt.events)
             visit(*expr);
+        (DERIVED).leaveTimingControlExpr();
 
         auto initialState = (DERIVED).copyState(state);
         if (stmt.ifTrue) {
@@ -576,11 +631,36 @@ protected:
     }
 
     void visitStmt(const RandSequenceStatement& stmt) {
-        // TODO: could check for unreachable productions
-        // TODO: handle special break / return rules
+        using RSPS = RandSeqProductionSymbol;
+
         auto initialState = (DERIVED).copyState(state);
         auto finalState = std::move(state);
 
+        // Calling break from within a randsequence production jumps to
+        // the end of the randsequence block.
+        auto oldBreakStates = std::move(breakStates);
+        breakStates.clear();
+
+        auto visitCodeBlock = [&](const RSPS::CodeBlockProd& prod) {
+            if (auto blockBody = prod.block->tryGetStatement()) {
+                // Return statements in code blocks just jump to the
+                // end of the block, like a break statement in a loop.
+                auto oldReturnStates = std::move(returnStates);
+                returnStates.clear();
+
+                visit(*blockBody);
+
+                for (auto& rs : returnStates)
+                    (DERIVED).joinState(state, rs);
+
+                returnStates = std::move(oldReturnStates);
+            }
+        };
+
+        // Right now we just run through all productions in order and assume
+        // we could have any combination of them. We could be smarter here and
+        // model the control flow of the productions, figuring out which ones are
+        // reachable and in which order.
         for (auto production : stmt.productions) {
             for (auto& rule : production->getRules()) {
                 setState((DERIVED).copyState(initialState));
@@ -591,18 +671,13 @@ protected:
                 if (rule.randJoinExpr)
                     visit(*rule.randJoinExpr);
 
-                using RSPS = RandSeqProductionSymbol;
-
                 for (auto prod : rule.prods) {
                     switch (prod->kind) {
                         case RSPS::ProdKind::Item:
                             ((const RSPS::ProdItem*)prod)->visitExprs(DERIVED);
                             break;
                         case RSPS::ProdKind::CodeBlock: {
-                            auto blockBody =
-                                ((const RSPS::CodeBlockProd*)prod)->block->tryGetStatement();
-                            if (blockBody)
-                                visit(*blockBody);
+                            visitCodeBlock(*(const RSPS::CodeBlockProd*)prod);
                             break;
                         }
                         case RSPS::ProdKind::IfElse: {
@@ -662,16 +737,15 @@ protected:
                     }
                 }
 
-                if (rule.codeBlock) {
-                    if (auto blockBody = rule.codeBlock->block->tryGetStatement())
-                        visit(*blockBody);
-                }
+                if (rule.codeBlock)
+                    visitCodeBlock(*rule.codeBlock);
 
                 (DERIVED).joinState(finalState, state);
             }
         }
 
-        setState(std::move(finalState));
+        // Not actually a loop but the behavior is the same.
+        loopTail(std::move(finalState), std::move(oldBreakStates));
     }
 
     void visitStmt(const ImmediateAssertionStatement& stmt) {
@@ -686,13 +760,20 @@ protected:
             auto trueState = std::move(stateWhenTrue), falseState = std::move(stateWhenFalse);
             if (stmt.ifTrue) {
                 setState(std::move(trueState));
+
+                (DERIVED).enterAssertionActionBlock();
                 visit(*stmt.ifTrue);
+                (DERIVED).leaveAssertionActionBlock();
+
                 trueState = std::move(state);
             }
 
             setState(std::move(falseState));
-            if (stmt.ifFalse)
+            if (stmt.ifFalse) {
+                (DERIVED).enterAssertionActionBlock();
                 visit(*stmt.ifFalse);
+                (DERIVED).leaveAssertionActionBlock();
+            }
 
             (DERIVED).joinState(state, trueState);
         }
@@ -717,7 +798,9 @@ protected:
     void visitStmt(const WaitForkStatement&) {}
     void visitStmt(const DisableForkStatement&) {}
 
-    // **** Expression Visitors ****
+    // ------------------------------------------------------------------------
+    // Expression visitors
+    // ------------------------------------------------------------------------
 
     void visitExpr(const InvalidExpression&) { bad = true; }
 
@@ -753,7 +836,8 @@ protected:
             visit(*range);
     }
 
-    void visitShortCircuitOp(const BinaryExpression& expr) {
+    template<typename AfterLeftCB = std::nullptr_t>
+    void visitShortCircuitOp(const BinaryExpression& expr, AfterLeftCB&& afterLeftCB = {}) {
         // Visit the LHS -- after this the state is guaranteed to be split.
         visitCondition(expr.left());
 
@@ -764,6 +848,11 @@ protected:
         auto trueState = std::move(stateWhenTrue), falseState = std::move(stateWhenFalse);
         setState(expr.op == BinaryOperator::LogicalOr ? std::move(falseState)
                                                       : std::move(trueState));
+
+        if constexpr (!std::is_same_v<AfterLeftCB, std::nullptr_t>) {
+            afterLeftCB();
+        }
+
         visitCondition(expr.right());
 
         // Join the states from the two branches. For example,
@@ -786,22 +875,31 @@ protected:
         adjustConditionalState(expr);
     }
 
-    void visitExpr(const ConditionalExpression& expr) {
-        // TODO: handle the special ambiguous 'x merging of both sides
+    template<typename AfterConditionCB = std::nullptr_t>
+    void visitExpr(const ConditionalExpression& expr, AfterConditionCB&& afterConditionCB = {}) {
         ConstantValue knownVal = SVInt::One;
         auto falseState = (DERIVED).unreachableState();
         for (auto& cond : expr.conditions) {
             auto cv = visitCondition(*cond.expr);
-            if (cv && knownVal)
-                knownVal = SVInt(knownVal.isTrue() && cv.isTrue() ? 1 : 0);
-            else
+            if (cv && knownVal) {
+                if (cv.isInteger() && (cv.hasUnknown() || knownVal.hasUnknown()))
+                    knownVal = SVInt::createFillX(1, false);
+                else
+                    knownVal = SVInt(knownVal.isTrue() && cv.isTrue() ? 1 : 0);
+            }
+            else {
                 knownVal = nullptr;
+            }
 
             if (cond.pattern)
                 visit(*cond.pattern);
 
             (DERIVED).joinState(falseState, stateWhenFalse);
             setState(std::move(stateWhenTrue));
+        }
+
+        if constexpr (!std::is_same_v<AfterConditionCB, std::nullptr_t>) {
+            afterConditionCB();
         }
 
         auto visitSide = [this](const Expression& expr, TState&& newState) {
@@ -814,7 +912,13 @@ protected:
             // Special case: if the condition is constant, we will visit
             // the opposing side first and then essentially throw that
             // state away instead of joining it.
-            if (knownVal.isTrue()) {
+            if (knownVal.isInteger() && knownVal.hasUnknown()) {
+                setState(std::move(trueState));
+                visit(expr.left());
+                (DERIVED).meetState(falseState, state);
+                visit(expr.right());
+            }
+            else if (knownVal.isTrue()) {
                 visitSide(expr.right(), std::move(falseState));
                 visitSide(expr.left(), std::move(trueState));
             }
@@ -933,6 +1037,11 @@ protected:
         else {
             // If the derived type provides a handler then dispatch to it.
             // Otherwise dispatch to our own handler for whatever this is.
+            const bool wasInExpression = inExpression;
+            if constexpr (std::is_base_of_v<Expression, T>) {
+                inExpression = true;
+            }
+
             if constexpr (requires { (DERIVED).handle(t); })
                 (DERIVED).handle(t);
             else if constexpr (std::is_base_of_v<Statement, T>)
@@ -961,6 +1070,13 @@ protected:
                 // previously mentioned expressions.
                 if (!inCondition)
                     unsplit();
+
+                if (!wasInExpression) {
+                    inExpression = false;
+                    if constexpr (requires { (DERIVED).finishExpr(t); }) {
+                        (DERIVED).finishExpr(t);
+                    }
+                }
             }
         }
     }
@@ -976,6 +1092,7 @@ private:
     TState stateWhenFalse;
     bool isStateSplit = false;
     bool inCondition = false;
+    bool inExpression = false;
 
     SmallVector<TState> breakStates;
     SmallVector<TState> returnStates;

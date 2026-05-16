@@ -34,7 +34,7 @@ import requests
 import pytz
 import time
 import numpy as np
-from halo import Halo
+from PKDevTools.classes.PKHalo import PKHalo
 import alive_progress
 from datetime import datetime, timedelta
 
@@ -1582,7 +1582,7 @@ class PKAssetsManager:
                                                                  date_suffix=True)
         return exists, cache_file
 
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def saveStockData(stockDict, configManager, loadCount, intraday=False, downloadOnly=False, forceSave=False):
         """
         Save stock data to a pickle cache file.
@@ -1686,7 +1686,7 @@ class PKAssetsManager:
             )
         return hitRateLimit
     
-    @Halo(text='  [+] Downloading fresh data from Data Providers...', spinner='dots')
+    @PKHalo(text='  [+] Downloading fresh data from Data Providers...', spinner='dots')
     def downloadLatestData(stockDict,configManager,stockCodes=[],exchangeSuffix=".NS",downloadOnly=False,numStocksPerIteration=0):
         """
         Download latest data directly from data providers (origin source).
@@ -1749,7 +1749,7 @@ class PKAssetsManager:
         return stockDict, leftOutStocks
 
     @track_performance("PKAssetsManager_loadStockData")
-    @Halo(text='  [+] Downloading fresh instruments and their data from Data Providers...', spinner='dots')
+    @PKHalo(text='  [+] Downloading fresh instruments and their data from Data Providers...', spinner='dots')
     def loadStockData(
         stockDict,
         configManager,
@@ -2025,7 +2025,7 @@ class PKAssetsManager:
         return stockDict
 
     @track_performance("PKAssetsManager_loadDataFromLocalPickle")
-    @Halo(text='  [+] Loading data from local cache...', spinner='dots')
+    @PKHalo(text='  [+] Loading data from local cache...', spinner='dots')
     def loadDataFromLocalPickle(stockDict, configManager, downloadOnly, defaultAnswer, exchangeSuffix, cache_file, isTrading, stockCodes=None):
         """
         Load stock data from local pickle cache file.
@@ -2185,7 +2185,7 @@ class PKAssetsManager:
             raise
         return stockDict, stockDataLoaded
 
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def downloadSavedDefaultsFromServer(cache_file):
         """
         Download default saved data from server (legacy method).

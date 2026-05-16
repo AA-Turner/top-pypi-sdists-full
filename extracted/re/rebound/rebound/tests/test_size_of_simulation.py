@@ -1,8 +1,8 @@
 import rebound
 import unittest
-from ctypes import c_size_t, sizeof
+from ctypes import c_size_t, sizeof, c_uint32, POINTER, c_char_p
 
-class TestSizeOfSimmulation(unittest.TestCase):
+class TestSizeOfSimulation(unittest.TestCase):
     
     def test_size_of_simulation(self):
         cl = rebound.clibrebound

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "diff-diff"
-version = "3.3.2"
+version = "3.3.3"
 description = "Difference-in-Differences causal inference with sklearn-like API. Callaway-Sant'Anna, Synthetic DiD, Honest DiD, event studies, parallel trends."
 readme = "README.md"
 license = "MIT"
@@ -68,11 +68,15 @@ plotly = [
 ]
 docs = [
     "sphinx>=6.0",
-    "pydata-sphinx-theme>=0.15",
+    "pydata-sphinx-theme>=0.16.1",
     "sphinxext-opengraph>=0.9",
     "sphinx-sitemap>=2.5",
     "nbsphinx>=0.9",
     "matplotlib>=3.5",
+    # ipython provides the 'ipython3' Pygments lexer used by nbsphinx for
+    # notebook code cells; without it Sphinx emits highlighting_failure
+    # warnings on every notebook.
+    "ipython>=8.0",
 ]
 
 [project.urls]

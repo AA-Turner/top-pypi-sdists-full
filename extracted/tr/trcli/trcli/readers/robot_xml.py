@@ -6,7 +6,12 @@ import glob
 
 from trcli.backports import removeprefix
 from trcli.cli import Environment
-from trcli.data_classes.data_parsers import MatchersParser, FieldsParser, TestRailCaseFieldsOptimizer
+from trcli.data_classes.data_parsers import (
+    MatchersParser,
+    FieldsParser,
+    TestRailCaseFieldsOptimizer,
+    QualityRatingParser,
+)
 from trcli.data_classes.dataclass_testrail import (
     TestRailCase,
     TestRailSuite,
@@ -22,6 +27,9 @@ class RobotParser(FileParser):
     def __init__(self, environment: Environment):
         super().__init__(environment)
         self.case_matcher = environment.case_matcher
+        self._case_result_statuses = {"pass": 1, "not run": 3, "skip": 4, "fail": 5}
+        self._update_with_custom_statuses()
+        self.invalid_quality_ratings_found = False  # Track if any quality ratings were invalid
 
     @staticmethod
     def check_file(filepath: Union[str, Path]) -> Path:
@@ -111,6 +119,7 @@ class RobotParser(FileParser):
                 result_fields = []
                 case_fields = []
                 comments = []
+                quality_rating = None
                 documentation = test.find("doc")
                 if self.case_matcher == MatchersParser.NAME:
                     case_id, case_name = MatchersParser.parse_name_with_id(case_name)
@@ -122,6 +131,15 @@ class RobotParser(FileParser):
                             and self.case_matcher == MatchersParser.PROPERTY
                         ):
                             case_id = int(self._remove_tr_prefix(line, "- testrail_case_id:").lower().replace("c", ""))
+                        if line.lower().startswith("- quality_rating:"):
+                            quality_rating_str = self._remove_tr_prefix(line, "- quality_rating:")
+                            parsed_rating, error = QualityRatingParser.parse_quality_rating(quality_rating_str)
+                            if error:
+                                self.env.elog(f"Quality rating validation failed for test '{case_name}': {error}")
+                                # Mark that we found invalid quality ratings
+                                self.invalid_quality_ratings_found = True
+                            else:
+                                quality_rating = parsed_rating
                         if line.lower().startswith("- testrail_attachment:"):
                             attachments.append(self._remove_tr_prefix(line, "- testrail_attachment:"))
                         if line.lower().startswith("- testrail_result_field"):
@@ -131,8 +149,7 @@ class RobotParser(FileParser):
                         if line.lower().startswith("- testrail_case_field"):
                             case_fields.append(self._remove_tr_prefix(line, "- testrail_case_field:"))
                 status = test.find("status")
-                status_dict = {"pass": 1, "not run": 3, "skip": 4, "fail": 5}
-                status_id = status_dict[status.get("status").lower()]
+                status_id = self._case_result_statuses[status.get("status").lower()]
 
                 elapsed_time = None
                 # if status contains "elapsed" then obtain it, otherwise calculate it from starttime and endtime
@@ -149,7 +166,7 @@ class RobotParser(FileParser):
                 for kw in keywords:
                     kw_result = kw.find("status").get("status")
                     step = TestRailSeparatedStep(kw.get("name"))
-                    step.status_id = status_dict[kw_result.lower()]
+                    step.status_id = self._case_result_statuses[kw_result.lower()]
                     step_keywords.append(step)
 
                 result_fields_dict, error = FieldsParser.resolve_fields(result_fields)
@@ -168,6 +185,7 @@ class RobotParser(FileParser):
                     attachments=attachments,
                     result_fields=result_fields_dict,
                     custom_step_results=step_keywords,
+                    quality_rating=quality_rating,
                 )
                 for comment in reversed(comments):
                     result.prepend_comment(comment)

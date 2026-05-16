@@ -178,7 +178,7 @@ if not cc.has_header('complex.h')
   error('"complex.h" header not found')
 endif
 
-if cc.get_argument_syntax() == 'msvc'
+if cc.get_id() == 'msvc' or cc.get_id() == 'clang-cl'
   complex_types_to_check = [
     ['NPY_SIZEOF_COMPLEX_FLOAT', '_Fcomplex'],
     ['NPY_SIZEOF_COMPLEX_DOUBLE', '_Dcomplex'],
@@ -401,6 +401,8 @@ optional_intrinsics = [
   ['__builtin_expect', '5, 0', [], []],
   # Test `long long` for arm+clang 13 (gh-22811, but we use all versions):
   ['__builtin_mul_overflow', '(long long)5, 5, (int*)5', [], []],
+  ['__builtin_add_overflow', '(long long)5, 5, (int*)5', [], []],
+  ['__builtin_sub_overflow', '(long long)5, 5, (int*)5', [], []],
   ['__builtin_prefetch', '(float*)0, 0, 3', [], []],
 ]
 foreach intrin: optional_intrinsics

@@ -15,8 +15,8 @@
 #include "slang/ast/Compilation.h"
 #include "slang/ast/EvalContext.h"
 #include "slang/ast/Expression.h"
-#include "slang/ast/LSPUtilities.h"
 #include "slang/ast/TimingControl.h"
+#include "slang/ast/ValuePath.h"
 #include "slang/ast/expressions/AssignmentExpressions.h"
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
@@ -205,8 +205,9 @@ ModportPortSymbol& ModportPortSymbol::fromSyntax(const ASTContext& context,
     result->getDeclaredType()->setLink(*sourceType);
 
     // Perform checking on the connected symbol to make sure it's allowed
-    // given the modport's direction.
-    ASTContext checkCtx = context.resetFlags(ASTFlags::NonProcedural);
+    // given the modport's direction. NoReference keeps the declaration
+    // from counting as a use of the underlying signal.
+    ASTContext checkCtx = context.resetFlags(ASTFlags::NonProcedural | ASTFlags::NoReference);
     if (direction != ArgumentDirection::In) {
         checkCtx.flags |= ASTFlags::LValue;
         if (direction == ArgumentDirection::InOut)
@@ -226,7 +227,7 @@ ModportPortSymbol& ModportPortSymbol::fromSyntax(const ASTContext& context,
 ModportPortSymbol& ModportPortSymbol::fromSyntax(const ASTContext& parentContext,
                                                  ArgumentDirection direction,
                                                  const ModportExplicitPortSyntax& syntax) {
-    ASTContext context = parentContext.resetFlags(ASTFlags::NonProcedural);
+    ASTContext context = parentContext.resetFlags(ASTFlags::NonProcedural | ASTFlags::NoReference);
     auto& comp = context.getCompilation();
     auto name = syntax.name;
     auto result = comp.emplace<ModportPortSymbol>(name.valueText(), name.location(), direction);
@@ -374,8 +375,8 @@ void ModportSymbol::fromSyntax(const ASTContext& context, const ModportDeclarati
                         modport->hasExports = true;
 
                     for (auto subPort : portList.ports) {
-                        if (subPort->previewNode)
-                            modport->addMembers(*subPort->previewNode);
+                        if (auto preview = subPort->previewNode())
+                            modport->addMembers(*preview);
 
                         switch (subPort->kind) {
                             case SyntaxKind::ModportNamedPort: {
@@ -1544,8 +1545,8 @@ void AssertionPortSymbol::buildPorts(Scope& scope, const AssertionItemPortListSy
     std::optional<ArgumentDirection> lastDir;
 
     for (auto item : syntax.ports) {
-        if (item->previewNode)
-            scope.addMembers(*item->previewNode);
+        if (auto preview = item->previewNode())
+            scope.addMembers(*preview);
 
         auto port = comp.emplace<AssertionPortSymbol>(item->name.valueText(),
                                                       item->name.location());
@@ -1726,10 +1727,14 @@ ClockingBlockSymbol& ClockingBlockSymbol::fromSyntax(const Scope& scope,
                                                     syntax.blockName.location());
     result->setSyntax(syntax);
 
-    if (syntax.globalOrDefault.kind == TokenKind::DefaultKeyword)
+    if (syntax.globalOrDefault.kind == TokenKind::DefaultKeyword) {
         comp.noteDefaultClocking(scope, *result, syntax.clocking.range());
+        result->isDefault = true;
+    }
     else if (syntax.globalOrDefault.kind == TokenKind::GlobalKeyword) {
         comp.noteGlobalClocking(scope, *result, syntax.clocking.range());
+        result->isGlobal = true;
+
         if (scope.asSymbol().kind == SymbolKind::GenerateBlock)
             scope.addDiag(diag::GlobalClockingGenerate, syntax.clocking.range());
     }
@@ -1823,6 +1828,10 @@ ClockingSkew ClockingBlockSymbol::getDefaultOutputSkew() const {
 
 void ClockingBlockSymbol::serializeTo(ASTSerializer& serializer) const {
     serializer.write("event", getEvent());
+    if (isDefault)
+        serializer.write("isDefault", isDefault);
+    if (isGlobal)
+        serializer.write("isGlobal", isGlobal);
 
     if (auto skew = getDefaultInputSkew(); skew.hasValue()) {
         serializer.writeProperty("defaultInputSkew");
@@ -1865,8 +1874,8 @@ RandSeqProductionSymbol& RandSeqProductionSymbol::fromSyntax(const Scope& scope,
     }
 
     for (auto rule : syntax.rules) {
-        if (rule->previewNode)
-            result->addMembers(*rule->previewNode);
+        if (auto preview = rule->previewNode())
+            result->addMembers(*preview);
 
         auto& ruleBlock = StatementBlockSymbol::fromSyntax(*result, *rule);
         result->addMember(ruleBlock);
@@ -2319,10 +2328,9 @@ struct NetAliasVisitor {
                         }
                         else {
                             auto& netSym = sym->template as<NetSymbol>();
-                            if (auto bounds = LSPUtilities::getBounds(expr, evalCtx,
-                                                                      netSym.getType())) {
-                                netAliases.push_back({&netSym, &expr, *bounds});
-                            }
+                            ValuePath path(expr, evalCtx);
+                            if (path.lsp)
+                                netAliases.push_back({&netSym, &expr, path.lspBounds});
 
                             auto& nt = netSym.netType;
                             if (!commonNetType) {
@@ -2350,6 +2358,8 @@ struct NetAliasVisitor {
         }
     }
 };
+
+using BitRange = std::pair<uint64_t, uint64_t>;
 
 std::span<const Expression* const> NetAliasSymbol::getNetReferences() const {
     if (netRefs)
@@ -2411,7 +2421,7 @@ std::span<const Expression* const> NetAliasSymbol::getNetReferences() const {
             // to the corresponding elements on the right hand side. The individual
             // elements can differ in width, so consume bits from the larger side
             // and only advance when a side has been consumed.
-            std::optional<std::pair<DriverBitRange, bool>> remainder;
+            std::optional<std::pair<BitRange, bool>> remainder;
             while (firstIt != firstEnd && secondIt != secondEnd) {
                 auto& firstAlias = *firstIt;
                 auto& secondAlias = *secondIt;
@@ -2432,8 +2442,8 @@ std::span<const Expression* const> NetAliasSymbol::getNetReferences() const {
                 uint64_t width;
                 if (firstWidth < secondWidth) {
                     width = firstWidth;
-                    remainder = std::pair(
-                        DriverBitRange(secondRange.first, secondRange.second - width), false);
+                    remainder = std::pair(BitRange(secondRange.first, secondRange.second - width),
+                                          false);
                     firstIt++;
                 }
                 else {
@@ -2443,8 +2453,8 @@ std::span<const Expression* const> NetAliasSymbol::getNetReferences() const {
                     if (firstWidth == secondWidth)
                         firstIt++;
                     else {
-                        remainder = std::pair(
-                            DriverBitRange(firstRange.first, firstRange.second - width), true);
+                        remainder = std::pair(BitRange(firstRange.first, firstRange.second - width),
+                                              true);
                     }
                 }
 

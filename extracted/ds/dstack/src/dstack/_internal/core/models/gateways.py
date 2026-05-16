@@ -72,7 +72,15 @@ class GatewayConfiguration(CoreModel):
         ),
     ] = None
     domain: Annotated[
-        Optional[str], Field(description="The gateway domain, e.g. `example.com`")
+        Optional[str],
+        Field(
+            description=(
+                "The gateway wildcard domain name, e.g. `example.com`."
+                " Service domain names are constructed as `<run name>.<gateway domain`."
+                " The domain name can use the `${{ run.project_name }}` variable"
+                " to include the service’s project name"
+            )
+        ),
     ] = None
     public_ip: Annotated[bool, Field(description="Allocate public IP for the gateway")] = True
     certificate: Annotated[
@@ -106,6 +114,8 @@ class Gateway(CoreModel):
     id: Optional[uuid.UUID] = None
     """`id` is only optional on the client side for compatibility with pre-0.20.7 servers."""
     name: str
+    project_name: Optional[str] = None
+    """`project_name` is only optional on the client side for compatibility with pre-0.20.20 servers."""
     configuration: GatewayConfiguration
     created_at: datetime.datetime
     status: GatewayStatus

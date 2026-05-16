@@ -17,7 +17,7 @@ import sentry_sdk
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db import IntegrityError, models, transaction
+from django.db import DatabaseError, IntegrityError, models, transaction
 from django.db.models import F, Q
 from django.urls import reverse
 from django.utils import timezone
@@ -38,6 +38,11 @@ from weblate.trans.exceptions import (
     FailedCommitError,
     FileParseError,
     PluralFormsMismatchError,
+)
+from weblate.trans.file_format_params import (
+    GettextLastTranslator,
+    GettextReportMsgidBugsTo,
+    GettextSetLanguageTeamHeader,
 )
 from weblate.trans.mixins import CacheKeyMixin, LockMixin, LoggerMixin, URLMixin
 from weblate.trans.models.change import Change
@@ -73,6 +78,7 @@ from weblate.utils.stats import GhostStats, TranslationStats
 from weblate.utils.version import GIT_VERSION
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from datetime import datetime
 
     from weblate.auth.models import AuthenticatedHttpRequest, User
@@ -150,7 +156,7 @@ class TranslationManager(models.Manager):
         return translation
 
 
-class TranslationQuerySet(models.QuerySet):
+class TranslationQuerySet(models.QuerySet["Translation", "Translation"]):
     def prefetch(self, *, defer_huge: bool = True):
         from weblate.trans.models import Component  # noqa: PLC0415
 
@@ -852,7 +858,7 @@ class Translation(
             self.log_error("skipping commit due to error: %s", error)
             return False
 
-        pending_changes = list(
+        pending_changes: list[PendingUnitChange] = list(
             PendingUnitChange.objects.filter(pk__in=pending_changes_pk)
             .prefetch_related("unit", "author")
             .order_by("timestamp")
@@ -1236,25 +1242,27 @@ class Translation(
 
         # Prepare headers to update
         headers = {
-            "last_translator": author_name,
             "plural_forms": self.plural.plural_form,
             "language": self.language_code,
             "PO_Revision_Date": now.strftime("%Y-%m-%d %H:%M%z"),
         }
 
         # Optionally store language team with link to website
-        if self.component.project.set_language_team:
+        if GettextSetLanguageTeamHeader.get_value(self.component.file_format_params):
             headers["language_team"] = (
                 f"{self.language.name} <{get_site_url(self.get_absolute_url())}>"
             )
+        if GettextLastTranslator.get_value(self.component.file_format_params):
+            headers["last_translator"] = author_name
 
         # Optionally store email for reporting bugs in source
-        report_source_bugs = self.component.report_source_bugs
-        if report_source_bugs:
+        if (
+            report_source_bugs := self.component.report_source_bugs
+        ) and GettextReportMsgidBugsTo.get_value(self.component.file_format_params):
             headers["report_msgid_bugs_to"] = report_source_bugs
 
         # Update generic headers
-        store.update_header(**headers)
+        store.update_header(self.component.file_format_params, **headers)
 
         # save translation changes
         store.save()
@@ -1326,6 +1334,40 @@ class Translation(
             ),
         )
 
+    def validate_upload_plural_forms(self, unit: TranslationUnit) -> None:
+        target_plural_forms = getattr(unit, "target_plural_forms", ())
+        if not target_plural_forms:
+            return
+
+        invalid = [form for form in target_plural_forms if form >= self.plural.number]
+        if invalid:
+            raise FileParseError(
+                gettext("Plural form %d in the uploaded file is out of range.")
+                % invalid[0]
+            )
+        missing = set(range(self.plural.number)) - set(target_plural_forms)
+        if missing:
+            raise FileParseError(
+                gettext("Plural form %d in the uploaded file is missing.")
+                % min(missing)
+            )
+
+    def validate_upload_unit_metadata(self, unit: TranslationUnit) -> None:
+        try:
+            _ = getattr(unit, "import_id_hash", None)
+        except ValueError as error:
+            raise FileParseError(str(error)) from error
+        self.validate_upload_plural_forms(unit)
+
+    def validate_upload_plural_store(self, store: TranslationFormat) -> None:
+        try:
+            units = store.content_units
+        except ValueError as error:
+            raise FileParseError(str(error)) from error
+
+        for unit in units:
+            self.validate_upload_unit_metadata(unit)
+
     def merge_translations(
         self,
         request: AuthenticatedHttpRequest,
@@ -1345,6 +1387,8 @@ class Translation(
         add_fuzzy = method == "fuzzy"
         add_approve = method == "approve"
         not_found_log: list[str] = []
+
+        self.validate_upload_plural_store(store2)
 
         # Are there any translations to propagate?
         # This is just an optimalization to avoid doing that for every unit.
@@ -1421,6 +1465,8 @@ class Translation(
         skipped = 0
         accepted = 0
         not_found_log: list[str] = []
+
+        self.validate_upload_plural_store(store)
 
         unit_set = self.unit_set.all()
 
@@ -1511,6 +1557,11 @@ class Translation(
             # Commit pending changes
             try:
                 component.commit_pending("source update", author)
+            except DatabaseError as error:
+                raise FailedCommitError(
+                    gettext("Could not commit pending changes: %s")
+                    % gettext("Please try again later.")
+                ) from error
             except Exception as error:
                 raise FailedCommitError(
                     gettext("Could not commit pending changes: %s")
@@ -1572,6 +1623,11 @@ class Translation(
                     self.component.commit_pending("replace file", author)
                 else:
                     self.commit_pending("replace file", author)
+            except DatabaseError as error:
+                raise FailedCommitError(
+                    gettext("Could not commit pending changes: %s")
+                    % gettext("Please try again later.")
+                ) from error
             except Exception as error:
                 raise FailedCommitError(
                     gettext("Could not commit pending changes: %s")
@@ -1624,8 +1680,13 @@ class Translation(
         has_template = component.has_template()
         skipped = 0
         accepted = 0
-        component.start_batched_checks()
         existing: set[str] | set[tuple[str, str]]
+        existing_id_hashes: set[int] | None = None
+
+        self.validate_upload_plural_store(store)
+
+        component.start_batched_checks()
+
         if has_template:
             existing = set(self.unit_set.values_list("context", flat=True))
         else:
@@ -1637,6 +1698,15 @@ class Translation(
                     existing.add((ex_context, split_plural(ex_source)[0]))
 
         for _set_fuzzy, unit in store.iterate_merge(fuzzy, only_translated=False):
+            import_id_hash = getattr(unit, "import_id_hash", None)
+            if import_id_hash is not None:
+                if existing_id_hashes is None:
+                    existing_id_hashes = set(
+                        self.unit_set.values_list("id_hash", flat=True)
+                    )
+                if import_id_hash in existing_id_hashes:
+                    skipped += 1
+                    continue
             idkey = unit.context if has_template else (unit.context, unit.source)
             if idkey in existing:
                 skipped += 1
@@ -1687,6 +1757,11 @@ class Translation(
         if component.has_template() and component.source_translation.needs_commit():
             try:
                 component.commit_pending("upload", request.user)
+            except DatabaseError as error:
+                raise FailedCommitError(
+                    gettext("Could not commit pending changes: %s")
+                    % gettext("Please try again later.")
+                ) from error
             except Exception as error:
                 raise FailedCommitError(
                     gettext("Could not commit pending changes: %s")
@@ -1696,6 +1771,14 @@ class Translation(
                         extra_paths=(self.component.full_path,),
                     )
                 ) from error
+
+        existing_units_cache: Iterable[Unit] | None = None
+
+        def get_existing_units() -> Iterable[Unit]:
+            nonlocal existing_units_cache
+            if existing_units_cache is None:
+                existing_units_cache = self.unit_set.all()
+            return existing_units_cache
 
         def load_uploaded_store(
             template_store: TranslationFormat | None,
@@ -1711,6 +1794,7 @@ class Translation(
                     is_template=is_template,
                     language_code=self.language_code,
                     source_language=self.component.source_language.code,
+                    existing_units=get_existing_units,
                     file_format_params=self.component.file_format_params,
                 )
             except Exception as error:

@@ -13,7 +13,10 @@ from ._space import Space
 from._audio_handle import AudioHandle
 from ._manager import Manager
 
-from ._ecs import Component, System
+from ._ecs import (
+    Component, RendererComponent,
+    System,
+)
 
 from ._gui import (
     Tween,
@@ -46,7 +49,7 @@ __all__ = [
     "AudioHandle",
     "Manager",
 
-    "Component",
+    "Component", "RendererComponent",
     "System",
 
     "Tween",

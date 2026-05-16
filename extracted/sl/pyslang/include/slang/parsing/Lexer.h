@@ -77,6 +77,10 @@ struct SLANG_EXPORT LexerOptions {
     /// If true, the preprocessor will support legacy protected envelope directives,
     /// for compatibility with old Verilog tools.
     bool enableLegacyProtect = false;
+
+    /// If true, the preprocessor will allow trailing spaces after the continuation character
+    /// in macro definitions.
+    bool allowMacroTrailingSpace = false;
 };
 
 /// Possible encodings for encrypted text used in a pragma protect region.
@@ -114,26 +118,47 @@ public:
     /// Returns the library with which the lexer's source buffer is associated.
     const SourceLibrary* getLibrary() const { return library; }
 
-    /// Concatenates two tokens together; used for macro pasting.
-    static Token concatenateTokens(BumpAllocator& alloc, SourceManager& sourceManager, Token left,
-                                   Token right);
+    /// Returns the BufferID of the source buffer being lexed.
+    BufferID getBufferId() const { return bufferId; }
+
+    /// When set to true, '/' is not treated as the start of a comment during trivia
+    /// scanning. Used when parsing library map file paths that may contain /* glob patterns.
+    void setFilePathMode(bool enable) { filePathMode = enable; }
+
+    /// Concatenates two tokens together. This may result in more than one output token
+    /// if the right hand token being concatenated ends up splitting and being re-lexed.
+    /// Returns true if the concatenation succeeded and false otherwise.
+    static bool concatenateTokens(BumpAllocator& alloc, SourceManager& sourceManager,
+                                  const LexerOptions& options, Token left, Token right,
+                                  SmallVectorBase<Token>& results);
 
     /// Converts a range of tokens into a string literal; used for macro stringification.
-    static Token stringify(Lexer& parentLexer, Token startToken, std::span<Token> bodyTokens,
-                           Token endToken);
+    static Token stringify(BumpAllocator& alloc, SourceManager& sourceManager,
+                           const LexerOptions& options, Token startToken,
+                           std::span<Token> bodyTokens, Token endToken);
 
     /// Converts a range of tokens into a block comment; used for macro expansion.
     static Trivia commentify(BumpAllocator& alloc, SourceManager& sourceManager,
-                             std::span<Token> tokens);
+                             const LexerOptions& options, std::span<Token> tokens);
 
     /// Splits the given token at the specified offset into its raw source text. The trailing
     /// portion of the split is lexed into new tokens and appened to @a results
     static void splitTokens(BumpAllocator& alloc, Diagnostics& diagnostics,
-                            SourceManager& sourceManager, Token sourceToken, size_t offset,
-                            KeywordVersion keywordVersion, SmallVectorBase<Token>& results);
+                            SourceManager& sourceManager, const LexerOptions& options,
+                            Token sourceToken, size_t offset, KeywordVersion keywordVersion,
+                            SmallVectorBase<Token>& results);
+
+    /// Given a char index into a processed string literal and the raw string representing
+    /// that literal, returns the offset within the raw string that matches that character.
+    /// This essentially backs out the processing of things like escape character codes.
+    ///
+    /// If the given character index ends up pointing at a hex or octal encoded escape character,
+    /// the @a charLen parameter will receive the length of that escape sequence. Otherwise it
+    /// will be set to 1.
+    static size_t getLocForStringChar(std::string_view rawStr, size_t charIndex, size_t& charLen);
 
 private:
-    Lexer(BufferID bufferId, std::string_view source, const char* startPtr, BumpAllocator& alloc,
+    Lexer(BufferID bufferId, std::string_view source, BumpAllocator& alloc,
           Diagnostics& diagnostics, SourceManager& sourceManager, LexerOptions options);
 
     Token lexToken(KeywordVersion keywordVersion);
@@ -205,6 +230,10 @@ private:
 
     // the number of errors that have occurred while lexing the current buffer
     uint32_t errorCount = 0;
+
+    // When true, '/' is not treated as the start of a comment in trivia scanning.
+    // Used when parsing library map file paths that may contain /* glob patterns.
+    bool filePathMode = false;
 
     // temporary storage for building arrays of trivia
     SmallVector<Trivia, 32> triviaBuffer;

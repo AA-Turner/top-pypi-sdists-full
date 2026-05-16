@@ -103,6 +103,12 @@ CWE_MAP: dict[str, list[dict[str, str]]] = {
     ],
     "SKY-Q401": [{"id": "CWE-667", "name": "Improper Locking"}],
     "SKY-Q501": [{"id": "CWE-1093", "name": "Excessively Complex Data Representation"}],
+    "SKY-Q502": [
+        {
+            "id": "CWE-1080",
+            "name": "Source Code File with Excessive Number of Lines of Code",
+        }
+    ],
     "SKY-Q701": [{"id": "CWE-1047", "name": "Modules with Circular Dependencies"}],
     "SKY-Q702": [{"id": "CWE-1093", "name": "Excessively Complex Data Representation"}],
     "SKY-Q801": [{"id": "CWE-710", "name": "Improper Adherence to Coding Standards"}],
@@ -126,7 +132,9 @@ CWE_MAP: dict[str, list[dict[str, str]]] = {
     "SKY-P402": [{"id": "CWE-400", "name": "Uncontrolled Resource Consumption"}],
     "SKY-P403": [{"id": "CWE-407", "name": "Inefficient Algorithmic Complexity"}],
     "SKY-Q402": [{"id": "CWE-400", "name": "Uncontrolled Resource Consumption"}],
-    "SKY-U005": [{"id": "CWE-1104", "name": "Use of Unmaintained Third Party Components"}],
+    "SKY-U005": [
+        {"id": "CWE-1104", "name": "Use of Unmaintained Third Party Components"}
+    ],
     # Unreachable
     "SKY-UC001": [{"id": "CWE-561", "name": "Dead Code"}],
     "SKY-UC002": [{"id": "CWE-561", "name": "Dead Code"}],
@@ -138,6 +146,7 @@ STANDARD_REFS: dict[str, list[str]] = {
     "SKY-Q302": ["ISO/IEC 5055:2021 §6.3.5"],
     "SKY-Q305": ["Control-flow correctness: duplicate branch condition/body"],
     "SKY-Q501": ["CK Metrics: WMC (Weighted Methods per Class)"],
+    "SKY-Q502": ["CWE-1080: Source Code File with Excessive Number of Lines of Code"],
     "SKY-C401": ["Clone detection: duplicated implementation fragments"],
     "SKY-Q701": ["CK Metrics: CBO (Coupling Between Objects)", "ISO/IEC 9126"],
     "SKY-Q702": ["CK Metrics: LCOM (Lack of Cohesion of Methods)", "ISO/IEC 9126"],

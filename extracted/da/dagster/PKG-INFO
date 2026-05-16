@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.13.4
+Version: 1.13.5
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
@@ -34,8 +34,8 @@ Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
 Requires-Dist: antlr4-python3-runtime
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: dagster-pipes==1.13.4
-Requires-Dist: dagster-shared==1.13.4
+Requires-Dist: dagster-pipes==1.13.5
+Requires-Dist: dagster-shared==1.13.5
 Requires-Dist: docstring-parser
 Requires-Dist: filelock
 Requires-Dist: grpcio-health-checking>=1.44.0; python_version < '3.13'
@@ -89,7 +89,6 @@ Provides-Extra: ruff
 Requires-Dist: ruff==0.15.0; extra == 'ruff'
 Provides-Extra: test
 Requires-Dist: docker; extra == 'test'
-Requires-Dist: flaky; extra == 'test'
 Requires-Dist: fsspec<2024.5.0; extra == 'test'
 Requires-Dist: grpcio-tools>=1.44.0; (python_version < '3.13') and extra == 'test'
 Requires-Dist: grpcio-tools>=1.66.2; (python_version >= '3.13') and extra == 'test'
@@ -100,6 +99,7 @@ Requires-Dist: psutil; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
 Requires-Dist: pytest-cov==5.0.0; extra == 'test'
 Requires-Dist: pytest-mock==3.14.0; extra == 'test'
+Requires-Dist: pytest-rerunfailures; extra == 'test'
 Requires-Dist: pytest-timeout; extra == 'test'
 Requires-Dist: pytest-xdist==3.6.1; extra == 'test'
 Requires-Dist: pytest>=8; extra == 'test'
@@ -107,8 +107,8 @@ Requires-Dist: rapidfuzz; extra == 'test'
 Requires-Dist: responses<=0.23.1; extra == 'test'
 Requires-Dist: ruff==0.15.0; extra == 'test'
 Requires-Dist: syrupy>=4.0.0; extra == 'test'
-Requires-Dist: tox-uv>=1; extra == 'test'
-Requires-Dist: tox>=4; extra == 'test'
+Requires-Dist: tox-uv>=1.16; extra == 'test'
+Requires-Dist: tox>=4.22; extra == 'test'
 Provides-Extra: test-components
 Requires-Dist: duckdb; extra == 'test-components'
 Requires-Dist: jsonschema; extra == 'test-components'
@@ -117,6 +117,7 @@ Requires-Dist: tomlkit; extra == 'test-components'
 Provides-Extra: ty
 Requires-Dist: boto3-stubs[essential]; extra == 'ty'
 Requires-Dist: pandas-stubs; extra == 'ty'
+Requires-Dist: ty==0.0.35; extra == 'ty'
 Requires-Dist: types-backports; extra == 'ty'
 Requires-Dist: types-certifi; extra == 'ty'
 Requires-Dist: types-chardet; extra == 'ty'

@@ -74,6 +74,7 @@ if TYPE_CHECKING:
         ScalingGroup,
         ScalingGroupResourceRequest,
     )
+    from chalk.testing import FeatureAssertion, StreamMessage, UploadFeatures
 
     QueryInput = Mapping[FeatureReference, Any] | pd.DataFrame | pl.DataFrame | DataFrame
 
@@ -632,6 +633,96 @@ class ChalkClient:
         ... )
         >>> result.rendered_plan
         >>> result.output_schema
+        """
+        ...
+
+    def check_stream_scenario(
+        self,
+        *messages: StreamMessage | FeatureAssertion | UploadFeatures,
+        seed_online_store: Mapping[FeatureReference, Any] | None = None,
+        branch: Union[BranchId, ellipsis, None] = ...,
+        environment: EnvironmentId | None = None,
+        float_rel_tolerance: float = 1e-6,
+        float_abs_tolerance: float = 1e-12,
+        show_table: bool = False,
+    ) -> None:
+        """Test complex stream workflows that update materialized aggregates or depend on cached state.
+
+        `messages` is a sequence of `StreamMessage`, `FeatureAssertion`, and `UploadFeatures`
+        objects, processed in order. For each `StreamMessage`, the bytes are parsed locally using
+        `stream_resolver`'s parser (the same pipeline as `check_stream_parsing`) and the resulting
+        feature values are uploaded via `upload_features` against `branch`. For each
+        `FeatureAssertion`, an online query is run using the set fields of `assertion.input` as
+        input, and the resulting feature values are compared against the set fields of
+        `assertion.output`. A mismatch raises `AssertionError`. `Windowed[...]` fields are
+        supported on either side: pass a ``{window: value}`` dict
+        (e.g. ``transaction_count={"1d": 2, "30d": 7}``) and each bucket is checked independently.
+
+        Use `UploadFeatures(...)` (or the `seed_online_store` keyword) to prime the branch online
+        store with static feature data (e.g. candidate rows looked up by a join inside a windowed
+        expression) — useful when the resolvers under test depend on existing online state. The
+        upload runs through the same gRPC `upload_features` path as a regular
+        `ChalkClient.upload_features` call (no materialized-aggregate refresh).
+
+        Use the `timestamp` field on `StreamMessage` to control the feature time of the uploaded
+        features (useful for out-of-order processing tests).
+
+        Parameters
+        ----------
+        messages
+            The scenario steps, processed left-to-right.
+        seed_online_store
+            Equivalent to prepending a single ``UploadFeatures(seed_online_store)`` step at the
+            head of the scenario. Convenient for the common upfront-priming case. If both this
+            kwarg and positional ``UploadFeatures`` steps are provided, the kwarg runs first.
+        branch
+            The branch to upload features into and run assertion queries against.
+        environment
+            The environment under which to run the scenario.
+        float_rel_tolerance
+            Relative tolerance for float comparisons in `FeatureAssertion` checks. Default is 1e-6.
+        float_abs_tolerance
+            Absolute tolerance for float comparisons in `FeatureAssertion` checks. Default is 1e-12.
+            Values are considered equal if either tolerance is met.
+        show_table
+            If True, always print the `Chalk Feature Value Check Table` (Kind/Name/Value, modeled
+            on `ChalkClient.check`) for each `FeatureAssertion` step — even on success. On a
+            mismatch the table is always printed, regardless of this flag.
+
+        Raises
+        ------
+        AssertionError
+            If a `FeatureAssertion` mismatches the queried output.
+        ValueError
+            If a `StreamMessage` is missing `stream_resolver`, or if an `UploadFeatures` step
+            has features with mismatched row counts.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> from chalk.testing import StreamMessage, FeatureAssertion, UploadFeatures
+        >>> from datetime import datetime
+        >>> ChalkClient().check_stream_scenario(
+        ...     UploadFeatures({
+        ...         Profile.id: [101, 102, 103],
+        ...         Profile.embedding: [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+        ...     }),
+        ...     StreamMessage(
+        ...         timestamp=datetime(2026, 1, 1, 12, 20),
+        ...         message=b'{"id": 1, "user_id": 1, "amount": 10.0}',
+        ...         stream_resolver=transaction_stream,
+        ...     ),
+        ...     StreamMessage(
+        ...         timestamp=datetime(2026, 1, 1, 12, 20),
+        ...         message=b'{"id": 1, "name": "Bartleby"}',
+        ...         stream_resolver=create_user,
+        ...     ),
+        ...     FeatureAssertion(
+        ...         input=User(id=1),
+        ...         output=User(name="Bartleby", transaction_count={"1d": 1}),
+        ...     ),
+        ...     branch="my-branch",
+        ... )
         """
         ...
 

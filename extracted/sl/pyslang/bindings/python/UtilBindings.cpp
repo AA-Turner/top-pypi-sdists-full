@@ -50,39 +50,16 @@ std::string argFormatter(const DiagnosticEngine& self, py::object obj) {
     }
 }
 
-void registerUtil(py::module_& m) {
-    EXPOSE_ENUM(m, ColumnUnit);
-
-    py::classh<BumpAllocator>(m, "BumpAllocator").def(py::init<>());
-
-    py::classh<Bag>(m, "Bag")
-        .def(py::init<>())
-        .def(py::init([](py::list list) {
-                 Bag result;
-                 for (auto item : list) {
-                     auto type = py::type::of(item);
-                     if (type.is(py::type::of<LexerOptions>()))
-                         result.set(item.cast<LexerOptions>());
-                     else if (type.is(py::type::of<PreprocessorOptions>()))
-                         result.set(item.cast<PreprocessorOptions>());
-                     else if (type.is(py::type::of<ParserOptions>()))
-                         result.set(item.cast<ParserOptions>());
-                     else if (type.is(py::type::of<CompilationOptions>()))
-                         result.set(item.cast<CompilationOptions>());
-                     else
-                         throw py::type_error();
-                 }
-                 return result;
-             }),
-             "list"_a)
-        .def_property("lexerOptions", &Bag::get<LexerOptions>,
-                      py::overload_cast<const LexerOptions&>(&Bag::set<LexerOptions>))
-        .def_property("preprocessorOptions", &Bag::get<PreprocessorOptions>,
-                      py::overload_cast<const PreprocessorOptions&>(&Bag::set<PreprocessorOptions>))
-        .def_property("parserOptions", &Bag::get<ParserOptions>,
-                      py::overload_cast<const ParserOptions&>(&Bag::set<ParserOptions>))
-        .def_property("compilationOptions", &Bag::get<CompilationOptions>,
-                      py::overload_cast<const CompilationOptions&>(&Bag::set<CompilationOptions>));
+void registerText(py::module_& m) {
+    py::native_enum<SourceManager::BufferKind>(m, "BufferKind", "enum.Enum")
+        .value("Unknown", SourceManager::BufferKind::Unknown)
+        .value("DesignFile", SourceManager::BufferKind::DesignFile)
+        .value("LibraryFile", SourceManager::BufferKind::LibraryFile)
+        .value("LibraryMap", SourceManager::BufferKind::LibraryMap)
+        .value("IncludeFile", SourceManager::BufferKind::IncludeFile)
+        .value("Macro", SourceManager::BufferKind::Macro)
+        .value("MacroArg", SourceManager::BufferKind::MacroArg)
+        .finalize();
 
     py::classh<BufferID>(m, "BufferID")
         .def(py::init<>())
@@ -163,6 +140,8 @@ void registerUtil(py::module_& m) {
         .def("getColumnNumber", &SourceManager::getColumnNumber, "location"_a)
         .def("getDisplayColumnNumber", &SourceManager::getDisplayColumnNumber, "location"_a)
         .def("getIncludedFrom", &SourceManager::getIncludedFrom, "buffer"_a)
+        .def("getBufferKind", &SourceManager::getBufferKind, "buffer"_a)
+        .def("setBufferKind", &SourceManager::setBufferKind, "buffer"_a, "kind"_a)
         .def("getMacroName", &SourceManager::getMacroName, "location"_a)
         .def("isFileLoc", &SourceManager::isFileLoc, "location"_a)
         .def("isMacroLoc", &SourceManager::isMacroLoc, "location"_a)
@@ -213,13 +192,10 @@ void registerUtil(py::module_& m) {
         .def("addDiagnosticDirective", &SourceManager::addDiagnosticDirective, "location"_a,
              "name"_a, "severity"_a)
         .def("getAllBuffers", &SourceManager::getAllBuffers);
+}
 
-    py::classh<VersionInfo>(m, "VersionInfo")
-        .def_static("getMajor", &VersionInfo::getMajor)
-        .def_static("getMinor", &VersionInfo::getMinor)
-        .def_static("getPatch", &VersionInfo::getPatch)
-        .def_static("getHash", &VersionInfo::getHash);
-
+void registerDiagnostics(py::module_& m) {
+    EXPOSE_ENUM(m, ColumnUnit);
     EXPOSE_ENUM(m, DiagSubsystem);
     EXPOSE_ENUM(m, DiagnosticSeverity);
 
@@ -288,7 +264,10 @@ void registerUtil(py::module_& m) {
         .def(py::init<const SourceManager&>(), py::keep_alive<1, 2>(), "sourceManager"_a)
         .def("addClient", &DiagnosticEngine::addClient, "client"_a)
         .def("clearClients", &DiagnosticEngine::clearClients)
-        .def("issue", &DiagnosticEngine::issue, "diagnostic"_a)
+        .def("issue", py::overload_cast<const Diagnostic&>(&DiagnosticEngine::issue),
+             "diagnostic"_a)
+        .def("issue", py::overload_cast<const Diagnostics&>(&DiagnosticEngine::issue),
+             "diagnostics"_a)
         .def_property_readonly("sourceManager", &DiagnosticEngine::getSourceManager)
         .def_property_readonly("numErrors", &DiagnosticEngine::getNumErrors)
         .def_property_readonly("numWarnings", &DiagnosticEngine::getNumWarnings)
@@ -300,6 +279,7 @@ void registerUtil(py::module_& m) {
         .def("setErrorsAsFatal", &DiagnosticEngine::setErrorsAsFatal, "set"_a)
         .def("setFatalsAsErrors", &DiagnosticEngine::setFatalsAsErrors, "set"_a)
         .def("setSeverity", &DiagnosticEngine::setSeverity, "code"_a, "severity"_a)
+        .def("setBaselineSeverity", &DiagnosticEngine::setBaselineSeverity, "code"_a, "severity"_a)
         .def("getSeverity", &DiagnosticEngine::getSeverity, "code"_a, "location"_a)
         .def("setMessage", &DiagnosticEngine::setMessage, "code"_a, "message"_a)
         .def("getMessage", &DiagnosticEngine::getMessage, "code"_a)
@@ -349,4 +329,45 @@ void registerUtil(py::module_& m) {
         .def("report", &TextDiagnosticClient::report, "diag"_a)
         .def("clear", &TextDiagnosticClient::clear)
         .def("getString", &TextDiagnosticClient::getString);
+}
+
+void registerUtil(py::module_& m) {
+    py::classh<BumpAllocator>(m, "BumpAllocator").def(py::init<>());
+
+    py::classh<Bag>(m, "Bag")
+        .def(py::init<>())
+        .def(py::init([](py::list list) {
+                 Bag result;
+                 for (auto item : list) {
+                     auto type = py::type::of(item);
+                     if (type.is(py::type::of<LexerOptions>()))
+                         result.set(item.cast<LexerOptions>());
+                     else if (type.is(py::type::of<PreprocessorOptions>()))
+                         result.set(item.cast<PreprocessorOptions>());
+                     else if (type.is(py::type::of<ParserOptions>()))
+                         result.set(item.cast<ParserOptions>());
+                     else if (type.is(py::type::of<CompilationOptions>()))
+                         result.set(item.cast<CompilationOptions>());
+                     else
+                         throw py::type_error();
+                 }
+                 return result;
+             }),
+             "list"_a)
+        .def_property("lexerOptions", &Bag::get<LexerOptions>,
+                      py::overload_cast<const LexerOptions&>(&Bag::set<LexerOptions>))
+        .def_property("preprocessorOptions", &Bag::get<PreprocessorOptions>,
+                      py::overload_cast<const PreprocessorOptions&>(&Bag::set<PreprocessorOptions>))
+        .def_property("parserOptions", &Bag::get<ParserOptions>,
+                      py::overload_cast<const ParserOptions&>(&Bag::set<ParserOptions>))
+        .def_property("compilationOptions", &Bag::get<CompilationOptions>,
+                      py::overload_cast<const CompilationOptions&>(&Bag::set<CompilationOptions>));
+
+    py::classh<VersionInfo>(m, "VersionInfo")
+        .def_static("getMajor", &VersionInfo::getMajor)
+        .def_static("getMinor", &VersionInfo::getMinor)
+        .def_static("getPatch", &VersionInfo::getPatch)
+        .def_static("getPrerelease", &VersionInfo::getPrerelease)
+        .def_static("getHash", &VersionInfo::getHash)
+        .def_static("getVersionString", &VersionInfo::getVersionString);
 }

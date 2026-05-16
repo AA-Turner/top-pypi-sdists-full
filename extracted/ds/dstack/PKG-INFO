@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dstack
-Version: 0.20.19
+Version: 0.20.20
 Summary: dstack is an open-source orchestration engine for running AI workloads on any cloud or on-premises.
 Project-URL: Homepage, https://dstack.ai
 Project-URL: Source, https://github.com/dstackai/dstack
@@ -17,7 +17,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Requires-Dist: apscheduler<4
 Requires-Dist: argcomplete>=3.5.0
-Requires-Dist: cachetools
+Requires-Dist: cachetools<7.1.0
 Requires-Dist: cryptography
 Requires-Dist: cursor
 Requires-Dist: filelock
@@ -379,7 +379,7 @@ Description-Content-Type: text/markdown
 <div style="text-align: center;">
 <h2>
   <a target="_blank" href="https://dstack.ai">
-    <img alt="dstack" src="https://raw.githubusercontent.com/dstackai/dstack/master/docs/assets/images/dstack-logo.svg" width="350px"/>
+    <img alt="dstack" src="https://raw.githubusercontent.com/dstackai/dstack/master/mkdocs/assets/images/dstack-logo.svg" width="350px"/>
   </a>
 </h2>
 

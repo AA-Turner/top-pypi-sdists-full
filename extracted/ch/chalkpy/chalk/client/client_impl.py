@@ -18,7 +18,7 @@ import traceback
 import uuid
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import (
@@ -219,9 +219,11 @@ if TYPE_CHECKING:
     import polars as pl
     from polars._typing import PolarsDataType
     from pydantic import BaseModel, ValidationError
+    from rich.table import Table
 
     from chalk.client._internal_models.check import Result
     from chalk.client.client_grpc import ChalkGRPCClient
+    from chalk.testing import FeatureAssertion, StreamMessage, UploadFeatures
 
     QueryInput = Union[Mapping[FeatureReference, Any], pd.DataFrame, pl.DataFrame, DataFrame]
     QueryInputTime = Union[Sequence[datetime], datetime, None]
@@ -5284,6 +5286,328 @@ https://docs.chalk.ai/cli/apply
             return f.converter.from_rich_to_json(x.value)
         else:
             return x.value
+
+    def check_stream_scenario(
+        self,
+        *messages: StreamMessage | FeatureAssertion | UploadFeatures,
+        seed_online_store: Mapping[FeatureReference, Any] | None = None,
+        branch: Optional[Union[BranchId, ellipsis]] = ...,
+        environment: EnvironmentId | None = None,
+        float_rel_tolerance: float = 1e-6,
+        float_abs_tolerance: float = 1e-12,
+        show_table: bool = False,
+    ) -> None:
+        from chalk.testing import _parse_stream_messages  # pyright: ignore[reportPrivateUsage]
+        from chalk.testing import FeatureAssertion, StreamMessage, UploadFeatures
+
+        tree = None
+        first_failure_msg: Optional[str] = None
+        event_idx = 0
+        assert_idx = 0
+        upload_idx = 0
+        if show_table:
+            from rich.console import Group
+            from rich.text import Text
+            from rich.tree import Tree
+
+            tree = Tree(Text("Stream Scenario", style="bold"))
+
+        steps: list[Any] = list(messages)
+        if seed_online_store:
+            steps.insert(0, UploadFeatures(inputs=seed_online_store))
+
+        def _do_upload_features_step(step_inputs: Mapping[Any, Any]) -> dict[Any, list[Any]]:
+            if not step_inputs:
+                raise ValueError("UploadFeatures.inputs must not be empty.")
+            bulk: dict[Any, list[Any]] = {}
+            row_counts: dict[int, list[Any]] = {}
+            for feat, value in step_inputs.items():
+                if isinstance(value, (list, tuple)):
+                    values_list = list(value)
+                else:
+                    values_list = [value]
+                bulk[feat] = values_list
+                row_counts.setdefault(len(values_list), []).append(feat)
+            if len(row_counts) > 1:
+                summary = ", ".join(
+                    f"{n} row{'s' if n != 1 else ''}: {[str(f) for f in feats]}"
+                    for n, feats in sorted(row_counts.items())
+                )
+                raise ValueError(
+                    f"UploadFeatures.inputs has mismatched row counts across features ({summary}). "
+                    + "All features must agree on row count."
+                )
+            grpc_branch = branch if branch is not ... else self._branch
+            resp = self._get_grpc_client(environment=environment).upload_features(
+                inputs=bulk,
+                update_mataggs=False,
+                branch=grpc_branch,
+            )
+            if resp.errors:
+                raise RuntimeError(f"upload_features failed: {resp.errors}")
+            return bulk
+
+        for step in steps:
+            if isinstance(step, StreamMessage):
+                resolver = step.stream_resolver
+                if resolver is None:
+                    raise ValueError("StreamMessage.stream_resolver is required for check_stream_scenario.")
+                if not resolver.feature_expressions:
+                    raise ValueError(
+                        f"Stream resolver '{resolver.fqn}' has no feature expressions; "
+                        + "check_stream_scenario only works with resolvers created via make_stream_resolver."
+                    )
+                parsed_rows = _parse_stream_messages(resolver, [step.message])
+                features_to_upload: dict[Any, Any] = dict(parsed_rows[0])
+                if step.timestamp is not None:
+                    feature_time_feat = next(
+                        (f for f in resolver.feature_expressions.keys() if f.is_feature_time),
+                        None,
+                    )
+                    if feature_time_feat is not None:
+                        features_to_upload[feature_time_feat] = step.timestamp
+                # gRPC upload_features with update_mataggs=True drives mataggs; REST does not.
+                bulk_inputs = {k: [v] for k, v in features_to_upload.items()}
+                grpc_branch = branch if branch is not ... else self._branch
+                resp = self._get_grpc_client(environment=environment).upload_features(
+                    inputs=bulk_inputs,
+                    update_mataggs=True,
+                    branch=grpc_branch,
+                )
+                if resp.errors:
+                    raise RuntimeError(f"upload_features failed: {resp.errors}")
+                if tree is not None:
+                    event_idx += 1
+                    tree.add(
+                        Group(
+                            Text.assemble(
+                                ("●  ", "bold cyan"),
+                                (f"Event {event_idx}", "bold cyan"),
+                                (
+                                    f"  @  {step.timestamp.isoformat()}" if step.timestamp is not None else "",
+                                    "dim",
+                                ),
+                            ),
+                            self._render_event_detail_table(step, resolver, features_to_upload),
+                        )
+                    )
+            elif isinstance(step, UploadFeatures):
+                bulk = _do_upload_features_step(step.inputs)
+                if tree is not None:
+                    upload_idx += 1
+                    tree.add(
+                        Group(
+                            Text.assemble(
+                                ("▲  ", "bold magenta"),
+                                (f"Upload {upload_idx}", "bold magenta"),
+                            ),
+                            self._render_upload_features_table(bulk),
+                        )
+                    )
+            elif isinstance(step, FeatureAssertion):
+                rows, mismatches = self._compute_assertion_rows(
+                    step,
+                    branch=branch,
+                    environment=environment,
+                    float_rel_tolerance=float_rel_tolerance,
+                    float_abs_tolerance=float_abs_tolerance,
+                )
+                if tree is not None:
+                    assert_idx += 1
+                    glyph_style = "bold red" if mismatches else "bold green"
+                    tree.add(
+                        Group(
+                            Text.assemble(
+                                ("◆  ", glyph_style),
+                                (f"Assertion {assert_idx}", glyph_style),
+                            ),
+                            self._render_check_table(rows),
+                        )
+                    )
+                    if mismatches and first_failure_msg is None:
+                        lines = "\n".join(f"  {fqn}: expected {e!r}, got {a!r}" for fqn, e, a in mismatches)
+                        first_failure_msg = f"check_stream_scenario assertion failed:\n{lines}"
+                elif mismatches:
+                    from rich.console import Console
+
+                    Console().print(self._render_check_table(rows))
+                    lines = "\n".join(f"  {fqn}: expected {e!r}, got {a!r}" for fqn, e, a in mismatches)
+                    _fail_test(f"check_stream_scenario assertion failed:\n{lines}", frames=1)
+            else:
+                raise TypeError(
+                    f"check_stream_scenario expected StreamMessage, FeatureAssertion, or UploadFeatures; got {type(step).__name__}."
+                )
+
+        if tree is not None:
+            from rich.console import Console
+
+            Console().print(tree)
+        if first_failure_msg is not None:
+            _fail_test(first_failure_msg, frames=1)
+
+    @staticmethod
+    def _expand_features_for_assertion(fi: Features) -> dict[Any, Any]:
+        """Expand `Windowed` parents into per-bucket child Features (e.g.
+        ``count_mat_agg__86400__``) so the online query targets pseudofeatures."""
+        from chalk.features.feature_set import CURRENT_FEATURE_REGISTRY
+        from chalk.features.feature_wrapper import unwrap_feature
+        from chalk.streams import get_name_with_duration
+
+        feature_sets = CURRENT_FEATURE_REGISTRY.get().get_feature_sets()
+        out: dict[Any, Any] = {}
+        for feat in fi.features:
+            if not hasattr(fi, feat.attribute_name):
+                continue
+            val = getattr(fi, feat.attribute_name)
+            if feat.is_windowed:
+                if not isinstance(val, dict):
+                    raise TypeError(
+                        f"Windowed feature {feat.fqn} expects a dict {{window: value}}, got {type(val).__name__}"
+                    )
+                parent_cls = feature_sets[feat.namespace]
+                for bucket, bucket_val in val.items():
+                    child_attr = get_name_with_duration(feat.attribute_name, bucket)
+                    child_wrapper = getattr(parent_cls, child_attr, None)
+                    if child_wrapper is None:
+                        durations = ", ".join(f"'{x}s'" for x in feat.window_durations)
+                        raise ValueError(
+                            f"Unsupported window '{bucket}' for {feat.fqn}; available durations: {durations}"
+                        )
+                    out[unwrap_feature(child_wrapper)] = bucket_val
+            else:
+                out[feat] = val
+        return out
+
+    def _compute_assertion_rows(
+        self,
+        assertion: FeatureAssertion,
+        *,
+        branch: BranchId | None | ellipsis,
+        environment: EnvironmentId | None,
+        float_rel_tolerance: float,
+        float_abs_tolerance: float,
+    ) -> tuple[list[tuple[str, Any, Any, bool]], list[tuple[str, Any, Any]]]:
+        """Query the assertion's input, compare against expected; return (all_rows, mismatches)."""
+        from chalk.testing import _values_match  # pyright: ignore[reportPrivateUsage]
+
+        input_dict = self._expand_features_for_assertion(assertion.input)
+        expected = self._expand_features_for_assertion(assertion.output)
+        result = self.query(
+            input=input_dict,
+            output=list(expected.keys()),
+            branch=branch,
+            environment=environment,
+        )
+        rows: list[tuple[str, Any, Any, bool]] = []
+        for feat, expected_val in expected.items():
+            actual = result.get_feature(feat)
+            actual_val = actual.value if actual is not None else None
+            ok = _values_match(expected_val, actual_val, float_rel_tolerance, float_abs_tolerance)
+            rows.append((feat.fqn, expected_val, actual_val, ok))
+        mismatches = [(fqn, e, a) for fqn, e, a, ok in rows if not ok]
+        return rows, mismatches
+
+    @staticmethod
+    def _render_check_table(rows: list[tuple[str, Any, Any, bool]]) -> "Table":
+        """`client.check`-style Kind/Name/Value table: single green Match row
+        on agreement, paired red Expect/Actual rows on mismatch."""
+        from rich.table import Table
+        from rich.text import Text
+
+        tbl = Table(title="Chalk Feature Value Check Table", title_justify="left")
+        tbl.add_column("Kind", max_width=10)
+        tbl.add_column("Name", overflow="fold", max_width=100)
+        tbl.add_column("Value", max_width=60)
+        for fqn, exp_v, act_v, ok in sorted(rows, key=lambda r: r[0]):
+            if ok:
+                tbl.add_row(Text("Match", style="bold green"), fqn, str(exp_v))
+            else:
+                tbl.add_row(Text("Expect", style="bold red"), fqn, str(exp_v))
+                tbl.add_row(Text("Actual", style="bold red"), fqn, str(act_v))
+        return tbl
+
+    @staticmethod
+    def _render_event_detail_table(
+        step: "StreamMessage",
+        resolver: Any,
+        parsed: dict[Any, Any],
+    ) -> "Table":
+        """Small Field/Value table summarizing one StreamMessage's payload —
+        used as the body of an event node when show_table=True."""
+        from rich import box
+        from rich.table import Table
+
+        # Cap displayed strings so multi-KB payloads don't balloon the transcript.
+        # The full payload is still uploaded; only the rendered table is truncated.
+        MAX = 200
+
+        def _truncate(s: str, total_len: int, unit: str = "chars") -> str:
+            if len(s) <= MAX:
+                return s
+            return f"{s[:MAX]}… [{total_len} {unit} total]"
+
+        try:
+            raw_full = step.message.decode("utf-8")
+            raw = _truncate(raw_full, len(step.message), unit="bytes")
+        except UnicodeDecodeError:
+            raw_repr = repr(step.message)
+            raw = _truncate(raw_repr, len(step.message), unit="bytes")
+
+        def _fmt(value: Any) -> str:
+            if isinstance(value, datetime):
+                return value.isoformat()
+            if isinstance(value, date):
+                return value.isoformat()
+            return repr(value)
+
+        groups: dict[str, list[tuple[str, Any]]] = {}
+        for k, v in parsed.items():
+            cls_name = getattr(getattr(k, "features_cls", None), "__name__", None) or getattr(k, "namespace", "")
+            field_name = getattr(k, "name", None) or str(k)
+            groups.setdefault(cls_name, []).append((field_name, v))
+        blocks: list[str] = []
+        for cls_name, fields in groups.items():
+            field_lines = ",\n".join(f"  {name}={_fmt(value)}" for name, value in fields)
+            blocks.append(f"{cls_name}(\n{field_lines}\n)")
+        parsed_full = "\n".join(blocks)
+        parsed_str = _truncate(parsed_full, len(parsed_full))
+
+        t = Table(box=box.HEAVY_HEAD, show_header=True)
+        t.add_column("Field", max_width=12, style="dim")
+        t.add_column("Value", overflow="fold", max_width=100)
+        t.add_row("resolver", getattr(resolver, "fqn", str(resolver)))
+        if step.timestamp is not None:
+            t.add_row("timestamp", step.timestamp.isoformat())
+        t.add_row("raw", raw)
+        t.add_row("parsed", parsed_str)
+        return t
+
+    @staticmethod
+    def _render_upload_features_table(bulk: Mapping[Any, list[Any]]) -> "Table":
+        """Field/Value table summarizing one UploadFeatures step — used as the
+        body of an upload node when show_table=True."""
+        from rich import box
+        from rich.table import Table
+
+        MAX = 200
+
+        def _fmt(values: list[Any]) -> str:
+            if len(values) == 1:
+                s = repr(values[0])
+            else:
+                s = repr(values)
+            if len(s) <= MAX:
+                return s
+            return f"{s[:MAX]}… [{len(s)} chars total]"
+
+        t = Table(box=box.HEAVY_HEAD, show_header=True)
+        t.add_column("Feature", max_width=60, style="dim")
+        t.add_column("Value", overflow="fold", max_width=100)
+        row_count = next((len(v) for v in bulk.values()), 0)
+        t.add_row("rows", str(row_count))
+        for feat, values in bulk.items():
+            t.add_row(str(feat), _fmt(values))
+        return t
 
     def check(
         self,

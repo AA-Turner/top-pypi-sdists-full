@@ -117,6 +117,16 @@ class Vector:
         """
         return self._data.as_py()
 
+    def __repr__(self) -> str:
+        values = self.to_pylist()
+        if len(values) <= 8:
+            values_str = repr(values)
+        else:
+            head = ", ".join(repr(v) for v in values[:3])
+            tail = ", ".join(repr(v) for v in values[-3:])
+            values_str = f"[{head}, ..., {tail}]"
+        return f"Vector({values_str}, precision={self.precision!r}, dim={self.num_dimensions})"
+
     @overload
     def __class_getitem__(cls, item: Tuple[Literal["fp32", "fp64", "fp16"], int], /) -> Type[Vector]:
         """Create a Vector type with the specified precision and number of dimensions.

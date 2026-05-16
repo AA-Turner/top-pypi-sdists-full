@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.0.13
+Version: 8.0.14
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -166,6 +166,10 @@ Unreleased
 ----------
 
 * nothing unreleased
+
+[8.0.14] - 2026-05-14
+---------------------
+* feat: Add basic logging for all enterprise filter pipeline steps (ENT-11830)
 
 [8.0.13] - 2026-05-14
 ---------------------

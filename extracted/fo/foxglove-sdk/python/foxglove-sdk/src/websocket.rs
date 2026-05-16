@@ -66,6 +66,29 @@ pub enum PyPlaybackStatus {
     Ended = 3,
 }
 
+#[pymethods]
+impl PyPlaybackStatus {
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Playing => "Playing",
+            Self::Paused => "Paused",
+            Self::Buffering => "Buffering",
+            Self::Ended => "Ended",
+        }
+    }
+
+    #[getter]
+    fn value(&self) -> i32 {
+        match self {
+            Self::Playing => 0,
+            Self::Paused => 1,
+            Self::Buffering => 2,
+            Self::Ended => 3,
+        }
+    }
+}
+
 impl From<PyPlaybackStatus> for PlaybackStatus {
     fn from(value: PyPlaybackStatus) -> PlaybackStatus {
         match value {
@@ -133,6 +156,25 @@ impl From<PyPlaybackState> for PlaybackState {
 pub enum PyPlaybackCommand {
     Play = 0,
     Pause = 1,
+}
+
+#[pymethods]
+impl PyPlaybackCommand {
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Play => "Play",
+            Self::Pause => "Pause",
+        }
+    }
+
+    #[getter]
+    fn value(&self) -> i32 {
+        match self {
+            Self::Play => 0,
+            Self::Pause => 1,
+        }
+    }
 }
 
 impl From<PlaybackCommand> for PyPlaybackCommand {
@@ -695,6 +737,8 @@ impl PyWebSocketServer {
     /// clients as a difference from the current graph to the replacement graph. When a client first
     /// subscribes to connection graph updates, it receives the current graph.
     ///
+    /// Raises an error if the server wasn't started with Capability.ConnectionGraph.
+    ///
     /// :param graph: The connection graph to publish.
     /// :type graph: ConnectionGraph
     pub fn publish_connection_graph(&self, graph: Bound<'_, PyConnectionGraph>) -> PyResult<()> {
@@ -718,7 +762,7 @@ impl PyWebSocketServer {
 pub enum PyCapability {
     /// Allow clients to advertise channels to send data messages to the server.
     ClientPublish,
-    /// Allow clients to subscribe and make connection graph updates
+    /// Allow clients to subscribe to connection graph updates
     ConnectionGraph,
     /// Allow clients to get & set parameters.
     Parameters,
@@ -734,6 +778,33 @@ pub enum PyCapability {
     /// controls in the Foxglove app. This requires the server to specify the `data_start_time`
     /// and `data_end_time` fields in its `ServerInfo` message.
     PlaybackControl,
+}
+
+#[pymethods]
+impl PyCapability {
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self {
+            Self::ClientPublish => "ClientPublish",
+            Self::ConnectionGraph => "ConnectionGraph",
+            Self::Parameters => "Parameters",
+            Self::Time => "Time",
+            Self::Services => "Services",
+            Self::PlaybackControl => "PlaybackControl",
+        }
+    }
+
+    #[getter]
+    fn value(&self) -> i32 {
+        match self {
+            Self::ClientPublish => 0,
+            Self::ConnectionGraph => 1,
+            Self::Parameters => 2,
+            Self::Time => 3,
+            Self::Services => 4,
+            Self::PlaybackControl => 5,
+        }
+    }
 }
 
 impl From<PyCapability> for foxglove::websocket::Capability {

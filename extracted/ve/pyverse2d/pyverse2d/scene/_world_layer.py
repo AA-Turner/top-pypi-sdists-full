@@ -4,7 +4,7 @@ from __future__ import annotations
 from .._internal import expect, profile_section
 from .._rendering import Pipeline, Camera
 
-from ..world import World, RenderSystem
+from ..world import World
 from ..abc import Layer
 
 # ======================================== LAYER ========================================
@@ -12,12 +12,19 @@ class WorldLayer(Layer):
     """Layer contenant un World
 
     Args:
-        world: monde assigné
+        world: monde associé
         camera: caméra locale
     """
-    def __init__(self, world: World = None, camera: Camera = None):
+    def __init__(self, world: World, camera: Camera = None):
+        # Initialisation du layer
         super().__init__(camera)
-        self._world: World | None = expect(world, (World, None))
+
+        # Vérifications
+        if __debug__:
+            expect(world, World)
+
+        # Attributs publiques
+        self._world: World = world
     
     # ======================================== PROPERTIES ========================================
     @property
@@ -27,16 +34,18 @@ class WorldLayer(Layer):
 
     @world.setter
     def world(self, value: World | None):
-        self._world = expect(value, (World, None))
+        if __debug__:
+            expect(value, World)
+        self._world = value
 
     # ======================================== HOOKS ========================================
     def on_start(self):
         """Activation du layer"""
-        ...
+        pass
 
     def on_stop(self):
         """Désactivation du layer"""
-        ...
+        pass
 
     # ======================================== LIFE CYCLE ========================================
     def _preload(self) -> None:
@@ -45,12 +54,23 @@ class WorldLayer(Layer):
 
     @profile_section("scene.world_layer.update")
     def _update(self, dt: float):
-        """Actualisation du layer"""
-        if self._world is not None:
-            self._world.update(dt)
+        """Actualisation
+        
+        Args:
+            dt: delta-time
+        """
+        self._world.update(dt)
 
     @profile_section("scene.world_layer.draw")
     def _draw(self, pipeline: Pipeline):
-        """Affichage du layer"""
-        if self._world is not None:
-            self._world.draw(pipeline)
+        """Affichage
+        
+        Args:
+            pipeline: ``Pipeline``de rendu courant
+        """
+        self._world.draw(pipeline)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "WorldLayer",
+]

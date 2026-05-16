@@ -26,7 +26,7 @@ SyntaxNode& Parser::parseGuess() {
         bool anyLocalModules = false;
         auto member = parseMember(SyntaxKind::CompilationUnit, anyLocalModules);
         SLANG_ASSERT(member);
-        member->previewNode = std::exchange(previewNode, nullptr);
+        member->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
         return *member;
     }
 
@@ -41,7 +41,7 @@ SyntaxNode& Parser::parseGuess() {
 
     // Now try to parse as a statement.
     auto& statement = parseStatement(/* allowEmpty */ true);
-    statement.previewNode = std::exchange(previewNode, nullptr);
+    statement.setPreviewNode(alloc, std::exchange(previewNode, nullptr));
 
     // It might not have been a statement at all, in which case try a whole compilation unit
     if (statement.kind == SyntaxKind::EmptyStatement &&
@@ -86,8 +86,8 @@ AnsiPortListSyntax& Parser::parseAnsiPortList(Token openParen) {
                                                     RequireItems::False, diag::ExpectedAnsiPort,
                                                     [this] { return &parseAnsiPort(); });
 
-    auto& result = factory.ansiPortList(openParen, buffer.copy(alloc), closeParen);
-    result.previewNode = std::exchange(previewNode, nullptr);
+    auto& result = factory.ansiPortList(openParen, {alloc, buffer}, closeParen);
+    result.setPreviewNode(alloc, std::exchange(previewNode, nullptr));
     return result;
 }
 
@@ -114,7 +114,7 @@ ModuleHeaderSyntax& Parser::parseModuleHeader() {
                 buffer, TokenKind::CloseParenthesis, TokenKind::Comma, closeParen,
                 RequireItems::True, diag::ExpectedNonAnsiPort,
                 [this] { return &parseNonAnsiPort(); }, AllowEmpty::True);
-            ports = &factory.nonAnsiPortList(openParen, buffer.copy(alloc), closeParen);
+            ports = &factory.nonAnsiPortList(openParen, {alloc, buffer}, closeParen);
         }
         else {
             ports = &parseAnsiPortList(openParen);
@@ -150,7 +150,7 @@ ParameterPortListSyntax* Parser::parseParameterPortList() {
 
     Token openParen;
     Token closeParen;
-    std::span<TokenOrSyntax> parameters;
+    SeparatedSyntaxList<ParameterDeclarationBaseSyntax> parameters;
     parseList<isPossibleParameter, isEndOfParameterList>(
         TokenKind::OpenParenthesis, TokenKind::CloseParenthesis, TokenKind::Comma, openParen,
         parameters, closeParen, RequireItems::False, diag::ExpectedParameterPort,
@@ -172,7 +172,7 @@ PortReferenceSyntax& Parser::parsePortReference() {
 PortExpressionSyntax& Parser::parsePortExpression() {
     if (peek(TokenKind::OpenBrace)) {
         Token openBrace, closeBrace;
-        std::span<TokenOrSyntax> items;
+        SeparatedSyntaxList<PortReferenceSyntax> items;
 
         parseList<isIdentifierOrComma, isEndOfBracedList>(
             TokenKind::OpenBrace, TokenKind::CloseBrace, TokenKind::Comma, openBrace, items,
@@ -399,7 +399,7 @@ VariableDimensionSyntax* Parser::parseDimension() {
     return &factory.variableDimension(openBracket, specifier, closeBracket);
 }
 
-std::span<VariableDimensionSyntax*> Parser::parseDimensionList() {
+SyntaxList<VariableDimensionSyntax> Parser::parseDimensionList() {
     SmallVector<VariableDimensionSyntax*> buffer;
     while (true) {
         auto dim = parseDimension();
@@ -407,7 +407,7 @@ std::span<VariableDimensionSyntax*> Parser::parseDimensionList() {
             break;
         buffer.push_back(dim);
     }
-    return buffer.copy(alloc);
+    return SyntaxList<VariableDimensionSyntax>(alloc, buffer);
 }
 
 DotMemberClauseSyntax* Parser::parseDotMemberClause() {
@@ -466,7 +466,7 @@ StructUnionTypeSyntax& Parser::parseStructUnion(SyntaxKind syntaxKind) {
 
             buffer.push_back(
                 &factory.structUnionMember(attributes, randomQualifier, type, declarators, semi));
-            buffer.back()->previewNode = std::exchange(previewNode, nullptr);
+            buffer.back()->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
 
             // If we failed to consume any tokens for this member, skip whatever token is
             // in the way, otherwise we will loop forever.
@@ -505,7 +505,7 @@ StructUnionTypeSyntax& Parser::parseStructUnion(SyntaxKind syntaxKind) {
     }
 
     return factory.structUnionType(syntaxKind, keyword, taggedOrSoft, packed, signing, openBrace,
-                                   buffer.copy(alloc), closeBrace, dims);
+                                   {alloc, buffer}, closeBrace, dims);
 }
 
 EnumTypeSyntax& Parser::parseEnum() {
@@ -521,7 +521,7 @@ EnumTypeSyntax& Parser::parseEnum() {
     auto openBrace = expect(TokenKind::OpenBrace);
 
     Token closeBrace;
-    std::span<TokenOrSyntax> declarators;
+    SeparatedSyntaxList<DeclaratorSyntax> declarators;
     if (openBrace.isMissing())
         closeBrace = missingToken(TokenKind::CloseBrace, openBrace.location());
     else
@@ -557,7 +557,7 @@ DataTypeSyntax& Parser::parseDataType(bitmask<TypeOptions> options) {
             return parseStructUnion(SyntaxKind::UnionType);
         case TokenKind::EnumKeyword: {
             auto& result = parseEnum();
-            result.previewNode = std::exchange(previewNode, &result);
+            result.setPreviewNode(alloc, std::exchange(previewNode, &result));
             return result;
         }
         case TokenKind::VirtualKeyword: {
@@ -884,7 +884,7 @@ DataDeclarationSyntax& Parser::parseDataDeclaration(AttrList attributes) {
     Token semi;
     auto declarators = parseDeclarators(semi);
 
-    return factory.dataDeclaration(attributes, modifiers.copy(alloc), dataType, declarators, semi);
+    return factory.dataDeclaration(attributes, {alloc, modifiers}, dataType, declarators, semi);
 }
 
 LocalVariableDeclarationSyntax& Parser::parseLocalVariableDeclaration() {
@@ -917,8 +917,9 @@ DeclaratorSyntax& Parser::parseDeclarator(bool allowMinTypMax, bool requireIniti
 }
 
 template<bool (*IsEnd)(TokenKind)>
-std::span<TokenOrSyntax> Parser::parseDeclarators(TokenKind endKind, Token& end,
-                                                  bool allowMinTypMax, bool requireInitializers) {
+SeparatedSyntaxList<DeclaratorSyntax> Parser::parseDeclarators(TokenKind endKind, Token& end,
+                                                               bool allowMinTypMax,
+                                                               bool requireInitializers) {
     SmallVector<TokenOrSyntax, 4> buffer;
     parseList<isIdentifierOrComma, IsEnd>(buffer, endKind, TokenKind::Comma, end,
                                           RequireItems::True, diag::ExpectedDeclarator,
@@ -927,11 +928,11 @@ std::span<TokenOrSyntax> Parser::parseDeclarators(TokenKind endKind, Token& end,
                                                                       requireInitializers);
                                           });
 
-    return buffer.copy(alloc);
+    return SeparatedSyntaxList<DeclaratorSyntax>(alloc, buffer);
 }
 
-std::span<TokenOrSyntax> Parser::parseDeclarators(Token& semi, bool allowMinTypMax,
-                                                  bool requireInitializers) {
+SeparatedSyntaxList<DeclaratorSyntax> Parser::parseDeclarators(Token& semi, bool allowMinTypMax,
+                                                               bool requireInitializers) {
     return parseDeclarators<isNotIdOrComma>(TokenKind::Semicolon, semi, allowMinTypMax,
                                             requireInitializers);
 }
@@ -942,7 +943,7 @@ Parser::AttrList Parser::parseAttributes() {
         Token openParen = consume();
         Token closeParen, openStar, closeStar;
 
-        std::span<TokenOrSyntax> list;
+        SeparatedSyntaxList<AttributeSpecSyntax> list;
         parseList<isIdentifierOrComma, isEndOfAttribute>(
             TokenKind::Star, TokenKind::Star, TokenKind::Comma, openStar, list, closeStar,
             RequireItems::True, diag::ExpectedAttribute, [this] { return &parseAttributeSpec(); });
@@ -956,7 +957,7 @@ Parser::AttrList Parser::parseAttributes() {
         buffer.push_back(
             &factory.attributeInstance(openParen, openStar, list, closeStar, closeParen));
     }
-    return buffer.copy(alloc);
+    return SyntaxList<AttributeInstanceSyntax>(alloc, buffer);
 }
 
 AttributeSpecSyntax& Parser::parseAttributeSpec() {
@@ -995,7 +996,7 @@ ParameterDeclarationBaseSyntax& Parser::parseParameterPort() {
     else
         result = &parseParameterDecl(Token(), nullptr);
 
-    result->previewNode = std::exchange(previewNode, nullptr);
+    result->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
     return *result;
 }
 
@@ -1044,8 +1045,7 @@ ParameterDeclarationBaseSyntax& Parser::parseParameterDecl(Token keyword, Token*
             }
         }
 
-        return factory.typeParameterDeclaration(keyword, typeKeyword, restriction,
-                                                decls.copy(alloc));
+        return factory.typeParameterDeclaration(keyword, typeKeyword, restriction, {alloc, decls});
     }
     else {
         auto& type = parseDataType(TypeOptions::AllowImplicit);
@@ -1058,7 +1058,7 @@ ParameterDeclarationBaseSyntax& Parser::parseParameterDecl(Token keyword, Token*
         // If the semi pointer is given, we should parse a simple list of decls.
         // Otherwise we're in a parameter port list and don't know if we'll encounter
         // other non-decl things, so do the parsing manually.
-        std::span<TokenOrSyntax> decls;
+        SeparatedSyntaxList<DeclaratorSyntax> decls;
         if (semi) {
             decls = parseDeclarators(*semi, /* allowMinTypMax */ true);
         }
@@ -1084,7 +1084,7 @@ ParameterDeclarationBaseSyntax& Parser::parseParameterDecl(Token keyword, Token*
 
                 buffer.push_back(consume());
             }
-            decls = buffer.copy(alloc);
+            decls = SeparatedSyntaxList<DeclaratorSyntax>(alloc, buffer);
         }
 
         return factory.parameterDeclaration(keyword, type, decls);
@@ -1406,7 +1406,7 @@ bool Parser::isHierarchyInstantiation(bool requireName) {
     if (peek(index++).kind != TokenKind::Identifier)
         return false;
 
-    // skip over std::optional parameter value assignment
+    // skip over optional parameter value assignment
     if (peek(index).kind == TokenKind::Hash) {
         if (peek(++index).kind != TokenKind::OpenParenthesis)
             return false;

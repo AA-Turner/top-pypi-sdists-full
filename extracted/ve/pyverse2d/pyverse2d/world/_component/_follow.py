@@ -5,7 +5,7 @@ from ..._internal import expect, clamped, over, inferior_to, superior_to
 from ...abc import Component
 from ...math import Vector
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, Type
 from numbers import Real
 
 if TYPE_CHECKING:
@@ -39,7 +39,18 @@ class Follow(Component):
         "_axis_x", "_axis_y",
         "_arrived"
     )
-    requires = ("Transform",)
+
+    requires: ClassVar[tuple[str, ...]] = ("Transform",)
+
+    _ENTITY_CLS: Type[Entity] = None
+
+    @classmethod
+    def _get_entity_cls(cls) -> Type[Entity]:
+        """Renvoie la classe ``Entity``"""
+        if cls._ENTITY_CLS is None:
+            from .._entity import Entity
+            cls._ENTITY_CLS = Entity
+        return cls._ENTITY_CLS
 
     def __init__(
             self,
@@ -56,34 +67,40 @@ class Follow(Component):
             axis_x: bool = True,
             axis_y: bool = True,
         ):
-        # Attributs publiques
-        self._entity: Entity = entity
-        self._offset: Vector = Vector(offset)
-    
-        self._smoothing: float = float(smoothing)
-        self._force: float = float(force)
-        self._damping: float = abs(float(damping))
-    
-        self._radius_min: float = abs(float(radius_min))
-        self._radius_max: float = abs(float(radius_max))
-
-        self._angle: float = (float(angle) + 180.0) % 360.0 - 180.0
-        self._cone: float = abs(float(cone))
-        self._cone_gap: float = abs(float(cone_gap))
-
-        self._axis_x: bool = axis_x
-        self._axis_y: bool = axis_y
+        # Transtypage et vérifications
+        offset = Vector(offset)
+        smoothing = float(smoothing)
+        force = float(force)
+        damping = float(damping)
+        radius_min = abs(float(radius_min))
+        radius_max = abs(float(radius_max))
+        angle = (float(angle) + 180.0) % 360.0 - 180.0
+        cone = abs(float(cone))
+        cone_gap = abs(float(cone_gap))
+        axis_x = bool(axis_x)
+        axis_y = bool(axis_y)
 
         if __debug__:
-            from .._entity import Entity
-            expect(self._entity, Entity)
-            if not self._entity.has("Transform"): raise ValueError(f"Entity {self._entity.id}... has no Transform component") 
-            clamped(self._smoothing, include_max=False)
-            over(self._force, 0.0, include=False)
-            inferior_to(self._radius_min, self._radius_max)
-            superior_to(self._cone, self._cone_gap)
-            expect(self._axis_x, bool)
-            expect(self._axis_y, bool)
+            expect(entity, self._get_entity_cls())
+            if not entity.has("Transform"): raise ValueError(f"Entity {self._entity.id}... has no Transform component")
+            clamped(smoothing, include_max=False)
+            over(force, 0.0, include=False)
+            inferior_to(radius_min, radius_max)
+            superior_to(cone, cone_gap)
+
+        # Attributs publiques
+        self._entity: Entity = entity
+        self._offset: Vector = offset
+        self._smoothing: float = smoothing
+        self._force: float = force
+        self._damping: float = damping
+        self._radius_min: float = radius_min
+        self._radius_max: float = radius_max
+        self._angle: float = angle
+        self._cone: float = cone
+        self._cone_gap: float = cone_gap
+        self._axis_x: bool = axis_x
+        self._axis_y: bool = axis_y
             
         # Attributs internes        
         self._arrived: bool = False
@@ -126,9 +143,9 @@ class Follow(Component):
 
     @entity.setter
     def entity(self, value: Entity) -> None:
-        from .._entity import Entity
-        assert isinstance(value, Entity), f"Entity must be an instance of Entity, got {type(value).__name__}"
-        assert value.has("Transform"), f"Entity {value.id}... has no Transform component"
+        if __debug__:
+            expect(value, self._get_entity_cls())
+            if not value.has("Transform"): raise ValueError(f"Entity {self._entity.id}... has no Transform component")
         self._entity = value
     @property
     def offset(self) -> Vector:
@@ -140,7 +157,8 @@ class Follow(Component):
 
     @offset.setter
     def offset(self, value: Vector) -> None:
-        self._offset = Vector(value)
+        value = Vector(value)
+        self._offset = value
 
     @property
     def smoothing(self) -> float:
@@ -155,7 +173,8 @@ class Follow(Component):
     @smoothing.setter
     def smoothing(self, value: Real) -> None:
         value = float(value)
-        assert 0 <= value < 1.0, f"smoothing must be within 0.0 and 1.0, got {value}"
+        if __debug__:
+            clamped(value, include_max=False)
         self._smoothing = value
 
     @property
@@ -170,16 +189,16 @@ class Follow(Component):
     @force.setter
     def force(self, value: Real) -> None:
         value = float(value)
-        assert 0 < value, f"force must be over 0.0, got {value}"
+        if __debug__:
+            over(value, 0, include=False)
         self._force = value
 
     @property
     def damping(self) -> float:
         """Coefficient d'amortissement de la vélocité
 
-        Applique une force opposée à la vélocité à chaque frame, provoquant
-        une décélération progressive. Plus la valeur est élevée, plus le
-        ralentissement est fort. 
+        Applique une force opposée à la vélocité à chaque frame, provoquant une décélération progressive.
+        Plus la valeur est élevée, plus le ralentissement est fort. 
         Un coefficient de 0.0 revient à ne pas appliquer d'amortissement.
         Le coefficient d'amortissement n'est appliqué que dans le cas dynamique.
         """
@@ -187,7 +206,8 @@ class Follow(Component):
 
     @damping.setter
     def damping(self, value: Real) -> None:
-        self._damping = abs(float(value))
+        value = abs(float(value))
+        self._damping = value
 
     @property
     def radius_min(self) -> float:
@@ -202,7 +222,8 @@ class Follow(Component):
     @radius_min.setter
     def radius_min(self, value: Real) -> None:
         value = abs(float(value))
-        assert value <= self._radius_max, f"radius_min ({value}) cannot be superior to radius_max ({self._radius_max})"
+        if __debug__:
+            inferior_to(value, self._radius_max)
         self._radius_min = value
 
     @property
@@ -218,7 +239,8 @@ class Follow(Component):
     @radius_max.setter
     def radius_max(self, value: Real) -> None:
         value = abs(float(value))
-        assert value >= self._radius_min, f"radius_max ({value}) cannot be inferior to radius_min ({self._radius_min})"
+        if __debug__:
+            superior_to(value, self._radius_min)
         self._radius_max = value
 
     @property
@@ -233,7 +255,8 @@ class Follow(Component):
 
     @angle.setter
     def angle(self, value: Real) -> None:
-        self._angle = (float(value) + 180) % 360 - 180
+        value =  (float(value) + 180) % 360 - 180
+        self._angle = value
 
     @property
     def cone(self) -> float:
@@ -249,7 +272,8 @@ class Follow(Component):
     @cone.setter
     def cone(self, value: Real) -> None:
         value = abs(float(value))
-        assert value >= self._cone_gap, f"cone ({value}) cannot be inferior to cone_gap ({self._cone_gap})"
+        if __debug__:
+            superior_to(value, self._cone_gap)
         self._cone = value
 
     @property
@@ -266,7 +290,8 @@ class Follow(Component):
     @cone_gap.setter
     def cone_gap(self, value: Real) -> None:
         value = abs(float(value))
-        assert value <= self._cone, f"cone_gap ({value}) cannot be superior to cone ({self._cone})"
+        if __debug__:
+            inferior_to(value, self._cone)
         self._cone_gap = value
 
     @property
@@ -279,7 +304,7 @@ class Follow(Component):
 
     @axis_x.setter
     def axis_x(self, value: bool) -> None:
-        assert isinstance(value, bool) , f"axis_x must be a boolean, got {type(value).__name__}"
+        value = bool(value)
         self._axis_x = value
 
     @property
@@ -291,10 +316,15 @@ class Follow(Component):
 
     @axis_y.setter
     def axis_y(self, value: bool) -> None:
-        assert isinstance(value, bool), f"axis_y must be a boolean, got {type(value).__name__}"
+        value = bool(value)
         self._axis_y = value
 
     # ======================================== PREDICATES ========================================
     def is_arrived(self) -> bool:
         """Vérifie que la cible soit atteinte"""
         return self._arrived
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Follow",
+]

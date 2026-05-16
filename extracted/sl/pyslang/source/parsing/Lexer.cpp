@@ -32,15 +32,14 @@ using LF = LexerFacts;
 
 Lexer::Lexer(SourceBuffer buffer, BumpAllocator& alloc, Diagnostics& diagnostics,
              SourceManager& sourceManager, LexerOptions options) :
-    Lexer(buffer.id, buffer.data, buffer.data.data(), alloc, diagnostics, sourceManager,
-          std::move(options)) {
+    Lexer(buffer.id, buffer.data, alloc, diagnostics, sourceManager, std::move(options)) {
     library = buffer.library;
 }
 
-Lexer::Lexer(BufferID bufferId, std::string_view source, const char* startPtr, BumpAllocator& alloc,
+Lexer::Lexer(BufferID bufferId, std::string_view source, BumpAllocator& alloc,
              Diagnostics& diagnostics, SourceManager& sourceManager, LexerOptions options) :
     alloc(alloc), diagnostics(diagnostics), options(std::move(options)), bufferId(bufferId),
-    originalBegin(source.data()), sourceBuffer(startPtr),
+    originalBegin(source.data()), sourceBuffer(source.data()),
     sourceEnd(source.data() + source.length()), marker(nullptr), sourceManager(sourceManager) {
 
     ptrdiff_t count = sourceEnd - sourceBuffer;
@@ -63,17 +62,18 @@ Lexer::Lexer(BufferID bufferId, std::string_view source, const char* startPtr, B
     }
 }
 
-Token Lexer::concatenateTokens(BumpAllocator& alloc, SourceManager& sourceManager, Token left,
-                               Token right) {
+bool Lexer::concatenateTokens(BumpAllocator& alloc, SourceManager& sourceManager,
+                              const LexerOptions& options, Token left, Token right,
+                              SmallVectorBase<Token>& results) {
     auto location = left.location();
     auto trivia = left.trivia();
 
-    // if either side is empty, we have an error; the user tried to concatenate some weird kind of
-    // token
+    // If either side is empty, we have an error; the user tried to concatenate some
+    // weird kind of token.
     auto leftText = left.rawText();
     auto rightText = right.rawText();
     if (leftText.empty() || rightText.empty())
-        return Token();
+        return false;
 
     // combine the text for both sides; make sure to include room for a null
     size_t newLength = leftText.length() + rightText.length() + 1;
@@ -83,28 +83,32 @@ Token Lexer::concatenateTokens(BumpAllocator& alloc, SourceManager& sourceManage
     mem[newLength - 1] = '\0';
     std::string_view combined{mem, newLength};
 
-    Diagnostics unused;
-    Lexer lexer{BufferID::getPlaceholder(),
-                combined,
-                combined.data(),
-                alloc,
-                unused,
-                sourceManager,
-                LexerOptions{}};
+    Diagnostics diags;
+    Lexer lexer{BufferID::getPlaceholder(), combined, alloc, diags, sourceManager, options};
 
     auto token = lexer.lex();
-    if (token.kind == TokenKind::Unknown || token.rawText().empty())
-        return Token();
+    if (token.kind == TokenKind::Unknown || token.rawText().empty() ||
+        std::ranges::any_of(diags, [](Diagnostic& d) { return d.isError(); })) {
+        return false;
+    }
 
-    // make sure the next token is an EoF, otherwise the tokens were unable to
-    // be combined and should be left alone
-    if (lexer.lex().kind != TokenKind::EndOfFile)
-        return Token();
+    results.push_back(token.clone(alloc, trivia, token.rawText(), location));
+    location += token.rawText().length();
 
-    return token.clone(alloc, trivia, token.rawText(), location);
+    while (true) {
+        token = lexer.lex();
+        if (token.kind == TokenKind::EndOfFile)
+            break;
+
+        results.push_back(token.withLocation(alloc, location));
+        location += token.rawText().length();
+    }
+
+    return true;
 }
 
-Token Lexer::stringify(Lexer& parentLexer, Token startToken, std::span<Token> bodyTokens,
+Token Lexer::stringify(BumpAllocator& alloc, SourceManager& sourceManager,
+                       const LexerOptions& options, Token startToken, std::span<Token> bodyTokens,
                        Token endToken) {
     SmallVector<char> text;
     text.push_back('"');
@@ -166,23 +170,21 @@ Token Lexer::stringify(Lexer& parentLexer, Token startToken, std::span<Token> bo
     text.push_back('"');
     text.push_back('\0');
 
-    std::string_view raw = toStringView(text.copy(parentLexer.alloc));
+    std::string_view raw = toStringView(text.copy(alloc));
 
     Diagnostics unused;
-    Lexer lexer{BufferID::getPlaceholder(), raw,    raw.data(),
-                parentLexer.alloc,          unused, parentLexer.sourceManager,
-                parentLexer.options};
+    Lexer lexer{BufferID::getPlaceholder(), raw, alloc, unused, sourceManager, options};
 
     auto token = lexer.lex();
     SLANG_ASSERT(token.kind == TokenKind::StringLiteral);
     SLANG_ASSERT(lexer.lex().kind == TokenKind::EndOfFile);
 
-    return token.clone(parentLexer.alloc, startToken.trivia(), raw.substr(0, raw.length() - 1),
+    return token.clone(alloc, startToken.trivia(), raw.substr(0, raw.length() - 1),
                        startToken.location());
 }
 
 Trivia Lexer::commentify(BumpAllocator& alloc, SourceManager& sourceManager,
-                         std::span<Token> tokens) {
+                         const LexerOptions& options, std::span<Token> tokens) {
     SmallVector<char> text;
     for (auto cur : tokens) {
         for (const Trivia& t : cur.trivia())
@@ -196,8 +198,7 @@ Trivia Lexer::commentify(BumpAllocator& alloc, SourceManager& sourceManager,
     std::string_view raw = toStringView(text.copy(alloc));
 
     Diagnostics unused;
-    Lexer lexer{
-        BufferID::getPlaceholder(), raw, raw.data(), alloc, unused, sourceManager, LexerOptions{}};
+    Lexer lexer{BufferID::getPlaceholder(), raw, alloc, unused, sourceManager, options};
 
     auto token = lexer.lex();
     SLANG_ASSERT(token.kind == TokenKind::EndOfFile);
@@ -207,27 +208,29 @@ Trivia Lexer::commentify(BumpAllocator& alloc, SourceManager& sourceManager,
 }
 
 void Lexer::splitTokens(BumpAllocator& alloc, Diagnostics& diagnostics,
-                        SourceManager& sourceManager, Token sourceToken, size_t offset,
-                        KeywordVersion keywordVersion, SmallVectorBase<Token>& results) {
+                        SourceManager& sourceManager, const LexerOptions& options,
+                        Token sourceToken, size_t offset, KeywordVersion keywordVersion,
+                        SmallVectorBase<Token>& results) {
+    auto raw = sourceToken.rawText().substr(offset);
+    if (raw.empty())
+        return;
+
+    // We need a null terminator in order to use the lexer.
+    char* mem = (char*)alloc.allocate(raw.length() + 1, 1);
+    raw.copy(mem, raw.length());
+    mem[raw.length()] = '\0';
+    raw = std::string_view{mem, raw.length() + 1};
+
+    Lexer lexer{BufferID::getPlaceholder(), raw, alloc, diagnostics, sourceManager, options};
+
     auto loc = sourceToken.location();
-    if (sourceManager.isMacroLoc(loc))
-        loc = sourceManager.getOriginalLoc(loc);
-
-    auto sourceText = sourceManager.getSourceText(loc.buffer());
-    SLANG_ASSERT(!sourceText.empty());
-
-    Lexer lexer{loc.buffer(),  sourceText,  sourceToken.rawText().substr(offset).data(),
-                alloc,         diagnostics, sourceManager,
-                LexerOptions{}};
-
-    size_t endOffset = loc.offset() + sourceToken.rawText().length();
     while (true) {
-        Token token = lexer.lex(keywordVersion);
-        if (token.kind == TokenKind::EndOfFile || token.location().buffer() != loc.buffer() ||
-            token.location().offset() >= endOffset)
+        auto token = lexer.lex(keywordVersion);
+        if (token.kind == TokenKind::EndOfFile)
             break;
 
-        results.push_back(token);
+        results.push_back(token.withLocation(alloc, loc));
+        loc += token.rawText().length();
     }
 }
 
@@ -249,8 +252,7 @@ Token Lexer::lex(KeywordVersion keywordVersion) {
         sourceBuffer = sourceEnd - 1;
 
         triviaBuffer.push_back(Trivia(TriviaKind::DisabledText, lexeme()));
-        return Token(alloc, TokenKind::Unknown, triviaBuffer.copy(alloc), token.rawText(),
-                     token.location());
+        return Token(alloc, TokenKind::Unknown, triviaBuffer, token.rawText(), token.location());
     }
 
     return token;
@@ -326,6 +328,18 @@ Token Lexer::lexToken(KeywordVersion keywordVersion) {
             }
 
             // otherwise, end of file
+            // Warn if a user source file does not end with a newline.
+            // Skip synthetic buffers (those whose names start with '<') which
+            // are generated internally for things like macro expansion, command
+            // line text, and unnamed scratch buffers.
+            if (bufferId != BufferID::getPlaceholder() && sourceBuffer > originalBegin) {
+                char lastChar = *(sourceBuffer - 1);
+                if (lastChar != '\n' && lastChar != '\r') {
+                    auto rawName = sourceManager.getRawFileName(bufferId);
+                    if (!rawName.empty() && rawName.front() != '<')
+                        addDiag(diag::NewlineEOF, currentOffset());
+                }
+            }
             return create(TokenKind::EndOfFile);
         case '!':
             if (consume('=')) {
@@ -696,6 +710,9 @@ Token Lexer::lexToken(KeywordVersion keywordVersion) {
 }
 
 Token Lexer::lexStringLiteral() {
+    // Note: if adding new string features to this function,
+    // keep them in sync with getLocForStringChar below
+
     bool tripleQuoted = false;
     if (peek() == '"' && peek(1) == '"') {
         // New in v1800-2023: triple quoted string literals
@@ -847,16 +864,84 @@ Token Lexer::lexStringLiteral() {
     return create(TokenKind::StringLiteral, toStringView(stringBuffer.copy(alloc)));
 }
 
+size_t Lexer::getLocForStringChar(std::string_view rawStr, size_t targetIndex, size_t& charLen) {
+    // Skip the leading opening quote(s), they aren't counted in the index.
+    auto ptr = rawStr.data();
+    auto end = rawStr.data() + rawStr.length();
+    if (ptr != end && *ptr == '"') {
+        ptr++;
+        if (rawStr.length() >= 3 && ptr[0] == '"' && ptr[1] == '"')
+            ptr += 2;
+    }
+
+    size_t idx = 0;
+    while (idx <= targetIndex && ptr != end) {
+        char c = *ptr++;
+        if (c != '\\' || ptr == end) {
+            charLen = 1;
+            idx++;
+            continue;
+        }
+
+        // Initial backslash is ignored. The next character has four possible cases:
+        // 1. Escaped newlines are completely ignored
+        // 2. Octal escapes
+        // 3. Hex escapes
+        // 4. Everything else is a single character in the output string
+        charLen = 2;
+        c = *ptr++;
+        switch (c) {
+            case '\n':
+                break;
+            case '\r':
+                if (ptr != end && *ptr == '\n')
+                    ptr++;
+                break;
+            case 'x':
+                // Hex escapes can be up to two characters long.
+                for (int i = 0; i < 2; i++) {
+                    if (ptr != end && isHexDigit(*ptr)) {
+                        ptr++;
+                        charLen++;
+                    }
+                    else
+                        break;
+                }
+                idx++;
+                break;
+            default:
+                // Octal escapes can be up to three characters long,
+                // but we're already looking at the first one.
+                if (isOctalDigit(c)) {
+                    for (int i = 0; i < 2; i++) {
+                        if (ptr != end && isOctalDigit(*ptr)) {
+                            ptr++;
+                            charLen++;
+                        }
+                        else
+                            break;
+                    }
+                }
+                idx++;
+                break;
+        }
+    }
+
+    return size_t(ptr - rawStr.data());
+}
+
 Token Lexer::lexEscapeSequence(bool isMacroName) {
     char c = peek();
     if (isWhitespace(c) || c == '\0') {
-        // Check for a line continuation sequence.
-        if (isNewline(c)) {
-            advance();
-            if (c == '\r' && peek() == '\n')
-                advance();
-            return create(TokenKind::LineContinuation);
+        if (options.allowMacroTrailingSpace) {
+            int offset = 0;
+            while (isTabOrSpace(c)) {
+                c = peek(++offset);
+            }
         }
+        // Check for a line continuation sequence.
+        if (isNewline(c))
+            return create(TokenKind::LineContinuation);
 
         // Error issued in the Preprocessor
         return create(TokenKind::Unknown);
@@ -1156,6 +1241,11 @@ void Lexer::lexTrivia() {
                 scanWhitespace();
                 break;
             case '/':
+                // In file path mode, don't treat / as a comment start. File paths
+                // can contain wildcard sequences like /* that would otherwise be
+                // misidentified as a block comment (e.g. $ROOT/*/subdir/*.v).
+                if (filePathMode)
+                    return;
                 switch (peek(1)) {
                     case '/':
                         advance(2);
@@ -1267,7 +1357,7 @@ void Lexer::scanBlockComment() {
             else if (c == '/' && peek(1) == '*') {
                 // nested block comments disallowed by the standard; ignore and continue
                 addDiag(diag::NestedBlockComment, currentOffset());
-                advance(2);
+                advance();
             }
             else if (c == '\0') {
                 if (reallyAtEnd()) {
@@ -1606,8 +1696,7 @@ void Lexer::scanDisabledRegion(std::string_view firstWord, std::string_view seco
 template<typename... Args>
 Token Lexer::create(TokenKind kind, Args&&... args) {
     SourceLocation location(bufferId, size_t(marker - originalBegin));
-    return Token(alloc, kind, triviaBuffer.copy(alloc), lexeme(), location,
-                 std::forward<Args>(args)...);
+    return Token(alloc, kind, triviaBuffer, lexeme(), location, std::forward<Args>(args)...);
 }
 
 void Lexer::addTrivia(TriviaKind kind) {

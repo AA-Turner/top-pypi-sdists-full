@@ -7,14 +7,9 @@ import logging
 import os
 import re
 
-try:
-    from urllib.parse import urlparse
-    from urllib.parse import urljoin
-except ImportError:  # python 2
-    from urlparse import urlparse
-    from urlparse import urljoin
-
 from datetime import datetime
+from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 from keystoneclient.v3.regions import Region
 
@@ -215,6 +210,7 @@ class OpenStackVMType(BaseVMType):
     def __init__(self, provider, os_flavor):
         super(OpenStackVMType, self).__init__(provider)
         self._os_flavor = os_flavor
+        self._extra_data = None
 
     @property
     def id(self):
@@ -254,11 +250,17 @@ class OpenStackVMType(BaseVMType):
 
     @property
     def extra_data(self):
-        extras = self._os_flavor.get_keys()
-        extras['rxtx_factor'] = self._os_flavor.rxtx_factor
-        extras['swap'] = self._os_flavor.swap
-        extras['is_public'] = self._os_flavor.is_public
-        return extras
+        # get_keys() hits Nova's /flavors/<id>/os-extra_specs endpoint.
+        # Cache the result so repeat property accesses (and family, which
+        # delegates here) don't fan out to N concurrent API calls under
+        # pytest-xdist load.
+        if self._extra_data is None:
+            extras = self._os_flavor.get_keys()
+            extras['rxtx_factor'] = self._os_flavor.rxtx_factor
+            extras['swap'] = self._os_flavor.swap
+            extras['is_public'] = self._os_flavor.is_public
+            self._extra_data = extras
+        return self._extra_data
 
 
 class OpenStackInstance(BaseInstance):
@@ -323,6 +325,37 @@ class OpenStackInstance(BaseInstance):
         self._os_instance.name = value
         self._os_instance.update(name=value or "cb-inst")
 
+    def _all_addresses(self):
+        """All IP addresses associated with this instance.
+
+        Nova's info_cache (which backs ``server.addresses``) is refreshed
+        by a periodic task on a ~60s cadence and is not re-queried on a
+        plain server-show. That makes it lag both ways: a FIP just
+        attached via Neutron won't appear, and a FIP just detached via
+        Neutron will still appear. So we deliberately read only fixed
+        IPs from Nova and ask Neutron live for the current floating IPs.
+        """
+        addrs = set()
+        for _, addr_list in self._os_instance.addresses.items():
+            for entry in addr_list:
+                if entry.get('OS-EXT-IPS:type') == 'floating':
+                    continue
+                ip = entry.get('addr') or entry.get('OS-EXT-IPS-MAC:addr')
+                if ip:
+                    addrs.add(ip)
+        try:
+            for port in self._provider.os_conn.network.ports(
+                    device_id=self.id):
+                for fip in self._provider.os_conn.network.ips(
+                        port_id=port.id):
+                    if fip.floating_ip_address:
+                        addrs.add(fip.floating_ip_address)
+        except Exception as e:
+            log.debug(
+                "Could not enumerate floating IPs for instance %s: %s",
+                self.id, e)
+        return addrs
+
     @property
     def public_ips(self):
         """
@@ -332,20 +365,16 @@ class OpenStackInstance(BaseInstance):
         # public or private, since the returned IPs are grouped by an arbitrary
         # network label. Therefore, it's necessary to parse the address and
         # determine whether it's public or private
-        return [address
-                for _, addresses in self._os_instance.networks.items()
-                for address in addresses
-                if not ipaddress.ip_address(address).is_private]
+        return [a for a in self._all_addresses()
+                if not ipaddress.ip_address(a).is_private]
 
     @property
     def private_ips(self):
         """
         Get all the private IP addresses for this instance.
         """
-        return [address
-                for _, addresses in self._os_instance.networks.items()
-                for address in addresses
-                if ipaddress.ip_address(address).is_private]
+        return [a for a in self._all_addresses()
+                if ipaddress.ip_address(a).is_private]
 
     @property
     def vm_type_id(self):
@@ -460,25 +489,50 @@ class OpenStackInstance(BaseInstance):
         """Get a floating IP object based on the supplied ID."""
         return self._provider.networking._floating_ips.get(None, floating_ip)
 
+    def _primary_port(self):
+        """Return the first Neutron port on this instance, or None."""
+        # pylint:disable=protected-access
+        return next(
+            iter(self._provider.os_conn.network.ports(device_id=self.id)),
+            None)
+
     def add_floating_ip(self, floating_ip):
         """
         Add a floating IP address to this instance.
+
+        Nova's add_floating_ip server action was removed in microversion
+        2.44 (Pike). The supported path is to set the FIP's port_id to
+        one of the server's Neutron ports.
         """
         log.debug("Adding floating IP adress: %s", floating_ip)
         fip = (floating_ip if isinstance(floating_ip, OpenStackFloatingIP)
                else self._get_fip(floating_ip))
-        self._provider.os_conn.compute.add_floating_ip_to_server(
-            self.id, fip.public_ip)
+        port = self._primary_port()
+        if not port:
+            raise Exception(
+                "Cannot add floating IP: instance {0} has no network port"
+                .format(self.id))
+        # pylint:disable=protected-access
+        self._provider.os_conn.network.update_ip(fip._ip, port_id=port.id)
 
     def remove_floating_ip(self, floating_ip):
         """
         Remove a floating IP address from this instance.
+
+        Same rationale as add_floating_ip; the Nova action endpoint is
+        gone, so detach by clearing port_id on the Neutron FIP. We go
+        through neutronclient directly rather than openstacksdk
+        Connection.network.update_ip(...) because some openstacksdk
+        versions drop ``None`` kwargs from the PUT body, which leaves
+        port_id unchanged on the server side.
         """
         log.debug("Removing floating IP adress: %s", floating_ip)
         fip = (floating_ip if isinstance(floating_ip, OpenStackFloatingIP)
                else self._get_fip(floating_ip))
-        self._provider.os_conn.compute.remove_floating_ip_from_server(
-            self.id, fip.public_ip)
+        if fip is None:
+            return
+        self._provider.neutron.update_floatingip(
+            fip.id, {'floatingip': {'port_id': None}})
 
     def add_vm_firewall(self, firewall):
         """

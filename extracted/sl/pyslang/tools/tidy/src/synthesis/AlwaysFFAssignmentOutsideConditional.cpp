@@ -7,6 +7,7 @@
 #include "fmt/color.h"
 
 #include "slang/analysis/AnalysisManager.h"
+#include "slang/analysis/ValueDriver.h"
 #include "slang/syntax/AllSyntax.h"
 
 using namespace slang;
@@ -14,7 +15,7 @@ using namespace slang::ast;
 using namespace slang::analysis;
 
 namespace always_ff_assignment_outside_conditional {
-struct AlwaysFFVisitor : public ASTVisitor<AlwaysFFVisitor, true, true, false, true> {
+struct AlwaysFFVisitor : public ASTVisitor<AlwaysFFVisitor, VisitFlags::AllCanonical> {
     explicit AlwaysFFVisitor(const std::string_view name, const std::string_view resetName) :
         name(name), resetName(resetName) {};
 
@@ -55,7 +56,7 @@ private:
     std::optional<SourceLocation> errorLocation;
 };
 
-struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, false, true> {
+struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, VisitFlags::AllCanonical> {
     const AnalysisManager& analysisManager;
 
     MainVisitor(Diagnostics& diagnostics, const AnalysisManager& analysisManager) :
@@ -68,10 +69,9 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
         if (drivers.empty())
             return;
 
-        auto firstDriver = drivers[0].first;
-        if (firstDriver && firstDriver->source == DriverSource::AlwaysFF) {
+        if (drivers[0] && drivers[0]->source == DriverSource::AlwaysFF) {
             AlwaysFFVisitor visitor(symbol.name, config.getCheckConfigs().resetName);
-            firstDriver->containingSymbol->visit(visitor);
+            drivers[0]->containingSymbol->visit(visitor);
             if (visitor.hasError()) {
                 diags.add(diag::RegisterNotAssignedOnReset,
                           visitor.getErrorLocation().value_or(symbol.location))
@@ -96,7 +96,7 @@ public:
         return diagnostics.empty();
     }
 
-    DiagCode diagCode() const override { return diag::RegisterNotAssignedOnReset; }
+    DiagCode diagCode() const override { return diag::AlwaysFFAssignmentOutsideConditional; }
 
     std::string diagString() const override {
         return "register '{}' has an assignment outside a conditional block with reset. Consider "

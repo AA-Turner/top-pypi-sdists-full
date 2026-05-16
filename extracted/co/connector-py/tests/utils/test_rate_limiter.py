@@ -25,7 +25,7 @@ from gql.transport.exceptions import TransportQueryError, TransportServerError
 @pytest.fixture
 def basic_config() -> RateLimitConfig:
     return RateLimitConfig(
-        app_id="test",
+        config_id="test",
         requests_per_window=5,
         window_seconds=10,
         strategy=RateLimitStrategy.FIXED,
@@ -539,7 +539,7 @@ class TestRetryOnlyInterBatchDelay:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         config = RateLimitConfig(
-            app_id="test",
+            config_id="test",
             requests_per_window=2,
             window_seconds=10,
             strategy=RateLimitStrategy.FIXED,
@@ -564,7 +564,7 @@ class TestRetryOnlyInterBatchDelay:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         config = RateLimitConfig(
-            app_id="test",
+            config_id="test",
             requests_per_window=2,
             window_seconds=10,
             strategy=RateLimitStrategy.FIXED,
@@ -1023,7 +1023,7 @@ class TestFixedStrategyDelayDecay:
     async def test_delay_does_not_decay_when_window_is_full(
         self, basic_config: RateLimitConfig, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Decay is suppressed while the window is at capacity — pressure is still real."""
+        """Decay is suppressed while the window is at capacity."""
         monkeypatch.setattr("asyncio.sleep", AsyncMock())
         config = basic_config.model_copy(update={"requests_per_window": 2})
         limiter = RateLimiter(config)

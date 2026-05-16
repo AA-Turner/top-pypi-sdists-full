@@ -14,28 +14,67 @@ from rich.progress import BarColumn, Column, Progress, Table, TimeElapsedColumn
 from websocket import WebSocket, WebSocketException, WebSocketTimeoutException
 
 from comfy_cli.env_checker import check_comfy_server_running
+from comfy_cli.workflow_to_api import WorkflowConversionError, convert_ui_to_api
 from comfy_cli.workspace_manager import WorkspaceManager
 
 workspace_manager = WorkspaceManager()
 
 
-def load_api_workflow(file: str):
-    with open(file, encoding="utf-8") as f:
-        workflow = json.load(f)
-        # Check for litegraph properties to ensure this isnt a UI workflow file
-        if "nodes" in workflow and "links" in workflow:
-            return None
-
-        # Try validating the first entry to ensure it has a node class property
-        node_id = next(iter(workflow))
-        node = workflow[node_id]
-        if "class_type" not in node:
-            return None
-
-        return workflow
+def is_ui_workflow(workflow) -> bool:
+    return (
+        isinstance(workflow, dict)
+        and isinstance(workflow.get("nodes"), list)
+        and isinstance(workflow.get("links"), list)
+    )
 
 
-def execute(workflow: str, host, port, wait=True, verbose=False, local_paths=False, timeout=30):
+def _validate_api_workflow(workflow):
+    """Return the workflow dict if it has the shape of API format, else None."""
+    if not isinstance(workflow, dict) or not workflow:
+        return None
+    node = workflow[next(iter(workflow))]
+    if not isinstance(node, dict) or "class_type" not in node:
+        return None
+    return workflow
+
+
+def fetch_object_info(host: str, port: int, timeout: int) -> dict:
+    """GET ``/object_info`` from the running ComfyUI server.
+
+    The response describes every loaded node class's input schema and is what
+    the converter uses to map widget values to input names, fill defaults, etc.
+    """
+    url = f"http://{host}:{port}/object_info"
+    try:
+        with request.urlopen(url, timeout=timeout) as resp:
+            body = resp.read()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace").strip()
+        pprint(f"[bold red]Failed to fetch /object_info (HTTP {e.code}): {body[:500]}[/bold red]")
+        raise typer.Exit(code=1) from e
+    except urllib.error.URLError as e:
+        pprint(f"[bold red]Failed to fetch /object_info: {e.reason}[/bold red]")
+        raise typer.Exit(code=1) from e
+    except TimeoutError as e:
+        pprint(f"[bold red]Failed to fetch /object_info: timed out after {timeout}s[/bold red]")
+        raise typer.Exit(code=1) from e
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as e:
+        pprint("[bold red]Failed to fetch /object_info: server returned invalid JSON[/bold red]")
+        raise typer.Exit(code=1) from e
+
+
+def execute(
+    workflow: str,
+    host,
+    port,
+    wait=True,
+    verbose=False,
+    local_paths=False,
+    timeout=30,
+    api_key: str | None = None,
+):
     workflow_name = os.path.abspath(os.path.expanduser(workflow))
     if not os.path.isfile(workflow):
         pprint(
@@ -44,15 +83,50 @@ def execute(workflow: str, host, port, wait=True, verbose=False, local_paths=Fal
         )
         raise typer.Exit(code=1)
 
-    workflow = load_api_workflow(workflow)
-
-    if not workflow:
-        pprint("[bold red]Specified workflow does not appear to be an API workflow json file[/bold red]")
-        raise typer.Exit(code=1)
-
     if not check_comfy_server_running(port, host):
         pprint(f"[bold red]ComfyUI not running on specified address ({host}:{port})[/bold red]")
         raise typer.Exit(code=1)
+
+    try:
+        with open(workflow_name, encoding="utf-8") as f:
+            raw_workflow = json.load(f)
+    except OSError as e:
+        pprint(f"[bold red]Unable to read workflow file: {e}[/bold red]")
+        raise typer.Exit(code=1) from e
+    except json.JSONDecodeError as e:
+        pprint(f"[bold red]Specified workflow file is not valid JSON: {e}[/bold red]")
+        raise typer.Exit(code=1) from e
+
+    if is_ui_workflow(raw_workflow):
+        pprint("[yellow]Detected UI-format workflow, converting to API format...[/yellow]")
+        object_info = fetch_object_info(host, port, timeout)
+        try:
+            workflow = convert_ui_to_api(raw_workflow, object_info)
+        except WorkflowConversionError as e:
+            pprint(f"[bold red]Workflow conversion failed: {e}[/bold red]")
+            raise typer.Exit(code=1) from e
+        except Exception as e:
+            # The converter is experimental; an unexpected crash here is a bug
+            # in our code, not user error. Show a clean message and a pointer.
+            pprint(
+                f"[bold red]Workflow conversion crashed unexpectedly: {type(e).__name__}: {e}[/bold red]\n"
+                "[yellow]The UI-to-API converter is experimental. Please report this at[/yellow]\n"
+                "[yellow]  https://github.com/Comfy-Org/comfy-cli/issues[/yellow]\n"
+                "[yellow]and attach the workflow file if possible.[/yellow]"
+            )
+            if verbose:
+                import traceback
+
+                traceback.print_exc()
+            raise typer.Exit(code=1) from e
+        if not workflow:
+            pprint("[bold red]Workflow conversion produced no executable nodes[/bold red]")
+            raise typer.Exit(code=1)
+    else:
+        workflow = _validate_api_workflow(raw_workflow)
+        if not workflow:
+            pprint("[bold red]Specified workflow does not appear to be an API workflow json file[/bold red]")
+            raise typer.Exit(code=1)
 
     progress = None
     start = time.time()
@@ -63,7 +137,7 @@ def execute(workflow: str, host, port, wait=True, verbose=False, local_paths=Fal
     else:
         print(f"Queuing workflow: {workflow_name}")
 
-    execution = WorkflowExecution(workflow, host, port, verbose, progress, local_paths, timeout)
+    execution = WorkflowExecution(workflow, host, port, verbose, progress, local_paths, timeout, api_key=api_key)
 
     try:
         if wait:
@@ -117,7 +191,7 @@ class ExecutionProgress(Progress):
 
 
 class WorkflowExecution:
-    def __init__(self, workflow, host, port, verbose, progress, local_paths, timeout=30):
+    def __init__(self, workflow, host, port, verbose, progress, local_paths, timeout=30, api_key: str | None = None):
         self.workflow = workflow
         self.host = host
         self.port = port
@@ -136,14 +210,20 @@ class WorkflowExecution:
         self.prompt_id = None
         self.ws = None
         self.timeout = timeout
+        self.api_key = api_key
 
     def connect(self):
         self.ws = WebSocket()
         self.ws.connect(f"ws://{self.host}:{self.port}/ws?clientId={self.client_id}")
 
     def queue(self):
-        data = {"prompt": self.workflow, "client_id": self.client_id}
-        req = request.Request(f"http://{self.host}:{self.port}/prompt", json.dumps(data).encode("utf-8"))
+        data: dict = {"prompt": self.workflow, "client_id": self.client_id}
+        if self.api_key:
+            data["extra_data"] = {"api_key_comfy_org": self.api_key}
+        req = request.Request(
+            f"http://{self.host}:{self.port}/prompt",
+            json.dumps(data).encode("utf-8"),
+        )
         try:
             resp = request.urlopen(req)
             body = json.loads(resp.read())

@@ -628,8 +628,13 @@ def _format_anthropic_messages(
                                 )
                             )
                         else:
-                            item.pop("text", None)
-                            tool_blocks.append(item)
+                            tool_blocks.append(
+                                {
+                                    k: v
+                                    for k, v in item.items()
+                                    if k not in ("text", "index", "partial_json")
+                                }
+                            )
                     elif item["type"] in ["thinking", "redacted_thinking"]:
                         # Store thinking blocks separately
                         thinking_blocks.append(
@@ -1046,7 +1051,6 @@ class ChatBedrock(BaseChatModel, BedrockBase):
         ):
             if isinstance(chunk, AIMessageChunk):
                 chunk.response_metadata["model_provider"] = "bedrock"
-                chunk.response_metadata["ls_provider"] = "amazon_bedrock"
                 generation_chunk = ChatGenerationChunk(message=chunk)
                 if run_manager:
                     run_manager.on_llm_new_token(
@@ -1080,9 +1084,6 @@ class ChatBedrock(BaseChatModel, BedrockBase):
                     else AIMessageChunk(content=delta)
                 )
                 generation_chunk.message.response_metadata["model_provider"] = "bedrock"
-                generation_chunk.message.response_metadata["ls_provider"] = (
-                    "amazon_bedrock"
-                )
                 if run_manager:
                     run_manager.on_llm_new_token(
                         generation_chunk.text, chunk=generation_chunk
@@ -1228,7 +1229,6 @@ class ChatBedrock(BaseChatModel, BedrockBase):
             usage_metadata=usage_metadata,
             response_metadata={
                 "model_provider": "bedrock",
-                "ls_provider": "amazon_bedrock",
                 "model_name": self.model_id,
             },
         )

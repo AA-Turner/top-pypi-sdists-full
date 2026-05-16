@@ -25,6 +25,7 @@ namespace slang {
 
 class Bag;
 class SourceManager;
+class ThreadPool;
 struct SourceBuffer;
 struct SourceLibrary;
 
@@ -97,6 +98,17 @@ public:
     /// search extensions.
     void addSearchDirectories(std::string_view pattern);
 
+    /// @brief Adds a directory prefix for source file path resolution.
+    ///
+    /// When a source file is listed but cannot be found at the given path,
+    /// the loader will retry by prepending each registered directory prefix to
+    /// the path in the order they were added.
+    ///
+    /// For example, if the prefix @c foo/bar is registered and a source file
+    /// @c dir_a/mod_b.sv is listed but does not exist, the path
+    /// @c foo/bar/dir_a/mod_b.sv will be tried.
+    void addDirPrefix(std::string_view prefix);
+
     /// @brief Adds an extension used to search for library module files.
     ///
     /// A search for a library module occurs when there are instantiations found
@@ -126,7 +138,8 @@ public:
     /// default library and be considered a non-library unit.
     void addSeparateUnit(std::span<const std::string> filePatterns,
                          const std::vector<std::string>& includePaths,
-                         std::vector<std::string> defines, const std::string& libraryName);
+                         std::vector<std::string> defines, const std::string& libraryName,
+                         std::vector<std::string> warningOptions);
 
     /// Returns a list of all library map syntax trees that have been loaded and parsed.
     const SyntaxTreeList& getLibraryMaps() const { return libraryMapTrees; }
@@ -143,7 +156,14 @@ public:
     std::vector<SourceBuffer> loadSources();
 
     /// Loads and parses all of the source files that have been added to the loader.
-    SyntaxTreeList loadAndParseSources(const Bag& optionBag);
+    SyntaxTreeList loadAndParseSources(const Bag& optionBag, ThreadPool* threadPool = nullptr);
+
+    /// Returns the per-buffer warning option strings collected during the last call to
+    /// loadAndParseSources. Each entry maps a buffer to the -W option strings (without
+    /// the leading "-W") that were specified for the compilation unit containing that buffer.
+    const flat_hash_map<BufferID, std::vector<std::string>>& getBufferWarningOptions() const {
+        return bufferWarningOptions;
+    }
 
     /// Gets the list of errors that have occurred while loading files.
     std::span<const std::string> getErrors() const { return errors; }
@@ -168,6 +188,7 @@ private:
     struct UnitEntry {
         std::vector<std::filesystem::path> includePaths;
         std::vector<std::string> defines;
+        std::vector<std::string> warningOptions;
         const SourceLibrary* library = nullptr;
     };
 
@@ -242,9 +263,11 @@ private:
     flat_hash_map<std::filesystem::path, size_t> fileIndex;
     flat_hash_map<std::string, std::unique_ptr<SourceLibrary>> libraries;
     std::deque<UnitEntry> unitEntries;
+    std::vector<std::string> dirPrefixes;
     std::vector<std::filesystem::path> searchDirectories;
     std::vector<std::filesystem::path> searchExtensions;
     flat_hash_set<std::string_view> uniqueExtensions;
+    flat_hash_map<BufferID, std::vector<std::string>> bufferWarningOptions;
     std::vector<std::string> errors;
     SyntaxTreeList libraryMapTrees;
 

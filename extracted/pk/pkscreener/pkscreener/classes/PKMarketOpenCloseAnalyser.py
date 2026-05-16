@@ -46,7 +46,7 @@ from PKDevTools.classes.OutputControls import OutputControls
 from PKDevTools.classes.SuppressOutput import SuppressOutput
 from PKDevTools.classes.MarketHours import MarketHours
 
-from halo import Halo
+from PKDevTools.classes.PKHalo import PKHalo
 
 configManager = tools()
 
@@ -100,7 +100,7 @@ class PKMarketOpenCloseAnalyser:
             AssetsManager.PKAssetsManager.saveStockData(updatedCandleData,PKMarketOpenCloseAnalyser.configManager,1,False,False, True)
         return updatedCandleData, allDailyCandles
 
-    @Halo(text='  [+] Running final analysis...', spinner='dots')
+    @PKHalo(text='  [+] Running final analysis...', spinner='dots')
     def runOpenCloseAnalysis(updatedCandleData,allDailyCandles,screen_df,save_df,runOptionName=None,filteredListOfStocks=[]):
         # stockListFromMorningTrade,morningIntraday_df = PKMarketOpenCloseAnalyser.simulateMorningTrade(updatedCandleData)
         # latest_daily_df = PKMarketOpenCloseAnalyser.runScanForStocksFromMorningTrade(stockListFromMorningTrade,allDailyCandles)
@@ -113,7 +113,7 @@ class PKMarketOpenCloseAnalyser:
         AssetsManager.PKAssetsManager.saveStockData(allDailyCandles,PKMarketOpenCloseAnalyser.configManager,1,False,False, True)
         return save_df, screen_df
 
-    @Halo(text='  [+] Getting intraday data...', spinner='dots')
+    @PKHalo(text='  [+] Getting intraday data...', spinner='dots')
     def ensureIntradayStockDataExists(listStockCodes=[]):
         # Ensure that the intraday_stock_data_<date>.pkl file exists
         exists, cache_file = AssetsManager.PKAssetsManager.afterMarketStockDataExists(intraday=True)
@@ -163,7 +163,7 @@ class PKMarketOpenCloseAnalyser:
             pass
         return exists, cache_file, stockDict
 
-    @Halo(text='  [+] Getting daily data...', spinner='dots')
+    @PKHalo(text='  [+] Getting daily data...', spinner='dots')
     def ensureDailyStockDataExists(listStockCodes=[]):
         # Ensure that the stock_data_<date>.pkl file exists
         exists, cache_file = AssetsManager.PKAssetsManager.afterMarketStockDataExists(intraday=False)
@@ -247,7 +247,7 @@ class PKMarketOpenCloseAnalyser:
         #         continue
         return allDailyCandles
     
-    @Halo(text='  [+] Simulating morning alert...', spinner='dots')
+    @PKHalo(text='  [+] Simulating morning alert...', spinner='dots')
     def getIntradayCandleFromMorning(int_cache_file=None,candle1MinuteNumberSinceMarketStarted=0,sliceWindowDatetime=None,stockDictInt=None):
         if candle1MinuteNumberSinceMarketStarted <= 0:
             candle1MinuteNumberSinceMarketStarted = PKMarketOpenCloseAnalyser.configManager.morninganalysiscandlenumber
@@ -330,7 +330,7 @@ class PKMarketOpenCloseAnalyser:
             index -= 1
         return close
     
-    @Halo(text='  [+] Updating candles...', spinner='dots')
+    @PKHalo(text='  [+] Updating candles...', spinner='dots')
     def combineDailyStockDataWithMorningSimulation(allDailyCandles,morningIntradayCandle):
         mutableAllDailyCandles = copy.deepcopy(allDailyCandles)
         stocks = list(mutableAllDailyCandles.keys())

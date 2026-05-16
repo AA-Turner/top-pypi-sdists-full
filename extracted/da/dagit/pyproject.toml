@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagit"
-version = "1.13.4"
+version = "1.13.5"
 description = "Web UI for dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -23,7 +23,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster-webserver==1.13.4",
+    "dagster-webserver==1.13.5",
 ]
 
 [project.urls]
@@ -35,8 +35,36 @@ dagit-debug = "dagster_webserver.debug:main"
 
 [project.optional-dependencies]
 notebook = [
-    "dagster-webserver[notebook]==1.13.4",
+    "dagster-webserver[notebook]==1.13.5",
 ]
+
+[dependency-groups]
 test = [
-    "dagster-webserver[test]==1.13.4",
+    "dagster[test]",
+    "dagster-pipes",
+    "dagster-shared",
+    "dagster-graphql",
+    "dagster-webserver",
+    "objgraph",
+    "dagster-webserver[test]==1!0+dev",
 ]
+
+[tool.uv.sources.dagster]
+path = "../dagster"
+editable = true
+
+[tool.uv.sources.dagster-pipes]
+path = "../dagster-pipes"
+editable = true
+
+[tool.uv.sources.dagster-shared]
+path = "../libraries/dagster-shared"
+editable = true
+
+[tool.uv.sources.dagster-graphql]
+path = "../dagster-graphql"
+editable = true
+
+[tool.uv.sources.dagster-webserver]
+path = "../dagster-webserver"
+editable = true

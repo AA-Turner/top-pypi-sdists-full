@@ -16,6 +16,10 @@ except ImportError:
 
 import requests
 
+from instagrapi.utils.video import MOVIEPY_2_FFMPEG_MESSAGE
+
+VIDEO_EXTRA_MESSAGE = f"prepare_video() requires MoviePy 2.2.1 and ffmpeg. {MOVIEPY_2_FFMPEG_MESSAGE}"
+
 
 def calc_resize(max_size, curr_size, min_size=(0, 0)):
     """
@@ -169,8 +173,15 @@ def prepare_video(
          choose ultrafast when you are in a hurry and file size does not matter.
     :return:
     """
-    from moviepy.video.fx.all import crop, resize
-    from moviepy.video.io.VideoFileClip import VideoFileClip
+    try:
+        from moviepy import VideoFileClip
+    except ImportError as exc:
+        raise RuntimeError(VIDEO_EXTRA_MESSAGE) from exc
+    except Exception as exc:
+        message = str(exc).lower()
+        if "ffmpeg" in message or "imageio_ffmpeg_exe" in message or "no ffmpeg exe" in message:
+            raise RuntimeError(VIDEO_EXTRA_MESSAGE) from exc
+        raise
 
     min_size = kwargs.pop("min_size", (612, 320))
     progress_bar = True if kwargs.pop("progress_bar", None) else False
@@ -201,7 +212,7 @@ def prepare_video(
         raise ValueError("Duration is too short")
 
     if vidclip.duration > max_duration * 1.0:
-        vidclip = vidclip.subclip(0, max_duration)
+        vidclip = vidclip.subclipped(0, max_duration)
         vid_is_modified = True
 
     if thumbnail_frame_ts > vidclip.duration:
@@ -210,13 +221,13 @@ def prepare_video(
     if aspect_ratios:
         crop_box = calc_crop(aspect_ratios, vidclip.size)
         if crop_box:
-            vidclip = crop(vidclip, x1=crop_box[0], y1=crop_box[1], x2=crop_box[2], y2=crop_box[3])
+            vidclip = vidclip.cropped(x1=crop_box[0], y1=crop_box[1], x2=crop_box[2], y2=crop_box[3])
             vid_is_modified = True
 
     if max_size or min_size:
         new_size = calc_resize(max_size, vidclip.size, min_size=min_size)
         if new_size:
-            vidclip = resize(vidclip, newsize=new_size)
+            vidclip = vidclip.resized(new_size=new_size)
             vid_is_modified = True
 
     temp_vid_output_file = tempfile.NamedTemporaryFile(prefix="ipae_", suffix=".mp4", delete=False)
@@ -227,8 +238,7 @@ def prepare_video(
             codec="libx264",
             audio=True,
             audio_codec="aac",
-            verbose=False,
-            progress_bar=progress_bar,
+            logger="bar" if progress_bar else None,
             preset=preset,
             remove_temp=True,
         )

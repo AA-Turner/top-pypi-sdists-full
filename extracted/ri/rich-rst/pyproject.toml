@@ -6,20 +6,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rich-rst"
-version = "1.3.2"
+version = "2.0.1"
 description = "A beautiful reStructuredText renderer for rich"
 readme = "README.md"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "rich_rst/_vendor/LICENSES.txt"]
 authors = [
     { name = "Wasi Master", email = "arianmollik323@gmail.com" }
 ]
-keywords = ["richrst", "restructuredtextrich", "restructuredtextrich-restructuredtextrich", "rstrich-rst"]
+keywords = ["rich", "rst", "restructuredtext", "terminal", "docutils", "renderer"]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -33,8 +31,8 @@ classifiers = [
     "Natural Language :: English"
 ]
 dependencies = [
-    "docutils",
     "rich>=12.0.0",
+    "pygments>=2.0.0"
 ]
 
 [project.urls]
@@ -46,12 +44,29 @@ dependencies = [
 
 [project.optional-dependencies]
 docs = [
-    "sphinx"
+    "docutils",
+    "rich",
+    "rich_rst",
+    "sphinx",
+    "sphinx_copybutton",
+    "sphinx_rtd_theme"
+]
+tests = [
+    "pytest",
+    "pytest-cov"
 ]
 
 [tool.setuptools]
-packages = [
-    "rich_rst",
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rich_rst*"]
+
+[tool.coverage.run]
+omit = [
+    "rich_rst/_vendor/*",
 ]
-
-
+[tool.coverage.report]
+omit = [
+    "rich_rst/_vendor/*",
+]

@@ -6,7 +6,7 @@ from fastapi import status
 from starlette.requests import ClientDisconnect
 
 from dstack._internal.core.models.routers import RouterType
-from dstack._internal.proxy.lib.const import SGLANG_WHITELISTED_PATHS
+from dstack._internal.proxy.lib.const import ROUTER_WHITELISTED_PATHS
 from dstack._internal.proxy.lib.deps import ProxyAuthContext
 from dstack._internal.proxy.lib.errors import ProxyError
 from dstack._internal.proxy.lib.repo import BaseProxyRepo
@@ -18,6 +18,7 @@ from dstack._internal.utils.common import concat_url_path
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
+UVICORN_AUTOMATIC_HEADERS = ("Server", "Date")
 
 
 async def proxy(
@@ -45,7 +46,7 @@ async def proxy(
         service.router is not None and service.router.type == RouterType.SGLANG
     ) or service.has_router_replica:
         path_for_match = path if path.startswith("/") else f"/{path}"
-        if not _is_whitelisted_path(path_for_match, SGLANG_WHITELISTED_PATHS):
+        if not _is_whitelisted_path(path_for_match, ROUTER_WHITELISTED_PATHS):
             raise ProxyError("Path is not allowed for this service", status.HTTP_403_FORBIDDEN)
 
     client = await get_service_replica_client(service, repo, service_conn_pool)
@@ -73,7 +74,7 @@ async def proxy(
     return fastapi.responses.StreamingResponse(
         stream_response(upstream_response),
         status_code=upstream_response.status_code,
-        headers=upstream_response.headers,
+        headers=clean_response_headers(upstream_response.headers),
     )
 
 
@@ -85,6 +86,14 @@ def _is_whitelisted_path(path: str, whitelisted_paths: tuple[str, ...]) -> bool:
         elif path == allowed:
             return True
     return False
+
+
+def clean_response_headers(headers: httpx.Headers) -> httpx.Headers:
+    headers = httpx.Headers(headers)  # copy
+    for header in UVICORN_AUTOMATIC_HEADERS:
+        if header in headers:
+            del headers[header]
+    return headers
 
 
 async def stream_response(response: httpx.Response) -> AsyncGenerator[bytes, None]:

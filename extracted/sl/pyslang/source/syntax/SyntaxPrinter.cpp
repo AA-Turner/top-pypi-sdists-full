@@ -7,6 +7,8 @@
 //------------------------------------------------------------------------------
 #include "slang/syntax/SyntaxPrinter.h"
 
+#include "fmt/format.h"
+
 #include "slang/parsing/ParserMetadata.h"
 #include "slang/parsing/Token.h"
 #include "slang/syntax/SyntaxNode.h"
@@ -62,10 +64,20 @@ SyntaxPrinter& SyntaxPrinter::print(Trivia trivia) {
 }
 
 SyntaxPrinter& SyntaxPrinter::print(Token token) {
-    bool excluded = !shouldPrint(token.location());
+    auto location = token.location();
+    bool excluded = !shouldPrint(location);
+
+    if (!excluded && sourceManager && includeSource) {
+        std::string_view fileName = sourceManager->getFileName(location);
+        if (fileName != currentFileName) {
+            auto lineNumber = sourceManager->getLineNumber(location);
+            append(fmt::format("\n// {}:{}\n", fileName, lineNumber));
+            currentFileName = fileName;
+        }
+    }
 
     if (includeTrivia) {
-        if (!sourceManager) {
+        if (includeAllLocations || !sourceManager) {
             for (const auto& t : token.trivia())
                 print(t);
         }
@@ -73,14 +85,14 @@ SyntaxPrinter& SyntaxPrinter::print(Token token) {
             // Exclude any trivia that is from a preprocessed location based on our flags.
             // In order to know that we need to skip over any trivia that is implicitly
             // located relative to something ahead of it (a directive or the token itself).
-            SmallVector<const Trivia*> pending;
+            SmallVector<Trivia> pending;
             for (const auto& trivia : token.trivia()) {
-                pending.push_back(&trivia);
+                pending.push_back(trivia);
                 auto loc = trivia.getExplicitLocation();
                 if (loc) {
                     if (shouldPrint(*loc)) {
-                        for (auto t : pending)
-                            print(*t);
+                        for (auto& t : pending)
+                            print(t);
                     }
                     else {
                         // If this is a directive or skipped trivia we may still
@@ -97,8 +109,8 @@ SyntaxPrinter& SyntaxPrinter::print(Token token) {
             }
 
             if (!excluded) {
-                for (auto t : pending)
-                    print(*t);
+                for (auto& t : pending)
+                    print(t);
             }
         }
     }
@@ -122,7 +134,7 @@ SyntaxPrinter& SyntaxPrinter::print(const SyntaxNode& node) {
 
 SyntaxPrinter& SyntaxPrinter::printLeadingComments(const SyntaxNode& node) {
     auto triviaSpan = node.getFirstToken().trivia();
-    using Iterator = std::span<const Trivia>::iterator;
+    using Iterator = decltype(triviaSpan)::iterator;
     std::optional<Iterator> lastComment;
     std::optional<Iterator> leadingCommentStart;
 
@@ -221,26 +233,17 @@ SyntaxPrinter& SyntaxPrinter::append(std::string_view text) {
 
     bool carriage = false;
     bool newline = false;
-
-    if (!text.empty() && (text[0] == '\r' || text[0] == '\n')) {
-        size_t i = 0;
-        if (text[i] == '\r') {
+    size_t i = 0;
+    for (; i < text.length(); i++) {
+        if (text[i] == '\r')
             carriage = true;
-            i++;
-        }
-
-        if (i < text.length() && text[i] == '\n') {
+        else if (text[i] == '\n')
             newline = true;
-            i++;
-        }
-
-        for (; i < text.length(); i++) {
-            if (text[i] == '\r' || text[i] == '\n')
-                i++;
-        }
-
-        text = text.substr(i);
+        else
+            break;
     }
+
+    text = text.substr(i);
 
     if (buffer.empty() || buffer.back() != '\n') {
         if (carriage)
@@ -254,7 +257,7 @@ SyntaxPrinter& SyntaxPrinter::append(std::string_view text) {
 }
 
 bool SyntaxPrinter::shouldPrint(SourceLocation loc) const {
-    if (!sourceManager)
+    if (includeAllLocations || !sourceManager)
         return true;
 
     if (sourceManager->isMacroLoc(loc)) {
@@ -277,7 +280,7 @@ bool SyntaxPrinter::shouldPrint(SourceLocation loc) const {
 }
 
 bool SyntaxPrinter::shouldPrint(const SyntaxNode& syntax) const {
-    if (!sourceManager)
+    if (includeAllLocations || !sourceManager)
         return includeDirectives;
 
     if (syntax.kind == SyntaxKind::MacroUsage) {

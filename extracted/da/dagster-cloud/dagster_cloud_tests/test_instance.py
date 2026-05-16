@@ -71,7 +71,7 @@ def test_instance_dagster_cloud_env_vars():
                 },
             }
         ) as test_instance:
-            assert sorted(test_instance.dagster_cloud_api_env_vars) == sorted(  # pyright: ignore[reportAttributeAccessIssue]
+            assert sorted(test_instance.dagster_cloud_api_env_vars) == sorted(  # ty: ignore[unresolved-attribute]
                 ["CLOUD_URL", "CLOUD_AGENT_TOKEN", "CLOUD_AGENT_RETRIES"]
             )
 
@@ -83,31 +83,31 @@ def test_default_timeout(agent_instance):
 
 def test_custom_timeout(dagster_cloud_url):
     with gen_agent_instance(dagster_cloud_url, token="token", timeout=15) as custom_instance:
-        assert custom_instance.dagster_cloud_api_timeout == 15  # pyright: ignore[reportAttributeAccessIssue]
-        assert custom_instance.graphql_client.timeout == 15  # pyright: ignore[reportAttributeAccessIssue]
+        assert custom_instance.dagster_cloud_api_timeout == 15
+        assert custom_instance.graphql_client.timeout == 15
 
 
 def test_url_with_new_token_set():
     with gen_agent_instance(token="agent:foo:abcde", url=None) as instance:
-        assert instance.dagster_cloud_url == "https://foo.agent.dagster.cloud"  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.dagit_url == "https://foo.dagster.cloud/"  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.dagster_cloud_url == "https://foo.agent.dagster.cloud"
+        assert instance.dagit_url == "https://foo.dagster.cloud/"
 
     with gen_agent_instance(token="agent:foo:abcde", url=None, deployment="staging") as instance:
-        assert instance.dagit_url == "https://foo.dagster.cloud/staging/"  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.dagit_url == "https://foo.dagster.cloud/staging/"
 
 
 def test_url_with_old_token_set(dagster_cloud_url):
     with gen_agent_instance(token="agent_abcde", url=dagster_cloud_url) as instance:
-        assert instance.dagster_cloud_url == dagster_cloud_url  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.dagster_cloud_url == dagster_cloud_url
 
         with pytest.raises(Exception):
-            instance.dagit_url  # noqa: B018  # pyright: ignore[reportAttributeAccessIssue]
+            instance.dagit_url  # noqa: B018
 
 
 def test_url_with_both_set(dagster_cloud_url):
     with gen_agent_instance(token="agent:foo:abcde", url=dagster_cloud_url) as instance:
-        assert instance.dagster_cloud_url == dagster_cloud_url  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.dagit_url == "https://foo.dagster.cloud/"  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.dagster_cloud_url == dagster_cloud_url
+        assert instance.dagit_url == "https://foo.dagster.cloud/"
 
 
 def test_url_with_old_token_and_no_url():
@@ -201,7 +201,7 @@ def test_isolated_agents():
             "dagster_cloud_api": {"agent_token": "my_agent_token", "url": "my_url"},
         }
     ) as instance:
-        assert not instance.is_using_isolated_agents  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.is_using_isolated_agents  # ty: ignore[unresolved-attribute]
 
     with instance_for_test(
         {
@@ -217,7 +217,7 @@ def test_isolated_agents():
             "isolated_agents": {"enabled": False},
         }
     ) as instance:
-        assert not instance.is_using_isolated_agents  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.is_using_isolated_agents  # ty: ignore[unresolved-attribute]
 
     with instance_for_test(
         {
@@ -233,7 +233,7 @@ def test_isolated_agents():
             "isolated_agents": {"enabled": True},
         }
     ) as instance:
-        assert instance.is_using_isolated_agents  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.is_using_isolated_agents  # ty: ignore[unresolved-attribute]
 
     # Backcompat with agent_replicas as config
 
@@ -251,7 +251,7 @@ def test_isolated_agents():
             "agent_replicas": {"enabled": False},
         }
     ) as instance:
-        assert not instance.is_using_isolated_agents  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.is_using_isolated_agents  # ty: ignore[unresolved-attribute]
 
     with instance_for_test(
         {
@@ -267,7 +267,7 @@ def test_isolated_agents():
             "agent_replicas": {"enabled": True},
         }
     ) as instance:
-        assert instance.is_using_isolated_agents  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.is_using_isolated_agents  # ty: ignore[unresolved-attribute]
 
 
 def test_instance_with_python_logs(dagster_cloud_url):
@@ -307,17 +307,17 @@ def test_instance_deployment_rescope():
     with ExitStack() as stack:
         unscoped_instance = stack.enter_context(gen_agent_instance(token="agent:foo:abcde"))
 
-        assert unscoped_instance.dagit_url == "https://foo.dagster.cloud/"  # pyright: ignore[reportAttributeAccessIssue]
+        assert unscoped_instance.dagit_url == "https://foo.dagster.cloud/"
 
         scoped_instance = stack.enter_context(
-            DagsterInstance.from_ref(unscoped_instance.ref_for_deployment("bar"))  # pyright: ignore[reportAttributeAccessIssue]
+            DagsterInstance.from_ref(unscoped_instance.ref_for_deployment("bar"))
         )
-        assert scoped_instance.dagit_url == "https://foo.dagster.cloud/bar/"  # pyright: ignore[reportAttributeAccessIssue]
+        assert scoped_instance.dagit_url == "https://foo.dagster.cloud/bar/"  # ty: ignore[unresolved-attribute]
 
         rescoped_instance = stack.enter_context(
-            DagsterInstance.from_ref(scoped_instance.ref_for_deployment("baz"))  # pyright: ignore[reportAttributeAccessIssue]
+            DagsterInstance.from_ref(scoped_instance.ref_for_deployment("baz"))  # ty: ignore[unresolved-attribute]
         )
-        assert rescoped_instance.dagit_url == "https://foo.dagster.cloud/baz/"  # pyright: ignore[reportAttributeAccessIssue]
+        assert rescoped_instance.dagit_url == "https://foo.dagster.cloud/baz/"  # ty: ignore[unresolved-attribute]
 
         multi_deployment_scoped_instance = stack.enter_context(
             gen_agent_instance(
@@ -327,35 +327,35 @@ def test_instance_deployment_rescope():
         )
 
         rescoped_instance = stack.enter_context(
-            DagsterInstance.from_ref(multi_deployment_scoped_instance.ref_for_deployment("staging"))  # pyright: ignore[reportAttributeAccessIssue]
+            DagsterInstance.from_ref(multi_deployment_scoped_instance.ref_for_deployment("staging"))
         )
-        assert rescoped_instance.dagit_url == "https://foo.dagster.cloud/staging/"  # pyright: ignore[reportAttributeAccessIssue]
+        assert rescoped_instance.dagit_url == "https://foo.dagster.cloud/staging/"  # ty: ignore[unresolved-attribute]
 
 
 def test_instance_branch_deployments(dagster_cloud_url):
     with gen_agent_instance(
         url=dagster_cloud_url, token="token", dagster_cloud_api_config={"branch_deployments": True}
     ) as instance:
-        assert instance.includes_branch_deployments  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.includes_branch_deployments
         assert (
-            instance.user_code_launcher.branch_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher.branch_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS
         )
 
     with gen_agent_instance(
         url=dagster_cloud_url, token="token", dagster_cloud_api_config={"branch_deployments": False}
     ) as instance:
-        assert not instance.includes_branch_deployments  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.includes_branch_deployments
         assert (
-            instance.user_code_launcher.branch_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher.branch_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS
         )
 
     with gen_agent_instance(
         url=dagster_cloud_url,
         token="token",
     ) as instance:
-        assert not instance.includes_branch_deployments  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.includes_branch_deployments
         assert (
-            instance.user_code_launcher.branch_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher.branch_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS
         )
 
     with gen_agent_instance(
@@ -369,8 +369,8 @@ def test_instance_branch_deployments(dagster_cloud_url):
             }
         },
     ) as instance:
-        assert not instance.includes_branch_deployments  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.branch_deployment_ttl_seconds == 12345  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.includes_branch_deployments
+        assert instance.user_code_launcher.branch_deployment_ttl_seconds == 12345
 
 
 def test_instance_server_ttl(dagster_cloud_url):
@@ -378,8 +378,8 @@ def test_instance_server_ttl(dagster_cloud_url):
         url=dagster_cloud_url,
         token="token",
     ) as instance:
-        assert not instance.user_code_launcher.server_ttl_enabled_for_full_deployments  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.full_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.user_code_launcher.server_ttl_enabled_for_full_deployments
+        assert instance.user_code_launcher.full_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS
 
     with gen_agent_instance(
         url=dagster_cloud_url,
@@ -392,8 +392,8 @@ def test_instance_server_ttl(dagster_cloud_url):
             }
         },
     ) as instance:
-        assert instance.user_code_launcher.server_ttl_enabled_for_full_deployments  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.full_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.server_ttl_enabled_for_full_deployments
+        assert instance.user_code_launcher.full_deployment_ttl_seconds == DEFAULT_SERVER_TTL_SECONDS
 
     with gen_agent_instance(
         url=dagster_cloud_url,
@@ -407,23 +407,23 @@ def test_instance_server_ttl(dagster_cloud_url):
             }
         },
     ) as instance:
-        assert not instance.user_code_launcher.server_ttl_enabled_for_full_deployments  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.full_deployment_ttl_seconds == 12345  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.user_code_launcher.server_ttl_enabled_for_full_deployments
+        assert instance.user_code_launcher.full_deployment_ttl_seconds == 12345
 
 
 def test_instance_deployment_names(dagster_cloud_url):
     with gen_agent_instance(url=dagster_cloud_url, token="token", deployment="sandbox") as instance:
-        assert instance.deployment_names == ["sandbox"]  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.deployment_name == "sandbox"  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.deployment_names == ["sandbox"]
+        assert instance.deployment_name == "sandbox"
 
     with gen_agent_instance(
         url=dagster_cloud_url,
         token="token",
         dagster_cloud_api_config={"deployments": ["sandbox", "prod"]},
     ) as instance:
-        assert instance.deployment_names == ["sandbox", "prod"]  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.deployment_names == ["sandbox", "prod"]
         with pytest.raises(Exception):
-            instance.deployment_name  # noqa: B018  # pyright: ignore[reportAttributeAccessIssue]
+            instance.deployment_name  # noqa: B018
 
     with pytest.raises(Exception, match="Cannot set both deployment and deployments"):
         with gen_agent_instance(
@@ -447,7 +447,7 @@ def test_instance_proxies(dagster_cloud_url):
         deployment="sandbox",
         dagster_cloud_api_config={"proxies": proxies},
     ) as instance:
-        assert instance.graphql_client._proxies == proxies  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.graphql_client._proxies == proxies  # noqa: SLF001
 
 
 def test_instance_socket_options(dagster_cloud_url):
@@ -457,18 +457,18 @@ def test_instance_socket_options(dagster_cloud_url):
         deployment="sandbox",
     ) as instance:
         for session in [
-            instance.client_managed_retries_requests_session,  # pyright: ignore[reportAttributeAccessIssue]
-            instance.requests_managed_retries_session,  # pyright: ignore[reportAttributeAccessIssue]
+            instance.client_managed_retries_requests_session,
+            instance.requests_managed_retries_session,
         ]:
             adapter = session.get_adapter("https://")
             assert "socket_options" not in adapter.poolmanager.connection_pool_kw
         assert (
-            instance.requests_managed_retries_session.get_adapter("https://").max_retries.total  # pyright: ignore[reportAttributeAccessIssue]
+            instance.requests_managed_retries_session.get_adapter("https://").max_retries.total
             == DEFAULT_RETRIES
         )
 
         assert (
-            instance.client_managed_retries_requests_session.get_adapter(  # pyright: ignore[reportAttributeAccessIssue]
+            instance.client_managed_retries_requests_session.get_adapter(
                 "https://"
             ).max_retries.total
             == 0
@@ -480,19 +480,19 @@ def test_instance_socket_options(dagster_cloud_url):
         dagster_cloud_api_config={"socket_options": []},
     ) as instance:
         for session in [
-            instance.client_managed_retries_requests_session,  # pyright: ignore[reportAttributeAccessIssue]
-            instance.requests_managed_retries_session,  # pyright: ignore[reportAttributeAccessIssue]
+            instance.client_managed_retries_requests_session,
+            instance.requests_managed_retries_session,
         ]:
             adapter = session.get_adapter("https://")
             assert adapter.poolmanager.connection_pool_kw["socket_options"] == []
 
         assert (
-            instance.requests_managed_retries_session.get_adapter("https://").max_retries.total  # pyright: ignore[reportAttributeAccessIssue]
+            instance.requests_managed_retries_session.get_adapter("https://").max_retries.total
             == DEFAULT_RETRIES
         )
 
         assert (
-            instance.client_managed_retries_requests_session.get_adapter(  # pyright: ignore[reportAttributeAccessIssue]
+            instance.client_managed_retries_requests_session.get_adapter(
                 "https://"
             ).max_retries.total
             == 0
@@ -510,8 +510,8 @@ def test_instance_socket_options(dagster_cloud_url):
         dagster_cloud_api_config={"socket_options": socket_options},
     ) as instance:
         for session in [
-            instance.client_managed_retries_requests_session,  # pyright: ignore[reportAttributeAccessIssue]
-            instance.requests_managed_retries_session,  # pyright: ignore[reportAttributeAccessIssue]
+            instance.client_managed_retries_requests_session,
+            instance.requests_managed_retries_session,
         ]:
             adapter = session.get_adapter("https://")
             assert adapter.poolmanager.connection_pool_kw["socket_options"] == [
@@ -521,12 +521,12 @@ def test_instance_socket_options(dagster_cloud_url):
             ]
 
         assert (
-            instance.requests_managed_retries_session.get_adapter("https://").max_retries.total  # pyright: ignore[reportAttributeAccessIssue]
+            instance.requests_managed_retries_session.get_adapter("https://").max_retries.total
             == DEFAULT_RETRIES
         )
 
         assert (
-            instance.client_managed_retries_requests_session.get_adapter(  # pyright: ignore[reportAttributeAccessIssue]
+            instance.client_managed_retries_requests_session.get_adapter(
                 "https://"
             ).max_retries.total
             == 0
@@ -539,14 +539,14 @@ def test_instance_upload_snapshots_on_startup(dagster_cloud_url):
         token="token",
         deployment="sandbox",
     ) as instance:
-        assert instance.user_code_launcher.upload_outdated_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.upload_outdated_snapshots_on_startup
 
     with gen_agent_instance(
         url=dagster_cloud_url,
         token="token",
         user_code_launcher_config={"upload_snapshots_on_startup": False},
     ) as instance:
-        assert not instance.user_code_launcher.upload_outdated_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.user_code_launcher.upload_outdated_snapshots_on_startup
 
 
 def test_instance_backcompat(dagster_cloud_url):
@@ -569,34 +569,34 @@ def test_instance_backcompat(dagster_cloud_url):
                 },
             },
         ) as instance:
-            assert instance.user_code_launcher.upload_outdated_snapshots_on_startup  # pyright: ignore[reportAttributeAccessIssue]
-            assert not instance.agent_queues_config.include_default_queue  # pyright: ignore[reportAttributeAccessIssue]
+            assert instance.user_code_launcher.upload_outdated_snapshots_on_startup
+            assert not instance.agent_queues_config.include_default_queue
 
             assert (
                 "agent_queues"
-                in instance.ref_for_deployment("prod").custom_instance_class_data.config_dict  # pyright: ignore[reportAttributeAccessIssue]
+                in instance.ref_for_deployment("prod").custom_instance_class_data.config_dict
             )
 
-            assert instance.user_code_launcher.agent_metrics_enabled  # pyright: ignore[reportAttributeAccessIssue]
+            assert instance.user_code_launcher.agent_metrics_enabled
 
             user_code_instance_ref = get_instance_ref_for_user_code(
-                instance.ref_for_deployment("prod")  # pyright: ignore[reportAttributeAccessIssue]
+                instance.ref_for_deployment("prod")
             )
 
             assert (
-                "agent_queues" not in user_code_instance_ref.custom_instance_class_data.config_dict  # pyright: ignore[reportOptionalMemberAccess]
+                "agent_queues" not in user_code_instance_ref.custom_instance_class_data.config_dict  # ty: ignore[unresolved-attribute]
             )
             assert (
                 "agent_metrics"
-                not in user_code_instance_ref.custom_instance_class_data.config_dict[  # pyright: ignore[reportOptionalMemberAccess]
+                not in user_code_instance_ref.custom_instance_class_data.config_dict[  # ty: ignore[unresolved-attribute]
                     "user_code_launcher"
                 ]["config"]
             )
 
             user_code_instance = DagsterInstance.from_ref(user_code_instance_ref)
-            assert not user_code_instance.user_code_launcher.agent_metrics_enabled  # pyright: ignore[reportAttributeAccessIssue]
+            assert not user_code_instance.user_code_launcher.agent_metrics_enabled  # ty: ignore[unresolved-attribute]
 
             assert (
-                user_code_instance.dagster_cloud_url  # pyright: ignore[reportAttributeAccessIssue]
-                == DagsterInstance.from_ref(instance.ref_for_deployment("prod")).dagster_cloud_url  # pyright: ignore[reportAttributeAccessIssue]
+                user_code_instance.dagster_cloud_url  # ty: ignore[unresolved-attribute]
+                == DagsterInstance.from_ref(instance.ref_for_deployment("prod")).dagster_cloud_url  # ty: ignore[unresolved-attribute]
             )

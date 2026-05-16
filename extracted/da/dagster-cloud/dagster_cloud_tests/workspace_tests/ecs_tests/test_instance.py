@@ -84,41 +84,41 @@ def ecs_instance(monkeypatch, user_code_launcher_overrides=None, overrides=None)
 @moto.mock_aws()
 def test_default_ecs_instance(monkeypatch):
     with ecs_instance(monkeypatch) as instance:
-        assert isinstance(instance.user_code_launcher, EcsUserCodeLauncher)  # pyright: ignore[reportAttributeAccessIssue]
-        assert isinstance(instance.user_code_launcher.inst_data, ConfigurableClassData)  # pyright: ignore[reportAttributeAccessIssue]
-        assert "fake-subnet-1" in instance.user_code_launcher.subnets  # pyright: ignore[reportAttributeAccessIssue]
-        assert "fake-subnet-2" in instance.user_code_launcher.subnets  # pyright: ignore[reportAttributeAccessIssue]
-        assert len(instance.user_code_launcher.subnets) == 2  # pyright: ignore[reportAttributeAccessIssue]
-        assert not instance.user_code_launcher.task_role_arn  # pyright: ignore[reportAttributeAccessIssue]
-        assert not instance.user_code_launcher.security_group_ids  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.secrets == []  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.secrets_tag is None  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.env_vars == []  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.client.timeout == DEFAULT_ECS_TIMEOUT  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.client.grace_period == DEFAULT_ECS_GRACE_PERIOD  # pyright: ignore[reportAttributeAccessIssue]
+        assert isinstance(instance.user_code_launcher, EcsUserCodeLauncher)
+        assert isinstance(instance.user_code_launcher.inst_data, ConfigurableClassData)
+        assert "fake-subnet-1" in instance.user_code_launcher.subnets
+        assert "fake-subnet-2" in instance.user_code_launcher.subnets
+        assert len(instance.user_code_launcher.subnets) == 2
+        assert not instance.user_code_launcher.task_role_arn
+        assert not instance.user_code_launcher.security_group_ids
+        assert instance.user_code_launcher.secrets == []
+        assert instance.user_code_launcher.secrets_tag is None
+        assert instance.user_code_launcher.env_vars == []
+        assert instance.user_code_launcher.client.timeout == DEFAULT_ECS_TIMEOUT
+        assert instance.user_code_launcher.client.grace_period == DEFAULT_ECS_GRACE_PERIOD
 
-        assert not instance.user_code_launcher._get_enable_ecs_exec()  # noqa  # pyright: ignore[reportAttributeAccessIssue]
+        assert not instance.user_code_launcher._get_enable_ecs_exec()  # noqa
 
 
 @moto.mock_aws()
 def test_timeouts_override(monkeypatch):
     with ecs_instance(monkeypatch, {"ecs_timeout": 100, "ecs_grace_period": 50}) as instance:
-        assert instance.user_code_launcher.client.timeout == 100  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.client.grace_period == 50  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.client.timeout == 100
+        assert instance.user_code_launcher.client.grace_period == 50
 
 
 @moto.mock_aws()
 def test_ecs_exec_override(monkeypatch):
     with ecs_instance(monkeypatch, {"enable_ecs_exec": True}) as instance:
-        assert instance.user_code_launcher._get_enable_ecs_exec()  # noqa  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._get_enable_ecs_exec()  # noqa
 
 
 @moto.mock_aws()
 def test_env_vars_override(monkeypatch):
     env_vars = ["FOO_ENV_VAR", "BAR_ENV_VAR=BAR_VALUE"]
     with ecs_instance(monkeypatch, {"env_vars": env_vars}) as instance:
-        assert instance.user_code_launcher.env_vars == env_vars  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.run_launcher.env_vars == env_vars  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.env_vars == env_vars
+        assert instance.run_launcher.env_vars == env_vars
 
 
 @moto.mock_aws()
@@ -134,18 +134,18 @@ def test_secrets_override(monkeypatch):
         },
     ]
     with ecs_instance(monkeypatch, {"secrets": secrets, "secrets_tag": "my_tag"}) as instance:
-        assert instance.user_code_launcher.secrets == secrets  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.secrets_tag == "my_tag"  # pyright: ignore[reportAttributeAccessIssue]
-        assert isinstance(instance.user_code_launcher.inst_data, ConfigurableClassData)  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.secrets == secrets
+        assert instance.user_code_launcher.secrets_tag == "my_tag"
+        assert isinstance(instance.user_code_launcher.inst_data, ConfigurableClassData)
 
-        assert instance.run_launcher.secrets == secrets  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.run_launcher.secrets_tags == ["my_tag"]  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.run_launcher.secrets == secrets
+        assert instance.run_launcher.secrets_tags == ["my_tag"]
 
     with ecs_instance(monkeypatch, {"task_role_arn": "fake-role"}) as instance:
-        assert instance.user_code_launcher.task_role_arn == "fake-role"  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.task_role_arn == "fake-role"
 
     with ecs_instance(monkeypatch, {"security_group_ids": ["fake-sg"]}) as instance:
-        assert instance.user_code_launcher.security_group_ids == ["fake-sg"]  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.security_group_ids == ["fake-sg"]
 
 
 @moto.mock_aws()
@@ -156,13 +156,10 @@ def test_repository_credentials_override(monkeypatch):
     with ecs_instance(
         monkeypatch, {"repository_credentials": repository_credentials_arn}
     ) as instance:
-        assert (
-            instance.user_code_launcher.repository_credentials  # pyright: ignore[reportAttributeAccessIssue]
-            == repository_credentials_arn
-        )
-        assert instance.run_launcher.repository_credentials == repository_credentials_arn  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.repository_credentials == repository_credentials_arn
+        assert instance.run_launcher.repository_credentials == repository_credentials_arn
 
-        run_launcher_kwargs = instance.user_code_launcher._run_launcher_kwargs()  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        run_launcher_kwargs = instance.user_code_launcher._run_launcher_kwargs()  # noqa: SLF001
         assert (
             run_launcher_kwargs["task_definition"]["repository_credentials"]
             == repository_credentials_arn
@@ -172,10 +169,10 @@ def test_repository_credentials_override(monkeypatch):
 @moto.mock_aws()
 def test_empty_secrets(monkeypatch):
     with ecs_instance(monkeypatch, {"secrets": [], "secrets_tag": None}) as instance:
-        assert instance.user_code_launcher.secrets == []  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher.secrets_tag is None  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.run_launcher.secrets == []  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.run_launcher.secrets_tags == []  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher.secrets == []
+        assert instance.user_code_launcher.secrets_tag is None
+        assert instance.run_launcher.secrets == []
+        assert instance.run_launcher.secrets_tags == []
 
 
 @moto.mock_aws()
@@ -184,9 +181,9 @@ def test_timeout_debug_info(monkeypatch):
         fake_client = mock.MagicMock()
         fake_client.get_task_logs = mock.MagicMock(return_value=["Hi", "these", "are", "logs"])
 
-        instance.user_code_launcher.client = fake_client  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher.client = fake_client
 
-        timeout_debug_info = instance.user_code_launcher._get_update_failure_debug_info(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        timeout_debug_info = instance.user_code_launcher._get_update_failure_debug_info(  # noqa: SLF001
             "my_task_arn"
         )
 
@@ -264,7 +261,7 @@ def test_transient_startup_failure_health_check(monkeypatch):
             )
 
             run_launcher = instance.run_launcher
-            run_launcher.ecs = fake_ecs  # pyright: ignore[reportAttributeAccessIssue]
+            run_launcher.ecs = fake_ecs
 
             starting_run = create_run_for_test(
                 instance,
@@ -318,7 +315,7 @@ def test_cannot_set_system_tags(monkeypatch):
             ],
         },
     ) as instance:
-        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001
             return_value=None
         )  # fmt: skip
 
@@ -328,7 +325,7 @@ def test_cannot_set_system_tags(monkeypatch):
         )
 
         with pytest.raises(Exception, match="Cannot override system ECS tags"):
-            instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001
                 deployment_name="sandbox",
                 location_name="test_location",
                 desired_entry=UserCodeLauncherEntry(metadata_with_container_context, time.time()),
@@ -351,9 +348,9 @@ def test_repository_credentials_from_launcher_spinup(monkeypatch):
             )
         )
 
-        instance.user_code_launcher.client = fake_client  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher.client = fake_client
 
-        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001
             return_value=None
         )  # fmt: skip
 
@@ -362,14 +359,14 @@ def test_repository_credentials_from_launcher_spinup(monkeypatch):
             python_file="repo.py",
         )
 
-        instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001
             deployment_name="sandbox",
             location_name="test_location",
             desired_entry=UserCodeLauncherEntry(metadata, time.time()),
         )
 
-        instance.user_code_launcher.client.create_service.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]
-        _args, kwargs = instance.user_code_launcher.client.create_service.call_args  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher.client.create_service.assert_called_once()
+        _args, kwargs = instance.user_code_launcher.client.create_service.call_args
         assert kwargs["repository_credentials"] == repository_credentials_arn
 
     # container_context value overrides launcher-level value
@@ -387,9 +384,9 @@ def test_repository_credentials_from_launcher_spinup(monkeypatch):
             )
         )
 
-        instance.user_code_launcher.client = fake_client  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher.client = fake_client
 
-        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001
             return_value=None
         )  # fmt: skip
 
@@ -401,13 +398,13 @@ def test_repository_credentials_from_launcher_spinup(monkeypatch):
             },
         )
 
-        instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001
             deployment_name="sandbox",
             location_name="test_location",
             desired_entry=UserCodeLauncherEntry(metadata, time.time()),
         )
 
-        _args, kwargs = instance.user_code_launcher.client.create_service.call_args  # pyright: ignore[reportAttributeAccessIssue]
+        _args, kwargs = instance.user_code_launcher.client.create_service.call_args
         assert kwargs["repository_credentials"] == container_context_creds
 
 
@@ -490,9 +487,9 @@ def test_config_from_container_context(monkeypatch, secrets_manager):
             )
         )
 
-        instance.user_code_launcher.client = fake_client  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher.client = fake_client
 
-        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher._wait_for_dagster_server_process = mock.MagicMock(  # noqa: SLF001
             return_value=None
         )  # fmt: skip
 
@@ -565,7 +562,7 @@ def test_config_from_container_context(monkeypatch, secrets_manager):
         server_timestamp = time.time()
 
         with environ({"FOO_ENV_VAR": "FOO_VALUE"}):
-            instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher._start_new_server_spinup(  # noqa: SLF001
                 deployment_name="sandbox",
                 location_name="test_location",
                 desired_entry=UserCodeLauncherEntry(
@@ -573,8 +570,8 @@ def test_config_from_container_context(monkeypatch, secrets_manager):
                 ),
             )
 
-        instance.user_code_launcher.client.create_service.assert_called_once()  # pyright: ignore[reportAttributeAccessIssue]
-        _args, kwargs = instance.user_code_launcher.client.create_service.call_args  # pyright: ignore[reportAttributeAccessIssue]
+        instance.user_code_launcher.client.create_service.assert_called_once()
+        _args, kwargs = instance.user_code_launcher.client.create_service.call_args
 
         expected_kwargs = {
             "image": "foo_image",
@@ -586,7 +583,7 @@ def test_config_from_container_context(monkeypatch, secrets_manager):
                     metadata_with_container_context,
                     4000,
                     location_name="test_location",
-                    instance_ref=instance.ref_for_deployment(  # pyright: ignore[reportAttributeAccessIssue]
+                    instance_ref=instance.ref_for_deployment(
                         "sandbox",
                     ),
                 ),
@@ -598,7 +595,7 @@ def test_config_from_container_context(monkeypatch, secrets_manager):
                     "sandbox", "test_location"
                 ),
                 "dagster/grpc_server": "1",
-                "dagster/agent_id": instance.instance_uuid,  # pyright: ignore[reportAttributeAccessIssue]
+                "dagster/agent_id": instance.instance_uuid,
                 "FOO": None,
                 "BAZ": "QUUX",
                 "dagster/server_timestamp": str(server_timestamp),
@@ -671,7 +668,7 @@ def test_config_from_container_context(monkeypatch, secrets_manager):
             f"Differing keys: {differing_keys} between {kwargs} and {expected_kwargs}"
         )
 
-        run_launcher_kwargs = instance.user_code_launcher._run_launcher_kwargs()  # noqa  # pyright: ignore[reportAttributeAccessIssue]
+        run_launcher_kwargs = instance.user_code_launcher._run_launcher_kwargs()  # noqa
 
         process_result = process_config(
             resolve_to_config_type(EcsRunLauncher.config_type()),

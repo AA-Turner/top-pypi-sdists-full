@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 import responses
 from django.conf import settings
+from django.contrib.auth import SESSION_KEY
 from django.core import mail
 from django.test import Client, TestCase
 from django.test.utils import modify_settings, override_settings
@@ -211,7 +212,13 @@ class BaseRegistrationTest(TestCase, RegistrationTestMixin):
 
 
 class RegistrationTest(BaseRegistrationTest):
-    @override_settings(REGISTRATION_CAPTCHA=True, ENABLE_HTTPS=True)
+    @override_settings(
+        REGISTRATION_CAPTCHA=True,
+        ENABLE_HTTPS=True,
+        ALTCHA_COST=1,
+        ALTCHA_MEMORY_COST=8,
+        ALTCHA_PARALLELISM=1,
+    )
     def test_register_captcha_fail(self) -> None:
         response = self.do_register()
         self.assertContains(response, "That was not correct, please try again.")
@@ -226,7 +233,13 @@ class RegistrationTest(BaseRegistrationTest):
         form = response.context["form"]
         data["captcha"] = form.mathcaptcha.result
 
-    @override_settings(REGISTRATION_CAPTCHA=True, ENABLE_HTTPS=True)
+    @override_settings(
+        REGISTRATION_CAPTCHA=True,
+        ENABLE_HTTPS=True,
+        ALTCHA_COST=1,
+        ALTCHA_MEMORY_COST=8,
+        ALTCHA_PARALLELISM=1,
+    )
     def test_register_partial_altcha(self) -> None:
         """Test registration with captcha enabled."""
         response = self.client.get(reverse("register"))
@@ -235,7 +248,13 @@ class RegistrationTest(BaseRegistrationTest):
         response = self.do_register(data)
         self.assertContains(response, "That was not correct, please try again.")
 
-    @override_settings(REGISTRATION_CAPTCHA=True, ENABLE_HTTPS=True)
+    @override_settings(
+        REGISTRATION_CAPTCHA=True,
+        ENABLE_HTTPS=True,
+        ALTCHA_COST=1,
+        ALTCHA_MEMORY_COST=8,
+        ALTCHA_PARALLELISM=1,
+    )
     def test_register_partial_match(self) -> None:
         """Test registration with captcha enabled."""
         response = self.client.get(reverse("register"))
@@ -253,7 +272,13 @@ class RegistrationTest(BaseRegistrationTest):
         response = self.do_register(data)
         self.assertContains(response, REGISTRATION_SUCCESS)
 
-    @override_settings(REGISTRATION_CAPTCHA=True, ENABLE_HTTPS=True)
+    @override_settings(
+        REGISTRATION_CAPTCHA=True,
+        ENABLE_HTTPS=True,
+        ALTCHA_COST=1,
+        ALTCHA_MEMORY_COST=8,
+        ALTCHA_PARALLELISM=1,
+    )
     def test_register_captcha(self) -> None:
         """Test registration with captcha enabled."""
         response = self.client.get(reverse("register"))
@@ -568,7 +593,13 @@ class RegistrationTest(BaseRegistrationTest):
         self.assertContains(response, "Enter a valid e-mail address.")
         self.assertEqual(len(mail.outbox), 0)
 
-    @override_settings(REGISTRATION_CAPTCHA=True, ENABLE_HTTPS=True)
+    @override_settings(
+        REGISTRATION_CAPTCHA=True,
+        ENABLE_HTTPS=True,
+        ALTCHA_COST=1,
+        ALTCHA_MEMORY_COST=8,
+        ALTCHA_PARALLELISM=1,
+    )
     def test_reset_captcha(self) -> None:
         """Test for password reset of invalid captcha."""
         response = self.client.get(reverse("password_reset"))
@@ -789,6 +820,43 @@ class RegistrationTest(BaseRegistrationTest):
         )
         notification = mail.outbox.pop()
         self.assert_notify_mailbox(notification)
+
+    def test_remove_mail_invalidates_other_sessions_without_password(self) -> None:
+        """Removing a social identity rotates sessions for social-only accounts."""
+        user = User.objects.create_user("username", "primary@example.org")
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+        first_social = user.social_auth.create(provider="github", uid="1")
+        second_social = user.social_auth.create(provider="email", uid="second")
+        VerifiedEmail.objects.create(social=first_social, email="primary@example.org")
+        VerifiedEmail.objects.create(social=second_social, email="second@example.org")
+
+        self.client.force_login(user)
+        session = self.client.session
+        session.pop("show_set_password", None)
+        session.save()
+        other_client = Client()
+        other_client.force_login(user)
+        session = other_client.session
+        session.pop("show_set_password", None)
+        session.save()
+
+        response = self.client.post(
+            reverse(
+                "social:disconnect_individual",
+                kwargs={
+                    "backend": first_social.provider,
+                    "association_id": first_social.pk,
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(user.social_auth.filter(pk=first_social.pk).exists())
+        self.assertIn(SESSION_KEY, self.client.session)
+
+        other_client.get(reverse("profile"))
+        self.assertNotIn(SESSION_KEY, other_client.session)
 
     @override_settings(REGISTRATION_CAPTCHA=False)
     def test_remove_mail_verified(self) -> None:
@@ -1064,7 +1132,7 @@ class RegistrationTest(BaseRegistrationTest):
         # Try to add GitHub auth with other e-mail
         self.client.login(username="second", password="x")
         self.test_github(fail=True)
-        # User should get an notification
+        # User should get a notification
         self.assertEqual(len(mail.outbox), 1)
         self.assert_notify_mailbox(mail.outbox[0])
         self.assertEqual(mail.outbox[0].to, ["noreply-weblate@example.org"])

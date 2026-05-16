@@ -13,6 +13,7 @@ from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from celery import current_task
 from celery.schedules import crontab
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
@@ -20,7 +21,6 @@ from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db import IntegrityError, transaction
 from django.db.models import Exists, F, OuterRef
-from django.http import Http404
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.utils.translation import gettext, override
@@ -53,7 +53,6 @@ from weblate.utils.errors import report_error
 from weblate.utils.files import remove_tree
 from weblate.utils.lock import WeblateLockTimeoutError
 from weblate.utils.stats import ProjectLanguage, prefetch_stats
-from weblate.utils.views import parse_path
 from weblate.vcs.base import RepositoryError
 
 if TYPE_CHECKING:
@@ -364,6 +363,39 @@ def cleanup_repos() -> None:
             report_error("Repository maintenance failed", project=component.project)
 
 
+VCS_METADATA_DIRS = {".git", ".hg"}
+
+
+def _is_project_or_category_path(parts: tuple[str, ...]) -> bool:
+    if len(parts) == 1:
+        return Project.objects.filter(slug__iexact=parts[0]).exists()
+
+    if len(parts) < 2:
+        return False
+
+    project, *categories = parts
+    category = categories[-1]
+    kwargs: dict[str, str | None] = {}
+    prefix = ""
+    for parent in reversed(categories[:-1]):
+        kwargs[f"{prefix}category__slug"] = parent
+        prefix = f"category__{prefix}"
+    if not kwargs:
+        kwargs["category"] = None
+
+    return Category.objects.filter(
+        slug__iexact=category, project__slug__iexact=project, **kwargs
+    ).exists()
+
+
+def _get_component_by_vcs_path(parts: tuple[str, ...]) -> Component | None:
+    if len(parts) < 2:
+        return None
+    with suppress(Component.DoesNotExist):
+        return Component.objects.get_by_path("/".join(parts))
+    return None
+
+
 @app.task(trail=False)
 def cleanup_stale_repos(root: Path | None = None) -> bool:
     vcs_root = Path(data_dir("vcs"))
@@ -371,6 +403,9 @@ def cleanup_stale_repos(root: Path | None = None) -> bool:
         root = vcs_root
 
     yesterday = time.time() - 86400
+    root_is_known_container = root == vcs_root or _is_project_or_category_path(
+        root.relative_to(vcs_root).parts
+    )
 
     empty_dir = True
     for path in root.glob("*"):
@@ -378,10 +413,22 @@ def cleanup_stale_repos(root: Path | None = None) -> bool:
             empty_dir = False
             # Possibly a lock file
             continue
+        if root_is_known_container and path.name in VCS_METADATA_DIRS:
+            empty_dir = False
+            continue
+
         git_dir = path / ".git"
         mercurial_dir = path / ".hg"
+        relative_parts = path.relative_to(vcs_root).parts
+
+        if _is_project_or_category_path(relative_parts):
+            # Project/category dir, regardless of stale VCS metadata.
+            if not cleanup_stale_repos(path):
+                empty_dir = False
+            continue
+
         if not git_dir.exists() and not mercurial_dir.exists():
-            # Category dir
+            # Possible project/category dir not present in the database.
             if not cleanup_stale_repos(path):
                 empty_dir = False
             continue
@@ -391,48 +438,23 @@ def cleanup_stale_repos(root: Path | None = None) -> bool:
             empty_dir = False
             continue
 
-        try:
-            # Find matching components
-            component: Component = parse_path(
-                None, path.relative_to(vcs_root).parts, (Component,)
-            )
-        except Http404:
-            # Remove stale dir
+        component = _get_component_by_vcs_path(relative_parts)
+        if component is None:
             LOGGER.info("removing stale VCS path (not found): %s", path)
             remove_tree(path)
-        else:
-            if component.is_repo_link:
-                LOGGER.info("removing stale VCS path (uses link): %s", root)
-                remove_tree(path)
-            else:
-                empty_dir = False
-
-    if empty_dir and root != vcs_root:
-        try:
-            # Find matching components
-            parse_path(None, root.relative_to(vcs_root).parts, (Category, Project))
-        except Http404:
-            LOGGER.info("removing stale VCS path (not found): %s", root)
-            root.rmdir()
+        elif component.is_repo_link:
+            LOGGER.info("removing stale VCS path (uses link): %s", root)
+            remove_tree(path)
         else:
             empty_dir = False
+
+    if empty_dir and root != vcs_root:
+        if root_is_known_container:
+            empty_dir = False
+        else:
+            LOGGER.info("removing stale VCS path (not found): %s", root)
+            root.rmdir()
     return empty_dir
-
-
-@app.task(trail=False)
-def cleanup_old_suggestions() -> None:
-    if not settings.SUGGESTION_CLEANUP_DAYS:
-        return
-    cutoff = timezone.now() - timedelta(days=settings.SUGGESTION_CLEANUP_DAYS)
-    Suggestion.objects.filter(timestamp__lt=cutoff).delete()
-
-
-@app.task(trail=False)
-def cleanup_old_comments() -> None:
-    if not settings.COMMENT_CLEANUP_DAYS:
-        return
-    cutoff = timezone.now() - timedelta(days=settings.COMMENT_CLEANUP_DAYS)
-    Comment.objects.filter(timestamp__lt=cutoff).delete()
 
 
 @app.task(trail=False)
@@ -958,6 +980,56 @@ def create_project_backup(pk: int, uid: int | None = None) -> None:
     backup.backup_project(project, user)
 
 
+def report_task_progress(progress: int) -> None:
+    if current_task and current_task.request.id:
+        current_task.update_state(state="PROGRESS", meta={"progress": progress})
+
+
+def report_restore_component_progress(completed: int, total: int) -> None:
+    if total:
+        report_task_progress(30 + (60 * completed // total))
+
+
+@app.task(trail=False)
+def import_project_backup(
+    project_name: str,
+    project_slug: str,
+    user_id: int,
+    filename: str,
+    billing_id: int | None = None,
+) -> dict[str, str]:
+    from weblate.trans.backups import ProjectBackup  # noqa: PLC0415
+
+    try:
+        report_task_progress(5)
+        user = User.objects.get(pk=user_id)
+        billing = None
+        if billing_id is not None:
+            from weblate.billing.models import Billing  # noqa: PLC0415
+
+            billing = Billing.objects.get(pk=billing_id)
+        restore = ProjectBackup(filename)
+        report_task_progress(10)
+        restore.validate()
+        report_task_progress(30)
+        project = restore.restore(
+            project_name=project_name,
+            project_slug=project_slug,
+            user=user,
+            billing=billing,
+            progress_callback=report_restore_component_progress,
+        )
+        report_task_progress(95)
+    finally:
+        with suppress(OSError):
+            os.unlink(filename)
+
+    return {
+        "message": gettext("Project backup import completed."),
+        "url": project.get_absolute_url(),
+    }
+
+
 @app.task(trail=False)
 def remove_project_backup_download(name: str) -> None:
     if staticfiles_storage.exists(name):
@@ -994,16 +1066,6 @@ def setup_periodic_tasks(sender, **kwargs) -> None:
     )
     sender.add_periodic_task(
         crontab(hour=0, minute=40), cleanup_stale_repos.s(), name="cleanup-stale-repos"
-    )
-    sender.add_periodic_task(
-        crontab(hour=0, minute=45),
-        cleanup_old_suggestions.s(),
-        name="cleanup-old-suggestions",
-    )
-    sender.add_periodic_task(
-        crontab(hour=0, minute=50),
-        cleanup_old_comments.s(),
-        name="cleanup-old-comments",
     )
     sender.add_periodic_task(
         crontab(hour=2, minute=30),

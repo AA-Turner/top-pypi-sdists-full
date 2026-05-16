@@ -143,6 +143,45 @@ class ContinuousDiDResults:
     # Survey design metadata (SurveyMetadata instance from diff_diff.survey)
     survey_metadata: Optional[Any] = field(default=None)
 
+    # --- Inference-field aliases (balance/external-adapter compatibility) ---
+    # ATT-side is the headline contract; ACRT remains accessible via overall_acrt_*.
+    @property
+    def att(self) -> float:
+        return self.overall_att
+
+    @property
+    def se(self) -> float:
+        return self.overall_att_se
+
+    @property
+    def conf_int(self) -> Tuple[float, float]:
+        return self.overall_att_conf_int
+
+    @property
+    def p_value(self) -> float:
+        return self.overall_att_p_value
+
+    @property
+    def t_stat(self) -> float:
+        return self.overall_att_t_stat
+
+    # `overall_*` aliases for naming consistency with the rest of the staggered family.
+    @property
+    def overall_se(self) -> float:
+        return self.overall_att_se
+
+    @property
+    def overall_conf_int(self) -> Tuple[float, float]:
+        return self.overall_att_conf_int
+
+    @property
+    def overall_p_value(self) -> float:
+        return self.overall_att_p_value
+
+    @property
+    def overall_t_stat(self) -> float:
+        return self.overall_att_t_stat
+
     def __repr__(self) -> str:
         sig_att = _get_significance_stars(self.overall_att_p_value)
         sig_acrt = _get_significance_stars(self.overall_acrt_p_value)
@@ -156,7 +195,7 @@ class ContinuousDiDResults:
 
     @property
     def coef_var(self) -> float:
-        """Coefficient of variation: SE / |overall ATT|. NaN when ATT is 0 or SE non-finite."""
+        """Coefficient of variation: SE / abs(overall ATT). NaN when ATT is 0 or SE non-finite."""
         if not (np.isfinite(self.overall_att_se) and self.overall_att_se >= 0):
             return np.nan
         if not np.isfinite(self.overall_att) or self.overall_att == 0:
@@ -237,7 +276,7 @@ class ContinuousDiDResults:
 
         cv = self.coef_var
         if np.isfinite(cv):
-            lines.append(f"{'CV (SE/|ATT|):':<25} {cv:>10.4f}")
+            lines.append(f"{'CV (SE/abs(ATT)):':<25} {cv:>10.4f}")
 
         lines.append("")
 

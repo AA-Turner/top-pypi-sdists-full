@@ -5,8 +5,8 @@ import http.client
 import json
 import threading
 
-from skylos.agent_center import rebuild_agent_state_from_existing, save_agent_state
-from skylos.agent_service import (
+from skylos.agents.center import rebuild_agent_state_from_existing, save_agent_state
+from skylos.agents.service import (
     AgentServiceController,
     _default_allowed_origins,
     create_agent_service,
@@ -571,10 +571,7 @@ def test_agent_service_cors_custom_allowed_origins_override_defaults(tmp_path):
         )
         assert status == 200
         assert json.loads(raw)["ok"] is True
-        assert (
-            headers["access-control-allow-origin"]
-            == "https://dashboard.example.com"
-        )
+        assert headers["access-control-allow-origin"] == "https://dashboard.example.com"
 
         status, headers, _raw = request_http(
             server,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: census
-Version: 0.8.26
+Version: 0.8.27
 Summary: A wrapper for the US Census Bureau's API
 Home-page: http://github.com/datamade/census
 Author: Jeremy Carbaugh

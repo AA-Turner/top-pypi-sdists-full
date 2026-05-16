@@ -2,8 +2,8 @@ import json
 import subprocess
 from pathlib import Path
 
-import skylos.security_benchmark as benchmark
-from skylos.security_benchmark import (
+import skylos.benchmarks.security as benchmark
+from skylos.benchmarks.security import (
     SECURITY_TAXONOMY,
     format_summary,
     load_manifest,
@@ -147,7 +147,9 @@ def test_format_summary_includes_security_metrics():
 
     assert "Security benchmark counts: TP=1 FP=0 FN=0 TN=1" in rendered
     assert "Security benchmark metrics: precision=1.0 recall=1.0 f1=1.0" in rendered
-    assert "sql_injection: cases=1 score=100.0 failures=0 TP=1 FP=0 FN=0 TN=1" in rendered
+    assert (
+        "sql_injection: cases=1 score=100.0 failures=0 TP=1 FP=0 FN=0 TN=1" in rendered
+    )
 
 
 def test_bandit_scanner_maps_rule_ids_to_security_labels(tmp_path, monkeypatch):

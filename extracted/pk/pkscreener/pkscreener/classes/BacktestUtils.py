@@ -678,7 +678,7 @@ def prepare_grouped_xray_impl(
         XRay DataFrame
     """
     import numpy as np
-    from halo import Halo
+    from PKDevTools.classes.PKHalo import PKHalo
     from pkscreener.classes.PKTask import PKTask
     from pkscreener.classes.PKScheduler import PKScheduler
     from pkscreener.classes import PortfolioXRay

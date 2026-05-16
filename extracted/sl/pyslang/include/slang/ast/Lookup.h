@@ -269,8 +269,8 @@ public:
     /// selected child in @a result -- if any errors occur, diagnostics are issued to
     /// the result object and nullptr is returned.
     static void selectChild(const Type& virtualInterface, SourceRange range,
-                            std::span<LookupResult::Selector> selectors, const ASTContext& context,
-                            LookupResult& result);
+                            std::span<const LookupResult::Selector> selectors,
+                            const ASTContext& context, LookupResult& result);
 
     /// Searches for a class with the given @a name within @a context -- if no symbol is
     /// found, or if the found symbol is not a class type, appropriate diagnostics are issued.
@@ -330,6 +330,11 @@ public:
     /// and returns true. Otherwise returns false.
     static bool findAssertionLocalVar(const ASTContext& context, const syntax::NameSyntax& name,
                                       LookupResult& result);
+
+    /// Searches @a scope for a member whose name is similar to @a name (typo correction).
+    /// If a close enough match is found, a NoteDidYouMean note is appended to @a diag and
+    /// the typo-correction count in the compilation is incremented.
+    static void addTypoCorrectionNote(Diagnostic& diag, std::string_view name, const Scope& scope);
 
 private:
     Lookup() = default;

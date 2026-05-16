@@ -1,16 +1,14 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from pyverse2d._managers._audio import SoundHandle
-
-from ..._internal import CallbackList, positive
+from ..._internal import CallbackList, positive, expect, expect_callable
 from ...abc import Component, Request
 from ...asset import Sound
-from ...math.easing import EasingFunc, is_easing, linear
+from ...math.easing import EasingFunc, linear
+from ..._managers._audio import SoundHandle
 
-from numbers import Real
+from numbers import Real, Integral
 from dataclasses import dataclass
-from typing import Callable
 
 # ======================================== COMPONENT ========================================
 class SoundEmitter(Component):
@@ -38,19 +36,24 @@ class SoundEmitter(Component):
             outer_radius: Real = 0.0,
             falloff: EasingFunc = linear,
         ):
-        # Attributs publiques
-        self._volume: float = float(volume)
-        self._inner_radius: float = abs(float(inner_radius))
-        self._outer_radius: float = abs(float(outer_radius))
-        self._falloff: EasingFunc = falloff
+        # Transtypage et vérifications
+        volume = float(volume)
+        inner_radius = abs(float(inner_radius))
+        outer_radius = abs(float(outer_radius))
 
         if __debug__:
-            positive(self._volume)
-            if not is_easing(self._falloff): raise ValueError(f"falloff ({self._falloff}) must be an EasingFunc from math module")
+            positive(volume)
+            expect_callable(falloff)
+
+        # Attributs publiques
+        self._volume: float = volume
+        self._inner_radius: float = inner_radius
+        self._outer_radius: float = outer_radius
+        self._falloff: EasingFunc = falloff
 
         # Hooks
-        self._on_start: CallbackList = CallbackList()
-        self._on_end: CallbackList = CallbackList()
+        self._on_start: CallbackList | None = None
+        self._on_end: CallbackList | None = None
 
         # Buffer
         self._to_play: list[AudioRequest] = []
@@ -83,7 +86,7 @@ class SoundEmitter(Component):
     # ======================================== PROPERTIES ========================================
     @property
     def volume(self) -> float:
-        """Volume propre du comosant
+        """Volume propre du composant
 
         Le volume doit être un ``Réel`` positif.
         """
@@ -92,7 +95,8 @@ class SoundEmitter(Component):
     @volume.setter
     def volume(self, value: Real) -> None:
         value = float(value)
-        assert value >= 0.0, f"volume ({value}) must be positive"
+        if __debug__:
+            positive(value)
         self._volume = value
 
     @property
@@ -105,7 +109,8 @@ class SoundEmitter(Component):
     
     @inner_radius.setter
     def inner_radius(self, value: Real) -> None:
-        self._inner_radius = abs(float(value))
+        value = abs(float(value))
+        self._inner_radius = value
 
     @property
     def outer_radius(self) -> float:
@@ -118,7 +123,8 @@ class SoundEmitter(Component):
     
     @outer_radius.setter
     def outer_radius(self, value: Real) -> None:
-        self._outer_radius = abs(float(value))
+        value = abs(float(value))
+        self._outer_radius = value
 
     @property
     def falloff(self) -> EasingFunc:
@@ -130,19 +136,24 @@ class SoundEmitter(Component):
         return self._falloff
     
     @falloff.setter
-    def falloff(self, value: EasingFunc | None) -> None:
-        assert value is None or is_easing(value), f"falloff ({value}) must be an EasingFunc from math module"
-        self._falloff = value or linear
+    def falloff(self, value: EasingFunc) -> None:
+        if __debug__:
+            expect_callable(value)
+        self._falloff = value
 
     # ======================================== HOOKS ========================================
     @property
     def on_start(self) -> CallbackList:
         """Début de lecture d'un son"""
+        if self._on_start is None:
+            self._on_start = CallbackList()
         return self._on_start
     
     @property
     def on_end(self) -> CallbackList:
         """Fin de lecture d'un son"""
+        if self._on_end is None:
+            self._on_end = CallbackList()
         return self._on_end
     
     # ======================================== REGSITRY ========================================
@@ -153,6 +164,8 @@ class SoundEmitter(Component):
             sound: son à enregistrer
             name: nom du son
         """
+        if __debug__:
+            expect(sound, Sound)
         self._registry[name] = sound
 
     def unregister(self, name: str) -> None:
@@ -163,7 +176,7 @@ class SoundEmitter(Component):
         """
         del self._registry[name]
 
-    def get(self, name: str) -> Sound | None:
+    def __getitem__(self, name: str) -> Sound:
         """Renvoie un son pré-enregistrer
 
         Args:
@@ -173,6 +186,14 @@ class SoundEmitter(Component):
             ValueError: si le son n'est pas présent dans le registre
         """
         return self._registry[name]
+
+    def get(self, name: str) -> Sound | None:
+        """Renvoie un son pré-enregistrer
+
+        Args:
+            name: nom du son
+        """
+        return self._registry.get(name)
     
     def has(self, name: str) -> bool:
         """Vérifie la présence d'un son dans le registre
@@ -184,29 +205,37 @@ class SoundEmitter(Component):
 
     # ======================================== INTERFACE ========================================
     def emit(
-            self,
-            name: str,
-            loop: bool = False,
-            limit: int | None = None,
-        ) -> None:
+        self,
+        name: str,
+        loop: bool = False,
+        limit: Integral | None = None,
+    ) -> None:
         """Joue un son pré-enregistrer
         
         Args:
             name: nom du son
         """
-        self.play(self.get(name), loop=loop, limit=limit)
+        self.play(self[name], loop=loop, limit=limit)
 
     def play(
-            self,
-            sound: Sound,
-            loop: bool = False,
-            limit: int | None = None,
-        ) -> None:
+        self,
+        sound: Sound,
+        loop: bool = False,
+        limit: Integral | None = None,
+    ) -> None:
         """Joue un son inconnu
 
         Args:
             sound: son à jouer
         """
+        # Transtypage et vérifications
+        loop = bool(loop)
+        limit = int(limit) if limit is not None else None
+
+        if __debug__:
+            expect(sound, Sound)
+
+        # Demande de lecture
         self._to_play.append(
             AudioRequest(
                 sound = sound,
@@ -249,7 +278,13 @@ class SoundEmitter(Component):
 # ======================================== REQUESTS ========================================
 @dataclass(slots=True, frozen=True)
 class AudioRequest(Request):
-    """Reqûete de lecture d'un son"""
+    """Requête de lecture d'un son
+    
+    Args:
+        son: ``Sound`` asset à lire
+        loop: lecture en boucle
+        limit: limite de répétitions
+    """
     sound: Sound
     loop: bool = False
     limit: int | None = None

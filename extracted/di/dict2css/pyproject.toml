@@ -4,12 +4,12 @@ build-backend = "whey"
 
 [project]
 name = "dict2css"
-version = "0.4.0"
+version = "0.5.0"
 description = "A μ-library for constructing cascading style sheets from Python dictionaries."
 readme = "README.rst"
 keywords = [ "css", "serialize",]
 dynamic = []
-dependencies = [ "cssutils<=2.11.0,>=2.2.0", "domdf-python-tools>=2.2.0",]
+dependencies = [ "domdf-python-tools>=2.2.0", "tinycss2>=1.2.1",]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -21,7 +21,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -29,7 +28,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 
 [project.license]
 file = "LICENSE"
@@ -51,7 +50,7 @@ base-classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-python-versions = [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13",]
+python-versions = [ "3.8", "3.9", "3.10", "3.11", "3.12", "3.13",]
 python-implementations = [ "CPython", "PyPy",]
 platforms = [ "Windows", "macOS", "Linux",]
 license-key = "MIT"
@@ -159,9 +158,6 @@ reformat = true
 [tool.snippet-fmt.languages.ini]
 
 [tool.snippet-fmt.languages.json]
-
-[tool.dep_checker]
-allowed_unused = [ "cssutils",]
 
 [tool.dependency-dash."requirements.txt"]
 order = 10

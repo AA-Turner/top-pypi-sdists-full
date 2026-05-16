@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.8.1
+Version: 0.8.5
 Summary: AI coding assistant skill (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License: MIT License
         
@@ -345,7 +345,7 @@ You can also set `GRAPHIFY_GOOGLE_WORKSPACE=1`. Graphify exports shortcuts into
 /graphify . --cluster-only         # rerun clustering without re-extracting
 /graphify . --no-viz               # skip the HTML, just the report + JSON
 /graphify . --wiki                 # build a markdown wiki from the graph
-graphify export callflow-html      # architecture/call-flow HTML from graphify-out/
+graphify export callflow-html      # Mermaid architecture/call-flow HTML (auto-regenerates on every git commit if hook is installed)
 
 /graphify query "what connects auth to the database?"
 /graphify path "UserService" "DatabasePool"

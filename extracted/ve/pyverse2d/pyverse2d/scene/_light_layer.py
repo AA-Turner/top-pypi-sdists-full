@@ -12,10 +12,10 @@ from ..fx import (
 )
 
 from numbers import Real
-from typing import Type
+from typing import Type, ClassVar
 
 # ======================================== CONSTANTS ========================================
-_SUPPORTED_EFFECT: frozenset[Type[LightEffect]] = frozenset({Ambient, Bloom, Tint, Vignette})
+_SUPPORTED_EFFECTS: frozenset[Type[LightEffect]] = frozenset({Ambient, Bloom, Tint, Vignette})
 
 # ======================================== LAYER ========================================
 class LightLayer(Layer):
@@ -34,9 +34,9 @@ class LightLayer(Layer):
         "_renderer",
     )
 
-    _IS_FX = True
+    _IS_FX: ClassVar[bool] = True
 
-    _DEFAULT_AMBIENT: Ambient = Ambient(level=1.0, shade=(1.0, 1.0, 1.0))
+    _DEFAULT_AMBIENT: ClassVar[Ambient] = Ambient(level=1.0, shade=(1.0, 1.0, 1.0))
 
     def __init__(
             self,
@@ -117,7 +117,8 @@ class LightLayer(Layer):
         Args:
             source: source à ajouter
         """
-        assert isinstance(source, LightSource), f"source must be a LightSource, got {source}"
+        if __debug__:
+            expect(source, LightSource)
         self._sources.add(source)
         if source.is_enabled():
             self._get_active_list(source).append(source)
@@ -143,6 +144,8 @@ class LightLayer(Layer):
         Args:
             effect: effet à ajouter
         """
+        if __debug__:
+            expect(effect, LightEffect)
         id_ = self._effect_id(type(effect))
         if getattr(self, id_, None) is not None:
             raise RuntimeError(f"This layer has already an effect {type(effect).__name__}")
@@ -175,7 +178,7 @@ class LightLayer(Layer):
     
     def get_all_effects(self) -> tuple[LightEffect, ...]:
         """Renvoie l'ensemble des effets du ``LightLayer``"""
-        return tuple(effect for effect_type in _SUPPORTED_EFFECT if (effect := getattr(self, f"_{effect_type.id()}")) is not None)
+        return tuple(effect for effect_type in _SUPPORTED_EFFECTS if (effect := getattr(self, f"_{effect_type.id()}")) is not None)
 
     def has_effect(self, effect_type: Type[LightEffect]) -> bool:
         """Vérifie la présence d'un effet
@@ -249,7 +252,11 @@ class LightLayer(Layer):
 
     @profile_section("scene.light_layer.update")
     def _update(self, dt: float) -> None:
-        """Actualisation"""
+        """Actualisation
+        
+        Args:
+            dt: delta-time
+        """
         for source in self._sources:
             state: Activity = source.update(dt)
             if state is Activity.DEFAULT:
@@ -261,7 +268,11 @@ class LightLayer(Layer):
 
     @profile_section("scene.light_layer.draw")
     def _draw(self, pipeline: Pipeline) -> None:
-        """Affichage"""
+        """Affichage
+        
+        Args:
+            pipeline: ``Pipeline`` de rendu courant
+        """
         self._renderer.render_ambient(pipeline, self._ambient or self._DEFAULT_AMBIENT, self._active_points, self._active_cones, gamma=self._gamma, exposure=self._exposure)
         if self._bloom:
             self._renderer.render_bloom(pipeline, self._bloom)
@@ -288,5 +299,10 @@ class LightLayer(Layer):
             effect_type: type de l'effet
         """
         if __debug__:
-            if not effect_type in _SUPPORTED_EFFECT: raise RuntimeError(f"This Layer does not support {effect_type.__name__} effect")
+            if not effect_type in _SUPPORTED_EFFECTS: raise RuntimeError(f"This Layer does not support {effect_type.__name__} effect")
         return f"_{effect_type.id()}"
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "LightLayer",
+]

@@ -10,13 +10,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
-from aioesphomeapi._frame_helper.noise import APINoiseFrameHelper
+from aioesphomeapi._frame_helper.noise import MAX_NAME_LEN, APINoiseFrameHelper
 from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
 from aioesphomeapi._frame_helper.packets import (
     _cached_varuint_to_bytes as cached_varuint_to_bytes,
     _varuint_to_bytes as varuint_to_bytes,
 )
-from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
+from aioesphomeapi._frame_helper.plain_text import (
+    MAX_PLAINTEXT_FRAME_SIZE,
+    APIPlaintextFrameHelper,
+)
 from aioesphomeapi.connection import ConnectionState
 from aioesphomeapi.core import (
     APIConnectionError,
@@ -759,6 +762,140 @@ async def test_init_plaintext_with_wrong_preamble(
         await task
 
 
+async def test_plaintext_frame_helper_rejects_overlong_varuint() -> None:
+    """Test a never-terminating varuint is rejected instead of growing the buffer forever."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Six bytes with the high bit always set — would otherwise be accumulated
+    # into an ever-growing bigint while the varuint is rescanned each chunk.
+    mock_data_received(helper, b"\x80\x80\x80\x80\x80\x80")
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_incomplete_preamble_waits() -> None:
+    """Test 3 continuation bytes for the preamble varuint pause parsing rather than close."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # 3 continuation bytes meets the loop guard (>= 3) but the preamble
+    # varuint is incomplete — bitpos is 21, still under the 28-bit cap.
+    # _read_varuint should return _VARUINT_INCOMPLETE; data_received must
+    # leave the connection open so the next chunk can finish the varuint.
+    mock_data_received(helper, b"\x80\x80\x80")
+
+    assert not packets
+    assert connection._fatal_exception is None
+
+
+async def test_plaintext_frame_helper_rejects_oversized_frame_length() -> None:
+    """Test a length varuint above the per-frame cap closes the connection."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Valid preamble + a length one byte over the cap + any msg_type.
+    mock_data_received(
+        helper,
+        PREAMBLE + varuint_to_bytes(MAX_PLAINTEXT_FRAME_SIZE + 1) + varuint_to_bytes(1),
+    )
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_rejects_5_byte_high_bit_varuint() -> None:
+    """Test a 5-byte varuint that would decode to a value with bit 31 set is rejected.
+
+    Regression for the Cython unsigned->signed cast trap raised in PR #1651
+    review: with `result="unsigned int"` and `cdef int` return, a value
+    >= 2**31 would otherwise come back negative and silently hit the
+    incomplete-varuint path. The 4-byte cap rejects the 5th byte at the
+    bitpos limit before any cast can happen.
+    """
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Bytes that would decode to 0xFFFFFFFF (high bit set) under a 5-byte
+    # varuint: \xff\xff\xff\xff\x0f. The 4-byte cap fires before we ever
+    # consume the 5th byte.
+    mock_data_received(helper, PREAMBLE + b"\xff\xff\xff\xff\x0f")
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_rejects_overlong_length_varuint() -> None:
+    """Test a never-terminating length varuint after a valid preamble closes the connection."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Valid 0x00 preamble, then 6 continuation bytes for the length varuint.
+    mock_data_received(helper, PREAMBLE + b"\x80\x80\x80\x80\x80\x80")
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_rejects_overlong_msg_type_varuint() -> None:
+    """Test a never-terminating msg_type varuint after a valid length closes the connection."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    # Valid preamble + valid 1-byte length + 6 continuation bytes for msg_type.
+    mock_data_received(
+        helper, PREAMBLE + varuint_to_bytes(0) + b"\x80\x80\x80\x80\x80\x80"
+    )
+
+    assert not packets
+    assert isinstance(connection._fatal_exception, ProtocolAPIError)
+    assert "varuint exceeds" in str(connection._fatal_exception)
+
+
+async def test_plaintext_frame_helper_accepts_max_frame_length() -> None:
+    """Test a frame at the size cap is still accepted (off-by-one guard)."""
+    connection, packets = _make_mock_connection()
+    helper = APIPlaintextFrameHelper(
+        connection=connection, client_info="my client", log_name="test"
+    )
+    helper.connection_made(MagicMock())
+
+    payload = b"\x42" * MAX_PLAINTEXT_FRAME_SIZE
+    mock_data_received(
+        helper,
+        PREAMBLE
+        + varuint_to_bytes(MAX_PLAINTEXT_FRAME_SIZE)
+        + varuint_to_bytes(42)
+        + payload,
+    )
+
+    assert connection._fatal_exception is None
+    assert packets == [(42, payload)]
+
+
 async def test_init_noise_with_wrong_byte_marker(noise_conn: APIConnection) -> None:
     loop = asyncio.get_running_loop()
     transport = MagicMock()
@@ -852,6 +989,193 @@ async def test_noise_frame_helper_wrong_protocol():
         await helper.ready_future
 
 
+async def test_noise_frame_helper_sanitizes_server_name_in_error() -> None:
+    """Test control chars in the unauthenticated server_name are stripped from logs."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    # Inject CRLF + ANSI escape into the unauthenticated name field. These
+    # would otherwise land in operator-visible logs unfiltered.
+    nasty_name = b"evil\r\nFAKE LOG LINE\x1b[31m"
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01" + nasty_name + b"\0")
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await helper.ready_future
+    msg = str(exc_info.value)
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in msg
+    # The sanitized name still survives so operators can see what happened,
+    # and the structured received_name field on the exception is sanitized too.
+    assert "evilFAKE LOG LINE[31m" in msg
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in exc_info.value.received_name
+
+
+async def test_noise_frame_helper_sanitizes_server_mac_in_error() -> None:
+    """Test control chars in the unauthenticated mac field are stripped from logs."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac="aabbccddeeff",
+    )
+
+    nasty_mac = b"112233\r\nFAKE\x1bbad"
+    hello_pkt_with_header = _make_noise_hello_pkt(
+        b"\x01servicetest\0" + nasty_mac + b"\0"
+    )
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadMACAddressAPIError) as exc_info:
+        await helper.ready_future
+    msg = str(exc_info.value)
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in msg
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in exc_info.value.received_mac
+
+
+async def test_noise_frame_helper_sanitizes_handshake_explanation() -> None:
+    """Test control chars in the handshake-failure explanation are stripped from logs."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    # Get past the hello phase so the next preamble triggers
+    # _error_on_incorrect_preamble.
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    nasty_explanation = b"boom\r\nFAKE LOG\x1b[31m"
+    error_pkt = b"\x01" + nasty_explanation
+    error_pkg_length = len(error_pkt)
+    error_header = bytes((1, (error_pkg_length >> 8) & 0xFF, error_pkg_length & 0xFF))
+    mock_data_received(helper, error_header + error_pkt)
+
+    with pytest.raises(HandshakeAPIError) as exc_info:
+        await helper.ready_future
+    msg = str(exc_info.value)
+    for ch in ("\r", "\n", "\x1b"):
+        assert ch not in msg
+
+
+async def test_noise_frame_helper_name_check_uses_raw_value() -> None:
+    """Test sanitization can't be used to bypass the expected_name check."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    # "servicetest\r\n" sanitizes to "servicetest" — but the expected_name
+    # comparison must run against the raw decoded value, so this peer should
+    # be rejected, not accepted.
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\r\n\0")
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadNameAPIError):
+        await helper.ready_future
+
+
+async def test_noise_frame_helper_mac_check_uses_raw_value() -> None:
+    """Test sanitization can't be used to bypass the expected_mac check."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac="aabbccddeeff",
+    )
+
+    # "aabbccddeeff\n" sanitizes to "aabbccddeeff" — but the expected_mac
+    # comparison must use the raw value and reject this peer.
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0aabbccddeeff\n\0")
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadMACAddressAPIError):
+        await helper.ready_future
+
+
+async def test_noise_frame_helper_handshake_explanation_uses_raw_value() -> None:
+    """Test sanitization can't smuggle Handshake-MAC-failure misclassification."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    # "Handshake MAC failure\0extra" sanitizes to "Handshake MAC failure" but
+    # the raw value differs, so it must be classified as a generic handshake
+    # error rather than InvalidEncryptionKeyAPIError.
+    explanation = b"Handshake MAC failure\0extra"
+    error_pkt = b"\x01" + explanation
+    error_pkg_length = len(error_pkt)
+    error_header = bytes((1, (error_pkg_length >> 8) & 0xFF, error_pkg_length & 0xFF))
+    mock_data_received(helper, error_header + error_pkt)
+
+    with pytest.raises(HandshakeAPIError) as exc_info:
+        await helper.ready_future
+    # Not the dedicated InvalidEncryptionKeyAPIError, just a HandshakeAPIError.
+    assert not isinstance(exc_info.value, InvalidEncryptionKeyAPIError)
+
+
+async def test_noise_frame_helper_caps_server_name_length() -> None:
+    """Test an oversized name field is truncated rather than logged in full."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    # 4 KiB of 'a' as the "name" — would otherwise end up in logs verbatim.
+    huge = b"a" * 4096
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01" + huge + b"\0")
+
+    mock_data_received(helper, hello_pkt_with_header)
+
+    with pytest.raises(BadNameAPIError) as exc_info:
+        await helper.ready_future
+    assert len(exc_info.value.received_name) == MAX_NAME_LEN
+
+
 async def test_init_noise_attempted_when_esp_uses_plaintext(
     noise_conn: APIConnection,
 ) -> None:
@@ -919,14 +1243,14 @@ async def test_connection_lost_closes_connection_and_logs(
 @pytest.mark.parametrize(
     ("bad_psk", "error"),
     (
-        ("dGhpc2lzbm90MzJieXRlcw==", "expected 32-bytes of base64 data"),
+        ("dGhpc2lzbm90MzJieXRlcw==", "expected base64-encoded 32-byte value"),
         ("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc", "Malformed PSK"),
     ),
 )
 async def test_noise_bad_psks(bad_psk: str, error: str) -> None:
     """Test we raise on bad psks."""
     connection, _ = _make_mock_connection()
-    with pytest.raises(InvalidEncryptionKeyAPIError, match=error):
+    with pytest.raises(InvalidEncryptionKeyAPIError, match=error) as exc_info:
         MockAPINoiseFrameHelper(
             connection=connection,
             noise_psk=bad_psk,
@@ -935,3 +1259,5 @@ async def test_noise_bad_psks(bad_psk: str, error: str) -> None:
             log_name="test",
             expected_mac=None,
         )
+    assert bad_psk not in str(exc_info.value)
+    assert f"length={len(bad_psk)}" in str(exc_info.value)

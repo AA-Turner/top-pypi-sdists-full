@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.6.6
+Version: 2.6.7
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -255,6 +255,9 @@ Requires-Dist: openai; extra == "dev"
 Requires-Dist: fakeredis; extra == "dev"
 Requires-Dist: xlwt; extra == "dev"
 Requires-Dist: types-greenlet; extra == "dev"
+Requires-Dist: opentelemetry-sdk; extra == "dev"
+Requires-Dist: aiosqlite; extra == "dev"
+Requires-Dist: greenlet; extra == "dev"
 Provides-Extra: os
 Requires-Dist: fastapi[standard]; extra == "os"
 Requires-Dist: uvicorn; extra == "os"
@@ -646,6 +649,7 @@ Requires-Dist: yfinance; extra == "integration-tests"
 Requires-Dist: sqlalchemy; extra == "integration-tests"
 Requires-Dist: Pillow; extra == "integration-tests"
 Requires-Dist: fastmcp; extra == "integration-tests"
+Requires-Dist: PyJWT; extra == "integration-tests"
 Provides-Extra: demo
 Requires-Dist: agno[dev]; extra == "demo"
 Requires-Dist: agno[scheduler]; extra == "demo"

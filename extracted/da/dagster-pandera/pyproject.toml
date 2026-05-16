@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-pandera"
-version = "0.29.4"
+version = "0.29.5"
 description = "Integration layer for dagster and pandera."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.13.4",
+    "dagster==1.13.5",
     "pandas<3.0.0",
     "pandera>=0.24.0",
 ]
@@ -34,7 +34,24 @@ Homepage = "https://github.com/dagster-io/dagster"
 polars = [
     "polars>=1",
 ]
+
+[dependency-groups]
 test = [
+    "dagster[test]",
+    "dagster-pipes",
+    "dagster-shared",
     "polars>=1",
     "pytest",
 ]
+
+[tool.uv.sources.dagster]
+path = "../../dagster"
+editable = true
+
+[tool.uv.sources.dagster-pipes]
+path = "../../dagster-pipes"
+editable = true
+
+[tool.uv.sources.dagster-shared]
+path = "../dagster-shared"
+editable = true

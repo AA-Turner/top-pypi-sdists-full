@@ -192,8 +192,8 @@ void Scope::addDiags(const Diagnostics& diags) const {
 }
 
 void Scope::addMembers(const SyntaxNode& syntax) {
-    if (syntax.previewNode)
-        addMembers(*syntax.previewNode);
+    if (auto preview = syntax.previewNode())
+        addMembers(*preview);
 
     switch (syntax.kind) {
         case SyntaxKind::ModuleDeclaration:
@@ -433,6 +433,9 @@ void Scope::addMembers(const SyntaxNode& syntax) {
                         addMember(*param);
                     break;
                 }
+                case SyntaxKind::PackageImportDeclaration:
+                    addMembers(*cpd.declaration);
+                    break;
                 default:
                     // All other possible member kinds here are illegal and will
                     // be diagnosed in the parser, so just ignore them.

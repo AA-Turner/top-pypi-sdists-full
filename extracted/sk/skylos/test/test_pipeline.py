@@ -125,7 +125,7 @@ def _llm_finding(
 
 P_ANALYZE = "skylos.analyzer.analyze"
 P_EXCLUDE = "skylos.constants.parse_exclude_folders"
-P_CUSTOM = "skylos.sync.get_custom_rules"
+P_CUSTOM = "skylos.cloud.sync.get_custom_rules"
 P_LLM = "skylos.llm.analyzer.SkylosLLM"
 P_LLM_CONF = "skylos.llm.analyzer.AnalyzerConfig"
 P_CONF = "skylos.llm.schemas.Confidence"
@@ -309,7 +309,7 @@ class TestRunStaticOnFiles:
 
     @patch(P_CUSTOM, return_value=None)
     @patch(P_EXCLUDE, return_value=set())
-    @patch(P_ANALYZE, side_effect=Exception("boom"))
+    @patch(P_ANALYZE, side_effect=RuntimeError("boom"))
     def test_returns_empty_on_analyze_failure(self, _a, _e, _c):
         result = run_static_on_files(["/proj/a.py"], project_root=pathlib.Path("/proj"))
         assert result == _empty_result()
@@ -943,7 +943,9 @@ class TestPipelinePhase2b:
             patch(P_SECURITY_VERIFIER) as mock_verifier,
         ):
             mock_llm.return_value.analyze_files.return_value = llm_result
-            mock_verifier.return_value.review_findings.side_effect = RuntimeError("down")
+            mock_verifier.return_value.review_findings.side_effect = RuntimeError(
+                "down"
+            )
 
             findings = run_pipeline(
                 path=str(proj),

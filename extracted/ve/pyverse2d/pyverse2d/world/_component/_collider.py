@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from ..._internal import expect
 from ...abc import Component, Shape
-from ...math import Point, Vector
+from ...math import Vector
+
+from typing import ClassVar
+from numbers import Integral
 
 # ======================================== COMPONENT ========================================
 class Collider(Component):
@@ -12,39 +15,41 @@ class Collider(Component):
     Ce composant est manipulé par ``CollisionSystem``.
 
     Args:
-        shape(Shape): forme de la hitbox
-        offset(Point, optional): décalage par rapport au Transform
-        category(int, optional): catégorie binaire de collision
-        mask(int, optional): masque binaire de collision
-        trigger(bool, optional): collision fantôme
-        active(bool, optional): collision active
+        shape: forme de la hitbox
+        offset: décalage par rapport au Transform
+        category: catégorie binaire de collision
+        mask: masque binaire de collision
+        trigger: collision fantôme
+        active: collision active
     """
     __slots__ = (
-        "_shape", "_offset", "_category", "_mask", "_trigger", "_active",
+        "_shape", "_offset",
+        "_category", "_mask", "_trigger", "_active",
         "_contacts", "_coyote_elapsed", "_dirty_shape",
     )
 
-    requires = ("Transform",)
-    _COYOTE_TIME = 0.1  # temps avant perte du contact
+    requires: ClassVar[tuple[str, ...]] = ("Transform",)
+
+    _COYOTE_TIME: ClassVar[float] = 0.1  # temps avant perte du contact
 
     def __init__(
             self,
             shape: Shape,
             offset: Vector = (0.0, 0.0),
-            category: int = 0b00000001,
-            mask: int = 0b11111111,
+            category: Integral = 0b00000001,
+            mask: Integral = 0b11111111,
             trigger: bool = False,
             active: bool = True,
         ):
-        # Transtypage
+        # Transtypage et vérifications
         offset = Vector(offset)
+        category = int(category)
+        mask = int(mask)
+        trigger = bool(trigger)
+        active = bool(active)
 
         if __debug__:
             expect(shape, Shape)
-            expect(category, int)
-            expect(mask, int)
-            expect(trigger, bool)
-            expect(active, bool)
 
         # Attributs publiques
         self._shape: Shape = shape
@@ -76,7 +81,7 @@ class Collider(Component):
     # ======================================== PROPERTIES ========================================
     @property
     def shape(self) -> Shape:
-        """Forme de la hitbox *(Immuable)*"""
+        """Forme de la hitbox *(lecture seule)*"""
         return self._shape
     
     @property
@@ -120,6 +125,30 @@ class Collider(Component):
         if __debug__:
             expect(value, int)
         self._mask = value
+
+
+    @property
+    def trigger(self) -> bool:
+        """Collision fantôme
+
+        Activer cette propriété rend le collider non solide.
+        """
+        return self._trigger
+    
+    @trigger.setter
+    def trigger(self, value: bool) -> None:
+        value = bool(value)
+        self._trigger = value
+
+    @property
+    def active(self) -> bool:
+        """Etat du collider"""
+        return self._active
+    
+    @active.setter
+    def active(self, value: bool) -> None:
+        value = bool(value)
+        self._active = value
     
     # ======================================== PREDICATES ========================================
     def is_trigger(self) -> bool:
@@ -131,11 +160,19 @@ class Collider(Component):
         return self._active
     
     def collides_with(self, other: Collider) -> bool:
-        """Vérification la possibilité de collision avec un autre collider"""
+        """Vérification la possibilité de collision avec un autre collider
+        
+        Args:
+            other: ``Collider`` à vérifier
+        """
         return bool(self._mask & other._category)
     
     def collides(self, other: Collider) -> bool:
-        """Vérifie la collision avec un autre collider"""
+        """Vérifie la collision avec un autre collider
+        
+        Args:
+            other: ``Collider``à tester
+        """
         return other in self._contacts
 
     # ======================================== INTERFACE ========================================
@@ -156,3 +193,8 @@ class Collider(Component):
         if other is self._contacts:
             return self._contacts[other]
         return None
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Collider",
+]

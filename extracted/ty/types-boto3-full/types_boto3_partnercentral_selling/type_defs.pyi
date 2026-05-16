@@ -125,6 +125,7 @@ __all__ = (
     "EngagementResourceAssociationSummaryTypeDef",
     "EngagementSortTypeDef",
     "EngagementSummaryTypeDef",
+    "ExpectedContractDurationTypeDef",
     "ExpectedCustomerSpendTypeDef",
     "GetAwsOpportunitySummaryRequestTypeDef",
     "GetAwsOpportunitySummaryResponseTypeDef",
@@ -401,6 +402,10 @@ class EngagementSummaryTypeDef(TypedDict):
     ModifiedAt: NotRequired[datetime]
     ModifiedBy: NotRequired[str]
     ContextTypes: NotRequired[list[EngagementContextTypeType]]
+
+class ExpectedContractDurationTypeDef(TypedDict):
+    Term: Literal["Months"]
+    Value: str
 
 class GetAwsOpportunitySummaryRequestTypeDef(TypedDict):
     Catalog: str
@@ -705,47 +710,6 @@ class ProjectDetailsTypeDef(TypedDict):
     TargetCompletionDate: str
     ExpectedCustomerSpend: Sequence[ExpectedCustomerSpendTypeDef]
 
-class ProjectOutputTypeDef(TypedDict):
-    DeliveryModels: NotRequired[list[DeliveryModelType]]
-    ExpectedCustomerSpend: NotRequired[list[ExpectedCustomerSpendTypeDef]]
-    Title: NotRequired[str]
-    ApnPrograms: NotRequired[list[str]]
-    CustomerBusinessProblem: NotRequired[str]
-    CustomerUseCase: NotRequired[str]
-    RelatedOpportunityIdentifier: NotRequired[str]
-    SalesActivities: NotRequired[list[SalesActivityType]]
-    CompetitorName: NotRequired[CompetitorNameType]
-    OtherCompetitorNames: NotRequired[str]
-    OtherSolutionDescription: NotRequired[str]
-    AdditionalComments: NotRequired[str]
-    AwsPartition: NotRequired[Literal["aws-eusc"]]
-
-class ProjectSummaryTypeDef(TypedDict):
-    DeliveryModels: NotRequired[list[DeliveryModelType]]
-    ExpectedCustomerSpend: NotRequired[list[ExpectedCustomerSpendTypeDef]]
-
-class ProjectTypeDef(TypedDict):
-    DeliveryModels: NotRequired[Sequence[DeliveryModelType]]
-    ExpectedCustomerSpend: NotRequired[Sequence[ExpectedCustomerSpendTypeDef]]
-    Title: NotRequired[str]
-    ApnPrograms: NotRequired[Sequence[str]]
-    CustomerBusinessProblem: NotRequired[str]
-    CustomerUseCase: NotRequired[str]
-    RelatedOpportunityIdentifier: NotRequired[str]
-    SalesActivities: NotRequired[Sequence[SalesActivityType]]
-    CompetitorName: NotRequired[CompetitorNameType]
-    OtherCompetitorNames: NotRequired[str]
-    OtherSolutionDescription: NotRequired[str]
-    AdditionalComments: NotRequired[str]
-    AwsPartition: NotRequired[Literal["aws-eusc"]]
-
-class ProjectViewTypeDef(TypedDict):
-    DeliveryModels: NotRequired[list[DeliveryModelType]]
-    ExpectedCustomerSpend: NotRequired[list[ExpectedCustomerSpendTypeDef]]
-    CustomerUseCase: NotRequired[str]
-    SalesActivities: NotRequired[list[SalesActivityType]]
-    OtherSolutionDescription: NotRequired[str]
-
 class AwsProductDetailsTypeDef(TypedDict):
     ProductCode: str
     Categories: list[str]
@@ -945,6 +909,51 @@ class ListEngagementsResponseTypeDef(TypedDict):
     EngagementSummaryList: list[EngagementSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class ProjectOutputTypeDef(TypedDict):
+    DeliveryModels: NotRequired[list[DeliveryModelType]]
+    ExpectedCustomerSpend: NotRequired[list[ExpectedCustomerSpendTypeDef]]
+    ExpectedContractDuration: NotRequired[ExpectedContractDurationTypeDef]
+    Title: NotRequired[str]
+    ApnPrograms: NotRequired[list[str]]
+    CustomerBusinessProblem: NotRequired[str]
+    CustomerUseCase: NotRequired[str]
+    RelatedOpportunityIdentifier: NotRequired[str]
+    SalesActivities: NotRequired[list[SalesActivityType]]
+    CompetitorName: NotRequired[CompetitorNameType]
+    OtherCompetitorNames: NotRequired[str]
+    OtherSolutionDescription: NotRequired[str]
+    AdditionalComments: NotRequired[str]
+    AwsPartition: NotRequired[Literal["aws-eusc"]]
+
+class ProjectSummaryTypeDef(TypedDict):
+    DeliveryModels: NotRequired[list[DeliveryModelType]]
+    ExpectedCustomerSpend: NotRequired[list[ExpectedCustomerSpendTypeDef]]
+    ExpectedContractDuration: NotRequired[ExpectedContractDurationTypeDef]
+
+class ProjectTypeDef(TypedDict):
+    DeliveryModels: NotRequired[Sequence[DeliveryModelType]]
+    ExpectedCustomerSpend: NotRequired[Sequence[ExpectedCustomerSpendTypeDef]]
+    ExpectedContractDuration: NotRequired[ExpectedContractDurationTypeDef]
+    Title: NotRequired[str]
+    ApnPrograms: NotRequired[Sequence[str]]
+    CustomerBusinessProblem: NotRequired[str]
+    CustomerUseCase: NotRequired[str]
+    RelatedOpportunityIdentifier: NotRequired[str]
+    SalesActivities: NotRequired[Sequence[SalesActivityType]]
+    CompetitorName: NotRequired[CompetitorNameType]
+    OtherCompetitorNames: NotRequired[str]
+    OtherSolutionDescription: NotRequired[str]
+    AdditionalComments: NotRequired[str]
+    AwsPartition: NotRequired[Literal["aws-eusc"]]
+
+class ProjectViewTypeDef(TypedDict):
+    DeliveryModels: NotRequired[list[DeliveryModelType]]
+    ExpectedCustomerSpend: NotRequired[list[ExpectedCustomerSpendTypeDef]]
+    ExpectedContractDuration: NotRequired[ExpectedContractDurationTypeDef]
+    CustomerUseCase: NotRequired[str]
+    SalesActivities: NotRequired[list[SalesActivityType]]
+    OtherSolutionDescription: NotRequired[str]
 
 class LeadInteractionOutputTypeDef(TypedDict):
     SourceType: str
@@ -1195,7 +1204,6 @@ class OpportunityInvitationPayloadOutputTypeDef(TypedDict):
     SenderContacts: NotRequired[list[SenderContactTypeDef]]
 
 ProjectDetailsUnionTypeDef = Union[ProjectDetailsTypeDef, ProjectDetailsOutputTypeDef]
-ProjectUnionTypeDef = Union[ProjectTypeDef, ProjectOutputTypeDef]
 
 class AwsProductInsightsTypeDef(TypedDict):
     CurrencyCode: CurrencyCodeType
@@ -1240,6 +1248,8 @@ class LifeCycleTypeDef(TypedDict):
     ReviewComments: NotRequired[str]
     ReviewStatusReason: NotRequired[str]
     NextStepsHistory: NotRequired[Sequence[NextStepsHistoryTypeDef]]
+
+ProjectUnionTypeDef = Union[ProjectTypeDef, ProjectOutputTypeDef]
 
 class LeadContextOutputTypeDef(TypedDict):
     Customer: LeadCustomerTypeDef

@@ -7,43 +7,44 @@ from ._tile_map import TileMap
 
 # ======================================== MAP ASSET ========================================
 class MapAsset:
-    """
-    Conteneur de couches issues d'un même fichier de map
+    """Conteneur de couches issues d'un même fichier de map
 
     Args:
-        layers(dict[str, TileMap]): couches nommées
+        layers: couches nommées
     """
     __slots__ = ("_layers",)
 
     def __init__(self, layers: dict[str, TileMap]):
-        expect(layers, dict)
-        self._layers: dict[str, TileMap] = {
-            expect(k, str): expect(v, TileMap)
-            for k, v in layers.items()
-        }
+        # Transtypage et vérifications
+        if __debug__:
+            expect(layers, dict)
+        
+        # Attributs publiques
+        self._layers: dict[str, TileMap] = {str(k): expect(v, TileMap) for k, v in layers.items()}
 
     # ======================================== CONVERSIONS ========================================
     def __repr__(self) -> str:
+        """Renvoie une représentation de la carte"""
         keys = list(self._layers.keys())
         return f"MapAsset(layers={keys})"
 
     # ======================================== ACCÈS ========================================
     def __getitem__(self, name: str) -> TileMap:
-        """
-        Renvoie la couche par son nom
+        """Renvoie la couche par son nom
 
         Args:
-            name(str): nom de la couche
+            name: nom de la couche
         """
+        name = str(name)
         try:
-            return self._layers[expect(name, str)]
+            return self._layers[name]
         except KeyError:
             available = list(self._layers.keys())
             raise KeyError(f"Layer '{name}' introuvable. Couches disponibles : {available}")
 
     def __contains__(self, name: str) -> bool:
         """Vérifie si une couche existe"""
-        return name in self._layers
+        return str(name) in self._layers
 
     def __iter__(self):
         """Itère sur les noms de couches"""
@@ -60,11 +61,15 @@ class MapAsset:
         return list(self._layers.keys())
 
     def get(self, name: str, default: TileMap | None = None) -> TileMap | None:
-        """
-        Renvoie la couche par son nom, ou default si absente
+        """Renvoie la couche par son nom, ou default si absente
 
         Args:
-            name(str): nom de la couche
-            default(TileMap, optional): valeur par défaut
+            name: nom de la couche
+            default: valeur par défaut
         """
-        return self._layers.get(expect(name, str), default)
+        return self._layers.get(str(name), default)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "MapAsset",
+]

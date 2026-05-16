@@ -8,6 +8,7 @@
 #include "slang/analysis/AnalysisManager.h"
 
 #include "AnalysisScopeVisitor.h"
+#include "ConstraintAnalysis.h"
 
 #include "slang/analysis/ClockInference.h"
 #include "slang/analysis/DataFlowAnalysis.h"
@@ -41,20 +42,18 @@ Diagnostic& AnalysisContext::addDiag(const Symbol& symbol, DiagCode code, Source
     return diagnostics.add(symbol, code, sourceRange);
 }
 
-AnalysisManager::AnalysisManager(AnalysisOptions options) :
-#if defined(SLANG_USE_THREADS)
-    options(options), threadPool(options.numThreads) {
-#else
-    options(options) {
-#endif
+AnalysisManager::AnalysisManager(AnalysisOptions options, std::shared_ptr<ThreadPool> threadPool) :
+    options(options), threadPool(std::move(threadPool)) {
 
-#if defined(SLANG_USE_THREADS)
-    workerStates.reserve(threadPool.get_thread_count() + 1);
-    for (size_t i = 0; i < threadPool.get_thread_count() + 1; i++)
+    if (this->threadPool) {
+        const size_t count = this->threadPool->get_thread_count() + 1;
+        workerStates.reserve(count);
+        for (size_t i = 0; i < count; i++)
+            workerStates.emplace_back(*this);
+    }
+    else {
         workerStates.emplace_back(*this);
-#else
-    workerStates.emplace_back(*this);
-#endif
+    }
 }
 
 void AnalysisManager::analyze(const Compilation& compilation) {
@@ -152,9 +151,10 @@ void AnalysisManager::analyzeCheckerInstance(const CheckerInstanceSymbol& inst,
     }
 }
 
-void AnalysisManager::getFunctionDrivers(const CallExpression& expr, const Symbol& containingSymbol,
-                                         SmallSet<const SubroutineSymbol*, 2>& visited,
-                                         std::vector<SymbolDriverListPair>& drivers) {
+void AnalysisManager::getFunctionValUses(const CallExpression& expr, const Symbol& containingSymbol,
+                                         function_ref<bool(const SubroutineSymbol&)> visitPredicate,
+                                         SmallVectorBase<const ValueDriver*>& drivers,
+                                         SmallVectorBase<ReadRange>* reads) {
     if (expr.isSystemCall() || expr.thisClass() ||
         expr.getSubroutineKind() != SubroutineKind::Function) {
         return;
@@ -178,7 +178,7 @@ void AnalysisManager::getFunctionDrivers(const CallExpression& expr, const Symbo
 
     // If we've already visited this function then we don't need to
     // analyze it again.
-    if (!visited.insert(&subroutine).second)
+    if (!visitPredicate(subroutine))
         return;
 
     // Get analysis for the function.
@@ -190,37 +190,43 @@ void AnalysisManager::getFunctionDrivers(const CallExpression& expr, const Symbo
     auto funcDrivers = analysis.getDrivers();
     drivers.reserve(drivers.size() + funcDrivers.size());
 
-    for (auto& [valueSym, driverList] : funcDrivers) {
+    auto isLocal = [&](const Symbol& symbol) {
+        auto scope = symbol.getParentScope();
+        while (scope && scope->asSymbol().kind == SymbolKind::StatementBlock)
+            scope = scope->asSymbol().getParentScope();
+
+        return scope == &subroutine;
+    };
+
+    for (auto driver : funcDrivers) {
         // The user can disable this inlining of drivers for function locals via a flag.
-        if (hasFlag(AnalysisFlags::AllowMultiDrivenLocals)) {
-            auto scope = valueSym->getParentScope();
-            while (scope && scope->asSymbol().kind == SymbolKind::StatementBlock)
-                scope = scope->asSymbol().getParentScope();
+        if (hasFlag(AnalysisFlags::AllowMultiDrivenLocals) && isLocal(driver->getSymbol()))
+            continue;
 
-            if (scope == &subroutine)
-                continue;
-        }
+        auto newDriver = ValueDriver::create(context.alloc, driver->kind, driver->path,
+                                             containingSymbol, DriverFlags::None,
+                                             &expr.sourceRange);
 
-        DriverList perSymbol;
-        for (auto& [driver, bounds] : driverList) {
-            auto newDriver = ValueDriver::create(context.alloc, driver->kind, *driver->lsp,
-                                                 containingSymbol, DriverFlags::None,
-                                                 &expr.sourceRange);
-            perSymbol.emplace_back(newDriver, bounds);
-        }
-
-        drivers.emplace_back(valueSym, std::move(perSymbol));
+        drivers.push_back(newDriver);
     }
 
-    // If this function has any calls, we need to recursively add drivers
-    // from those calls as well.
+    // Optionally collect reads from the function body.
+    // Note: this excludes locally declared variables.
+    if (reads) {
+        for (auto& read : analysis.getReadSet()) {
+            if (!isLocal(*read.symbol))
+                reads->push_back(read);
+        }
+    }
+
+    // Recurse into functions called by this function.
     for (auto call : analysis.getCallExpressions())
-        getFunctionDrivers(*call, containingSymbol, visited, drivers);
+        getFunctionValUses(*call, containingSymbol, visitPredicate, drivers, reads);
 }
 
 void AnalysisManager::getTaskTimingControls(const CallExpression& expr,
                                             SmallSet<const SubroutineSymbol*, 2>& visited,
-                                            std::vector<const Statement*>& controls) {
+                                            SmallVectorBase<const Statement*>& controls) {
     if (expr.getSubroutineKind() != SubroutineKind::Task || expr.isSystemCall()) {
         return;
     }
@@ -261,7 +267,7 @@ void AnalysisManager::analyzeNonProceduralExprs(const Expression& expr,
     expr.visit(visitor);
 }
 
-DriverList AnalysisManager::getDrivers(const ValueSymbol& symbol) const {
+std::vector<const ValueDriver*> AnalysisManager::getDrivers(const ValueSymbol& symbol) const {
     return driverTracker.getDrivers(symbol);
 }
 
@@ -284,6 +290,44 @@ Diagnostics AnalysisManager::getDiagnostics() {
     return diagMap.coalesce(sourceManager);
 }
 
+AnalysisManager::Stats AnalysisManager::getStats() const {
+    Stats stats;
+    for (auto& state : workerStates) {
+        stats.memoryUsage += state.context.alloc.getTotalBytesAllocated();
+        stats.memoryUsage += state.scopeAlloc.getTotalBytesAllocated();
+    }
+
+    auto mapBytes = [](const auto& m) {
+        return m.size() * sizeof(typename std::remove_reference_t<decltype(m)>::value_type);
+    };
+    stats.memoryUsage += mapBytes(analyzedScopes);
+    stats.memoryUsage += mapBytes(analyzedSubroutines);
+    stats.memoryUsage += mapBytes(analyzedAssertions);
+    stats.memoryUsage += mapBytes(visitedNonProcCalls);
+
+    stats.numScopes = analyzedScopes.size();
+    stats.numProcedures = analyzedSubroutines.size();
+
+    analyzedAssertions.visit_all([&](const auto& e) {
+        stats.numAssertions += e.second.size();
+        stats.memoryUsage += e.second.capacity() * sizeof(AnalyzedAssertion);
+    });
+
+    analyzedSubroutines.visit_all(
+        [&](auto& item) { stats.memoryUsage += item.second->getMemoryUsage(); });
+
+    analyzedScopes.visit_all([&](auto& item) {
+        if (item.second) {
+            auto& scope = *item.second.value();
+            stats.numProcedures += scope.procedures.size();
+            for (auto& proc : scope.procedures)
+                stats.memoryUsage += proc.getMemoryUsage();
+        }
+    });
+
+    return stats;
+}
+
 const AnalyzedScope& AnalysisManager::analyzeScopeBlocking(
     const Scope& scope, const AnalyzedProcedure* parentProcedure) {
 
@@ -293,6 +337,11 @@ const AnalyzedScope& AnalysisManager::analyzeScopeBlocking(
     AnalysisScopeVisitor visitor(state, result, parentProcedure);
     for (auto& member : scope.members())
         member.visit(visitor);
+
+    // Check for constraint ordering cycles (func-arg implicit ordering and
+    // explicit solve...before directives, LRM 18.5.11).
+    if (visitor.hasConstraints)
+        analyzeConstraints(state.context, scope);
 
     return result;
 }
@@ -315,24 +364,29 @@ void AnalysisManager::analyzeScopeAsync(const Scope& scope) {
     // Kick off a new analysis task if we haven't already seen
     // this scope before.
     if (analyzedScopes.try_emplace(&scope, std::nullopt)) {
-#if defined(SLANG_USE_THREADS)
-        threadPool.detach_task([this, &scope] {
-            SLANG_TRY {
-                auto& result = analyzeScopeBlocking(scope);
-                analyzedScopes.visit(&scope, [&result](auto& item) { item.second = &result; });
-                for (auto& listener : scopeListeners)
-                    listener(result);
-            }
-            SLANG_CATCH(...) {
-                std::unique_lock<std::mutex> lock(mutex);
-                pendingException = std::current_exception();
-            }
-        });
-#else
-        auto& result = analyzeScopeBlocking(scope);
-        analyzedScopes.visit(&scope, [&result](auto& item) { item.second = &result; });
-#endif
+        if (threadPool) {
+            threadPool->detach_task([this, &scope] {
+                SLANG_TRY {
+                    auto& result = analyzeScopeBlocking(scope);
+                    addScopeResult(scope, result);
+                }
+                SLANG_CATCH(...) {
+                    std::unique_lock<std::mutex> lock(mutex);
+                    pendingException = std::current_exception();
+                }
+            });
+        }
+        else {
+            auto& result = analyzeScopeBlocking(scope);
+            addScopeResult(scope, result);
+        }
     }
+}
+
+void AnalysisManager::addScopeResult(const Scope& scope, const AnalyzedScope& result) {
+    analyzedScopes.visit(&scope, [&result](auto& item) { item.second = &result; });
+    for (auto& listener : scopeListeners)
+        listener(result);
 }
 
 AnalyzedProcedure AnalysisManager::analyzeProcedure(AnalysisContext& context, const Symbol& symbol,
@@ -390,18 +444,18 @@ void AnalysisManager::handleAssertion(std::unique_ptr<AnalyzedAssertion>&& asser
 
 AnalysisManager::WorkerState& AnalysisManager::getState() {
 #if defined(SLANG_USE_THREADS)
-    return workerStates[BS::this_thread::get_index().value_or(workerStates.size() - 1)];
-#else
-    return workerStates[0];
+    if (threadPool)
+        return workerStates[BS::this_thread::get_index().value_or(workerStates.size() - 1)];
 #endif
+    return workerStates[0];
 }
 
 void AnalysisManager::wait() {
-#if defined(SLANG_USE_THREADS)
-    threadPool.wait();
-    if (pendingException)
-        std::rethrow_exception(pendingException);
-#endif
+    if (threadPool) {
+        threadPool->wait();
+        if (pendingException)
+            std::rethrow_exception(pendingException);
+    }
 }
 
 const TimingControl* AnalysisManager::NonProceduralExprVisitor::getDefaultClocking() const {
@@ -426,8 +480,12 @@ void AnalysisManager::NonProceduralExprVisitor::visitCall(const CallExpression& 
             ClockInference::checkSampledValueFuncs(state.context, containingSymbol, expr);
     }
 
-    std::vector<SymbolDriverListPair> drivers;
-    manager.getFunctionDrivers(expr, containingSymbol, visitedSubroutines, drivers);
+    SmallVector<const ValueDriver*, 2> drivers;
+    manager.getFunctionValUses(
+        expr, containingSymbol,
+        [&](const SubroutineSymbol& sub) { return manager.visitedNonProcCalls.insert(&sub); },
+        drivers, nullptr);
+
     if (!drivers.empty())
         manager.driverTracker.add(state.context, state.driverAlloc, drivers);
 }

@@ -1,28 +1,40 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, not_null, positive
+from .._internal import over
 from ..abc import Shape
 from ..math import Point
 
-from numbers import Real
-from typing import Iterator
 import numpy as np
 from numpy.typing import NDArray
+
+from numbers import Real
+from typing import Iterator
 
 # ======================================== SHAPE ========================================
 class Rect(Shape):
     """Forme géométrique 2D immuable : Rectangle
 
     Args:
-        width:  largeur du rectangle
-        height: hauteur du rectangle
+        width: largeur
+        height: hauteur
     """
     __slots__ = ("_width", "_height")
 
     def __init__(self, width: Real, height: Real):
-        self._width:  float = float(positive(not_null(expect(width,  Real))))
-        self._height: float = float(positive(not_null(expect(height, Real))))
+        # Transtypage et vérifications
+        width = float(width)
+        height = float(height)
+
+        if __debug__:
+            over(width, 0, include=False)
+            over(height, 0, include=False)
+
+        # Attributs publiques
+        self._width:  float = width
+        self._height: float = height
+
+        # Initialisation de la forme
         super().__init__()
 
     # ======================================== CONVERSIONS ========================================
@@ -48,7 +60,7 @@ class Rect(Shape):
     def width(self) -> float:
         """Largeur du rectangle
 
-        La largeur doit être un *réel positif non nul*.
+        La largeur doit être un ``Real`` *positif non nul*.
         """
         return self._width
 
@@ -56,7 +68,7 @@ class Rect(Shape):
     def height(self) -> float:
         """Hauteur du rectangle
         
-        La hauteur doit être un *réel positif non nul*.
+        La hauteur doit être un ``Real`` *positif non nul*.
         """
         return self._height
 
@@ -124,7 +136,12 @@ class Rect(Shape):
         """Vérifie la convexité"""
         return True
 
-    # ======================================== PUBLIC METHODS ========================================
+    # ======================================== INTERFACE ========================================
     def copy(self) -> Rect:
         """Renvoie une copie du rectangle"""
         return Rect(self._width, self._height)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Rect",
+]

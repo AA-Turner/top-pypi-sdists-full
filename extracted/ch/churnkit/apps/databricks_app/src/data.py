@@ -71,18 +71,141 @@ def _query(cfg: AppConfig, sql_text: str, params: Optional[dict[str, Any]] = Non
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def portfolio_by_playbook_risk_tier() -> pd.DataFrame:
+def portfolio_by_archetype_risk_tier() -> pd.DataFrame:
+    """Per-(archetype, risk_tier) rollup for the L1 treemap.
+
+    Archetype is per-entity (one ``archetype_id`` per scored account in
+    ``eligibility_snapshot``), so this is entity-grain by construction —
+    tiles never overlap and summing across tiles equals the unique
+    eligible-account count. That's the right grain for an L1 "where
+    does the portfolio sit" view that doubles as a filter into the
+    Playbook-recommendations treemap below.
+
+    Counts are taken once per (entity, archetype, risk_tier) using
+    ``policy_rank_among_eligible = 1`` -- otherwise an account matching
+    N playbooks would be counted N times even though its archetype
+    assignment is the same in every row.
+    """
     cfg = load_config()
     return _query(cfg, f"""
-        SELECT playbook_name, risk_tier,
-               SUM(eligible_count) AS eligible_count,
-               SUM(recommended_count) AS recommended_count,
-               SUM(holdout_count) AS holdout_count,
-               SUM(total_value_at_risk) AS total_value_at_risk,
-               AVG(mean_churn_probability) AS mean_churn_probability
-        FROM {cfg.fqn_prefix}.v_portfolio_risk_matrix
-        GROUP BY playbook_name, risk_tier
+        WITH latest_run AS (
+            SELECT scoring_run_id
+            FROM {cfg.fqn_prefix}.eligibility_snapshot
+            WHERE as_of_date = (
+                SELECT MAX(as_of_date) FROM {cfg.fqn_prefix}.eligibility_snapshot
+            )
+            LIMIT 1
+        ),
+        archetype_names AS (
+            SELECT archetype_id, MAX(name) AS archetype_name
+            FROM {cfg.fqn_prefix}.archetype_catalog
+            WHERE status = 'active'
+            GROUP BY archetype_id
+        ),
+        primary_only AS (
+            SELECT s.entity_id, s.archetype_id, s.risk_tier,
+                   s.value_at_risk, s.churn_probability,
+                   s.recommended, s.is_holdout
+            FROM {cfg.fqn_prefix}.eligibility_snapshot s
+            JOIN latest_run lr ON s.scoring_run_id = lr.scoring_run_id
+            WHERE s.policy_rank_among_eligible = 1
+              AND COALESCE(s.is_dashboard_visible, TRUE) = TRUE
+        )
+        SELECT
+            COALESCE(an.archetype_name, p.archetype_id) AS archetype_name,
+            p.risk_tier,
+            COUNT(*)                                       AS eligible_count,
+            SUM(CASE WHEN p.recommended THEN 1 ELSE 0 END) AS recommended_count,
+            SUM(CASE WHEN p.is_holdout  THEN 1 ELSE 0 END) AS holdout_count,
+            SUM(COALESCE(p.value_at_risk, 0))              AS total_value_at_risk,
+            AVG(p.churn_probability)                       AS mean_churn_probability
+        FROM primary_only p
+        LEFT JOIN archetype_names an ON p.archetype_id = an.archetype_id
+        GROUP BY an.archetype_name, p.archetype_id, p.risk_tier
     """)
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def playbooks_for_archetype(archetype_name: str, risk_tier: Optional[str] = None) -> pd.DataFrame:
+    """Per-(playbook, risk_tier) rollup for the L2 treemap, scoped to an archetype.
+
+    Tile size = eligible accounts matching ``(archetype, playbook[, risk_tier])``;
+    colour = fit_score, the model's per-(playbook, archetype) goodness-
+    of-match value from ``eligibility_policy``. ``fit_score`` is joined
+    by archetype_version (the version stored in ``eligibility_policy.archetype_ids``,
+    NOT the logical archetype_id -- see the dashboard_views SQL for the
+    same dance).
+
+    When ``risk_tier`` is supplied the L1 click drilled into a specific
+    tier; we subset here so the L2 treemap shows only that slice across
+    every playbook -- matching the "whatever classes are visible on the
+    treemap remain on lower levels" intent.
+    """
+    cfg = load_config()
+    params: dict[str, Any] = {"archetype_name": archetype_name}
+    risk_tier_filter = ""
+    if risk_tier:
+        risk_tier_filter = "AND s.risk_tier = :risk_tier"
+        params["risk_tier"] = risk_tier
+    return _query(cfg, f"""
+        WITH latest_run AS (
+            SELECT scoring_run_id
+            FROM {cfg.fqn_prefix}.eligibility_snapshot
+            WHERE as_of_date = (
+                SELECT MAX(as_of_date) FROM {cfg.fqn_prefix}.eligibility_snapshot
+            )
+            LIMIT 1
+        ),
+        archetype_names AS (
+            SELECT archetype_id, MAX(name) AS archetype_name
+            FROM {cfg.fqn_prefix}.archetype_catalog
+            WHERE status = 'active'
+            GROUP BY archetype_id
+        ),
+        playbook_names AS (
+            SELECT playbook_id, MAX(name) AS playbook_name
+            FROM {cfg.fqn_prefix}.playbook_catalog
+            GROUP BY playbook_id
+        ),
+        active_policy_per_arch AS (
+            -- Fit score is per (playbook, archetype_version). Explode
+            -- the array column and pick the row with the highest
+            -- fit_score per (playbook, archetype_version) -- there's
+            -- typically only one active row but this stays robust.
+            SELECT
+                av AS archetype_version,
+                e.playbook_id,
+                MAX(e.fit_score) AS fit_score,
+                MAX(e.expected_uplift_pct) AS expected_uplift_pct
+            FROM {cfg.fqn_prefix}.eligibility_policy e
+            LATERAL VIEW EXPLODE(COALESCE(e.archetype_ids, ARRAY())) tbl AS av
+            WHERE e.status = 'active'
+            GROUP BY av, e.playbook_id
+        )
+        SELECT
+            COALESCE(an.archetype_name, s.archetype_id) AS archetype_name,
+            COALESCE(pn.playbook_name, s.playbook_id)   AS playbook_name,
+            s.playbook_id,
+            s.risk_tier,
+            COUNT(*)                                            AS eligible_count,
+            SUM(CASE WHEN s.recommended THEN 1 ELSE 0 END)       AS recommended_count,
+            SUM(COALESCE(s.value_at_risk, 0))                    AS total_value_at_risk,
+            AVG(s.churn_probability)                             AS mean_churn_probability,
+            MAX(ap.fit_score)                                    AS fit_score,
+            MAX(ap.expected_uplift_pct)                          AS expected_uplift_pct
+        FROM {cfg.fqn_prefix}.eligibility_snapshot s
+        JOIN latest_run lr ON s.scoring_run_id = lr.scoring_run_id
+        LEFT JOIN archetype_names an ON s.archetype_id = an.archetype_id
+        LEFT JOIN playbook_names  pn ON s.playbook_id  = pn.playbook_id
+        LEFT JOIN active_policy_per_arch ap
+               ON ap.archetype_version = s.archetype_version
+              AND ap.playbook_id       = s.playbook_id
+        WHERE COALESCE(s.is_dashboard_visible, TRUE) = TRUE
+          AND COALESCE(an.archetype_name, s.archetype_id) = :archetype_name
+          {risk_tier_filter}
+        GROUP BY an.archetype_name, s.archetype_id,
+                 pn.playbook_name, s.playbook_id, s.risk_tier
+    """, params)
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -112,7 +235,8 @@ def portfolio_totals() -> pd.DataFrame:
             LIMIT 1
         ),
         primary_only AS (
-            SELECT s.entity_id, s.recommended, s.value_at_risk, s.risk_tier
+            SELECT s.entity_id, s.recommended, s.value_at_risk, s.risk_tier,
+                   s.churn_probability
             FROM {cfg.fqn_prefix}.eligibility_snapshot s
             JOIN latest_run lr ON s.scoring_run_id = lr.scoring_run_id
             WHERE s.policy_rank_among_eligible = 1
@@ -128,6 +252,14 @@ def portfolio_totals() -> pd.DataFrame:
             COUNT(*)                                                      AS total_eligible,
             SUM(CASE WHEN recommended           THEN 1 ELSE 0 END)         AS total_recommended,
             SUM(COALESCE(value_at_risk, 0))                                AS total_value_at_risk,
+            -- Probability-weighted dollar exposure across the eligible
+            -- cohort. churn_probability is 0..1 and value_at_risk is
+            -- per-account ARR -- summing the product gives "if we did
+            -- nothing this cycle, this is the realistic $ projection of
+            -- what we'd lose". Strictly more useful for portfolio
+            -- managers than raw value_at_risk (which is worst-case).
+            SUM(COALESCE(churn_probability, 0.0) * COALESCE(value_at_risk, 0.0))
+                                                                          AS total_expected_loss,
 
             SUM(CASE WHEN risk_tier = 'High'   THEN 1 ELSE 0 END)         AS eligible_high,
             SUM(CASE WHEN risk_tier = 'Medium' THEN 1 ELSE 0 END)         AS eligible_medium,
@@ -140,6 +272,10 @@ def portfolio_totals() -> pd.DataFrame:
             SUM(CASE WHEN risk_tier = 'High'   THEN COALESCE(value_at_risk, 0) ELSE 0 END) AS value_at_risk_high,
             SUM(CASE WHEN risk_tier = 'Medium' THEN COALESCE(value_at_risk, 0) ELSE 0 END) AS value_at_risk_medium,
             SUM(CASE WHEN risk_tier = 'Low'    THEN COALESCE(value_at_risk, 0) ELSE 0 END) AS value_at_risk_low,
+
+            SUM(CASE WHEN risk_tier = 'High'   THEN COALESCE(churn_probability, 0.0) * COALESCE(value_at_risk, 0.0) ELSE 0 END) AS expected_loss_high,
+            SUM(CASE WHEN risk_tier = 'Medium' THEN COALESCE(churn_probability, 0.0) * COALESCE(value_at_risk, 0.0) ELSE 0 END) AS expected_loss_medium,
+            SUM(CASE WHEN risk_tier = 'Low'    THEN COALESCE(churn_probability, 0.0) * COALESCE(value_at_risk, 0.0) ELSE 0 END) AS expected_loss_low,
 
             (SELECT active_playbooks FROM active_pb) AS active_playbooks
         FROM primary_only
@@ -329,6 +465,8 @@ def playbook_catalog_all() -> pd.DataFrame:
                 name,
                 description,
                 when_applicable,
+                policy_summary,
+                expected_effect,
                 cost_per_customer_default,
                 expected_uplift_pct_default,
                 outcome_windows_days,
@@ -366,6 +504,8 @@ def playbook_catalog_all() -> pd.DataFrame:
             p.name,
             p.description,
             p.when_applicable,
+            p.policy_summary,
+            p.expected_effect,
             p.cost_per_customer_default,
             p.expected_uplift_pct_default,
             p.outcome_windows_days,
@@ -438,6 +578,144 @@ def archetype_catalog_all() -> pd.DataFrame:
         FROM {cfg.fqn_prefix}.v_archetype_overview
         ORDER BY cluster_mean_churn_probability DESC NULLS LAST, cluster_size DESC
     """)
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def playbook_yaml_runbook(playbook_id: str) -> dict | None:
+    """Return the parsed playbook YAML (or ``None`` when unavailable).
+
+    The framework's playbook loader writes the ``catalog`` and ``steps``
+    blocks to UC but deliberately drops ``operator_runbook`` -- that block
+    is operator content, not model-derived. To surface it in the dashboard
+    without a schema migration we read the YAML directly from the same
+    playbooks directory the loader uses.
+
+    Resolution order for the playbooks root:
+      1. ``CR_PLAYBOOKS_DIR`` env var (Volume path like
+         ``/Volumes/<catalog>/<schema>/playbooks`` or any filesystem dir).
+         Volume paths are read via the Databricks SDK ``files`` API; local
+         paths via ``Path.read_text``.
+      2. Repo-relative ``playbooks/`` discovered by walking up from this
+         file (works in local dev).
+      3. Give up — return ``None`` so the UI gracefully falls back to the
+         catalog-only layout.
+
+    Per-playbook caching is keyed on ``playbook_id`` so a click into a
+    different playbook only hits one file read.
+    """
+    import os
+    from pathlib import Path
+
+    import yaml
+
+    candidates = []
+    env_dir = os.environ.get("CR_PLAYBOOKS_DIR")
+    if env_dir:
+        candidates.append(env_dir)
+    here = Path(__file__).resolve()
+    # apps/databricks_app/src/data.py -> repo_root/playbooks
+    for parent in here.parents:
+        candidate = parent / "playbooks"
+        if candidate.is_dir():
+            candidates.append(str(candidate))
+            break
+
+    for root in candidates:
+        text = _read_playbook_yaml(root, playbook_id)
+        if text is None:
+            continue
+        try:
+            parsed = yaml.safe_load(text)
+        except yaml.YAMLError:
+            return None
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+def _read_playbook_yaml(root: str, playbook_id: str) -> str | None:
+    """Find ``<playbook_id>.yaml`` under ``root`` and return its contents.
+
+    Searches the top level and the first level of subdirectories so the
+    SPS/email split (``playbooks/sps/foo.yaml`` vs ``playbooks/email/bar.yaml``)
+    works without configuration. Volume paths (starting ``/Volumes/``)
+    go through the Databricks SDK file API; everything else uses the
+    local filesystem. Returns ``None`` when nothing matches.
+    """
+    target = f"{playbook_id}.yaml"
+    if root.startswith("/Volumes/"):
+        return _read_yaml_from_volume(root, target)
+    from pathlib import Path
+    base = Path(root)
+    if not base.is_dir():
+        return None
+    candidates = [base / target]
+    for child in sorted(base.iterdir()):
+        if child.is_dir():
+            candidates.append(child / target)
+    for path in candidates:
+        if path.is_file():
+            try:
+                return path.read_text(encoding="utf-8")
+            except OSError:
+                return None
+    return None
+
+
+def _read_yaml_from_volume(root: str, target: str) -> str | None:
+    """Read ``<root>/<sub>/<target>`` from a Unity Catalog Volume.
+
+    Uses ``WorkspaceClient.files.download`` -- the supported SDK path that
+    works reliably from Databricks Apps where FUSE is unreliable. Walks
+    the top level then one level of subdirectories so the SPS/email split
+    is auto-discovered.
+    """
+    try:
+        from databricks.sdk import WorkspaceClient
+    except ImportError:
+        return None
+    try:
+        w = WorkspaceClient()
+    except Exception:
+        return None
+
+    def _try_path(path: str) -> str | None:
+        try:
+            resp = w.files.download(path)
+        except Exception:
+            return None
+        try:
+            data = resp.contents.read()
+        except Exception:
+            return None
+        try:
+            return data.decode("utf-8") if isinstance(data, (bytes, bytearray)) else str(data)
+        except Exception:
+            return None
+
+    # Try top-level first.
+    direct = _try_path(f"{root.rstrip('/')}/{target}")
+    if direct is not None:
+        return direct
+    # Walk one level of subdirectories.
+    try:
+        listing = list(w.files.list_directory_contents(root))
+    except Exception:
+        return None
+    for entry in listing:
+        # The SDK returns a DirectoryEntry-like object; both ``is_directory``
+        # and ``path`` are present on the variants we care about.
+        try:
+            is_dir = bool(getattr(entry, "is_directory", False))
+            entry_path = getattr(entry, "path", None)
+        except Exception:
+            continue
+        if not is_dir or not entry_path:
+            continue
+        found = _try_path(f"{entry_path.rstrip('/')}/{target}")
+        if found is not None:
+            return found
+    return None
 
 
 @st.cache_data(ttl=300, show_spinner=False)

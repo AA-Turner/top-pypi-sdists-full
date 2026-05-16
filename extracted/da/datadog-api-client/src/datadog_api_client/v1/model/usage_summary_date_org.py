@@ -105,6 +105,9 @@ class UsageSummaryDateOrg(ModelNormal):
             "eph_infra_host_alibaba_sum": (int,),
             "eph_infra_host_aws_sum": (int,),
             "eph_infra_host_azure_sum": (int,),
+            "eph_infra_host_basic_infra_basic_agent_sum": (int,),
+            "eph_infra_host_basic_infra_basic_vsphere_sum": (int,),
+            "eph_infra_host_basic_sum": (int,),
             "eph_infra_host_ent_sum": (int,),
             "eph_infra_host_gcp_sum": (int,),
             "eph_infra_host_heroku_sum": (int,),
@@ -126,6 +129,7 @@ class UsageSummaryDateOrg(ModelNormal):
             "fargate_container_profiler_profiling_fargate_eks_avg": (int,),
             "fargate_tasks_count_avg": (int,),
             "fargate_tasks_count_hwm": (int,),
+            "feature_flags_config_requests_sum": (int,),
             "flex_logs_compute_large_avg": (int,),
             "flex_logs_compute_medium_avg": (int,),
             "flex_logs_compute_small_avg": (int,),
@@ -143,7 +147,11 @@ class UsageSummaryDateOrg(ModelNormal):
             "incident_management_seats_hwm": (int,),
             "indexed_events_count_sum": (int,),
             "infra_edge_monitoring_devices_top99p": (int,),
+            "infra_host_basic_infra_basic_agent_top99p": (int,),
+            "infra_host_basic_infra_basic_vsphere_top99p": (int,),
+            "infra_host_basic_top99p": (int,),
             "infra_host_top99p": (int,),
+            "infra_storage_mgmt_objects_count_avg": (int,),
             "ingested_events_bytes_sum": (int,),
             "iot_device_agg_sum": (int,),
             "iot_device_top99p_sum": (int,),
@@ -219,12 +227,14 @@ class UsageSummaryDateOrg(ModelNormal):
             "serverless_apps_apm_apm_fargate_ecs_tasks_avg": (int,),
             "serverless_apps_apm_apm_gcp_cloudfunction_instances_avg": (int,),
             "serverless_apps_apm_apm_gcp_cloudrun_instances_avg": (int,),
+            "serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg": (int,),
             "serverless_apps_apm_avg": (int,),
             "serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg": (int,),
             "serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg": (int,),
             "serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg": (int,),
             "serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg": (int,),
             "serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg": (int,),
+            "serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg": (int,),
             "serverless_apps_apm_excl_fargate_avg": (int,),
             "serverless_apps_azure_container_app_instances_avg": (int,),
             "serverless_apps_azure_count_avg": (int,),
@@ -238,9 +248,11 @@ class UsageSummaryDateOrg(ModelNormal):
             "serverless_apps_excl_fargate_azure_web_app_instances_avg": (int,),
             "serverless_apps_excl_fargate_google_cloud_functions_instances_avg": (int,),
             "serverless_apps_excl_fargate_google_cloud_run_instances_avg": (int,),
+            "serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg": (int,),
             "serverless_apps_google_cloud_functions_instances_avg": (int,),
             "serverless_apps_google_cloud_run_instances_avg": (int,),
             "serverless_apps_google_count_avg": (int,),
+            "serverless_apps_infra_gcp_gke_autopilot_pods_avg": (int,),
             "serverless_apps_total_count_avg": (int,),
             "siem_analyzed_logs_add_on_count_sum": (int,),
             "synthetics_browser_check_calls_count_sum": (int,),
@@ -344,6 +356,9 @@ class UsageSummaryDateOrg(ModelNormal):
         "eph_infra_host_alibaba_sum": "eph_infra_host_alibaba_sum",
         "eph_infra_host_aws_sum": "eph_infra_host_aws_sum",
         "eph_infra_host_azure_sum": "eph_infra_host_azure_sum",
+        "eph_infra_host_basic_infra_basic_agent_sum": "eph_infra_host_basic_infra_basic_agent_sum",
+        "eph_infra_host_basic_infra_basic_vsphere_sum": "eph_infra_host_basic_infra_basic_vsphere_sum",
+        "eph_infra_host_basic_sum": "eph_infra_host_basic_sum",
         "eph_infra_host_ent_sum": "eph_infra_host_ent_sum",
         "eph_infra_host_gcp_sum": "eph_infra_host_gcp_sum",
         "eph_infra_host_heroku_sum": "eph_infra_host_heroku_sum",
@@ -365,6 +380,7 @@ class UsageSummaryDateOrg(ModelNormal):
         "fargate_container_profiler_profiling_fargate_eks_avg": "fargate_container_profiler_profiling_fargate_eks_avg",
         "fargate_tasks_count_avg": "fargate_tasks_count_avg",
         "fargate_tasks_count_hwm": "fargate_tasks_count_hwm",
+        "feature_flags_config_requests_sum": "feature_flags_config_requests_sum",
         "flex_logs_compute_large_avg": "flex_logs_compute_large_avg",
         "flex_logs_compute_medium_avg": "flex_logs_compute_medium_avg",
         "flex_logs_compute_small_avg": "flex_logs_compute_small_avg",
@@ -382,7 +398,11 @@ class UsageSummaryDateOrg(ModelNormal):
         "incident_management_seats_hwm": "incident_management_seats_hwm",
         "indexed_events_count_sum": "indexed_events_count_sum",
         "infra_edge_monitoring_devices_top99p": "infra_edge_monitoring_devices_top99p",
+        "infra_host_basic_infra_basic_agent_top99p": "infra_host_basic_infra_basic_agent_top99p",
+        "infra_host_basic_infra_basic_vsphere_top99p": "infra_host_basic_infra_basic_vsphere_top99p",
+        "infra_host_basic_top99p": "infra_host_basic_top99p",
         "infra_host_top99p": "infra_host_top99p",
+        "infra_storage_mgmt_objects_count_avg": "infra_storage_mgmt_objects_count_avg",
         "ingested_events_bytes_sum": "ingested_events_bytes_sum",
         "iot_device_agg_sum": "iot_device_agg_sum",
         "iot_device_top99p_sum": "iot_device_top99p_sum",
@@ -458,12 +478,14 @@ class UsageSummaryDateOrg(ModelNormal):
         "serverless_apps_apm_apm_fargate_ecs_tasks_avg": "serverless_apps_apm_apm_fargate_ecs_tasks_avg",
         "serverless_apps_apm_apm_gcp_cloudfunction_instances_avg": "serverless_apps_apm_apm_gcp_cloudfunction_instances_avg",
         "serverless_apps_apm_apm_gcp_cloudrun_instances_avg": "serverless_apps_apm_apm_gcp_cloudrun_instances_avg",
+        "serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg": "serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg",
         "serverless_apps_apm_avg": "serverless_apps_apm_avg",
         "serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg": "serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg",
         "serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg": "serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg",
         "serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg": "serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg",
         "serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg": "serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg",
         "serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg": "serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg",
+        "serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg": "serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg",
         "serverless_apps_apm_excl_fargate_avg": "serverless_apps_apm_excl_fargate_avg",
         "serverless_apps_azure_container_app_instances_avg": "serverless_apps_azure_container_app_instances_avg",
         "serverless_apps_azure_count_avg": "serverless_apps_azure_count_avg",
@@ -477,9 +499,11 @@ class UsageSummaryDateOrg(ModelNormal):
         "serverless_apps_excl_fargate_azure_web_app_instances_avg": "serverless_apps_excl_fargate_azure_web_app_instances_avg",
         "serverless_apps_excl_fargate_google_cloud_functions_instances_avg": "serverless_apps_excl_fargate_google_cloud_functions_instances_avg",
         "serverless_apps_excl_fargate_google_cloud_run_instances_avg": "serverless_apps_excl_fargate_google_cloud_run_instances_avg",
+        "serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg": "serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg",
         "serverless_apps_google_cloud_functions_instances_avg": "serverless_apps_google_cloud_functions_instances_avg",
         "serverless_apps_google_cloud_run_instances_avg": "serverless_apps_google_cloud_run_instances_avg",
         "serverless_apps_google_count_avg": "serverless_apps_google_count_avg",
+        "serverless_apps_infra_gcp_gke_autopilot_pods_avg": "serverless_apps_infra_gcp_gke_autopilot_pods_avg",
         "serverless_apps_total_count_avg": "serverless_apps_total_count_avg",
         "siem_analyzed_logs_add_on_count_sum": "siem_analyzed_logs_add_on_count_sum",
         "synthetics_browser_check_calls_count_sum": "synthetics_browser_check_calls_count_sum",
@@ -584,6 +608,9 @@ class UsageSummaryDateOrg(ModelNormal):
         eph_infra_host_alibaba_sum: Union[int, UnsetType] = unset,
         eph_infra_host_aws_sum: Union[int, UnsetType] = unset,
         eph_infra_host_azure_sum: Union[int, UnsetType] = unset,
+        eph_infra_host_basic_infra_basic_agent_sum: Union[int, UnsetType] = unset,
+        eph_infra_host_basic_infra_basic_vsphere_sum: Union[int, UnsetType] = unset,
+        eph_infra_host_basic_sum: Union[int, UnsetType] = unset,
         eph_infra_host_ent_sum: Union[int, UnsetType] = unset,
         eph_infra_host_gcp_sum: Union[int, UnsetType] = unset,
         eph_infra_host_heroku_sum: Union[int, UnsetType] = unset,
@@ -605,6 +632,7 @@ class UsageSummaryDateOrg(ModelNormal):
         fargate_container_profiler_profiling_fargate_eks_avg: Union[int, UnsetType] = unset,
         fargate_tasks_count_avg: Union[int, UnsetType] = unset,
         fargate_tasks_count_hwm: Union[int, UnsetType] = unset,
+        feature_flags_config_requests_sum: Union[int, UnsetType] = unset,
         flex_logs_compute_large_avg: Union[int, UnsetType] = unset,
         flex_logs_compute_medium_avg: Union[int, UnsetType] = unset,
         flex_logs_compute_small_avg: Union[int, UnsetType] = unset,
@@ -622,7 +650,11 @@ class UsageSummaryDateOrg(ModelNormal):
         incident_management_seats_hwm: Union[int, UnsetType] = unset,
         indexed_events_count_sum: Union[int, UnsetType] = unset,
         infra_edge_monitoring_devices_top99p: Union[int, UnsetType] = unset,
+        infra_host_basic_infra_basic_agent_top99p: Union[int, UnsetType] = unset,
+        infra_host_basic_infra_basic_vsphere_top99p: Union[int, UnsetType] = unset,
+        infra_host_basic_top99p: Union[int, UnsetType] = unset,
         infra_host_top99p: Union[int, UnsetType] = unset,
+        infra_storage_mgmt_objects_count_avg: Union[int, UnsetType] = unset,
         ingested_events_bytes_sum: Union[int, UnsetType] = unset,
         iot_device_agg_sum: Union[int, UnsetType] = unset,
         iot_device_top99p_sum: Union[int, UnsetType] = unset,
@@ -698,12 +730,14 @@ class UsageSummaryDateOrg(ModelNormal):
         serverless_apps_apm_apm_fargate_ecs_tasks_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_apm_gcp_cloudfunction_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_apm_gcp_cloudrun_instances_avg: Union[int, UnsetType] = unset,
+        serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_excl_fargate_apm_azure_azurefunction_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_excl_fargate_apm_azure_containerapp_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_excl_fargate_apm_gcp_cloudfunction_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg: Union[int, UnsetType] = unset,
+        serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg: Union[int, UnsetType] = unset,
         serverless_apps_apm_excl_fargate_avg: Union[int, UnsetType] = unset,
         serverless_apps_azure_container_app_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_azure_count_avg: Union[int, UnsetType] = unset,
@@ -717,9 +751,11 @@ class UsageSummaryDateOrg(ModelNormal):
         serverless_apps_excl_fargate_azure_web_app_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_excl_fargate_google_cloud_functions_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_excl_fargate_google_cloud_run_instances_avg: Union[int, UnsetType] = unset,
+        serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg: Union[int, UnsetType] = unset,
         serverless_apps_google_cloud_functions_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_google_cloud_run_instances_avg: Union[int, UnsetType] = unset,
         serverless_apps_google_count_avg: Union[int, UnsetType] = unset,
+        serverless_apps_infra_gcp_gke_autopilot_pods_avg: Union[int, UnsetType] = unset,
         serverless_apps_total_count_avg: Union[int, UnsetType] = unset,
         siem_analyzed_logs_add_on_count_sum: Union[int, UnsetType] = unset,
         synthetics_browser_check_calls_count_sum: Union[int, UnsetType] = unset,
@@ -1001,6 +1037,15 @@ class UsageSummaryDateOrg(ModelNormal):
         :param eph_infra_host_azure_sum: Shows the sum of all ephemeral infrastructure hosts on Azure over all hours in the current date for the given org.
         :type eph_infra_host_azure_sum: int, optional
 
+        :param eph_infra_host_basic_infra_basic_agent_sum: Shows the sum of all ephemeral infrastructure hosts for Basic tier with the Datadog Agent over all hours in the current date for the given org.
+        :type eph_infra_host_basic_infra_basic_agent_sum: int, optional
+
+        :param eph_infra_host_basic_infra_basic_vsphere_sum: Shows the sum of all ephemeral infrastructure hosts for Basic tier on vSphere over all hours in the current date for the given org.
+        :type eph_infra_host_basic_infra_basic_vsphere_sum: int, optional
+
+        :param eph_infra_host_basic_sum: Shows the sum of all ephemeral infrastructure hosts for Basic tier over all hours in the current date for the given org.
+        :type eph_infra_host_basic_sum: int, optional
+
         :param eph_infra_host_ent_sum: Shows the sum of all ephemeral infrastructure hosts for Enterprise over all hours in the current date for the given org.
         :type eph_infra_host_ent_sum: int, optional
 
@@ -1064,6 +1109,9 @@ class UsageSummaryDateOrg(ModelNormal):
         :param fargate_tasks_count_hwm: Shows the high-water mark of all Fargate tasks over all hours in the current date for the given org.
         :type fargate_tasks_count_hwm: int, optional
 
+        :param feature_flags_config_requests_sum: Shows the sum of all Feature Flags Client-Side SDK config requests over all hours in the current date for the given org.
+        :type feature_flags_config_requests_sum: int, optional
+
         :param flex_logs_compute_large_avg: Shows the average number of Flex Logs Compute Large Instances over all hours in the current date for the given org.
         :type flex_logs_compute_large_avg: int, optional
 
@@ -1115,8 +1163,20 @@ class UsageSummaryDateOrg(ModelNormal):
         :param infra_edge_monitoring_devices_top99p: Shows the 99th percentile of all Edge Devices Monitoring devices over all hours in the current date for the given org.
         :type infra_edge_monitoring_devices_top99p: int, optional
 
+        :param infra_host_basic_infra_basic_agent_top99p: Shows the 99th percentile of all distinct infrastructure hosts for Basic tier with the Datadog Agent over all hours in the current date for the given org.
+        :type infra_host_basic_infra_basic_agent_top99p: int, optional
+
+        :param infra_host_basic_infra_basic_vsphere_top99p: Shows the 99th percentile of all distinct infrastructure hosts for Basic tier on vSphere over all hours in the current date for the given org.
+        :type infra_host_basic_infra_basic_vsphere_top99p: int, optional
+
+        :param infra_host_basic_top99p: Shows the 99th percentile of all distinct infrastructure hosts for Basic tier over all hours in the current date for the given org.
+        :type infra_host_basic_top99p: int, optional
+
         :param infra_host_top99p: Shows the 99th percentile of all distinct infrastructure hosts over all hours in the current date for the given org.
         :type infra_host_top99p: int, optional
+
+        :param infra_storage_mgmt_objects_count_avg: Shows the average number of storage management objects over all hours in the current date for the given org.
+        :type infra_storage_mgmt_objects_count_avg: int, optional
 
         :param ingested_events_bytes_sum: Shows the sum of all log bytes ingested over all hours in the current date for the given org.
         :type ingested_events_bytes_sum: int, optional
@@ -1343,6 +1403,9 @@ class UsageSummaryDateOrg(ModelNormal):
         :param serverless_apps_apm_apm_gcp_cloudrun_instances_avg: Shows the average number of Serverless Apps with Application Performance Monitoring for Google Cloud Platform Cloud Run instances for the given date and given org.
         :type serverless_apps_apm_apm_gcp_cloudrun_instances_avg: int, optional
 
+        :param serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg: Shows the average number of Serverless Apps with Application Performance Monitoring for Google Kubernetes Engine Autopilot pods for the given date and given org.
+        :type serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg: int, optional
+
         :param serverless_apps_apm_avg: Shows the average number of Serverless Apps with Application Performance Monitoring for the given date and given org.
         :type serverless_apps_apm_avg: int, optional
 
@@ -1360,6 +1423,9 @@ class UsageSummaryDateOrg(ModelNormal):
 
         :param serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg: Shows the average number of Serverless Apps with Application Performance Monitoring excluding Fargate for Google Cloud Platform Cloud Run instances for the given date and given org.
         :type serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg: int, optional
+
+        :param serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg: Shows the average number of Serverless Apps with Application Performance Monitoring excluding Fargate for Google Kubernetes Engine Autopilot pods for the given date and given org.
+        :type serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg: int, optional
 
         :param serverless_apps_apm_excl_fargate_avg: Shows the average number of Serverless Apps with Application Performance Monitoring excluding Fargate for the given date and given org.
         :type serverless_apps_apm_excl_fargate_avg: int, optional
@@ -1400,6 +1466,9 @@ class UsageSummaryDateOrg(ModelNormal):
         :param serverless_apps_excl_fargate_google_cloud_run_instances_avg: Shows the average number of Serverless Apps excluding Fargate for Google Cloud Platform Cloud Run instances for the given date and given org.
         :type serverless_apps_excl_fargate_google_cloud_run_instances_avg: int, optional
 
+        :param serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg: Shows the average number of Serverless Apps excluding Fargate for Google Kubernetes Engine Autopilot pods for the given date and given org.
+        :type serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg: int, optional
+
         :param serverless_apps_google_cloud_functions_instances_avg: Shows the average number of Serverless Apps for Google Cloud Platform Cloud Functions instances for the given date and given org.
         :type serverless_apps_google_cloud_functions_instances_avg: int, optional
 
@@ -1408,6 +1477,9 @@ class UsageSummaryDateOrg(ModelNormal):
 
         :param serverless_apps_google_count_avg: Shows the average number of Serverless Apps for Google Cloud for the given date and given org.
         :type serverless_apps_google_count_avg: int, optional
+
+        :param serverless_apps_infra_gcp_gke_autopilot_pods_avg: Shows the average number of Serverless Apps for Google Kubernetes Engine Autopilot pods for the given date and given org.
+        :type serverless_apps_infra_gcp_gke_autopilot_pods_avg: int, optional
 
         :param serverless_apps_total_count_avg: Shows the average number of Serverless Apps for Azure and Google Cloud for the given date and given org.
         :type serverless_apps_total_count_avg: int, optional
@@ -1623,6 +1695,12 @@ class UsageSummaryDateOrg(ModelNormal):
             kwargs["eph_infra_host_aws_sum"] = eph_infra_host_aws_sum
         if eph_infra_host_azure_sum is not unset:
             kwargs["eph_infra_host_azure_sum"] = eph_infra_host_azure_sum
+        if eph_infra_host_basic_infra_basic_agent_sum is not unset:
+            kwargs["eph_infra_host_basic_infra_basic_agent_sum"] = eph_infra_host_basic_infra_basic_agent_sum
+        if eph_infra_host_basic_infra_basic_vsphere_sum is not unset:
+            kwargs["eph_infra_host_basic_infra_basic_vsphere_sum"] = eph_infra_host_basic_infra_basic_vsphere_sum
+        if eph_infra_host_basic_sum is not unset:
+            kwargs["eph_infra_host_basic_sum"] = eph_infra_host_basic_sum
         if eph_infra_host_ent_sum is not unset:
             kwargs["eph_infra_host_ent_sum"] = eph_infra_host_ent_sum
         if eph_infra_host_gcp_sum is not unset:
@@ -1673,6 +1751,8 @@ class UsageSummaryDateOrg(ModelNormal):
             kwargs["fargate_tasks_count_avg"] = fargate_tasks_count_avg
         if fargate_tasks_count_hwm is not unset:
             kwargs["fargate_tasks_count_hwm"] = fargate_tasks_count_hwm
+        if feature_flags_config_requests_sum is not unset:
+            kwargs["feature_flags_config_requests_sum"] = feature_flags_config_requests_sum
         if flex_logs_compute_large_avg is not unset:
             kwargs["flex_logs_compute_large_avg"] = flex_logs_compute_large_avg
         if flex_logs_compute_medium_avg is not unset:
@@ -1709,8 +1789,16 @@ class UsageSummaryDateOrg(ModelNormal):
             kwargs["indexed_events_count_sum"] = indexed_events_count_sum
         if infra_edge_monitoring_devices_top99p is not unset:
             kwargs["infra_edge_monitoring_devices_top99p"] = infra_edge_monitoring_devices_top99p
+        if infra_host_basic_infra_basic_agent_top99p is not unset:
+            kwargs["infra_host_basic_infra_basic_agent_top99p"] = infra_host_basic_infra_basic_agent_top99p
+        if infra_host_basic_infra_basic_vsphere_top99p is not unset:
+            kwargs["infra_host_basic_infra_basic_vsphere_top99p"] = infra_host_basic_infra_basic_vsphere_top99p
+        if infra_host_basic_top99p is not unset:
+            kwargs["infra_host_basic_top99p"] = infra_host_basic_top99p
         if infra_host_top99p is not unset:
             kwargs["infra_host_top99p"] = infra_host_top99p
+        if infra_storage_mgmt_objects_count_avg is not unset:
+            kwargs["infra_storage_mgmt_objects_count_avg"] = infra_storage_mgmt_objects_count_avg
         if ingested_events_bytes_sum is not unset:
             kwargs["ingested_events_bytes_sum"] = ingested_events_bytes_sum
         if iot_device_agg_sum is not unset:
@@ -1875,6 +1963,10 @@ class UsageSummaryDateOrg(ModelNormal):
             kwargs[
                 "serverless_apps_apm_apm_gcp_cloudrun_instances_avg"
             ] = serverless_apps_apm_apm_gcp_cloudrun_instances_avg
+        if serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg is not unset:
+            kwargs[
+                "serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg"
+            ] = serverless_apps_apm_apm_gcp_gke_autopilot_pods_avg
         if serverless_apps_apm_avg is not unset:
             kwargs["serverless_apps_apm_avg"] = serverless_apps_apm_avg
         if serverless_apps_apm_excl_fargate_apm_azure_appservice_instances_avg is not unset:
@@ -1897,6 +1989,10 @@ class UsageSummaryDateOrg(ModelNormal):
             kwargs[
                 "serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg"
             ] = serverless_apps_apm_excl_fargate_apm_gcp_cloudrun_instances_avg
+        if serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg is not unset:
+            kwargs[
+                "serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg"
+            ] = serverless_apps_apm_excl_fargate_apm_gcp_gke_autopilot_pods_avg
         if serverless_apps_apm_excl_fargate_avg is not unset:
             kwargs["serverless_apps_apm_excl_fargate_avg"] = serverless_apps_apm_excl_fargate_avg
         if serverless_apps_azure_container_app_instances_avg is not unset:
@@ -1937,6 +2033,10 @@ class UsageSummaryDateOrg(ModelNormal):
             kwargs[
                 "serverless_apps_excl_fargate_google_cloud_run_instances_avg"
             ] = serverless_apps_excl_fargate_google_cloud_run_instances_avg
+        if serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg is not unset:
+            kwargs[
+                "serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg"
+            ] = serverless_apps_excl_fargate_infra_gcp_gke_autopilot_pods_avg
         if serverless_apps_google_cloud_functions_instances_avg is not unset:
             kwargs[
                 "serverless_apps_google_cloud_functions_instances_avg"
@@ -1945,6 +2045,10 @@ class UsageSummaryDateOrg(ModelNormal):
             kwargs["serverless_apps_google_cloud_run_instances_avg"] = serverless_apps_google_cloud_run_instances_avg
         if serverless_apps_google_count_avg is not unset:
             kwargs["serverless_apps_google_count_avg"] = serverless_apps_google_count_avg
+        if serverless_apps_infra_gcp_gke_autopilot_pods_avg is not unset:
+            kwargs[
+                "serverless_apps_infra_gcp_gke_autopilot_pods_avg"
+            ] = serverless_apps_infra_gcp_gke_autopilot_pods_avg
         if serverless_apps_total_count_avg is not unset:
             kwargs["serverless_apps_total_count_avg"] = serverless_apps_total_count_avg
         if siem_analyzed_logs_add_on_count_sum is not unset:

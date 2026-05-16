@@ -37,7 +37,7 @@ warnings.simplefilter("ignore", FutureWarning)
 from PIL import Image, ImageDraw, ImageFont
 import PIL.Image
 PIL.Image.MAX_IMAGE_PIXELS = None
-from halo import Halo
+from PKDevTools.classes.PKHalo import PKHalo
 
 from PKDevTools.classes import Archiver
 from PKDevTools.classes.ColorText import colorText
@@ -342,7 +342,7 @@ class PKImageTools:
     # Table to Image Conversion
     # ========================================================================
     
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def tableToImage(
         table,
         styledTable,

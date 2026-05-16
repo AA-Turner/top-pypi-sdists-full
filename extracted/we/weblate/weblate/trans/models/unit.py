@@ -30,6 +30,7 @@ from weblate.memory.tasks import handle_unit_translation_change
 from weblate.memory.utils import is_valid_memory_entry
 from weblate.trans.actions import ActionEvents
 from weblate.trans.autofixes import fix_target
+from weblate.trans.file_format_params import DOSLineEndings
 from weblate.trans.mixins import LoggerMixin
 from weblate.trans.models.category import Category
 from weblate.trans.models.change import Change
@@ -89,7 +90,7 @@ def fill_in_source_translation(units: Iterable[Unit]) -> None:
         unit.translation.component.source_translation = unit.source_unit.translation
 
 
-class UnitQuerySet(models.QuerySet["Unit"]):
+class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
     def prefetch(self):
         from weblate.trans.models import Component  # noqa: PLC0415
 
@@ -315,12 +316,23 @@ class UnitQuerySet(models.QuerySet["Unit"]):
     def source_lookup(self) -> dict[str, Unit]:
         return {unit.source: unit for unit in self}
 
+    @cached_property
+    def id_hash_lookup(self) -> dict[int, Unit]:
+        return {unit.id_hash: unit for unit in self}
+
     def get_unit(self, ttunit: TranslationUnit) -> Unit:
         """
         Find unit matching translate-toolkit unit.
 
         This is used for import, so kind of fuzzy matching is expected.
         """
+        import_id_hash = getattr(ttunit, "import_id_hash", None)
+        if import_id_hash is not None:
+            try:
+                return self.id_hash_lookup[import_id_hash]
+            except KeyError:
+                pass
+
         source = ttunit.source
         context = ttunit.context
 
@@ -716,6 +728,21 @@ class Unit(models.Model, LoggerMixin):
             "automatically_translated": unit.automatically_translated,
         }
 
+    @staticmethod
+    def get_disk_state(
+        *,
+        target: str,
+        state: int,
+        explanation: str,
+        automatically_translated: bool,
+    ) -> dict[str, Any]:
+        return {
+            "target": target,
+            "state": state,
+            "explanation": explanation,
+            "automatically_translated": automatically_translated,
+        }
+
     def store_disk_state(self) -> None:
         """
         Store a snapshot of unit state before pending changes are created.
@@ -726,12 +753,12 @@ class Unit(models.Model, LoggerMixin):
             msg = "`store_old_unit` should be called before saving disk state."
             raise ValueError(msg)
         if "disk_state" not in self.details:
-            self.details["disk_state"] = {
-                "target": self.old_unit["target"],
-                "state": self.old_unit["state"],
-                "explanation": self.old_unit["explanation"],
-                "automatically_translated": self.old_unit["automatically_translated"],
-            }
+            self.details["disk_state"] = self.get_disk_state(
+                target=self.old_unit["target"],
+                state=self.old_unit["state"],
+                explanation=self.old_unit["explanation"],
+                automatically_translated=self.old_unit["automatically_translated"],
+            )
             self.save(same_content=True, only_save=True, update_fields=["details"])
 
     def clear_disk_state(self) -> None:
@@ -2104,7 +2131,7 @@ class Unit(models.Model, LoggerMixin):
         not_empty = any(new_target_list)
 
         # Newlines fixup
-        if "dos-eol" in self.all_flags:
+        if DOSLineEndings.get_value(self.translation.component.file_format_params):
             self.target = NEWLINES.sub("\r\n", self.target)
 
         # Update string state

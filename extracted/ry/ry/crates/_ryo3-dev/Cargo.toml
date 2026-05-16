@@ -14,6 +14,7 @@ readme = "README.md"
 
 [dependencies]
 pyo3.workspace = true
+ryo3-macro-rules.workspace = true
 serde.workspace = true
 serde_bytes = { workspace = true, features = ["std"] }
 serde_json.workspace = true

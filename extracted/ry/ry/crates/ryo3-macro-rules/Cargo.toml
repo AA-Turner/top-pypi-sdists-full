@@ -13,6 +13,8 @@ description = "ryo3-macro-rules ~ macro_rules used by ryo3"
 readme = "README.md"
 
 [dependencies]
+
+[dev-dependencies]
 pyo3 = { workspace = true, features = [] }
 
 [lints]

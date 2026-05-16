@@ -106,7 +106,7 @@ class UserCodeTestLauncher(DagsterCloudUserCodeLauncher[ServerHandle]):
     def pex_servers(self) -> dict[str, list[PexServerHandle]]:
         return self._pex_servers.copy()
 
-    def get_code_server_resource_limits(self, deployment_name, location_name):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def get_code_server_resource_limits(self, deployment_name, location_name):
         return {}
 
     def _start_new_server_spinup(
@@ -214,7 +214,7 @@ class UserCodeTestLauncher(DagsterCloudUserCodeLauncher[ServerHandle]):
 
         return self._pex_servers.get(multipex_server.server_handle, []).copy()
 
-    def _remove_pex_server_handle(  # pyright: ignore[reportIncompatibleMethodOverride], fix me!
+    def _remove_pex_server_handle(  # ty: ignore[invalid-method-override], fix me!
         self,
         _deployment_name,
         _location_name,
@@ -236,7 +236,7 @@ class UserCodeTestLauncher(DagsterCloudUserCodeLauncher[ServerHandle]):
             executable_path="fake_executable",
         )
 
-    def _check_running_multipex_server(self, _multipex_server: DagsterCloudGrpcServer):  # pyright: ignore[reportIncompatibleMethodOverride], fix me!
+    def _check_running_multipex_server(self, _multipex_server: DagsterCloudGrpcServer):  # ty: ignore[invalid-method-override], fix me!
         if self.fail_next_multipex_health_check:
             self.fail_next_multipex_health_check = False
             raise Exception("can no longer reach multipex server")
@@ -269,7 +269,7 @@ class UserCodeTestLauncher(DagsterCloudUserCodeLauncher[ServerHandle]):
 
         time.sleep(0.5)
 
-    def _update_workspace_entry(self, _deployment_name: str, workspace_entry, server_or_error):  # pyright: ignore[reportIncompatibleMethodOverride], fix me!
+    def _update_workspace_entry(self, _deployment_name: str, workspace_entry, server_or_error):  # ty: ignore[invalid-method-override], fix me!
         if self.fail_graphql_writes:
             raise Exception("Update workspace entry failed")
 

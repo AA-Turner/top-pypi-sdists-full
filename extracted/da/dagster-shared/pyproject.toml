@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-shared"
-version = "1.13.4"
+version = "1.13.5"
 description = "Shared code between dagster and dagster-dg-core."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -34,7 +34,11 @@ dependencies = [
 Homepage = "https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-shared"
 
 [project.optional-dependencies]
+
+[dependency-groups]
 test = [
     "pytest",
-    "flaky",
+    "pytest-rerunfailures",
 ]
+
+[tool.uv.sources]

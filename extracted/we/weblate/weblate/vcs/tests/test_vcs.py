@@ -10,6 +10,7 @@ import re
 import shutil
 import tempfile
 from contextlib import ExitStack
+from datetime import datetime
 from io import BytesIO
 from os import utime
 from pathlib import Path
@@ -38,6 +39,7 @@ from weblate.vcs.base import (
     get_config_check_cache_key,
     is_ssh_host_key_mismatch_error,
     is_ssh_host_key_verification_error,
+    parse_commit_date,
     should_auto_add_ssh_host_key,
 )
 from weblate.vcs.git import (
@@ -226,6 +228,14 @@ class RepositoryTest(SimpleTestCase):
 
     def test_is_supported_no_version(self) -> None:
         self.assertTrue(GitNoVersionRepository.is_supported())
+
+    def test_parse_commit_date_normalizes_naive_datetime(self) -> None:
+        parsed = parse_commit_date(datetime(2026, 5, 7, 12, 30))  # noqa: DTZ001
+        self.assertTrue(timezone.is_aware(parsed))
+
+    def test_parse_commit_date_normalizes_naive_string(self) -> None:
+        parsed = parse_commit_date("2026-05-07 12:30:00")
+        self.assertTrue(timezone.is_aware(parsed))
 
     def test_is_supported_cache(self) -> None:
         GitTestRepository.is_supported()
@@ -677,6 +687,36 @@ class GitBranchValidationTest(SimpleTestCase):
             ["check-ref-format", "refs/heads/main"],
             merge_err=False,
         )
+
+    def test_generic_git_branch_accepts_gerrit_option_delimiters(self) -> None:
+        with patch.object(GitRepository, "_popen", return_value=""):
+            self.assertEqual(
+                "main%submit", GitRepository.validate_branch_name("main%submit")
+            )
+
+    def test_gerrit_branch_accepts_plain_name(self) -> None:
+        with patch.object(GitWithGerritRepository, "_popen", return_value=""):
+            self.assertEqual(
+                "review-branch",
+                GitWithGerritRepository.validate_branch_name("review-branch"),
+            )
+
+    def test_gerrit_branch_rejects_magic_ref_options(self) -> None:
+        branches = (
+            "main%submit",
+            "main%l=Code-Review+2",
+            "main%topic=evil,l=Code-Review+2",
+            "main,topic",
+        )
+        with patch.object(GitWithGerritRepository, "_popen", return_value=""):
+            for branch in branches:
+                with (
+                    self.subTest(branch=branch),
+                    self.assertRaises(RepositoryError) as cm,
+                ):
+                    GitWithGerritRepository.validate_branch_name(branch)
+
+                self.assertIn("review push options", str(cm.exception))
 
     def test_shorthand_branch_is_rejected(self) -> None:
         with self.assertRaises(RepositoryError) as cm:
@@ -1448,6 +1488,27 @@ class VCSGiteaTest(VCSGitUpstreamTest):
         )
         super().test_push(branch)
         mock_push_to_fork.stop()
+
+    @responses.activate
+    def test_push_reconfigures_stale_fork_remote(self) -> None:
+        self.repo.config_update(
+            ('remote "test"', "pushurl", "git@github.com:test/test.git")
+        )
+
+        with patch("weblate.vcs.git.GitMergeRequestBase.push_to_fork") as mocked_push:
+            mocked_push.return_value = ""
+            self.mock_responses(
+                pr_response={"url": "https://try.gitea.io/WeblateOrg/test/pull/1"}
+            )
+
+            super().test_push("")
+
+        responses.assert_call_count(
+            "https://try.gitea.io/api/v1/repos/WeblateOrg/test/forks", 1
+        )
+        self.assertEqual(
+            self.repo.get_config("remote.test.pushURL"), "git@gitea.io:test/test.git"
+        )
 
     @responses.activate
     def test_pull_request_error(self, branch: str = "") -> None:
@@ -2636,6 +2697,54 @@ class VCSGerritTest(VCSGitUpstreamTest):
         hook = os.path.join(repo.path, ".git", "hooks", "commit-msg")
         Path(hook).write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         os.chmod(hook, 0o755)  # noqa: S103, nosec
+        if isinstance(repo, GitWithGerritRepository):
+            repo.config_update(('remote "gerrit"', "url", self.get_remote_repo_url()))
+
+    def test_configure_remote_sets_gerrit_fetch(self) -> None:
+        with self.repo.lock:
+            self.repo.configure_remote(
+                "pullurl", "ssh://sshuser@domain.com:29418/repo.git", "branch"
+            )
+            self.assertEqual(
+                self.repo.get_config("remote.gerrit.fetch"),
+                "+refs/heads/branch:refs/remotes/gerrit/branch",
+            )
+            self.assertEqual(self.repo.get_config("remote.gerrit.tagOpt"), "--no-tags")
+
+    def test_configure_remote_removes_gerrit_fetch_without_push(self) -> None:
+        with self.repo.lock:
+            self.repo.configure_remote(
+                "pullurl", "ssh://sshuser@domain.com:29418/repo.git", "branch"
+            )
+            self.repo.configure_remote("pullurl", "", "branch")
+            with self.assertRaises(RepositoryError):
+                self.repo.get_config("remote.gerrit.url")
+            with self.assertRaises(RepositoryError):
+                self.repo.get_config("remote.gerrit.fetch")
+            with self.assertRaises(RepositoryError):
+                self.repo.get_config("remote.gerrit.tagOpt")
+
+    def test_push_branch_targets_gerrit_review_branch(self) -> None:
+        with (
+            self.repo.lock,
+            patch.object(self.repo, "needs_push", return_value=True) as needs_push,
+            patch.object(self.repo, "execute") as execute,
+        ):
+            self.repo.push("review-branch")
+
+        needs_push.assert_called_once_with("review-branch")
+        execute.assert_called_once_with(
+            ["review", "--remote", "gerrit", "--yes", "review-branch"],
+            remote_op="push",
+        )
+        self.assertEqual(
+            self.repo.get_config("remote.gerrit.fetch"),
+            "+refs/heads/review-branch:refs/remotes/gerrit/review-branch",
+        )
+
+    def test_push_branch(self) -> None:
+        self.test_commit()
+        self.test_push("translations")
 
     def test_set_gitreview_username_git(self) -> None:
         with self.repo.lock:

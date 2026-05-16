@@ -7,7 +7,9 @@ add_executable(
   unittests
   analysis/AssertionAnalysisTests.cpp
   analysis/CaseAnalysisTests.cpp
+  analysis/ConstraintAnalysisTests.cpp
   analysis/DFATests.cpp
+  analysis/SensitivityTests.cpp
   analysis/MultiAssignTests.cpp
   analysis/PortAnalysisTests.cpp
   analysis/UnusedTests.cpp
@@ -25,6 +27,7 @@ add_executable(
   ast/ParameterTests.cpp
   ast/PortTests.cpp
   ast/PrimitiveTests.cpp
+  ast/ValuePathTests.cpp
   ast/SerializerTests.cpp
   ast/StatementTests.cpp
   ast/SubroutineTests.cpp

@@ -22,7 +22,7 @@ project_router = APIRouter(
 )
 
 
-@project_router.post("/create", response_model=Export)
+@project_router.post("/create", summary="Create export", response_model=Export)
 async def create_export(
     body: CreateExportRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -34,12 +34,14 @@ async def create_export(
         project=project,
         user=user,
         name=body.name,
+        is_global=body.is_global,
         importer_project_names=body.importer_projects,
         exported_fleet_names=body.exported_fleets,
+        exported_gateway_names=body.exported_gateways,
     )
 
 
-@project_router.post("/update", response_model=Export)
+@project_router.post("/update", summary="Update export", response_model=Export)
 async def update_export(
     body: UpdateExportRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -51,14 +53,18 @@ async def update_export(
         project=project,
         user=user,
         name=body.name,
+        set_global=body.set_global,
+        unset_global=body.unset_global,
         add_importer_project_names=body.add_importer_projects,
         remove_importer_project_names=body.remove_importer_projects,
         add_exported_fleet_names=body.add_exported_fleets,
         remove_exported_fleet_names=body.remove_exported_fleets,
+        add_exported_gateway_names=body.add_exported_gateways,
+        remove_exported_gateway_names=body.remove_exported_gateways,
     )
 
 
-@project_router.post("/delete")
+@project_router.post("/delete", summary="Delete export")
 async def delete_export(
     body: DeleteExportRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -72,7 +78,7 @@ async def delete_export(
     )
 
 
-@project_router.post("/list", response_model=list[Export])
+@project_router.post("/list", summary="List exports", response_model=list[Export])
 async def list_exports(
     session: Annotated[AsyncSession, Depends(get_session)],
     user_project: Annotated[tuple[UserModel, ProjectModel], Depends(ProjectMember())],

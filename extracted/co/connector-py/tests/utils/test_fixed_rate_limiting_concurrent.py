@@ -59,7 +59,7 @@ async def test_rate_limiter_concurrent_execution(monkeypatch, sleep_calls):
 
     # Create config with concurrent execution
     config = RateLimitConfig(
-        app_id="test-concurrent",
+        config_id="test-concurrent",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,
@@ -137,7 +137,7 @@ async def test_rate_limiter_sequential_execution(monkeypatch, sleep_calls):
 
     # Create config with sequential execution
     config = RateLimitConfig(
-        app_id="test-sequential",
+        config_id="test-sequential",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,
@@ -213,7 +213,7 @@ async def test_rate_limiter_semaphore_behavior(monkeypatch, sleep_calls):
 
     # Create config with limited concurrency
     config = RateLimitConfig(
-        app_id="test-semaphore",
+        config_id="test-semaphore",
         requests_per_window=20,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,
@@ -290,7 +290,7 @@ async def test_rate_limiter_concurrent_with_rate_limiting(monkeypatch, sleep_cal
 
     # Create config with concurrent execution and restrictive rate limits
     config = RateLimitConfig(
-        app_id="test-concurrent-rate-limit",
+        config_id="test-concurrent-rate-limit",
         requests_per_window=2,  # Very restrictive
         window_seconds=10,
         strategy=RateLimitStrategy.FIXED,
@@ -360,7 +360,7 @@ async def test_rate_limiter_concurrent_exception_handling(monkeypatch, sleep_cal
 
     # Create config with concurrent execution
     config = RateLimitConfig(
-        app_id="test-concurrent-exceptions",
+        config_id="test-concurrent-exceptions",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,
@@ -411,7 +411,7 @@ async def test_rate_limiter_single_request_concurrent_config(monkeypatch, sleep_
 
     # Create config with concurrent execution
     config = RateLimitConfig(
-        app_id="test-single-concurrent",
+        config_id="test-single-concurrent",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,
@@ -464,7 +464,7 @@ async def test_rate_limiter_response_order_preservation(monkeypatch, sleep_calls
 
     # Create config with concurrent execution
     config = RateLimitConfig(
-        app_id="test-response-order",
+        config_id="test-response-order",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,
@@ -559,7 +559,7 @@ async def test_rate_limiter_concurrent_http_error_responses(monkeypatch, sleep_c
 
     # Create config with concurrent execution
     config = RateLimitConfig(
-        app_id="test-concurrent-http-errors",
+        config_id="test-concurrent-http-errors",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,

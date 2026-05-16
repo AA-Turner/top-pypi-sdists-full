@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-pandera
-Version: 0.29.4
+Version: 0.29.5
 Summary: Integration layer for dagster and pandera.
 Project-URL: Homepage, https://github.com/dagster-io/dagster
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -13,11 +13,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster==1.13.4
+Requires-Dist: dagster==1.13.5
 Requires-Dist: pandas<3.0.0
 Requires-Dist: pandera>=0.24.0
 Provides-Extra: polars
 Requires-Dist: polars>=1; extra == 'polars'
-Provides-Extra: test
-Requires-Dist: polars>=1; extra == 'test'
-Requires-Dist: pytest; extra == 'test'

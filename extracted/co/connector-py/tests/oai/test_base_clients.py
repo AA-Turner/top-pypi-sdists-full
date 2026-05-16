@@ -53,7 +53,7 @@ def mock_async_client():
 def rate_limit_config():
     """Create a test rate limit configuration."""
     return RateLimitConfig(
-        app_id="test-app",
+        config_id="test-app",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,
@@ -306,7 +306,7 @@ class TestBaseIntegrationClient:
 
         class TestClientWithConfig(self.ConcreteTestClient):
             _rate_limit_config = RateLimitConfig(
-                app_id="class-config",
+                config_id="class-config",
                 requests_per_window=5,
                 window_seconds=30,
             )
@@ -318,7 +318,7 @@ class TestBaseIntegrationClient:
             client = TestClientWithConfig(sample_request)
 
             assert isinstance(client._http_client, RateLimitedClient)
-            assert client._rate_limit_config.app_id == "class-config"
+            assert client._rate_limit_config.config_id == "class-config"
 
     def test_get_current_rate_limits_with_rate_limiting(self, sample_request, rate_limit_config):
         """Test get_current_rate_limits with rate limited client."""
@@ -847,7 +847,7 @@ class TestBaseGraphQLSession:
         assert client is not None
         assert isinstance(client.transport, RateLimitedHTTPXAsyncTransport)
         # mode is resolved (None → ENFORCE) via model_copy, so use field equality not identity
-        assert client.transport.rate_limiter.config.app_id == rate_limit_config.app_id
+        assert client.transport.rate_limiter.config.config_id == rate_limit_config.config_id
         assert (
             client.transport.rate_limiter.config.requests_per_window
             == rate_limit_config.requests_per_window
@@ -859,7 +859,7 @@ class TestBaseGraphQLSession:
 
         class TestSessionWithClassConfig(self.ConcreteTestGraphQLSession):
             _rate_limit_config = RateLimitConfig(
-                app_id="class-config",
+                config_id="class-config",
                 requests_per_window=5,
                 window_seconds=30,
             )
@@ -878,7 +878,7 @@ class TestBaseGraphQLSession:
         config, delay = session_with_rate_limit.get_current_rate_limits()
         # mode is resolved (None → ENFORCE) via model_copy, so use field equality not identity
         assert config is not None
-        assert config.app_id == rate_limit_config.app_id
+        assert config.config_id == rate_limit_config.config_id
         assert config.requests_per_window == rate_limit_config.requests_per_window
         assert isinstance(delay, float)
 
@@ -917,7 +917,7 @@ class TestBaseGraphQLSession:
 
 def _make_config(mode: RateLimitMode | None = None) -> RateLimitConfig:
     return RateLimitConfig(
-        app_id="test",
+        config_id="test",
         requests_per_window=10,
         window_seconds=60,
         mode=mode,
@@ -1069,7 +1069,7 @@ class TestBaseIntegrationClientRateLimitBehavior:
             capability_name=StandardCapabilityName.LIST_ACCOUNTS,
             capability_level="read",
             caller_override_mode=None,
-            last_known_state={config.effective_config_id: state},
+            last_known_state={config.config_id: state},
         )
         token = RATE_LIMIT_CONTEXT.set(ctx)
         try:
@@ -1098,8 +1098,8 @@ class TestBaseIntegrationClientRateLimitBehavior:
                 await client.__aexit__()
                 state_map = RATE_LIMIT_RESULT_CONTEXT.get()
                 assert state_map is not None
-                assert config.effective_config_id in state_map
-                assert state_map[config.effective_config_id].limit == config.requests_per_window
+                assert config.config_id in state_map
+                assert state_map[config.config_id].limit == config.requests_per_window
         finally:
             RATE_LIMIT_CONTEXT.reset(rate_limit_token)
             RATE_LIMIT_RESULT_CONTEXT.reset(result_token)
@@ -1114,4 +1114,27 @@ class TestBaseIntegrationClientRateLimitBehavior:
                 await client.__aexit__()
                 assert RATE_LIMIT_RESULT_CONTEXT.get() is None
         finally:
+            RATE_LIMIT_RESULT_CONTEXT.reset(result_token)
+
+    async def test_aexit_accumulates_separate_state_for_multi_tier_configs(
+        self, sample_request
+    ) -> None:
+        config_a = _make_config(mode=RateLimitMode.ENFORCE)
+        config_b = config_a.model_copy(update={"config_id": "test-tier-b"})
+        ctx = _make_ctx(capability_level="read")
+        rate_limit_token = RATE_LIMIT_CONTEXT.set(ctx)
+        result_token = RATE_LIMIT_RESULT_CONTEXT.set(None)
+        try:
+            for config in (config_a, config_b):
+                with patch.object(self.ConcreteClient, "build_client") as mock_build:
+                    mock_build.return_value = AsyncMock(spec=httpx.AsyncClient)
+                    client = self.ConcreteClient(sample_request, config)
+                    await client.__aexit__()
+            state_map = RATE_LIMIT_RESULT_CONTEXT.get()
+            assert state_map is not None
+            assert config_a.config_id in state_map
+            assert config_b.config_id in state_map
+            assert config_a.config_id != config_b.config_id
+        finally:
+            RATE_LIMIT_CONTEXT.reset(rate_limit_token)
             RATE_LIMIT_RESULT_CONTEXT.reset(result_token)

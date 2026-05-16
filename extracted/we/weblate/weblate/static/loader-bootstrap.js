@@ -166,7 +166,9 @@ function submitForm(evt, _combo, selector) {
   }
   return false;
 }
-Mousetrap.bindGlobal("mod+enter", submitForm);
+hotkeys("ctrl+enter,command+enter", (e) => {
+  return submitForm(e);
+});
 
 function screenshotStart() {
   $("#search-results tbody.unit-listing-body").empty();
@@ -409,6 +411,18 @@ function quoteSearch(value) {
   return value;
 }
 
+// Auto-resize a textarea to fit its content.
+// CSS `field-sizing: content` would be cleaner but Firefox doesn't implement it yet
+function autosizeTextarea(el) {
+  const resize = () => {
+    // Reset to 0 so the textarea collapses past any `rows` attribute default
+    el.style.height = "0px";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  el.addEventListener("input", resize);
+  resize();
+}
+
 function initHighlight(root) {
   if (typeof ResizeObserver === "undefined") {
     return;
@@ -559,7 +573,6 @@ function initHighlight(root) {
     }
     const syncContent = () => {
       highlight.innerHTML = Prism.highlight(editor.value, languageMode, mode);
-      autosize.update(editor);
     };
     syncContent();
     editor.addEventListener("input", syncContent);
@@ -582,8 +595,7 @@ function initHighlight(root) {
     });
 
     resizeObserver.observe(editor);
-    /* Autosizing */
-    autosize(editor);
+    autosizeTextarea(editor);
   });
 }
 
@@ -940,11 +952,18 @@ $(function () {
   }
 
   /* Override all multiple selects */
-  $("select[multiple]").multi({
-    enable_search: true,
-    search_placeholder: gettext("Search…"),
-    non_selected_header: gettext("Available:"),
-    selected_header: gettext("Chosen:"),
+  document.querySelectorAll("select[multiple]").forEach((el) => {
+    if (el.tomselect) {
+      return;
+    }
+    new TomSelect(el, {
+      plugins: ["remove_button", "checkbox_options"],
+      placeholder: gettext("Search…"),
+      hidePlaceholder: false,
+      persist: false,
+      create: false,
+      allowEmptyOption: true,
+    });
   });
 
   /* Slugify name */
@@ -1045,6 +1064,11 @@ $(function () {
             progressCompleted();
             if (result.message) {
               $messageText.text(result.message);
+            } else if (typeof result === "string" && result) {
+              $messageText.text(result);
+            }
+            if (result.url) {
+              window.location = result.url;
             }
             if (result.warnings?.length) {
               $warnings.empty();
@@ -1124,6 +1148,7 @@ $(function () {
   const $positionInputEditable = $(".position-input-editable");
   const $positionInputEditableInput = $("#position-input-editable-input");
   $positionInput.on("click", function (event) {
+    event.preventDefault();
     const $form = $(this).closest("form");
     $positionInput.hide();
     $form.find("input[name=offset]").prop("disabled", false);
@@ -1298,48 +1323,101 @@ $(function () {
     );
   });
 
-  /* Username autocompletion */
-  const tribute = new Tribute({
-    trigger: "@",
-    requireLeadingSpace: true,
-    /* The length should match validation in API */
-    menuShowMinLength: 2,
-    searchOpts: {
-      pre: "​",
-      post: "​",
-    },
-    noMatchTemplate: () => "",
-    menuItemTemplate: (item) => {
-      const link = document.createElement("a");
-      link.innerText = item.string;
-      link.classList.add("dropdown-item");
-      link.href = "#";
-      return link.outerHTML;
-    },
-    values: (text, callback) => {
-      $.ajax({
-        type: "GET",
-        url: `/api/users/?username=${text}&is_active=1`,
-        dataType: "json",
-        success: (data) => {
-          const userMentionList = data.results.map((user) => ({
-            value: user.username,
-            key: `${user.full_name} (${user.username})`,
-          }));
-          callback(userMentionList);
-        },
-        error: (_jqXhr, _textStatus, errorThrown) => {
-          console.error(errorThrown);
-        },
-      });
-    },
-  });
-  tribute.attach(document.querySelectorAll(".markdown-editor"));
+  /* Username @-mention autocompletion in markdown textareas */
+  const positionMentionDropdown = (editor, list) => {
+    if (!list) {
+      return;
+    }
+    const rect = editor.getBoundingClientRect();
+    const cs = getComputedStyle(editor);
+    const lineHeight = Number.parseFloat(cs.lineHeight) || 20;
+    const paddingTop = Number.parseFloat(cs.paddingTop) || 0;
+    const before = editor.value.substring(0, editor.selectionStart);
+    const linesBefore = (before.match(/\n/g) || []).length;
+    const yOffset =
+      paddingTop + (linesBefore + 1) * lineHeight - editor.scrollTop;
+    list.style.top = `${rect.top + yOffset}px`;
+    list.style.left = `${rect.left}px`;
+  };
   document.querySelectorAll(".markdown-editor").forEach((editor) => {
-    editor.addEventListener("tribute-active-true", (_e) => {
-      $(".tribute-container").addClass("open");
-      $(".tribute-container ul").addClass("dropdown-menu shadow");
+    const mentionRegex = /(?:^|\s)@(\S+)$/;
+    const mentionAutoComplete = new autoComplete({
+      selector: () => editor,
+      wrapper: false,
+      data: {
+        keys: ["full_name"],
+        src: async (query) => {
+          const response = await fetch(
+            `/api/users/?username=${encodeURIComponent(query)}&is_active=1`,
+          );
+          const data = await response.json();
+          return data.results.map((user) => ({
+            username: user.username,
+            full_name: `${user.full_name} (${user.username})`,
+          }));
+        },
+      },
+      query: (val) => {
+        const before = val.substring(0, editor.selectionStart);
+        const match = before.match(mentionRegex);
+        return match ? match[1] : "";
+      },
+      trigger: (query) => query.length >= 2,
+      resultsList: {
+        class: "autoComplete dropdown-menu shadow mention-dropdown",
+      },
+      resultItem: {
+        class: "autoComplete_result",
+        element: (item, data) => {
+          item.textContent = "";
+          const child = document.createElement("a");
+          child.textContent = data.value.full_name;
+          child.classList.add("dropdown-item");
+          item.appendChild(child);
+        },
+        selected: "autoComplete_selected",
+        highlight: false,
+      },
+      events: {
+        input: {
+          open: () => positionMentionDropdown(editor, mentionAutoComplete.list),
+          results: () =>
+            positionMentionDropdown(editor, mentionAutoComplete.list),
+          selection(event) {
+            const username = event.detail.selection.value.username;
+            const caret = editor.selectionStart;
+            const before = editor.value.substring(0, caret);
+            const after = editor.value.substring(caret);
+            const match = before.match(/@\S*$/);
+            if (!match) {
+              return;
+            }
+            const tokenStart = caret - match[0].length;
+            editor.value = `${editor.value.substring(0, tokenStart)}@${username}${after}`;
+            const newCaret = tokenStart + username.length + 1;
+            editor.selectionStart = editor.selectionEnd = newCaret;
+            editor.focus();
+            editor.dispatchEvent(new Event("input", { bubbles: true }));
+          },
+        },
+      },
     });
+
+    editor.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key !== "Escape" || !mentionAutoComplete.isOpen) {
+          return;
+        }
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        editor.setAttribute("aria-expanded", "false");
+        editor.setAttribute("aria-activedescendant", "");
+        mentionAutoComplete.list?.setAttribute("hidden", "");
+        mentionAutoComplete.isOpen = false;
+      },
+      true,
+    );
   });
 
   /* forset fields adding */
@@ -1681,7 +1759,11 @@ $(function () {
           .find(".file-format-param-field")
           .attr("fileformats")
           ?.split(" ");
-        if (fileFormats.includes(selectedFileFormat)) {
+        if (
+          fileFormats &&
+          (fileFormats.includes(selectedFileFormat) ||
+            fileFormats.includes("*"))
+        ) {
           $(this).show();
           displayFieldLabel = true;
         } else {

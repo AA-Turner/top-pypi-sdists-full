@@ -1,31 +1,35 @@
 Metadata-Version: 2.4
 Name: snowflake-labs-mcp
-Version: 1.4.1
+Version: 1.4.2
 Summary: MCP server for Snowflake
 Project-URL: Repository, https://github.com/Snowflake-Labs/mcp.git
 Project-URL: Issues, https://github.com/Snowflake-Labs/mcp/issues
 Author: Carlos Serrano, Jason Summer, Tyler White
 License-File: LICENSE
 Requires-Python: >=3.11
-Requires-Dist: fastmcp<3.0.0,>=2.8.1
-Requires-Dist: mcp[cli]<2.0.0,>=1.9.4
+Requires-Dist: fastmcp<3.0.0,>=2.14.7
+Requires-Dist: mcp[cli]<2.0.0,>=1.24.0
 Requires-Dist: pydantic<3.0.0,>=2.11.4
 Requires-Dist: pyyaml<7.0.0,>=6.0.2
-Requires-Dist: requests<3.0.0,>=2.32.3
+Requires-Dist: requests<3.0.0,>=2.34.0
 Requires-Dist: snowflake-connector-python<4.0.0,>=3.15.0
 Requires-Dist: snowflake-core<2.0.0,>=1.0.0
 Requires-Dist: sqlglot<30.0.0,>=27.8.0
 Description-Content-Type: text/markdown
 
-# Snowflake Cortex AI Model Context Protocol (MCP) Server
+# [DEPRECATED] Snowflake Cortex AI Model Context Protocol (MCP) Server
 
-<a href="https://emerging-solutions-toolbox.streamlit.app/">
-    <img src="https://github.com/user-attachments/assets/aa206d11-1d86-4f32-8a6d-49fe9715b098" alt="image" width="150" align="right";">
-</a>
+> [!CAUTION]
+> **This project is deprecated and no longer maintained.** Please migrate to the official [Snowflake MCP Server](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-mcp). The official server is actively developed, fully supported by Snowflake, and continues to add new features.
 
-This Snowflake MCP server provides tooling for Snowflake Cortex AI, object management, and SQL orchestration, bringing these capabilities to the MCP ecosystem. When connected to an MCP Client (e.g. [Claude for Desktop](https://claude.ai/download), [fast-agent](https://fast-agent.ai/), [Agentic Orchestration Framework](https://github.com/Snowflake-Labs/orchestration-framework/blob/main/README.md)), users can leverage these features.
+This community MCP server previously provided tooling for Snowflake Cortex AI, object management, and SQL orchestration. It is no longer supported. For all new and existing use cases, please use the official [Snowflake MCP Server](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents-mcp) instead.
 
-The MCP server currently supports the below capabilities:
+---
+
+<details>
+<summary>Legacy documentation (for reference only)</summary>
+
+The MCP server supported the below capabilities:
 - **[Cortex Search](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-search/cortex-search-overview)**: Query unstructured data in Snowflake as commonly used in Retrieval Augmented Generation (RAG) applications.
 - **[Cortex Analyst](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst)**: Query structured data in Snowflake via rich semantic modeling.
 - **[Cortex Agent](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents)**: Agentic orchestrator across structured and unstructured data retrieval
@@ -662,8 +666,6 @@ Only listed Cortex services will be made into tools as well.
 
 - Initial startup can take a few seconds as the server connects to Snowflake and validates your configuration. Subsequent tool calls should be much faster. If startup takes more than 30 seconds, check your network connection to Snowflake and verify your authentication credentials.
 
-# Bug Reports, Feedback, or Other Questions
-
-Please add issues to the GitHub repository.
+</details>
 
 <!-- mcp-name: io.github.Snowflake-Labs/mcp -->

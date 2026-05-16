@@ -132,7 +132,7 @@ def gen_m3u_files(
         for list_name, song_list in lists_object.items():
             create_m3u_file(
                 file_name.format(
-                    list=list_name,
+                    list=sanitize_string(list_name),
                 ),
                 song_list,
                 template,
@@ -144,7 +144,9 @@ def gen_m3u_files(
     elif "{list[" in file_name and "]}" in file_name:
         # Create a single m3u file for specified song list name
         create_m3u_file(
-            file_name.format(list=list(lists_object.keys())),
+            file_name.format(
+                list=[sanitize_string(key) for key in lists_object.keys()]
+            ),
             songs,
             template,
             file_extension,

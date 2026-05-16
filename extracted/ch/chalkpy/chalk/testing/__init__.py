@@ -3,7 +3,7 @@ import dataclasses
 import json
 import os
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 import pyarrow as pa
 import pytest
@@ -13,7 +13,8 @@ from rich.text import Text
 
 from chalk import functions as F
 from chalk.client._internal_models.check import Color
-from chalk.features import Feature, Features, StreamResolver, _
+from chalk.client.models import FeatureReference
+from chalk.features import Feature, Features, StreamResolver, Vector, _
 from chalk.features._encoding.inputs import features_to_columnar
 from chalk.features.dataframe._impl import DataFrame
 from chalk.features.feature_wrapper import FeatureWrapper
@@ -78,6 +79,14 @@ def _to_arrow(result: Any) -> Any:
 
 def _values_match(expected: Any, computed: Any, float_rel_tolerance: float, float_abs_tolerance: float) -> bool:
     """Check if two values match, with tolerance for floats."""
+
+    # Vector has no __eq__, so two equal Vector instances compare unequal by identity,
+    # and a Vector never compares equal to the list[float] produced by pa.Array.to_pylist().
+    # Normalize to lists so the round-trip path works.
+    if isinstance(expected, Vector):
+        expected = expected.to_pylist()
+    if isinstance(computed, Vector):
+        computed = computed.to_pylist()
 
     # Exact match short circuit
     if expected == computed:
@@ -217,13 +226,204 @@ def check_expression(
 
 @dataclasses.dataclass
 class StreamMessage:
-    """Contains the raw/expected data for the stream resolver parser."""
+    """Container for a stream message used by `check_stream_parsing` and `check_stream_scenario`."""
 
     message: bytes
     """The raw message."""
 
-    parsed: Optional[Features]
-    """The expected feature output after parsing. Pass a feature class instance, e.g. ``User(id='u1', name='Alice')``."""
+    parsed: Optional[Features] = None
+    """The expected feature output after parsing. Used by `check_stream_parsing` only.
+    Pass a feature class instance, e.g. ``User(id='u1', name='Alice')``."""
+
+    timestamp: Optional[datetime] = None
+    """The feature time to stamp on uploaded features. Used by `check_stream_scenario` only."""
+
+    stream_resolver: Optional[StreamResolver] = None
+    """The stream resolver to parse this message with. Used by `check_stream_scenario` only;
+    `check_stream_parsing` takes the resolver as a top-level argument."""
+
+
+@dataclasses.dataclass
+class FeatureAssertion:
+    """A single input→expected-output assertion used by `check_stream_scenario`."""
+
+    input: Features
+    """A feature class instance whose set fields are used as the online query input."""
+
+    output: Features
+    """A feature class instance whose set fields are the expected output values."""
+
+
+@dataclasses.dataclass
+class UploadFeatures:
+    """A bulk online-store upload step used by `check_stream_scenario`.
+
+    Prime branch online state (e.g. candidate rows looked up by a join inside
+    a windowed expression) at any point in the scenario. The upload runs
+    through the same gRPC `upload_features` path as a regular
+    `ChalkClient.upload_features` call (no materialized-aggregate refresh),
+    so it's appropriate for static feature data — not stream events.
+
+    Each value may be a scalar (uploaded as a single row) or a list/tuple
+    (bulk upload, one row per element). All features in `inputs` must agree
+    on row count.
+    """
+
+    inputs: Mapping[FeatureReference, Any]
+    """Mapping of feature → value (scalar) or list of values (bulk)."""
+
+
+def _struct_col_to_table(col: pa.Array) -> pa.Table:
+    if isinstance(col.type, pa.StructType):
+        return pa.Table.from_arrays(
+            [col.field(i) for i in range(col.type.num_fields)],
+            names=[col.type.field(i).name for i in range(col.type.num_fields)],
+        )
+    # JSON extension type: each non-null value is a serialized JSON string.
+    rows = [json.loads(v) if v is not None else None for v in col.to_pylist()]
+    return pa.Table.from_pylist([r if r is not None else {} for r in rows])
+
+
+def _uses_chalk_now(expr: Any) -> bool:
+    """Return True if the underscore expression references _.chalk_now anywhere."""
+
+    if not isinstance(expr, Underscore):
+        return False
+    if isinstance(expr, UnderscoreAttr) and expr._chalk__attr == "chalk_now":  # pyright: ignore[reportPrivateUsage]
+        return True
+    for val in vars(expr).values():
+        if isinstance(val, Underscore) and _uses_chalk_now(val):
+            return True
+        if isinstance(val, (list, tuple)):
+            for item in val:
+                if isinstance(item, Underscore) and _uses_chalk_now(item):
+                    return True
+    return False
+
+
+def _parse_stream_messages(
+    resolver: StreamResolver,
+    messages: list[bytes],
+) -> list[dict[Feature, Any]]:
+    """Parse raw stream-message bytes through `resolver`'s parser locally via chalkdf.
+
+    Returns one feature dict per input message. Features whose expression depends on
+    ``_.chalk_now``, and feature-time features, are omitted (they're filled in server-side).
+
+    Raises
+    ------
+    ValueError
+        If the resolver has no feature expressions, or has no parse function and no message type.
+    MissingDependencyException
+        If chalkdf is not installed.
+    """
+    if not resolver.feature_expressions:
+        raise ValueError(
+            f"Stream resolver '{resolver.fqn}' has no feature expressions. "
+            + "_parse_stream_messages only works with resolvers created via make_stream_resolver."
+        )
+
+    # Suppress libchalk info logs during import
+    old_log_level = os.environ.get("LIBCHALK_LOG_LEVEL")
+    os.environ["LIBCHALK_LOG_LEVEL"] = "error"
+
+    try:
+        from chalkdf import DataFrame as DF  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        raise MissingDependencyException(
+            "chalkdf is needed to parse stream messages. "
+            + "Please install it as dev dependency via `pip install chalkdf`."
+        )
+    finally:
+        if old_log_level is None:
+            os.environ.pop("LIBCHALK_LOG_LEVEL", None)
+        else:
+            os.environ["LIBCHALK_LOG_LEVEL"] = old_log_level
+
+    _replacement = UnderscoreAttr(UnderscoreRoot(), "message")
+    _visited: OrderedSet[int] = OrderedSet({id(_replacement)})
+
+    def _rebind_inplace(node: Underscore) -> None:
+        """Mutate a deepcopy of the AST in-place, replacing every UnderscoreRoot with _.message.
+
+        Uses a visited set to handle shared references (deepcopy preserves sharing,
+        so a node referenced multiple times in the tree must only be mutated once).
+        """
+        if id(node) in _visited:
+            return
+        _visited.add(id(node))
+        for attr, val in vars(node).items():
+            if isinstance(val, UnderscoreRoot):
+                setattr(node, attr, _replacement)
+            elif isinstance(val, Underscore):
+                _rebind_inplace(val)
+            elif isinstance(val, (list, tuple)):
+                new_seq: list[Any] = []
+                for item in val:
+                    if isinstance(item, UnderscoreRoot):
+                        new_seq.append(_replacement)
+                    elif isinstance(item, Underscore):
+                        _rebind_inplace(item)
+                        new_seq.append(item)
+                    else:
+                        new_seq.append(item)
+                setattr(node, attr, type(val)(new_seq))
+            elif isinstance(val, dict):
+                for k, v in val.items():
+                    if isinstance(v, UnderscoreRoot):
+                        val[k] = _replacement
+                    elif isinstance(v, Underscore):
+                        _rebind_inplace(v)
+
+    if resolver.parse is None:
+        message_type = resolver.message
+        if message_type is None:
+            raise ValueError(f"Stream resolver '{resolver.fqn}' has no parse function and no message type.")
+        parse_df = DF({"message": pa.array(messages, type=pa.large_binary())})
+        struct_col = (
+            parse_df.with_columns(
+                F.json_value(F.bytes_to_string(_.message, "utf-8"), "$").cast(message_type).alias("__parsed__")
+            )
+            .run()
+            .to_arrow()
+            .column("__parsed__")
+            .combine_chunks()
+        )
+        flat_table = _struct_col_to_table(struct_col)
+    elif resolver.parse.parse_expression is not None:
+        parse_df = DF({"message": pa.array(messages, type=pa.large_binary())})
+        rebound_parse = copy.deepcopy(resolver.parse.parse_expression)
+        _rebind_inplace(rebound_parse)
+        struct_col = (
+            parse_df.with_columns({"__parsed__": rebound_parse}).run().to_arrow().column("__parsed__").combine_chunks()
+        )
+        flat_table = _struct_col_to_table(struct_col)
+    else:
+        raise ValueError(
+            f"Stream resolver '{resolver.fqn}' has a parse function with no parse_expression; "
+            + "local parsing of arbitrary parse callables is not supported."
+        )
+
+    feature_order = list(resolver.feature_expressions.keys())
+    skipped_features: set[Any] = {
+        feat for feat, expr in resolver.feature_expressions.items() if _uses_chalk_now(expr) or feat.is_feature_time
+    }
+    feature_projections: dict[str, Any] = {
+        feat.name: expr for feat, expr in resolver.feature_expressions.items() if feat not in skipped_features
+    }
+    expression_result = DF(flat_table).project(feature_projections).run()
+
+    result_arrow = _to_arrow(expression_result)
+
+    rows: list[dict[Feature, Any]] = []
+    for i in range(len(messages)):
+        row: dict[Feature, Any] = {}
+        for feat in feature_order:
+            if feat in skipped_features:
+                continue
+            row[feat] = result_arrow.column(feat.name)[i].as_py()
+        rows.append(row)
+    return rows
 
 
 def check_stream_parsing(
@@ -284,121 +484,15 @@ def check_stream_parsing(
             + "check_stream_parsing only works with resolvers created via make_stream_resolver."
         )
 
-    # Suppress libchalk info logs during import
-    old_log_level = os.environ.get("LIBCHALK_LOG_LEVEL")
-    os.environ["LIBCHALK_LOG_LEVEL"] = "error"
-
-    try:
-        from chalkdf import DataFrame as DF  # pyright: ignore[reportMissingImports]
-    except ImportError:
-        raise MissingDependencyException(
-            "chalkdf is needed to run `check_stream_parsing`. "
-            + "Please install it as dev dependency via `pip install chalkdf`."
-        )
-    finally:
-        if old_log_level is None:
-            os.environ.pop("LIBCHALK_LOG_LEVEL", None)
-        else:
-            os.environ["LIBCHALK_LOG_LEVEL"] = old_log_level
-
-    def _struct_col_to_table(col: pa.Array) -> pa.Table:
-        if isinstance(col.type, pa.StructType):
-            return pa.Table.from_arrays(
-                [col.field(i) for i in range(col.type.num_fields)],
-                names=[col.type.field(i).name for i in range(col.type.num_fields)],
-            )
-        # JSON extension type: each non-null value is a serialized JSON string.
-        rows = [json.loads(v) if v is not None else None for v in col.to_pylist()]
-        return pa.Table.from_pylist([r if r is not None else {} for r in rows])
-
-    _replacement = UnderscoreAttr(UnderscoreRoot(), "message")
-    _visited: OrderedSet[int] = OrderedSet({id(_replacement)})
-
-    def _rebind_inplace(node: Underscore) -> None:
-        """Mutate a deepcopy of the AST in-place, replacing every UnderscoreRoot with _.message.
-
-        Uses a visited set to handle shared references (deepcopy preserves sharing,
-        so a node referenced multiple times in the tree must only be mutated once).
-        """
-        if id(node) in _visited:
-            return
-        _visited.add(id(node))
-        for attr, val in vars(node).items():
-            if isinstance(val, UnderscoreRoot):
-                setattr(node, attr, _replacement)
-            elif isinstance(val, Underscore):
-                _rebind_inplace(val)
-            elif isinstance(val, (list, tuple)):
-                new_seq: list[Any] = []
-                for item in val:
-                    if isinstance(item, UnderscoreRoot):
-                        new_seq.append(_replacement)
-                    elif isinstance(item, Underscore):
-                        _rebind_inplace(item)
-                        new_seq.append(item)
-                    else:
-                        new_seq.append(item)
-                setattr(node, attr, type(val)(new_seq))
-            elif isinstance(val, dict):
-                for k, v in val.items():
-                    if isinstance(v, UnderscoreRoot):
-                        val[k] = _replacement
-                    elif isinstance(v, Underscore):
-                        _rebind_inplace(v)
-
-    if resolver.parse is None:
-        message_type = resolver.message
-        if message_type is None:
-            raise ValueError(f"Stream resolver '{resolver.fqn}' has no parse function and no message type.")
-        parse_df = DF({"message": pa.array([a.message for a in assertions], type=pa.large_binary())})
-        struct_col = (
-            parse_df.with_columns(
-                F.json_value(F.bytes_to_string(_.message, "utf-8"), "$").cast(message_type).alias("__parsed__")
-            )
-            .run()
-            .to_arrow()
-            .column("__parsed__")
-            .combine_chunks()
-        )
-        flat_table = _struct_col_to_table(struct_col)
-    elif resolver.parse.parse_expression is not None:
-        parse_df = DF({"message": pa.array([a.message for a in assertions], type=pa.large_binary())})
-        rebound_parse = copy.deepcopy(resolver.parse.parse_expression)
-        _rebind_inplace(rebound_parse)
-        struct_col = (
-            parse_df.with_columns({"__parsed__": rebound_parse}).run().to_arrow().column("__parsed__").combine_chunks()
-        )
-        flat_table = _struct_col_to_table(struct_col)
-
-    def _uses_chalk_now(expr: Any) -> bool:
-        """Return True if the underscore expression references _.chalk_now anywhere."""
-
-        if not isinstance(expr, Underscore):
-            return False
-        if isinstance(expr, UnderscoreAttr) and expr._chalk__attr == "chalk_now":  # pyright: ignore[reportPrivateUsage]
-            return True
-        for val in vars(expr).values():
-            if isinstance(val, Underscore) and _uses_chalk_now(val):
-                return True
-            if isinstance(val, (list, tuple)):
-                for item in val:
-                    if isinstance(item, Underscore) and _uses_chalk_now(item):
-                        return True
-        return False
+    parsed_rows = _parse_stream_messages(resolver, [a.message for a in assertions])
 
     feature_order = list(resolver.feature_expressions.keys())
     skipped_features: set[Any] = {
         feat for feat, expr in resolver.feature_expressions.items() if _uses_chalk_now(expr) or feat.is_feature_time
     }
-    feature_projections: dict[str, Any] = {
-        feat.name: expr for feat, expr in resolver.feature_expressions.items() if feat not in skipped_features
-    }
-    expression_result = DF(flat_table).project(feature_projections).run()
-
-    result_arrow = _to_arrow(expression_result)
 
     computed_by_feature: dict[Any, list[Any]] = {
-        feat: (result_arrow.column(feat.name).to_pylist() if feat not in skipped_features else [None] * len(assertions))
+        feat: ([row.get(feat) for row in parsed_rows] if feat not in skipped_features else [None] * len(assertions))
         for feat in feature_order
     }
 
@@ -609,4 +703,11 @@ def check_static_dataframe(
         pytest.fail(fail_msg, pytrace=False)
 
 
-__all__ = ["assert_frame_equal", "check_expression", "check_static_dataframe", "check_stream_parsing", "StreamMessage"]
+__all__ = [
+    "assert_frame_equal",
+    "check_expression",
+    "check_static_dataframe",
+    "check_stream_parsing",
+    "FeatureAssertion",
+    "StreamMessage",
+]

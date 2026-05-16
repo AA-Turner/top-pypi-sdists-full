@@ -76,7 +76,7 @@ if get_env_bool("WEBLATE_DATABASES", True):
             # Database user.
             "USER": get_env_str("POSTGRES_USER", required=True),
             # Name of role to alter to set parameters in PostgreSQL,
-            # use in case role name is different than user used for authentication.
+            # use in case role name is different than the user used for authentication.
             "ALTER_ROLE": get_env_str(
                 "POSTGRES_ALTER_ROLE", get_env_str("POSTGRES_USER", required=True)
             ),
@@ -723,6 +723,8 @@ PROJECT_WEB_RESTRICT_ALLOWLIST = set(
 )
 WEBHOOK_RESTRICT_PRIVATE = get_env_bool("WEBLATE_WEBHOOK_RESTRICT_PRIVATE", True)
 WEBHOOK_PRIVATE_ALLOWLIST = get_env_list("WEBLATE_WEBHOOK_PRIVATE_ALLOWLIST", [])
+ASSET_RESTRICT_PRIVATE = get_env_bool("WEBLATE_ASSET_RESTRICT_PRIVATE", True)
+ASSET_PRIVATE_ALLOWLIST = get_env_list("WEBLATE_ASSET_PRIVATE_ALLOWLIST", [])
 
 private_commit_email_template_str = get_env_str("WEBLATE_PRIVATE_COMMIT_EMAIL_TEMPLATE")
 if private_commit_email_template_str is not None:
@@ -1042,7 +1044,23 @@ COMPONENT_ZIP_UPLOAD_MAX_SIZE = get_env_int(
 )
 # Maximum allowed uploaded project backup ZIP file size
 PROJECT_BACKUP_UPLOAD_MAX_SIZE = get_env_int(
-    "WEBLATE_PROJECT_BACKUP_UPLOAD_MAX_SIZE", 250 * 1024 * 1024
+    "WEBLATE_PROJECT_BACKUP_UPLOAD_MAX_SIZE", 512 * 1024 * 1024
+)
+# Project backup ZIP import safety limits
+PROJECT_BACKUP_IMPORT_MAX_MEMBERS = get_env_int(
+    "WEBLATE_PROJECT_BACKUP_IMPORT_MAX_MEMBERS", 100000
+)
+PROJECT_BACKUP_IMPORT_MAX_TOTAL_UNCOMPRESSED_SIZE = get_env_int(
+    "WEBLATE_PROJECT_BACKUP_IMPORT_MAX_TOTAL_UNCOMPRESSED_SIZE", 512 * 1024 * 1024
+)
+PROJECT_BACKUP_IMPORT_MAX_COMPRESSED_ENTRY_SIZE = get_env_int(
+    "WEBLATE_PROJECT_BACKUP_IMPORT_MAX_COMPRESSED_ENTRY_SIZE", 250 * 1024 * 1024
+)
+PROJECT_BACKUP_IMPORT_MIN_RATIO_SIZE = get_env_int(
+    "WEBLATE_PROJECT_BACKUP_IMPORT_MIN_RATIO_SIZE", 1 * 1024 * 1024
+)
+PROJECT_BACKUP_IMPORT_MAX_COMPRESSED_ENTRY_RATIO = get_env_int(
+    "WEBLATE_PROJECT_BACKUP_IMPORT_MAX_COMPRESSED_ENTRY_RATIO", 250
 )
 # Allow more fields for case with a lot of subscriptions in profile
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 2000
@@ -1127,7 +1145,7 @@ LIMIT_TRANSLATION_LENGTH_BY_SOURCE_LENGTH = get_env_bool(
 # Use simple language codes for default language/country combinations
 SIMPLIFY_LANGUAGES = get_env_bool("WEBLATE_SIMPLIFY_LANGUAGES", True)
 
-# This allows to hide glossary components when shared to other projects
+# This allows hiding glossary components when shared to other projects
 HIDE_SHARED_GLOSSARY_COMPONENTS = get_env_bool(
     "WEBLATE_HIDE_SHARED_GLOSSARY_COMPONENTS", False
 )
@@ -1267,6 +1285,7 @@ WEBLATE_ADDONS = [
     "weblate.addons.removal.RemoveSuggestions",
     "weblate.addons.resx.ResxUpdateAddon",
     "weblate.addons.cdn.CDNJSAddon",
+    "weblate.addons.cdn.CDNFilesAddon",
     "weblate.addons.webhooks.WebhookAddon",
     "weblate.addons.webhooks.SlackWebhookAddon",
     "weblate.addons.fedora_messaging.FedoraMessagingAddon",

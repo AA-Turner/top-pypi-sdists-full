@@ -6,6 +6,7 @@
 #include "fmt/color.h"
 
 #include "slang/analysis/AnalysisManager.h"
+#include "slang/analysis/ValueDriver.h"
 #include "slang/syntax/AllSyntax.h"
 
 using namespace slang;
@@ -13,7 +14,7 @@ using namespace slang::ast;
 using namespace slang::analysis;
 
 namespace only_assigned_on_reset {
-struct AlwaysFFVisitor : public ASTVisitor<AlwaysFFVisitor, true, true, false, true> {
+struct AlwaysFFVisitor : public ASTVisitor<AlwaysFFVisitor, VisitFlags::AllCanonical> {
     explicit AlwaysFFVisitor(const std::string_view name, const std::string_view resetName,
                              const bool resetIsActiveHigh) :
         name(name), resetName(resetName), resetIsActiveHigh(resetIsActiveHigh) {};
@@ -87,7 +88,7 @@ private:
     std::optional<SourceLocation> errorLocation;
 };
 
-struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, false, true> {
+struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, VisitFlags::AllCanonical> {
     const AnalysisManager& analysisManager;
 
     MainVisitor(Diagnostics& diagnostics, const AnalysisManager& analysisManager) :
@@ -100,11 +101,10 @@ struct MainVisitor : public TidyVisitor, ASTVisitor<MainVisitor, true, true, fal
         if (drivers.empty())
             return;
 
-        auto firstDriver = drivers[0].first;
-        if (firstDriver && firstDriver->source == DriverSource::AlwaysFF) {
+        if (drivers[0] && drivers[0]->source == DriverSource::AlwaysFF) {
             auto& configs = config.getCheckConfigs();
             AlwaysFFVisitor visitor(symbol.name, configs.resetName, configs.resetIsActiveHigh);
-            firstDriver->containingSymbol->visit(visitor);
+            drivers[0]->containingSymbol->visit(visitor);
             if (visitor.hasError()) {
                 diags.add(diag::RegisterNotAssignedOnReset,
                           visitor.getErrorLocation().value_or(symbol.location))

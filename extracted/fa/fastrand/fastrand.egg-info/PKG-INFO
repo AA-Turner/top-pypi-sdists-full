@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: fastrand
-Version: 3.0.8
+Version: 3.1.0
 Summary: Fast random number generation in Python
 Author-email: Daniel Lemire <daniel@lemire.me>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/lemire/fastrand
 Project-URL: Repository, https://github.com/lemire/fastrand
 Project-URL: Issues, https://github.com/lemire/fastrand/issues
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file

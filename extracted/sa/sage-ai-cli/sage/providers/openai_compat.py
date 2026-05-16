@@ -16,6 +16,7 @@ from dataclasses import dataclass
 import httpx
 
 from ..config import SageConfig
+from .anonymizer import anonymize_payload
 from .base import Message, ModelInfo, ProviderBase
 from .openrouter_catalog import fetch_free_models as _fetch_openrouter_free
 from .retry import CircuitBreaker, RetryConfig, get_rate_limiter, get_retry_after
@@ -653,13 +654,18 @@ class OpenAICompatProvider(ProviderBase):
         chat_messages = []
         for msg in messages:
             chat_messages.append({"role": msg.role, "content": msg.content})
-        return {
+        payload = {
             "model": model,
             "messages": chat_messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": stream,
         }
+        # Every cloud-AI request must pass through the anonymizer. Strips any
+        # identifying top-level field a future caller might add, and scrubs
+        # email/phone PII from messages. Local providers (ollama, llama-cpp)
+        # pass through untouched — see sage/providers/anonymizer.py.
+        return anonymize_payload(payload, provider_name=self._spec.name)
 
     @staticmethod
     def _coerce_text_content(value: object) -> str:
@@ -948,6 +954,24 @@ class OllamaProvider(ProviderBase):
 
         return models
 
+    def _resolve_to_pulled_tag(self, model: str) -> str:
+        """If `model` is a bare name (no `:tag`) but Ollama has it pulled
+        with a tag (e.g. `deepseek-r1:7b`), return the tagged form. Ollama's
+        /api/chat endpoint 404s on bare names when only tagged versions
+        exist. Returns `model` unchanged if no tagged match — caller's
+        next step (`_ensure_pulled`) handles the pull.
+        """
+        if ":" in model:
+            return model
+        pulled = self._get_pulled_names()
+        if model in pulled:
+            return model
+        # Find the first pulled tag whose base matches
+        for p in pulled:
+            if p.startswith(f"{model}:"):
+                return p
+        return model
+
     def _ensure_pulled(self, model: str) -> None:
         """Auto-pull a model if not already available locally."""
         import subprocess
@@ -988,6 +1012,10 @@ class OllamaProvider(ProviderBase):
         max_tokens: int = 2048,
     ) -> str:
         self._ensure_pulled(model)
+        # Ollama's /api/chat 404s on bare names when only tagged versions
+        # exist (e.g. "deepseek-r1" when "deepseek-r1:7b" is pulled). The
+        # resolver upgrades the bare name to a real pulled tag before send.
+        model = self._resolve_to_pulled_tag(model)
         url = f"{self._base_url}/api/chat"
         payload = {
             "model": model,
@@ -1019,6 +1047,8 @@ class OllamaProvider(ProviderBase):
         max_tokens: int = 2048,
     ) -> Iterator[str]:
         self._ensure_pulled(model)
+        # Same bare-name → pulled-tag fix as generate() above.
+        model = self._resolve_to_pulled_tag(model)
         url = f"{self._base_url}/api/chat"
         payload = {
             "model": model,

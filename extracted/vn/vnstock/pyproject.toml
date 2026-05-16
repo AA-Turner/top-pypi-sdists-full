@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vnstock"
-version = "4.0.2"
+version = "4.0.3"
 description = "A beginner-friendly yet powerful Python toolkit for financial analysis and automation — built to make modern investing accessible to everyone"
 readme = "README.md"
 authors = [
@@ -43,12 +43,13 @@ dependencies = [
     "importlib-metadata>=1.0",
     "tenacity",
     "vnai>=2.4.8",
-    "vnstock_ezchart>=0.0.3",
+    "vnstock_ezchart>=1.0.1",
     "pytz"
 ]
 
 [project.optional-dependencies]
 test = ["pytest>=7.0", "pytest-cov>=4.0", "pytest-timeout"]
+dev = ["pre-commit", "ruff", "pytest>=7.0", "pytest-cov>=4.0", "pytest-timeout"]
 
 [project.urls]
 Documentation = "https://vnstocks.com/docs"
@@ -58,7 +59,33 @@ IssueTracker = "https://github.com/thinh-vu/vnstock/issues"
 [tool.setuptools]
 include-package-data = true
 [tool.setuptools.packages.find]
-exclude = ["build*", "dist*", "tests*", "notebooks*", "scripts*"]
+exclude = ["build*", "dist*", "tests*", "notebooks*", "scripts*", "vnai*", "vnstock_data*", "vnii*", "docs*", "scripts*", "dev*", "dev-docs*"]
 
 [tool.setuptools.package-data]
 vnstock = ["docs/*.txt", "docs/*.csv"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+extend-exclude = ["*.ipynb", "dev-docs", "notebooks", "tests/archived"]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+]
+ignore = [
+    "E501", # line too long, handled by ruff-format
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+norecursedirs = ["tests/archived"]
+addopts = "--ignore-glob='*tcbs*'"

@@ -246,7 +246,7 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
             while not await page.evaluate('window.grecaptcha && window.grecaptcha.enterprise'):
                 await asyncio.sleep(1)
             captcha = await page.evaluate(
-                """window.grecaptcha.enterprise.execute('6Led_uYrAAAAAKjxDIF58fgFtX3t8loNAK85bW9I',  { action: 'chat_submit' }  );""",
+                """window.grecaptcha.enterprise.execute('6LeTGMcsAAAAALuIlkVwIxaAuZA8VledA6d3Nnb0',  { action: 'chat_submit' }  );""",
                 await_promise=True)
             grecaptcha.append(captcha)
             debug.log("Obtained grecaptcha token.")
@@ -274,7 +274,7 @@ class LMArena(AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin):
                     window.grecaptcha.enterprise.ready(async () => {
                         try {
                             const token = await window.grecaptcha.enterprise.execute(
-                                '6Led_uYrAAAAAKjxDIF58fgFtX3t8loNAK85bW9I',
+                                '6LeTGMcsAAAAALuIlkVwIxaAuZA8VledA6d3Nnb0',
                                 { action: 'chat_submit' }
                             );
                             resolve(token);

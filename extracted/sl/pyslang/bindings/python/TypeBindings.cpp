@@ -66,6 +66,7 @@ void registerTypes(py::module_& m) {
         .def_property_readonly("isPropertyType", &Type::isPropertyType)
         .def_property_readonly("isVirtualInterface", &Type::isVirtualInterface)
         .def_property_readonly("isHandleType", &Type::isHandleType)
+        .def_property_readonly("isObjectHandleType", &Type::isObjectHandleType)
         .def_property_readonly("isAlias", &Type::isAlias)
         .def_property_readonly("isError", &Type::isError)
         .def("isMatching", &Type::isMatching, "rhs"_a)
@@ -148,7 +149,8 @@ void registerTypes(py::module_& m) {
         .def_property_readonly("initializer", &DeclaredType::getInitializer)
         .def_property_readonly("initializerSyntax", &DeclaredType::getInitializerSyntax)
         .def_property_readonly("initializerLocation", &DeclaredType::getInitializerLocation)
-        .def_property_readonly("isEvaluating", &DeclaredType::isEvaluating);
+        .def_property_readonly("isEvaluating", &DeclaredType::isEvaluating)
+        .def_property_readonly("resolvedDimensions", &DeclaredType::getResolvedDimensions);
 
     py::classh<IntegralType, Type>(m, "IntegralType")
         .def("getBitVectorRange", &IntegralType::getBitVectorRange)
@@ -278,11 +280,18 @@ void registerTypes(py::module_& m) {
         .def_readonly("isAbstract", &ClassType::isAbstract)
         .def_readonly("isInterface", &ClassType::isInterface)
         .def_readonly("isFinal", &ClassType::isFinal)
+        .def_readonly("thisVar", &ClassType::thisVar)
         .def_property_readonly("baseClass", &ClassType::getBaseClass)
         .def_property_readonly("implementedInterfaces", &ClassType::getImplementedInterfaces)
         .def_property_readonly("baseConstructorCall", &ClassType::getBaseConstructorCall)
         .def_property_readonly("constructor", &ClassType::getConstructor)
-        .def_property_readonly("firstForwardDecl", &ClassType::getFirstForwardDecl);
+        .def_property_readonly("firstForwardDecl", &ClassType::getFirstForwardDecl)
+        .def_property_readonly("properties", [](const ClassType& self) {
+            py::list result;
+            for (auto& prop : self.properties())
+                result.append(py::cast(&prop));
+            return result;
+        });
 
     py::classh<GenericClassDefSymbol, Symbol>(m, "GenericClassDefSymbol")
         .def_readonly("isInterface", &GenericClassDefSymbol::isInterface)

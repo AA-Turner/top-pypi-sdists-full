@@ -3,10 +3,16 @@ import json
 import logging
 import mimetypes
 import os
+import posixpath
+import re
 import shutil
 import sys
+from pathlib import Path
+from xml.sax.saxutils import escape
 
 import yaml
+
+from mkdocs.structure.files import File
 
 mimetypes.add_type("text/plain", ".md")
 
@@ -14,10 +20,22 @@ log = logging.getLogger("mkdocs")
 
 WELL_KNOWN_SKILLS_DIR = ".well-known/skills"
 SKILL_PATH = ("skills", "dstack", "SKILL.md")
-DISABLE_EXAMPLES_ENV = "DSTACK_DOCS_DISABLE_EXAMPLES"
 DISABLE_LLM_TXT_ENV = "DSTACK_DOCS_DISABLE_LLM_TXT"
 DISABLE_YAML_SCHEMAS_ENV = "DSTACK_DOCS_DISABLE_YAML_SCHEMAS"
 SCHEMA_REFERENCE_PREFIX = "docs/reference/"
+SWAGGER_TAG_ARG = r"(?:\s+tag=(?P<tag_quote>[\"'])(?P<tag>.*?)(?P=tag_quote))?"
+SWAGGER_TOKEN = re.compile(rf"!!swagger(?:\s+(?P<path>[^\s<>&:!]+){SWAGGER_TAG_ARG})?!!")
+SWAGGER_HTTP_TOKEN = re.compile(
+    rf"!!swagger-http(?:\s+(?P<path>https?://[^\s!]+){SWAGGER_TAG_ARG})?!!"
+)
+SWAGGER_USAGE_MSG = (
+    "Usage: '!!swagger <filename> [tag=\"tag name\"]!!' or "
+    "'!!swagger-http <url> [tag=\"tag name\"]!!'. "
+    "File must either exist locally and be placed next to the .md that contains "
+    "the swagger statement, or be an http(s) URL."
+)
+HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+UNTAGGED_OPENAPI_TAG = "default"
 
 
 def _expand_schema_references(text: str) -> str:
@@ -64,60 +82,175 @@ def _get_schema_expanded_content(rel_path, config, src_path=None):
     return _expand_schema_references(text)
 
 
-def _get_materialized_content(rel_path, config):
-    """Return README content for examples/**/index.md stubs, else None."""
-    if os.environ.get(DISABLE_EXAMPLES_ENV):
-        return None
-
-    if rel_path.startswith("examples/") and rel_path.endswith("index.md"):
-        repo_root = os.path.dirname(config["config_file_path"])
-        example_dir = os.path.dirname(rel_path)
-        readme_path = os.path.join(repo_root, example_dir, "README.md")
-
-        if os.path.isfile(readme_path):
-            with open(readme_path, "r", encoding="utf-8") as f:
-                return f.read()
-    return None
-
-
 def on_page_read_source(page, config):
-    """Use README content for example stubs and expanded schema for reference docs when rendering HTML."""
+    """Use expanded schema content for reference docs when rendering HTML."""
     rel_path = page.file.src_uri
-    content = _get_materialized_content(rel_path, config)
-    if content is not None:
-        return content
     content = _get_schema_expanded_content(rel_path, config)
     if content is not None:
         return content
     return None
 
 
+def on_page_markdown(markdown, page, config, files):
+    """Render Swagger UI tokens with the project's preferred defaults."""
+    while True:
+        match = SWAGGER_TOKEN.search(markdown)
+        is_http = False
+        if match is None:
+            match = SWAGGER_HTTP_TOKEN.search(markdown)
+            is_http = True
+        if match is None:
+            return markdown
+        markdown = _replace_swagger_token(markdown, match, is_http, page, files)
+
+
+def _replace_swagger_token(markdown, match, is_http, page, files):
+    pre_token = markdown[: match.start()]
+    post_token = markdown[match.end() :]
+    path = match.group("path")
+    tag = match.groupdict().get("tag")
+    operation_headings = ""
+    if path is None:
+        return _swagger_error(pre_token, post_token, SWAGGER_USAGE_MSG)
+    if is_http:
+        url = path
+    else:
+        try:
+            api_file = Path(page.file.abs_src_path).parent / path
+        except ValueError as exc:  # pragma: no cover
+            return _swagger_error(pre_token, post_token, f"Invalid path. {exc.args[0]}")
+        if not api_file.exists():
+            return _swagger_error(pre_token, post_token, f"File {path} not found.")
+        try:
+            src_uri = api_file.relative_to(page.file.src_dir).as_posix()
+        except ValueError as exc:
+            return _swagger_error(
+                pre_token,
+                post_token,
+                f"File {path} must be inside the docs directory. {exc.args[0]}",
+            )
+        new_file = File(src_uri, page.file.src_dir, page.file.dest_dir, False)
+        url = _relative_url(page.file.dest_uri, new_file.dest_uri)
+        for file in files:
+            if file.dest_uri != new_file.dest_uri:
+                continue
+            if file.abs_src_path == new_file.abs_src_path:
+                break
+            return _swagger_error(
+                pre_token,
+                post_token,
+                "Cannot use 2 different swagger files with same filename in same page.",
+            )
+        else:
+            files.append(new_file)
+        operation_headings = _openapi_operation_headings(api_file, tag)
+    return pre_token + operation_headings + _swagger_html(url, tag) + post_token
+
+
+def _relative_url(page_dest_uri: str, asset_dest_uri: str) -> str:
+    page_dir = posixpath.dirname(page_dest_uri)
+    return posixpath.relpath(asset_dest_uri, page_dir)
+
+
+def _swagger_html(url: str, tag: str | None) -> str:
+    tag_attr = ""
+    if tag is not None:
+        tag_attr = f' data-openapi-tag="{_escape_html_attr(tag)}"'
+    return f"""
+
+<div class="dstack-swagger-ui" data-openapi-url="{_escape_html_attr(url)}"{tag_attr}></div>
+
+"""
+
+
+def _openapi_operation_headings(api_file: Path, tag: str | None) -> str:
+    try:
+        schema = json.loads(api_file.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        log.warning(f"Cannot generate Swagger operation headings from {api_file}: {exc}")
+        return ""
+
+    operations = _get_openapi_operations(schema, tag)
+    if not operations:
+        return ""
+
+    used_ids: set[str] = set()
+    headings = [_openapi_operation_heading(operation, used_ids) for operation in operations]
+    return "\n".join(headings) + "\n\n"
+
+
+def _get_openapi_operations(
+    schema: dict,
+    tag: str | None,
+) -> list[dict[str, str]]:
+    operations = []
+    for path, path_item in schema.get("paths", {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            method = method.lower()
+            if method not in HTTP_METHODS or not isinstance(operation, dict):
+                continue
+            operation_tags = operation.get("tags") or [UNTAGGED_OPENAPI_TAG]
+            if tag is not None and tag not in operation_tags:
+                continue
+            operations.append(
+                {
+                    "method": method,
+                    "path": path,
+                    "summary": str(operation.get("summary") or ""),
+                }
+            )
+    return operations
+
+
+def _openapi_operation_heading(operation: dict[str, str], used_ids: set[str]) -> str:
+    method = operation["method"]
+    path = operation["path"]
+    label = _openapi_operation_label(operation)
+    anchor_id = _openapi_operation_anchor_id(method, path, used_ids)
+    attrs = [
+        f"#{anchor_id}",
+        ".dstack-swagger-operation-anchor",
+        f"data-toc-label={json.dumps(label)}",
+        f"data-openapi-method={json.dumps(method)}",
+        f"data-openapi-path={json.dumps(path)}",
+    ]
+    return f"## {label} {{ {' '.join(attrs)} }}"
+
+
+def _openapi_operation_label(operation: dict[str, str]) -> str:
+    summary = operation.get("summary", "").strip()
+    if summary:
+        return summary
+    return operation["path"]
+
+
+def _openapi_operation_anchor_id(method: str, path: str, used_ids: set[str]) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", f"{method}-{path}".lower()).strip("-") or method
+    anchor_id = base
+    index = 2
+    while anchor_id in used_ids:
+        anchor_id = f"{base}-{index}"
+        index += 1
+    used_ids.add(anchor_id)
+    return anchor_id
+
+
+def _escape_html_attr(value: str) -> str:
+    return escape(value, {'"': "&quot;"})
+
+
+def _swagger_error(pre_token: str, post_token: str, message: str) -> str:
+    return pre_token + escape(f"!! SWAGGER ERROR: {message} !!") + post_token
+
+
 def on_config(config):
-    if os.environ.get(DISABLE_EXAMPLES_ENV):
-        log.warning("Examples documentation is disabled")
     if os.environ.get(DISABLE_YAML_SCHEMAS_ENV):
         log.warning("YAML schema reference generation is disabled")
     if os.environ.get(DISABLE_LLM_TXT_ENV):
         log.warning("llms.txt generation is disabled")
     return config
-
-
-def on_page_context(context, page, config, nav):
-    """Override edit_url only for example stubs so Edit points to the README; other pages use theme default from edit_uri."""
-    repo_url = (config.get("repo_url") or "").rstrip("/")
-    edit_uri = (config.get("edit_uri") or "edit/master/docs/").strip("/")
-    if not repo_url:
-        return context
-    # edit_uri is e.g. "edit/master/docs" -> branch is second segment
-    edit_parts = edit_uri.split("/")
-    branch = edit_parts[1] if len(edit_parts) >= 2 else "master"
-
-    rel_path = page.file.src_uri
-    if rel_path.startswith("examples/") and rel_path.endswith("index.md"):
-        example_dir = os.path.dirname(rel_path)
-        page.edit_url = f"{repo_url}/edit/{branch}/{example_dir}/README.md"
-
-    return context
 
 
 def on_post_build(config):
@@ -143,27 +276,17 @@ def on_post_build(config):
 
             src_path = os.path.join(root, file)
             rel_path = os.path.relpath(src_path, docs_dir).replace(os.sep, "/")
-            content = _get_materialized_content(rel_path, config)
-
-            if content:
-                clean_name = os.path.dirname(rel_path) + ".md"
-                dest_path = os.path.join(site_dir, clean_name)
-                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            content = _get_schema_expanded_content(rel_path, config, src_path=src_path)
+            dest_path = os.path.join(site_dir, rel_path)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            if content is not None:
+                # Write expanded schema content
+                log.info(f"Expanding schema references in {rel_path}")
                 with open(dest_path, "w", encoding="utf-8") as f:
                     f.write(content)
             else:
-                # Check if this is a schema reference file that needs expansion
-                content = _get_schema_expanded_content(rel_path, config, src_path=src_path)
-                dest_path = os.path.join(site_dir, rel_path)
-                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-                if content is not None:
-                    # Write expanded schema content
-                    log.info(f"Expanding schema references in {rel_path}")
-                    with open(dest_path, "w", encoding="utf-8") as f:
-                        f.write(content)
-                else:
-                    # Just copy the file as-is
-                    shutil.copy2(src_path, dest_path)
+                # Just copy the file as-is
+                shutil.copy2(src_path, dest_path)
 
     _write_well_known_skills(config, site_dir)
     _generate_llms_files(config, site_dir)

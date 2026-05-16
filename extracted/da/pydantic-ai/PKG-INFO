@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai
-Version: 1.96.1
+Version: 1.97.0
 Summary: Agent Framework / shim to use Pydantic with LLMs
 Project-URL: Homepage, https://ai.pydantic.dev
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -27,29 +27,29 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-ai-slim[ag-ui,anthropic,bedrock,cli,cohere,evals,fastmcp,google,groq,huggingface,logfire,mcp,mistral,openai,retries,spec,temporal,ui,vertexai,xai]==1.96.1
+Requires-Dist: pydantic-ai-slim[ag-ui,anthropic,bedrock,cli,cohere,evals,fastmcp,google,groq,huggingface,logfire,mcp,mistral,openai,retries,spec,temporal,ui,vertexai,xai]==1.97.0
 Provides-Extra: a2a
 Requires-Dist: fasta2a>=0.4.1; extra == 'a2a'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==1.96.1; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==1.97.0; extra == 'dbos'
 Provides-Extra: examples
-Requires-Dist: pydantic-ai-examples==1.96.1; extra == 'examples'
+Requires-Dist: pydantic-ai-examples==1.97.0; extra == 'examples'
 Provides-Extra: outlines-llamacpp
-Requires-Dist: pydantic-ai-slim[outlines-llamacpp]==1.96.1; extra == 'outlines-llamacpp'
+Requires-Dist: pydantic-ai-slim[outlines-llamacpp]==1.97.0; extra == 'outlines-llamacpp'
 Provides-Extra: outlines-mlxlm
-Requires-Dist: pydantic-ai-slim[outlines-mlxlm]==1.96.1; (platform_system == 'Darwin' and platform_machine == 'arm64') and extra == 'outlines-mlxlm'
+Requires-Dist: pydantic-ai-slim[outlines-mlxlm]==1.97.0; (platform_system == 'Darwin' and platform_machine == 'arm64') and extra == 'outlines-mlxlm'
 Provides-Extra: outlines-sglang
-Requires-Dist: pydantic-ai-slim[outlines-sglang]==1.96.1; extra == 'outlines-sglang'
+Requires-Dist: pydantic-ai-slim[outlines-sglang]==1.97.0; extra == 'outlines-sglang'
 Provides-Extra: outlines-transformers
-Requires-Dist: pydantic-ai-slim[outlines-transformers]==1.96.1; extra == 'outlines-transformers'
+Requires-Dist: pydantic-ai-slim[outlines-transformers]==1.97.0; extra == 'outlines-transformers'
 Provides-Extra: outlines-vllm-offline
-Requires-Dist: pydantic-ai-slim[outlines-vllm-offline]==1.96.1; extra == 'outlines-vllm-offline'
+Requires-Dist: pydantic-ai-slim[outlines-vllm-offline]==1.97.0; extra == 'outlines-vllm-offline'
 Provides-Extra: prefect
-Requires-Dist: pydantic-ai-slim[prefect]==1.96.1; extra == 'prefect'
+Requires-Dist: pydantic-ai-slim[prefect]==1.97.0; extra == 'prefect'
 Provides-Extra: sentence-transformers
-Requires-Dist: pydantic-ai-slim[sentence-transformers]==1.96.1; extra == 'sentence-transformers'
+Requires-Dist: pydantic-ai-slim[sentence-transformers]==1.97.0; extra == 'sentence-transformers'
 Provides-Extra: voyageai
-Requires-Dist: pydantic-ai-slim[voyageai]==1.96.1; extra == 'voyageai'
+Requires-Dist: pydantic-ai-slim[voyageai]==1.97.0; extra == 'voyageai'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -93,7 +93,7 @@ We built Pydantic AI with one simple aim: to bring that FastAPI feeling to GenAI
 [Pydantic Validation](https://docs.pydantic.dev/latest/) is the validation layer of the OpenAI SDK, the Google ADK, the Anthropic SDK, LangChain, LlamaIndex, AutoGPT, Transformers, CrewAI, Instructor and many more. _Why use the derivative when you can go straight to the source?_ :smiley:
 
 2. **Model-agnostic**:
-Supports virtually every [model](https://ai.pydantic.dev/models/overview) and provider: OpenAI, Anthropic, Gemini, DeepSeek, Grok, Cohere, Mistral, and Perplexity; Azure AI Foundry, Amazon Bedrock, Google Vertex AI, Ollama, LiteLLM, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Hugging Face, GitHub, Heroku, Vercel, Nebius, OVHcloud, Alibaba Cloud, and SambaNova. If your favorite model or provider is not listed, you can easily implement a [custom model](https://ai.pydantic.dev/models/overview#custom-models).
+Supports virtually every [model](https://ai.pydantic.dev/models/overview) and provider: OpenAI, Anthropic, Gemini, DeepSeek, Grok, Cohere, Mistral, and Perplexity; Azure AI Foundry, Amazon Bedrock, Google Cloud, Ollama, LiteLLM, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Hugging Face, GitHub, Heroku, Vercel, Nebius, OVHcloud, Alibaba Cloud, and SambaNova. If your favorite model or provider is not listed, you can easily implement a [custom model](https://ai.pydantic.dev/models/overview#custom-models).
 
 3. **Seamless Observability**:
 Tightly [integrates](https://ai.pydantic.dev/logfire) with [Pydantic Logfire](https://pydantic.dev/logfire), our general-purpose OpenTelemetry observability platform, for real-time debugging, evals-based performance monitoring, and behavior, tracing, and cost tracking. If you already have an observability platform that supports OTel, you can [use that too](https://ai.pydantic.dev/logfire#alternative-observability-backends).

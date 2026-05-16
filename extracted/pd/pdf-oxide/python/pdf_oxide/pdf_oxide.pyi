@@ -496,6 +496,24 @@ class PdfDocument:
     ) -> str:
         """Convert all pages to HTML."""
 
+    def to_docx(self, path: str) -> None:
+        """Convert the entire PDF to a DOCX file on disk."""
+
+    def to_docx_bytes(self) -> bytes:
+        """Convert the entire PDF to DOCX bytes in memory."""
+
+    def to_pptx(self, path: str) -> None:
+        """Convert the entire PDF to a PPTX file on disk."""
+
+    def to_pptx_bytes(self) -> bytes:
+        """Convert the entire PDF to PPTX bytes in memory."""
+
+    def to_xlsx(self, path: str) -> None:
+        """Convert the entire PDF to an XLSX file on disk."""
+
+    def to_xlsx_bytes(self) -> bytes:
+        """Convert the entire PDF to XLSX bytes in memory."""
+
     def page(self, index: int) -> PdfPage:
         """Get page object for DOM access."""
 
@@ -1992,13 +2010,19 @@ class PatternPresets:
 class OfficeConverter:
     def __init__(self) -> None: ...
     @staticmethod
-    def convert(*_args, **_kwargs) -> t.Any: ...
+    def from_docx(path: str) -> Pdf: ...
     @staticmethod
-    def from_docx(*_args, **_kwargs) -> t.Any: ...
+    def from_docx_bytes(data: bytes) -> Pdf: ...
     @staticmethod
-    def from_xlsx(*_args, **_kwargs) -> t.Any: ...
+    def from_xlsx(path: str) -> Pdf: ...
     @staticmethod
-    def from_pptx(*_args, **_kwargs) -> t.Any: ...
+    def from_xlsx_bytes(data: bytes) -> Pdf: ...
+    @staticmethod
+    def from_pptx(path: str) -> Pdf: ...
+    @staticmethod
+    def from_pptx_bytes(data: bytes) -> Pdf: ...
+    @staticmethod
+    def convert(path: str) -> Pdf: ...
 
 @t.final
 class Signature:

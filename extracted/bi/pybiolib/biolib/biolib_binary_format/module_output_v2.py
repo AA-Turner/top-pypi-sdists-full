@@ -1,7 +1,7 @@
 from biolib.biolib_binary_format import BioLibBinaryFormatBasePackage
-from biolib.biolib_binary_format.utils import IndexableBuffer, InMemoryIndexableBuffer, LazyLoadedFile
 from biolib.biolib_binary_format.file_in_container import FileInContainer
-from biolib.typing_utils import TypedDict, List, Optional
+from biolib.biolib_binary_format.utils import IndexableBuffer, InMemoryIndexableBuffer, LazyLoadedFile
+from biolib.typing_utils import List, Optional, TypedDict
 
 
 class Metadata(TypedDict):
@@ -111,11 +111,11 @@ class ModuleOutputV2(BioLibBinaryFormatBasePackage):
 
     @staticmethod
     def write_to_file(
-            output_file_path: str,
-            exit_code: int,
-            files: List[FileInContainer],
-            stderr: bytes,
-            stdout: bytes,
+        output_file_path: str,
+        exit_code: int,
+        files: List[FileInContainer],
+        stderr: bytes,
+        stdout: bytes,
     ) -> None:
         with open(output_file_path, mode='wb') as output_file:
             meta_lengths = ModuleOutputV2._metadata_byte_lengths

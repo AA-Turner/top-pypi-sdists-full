@@ -39,7 +39,7 @@ def create_fragment_router(
         app_spec: Optional AppSpec to resolve sources from integration IR.
             Falls back to fragment_sources dict for backward compat.
     """
-    router = APIRouter(prefix="/api/_fragments", tags=["Fragments"])
+    router = APIRouter(prefix="/_dazzle/fragments", tags=["Fragments"])
     sources = dict(fragment_sources or {})
 
     # Resolve additional sources from integration IR if available (v0.20.0)
@@ -97,7 +97,7 @@ def create_fragment_router(
                 data = await cache.get(scope, full_url)
 
             if data is None:
-                async with httpx.AsyncClient(timeout=10.0) as client:
+                async with httpx.AsyncClient(timeout=10.0) as client:  # noqa: DZ-HTTP-NORETRY  retry via async_retrying_request below
                     resp = await async_retrying_request(
                         client,
                         "GET",
@@ -125,7 +125,7 @@ def create_fragment_router(
             # Phase 4 (v0.67.62): inline-render with stdlib html.escape.
             import html as _html_mod
 
-            select_endpoint = f"/api/_fragments/select?source={source}"
+            select_endpoint = f"/_dazzle/fragments/select?source={source}"
             if items:
                 rows: list[str] = []
                 for item in items:
@@ -192,7 +192,7 @@ def create_fragment_router(
                 record = await cache.get(scope, full_url)
 
             if record is None:
-                async with httpx.AsyncClient(timeout=10.0) as client:
+                async with httpx.AsyncClient(timeout=10.0) as client:  # noqa: DZ-HTTP-NORETRY  retry via async_retrying_request below
                     resp = await async_retrying_request(client, "GET", full_url, headers=headers)
                     resp.raise_for_status()
                     record = resp.json()

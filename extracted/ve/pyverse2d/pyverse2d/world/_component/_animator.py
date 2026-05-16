@@ -14,14 +14,14 @@ class AnimationRequest(Request):
     """Requête d'animation
 
     Args:
-        animation(Animation): animation à activer
-        loop(bool, optional): répétition de l'animation
-        cutable(bool, optional): supprimer / reset si elle perd la main
-        priority(int, optional): niveau de priorité de l'animation
-        tag(str, optional): label de l'animation
-        condition(callable, optional): condition d'activation de l'animation
-        on_start(callable, optional): fonction de début d'animation
-        on_end(callable, optional): fonction de fin d'animation
+        animation: animation à activer
+        loop: répétition de l'animation
+        cutable: supprimer / reset si elle perd la main
+        priority: niveau de priorité de l'animation
+        tag: label de l'animation
+        condition: condition d'activation de l'animation
+        on_start): fonction de début d'animation
+        on_end: fonction de fin d'animation
     """
     animation: Animation
     loop: bool = False
@@ -39,16 +39,26 @@ class Animator(Component):
     Ce composant est manipulé par ``AnimationSystem``.
 
     Args:
-        idle(Animation, None): animation par défaut
+        idle: animation par défaut
     """
-    __slots__ = ("_idle", "_current_request", "_current_animation", "_frame", "_elapsed",  "_requests")
+    __slots__ = (
+        "_idle",
+        "_current_request", "_current_animation", "_frame", "_elapsed",  "_requests",
+    )
 
-    requires = ("SpriteRenderer",)
+    requires: ClassVar[tuple[str, ...]] = ("SpriteRenderer",)
 
     AnimationRequest: ClassVar[type[AnimationRequest]] = AnimationRequest
 
     def __init__(self, idle: Animation = None):
-        self._idle: Animation = expect(idle, (Animation, None))
+        # Vérifications
+        if __debug__:
+            expect(idle, (Animation, None))
+
+        # Attributs publiques
+        self._idle: Animation = idle
+
+        # Attributs internes
         self._requests: list[AnimationRequest] = []
         self._current_request: AnimationRequest | None = None
         self._current_animation: Animation | None = self._idle
@@ -67,14 +77,9 @@ class Animator(Component):
     def copy(self) -> Animator:
         """Renvoie une copie du composant"""
         new = Animator(self._idle)
-        new._requests = self._requests.copy()
-        new._current_request = self._current_request
-        new._current_animation = self._current_animation
-        new._frame = self._frame
-        new._elapsed = self._elapsed
         return new
 
-    # ======================================== GETTERS ========================================
+    # ======================================== PROPERTIES ========================================
     @property
     def idle(self) -> Animation:
         """Renvoie l'animation par défaut"""
@@ -113,28 +118,31 @@ class Animator(Component):
 
     # ======================================== PUBLIC ========================================
     def register(self, request: AnimationRequest) -> None:
-        """
-        Enregistre une requête d'animation
+        """Enregistre une requête d'animation
 
         Args:
-            request(AnimationRequest): requête d'animation à enregistrer
+            request: requête d'animation à enregistrer
         """
         self._requests.append(expect(request, AnimationRequest))
 
     def unregister(self, request: AnimationRequest) -> None:
-        """
-        Retire une requête d'animation
+        """Retire une requête d'animation
 
         Args:
-            request(AnimationRequest): requête d'animation à retirer
+            request: requête d'animation à retirer
         """
         self._requests.remove(request)
     
     def unregister_tag(self, tag: str) -> None:
-        """
-        Retire les requêtes d'animation avec un certain label
+        """Retire les requêtes d'animation avec un certain label
 
         Args:
-            tag(str): label des requêtes à supprimer
+            tag: label des requêtes à supprimer
         """
         self._requests = [request for request in self._requests if request.tag != tag]
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "AnimationRequest",
+    "Animator",
+]

@@ -26,9 +26,11 @@
  */
 
 #include "rebound.h"
+#include "rebound_internal.h"
+#include "server.h"
+#include "binarydata.h"
 
 #ifdef SERVER
-#include <stdio.h>
 #ifdef _MSC_VER 
 //not #if defined(_WIN32) || defined(_WIN64) because we have strncasecmp in mingw
 #define strncasecmp _strnicmp
@@ -49,11 +51,9 @@
 #include <sys/mman.h>
 #include <netinet/in.h>
 #endif // _WIN32
-#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-
 
 
 #define BUFSIZE 1024
@@ -322,7 +322,7 @@ static void reb_server_cerror(SOCKET clientS, char cause[]){
                     size_t sizep;
                     data->need_copy = 1;
                     pthread_mutex_lock(&(data->mutex));
-                    reb_simulation_save_to_stream(r, &bufp,&sizep);
+                    reb_binarydata_simulation_to_stream(r, &bufp,&sizep);
                     data->need_copy = 0;
                     pthread_mutex_unlock(&(data->mutex));
                     fwrite(reb_server_header, 1, strlen(reb_server_header), stream);
@@ -421,7 +421,7 @@ static void reb_server_cerror(SOCKET clientS, char cause[]){
                         goto screenshot_finish;
                     }
 
-                    int rc_len = strlen(dataURL)+1;
+                    size_t rc_len = strlen(dataURL)+1;
                     char* base64 = strchr(dataURL, ',');
                     if (content_length != rc_len){
                         printf("Received screenshot with incorrect size.\n");
@@ -435,7 +435,7 @@ static void reb_server_cerror(SOCKET clientS, char cause[]){
                     }
                     data->screenshot = base64_decode((unsigned char*)base64+1, strlen(base64+1), &data->N_screenshot);
                     if (!data->screenshot){
-                        printf("An error occured while decoding the screenshot.\n");
+                        printf("An error occurred while decoding the screenshot.\n");
                     }
                     data->r->status = REB_STATUS_PAUSED;
                     free(dataURL);
@@ -525,7 +525,7 @@ screenshot_finish:
 
                 /* read (and ignore) the HTTP headers */
                 char* curLine = recbuf;
-                unsigned long content_length = 0;
+                size_t content_length = 0;
                 while(curLine){
                     char* nextLine = strchr(curLine, '\n');
                     if (nextLine) *nextLine = '\0';
@@ -552,7 +552,7 @@ screenshot_finish:
                     size_t sizep;
                     data->need_copy = 1;
                     WaitForSingleObject(data->mutex, INFINITE);
-                    reb_simulation_save_to_stream(r, &bufp,&sizep);
+                    reb_binarydata_simulation_to_stream(r, &bufp,&sizep);
                     data->need_copy = 0;
                     ReleaseMutex(data->mutex);
                     sendBytes(clientS, reb_server_header, strlen(reb_server_header)); 
@@ -662,7 +662,7 @@ screenshot_finish:
                     }
                     data->screenshot = base64_decode((unsigned char*)base64+1, strlen(base64+1), &data->N_screenshot);
                     if (!data->screenshot){
-                        printf("An error occured while decoding the screenshot.\n");
+                        printf("An error occurred while decoding the screenshot.\n");
                     }
                     data->r->status = REB_STATUS_PAUSED;
 screenshot_finish:
@@ -726,6 +726,7 @@ screenshot_finish:
                 return -1;
             }
 #else // SERVER
+            (void)port; // Not used
 #ifndef SERVERHIDEWARNING
             reb_simulation_error(r, "REBOUND has been compiled without SERVER support.");
 #endif // SERVERHIDEWARNING
@@ -748,13 +749,14 @@ screenshot_finish:
                 void* retval = 0;
                 pthread_join(r->server_data->server_thread, &retval);
                 if (retval!=PTHREAD_CANCELED){
-                    printf("An error occured while cancelling server thread.\n");
+                    printf("An error occurred while cancelling server thread.\n");
                 }
 #endif // _WIN32
                 free(r->server_data);
                 r->server_data = NULL;
             }
 #endif //SERVER
+            (void)r; // not used
         }
 
 

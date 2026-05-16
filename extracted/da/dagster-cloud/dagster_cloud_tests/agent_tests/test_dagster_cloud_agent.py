@@ -415,6 +415,21 @@ def _run_to_request_completion(agent, user_code_launcher):
         num_requests = len(agent.request_ids_to_futures)
 
 
+def _wait_for_healthy_agent(instance: DeploymentScopedHostInstance, timeout: float = 5.0) -> bool:
+    # has_healthy_agent reads a cache that, when stale, attempts a non-blocking lock
+    # acquire to refresh. Under CI fan-out the agent's worker pool can be holding the
+    # same lock at the moment of a single call, in which case the refresh is skipped
+    # and the pre-heartbeat (empty) cache is returned. Poll briefly so the lock holder
+    # has a chance to release. time.monotonic / time.sleep are not patched by
+    # freezegun, so this remains real-time even inside freeze_time blocks.
+    deadline = time.monotonic() + timeout
+    while not instance.has_healthy_agent():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+    return True
+
+
 def _code_server_heartbeat_for_location(
     host_instance: DeploymentScopedHostInstance,
     location_name: str,
@@ -815,7 +830,7 @@ def test_initial_reconcilation_populates_servers(
     )
 
     assert (
-        _code_server_heartbeat_for_location(host_instance, "location1").server_status  # pyright: ignore[reportOptionalMemberAccess]
+        _code_server_heartbeat_for_location(host_instance, "location1").server_status  # ty: ignore[unresolved-attribute]
         == CloudCodeServerStatus.STARTING
     )
 
@@ -827,7 +842,7 @@ def test_initial_reconcilation_populates_servers(
     )
 
     assert (
-        _code_server_heartbeat_for_location(host_instance, "location1").server_status  # pyright: ignore[reportOptionalMemberAccess]
+        _code_server_heartbeat_for_location(host_instance, "location1").server_status  # ty: ignore[unresolved-attribute]
         == CloudCodeServerStatus.RUNNING
     )
 
@@ -905,7 +920,7 @@ def _test_check_initial_deployment_names(agent_token, ursula_graphql_client, age
             },
         }
     ) as invalid_instance:
-        with DagsterCloudAgent(invalid_instance) as invalid_agent:  # pyright: ignore[reportArgumentType]
+        with DagsterCloudAgent(invalid_instance) as invalid_agent:  # ty: ignore[invalid-argument-type]
             with pytest.raises(
                 Exception,
                 match=f"Agent is configured to serve an invalid deployment {invalid_deployment}.",
@@ -1241,7 +1256,7 @@ def test_agent_with_ttl(
         assert (
             _code_server_heartbeat_for_location(
                 host_instance, code_location_origin.location_name
-            ).server_status  # pyright: ignore[reportOptionalMemberAccess]
+            ).server_status  # ty: ignore[unresolved-attribute]
             == CloudCodeServerStatus.STARTING
         )
 
@@ -1255,7 +1270,7 @@ def test_agent_with_ttl(
         assert (
             _code_server_heartbeat_for_location(
                 host_instance, code_location_origin.location_name
-            ).server_status  # pyright: ignore[reportOptionalMemberAccess]
+            ).server_status  # ty: ignore[unresolved-attribute]
             == CloudCodeServerStatus.RUNNING
         )
 
@@ -2703,11 +2718,11 @@ def test_branch_deployments_agent(
             FAKE_AGENT_UUID, heartbeat_interval_seconds=0
         )
         assert (
-            _code_server_heartbeat_for_location(branch1_instance, "location1").server_status  # pyright: ignore[reportOptionalMemberAccess]
+            _code_server_heartbeat_for_location(branch1_instance, "location1").server_status  # ty: ignore[unresolved-attribute]
             == CloudCodeServerStatus.STARTING
         )
         assert (
-            _code_server_heartbeat_for_location(branch2_instance, "location2").server_status  # pyright: ignore[reportOptionalMemberAccess]
+            _code_server_heartbeat_for_location(branch2_instance, "location2").server_status  # ty: ignore[unresolved-attribute]
             == CloudCodeServerStatus.STARTING
         )
 
@@ -2720,15 +2735,15 @@ def test_branch_deployments_agent(
         agent._check_add_heartbeat(  # noqa: SLF001
             FAKE_AGENT_UUID, heartbeat_interval_seconds=0
         )
-        assert branch1_instance.has_healthy_agent()
-        assert branch2_instance.has_healthy_agent()
+        assert _wait_for_healthy_agent(branch1_instance)
+        assert _wait_for_healthy_agent(branch2_instance)
 
         assert (
-            _code_server_heartbeat_for_location(branch1_instance, "location1").server_status  # pyright: ignore[reportOptionalMemberAccess]
+            _code_server_heartbeat_for_location(branch1_instance, "location1").server_status  # ty: ignore[unresolved-attribute]
             == CloudCodeServerStatus.RUNNING
         )
         assert (
-            _code_server_heartbeat_for_location(branch2_instance, "location2").server_status  # pyright: ignore[reportOptionalMemberAccess]
+            _code_server_heartbeat_for_location(branch2_instance, "location2").server_status  # ty: ignore[unresolved-attribute]
             == CloudCodeServerStatus.RUNNING
         )
 
@@ -3537,19 +3552,19 @@ def test_agent_liveness_sentinel_skipped_when_no_sentinel_dir(
 def test_sentinel_dir_defaults():
     """Base class defaults to None, ECS to /opt, K8s to /tmp."""
     assert (
-        DagsterCloudUserCodeLauncher._default_sentinel_dir.fget(  # type: ignore  # noqa: SLF001
+        DagsterCloudUserCodeLauncher._default_sentinel_dir.fget(  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
             mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
         )
         is None
     )
     assert (
-        EcsUserCodeLauncher._default_sentinel_dir.fget(  # type: ignore  # noqa: SLF001
+        EcsUserCodeLauncher._default_sentinel_dir.fget(  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
             mock.MagicMock(spec=EcsUserCodeLauncher)
         )
         == "/opt"
     )
     assert (
-        K8sUserCodeLauncher._default_sentinel_dir.fget(  # type: ignore  # noqa: SLF001
+        K8sUserCodeLauncher._default_sentinel_dir.fget(  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
             mock.MagicMock(spec=K8sUserCodeLauncher)
         )
         == "/tmp"
@@ -3565,11 +3580,11 @@ def test_sentinel_dir_uses_default_when_env_var_unset():
         launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
         launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
-        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
         assert result == "/opt"
 
         launcher._default_sentinel_dir = None  # noqa: SLF001
-        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
         assert result is None
 
 
@@ -3580,7 +3595,7 @@ def test_sentinel_dir_env_var_override():
         launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
         launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
-        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
         assert result == "/custom"
 
 
@@ -3591,7 +3606,7 @@ def test_sentinel_dir_empty_string_disables():
         launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
         launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
-        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
         assert result is None
 
 
@@ -3637,8 +3652,8 @@ def test_ecs_sentinel_path_is_opt(tmp_path):
 
         launcher = mock.MagicMock(spec=EcsUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
-        launcher._default_sentinel_dir = EcsUserCodeLauncher._default_sentinel_dir.fget(launcher)  # type: ignore  # noqa: SLF001
-        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        launcher._default_sentinel_dir = EcsUserCodeLauncher._default_sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
+        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
         assert sentinel_dir == "/opt"
         assert (
             os.path.join(sentinel_dir, "finished_initial_reconciliation_sentinel.txt")
@@ -3663,10 +3678,10 @@ def test_serverless_sentinel_path_is_opt():
 
         launcher = mock.MagicMock(spec=ServerlessUserCodeLauncher)
         launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
-        launcher._default_sentinel_dir = ServerlessUserCodeLauncher._default_sentinel_dir.fget(  # noqa: SLF001
+        launcher._default_sentinel_dir = ServerlessUserCodeLauncher._default_sentinel_dir.fget(  # pyright: ignore[reportOptionalCall]  # noqa: SLF001
             launcher
         )
-        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # pyright: ignore[reportOptionalCall]
         assert sentinel_dir == "/opt"
         assert (
             os.path.join(sentinel_dir, "finished_initial_reconciliation_sentinel.txt")

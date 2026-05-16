@@ -16,6 +16,7 @@ from dstack._internal.core.errors import (
 )
 from dstack._internal.core.models.configurations import (
     SERVICE_HTTPS_DEFAULT,
+    EntityReference,
     ServiceConfiguration,
 )
 from dstack._internal.core.models.gateways import GatewayConfiguration, GatewayStatus
@@ -34,10 +35,11 @@ from dstack._internal.server.services.gateways import (
     get_gateway_configuration,
     get_or_add_gateway_connection,
     get_project_default_gateway_model,
-    get_project_gateway_model_by_name,
+    get_project_gateway_model_by_reference,
 )
 from dstack._internal.server.services.logging import fmt
 from dstack._internal.server.services.services.options import get_service_options
+from dstack._internal.utils.common import interpolate_gateway_domain
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -46,21 +48,25 @@ logger = get_logger(__name__)
 async def register_service(session: AsyncSession, run_model: RunModel, run_spec: RunSpec):
     assert isinstance(run_spec.configuration, ServiceConfiguration)
 
-    if isinstance(run_spec.configuration.gateway, str):
-        gateway = await get_project_gateway_model_by_name(
+    if isinstance(run_spec.configuration.gateway, EntityReference) or isinstance(
+        run_spec.configuration.gateway, str
+    ):
+        gateway_reference = EntityReference.parse(run_spec.configuration.gateway)
+        gateway = await get_project_gateway_model_by_reference(
             session=session,
             project=run_model.project,
-            name=run_spec.configuration.gateway,
+            ref=gateway_reference,
             load_gateway_compute=True,
             load_backend_type=True,
         )
         if gateway is None:
             raise ResourceNotExistsError(
-                f"Gateway {run_spec.configuration.gateway} does not exist"
+                f"Gateway {gateway_reference.format()} does not exist"
+                f" in project {run_model.project.name}"
             )
         if gateway.to_be_deleted:
             raise ResourceNotExistsError(
-                f"Gateway {run_spec.configuration.gateway} was marked for deletion"
+                f"Gateway {gateway_reference.format()} was marked for deletion"
             )
     elif run_spec.configuration.gateway == False:
         gateway = None
@@ -99,6 +105,9 @@ async def _register_service_in_gateway(
 
     if gateway.status != GatewayStatus.RUNNING:
         raise ServerClientError("Gateway status is not running")
+
+    if gateway.forbid_new_services:
+        raise ServerClientError("Gateway does not accept new services")
 
     gateway_configuration = get_gateway_configuration(gateway)
 
@@ -150,6 +159,11 @@ async def _register_service_in_gateway(
     wildcard_domain = gateway.wildcard_domain.lstrip("*.") if gateway.wildcard_domain else None
     if wildcard_domain is None:
         raise ServerClientError("Domain is required for gateway")
+    wildcard_domain = interpolate_gateway_domain(
+        domain=wildcard_domain,
+        run_project_name=run_model.project.name,
+        exception_type=GatewayError,
+    )
     service_url = f"{service_protocol}://{run_model.run_name}.{wildcard_domain}"
     if isinstance(run_spec.configuration.model, OpenAIChatModel):
         model_url = service_url + run_spec.configuration.model.prefix

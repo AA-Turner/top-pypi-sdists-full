@@ -9,7 +9,9 @@ from ..abc import Shape
 from ._tile import TileMeta
 from ._tile_map import TileMap, FLIP_H, FLIP_V, FLIP_D
 
-from numbers import Real
+import numpy as np
+
+from numbers import Real, Integral
 
 # ======================================== COLLISION MAPPER ========================================
 class CollisionMapper:
@@ -31,15 +33,30 @@ class CollisionMapper:
         solid_tag: str = "solid",
         friction: Real = 0.3,
         restitution: Real = 0.0,
-        category: int = 0b00000001,
-        mask: int = 0b11111111,
+        category: Integral = 0b00000001,
+        mask: Integral = 0b11111111,
     ):
-        self._tile_map: TileMap = expect(tile_map, TileMap)
-        self._solid_tag: str = expect(solid_tag, str)
-        self._friction: float = float(positive(expect(friction, Real)))
-        self._restitution: float = float(positive(expect(restitution, Real)))
-        self._category: int = expect(category, int)
-        self._mask: int = expect(mask, int)
+        # Transtypage et vérifications
+        solid_tag = str(solid_tag)
+        friction = float(friction)
+        restitution = float(restitution)
+        category = int(category)
+        mask = int(mask)
+
+        if __debug__:
+            expect(tile_map, TileMap)
+            positive(friction)
+            positive(restitution)
+
+        # Attributs publiques
+        self._tile_map: TileMap = tile_map
+        self._solid_tag: str = solid_tag
+        self._friction: float = friction
+        self._restitution: float = restitution
+        self._category: int = category
+        self._mask: int = mask
+
+        # Attributs internes
         self._entities: list = []
 
     # ======================================== PUBLIC METHODS ========================================
@@ -83,7 +100,12 @@ class CollisionMapper:
 
     # ======================================== INTERNALS ========================================
     def _has_custom_shape(self, col: int, row: int) -> bool:
-        """Vérifie si la tuile à ``(col, row)`` a une collision_shape custom"""
+        """Vérifie si la tuile à ``(col, row)`` a une collision_shape custom
+        
+        Args:
+            col: colonne
+            row: ligne
+        """
         tile_id = self._tile_map.tile_at(col, row)
         if tile_id == 0:
             return False
@@ -91,7 +113,12 @@ class CollisionMapper:
         return meta is not None and meta.collision_shape is not None
 
     def _is_solid(self, col: int, row: int) -> bool:
-        """Vérifie si la tuile à ``(col, row)`` est solide et sans shape custom"""
+        """Vérifie si la tuile à ``(col, row)`` est solide et sans shape custom
+        
+        Args:
+            col: colonne
+            row: ligne
+        """
         tile_id = self._tile_map.tile_at(col, row)
         if tile_id == 0:
             return False
@@ -103,7 +130,11 @@ class CollisionMapper:
         return meta.has_tag(self._solid_tag)
 
     def _resolve_props(self, tile_id: int) -> tuple[float, float, int, int]:
-        """Résout friction, restitution, category, mask pour un tile_id — meta > global"""
+        """Résout friction, restitution, category, mask pour un tile_id — meta > global
+        
+        Args:
+            tile_id: identifiant de la tuile
+        """
         meta: TileMeta | None = self._tile_map.tile.get_meta(tile_id)
         friction = meta.friction if (meta and meta.friction is not None) else self._friction
         restitution = meta.restitution if (meta and meta.restitution is not None) else self._restitution
@@ -177,8 +208,6 @@ class CollisionMapper:
 
 
 # ======================================== FLIP HELPER ========================================
-import numpy as np
-
 def _apply_flip(shape: Shape, flip: int, tw: float, th: float) -> Shape:
     """Applique les transformations de flip à une collision shape
     
@@ -215,3 +244,8 @@ def _apply_flip(shape: Shape, flip: int, tw: float, th: float) -> Shape:
 
     verts = np.column_stack((x, y))
     return Polygon(*verts)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "CollisionMapper",
+]

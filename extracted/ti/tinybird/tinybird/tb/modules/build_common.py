@@ -472,12 +472,17 @@ def format_build_errors(build_errors: list[dict[str, Any]]) -> str:
 
 
 def echo_changes(project: Project, changes: list[str], extension: str, status: str):
+    resource_type_by_extension = {
+        ".datasource": "datasource",
+        ".pipe": "pipe",
+        ".connection": "connection",
+    }
     for resource in changes:
-        path_str = next(
-            (p for p in project.get_project_files() if p.endswith(resource + extension)), resource + extension
-        )
+        resource_type = resource_type_by_extension.get(extension)
+        path_str = project.get_resource_path(resource, resource_type) if resource_type else ""
+        if not path_str:
+            path_str = resource + extension
         if path_str:
-            path_str = path_str.replace(f"{project.folder}/", "")
             click.echo(FeedbackManager.info(message=f"✓ {path_str} {status}"))
 
 

@@ -337,6 +337,7 @@ endsequence
 
 module m(input y1, input x1, input clk);
     cover property (s(((x1 iff y1) or negedge clk)));
+    default disable iff (x1 && y1);
 endmodule
 )");
 
@@ -518,6 +519,24 @@ endmodule
               },
               "assertionKind": "CoverProperty"
             }
+          },
+          {
+            "kind": "defaultDisable",
+            "expr": {
+              "kind": "BinaryOp",
+              "type": "logic",
+              "op": "LogicalAnd",
+              "left": {
+                "kind": "NamedValue",
+                "type": "logic",
+                "symbol": "x1"
+              },
+              "right": {
+                "kind": "NamedValue",
+                "type": "logic",
+                "symbol": "y1"
+              }
+            }
           }
         ],
         "definition": "m"
@@ -597,6 +616,7 @@ endclass
                       "kind": "ClassProperty",
                       "type": "struct{string name;int weight;int goal;string comment;int at_least;int auto_bin_max;int cross_num_print_missing;bit detect_overlap;bit per_instance;bit get_inst_coverage;}C3.s$1",
                       "lifetime": "Automatic",
+                      "flags": "compiler_generated",
                       "visibility": "Public"
                     },
                     {
@@ -604,6 +624,7 @@ endclass
                       "kind": "ClassProperty",
                       "type": "struct{int weight;int goal;string comment;bit strobe;bit merge_instances;bit distribute_first;}C3.s$2",
                       "lifetime": "Static",
+                      "flags": "compiler_generated",
                       "visibility": "Public"
                     },
                     {
@@ -615,6 +636,7 @@ endclass
                           "kind": "ClassProperty",
                           "type": "struct{int weight;int goal;string comment;int at_least;int auto_bin_max;bit detect_overlap;}C3.e.s$3",
                           "lifetime": "Automatic",
+                          "flags": "compiler_generated",
                           "visibility": "Public"
                         },
                         {
@@ -622,6 +644,7 @@ endclass
                           "kind": "ClassProperty",
                           "type": "struct{int weight;int goal;string comment;}C3.e.s$4",
                           "lifetime": "Static",
+                          "flags": "compiler_generated",
                           "visibility": "Public"
                         }
                       ],
@@ -665,6 +688,7 @@ endclass
                           "kind": "ClassProperty",
                           "type": "struct{int weight;int goal;string comment;int at_least;int auto_bin_max;bit detect_overlap;}C3.y.s$5",
                           "lifetime": "Automatic",
+                          "flags": "compiler_generated",
                           "visibility": "Public"
                         },
                         {
@@ -672,6 +696,7 @@ endclass
                           "kind": "ClassProperty",
                           "type": "struct{int weight;int goal;string comment;}C3.y.s$6",
                           "lifetime": "Static",
+                          "flags": "compiler_generated",
                           "visibility": "Public"
                         }
                       ]
@@ -685,6 +710,7 @@ endclass
                           "kind": "ClassProperty",
                           "type": "struct{int weight;int goal;string comment;int at_least;int cross_num_print_missing;}C3.s$7",
                           "lifetime": "Automatic",
+                          "flags": "compiler_generated",
                           "visibility": "Public"
                         },
                         {
@@ -692,6 +718,7 @@ endclass
                           "kind": "ClassProperty",
                           "type": "struct{int weight;int goal;string comment;}C3.s$8",
                           "lifetime": "Static",
+                          "flags": "compiler_generated",
                           "visibility": "Public"
                         },
                         {
@@ -1251,16 +1278,6 @@ endmodule
                   "type": "string",
                   "lifetime": "Automatic",
                   "direction": "In"
-                },
-                {
-                  "name": "print_msg",
-                  "kind": "Variable",
-                  "source_file": "source",
-                  "source_line": 14,
-                  "source_column": 19,
-                  "type": "void",
-                  "lifetime": "Automatic",
-                  "flags": "compiler_generated"
                 },
                 {
                   "name": "this",

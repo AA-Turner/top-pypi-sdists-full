@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 1.96.1
+Version: 1.97.0
 Summary: Agent Framework / shim to use Pydantic with LLMs, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -34,11 +34,11 @@ Requires-Dist: genai-prices>=0.0.48
 Requires-Dist: griffelib>=2.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==1.96.1
+Requires-Dist: pydantic-graph==1.97.0
 Requires-Dist: pydantic>=2.12
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: a2a
-Requires-Dist: fasta2a>=0.4.1; extra == 'a2a'
+Requires-Dist: fasta2a>=0.6.1; extra == 'a2a'
 Provides-Extra: ag-ui
 Requires-Dist: ag-ui-protocol>=0.1.10; extra == 'ag-ui'
 Requires-Dist: starlette>=0.45.3; extra == 'ag-ui'
@@ -59,11 +59,11 @@ Requires-Dist: dbos>=2.10.0; extra == 'dbos'
 Provides-Extra: duckduckgo
 Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==1.96.1; extra == 'evals'
+Requires-Dist: pydantic-evals==1.97.0; extra == 'evals'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.0.0; extra == 'exa'
 Provides-Extra: fastmcp
-Requires-Dist: fastmcp>=3.2.4; extra == 'fastmcp'
+Requires-Dist: fastmcp>=3.3.0; extra == 'fastmcp'
 Provides-Extra: google
 Requires-Dist: google-genai>=1.70.0; extra == 'google'
 Provides-Extra: groq
@@ -73,7 +73,7 @@ Requires-Dist: huggingface-hub<2.0.0,>=1.3.4; extra == 'huggingface'
 Provides-Extra: logfire
 Requires-Dist: logfire[httpx]>=4.16.0; extra == 'logfire'
 Provides-Extra: mcp
-Requires-Dist: mcp<2.0,>=1.25.0; extra == 'mcp'
+Requires-Dist: fastmcp-slim[client]>=3.3.0; extra == 'mcp'
 Provides-Extra: mistral
 Requires-Dist: mistralai!=2.4.6,>=2.0.0; extra == 'mistral'
 Provides-Extra: openai

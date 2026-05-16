@@ -2003,6 +2003,26 @@ app = typer.Typer(
 )
 
 config_app = typer.Typer(help="Manage configuration")
+# New user-facing commands (search/image/schedule/integrate/daemon) live
+# in sage/cli/new_commands.py to keep main.py manageable. The sub-typer's
+# top-level commands (search, image) and subcommand groups (schedule,
+# integrate, daemon) get merged into the root app namespace.
+try:
+    from sage.cli.new_commands import app as _new_commands_app
+    # Merge top-level commands by registering each individually so they
+    # appear as `sage search` / `sage image`, not `sage <sub>` namespace.
+    for _cmd_info in _new_commands_app.registered_commands:
+        app.registered_commands.append(_cmd_info)
+    # Subcommand groups (schedule, integrate, daemon) come through as
+    # registered_groups — keep them grouped.
+    for _grp in _new_commands_app.registered_groups:
+        app.registered_groups.append(_grp)
+except Exception:
+    # If anything in the new commands module fails to import (missing
+    # optional dep, etc.), don't kill the whole CLI — the existing
+    # commands keep working.
+    pass
+
 app.add_typer(config_app, name="config")
 
 secrets_app = typer.Typer(help="Secrets and .env file hygiene")
@@ -2075,10 +2095,11 @@ def _resolve_model_prefix(model_id: str, cfg: SageConfig) -> str:
         prefix = model_id.split(":", maxsplit=1)[0]
         if prefix == "gcs":
             return f"llama_cpp:{model_id.split(':', maxsplit=1)[1]}"
-        if prefix == "cloud":
-            model_name = model_id.split(":", maxsplit=1)[1]
-            return _resolve_model_prefix(model_name, cfg)
         if prefix in _PROVIDER_PREFIXES:
+            # `cloud:` is the sage-hosted Cloud Run GPU tier — kept as a real
+            # provider so the router can dispatch to SageHostedProvider.
+            # Previously this prefix was stripped + re-resolved, which broke
+            # paid-tier routing entirely.
             return model_id
         # OpenRouter IDs look like "vendor/model:free" — the colon is a tag
         # suffix, not a provider separator. If the part before the colon
@@ -2812,9 +2833,10 @@ def _build_router(cfg: SageConfig) -> ProviderRouter:
 
     Providers in priority order:
     1. Ollama  — if running locally, handles modern models (gemma4, qwen3, etc.)
-    2. Gemini  — Google AI Studio free tier
-    3. LlamaCpp — local GGUF files in ~/.sage/models/
-    4. OpenAI-compat — Groq, OpenRouter, etc.
+    2. SageHosted — paid-tier cloud models on our GCP infra (cloud:* prefix)
+    3. Gemini  — Google AI Studio free tier
+    4. LlamaCpp — local GGUF files in ~/.sage/models/
+    5. OpenAI-compat — OpenRouter free models (the free-tier cloud path)
     """
     providers: list[ProviderBase] = []
 
@@ -2825,6 +2847,17 @@ def _build_router(cfg: SageConfig) -> ProviderRouter:
         if ollama_provider.is_available():
             providers.append(ollama_provider)
     except Exception:
+        pass
+
+    # SageHosted goes before Gemini so `cloud:*` IDs resolve cleanly.
+    # Free users see the catalog but get a structured UpgradeRequired error
+    # on actual call — handled in the REPL with an upgrade prompt UX.
+    try:
+        from sage.providers.sage_hosted import SageHostedProvider
+        providers.append(SageHostedProvider())
+    except Exception:
+        # Provider load failure shouldn't kill sage entirely — drop it and
+        # continue with local + Gemini + OpenRouter.
         pass
 
     providers += [
@@ -6834,6 +6867,99 @@ def _detect_repetitive_filler(response: str) -> tuple[bool, float]:
     is_filler = combined_score > 0.7
 
     return is_filler, combined_score
+
+
+# =============================================================================
+# CODE-OUTPUT INTEGRITY GUARDS
+# =============================================================================
+#
+# Two failure modes seen in production with free-tier Qwen-family models on
+# OpenRouter (qwen3-coder:free) and Qwen-derived ggufs (DeepSeek-R1-Distill-
+# Qwen). The model bleeds Chinese identifiers into Python/TS output and/or
+# emits aider-style search/replace markers that sage doesn't parse.
+#
+# Both produce code that won't even import. Letting them through wastes
+# the user's tokens AND time, so we reject hard and force a retry.
+
+
+# CJK Unicode ranges (Hangul/Hiragana/Katakana/Han) — anything from these
+# blocks inside a Python/TS/JS *identifier* (function/class/variable name
+# or import target) is a sign the model has language-drifted. Inside
+# string literals or comments this is fine and common (user-facing strings,
+# internationalization). We only fail when it appears in code structure.
+_NON_ASCII_LETTER_RE = re.compile(r"[぀-ゟ゠-ヿ一-鿿가-힯㐀-䶿]")
+
+# Match identifiers / imports that contain a CJK letter. The lookahead
+# anchors on common syntactic positions: function/class definitions,
+# imports, variable assignments, attribute access.
+_NON_ASCII_IDENTIFIER_RE = re.compile(
+    r"""
+    (?:
+        # Python: `def name(`, `class Name:`, `from name import`, `import name`
+        ^\s*(?:def|class|from|import)\s+[\w.]*[぀-ゟ゠-ヿ一-鿿가-힯㐀-䶿][\w.]*
+        |
+        # TS/JS: `function name(`, `const name =`, `class Name`, `import { name }`
+        ^\s*(?:function|const|let|var|class|interface|type|enum)\s+[\w$]*[぀-ゟ゠-ヿ一-鿿가-힯㐀-䶿][\w$]*
+        |
+        # Generic: `<ident>(` or `<ident>.<thing>` where ident contains CJK
+        \b[\w$]*[぀-ゟ゠-ヿ一-鿿가-힯㐀-䶿][\w$]*\s*(?:\(|\.|=)
+    )
+    """,
+    re.MULTILINE | re.VERBOSE,
+)
+
+# Extract fenced code blocks + sage FILE: blocks. Anything inside these is
+# "code"; everything else is prose where CJK is allowed (the model may
+# describe Chinese-language features in a user-facing string, for example).
+_CODE_BLOCK_RE = re.compile(r"```[\w-]*\n(.*?)\n```", re.DOTALL)
+_FILE_BLOCK_RE = re.compile(r"^FILE:\s*\S+\s*\n(.*?)(?=^FILE:|\Z)", re.DOTALL | re.MULTILINE)
+
+
+def _detect_non_english_code_identifiers(response: str) -> tuple[bool, list[str]]:
+    """Detect CJK identifiers in fenced or FILE: code blocks.
+
+    Returns (has_violations, sample_offenders). Sample is capped at 5 to
+    keep the error message readable. We only scan code regions because
+    user-facing string literals and i18n labels are legitimate places for
+    non-ASCII text; an *identifier* is not.
+    """
+    code_regions: list[str] = []
+    code_regions.extend(_CODE_BLOCK_RE.findall(response))
+    code_regions.extend(_FILE_BLOCK_RE.findall(response))
+
+    if not code_regions:
+        return False, []
+
+    offenders: list[str] = []
+    for code in code_regions:
+        for match in _NON_ASCII_IDENTIFIER_RE.finditer(code):
+            snippet = match.group(0).strip()
+            # Trim trailing punctuation for readable error messages
+            snippet = snippet.rstrip("(.=")
+            if snippet and snippet not in offenders:
+                offenders.append(snippet)
+                if len(offenders) >= 5:
+                    return True, offenders
+
+    return bool(offenders), offenders
+
+
+# Aider/Cursor-style diff markers. Sage uses FILE: blocks, not these.
+# When a model emits them, the diff cannot be applied — the user sees
+# "code" that never actually lands on disk.
+_AIDER_SEARCH_RE = re.compile(r"^<{5,}\s*SEARCH\s*$", re.MULTILINE)
+_AIDER_REPLACE_RE = re.compile(r"^>{5,}\s*REPLACE\s*$", re.MULTILINE)
+
+
+def _detect_aider_style_diff_garbage(response: str) -> bool:
+    """True if the model used `<<<<<<< SEARCH … >>>>>>> REPLACE` markers.
+
+    Sage's edit protocol is `FILE: path` followed by the whole file
+    content (not a diff). Some free-tier Qwen-derived models emit the
+    aider/Cursor search/replace format instead, which sage cannot apply.
+    Catching this early lets us retry with explicit guidance.
+    """
+    return bool(_AIDER_SEARCH_RE.search(response) and _AIDER_REPLACE_RE.search(response))
 
 
 # =============================================================================
@@ -11380,7 +11506,23 @@ class SAGEAgent:
             )
             return None
         except Exception as exc:
-            self.renderer.error(str(exc))
+            err_str = str(exc)
+            self.renderer.error(err_str)
+            # When EVERY provider has failed (rate-limited, down, mis-configured),
+            # there's no path forward. Returning None lets the autonomous
+            # agent loop pretend "the model gave an empty response" and try
+            # again — which produces the plan-loop garbage the user saw
+            # (multiple "Current Plan" attempts with progressively-degraded
+            # output). Re-raise so the REPL boundary handles it once.
+            if "All providers failed" in err_str:
+                self.renderer.warning(
+                    "No model is currently available. Try:\n"
+                    "  • Wait a moment if rate-limited (OpenRouter caps reset hourly)\n"
+                    "  • Start Ollama: `ollama serve`\n"
+                    "  • Switch model: `/model ollama:llama3.2`\n"
+                    "  • Check connectivity: `sage doctor`"
+                )
+                raise
             return None
 
     def process_response(
@@ -11433,6 +11575,49 @@ class SAGEAgent:
                 tool_depth + 1,
                 send_fn=send,
                 display_analysis_response=True,
+                phase_name=phase_name,
+            )
+
+        def _retry_invalid_code_output(violations: list[str]) -> tuple[list[str], str] | None:
+            """Retry path for BUILD/code-output mode (not analysis).
+
+            Fires when the response had a hard violation we can fix by
+            re-prompting — currently: CJK identifiers in code, or the
+            aider/Cursor `<<<<<<< SEARCH … >>>>>>> REPLACE` diff format
+            that sage doesn't parse. Bounded by tool_depth to prevent
+            infinite loops on persistently-broken models.
+            """
+            if tool_depth >= 3:
+                return None
+            current_task_prompt = _get_current_task_prompt()
+            if not current_task_prompt:
+                return None
+            retry_prompt = (
+                f"Your previous response was rejected for these reasons:\n"
+                + "\n".join(f"  • {v}" for v in violations)
+                + "\n\n"
+                "Re-do the response with these MANDATORY rules:\n"
+                "  1. ALL code MUST use English-only identifiers (function "
+                "names, class names, variable names, import targets). "
+                "Non-ASCII letters are forbidden in code structure. "
+                "Comments and string literals may contain any language.\n"
+                "  2. To write a file, output a `FILE: <relative-path>` line "
+                "followed by the COMPLETE file contents inside a fenced "
+                "code block. Do NOT use `<<<<<<< SEARCH … >>>>>>> REPLACE` "
+                "markers — sage cannot apply those.\n"
+                "  3. The original task was:\n\n"
+                f"{current_task_prompt}\n"
+            )
+            if send is self.send_to_model:
+                retry_response = self.send_single_turn_to_model(retry_prompt)
+            else:
+                retry_response = send(retry_prompt)
+            if not retry_response:
+                return None
+            return self.process_response(
+                retry_response,
+                tool_depth + 1,
+                send_fn=send,
                 phase_name=phase_name,
             )
 
@@ -11500,6 +11685,27 @@ class SAGEAgent:
                 f"contains repetitive filler content (score: {repetition_score:.2f})"
             )
 
+        # Code-output integrity: CJK identifiers + aider-style diff markers
+        # are unconditional hard failures. We can't recover by "processing
+        # anyway" because the artefact is broken — Python won't import a
+        # module named `ai广告生成器`, and sage can't apply `<<<<<<< SEARCH`
+        # blocks. Force a retry with the offenders quoted back to the model.
+        has_cjk_ids, cjk_offenders = _detect_non_english_code_identifiers(response)
+        if has_cjk_ids:
+            behavioral_violations.append(
+                "code blocks contain non-English identifiers — code must use "
+                f"English-only names. Offenders: {cjk_offenders[:3]}"
+            )
+            hard_behavior_violation = True
+
+        if _detect_aider_style_diff_garbage(response):
+            behavioral_violations.append(
+                "used `<<<<<<< SEARCH … >>>>>>> REPLACE` markers — sage's edit "
+                "protocol is `FILE: <path>` followed by the full file content, "
+                "not aider-style diffs"
+            )
+            hard_behavior_violation = True
+
         if behavioral_violations:
             violation_msg = "; ".join(behavioral_violations)
             has_valid_tool = bool(
@@ -11519,6 +11725,15 @@ class SAGEAgent:
                 )
                 if recovered is not None:
                     return recovered
+                # Code-output mode (build / agent) gets its own retry — the
+                # read-only retry above only fires for analysis responses.
+                # If we're here because of CJK identifiers or aider-style
+                # diff markers, re-prompt with explicit guidance instead of
+                # giving up.
+                if not is_analysis_response and hard_behavior_violation:
+                    code_recovered = _retry_invalid_code_output(behavioral_violations)
+                    if code_recovered is not None:
+                        return code_recovered
                 if is_analysis_response:
                     _emit_grounded_analysis_failure(
                         self.cwd,
@@ -13389,6 +13604,22 @@ def run(
                 engine.add_assistant(summary)
                 continue
         except Exception as build_exc:
+            build_err_str = str(build_exc)
+            # "All providers failed" means every configured backend (cloud +
+            # local fallbacks) is unreachable. Falling through to the agent
+            # loop in this state produces plan-only prose with no code —
+            # the model can't write code if no model is callable. Stop here
+            # with actionable next steps so the user doesn't burn their
+            # session waiting on a chain that can't recover.
+            if "All providers failed" in build_err_str:
+                renderer.error(
+                    "All AI providers are currently unavailable.\n"
+                    "  • OpenRouter free tier: caps reset every few minutes — wait and retry.\n"
+                    "  • Ollama: start the daemon (`ollama serve`) or run `sage doctor`.\n"
+                    "  • llama.cpp: try a different GGUF (`sage list`, then `/model <id>`).\n"
+                    "  • Switch model now: `/model ollama:llama3.2` or any model from `sage models`."
+                )
+                continue
             renderer.warning(f"Build routing skipped: {build_exc}")
             # Fall through to standard agent loop
 
@@ -13412,10 +13643,37 @@ def run(
         except KeyboardInterrupt:
             renderer.warning("\nInterrupted by user")
         except Exception as e:
-            renderer.error(f"Error executing task: {e}")
-            import traceback
+            # Typed sage-hosted errors get a clean upgrade pitch / quota message
+            # instead of a raw traceback. Catching by name avoids a hard import
+            # dependency on `sage_hosted` (the provider may have failed to
+            # register at startup).
+            err_class = type(e).__name__
+            if err_class == "UpgradeRequired":
+                upgrade_url = getattr(e, "upgrade_url", "https://sageworksai.com/#billing")
+                renderer.warning(
+                    "🔒 This model is part of the Sage Pro plan.\n"
+                    "\n"
+                    "Free tier: OpenRouter public models + local Ollama (unlimited).\n"
+                    "Pro tier ($9/mo): sage-hosted private models — Qwen Coder, Llama,\n"
+                    "DeepSeek R1, Phi-4, vision, long context, and more.\n"
+                    "\n"
+                    f"Upgrade: {upgrade_url}\n"
+                    "Or pick a free model with `/model openrouter:<name>` or `/model ollama:<name>`."
+                )
+            elif err_class == "DailyQuotaExceeded":
+                retry = getattr(e, "retry_after", None)
+                hours = (retry // 3600) if isinstance(retry, int) else None
+                window = f" Resets in ~{hours}h." if hours else " Resets at midnight UTC."
+                renderer.warning(
+                    f"⏱️  Daily cloud quota hit.{window}\n"
+                    "Switch to a local Ollama model for unlimited use:\n"
+                    "  /model ollama:llama3.2  (or any other ollama: model)"
+                )
+            else:
+                renderer.error(f"Error executing task: {e}")
+                import traceback
 
-            renderer.error(traceback.format_exc())
+                renderer.error(traceback.format_exc())
 
     # run function ends here
 
@@ -13678,7 +13936,15 @@ def ask(
     prompt: Annotated[str | None, typer.Argument(help="Prompt text")] = None,
     file: Annotated[
         Path | None,
-        typer.Option("--file", "-f", help="Read file content as context"),
+        typer.Option("--file", "-f", help="Read file content as context (auto-extracts PDF/DOCX)"),
+    ] = None,
+    image: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--image",
+            help="Attach an image (PNG/JPEG/GIF/WebP). Repeat to attach multiple. "
+            "Routes to cloud:llava-next-7b automatically.",
+        ),
     ] = None,
     model: Annotated[str | None, typer.Option("--model", "-m")] = None,
     system: Annotated[str | None, typer.Option("--system", "-s")] = None,
@@ -13740,12 +14006,28 @@ def ask(
     if piped:
         parts.append(piped.strip())
 
-    # Read file if provided
+    # Read file if provided. Use the document extractor so PDFs/DOCX
+    # produce LLM-readable text instead of binary garbage. Plain text /
+    # code files take the same path with zero overhead (the extractor
+    # passes them through verbatim).
     if file:
         if not file.exists():
             renderer.error(f"File not found: {file}")
             raise typer.Exit(1)
-        content = file.read_text("utf-8")
+        try:
+            from sage.core.document_extractor import (
+                DocumentExtractor,
+                UnsupportedFormatError,
+            )
+            doc = DocumentExtractor().extract(file)
+            content = doc.text
+        except UnsupportedFormatError as exc:
+            renderer.error(str(exc))
+            raise typer.Exit(1) from exc
+        except Exception:
+            # Belt-and-suspenders: fall back to raw read so existing
+            # workflows (text files we didn't model) keep working.
+            content = file.read_text("utf-8", errors="replace")
         parts.append(f"File: {file.name}\n```\n{content}\n```")
 
     if prompt:
@@ -13754,6 +14036,35 @@ def ask(
     if not parts:
         renderer.error("No prompt provided. Usage: sage run 'your task'")
         raise typer.Exit(1)
+
+    # If the user attached images, auto-route to the vision model and
+    # short-circuit the standard build pipeline (which is text-only).
+    # The cloud:llava-next-7b model accepts the OpenAI multimodal
+    # content-parts shape that build_vision_message produces.
+    if image:
+        for img_path in image:
+            if not img_path.exists():
+                renderer.error(f"Image not found: {img_path}")
+                raise typer.Exit(1)
+        try:
+            from sage.core.vision_input import build_vision_message
+            vision_msg = build_vision_message("\n\n".join(parts), list(image))
+        except (ValueError, FileNotFoundError) as exc:
+            renderer.error(f"Image attachment failed: {exc}")
+            raise typer.Exit(1) from exc
+        # Force the vision model unless the user explicitly picked one.
+        vision_model = model or "cloud:llava-next-7b"
+        try:
+            from sage.providers.base import Message
+            messages = [Message(role=vision_msg["role"], content=vision_msg["content"])]
+            response_text = router.generate(
+                messages, vision_model, temp, tokens, lock_provider=bool(model),
+            )
+        except Exception as exc:
+            renderer.error(f"Vision call failed: {exc}")
+            raise typer.Exit(1) from exc
+        renderer.console.print(response_text if raw else response_text)
+        return
 
     raw_prompt = "\n\n".join(parts)
     _show_paste_indicator(raw_prompt)

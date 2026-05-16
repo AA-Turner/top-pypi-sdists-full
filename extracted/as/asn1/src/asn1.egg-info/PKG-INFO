@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asn1
-Version: 3.2.0
+Version: 3.3.0
 Summary: Python-ASN1 is a simple ASN.1 encoder and decoder for Python 2.7+ and 3.5+.
 Home-page: https://github.com/andrivet/python-asn1
 Author: Sebastien Andrivet
@@ -162,6 +162,12 @@ The following people have contributed to Python-ASN1. Collectively they own the 
 
 Changelog
 =========
+
+3.3.0 (2026-05-15)
+------------------
+
+* Fix #298 - Incorrect handling of indefinite form length when using ENTER/LEAVE
+* Fix #296 - Support for writing IMPLICIT values
 
 3.2.0 (2026-02-06)
 ------------------

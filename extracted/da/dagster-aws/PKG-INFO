@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-aws
-Version: 0.29.4
+Version: 0.29.5
 Summary: Package for AWS-specific Dagster framework solid and resource components.
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-aws
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -14,20 +14,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
 Requires-Dist: boto3
-Requires-Dist: dagster==1.13.4
+Requires-Dist: dagster==1.13.5
 Requires-Dist: packaging
 Requires-Dist: requests
 Provides-Extra: pyspark
-Requires-Dist: dagster-pyspark==0.29.4; extra == 'pyspark'
+Requires-Dist: dagster-pyspark==0.29.5; extra == 'pyspark'
 Provides-Extra: redshift
 Requires-Dist: psycopg2-binary; extra == 'redshift'
 Provides-Extra: stubs
 Requires-Dist: boto3-stubs-lite[ecs,emr,emr-containers,emr-serverless,glue,logs,s3]; extra == 'stubs'
-Provides-Extra: test
-Requires-Dist: botocore!=1.32.1; extra == 'test'
-Requires-Dist: flaky; extra == 'test'
-Requires-Dist: moto[emrcontainers,emrserverless,glue,logs,s3,server]>=5.0; extra == 'test'
-Requires-Dist: pytest-cases; extra == 'test'
-Requires-Dist: requests-mock; extra == 'test'
-Requires-Dist: s3fs; extra == 'test'
-Requires-Dist: xmltodict>=0.12.0; extra == 'test'

@@ -307,7 +307,8 @@ class PKAnalyticsService(SingletonMixin, metaclass=SingletonType):
         
         # Log the flattened dimensions
         if flat_dimensions:
-            default_logger().debug(f"Tracking event: {category}_{action} with dimensions: {flat_dimensions}")
+            if "subscriber.py" in os.environ.get("PK_DEBUG_FILES","") or "PKAnalytics.py" in os.environ.get("PK_DEBUG_FILES",""):
+                default_logger().debug(f"Tracking event: {category}_{action} with dimensions: {flat_dimensions}")
         event_data = {
             "category": category,
             "action": action,
@@ -862,7 +863,8 @@ def track_event(category, action, label=None, capture_params=None, capture_resul
             
             # Log if requested
             if log_args:
-                default_logger().debug(f"Tracking {func.__name__} with params: {params}")
+                if "subscriber.py" in os.environ.get("PK_DEBUG_FILES","") or "PKAnalytics.py" in os.environ.get("PK_DEBUG_FILES",""):
+                    default_logger().debug(f"Tracking {func.__name__} with params: {params}")
             
             # Prepare custom dimensions from captured parameters
             custom_dimensions = {}
@@ -891,7 +893,8 @@ def track_event(category, action, label=None, capture_params=None, capture_resul
                 try:
                     event_label = label.format(**params)
                 except KeyError as e:
-                    default_logger().debug(f"Label formatting failed: {e}")
+                    if "subscriber.py" in os.environ.get("PK_DEBUG_FILES","") or "PKAnalytics.py" in os.environ.get("PK_DEBUG_FILES",""):
+                        default_logger().debug(f"Label formatting failed: {e}")
                     event_label = label
             
             # Execute the actual function
@@ -935,7 +938,8 @@ def track_event(category, action, label=None, capture_params=None, capture_resul
                 
                 # Log if debug enabled
                 if log_args:
-                    default_logger().debug(f"Tracked {func.__name__}: success={success}, duration={duration_ms}ms")
+                    if "subscriber.py" in os.environ.get("PK_DEBUG_FILES","") or "PKAnalytics.py" in os.environ.get("PK_DEBUG_FILES",""):
+                        default_logger().debug(f"Tracked {func.__name__}: success={success}, duration={duration_ms}ms")
         
         return wrapper
     return decorator

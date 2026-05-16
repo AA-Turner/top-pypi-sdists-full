@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-gcp"
-version = "0.29.4"
+version = "0.29.5"
 description = "Package for GCP-specific Dagster framework op and resource components."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,8 +22,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.13.4",
-    "dagster-pandas==0.29.4",
+    "dagster==1.13.5",
+    "dagster-pandas==0.29.5",
     "db-dtypes",
     "google-api-python-client",
     "google-cloud-bigquery>=1.28.3",
@@ -38,13 +38,40 @@ Homepage = "https://github.com/dagster-io/dagster/tree/master/python_modules/lib
 pyarrow = [
     "pyarrow",
 ]
-test = [
-    "gcp-storage-emulator",
-    "setuptools<82",
-]
 dataproc = [
     "google-cloud-dataproc",
 ]
 
 [project.entry-points."dagster_dg_cli.registry_modules"]
 dagster_gcp = "dagster_gcp.components"
+
+[dependency-groups]
+test = [
+    "dagster[test]",
+    "dagster-test",
+    "dagster-pipes",
+    "dagster-shared",
+    "dagster-pandas",
+    "gcp-storage-emulator",
+    "setuptools<82",
+]
+
+[tool.uv.sources.dagster]
+path = "../../dagster"
+editable = true
+
+[tool.uv.sources.dagster-test]
+path = "../../dagster-test"
+editable = true
+
+[tool.uv.sources.dagster-pipes]
+path = "../../dagster-pipes"
+editable = true
+
+[tool.uv.sources.dagster-shared]
+path = "../dagster-shared"
+editable = true
+
+[tool.uv.sources.dagster-pandas]
+path = "../dagster-pandas"
+editable = true

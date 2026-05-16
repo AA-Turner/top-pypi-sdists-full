@@ -11,6 +11,7 @@ from typing import Callable
 # where 'packaging' is not installed yet
 from packaging.version import Version
 
+from setuptools_git_versioning.archival import version_from_archival
 from setuptools_git_versioning.defaults import (
     DEFAULT_DEV_TEMPLATE,
     DEFAULT_DIRTY_TEMPLATE,
@@ -113,6 +114,19 @@ def version_from_git(  # noqa: PLR0915, PLR0912, PLR0913, C901
                 log.log(INFO, "Return %s", version_str)
                 # running on sdist package, do not sanitize
                 return Version(version_str)
+
+    archival_version = version_from_archival(
+        project_root,
+        package_name=package_name,
+        template=template,
+        dev_template=dev_template,
+        dirty_template=dirty_template,
+        tag_formatter=tag_formatter,
+        branch_formatter=branch_formatter,
+    )
+    if archival_version is not None:
+        log.log(INFO, "Resolved version from '.git_archival.txt': %s", archival_version)
+        return archival_version
 
     if version_callback is not None:
         if version_file is not None:

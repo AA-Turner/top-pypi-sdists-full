@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from django.core.exceptions import ValidationError
@@ -27,14 +28,12 @@ from weblate.utils.validators import validate_slug
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from django.db.models import QuerySet
-
     from weblate.auth.models import User
     from weblate.trans.models import Component
     from weblate.trans.models.component import ComponentQuerySet
 
 
-class CategoryQuerySet(models.QuerySet):
+class CategoryQuerySet(models.QuerySet["Category", "Category"]):
     def search(self, query: str):
         return self.filter(
             Q(name__icontains=query) | Q(slug__icontains=query)
@@ -115,6 +114,8 @@ class Category(
             old = Category.objects.get(pk=self.id)
             self.generate_changes(old)
             self.check_rename(old)
+        else:
+            self.validate_create_path()
         self.create_path()
         super().save(*args, **kwargs)
         if old:
@@ -190,10 +191,23 @@ class Category(
 
         # Validate category/component name uniqueness at given level
         self.clean_unique_together()
+        if not self.id:
+            self.validate_create_path()
 
         if self.id:
             old = Category.objects.get(pk=self.id)
             self.check_rename(old, validate=True)
+
+    def validate_create_path(self) -> None:
+        path = self.full_path
+        if os.path.exists(path) and (not os.path.isdir(path) or os.listdir(path)):
+            raise ValidationError(
+                {
+                    "slug": gettext(
+                        "Repository path for this category already exists and is not empty."
+                    )
+                }
+            )
 
     def get_child_components_access(self, user: User):
         """List child components, including shared components linked to this category."""
@@ -236,7 +250,7 @@ class Category(
         )
 
     @cached_property
-    def all_components(self) -> QuerySet[Component]:
+    def all_components(self) -> ComponentQuerySet:
         from weblate.trans.models import Component  # noqa: PLC0415
 
         return Component.objects.filter(
@@ -259,7 +273,9 @@ class Category(
                 component.linked_component_id
                 and component.linked_component_id not in included
             ):
-                yield component.linked_component
+                linked_component = component.linked_component
+                if linked_component is not None:
+                    yield linked_component
 
     @cached_property
     def all_component_ids(self):

@@ -48,6 +48,8 @@ from datadog_api_client.v2.model.finding_case_response import FindingCaseRespons
 from datadog_api_client.v2.model.attach_case_request import AttachCaseRequest
 from datadog_api_client.v2.model.attach_jira_issue_request import AttachJiraIssueRequest
 from datadog_api_client.v2.model.create_jira_issue_request_array import CreateJiraIssueRequestArray
+from datadog_api_client.v2.model.mute_findings_response import MuteFindingsResponse
+from datadog_api_client.v2.model.mute_findings_request import MuteFindingsRequest
 from datadog_api_client.v2.model.security_findings_search_request import SecurityFindingsSearchRequest
 from datadog_api_client.v2.model.list_assets_sbo_ms_response import ListAssetsSBOMsResponse
 from datadog_api_client.v2.model.asset_type import AssetType
@@ -111,6 +113,12 @@ from datadog_api_client.v2.model.security_monitoring_content_pack_states_respons
 from datadog_api_client.v2.model.security_monitoring_list_rules_response import SecurityMonitoringListRulesResponse
 from datadog_api_client.v2.model.security_monitoring_rule_sort import SecurityMonitoringRuleSort
 from datadog_api_client.v2.model.security_monitoring_rule_response import SecurityMonitoringRuleResponse
+from datadog_api_client.v2.model.security_monitoring_rule_bulk_delete_response import (
+    SecurityMonitoringRuleBulkDeleteResponse,
+)
+from datadog_api_client.v2.model.security_monitoring_rule_bulk_delete_payload import (
+    SecurityMonitoringRuleBulkDeletePayload,
+)
 from datadog_api_client.v2.model.security_monitoring_rule_bulk_export_payload import (
     SecurityMonitoringRuleBulkExportPayload,
 )
@@ -251,6 +259,26 @@ class SecurityMonitoringApi:
                 "body": {
                     "required": True,
                     "openapi_types": (AttachJiraIssueRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._bulk_delete_security_monitoring_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringRuleBulkDeleteResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/rules/bulk_delete",
+                "operation_id": "bulk_delete_security_monitoring_rules",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (SecurityMonitoringRuleBulkDeletePayload,),
                     "location": "body",
                 },
             },
@@ -2615,6 +2643,26 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._mute_security_findings_endpoint = _Endpoint(
+            settings={
+                "response_type": (MuteFindingsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/mute",
+                "operation_id": "mute_security_findings",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (MuteFindingsRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._patch_signal_notification_rule_endpoint = _Endpoint(
             settings={
                 "response_type": (NotificationRuleResponse,),
@@ -3044,6 +3092,22 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._attach_jira_issue_endpoint.call_with_http_info(**kwargs)
+
+    def bulk_delete_security_monitoring_rules(
+        self,
+        body: SecurityMonitoringRuleBulkDeletePayload,
+    ) -> SecurityMonitoringRuleBulkDeleteResponse:
+        """Bulk delete security monitoring rules.
+
+        Delete multiple security monitoring rules in a single request. Default rules cannot be deleted.
+
+        :type body: SecurityMonitoringRuleBulkDeletePayload
+        :rtype: SecurityMonitoringRuleBulkDeleteResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._bulk_delete_security_monitoring_rules_endpoint.call_with_http_info(**kwargs)
 
     def bulk_edit_security_monitoring_signals(
         self,
@@ -5651,6 +5715,26 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._mute_findings_endpoint.call_with_http_info(**kwargs)
+
+    def mute_security_findings(
+        self,
+        body: MuteFindingsRequest,
+    ) -> MuteFindingsResponse:
+        """Mute or unmute security findings.
+
+        Mute or unmute security findings.
+        You can mute or unmute up to 100 security findings per request. The request body must include ``is_muted`` and ``reason`` attributes. The allowed reasons depend on whether the finding is being muted or unmuted:
+
+        * To mute a finding: ``PENDING_FIX`` , ``FALSE_POSITIVE`` , ``OTHER`` , ``NO_FIX`` , ``DUPLICATE`` , ``RISK_ACCEPTED``.
+        * To unmute a finding: ``NO_PENDING_FIX`` , ``HUMAN_ERROR`` , ``NO_LONGER_ACCEPTED_RISK`` , ``OTHER``.
+
+        :type body: MuteFindingsRequest
+        :rtype: MuteFindingsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._mute_security_findings_endpoint.call_with_http_info(**kwargs)
 
     def patch_signal_notification_rule(
         self,

@@ -126,7 +126,7 @@ def _inject_auth(deps: _ExperienceDeps, request: Any) -> dict[str, Any]:
                     ctx["user_name"] = auth_ctx.user.username or ""
                     ctx["user_roles"] = list(getattr(auth_ctx.user, "roles", None) or [])
         except Exception:
-            logger.debug("Failed to resolve auth context for experience", exc_info=True)
+            logger.warning("Failed to resolve auth context for experience", exc_info=True)
     return ctx
 
 
@@ -383,8 +383,8 @@ async def _experience_step_get(
         # need its rich step-body logic) and wrap it in a typed
         # `Page` + `AppShell` via `dispatch_render_page` — same shape
         # used by the marketing-page + entity-surface routes.
-        from dazzle.back.runtime.renderers.page_builder import dispatch_render_page
-        from dazzle.ui.runtime.template_context import NavItemContext, PageContext
+        from dazzle.render.context import NavItemContext, PageContext
+        from dazzle.render.dispatch import dispatch_render_page
 
         inner_html = render_experience_inner_html(exp_ctx)
         nav_items_ctx = [

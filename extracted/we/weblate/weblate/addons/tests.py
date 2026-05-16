@@ -71,7 +71,7 @@ from weblate.vcs.base import Repository, RepositoryError
 
 from .autotranslate import DEFAULT_AUTO_TRANSLATE_THRESHOLD, AutoTranslateAddon
 from .base import BaseAddon, UpdateBaseAddon
-from .cdn import CDNJSAddon
+from .cdn import CDNFilesAddon, CDNJSAddon
 from .cleanup import CleanupAddon, RemoveBlankAddon, ResetAddon
 from .consistency import LanguageConsistencyAddon
 from .discovery import DiscoveryAddon
@@ -317,13 +317,19 @@ class AddonBaseTest(TestAddonMixin, ComponentTestCase):
         with CaptureQueriesContext(connection) as queries:
             addon_change.run([change.pk])
 
-        self.assertEqual(12, len(queries), [query["sql"] for query in queries])
+        self.assertEqual(11, len(queries), [query["sql"] for query in queries])
         component_queries = [
             query["sql"]
             for query in queries
             if 'FROM "trans_component"' in query["sql"]
         ]
         self.assertEqual(1, len(component_queries), component_queries)
+        activity_log_select_queries = [
+            query["sql"]
+            for query in queries
+            if query["sql"].startswith('SELECT "addons_addonactivitylog"')
+        ]
+        self.assertEqual([], activity_log_select_queries)
         self.assertFalse(AddonActivityLog.objects.filter(addon=skipped_addon).exists())
         self.assertTrue(AddonActivityLog.objects.filter(addon=project_addon).exists())
 
@@ -344,7 +350,13 @@ class AddonBaseTest(TestAddonMixin, ComponentTestCase):
         with CaptureQueriesContext(connection) as queries:
             addon_change.run([change.pk])
 
-        self.assertEqual(15, len(queries), [query["sql"] for query in queries])
+        self.assertEqual(14, len(queries), [query["sql"] for query in queries])
+        activity_log_select_queries = [
+            query["sql"]
+            for query in queries
+            if query["sql"].startswith('SELECT "addons_addonactivitylog"')
+        ]
+        self.assertEqual([], activity_log_select_queries)
         self.assertTrue(AddonActivityLog.objects.filter(addon=addon).exists())
 
     def test_manual_returns_component_result(self) -> None:
@@ -445,6 +457,40 @@ class AddonBaseTest(TestAddonMixin, ComponentTestCase):
 
 
 class XgettextExtractPotFormTest(SimpleTestCase):
+    def test_rejects_potfiles_symlink_outside_repository_before_stat(self) -> None:
+        repository_dir = tempfile.mkdtemp()
+        outside_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, repository_dir, True)
+        self.addCleanup(shutil.rmtree, outside_dir, True)
+        os.symlink(outside_dir, Path(repository_dir) / "po")
+
+        component = SimpleNamespace(
+            full_path=repository_dir,
+            check_file_is_valid=lambda filename: filename,
+        )
+        addon = SimpleNamespace(
+            instance=SimpleNamespace(component=component, pk=None),
+            documentation_build=False,
+        )
+        form = XgettextExtractPotForm(
+            None,
+            addon,
+            data={
+                "interval": "weekly",
+                "update_po_files": True,
+                "input_mode": "potfiles",
+                "language": "Python",
+                "source_patterns": "",
+                "potfiles_path": "po/POTFILES.in",
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertEqual(
+            form.errors["potfiles_path"],
+            ["Invalid symbolic link in a repository."],
+        )
+
     def test_rejects_potfiles_symlink_outside_repository(self) -> None:
         repository_dir = tempfile.mkdtemp()
         outside_dir = tempfile.mkdtemp()
@@ -488,18 +534,20 @@ class XgettextExtractPotFormTest(SimpleTestCase):
 
 class GettextRepositoryPathValidationTest(SimpleTestCase):
     @staticmethod
-    def build_fake_component(repository_dir: str, *, new_base: str) -> SimpleNamespace:
+    def build_fake_component(repository_dir: str, *, new_base: str) -> Component:
         repository = SimpleNamespace(path=repository_dir)
         repository.resolve_symlinks = lambda path: Repository.resolve_symlinks(
             repository, path
         )
-        component = SimpleNamespace(
+        component = Component(
             file_format="po",
-            full_path=repository_dir,
+            filemask="*.po",
             new_base=new_base,
-            repository=repository,
-            log_error=lambda *_args, **_kwargs: None,
+            source_language_id=1,
         )
+        component.__dict__["full_path"] = repository_dir
+        component.__dict__["repository"] = repository
+        component.log_error = lambda *_args, **_kwargs: None
         component.check_file_is_valid = lambda filename: Component.check_file_is_valid(
             component, filename
         )
@@ -509,13 +557,35 @@ class GettextRepositoryPathValidationTest(SimpleTestCase):
         return component
 
     @staticmethod
-    def build_fake_addon(addon_class, component: SimpleNamespace):
+    def build_fake_addon(addon_class, component: Component):
         addon = addon_class.__new__(addon_class)
         addon.instance = SimpleNamespace(component=component, pk=None, configuration={})
         addon.documentation_build = False
         addon.alerts = []
         addon.extra_files = []
         return addon
+
+    def test_render_repo_filename_rejects_broken_leaf_symlink_outside_repository(
+        self,
+    ) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlinks are not supported")
+
+        repository_dir = tempfile.mkdtemp()
+        outside_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, repository_dir, True)
+        self.addCleanup(shutil.rmtree, outside_dir, True)
+        target = Path(repository_dir) / "stats" / "cs.json"
+        outside_target = Path(outside_dir) / "cs.json"
+        target.parent.mkdir(parents=True)
+        target.symlink_to(outside_target)
+
+        component = self.build_fake_component(repository_dir, new_base="messages.pot")
+        addon = self.build_fake_addon(BaseAddon, component)
+        translation = SimpleNamespace(component=component)
+
+        self.assertIsNone(addon.render_repo_filename("stats/cs.json", translation))
+        self.assertFalse(outside_target.exists())
 
     def test_meson_form_rejects_gettext_symlink_outside_repository(self) -> None:
         if not hasattr(os, "symlink"):
@@ -820,6 +890,28 @@ class GettextAddonTest(ViewTestCase):
         addon = GenerateMoAddon.create(component=translation.component)
         addon.pre_commit(translation, "", True)
         self.assertTrue(os.path.exists(translation.addon_commit_files[0]))
+
+    def test_gettext_mo_rejects_broken_leaf_symlink(self) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlinks are not supported")
+
+        translation = self.get_translation()
+        translation.addon_commit_files = []
+        output = Path(self.component.full_path) / "po" / "broken.mo"
+        outside_dir = tempfile.mkdtemp()
+        outside_target = Path(outside_dir) / "broken.mo"
+        self.addCleanup(shutil.rmtree, outside_dir, True)
+        output.symlink_to(outside_target)
+        addon = GenerateMoAddon.create(
+            component=translation.component,
+            run=False,
+            configuration={"path": "po/broken.mo"},
+        )
+
+        addon.pre_commit(translation, "", True)
+
+        self.assertEqual(translation.addon_commit_files, [])
+        self.assertFalse(outside_target.exists())
 
     def test_update_linguas(self) -> None:
         translation = self.get_translation()
@@ -1216,6 +1308,35 @@ class GettextAddonTest(ViewTestCase):
         )
         self.assertTrue(form.is_valid())
 
+    def test_django_form_po_template(self) -> None:
+        self.component.filemask = "locale/*/LC_MESSAGES/django.po"
+        self.component.new_base = "locale/en/LC_MESSAGES/django.po"
+        self.component.language_regex = "^(?!en$).+$"
+        form = DjangoAddon.get_add_form(
+            None,
+            component=self.component,
+            data={
+                "interval": "weekly",
+                "normalize_header": True,
+                "update_po_files": True,
+            },
+        )
+        self.assertTrue(form.is_valid())
+
+    def test_django_form_po_template_not_excluded(self) -> None:
+        self.component.filemask = "locale/*/LC_MESSAGES/django.po"
+        self.component.new_base = "locale/en/LC_MESSAGES/django.po"
+        form = DjangoAddon.get_add_form(
+            None,
+            component=self.component,
+            data={
+                "interval": "weekly",
+                "normalize_header": True,
+                "update_po_files": True,
+            },
+        )
+        self.assertFalse(form.is_valid())
+
     def test_django_form_invalid_domain(self) -> None:
         self.component.new_base = "locale/website.pot"
         form = DjangoAddon.get_add_form(
@@ -1244,6 +1365,14 @@ class GettextAddonTest(ViewTestCase):
     def test_django_can_install_is_component_specific(self) -> None:
         self.component.new_base = "locale/django.pot"
         self.assertTrue(DjangoAddon.can_install(component=self.component))
+
+        self.component.filemask = "locale/*/LC_MESSAGES/django.po"
+        self.component.new_base = "locale/en/LC_MESSAGES/django.po"
+        self.component.language_regex = "^(?!en$).+$"
+        self.assertTrue(DjangoAddon.can_install(component=self.component))
+
+        self.component.language_regex = "^[^.]+$"
+        self.assertFalse(DjangoAddon.can_install(component=self.component))
 
         self.component.new_base = "po/hello.pot"
         self.assertFalse(DjangoAddon.can_install(component=self.component))
@@ -2490,7 +2619,9 @@ class GettextAddonTest(ViewTestCase):
         self.assertTrue(committed)
         mocked_commit.assert_called_once()
 
-    def test_extract_pot_normalize_header(self) -> None:
+    def test_extract_pot_normalize_header(
+        self, expect_report_bugs_to: bool = True
+    ) -> None:
         addon = DjangoAddon.create(
             component=self.component,
             run=False,
@@ -2510,7 +2641,11 @@ class GettextAddonTest(ViewTestCase):
         self.assertIn(
             '"Project-Id-Version: Test \\"Project\\" / Test\\\\Component\\n"', content
         )
-        self.assertIn('"Report-Msgid-Bugs-To: bugs@example.com\\n"', content)
+        if expect_report_bugs_to:
+            self.assertIn('"Report-Msgid-Bugs-To: bugs@example.com\\n"', content)
+        else:
+            self.assertNotIn('"Report-Msgid-Bugs-To: bugs@example.com\\n"', content)
+
         self.assertIn(
             '"Translations for Test \\"Project\\" / Test\\\\Component.\\n"',
             content,
@@ -2522,6 +2657,11 @@ class GettextAddonTest(ViewTestCase):
         self.assertIn("# Generated by Weblate.", content)
         self.assertNotIn("FIRST AUTHOR", content)
         self.assertNotIn("YEAR THE PACKAGE'S COPYRIGHT HOLDER", content)
+
+    def test_extract_pot_normalize_header_no_report_bugs_to(self) -> None:
+        self.component.file_format_params["po_report_msgid_bugs_to"] = False
+        self.component.save(update_fields=["file_format_params"])
+        self.test_extract_pot_normalize_header(expect_report_bugs_to=False)
 
     def test_extract_pot_normalize_header_uses_component_url_for_bugs(self) -> None:
         addon = DjangoAddon.create(
@@ -2640,6 +2780,39 @@ msgstr ""
         self.assertIn("WEBLATE_EXTRACT_LOCALE_PATH", mocked.call_args.kwargs["env"])
         self.assertEqual(mocked.call_args.kwargs["cwd"], self.component.full_path)
 
+    def test_django_command_po_template(self) -> None:
+        self.component.filemask = "locale/*/LC_MESSAGES/django.po"
+        self.component.new_base = "locale/en/LC_MESSAGES/django.po"
+        self.component.language_regex = "^(?!en$).+$"
+        addon = DjangoAddon.create(
+            component=self.component,
+            run=False,
+            configuration={"interval": "weekly", "normalize_header": False},
+        )
+
+        def run_process(component, command, env=None, cwd=None):
+            locale_dir = Path(env["WEBLATE_EXTRACT_LOCALE_PATH"])
+            locale_dir.mkdir(parents=True, exist_ok=True)
+            (locale_dir / "django.pot").write_text(
+                'msgid ""\nmsgstr ""\n', encoding="utf-8"
+            )
+            return ""
+
+        with (
+            patch.object(
+                DjangoAddon, "validate_django_repository_tree", return_value=True
+            ),
+            patch.object(DjangoAddon, "run_process", side_effect=run_process) as mocked,
+        ):
+            addon.execute_update(self.component, "")
+
+        template = Path(self.component.full_path) / self.component.new_base
+        self.assertTrue(template.exists())
+        self.assertEqual(template.read_text(encoding="utf-8"), 'msgid ""\nmsgstr ""\n')
+        command = mocked.call_args.args[1]
+        self.assertIn("django", command)
+        self.assertIn("WEBLATE_EXTRACT_LOCALE_PATH", mocked.call_args.kwargs["env"])
+
     def test_django_scopes_to_pot_parent_tree(self) -> None:
         self.component.new_base = "weblate/locale/django.pot"
         source_dir = Path(self.component.full_path) / "weblate"
@@ -2701,6 +2874,39 @@ msgstr ""
         self.assertEqual(mocked.call_args.kwargs["cwd"], self.component.full_path)
         self.assertIn("--source-prefix", command)
         self.assertIn(".", command)
+
+    def test_django_conf_locale_po_scopes_to_package_root(self) -> None:
+        self.component.filemask = "django/conf/locale/*/LC_MESSAGES/django.po"
+        self.component.new_base = "django/conf/locale/en/LC_MESSAGES/django.po"
+        self.component.language_regex = "^(?!en$).+$"
+        source_dir = Path(self.component.full_path) / "django"
+        source_dir.mkdir(parents=True, exist_ok=True)
+        addon = DjangoAddon.create(
+            component=self.component,
+            run=False,
+            configuration={"interval": "weekly", "normalize_header": False},
+        )
+
+        def run_process(component, command, env=None, cwd=None):
+            locale_dir = Path(env["WEBLATE_EXTRACT_LOCALE_PATH"])
+            locale_dir.mkdir(parents=True, exist_ok=True)
+            (locale_dir / "django.pot").write_text(
+                'msgid ""\nmsgstr ""\n', encoding="utf-8"
+            )
+            return ""
+
+        with (
+            patch.object(
+                DjangoAddon, "validate_django_repository_tree", return_value=True
+            ),
+            patch.object(DjangoAddon, "run_process", side_effect=run_process) as mocked,
+        ):
+            addon.execute_update(self.component, "")
+
+        command = mocked.call_args.args[1]
+        self.assertEqual(mocked.call_args.kwargs["cwd"], self.component.full_path)
+        prefix_index = command.index("--source-prefix")
+        self.assertEqual(command[prefix_index + 1], "django")
 
     def test_django_uses_file_format_gettext_flags(self) -> None:
         self.component.new_base = "locale/django.pot"
@@ -3548,6 +3754,32 @@ msgstr ""
         self.assertIn("stats/cs.json", commit)
         self.assertIn('"translated": 25', commit)
 
+    def test_generate_rejects_broken_leaf_symlink(self) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlinks are not supported")
+
+        translation = self.get_translation()
+        translation.addon_commit_files = []
+        output = Path(self.component.full_path) / "stats" / "cs.json"
+        outside_dir = tempfile.mkdtemp()
+        outside_target = Path(outside_dir) / "cs.json"
+        self.addCleanup(shutil.rmtree, outside_dir, True)
+        output.parent.mkdir(parents=True)
+        output.symlink_to(outside_target)
+        addon = GenerateFileAddon.create(
+            component=self.component,
+            run=False,
+            configuration={
+                "filename": "stats/{{ language_code }}.json",
+                "template": "{{ language_code }}",
+            },
+        )
+
+        addon.pre_commit(translation, "", True)
+
+        self.assertEqual(translation.addon_commit_files, [])
+        self.assertFalse(outside_target.exists())
+
     def test_gettext_comment(self) -> None:
         translation = self.get_translation()
         self.assertTrue(
@@ -4274,7 +4506,10 @@ class CommandTest(ComponentTestCase):
 
     def test_list_addons(self) -> None:
         output = StringIO()
-        call_command("list_addons", stdout=output)
+        with patch(
+            "weblate.addons.forms.get_component_detected_discovery_presets"
+        ) as mocked:
+            call_command("list_addons", stdout=output)
         generated = output.getvalue()
         self.assertIn("msgmerge", generated)
         self.assertNotIn("Guided preset", generated)
@@ -4286,6 +4521,7 @@ class CommandTest(ComponentTestCase):
         # Hidden fields such as DiscoveryForm.confirm (HiddenInput) should not be documented
         self.assertNotIn("confirm", generated)
         self.assertNotIn("Update PO files using msgmerge", generated)
+        mocked.assert_not_called()
 
     def test_install_not_supported(self) -> None:
         output = StringIO()
@@ -5600,6 +5836,40 @@ class TestRemoval(ComponentTestCase):
         comments.daily(self.component)
         self.assert_count(suggestions=1)
 
+    def test_ignores_votes(self) -> None:
+        suggestions, comments = self.install()
+        suggestions.instance.configuration["votes"] = None
+        suggestions.instance.save(update_fields=["configuration"])
+        self.add_content()
+        self.age_content()
+        Vote.objects.create(
+            user=self.user, suggestion=Suggestion.objects.all()[0], value=1
+        )
+        suggestions.daily(self.component)
+        comments.daily(self.component)
+        self.assert_count()
+
+    def test_settings_form_ignores_votes(self) -> None:
+        suggestions, _comments = self.install()
+        suggestions.instance.configuration["votes"] = None
+        form = suggestions.get_settings_form(None)
+
+        self.assertIsNotNone(form)
+        if form is None:
+            self.fail("Expected removal form to be created")
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.serialize_form(), {"age": 7, "votes": None})
+
+    def test_settings_form_empty_votes(self) -> None:
+        suggestions, _comments = self.install()
+        form = suggestions.get_settings_form(None, data={"age": "9", "votes": ""})
+
+        self.assertIsNotNone(form)
+        if form is None:
+            self.fail("Expected removal form to be created")
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.serialize_form(), {"age": 9, "votes": None})
+
     def test_daily(self) -> None:
         self.install()
         self.add_content()
@@ -6236,6 +6506,11 @@ class CDNJSAddonTest(ViewTestCase):
     def test_noconfigured(self) -> None:
         self.assertFalse(CDNJSAddon.can_install(component=self.component))
 
+    def test_events(self) -> None:
+        self.assertIn(AddonEvent.EVENT_POST_REMOVE, CDNJSAddon.events)
+        self.assertIn(AddonEvent.EVENT_POST_UPDATE, CDNJSAddon.events)
+        self.assertNotIn(AddonEvent.EVENT_COMPONENT_UPDATE, CDNJSAddon.events)
+
     @tempdir_setting("LOCALIZE_CDN_PATH")
     @override_settings(LOCALIZE_CDN_URL="http://localhost/")
     def test_cdn(self) -> None:
@@ -6268,6 +6543,11 @@ class CDNJSAddonTest(ViewTestCase):
         self.assertIn('"cs"', content)
         self.assertTrue(os.path.isfile(addon.cdn_path("cs.json")))
 
+        translation = self.get_translation()
+        translation.remove(self.user)
+        self.assertNotIn('"cs"', Path(jsname).read_text(encoding="utf-8"))
+        self.assertFalse(os.path.isfile(addon.cdn_path("cs.json")))
+
         # Configuration
         response = self.client.get(addon.instance.get_absolute_url())
         self.assertContains(response, addon.cdn_js_url)
@@ -6293,6 +6573,29 @@ class CDNJSAddonTest(ViewTestCase):
         )
 
         # Verify strings
+        self.assertEqual(
+            Unit.objects.filter(translation__component=self.component).count(), 14
+        )
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_extract_post_update(self) -> None:
+        self.assertEqual(
+            Unit.objects.filter(translation__component=self.component).count(), 8
+        )
+        addon = CDNJSAddon.create(
+            component=self.component,
+            configuration={
+                "threshold": 0,
+                "files": "html/en.html",
+                "cookie_name": "django_languages",
+                "css_selector": "*",
+            },
+            run=False,
+        )
+
+        addon.post_update(self.component, "", False)
+
         self.assertEqual(
             Unit.objects.filter(translation__component=self.component).count(), 14
         )
@@ -6381,7 +6684,14 @@ class CDNJSAddonTest(ViewTestCase):
     @override_settings(
         LOCALIZE_CDN_URL="http://localhost/", ALLOWED_ASSET_DOMAINS=[".allowed.com"]
     )
-    def test_extract_refuses_disallowed_remote_redirect_domain(self) -> None:
+    @patch("weblate.utils.requests._get_response_peer_ip", return_value="93.184.216.34")
+    @patch(
+        "weblate.utils.outbound.socket.getaddrinfo",
+        return_value=[(0, 0, 0, "", ("93.184.216.34", 443))],
+    )
+    def test_extract_refuses_disallowed_remote_redirect_domain(
+        self, _mocked_getaddrinfo, _mocked_get_peer
+    ) -> None:
         self.make_manager()
         self.assertTrue(CDNJSAddon.can_install(component=self.component))
         self.assertEqual(
@@ -6421,10 +6731,371 @@ class CDNJSAddonTest(ViewTestCase):
             [call.request.url for call in responses.calls],
         )
 
+    @responses.activate
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    @patch(
+        "weblate.utils.outbound.socket.getaddrinfo",
+        return_value=[(0, 0, 0, "", ("127.0.0.1", 443))],
+    )
+    def test_extract_refuses_private_remote_url(self, mocked_getaddrinfo) -> None:
+        self.make_manager()
+        self.assertTrue(CDNJSAddon.can_install(component=self.component))
+        self.assertEqual(
+            Unit.objects.filter(translation__component=self.component).count(), 8
+        )
+        responses.add(
+            responses.GET,
+            "https://private.example.com/messages.html",
+            status=200,
+            body="<html><body><div class='l10n'>Private</div></body></html>",
+        )
+
+        CDNJSAddon.create(
+            component=self.component,
+            configuration={
+                "threshold": 0,
+                "files": "https://private.example.com/messages.html",
+                "cookie_name": "django_languages",
+                "css_selector": ".l10n",
+            },
+        )
+
+        self.assertEqual(
+            Unit.objects.filter(translation__component=self.component).count(), 8
+        )
+        self.assertGreaterEqual(mocked_getaddrinfo.call_count, 1)
+        self.assertEqual(len(responses.calls), 0)
+        alert = self.component.alert_set.get(name="CDNAddonError")
+        self.assertIn(
+            "internal or non-public address", alert.details["occurrences"][0]["error"]
+        )
+
+    @responses.activate
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    @patch("weblate.utils.requests._get_response_peer_ip", return_value="93.184.216.34")
+    @patch("weblate.utils.outbound.socket.getaddrinfo")
+    def test_extract_refuses_private_remote_redirect(
+        self, mocked_getaddrinfo, mocked_get_peer
+    ) -> None:
+        def getaddrinfo(hostname, *_args, **_kwargs):
+            address = (
+                "127.0.0.1" if hostname == "private.example.com" else "93.184.216.34"
+            )
+            return [(0, 0, 0, "", (address, 443))]
+
+        mocked_getaddrinfo.side_effect = getaddrinfo
+        self.make_manager()
+        self.assertTrue(CDNJSAddon.can_install(component=self.component))
+        self.assertEqual(
+            Unit.objects.filter(translation__component=self.component).count(), 8
+        )
+        responses.add(
+            responses.GET,
+            "https://public.example.com/messages.html",
+            status=302,
+            headers={"Location": "https://private.example.com/messages.html"},
+        )
+        responses.add(
+            responses.GET,
+            "https://private.example.com/messages.html",
+            status=200,
+            body="<html><body><div class='l10n'>Private</div></body></html>",
+        )
+
+        CDNJSAddon.create(
+            component=self.component,
+            configuration={
+                "threshold": 0,
+                "files": "https://public.example.com/messages.html",
+                "cookie_name": "django_languages",
+                "css_selector": ".l10n",
+            },
+        )
+
+        self.assertEqual(
+            Unit.objects.filter(translation__component=self.component).count(), 8
+        )
+        self.assertGreaterEqual(mocked_getaddrinfo.call_count, 2)
+        self.assertGreaterEqual(mocked_get_peer.call_count, 1)
+        alert = self.component.alert_set.get(name="CDNAddonError")
+        self.assertIn(
+            "internal or non-public address", alert.details["occurrences"][0]["error"]
+        )
+        self.assertNotIn(
+            "https://private.example.com/messages.html",
+            [call.request.url for call in responses.calls],
+        )
+
+    @responses.activate
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(
+        LOCALIZE_CDN_URL="http://localhost/",
+        ASSET_PRIVATE_ALLOWLIST=["private.example.com"],
+    )
+    @patch("weblate.utils.requests._get_response_peer_ip")
+    @patch("weblate.utils.outbound.socket.getaddrinfo")
+    def test_extract_allows_allowlisted_private_remote_url(
+        self, mocked_getaddrinfo, mocked_get_peer
+    ) -> None:
+        self.make_manager()
+        self.assertTrue(CDNJSAddon.can_install(component=self.component))
+        self.assertEqual(
+            Unit.objects.filter(translation__component=self.component).count(), 8
+        )
+        responses.add(
+            responses.GET,
+            "https://private.example.com/messages.html",
+            status=200,
+            body="<html><body><div class='l10n'>Allowed private</div></body></html>",
+        )
+
+        CDNJSAddon.create(
+            component=self.component,
+            configuration={
+                "threshold": 0,
+                "files": "https://private.example.com/messages.html",
+                "cookie_name": "django_languages",
+                "css_selector": ".l10n",
+            },
+        )
+
+        self.assertTrue(
+            Unit.objects.filter(
+                translation__component=self.component, source="Allowed private"
+            ).exists()
+        )
+        mocked_getaddrinfo.assert_not_called()
+        mocked_get_peer.assert_not_called()
+        self.assertFalse(self.component.alert_set.filter(name="CDNAddonError").exists())
+
+
+class CDNFilesAddonTest(ViewTestCase):
+    def create_component(self):
+        return self.create_json_mono()
+
+    @override_settings(LOCALIZE_CDN_URL=None)
+    def test_noconfigured(self) -> None:
+        self.assertFalse(CDNFilesAddon.can_install(component=self.component))
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_needs_component(self) -> None:
+        self.assertFalse(CDNFilesAddon.can_install(project=self.project))
+
+    def test_events(self) -> None:
+        self.assertIn(AddonEvent.EVENT_COMPONENT_UPDATE, CDNFilesAddon.events)
+        self.assertIn(AddonEvent.EVENT_POST_REMOVE, CDNFilesAddon.events)
+        self.assertIn(AddonEvent.EVENT_POST_UPDATE, CDNFilesAddon.events)
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_mono(self) -> None:
+        self.make_manager()
+        self.assertTrue(CDNFilesAddon.can_install(component=self.component))
+
+        addon = CDNFilesAddon.create(component=self.component, configuration={})
+
+        source = self.component.source_translation
+        translation = self.get_translation()
+        source_filename = source.get_filename()
+        translation_filename = translation.get_filename()
+        self.assertIsNotNone(source_filename)
+        self.assertIsNotNone(translation_filename)
+
+        self.assertEqual(
+            Path(addon.cdn_path("en.json")).read_bytes(),
+            Path(source_filename).read_bytes(),
+        )
+        self.assertEqual(
+            Path(addon.cdn_path("cs.json")).read_bytes(),
+            Path(translation_filename).read_bytes(),
+        )
+
+        self.edit_unit("Hello, world!\n", "Nazdar svete!\n")
+        self.component.commit_pending("test", None)
+
+        self.assertEqual(
+            Path(addon.cdn_path("cs.json")).read_bytes(),
+            Path(translation_filename).read_bytes(),
+        )
+        self.assertIn(
+            "Nazdar svete", Path(addon.cdn_path("cs.json")).read_text(encoding="utf-8")
+        )
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_configuration(self) -> None:
+        self.make_manager()
+        addon = CDNFilesAddon.create(component=self.component, configuration={})
+
+        response = self.client.get(addon.instance.get_absolute_url())
+        self.assertContains(response, addon.cdn_files_url)
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_component_update_removes_stale_files(self) -> None:
+        addon = CDNFilesAddon.create(component=self.component, configuration={})
+        stale_file = Path(addon.cdn_path("de.json"))
+        stale_file.write_text("stale", encoding="utf-8")
+
+        addon.component_update(self.component)
+
+        self.assertFalse(stale_file.exists())
+        self.assertTrue(os.path.isfile(addon.cdn_path("en.json")))
+        self.assertTrue(os.path.isfile(addon.cdn_path("cs.json")))
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_post_update_refreshes_file_bytes(self) -> None:
+        addon = CDNFilesAddon.create(component=self.component, configuration={})
+        translation = self.get_translation()
+        filename = translation.get_filename()
+        self.assertIsNotNone(filename)
+
+        Path(filename).write_bytes(b'{"hello": "updated"}\n')
+        addon.post_update(self.component, "", False)
+
+        self.assertEqual(
+            Path(addon.cdn_path("cs.json")).read_bytes(), Path(filename).read_bytes()
+        )
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_normalizes_file_permissions(self) -> None:
+        addon = CDNFilesAddon.create(component=self.component, configuration={})
+        translation = self.get_translation()
+        filename = translation.get_filename()
+        self.assertIsNotNone(filename)
+
+        os.chmod(filename, 0o600)
+        addon.publish_files(self.component)
+
+        self.assertEqual(os.stat(addon.cdn_path("cs.json")).st_mode & 0o777, 0o644)
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_refuses_weblate_js(self) -> None:
+        addon = CDNFilesAddon.create(
+            component=self.component, configuration={}, run=False
+        )
+
+        with (
+            patch.object(addon, "get_output_filename", return_value="weblate.js"),
+            self.assertRaisesRegex(ValueError, "weblate.js"),
+        ):
+            addon.publish_files(self.component)
+
+        self.assertFalse(os.path.exists(addon.cdn_path("weblate.js")))
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_remove_translation_removes_stale_file(self) -> None:
+        addon = CDNFilesAddon.create(component=self.component, configuration={})
+        self.assertTrue(os.path.isfile(addon.cdn_path("cs.json")))
+
+        self.translation.remove(self.user)
+
+        self.assertFalse(os.path.exists(addon.cdn_path("cs.json")))
+        self.assertTrue(os.path.isfile(addon.cdn_path("en.json")))
+
+
+class CDNFilesBilingualAddonTest(ViewTestCase):
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_bilingual_skips_source(self) -> None:
+        self.make_manager()
+        self.assertTrue(CDNFilesAddon.can_install(component=self.component))
+
+        addon = CDNFilesAddon.create(component=self.component, configuration={})
+        translation = self.get_translation()
+        translation_filename = translation.get_filename()
+        self.assertIsNotNone(translation_filename)
+
+        self.assertTrue(os.path.isfile(addon.cdn_path("cs.po")))
+        self.assertFalse(os.path.exists(addon.cdn_path("en.po")))
+        self.assertEqual(
+            Path(addon.cdn_path("cs.po")).read_bytes(),
+            Path(translation_filename).read_bytes(),
+        )
+
+
+class CDNFilesAppStoreAddonTest(ViewTestCase):
+    def create_component(self):
+        return self.create_appstore()
+
+    @tempdir_setting("LOCALIZE_CDN_PATH")
+    @override_settings(LOCALIZE_CDN_URL="http://localhost/")
+    def test_cdn_files_multifile_preserves_relative_paths(self) -> None:
+        addon = CDNFilesAddon.create(component=self.component, configuration={})
+        translation = self.get_translation()
+        self.assertFalse(self.component.file_format_cls.simple_filename)
+
+        filename = translation.filenames[0]
+        expected = os.path.join(
+            translation.language.code,
+            Path(filename)
+            .relative_to(Path(self.component.full_path, translation.filename))
+            .as_posix(),
+        )
+
+        self.assertEqual(addon.get_output_filename(translation, filename), expected)
+        self.assertTrue(os.path.isfile(addon.cdn_path(expected)))
+
 
 class SiteWideAddonsTest(ViewTestCase):
     def create_component(self):
         return self.create_java()
+
+    def test_history_filters_sitewide_changes(self) -> None:
+        self.user.is_superuser = True
+        self.user.save()
+        category = self.create_category(self.project)
+
+        sitewide_target = "sitewide.addon.visible"
+        project_target = "project.addon.hidden"
+        category_target = "category.addon.hidden"
+        component_target = "component.addon.hidden"
+
+        Change.objects.create(
+            action=ActionEvents.ADDON_CREATE,
+            target=sitewide_target,
+            user=self.user,
+        )
+        Change.objects.create(
+            action=ActionEvents.ADDON_CREATE,
+            project=self.project,
+            target=project_target,
+            user=self.user,
+        )
+        Change.objects.create(
+            action=ActionEvents.ADDON_CREATE,
+            category=category,
+            target=category_target,
+            user=self.user,
+        )
+        Change.objects.create(
+            action=ActionEvents.ADDON_CREATE,
+            component=self.component,
+            target=component_target,
+            user=self.user,
+        )
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse("manage-addons"))
+
+        self.assertEqual(response.status_code, 200)
+        targets = {change.target for change in response.context["last_changes"]}
+        self.assertIn(sitewide_target, targets)
+        self.assertNotIn(project_target, targets)
+        self.assertNotIn(category_target, targets)
+        self.assertNotIn(component_target, targets)
+        self.assertContains(response, sitewide_target)
+        self.assertNotContains(response, project_target)
+        self.assertNotContains(response, category_target)
+        self.assertNotContains(response, component_target)
+        self.assertLessEqual(len(queries), 50, [query["sql"] for query in queries])
 
     def test_gettext(self) -> None:
         MsgmergeAddon.create()

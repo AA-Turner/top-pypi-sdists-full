@@ -41,8 +41,8 @@ from tomli import load as toml_load
 from yaml import Loader, YAMLError
 from yaml.constructor import ConstructorError
 
-from zensical.compat.autorefs import get_autorefs_extension
 from zensical.compat.mkdocstrings import get_mkdocstrings_extension
+from zensical.extensions.autorefs import AutorefsExtension
 from zensical.extensions.emoji import to_svg, twemoji
 from zensical.extensions.glightbox import GlightboxExtension
 from zensical.extensions.macros import MacrosExtension
@@ -56,7 +56,7 @@ if TYPE_CHECKING:
 # ----------------------------------------------------------------------------
 
 
-_CONFIG = None
+_CONFIG: dict[str, Any] | None = None
 """
 Global configuration to pick up later for parsing Markdown.
 
@@ -163,6 +163,101 @@ def get_config() -> dict:
     return _CONFIG  # ty:ignore[invalid-return-type]
 
 
+def _yaml_load(source: IO) -> dict[str, Any]:
+    """Load configuration file, resolve environment variables and parent files.
+
+    Note that INHERIT is only a bandaid that was introduced to allow for some
+    degree of modularity, but with serious shortcomings. Zensical will use a
+    different approach in the future, which will allow for composable and
+    environment-specific configuration.
+    """
+    Loader.add_constructor("!ENV", _construct_env_tag)
+    try:
+        config = yaml.load(
+            # Compatibility shim: we remap Material's extension namespace to
+            # Zensical's, and the now deprecated materialx namespace as well
+            source.read()
+            .replace("material.extensions", "zensical.extensions")
+            .replace("materialx", "zensical.extensions"),
+            Loader=Loader,  # noqa: S506
+        )
+    except YAMLError as e:
+        raise ConfigurationError(
+            f"Encountered an error parsing the configuration file: {e}"
+        ) from e
+    if config is None:
+        return {}
+
+    # Try to resolve inherited configuration file
+    if "INHERIT" in config and not isinstance(source, str):
+        relpath = config.pop("INHERIT")
+        abspath = os.path.normpath(
+            os.path.join(os.path.dirname(source.name), relpath)
+        )
+        if not os.path.exists(abspath):
+            raise ConfigurationError(
+                f"Inherited config file '{relpath}' "
+                f"doesn't exist at '{abspath}'."
+            )
+        with open(abspath, encoding="utf-8") as fd:
+            parent = _yaml_load(fd)
+        config = always_merger.merge(parent, config)
+
+    # Return resulting configuration
+    return config
+
+
+def _construct_env_tag(
+    loader: yaml.Loader,
+    node: yaml.ScalarNode | yaml.SequenceNode | yaml.MappingNode,
+) -> Any:
+    """Assign value of ENV variable referenced at node.
+
+    MkDocs supports the use of !ENV to reference environment variables in YAML
+    configuration files. We won't likely support this in Zensical, but for now
+    we need it to build MkDocs projects. Zensical will use a different approach
+    to create environment-specific configuration in the future.
+
+    Licensed under MIT
+    Copyright (c) 2020 Waylan Limberg
+    Taken and adapted from
+        https://github.com/waylan/pyyaml-env-tag/blob/master/yaml_env_tag.py
+    """
+    default = None
+
+    # Handle !ENV <name>
+    if isinstance(node, yaml.nodes.ScalarNode):
+        vars = [loader.construct_scalar(node)]
+
+    # Handle !ENV [<name>, <fallback>]
+    elif isinstance(node, yaml.nodes.SequenceNode):
+        child_nodes = node.value
+        if len(child_nodes) > 1:
+            default = loader.construct_object(child_nodes[-1])
+            child_nodes = child_nodes[:-1]
+        # Env Vars are resolved as string values, ignoring (implicit) types.
+        vars = [loader.construct_scalar(child) for child in child_nodes]
+    else:
+        raise ConstructorError(
+            context=f"expected a scalar or sequence node, but found {node.id}",
+            context_mark=node.start_mark,
+        )
+
+    # Resolve environment variable
+    for var in vars:
+        if var in os.environ:
+            value = os.environ[var]
+            # Resolve value to Python type using YAML's implicit resolvers
+            tag = loader.resolve(yaml.nodes.ScalarNode, value, (True, False))
+            return loader.construct_object(yaml.nodes.ScalarNode(tag, value))
+
+    # Otherwise return default
+    return default
+
+
+# ----------------------------------------------------------------------------
+
+
 @functools.cache
 def get_themes() -> dict[str, EntryPoint]:
     """Return available themes.
@@ -189,8 +284,9 @@ def get_builtin_theme_dir() -> str:
 def get_theme_dir(name: str) -> str:
     """Return the theme directory."""
     # Zensical's default theme is the replacement for the `material` theme, so
-    # make sure to use the built-in theme when `material` is specified
-    if name == "material":
+    # make sure to use the built-in theme when `material` is specified.
+    # We also reserve the `zensical` theme name to the same effect.
+    if name in ("material", "zensical"):
         return get_builtin_theme_dir()
 
     # Otherwise, check for installed themes - note that because of minijinja,
@@ -216,6 +312,49 @@ def get_custom_theme_dir(path: str, config_path: str) -> str:
             f"Custom theme directory does not exist: {theme_dir}"
         )
     return theme_dir
+
+
+def _yaml_load_theme_config(source: IO) -> dict[str, Any]:
+    Loader.add_constructor("!ENV", _construct_env_tag)
+    try:
+        config = yaml.load(source, Loader=Loader)  # noqa: S506
+    except YAMLError as e:
+        raise ConfigurationError(
+            f"Encountered an error parsing the theme configuration file: {e}"
+        ) from e
+    if config is None:
+        return {}
+    return config
+
+
+def _load_theme_config(theme_dir: str) -> tuple[dict[str, Any], list[str]]:
+    # Keep track of the theme directories,
+    # so that we can pass them up to Minijinja.
+    theme_dirs = [theme_dir]
+
+    if (theme_config_file := Path(theme_dir, "mkdocs_theme.yml")).is_file():
+        # We found a theme configuration file (mkdocs_theme.yml).
+        with theme_config_file.open(encoding="utf-8") as file:
+            theme_config = _yaml_load_theme_config(file)
+            if extends := theme_config.pop("extends", None):
+                # This theme extends another theme,
+                # so we load this parent theme's configuration (recursively)
+                # and merge the current theme's configuration into it.
+                parent_theme_dir = get_theme_dir(extends)
+                parent_config, parent_dirs = _load_theme_config(
+                    parent_theme_dir
+                )
+                parent_config.update(theme_config)
+                theme_dirs.extend(parent_dirs)
+                return parent_config, theme_dirs
+            # Otherwise we just return the current theme configuration.
+            return theme_config, theme_dirs
+
+    # No theme configuration.
+    return {}, theme_dirs
+
+
+# ----------------------------------------------------------------------------
 
 
 def _apply_defaults(config: dict, path: str) -> dict:
@@ -506,56 +645,11 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # to support the same for when we load TOML. This is a bandaid, and we will
     # find a better solution, once we work on configuration management, but for
     # now this should be sufficient.
-    emoji = config["mdx_configs"].get("pymdownx.emoji", {})
-    if isinstance(emoji.get("emoji_generator"), str):
-        emoji["emoji_generator"] = _resolve(emoji.get("emoji_generator"))
-    if isinstance(emoji.get("emoji_index"), str):
-        emoji["emoji_index"] = _resolve(emoji.get("emoji_index"))
-
-    # Tabbed extension configuration - resolve slugification function
-    tabbed = config["mdx_configs"].get("pymdownx.tabbed", {})
-    if isinstance(tabbed.get("slugify"), dict):
-        object = tabbed["slugify"].get("object", "pymdownx.slugs.slugify")
-        tabbed["slugify"] = _resolve(object)(
-            **tabbed["slugify"].get("kwds", {})
-        )
-
-    # Blocks-tab extension configuration - resolve slugification function
-    blocks_tab = config["mdx_configs"].get("pymdownx.blocks.tab", {})
-    if isinstance(blocks_tab.get("slugify"), dict):
-        object = blocks_tab["slugify"].get("object", "pymdownx.slugs.slugify")
-        blocks_tab["slugify"] = _resolve(object)(
-            **blocks_tab["slugify"].get("kwds", {})
-        )
-
-    # Table of contents extension configuration - resolve slugification function
-    toc = config["mdx_configs"]["toc"]
-    if isinstance(toc.get("slugify"), dict):
-        object = toc["slugify"].get("object", "pymdownx.slugs.slugify")
-        toc["slugify"] = _resolve(object)(**toc["slugify"].get("kwds", {}))
-
-    # Superfences extension configuration - resolve format function
-    superfences = config["mdx_configs"].get("pymdownx.superfences", {})
-    for fence in superfences.get("custom_fences", []):
-        if isinstance(fence.get("format"), str):
-            fence["format"] = _resolve(fence.get("format"))
-        elif isinstance(fence.get("format"), dict):
-            object = fence["format"].get(
-                "object", "pymdownx.superfences.fence_code_format"
-            )
-            fence["format"] = _resolve(object)(
-                **fence["format"].get("kwds", {})
-            )
-        if isinstance(fence.get("validator"), str):
-            fence["validator"] = _resolve(fence.get("validator"))
-        elif isinstance(fence.get("validator"), dict):
-            object = fence["validator"].get("object")
-            callable_object = (
-                _resolve(object) if object else lambda *args, **kwargs: True
-            )
-            fence["validator"] = callable_object(
-                **fence["validator"].get("kwds", {})
-            )
+    _resolve_pymdownx_emoji(config)
+    _resolve_pymdownx_superfences(config)
+    _resolve_pymdownx_tabbed(config)
+    _resolve_pymdownx_blocks_tab(config)
+    _resolve_toc(config)
 
     # Ensure the table of contents title is initialized, as it's used inside
     # the template, and the table of contents extension is always defined
@@ -565,54 +659,29 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # Convert plugins configuration
     config["plugins"] = _convert_plugins(config.get("plugins", []), config)
 
-    # Set up mkdocstrings, which touches plugins and Markdown extensions
-    if "mkdocstrings" in config["plugins"]:
-        mkdocstrings_config = config["plugins"]["mkdocstrings"]["config"]
-        if mkdocstrings_config.get("enabled", True):
-            if not find_spec("mkdocstrings"):
-                raise ConfigurationError(
-                    "mkdocstrings plugin is enabled, but mkdocstrings is not "
-                    "installed. Please install mkdocstrings or disable the "
-                    "plugin."
-                )
-            if autorefs := get_autorefs_extension():
-                config["markdown_extensions"].append(autorefs)
-            mkdocstrings = get_mkdocstrings_extension(config, path)
-            config["markdown_extensions"].append(mkdocstrings)
-
-    # Support autorefs in standalone mode
-    elif "autorefs" in config["plugins"]:
-        if autorefs := get_autorefs_extension():
-            config["markdown_extensions"].append(autorefs)
-        else:
-            raise ConfigurationError(
-                "autorefs plugin is enabled, but autorefs is not "
-                "installed. Please install autorefs or disable the "
-                "plugin."
-            )
-
-    # Map glightbox plugin configuration to the extension configuration
-    if "glightbox" in config["plugins"]:
-        plugin = config["plugins"]["glightbox"]["config"]
-        config["markdown_extensions"].append(GlightboxExtension.name)
-        config["mdx_configs"][GlightboxExtension.name] = plugin
-
-    # Map macros plugin configuration to the extension configuration
-    if "macros" in config["plugins"]:
-        plugin = config["plugins"]["macros"]["config"]
-        config["markdown_extensions"].append(MacrosExtension.name)
-        config["mdx_configs"][MacrosExtension.name] = plugin
+    # Map plugins configuration to Markdown extensions
+    _shim_autorefs(config)
+    _shim_mkdocstrings(config, path)
+    _shim_glightbox(config)
+    _shim_macros(config)
 
     # List files along with their hashes, so we can rebuild when they change
-    config["watched_files"] = sorted(
+    watched_files = (
         _list_sources(config, path)  # mkdocstrings
         | _list_snippet_files(config, path)  # pymdownx.snippets
         | _list_macros_files(config, path)  # macros
         | _list_watch_files(config, path)  # watch
     )
 
+    # We watch theme directories by default on the Rust side,
+    # so we need to  prevent duplicates from here, in case
+    # users add theme directories to the watch option
+    theme_files = _list_templates(config)
+    watched_files -= set(theme_files)
+    config["watched_files"] = sorted(watched_files)
+
     # Hash all templates, so we rebuild if something changes
-    config["template_hash"] = _hash(_list_templates(config))
+    config["template_hash"] = _hash(theme_files)
 
     # Hash the entire plugins configuration.
     # This is a special case for plugins because we currently only source
@@ -654,6 +723,128 @@ def _hash(data: Any) -> int:
     """Compute a hash for the given data."""
     hash = hashlib.sha1(pickle.dumps(data))  # noqa: S324
     return int(hash.hexdigest(), 16) % (2**64)
+
+
+# ----------------------------------------------------------------------------
+
+
+def _resolve(symbol: str) -> Any:
+    """Resolve a symbol to its corresponding Python object."""
+    module_path, func_name = symbol.rsplit(".", 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, func_name)
+
+
+def _resolve_pymdownx_emoji(config: dict[str, Any]) -> None:
+    # Emoji extension: resolve emoji generator and index functions
+    emoji = config["mdx_configs"].get("pymdownx.emoji", {})
+    if isinstance(emoji.get("emoji_generator"), str):
+        emoji["emoji_generator"] = _resolve(emoji.get("emoji_generator"))
+    if isinstance(emoji.get("emoji_index"), str):
+        emoji["emoji_index"] = _resolve(emoji.get("emoji_index"))
+
+
+def _resolve_pymdownx_tabbed(config: dict[str, Any]) -> None:
+    # Tabbed extension: resolve slugification function
+    tabbed = config["mdx_configs"].get("pymdownx.tabbed", {})
+    if isinstance(tabbed.get("slugify"), dict):
+        object = tabbed["slugify"].get("object", "pymdownx.slugs.slugify")
+        tabbed["slugify"] = _resolve(object)(
+            **tabbed["slugify"].get("kwds", {})
+        )
+
+
+def _resolve_pymdownx_blocks_tab(config: dict[str, Any]) -> None:
+    # Blocks-tab extension: resolve slugification function
+    blocks_tab = config["mdx_configs"].get("pymdownx.blocks.tab", {})
+    if isinstance(blocks_tab.get("slugify"), dict):
+        object = blocks_tab["slugify"].get("object", "pymdownx.slugs.slugify")
+        blocks_tab["slugify"] = _resolve(object)(
+            **blocks_tab["slugify"].get("kwds", {})
+        )
+
+
+def _resolve_pymdownx_superfences(config: dict[str, Any]) -> None:
+    # Superfences extension: resolve format and validator functions
+    superfences = config["mdx_configs"].get("pymdownx.superfences", {})
+    for fence in superfences.get("custom_fences", []):
+        if isinstance(fence.get("format"), str):
+            fence["format"] = _resolve(fence.get("format"))
+        elif isinstance(fence.get("format"), dict):
+            object = fence["format"].get(
+                "object", "pymdownx.superfences.fence_code_format"
+            )
+            fence["format"] = _resolve(object)(
+                **fence["format"].get("kwds", {})
+            )
+        if isinstance(fence.get("validator"), str):
+            fence["validator"] = _resolve(fence.get("validator"))
+        elif isinstance(fence.get("validator"), dict):
+            object = fence["validator"].get("object")
+            callable_object = (
+                _resolve(object) if object else lambda *args, **kwargs: True
+            )
+            fence["validator"] = callable_object(
+                **fence["validator"].get("kwds", {})
+            )
+
+
+def _resolve_toc(config: dict[str, Any]) -> None:
+    # Table of contents extension: resolve slugification function
+    toc = config["mdx_configs"]["toc"]
+    if isinstance(toc.get("slugify"), dict):
+        object = toc["slugify"].get("object", "pymdownx.slugs.slugify")
+        toc["slugify"] = _resolve(object)(**toc["slugify"].get("kwds", {}))
+
+
+# ----------------------------------------------------------------------------
+
+
+def _shim_autorefs(config: dict[str, Any]) -> None:
+    # Map autorefs plugin configuration to the extension configuration
+    if "autorefs" in config["plugins"]:
+        plugin = config["plugins"]["autorefs"]["config"]
+        if plugin.get("enabled", True):
+            config["markdown_extensions"].append(AutorefsExtension.name)
+    elif "mkdocstrings" in config["plugins"]:
+        # mkdocstrings enables autorefs itself
+        plugin = config["plugins"]["mkdocstrings"]["config"]
+        if plugin.get("enabled", True):
+            config["markdown_extensions"].append(AutorefsExtension.name)
+
+
+def _shim_mkdocstrings(config: dict[str, Any], path: str) -> None:
+    # Map mkdocstrings plugin configuration to the extension configuration
+    if "mkdocstrings" in config["plugins"]:
+        mkdocstrings_config = config["plugins"]["mkdocstrings"]["config"]
+        if mkdocstrings_config.get("enabled", True):
+            if not find_spec("mkdocstrings"):
+                raise ConfigurationError(
+                    "mkdocstrings plugin is enabled, but mkdocstrings is not "
+                    "installed. Please install mkdocstrings or disable the "
+                    "plugin."
+                )
+            mkdocstrings = get_mkdocstrings_extension(config, path)
+            config["markdown_extensions"].append(mkdocstrings)
+
+
+def _shim_glightbox(config: dict[str, Any]) -> None:
+    # Map glightbox plugin configuration to the extension configuration
+    if "glightbox" in config["plugins"]:
+        plugin = config["plugins"]["glightbox"]["config"]
+        config["markdown_extensions"].append(GlightboxExtension.name)
+        config["mdx_configs"][GlightboxExtension.name] = plugin
+
+
+def _shim_macros(config: dict[str, Any]) -> None:
+    # Map macros plugin configuration to the extension configuration
+    if "macros" in config["plugins"]:
+        plugin = config["plugins"]["macros"]["config"]
+        config["markdown_extensions"].append(MacrosExtension.name)
+        config["mdx_configs"][MacrosExtension.name] = plugin
+
+
+# ----------------------------------------------------------------------------
 
 
 def _ignore_directory(dirpath: str) -> bool:
@@ -800,35 +991,12 @@ def _list_templates(config: dict) -> list[tuple[str, int]]:
     return sorted(files_with_mtime)
 
 
-def _convert_extra(data: dict | list) -> dict | list:
-    """Recursively convert None values in a dictionary/list to empty strings."""
-    if isinstance(data, dict):
-        # Process each key-value pair in the dictionary
-        return {
-            key: _convert_extra(value)
-            if isinstance(value, (dict, list))
-            else ("" if value is None else value)
-            for key, value in data.items()
-        }
-    if isinstance(data, list):
-        # Process each item in the list
-        return [
-            _convert_extra(item)
-            if isinstance(item, (dict, list))
-            else ("" if item is None else item)
-            for item in data
-        ]
-    return data
-
-
-def _resolve(symbol: str) -> Any:
-    """Resolve a symbol to its corresponding Python object."""
-    module_path, func_name = symbol.rsplit(".", 1)
-    module = importlib.import_module(module_path)
-    return getattr(module, func_name)
-
-
 # -----------------------------------------------------------------------------
+
+
+def _is_index(path: str) -> bool:
+    """Returns, whether the given path points to a section index."""
+    return os.path.basename(path) in ("index.md", "README.md")
 
 
 def _convert_nav(nav: list) -> list:
@@ -884,12 +1052,25 @@ def _convert_nav_item(item: str | dict | list) -> dict | list:
     raise TypeError(f"Unknown nav item type: {type(item)}")
 
 
-def _is_index(path: str) -> bool:
-    """Returns, whether the given path points to a section index."""
-    return os.path.basename(path) in ("index.md", "README.md")
-
-
-# -----------------------------------------------------------------------------
+def _convert_extra(data: dict | list) -> dict | list:
+    """Recursively convert None values in a dictionary/list to empty strings."""
+    if isinstance(data, dict):
+        # Process each key-value pair in the dictionary
+        return {
+            key: _convert_extra(value)
+            if isinstance(value, (dict, list))
+            else ("" if value is None else value)
+            for key, value in data.items()
+        }
+    if isinstance(data, list):
+        # Process each item in the list
+        return [
+            _convert_extra(item)
+            if isinstance(item, (dict, list))
+            else ("" if item is None else item)
+            for item in data
+        ]
+    return data
 
 
 def _convert_extra_javascript(value: list) -> list:
@@ -912,9 +1093,6 @@ def _convert_extra_javascript(value: list) -> list:
 
     # Return resulting value
     return value
-
-
-# -----------------------------------------------------------------------------
 
 
 def _convert_markdown_extensions(value: Any) -> tuple[list[str], dict]:
@@ -965,9 +1143,6 @@ def _convert_markdown_extensions(value: Any) -> tuple[list[str], dict]:
 
     # Return extension list and configuration, after ensuring they're unique
     return list(set(markdown_extensions)), mdx_configs
-
-
-# ----------------------------------------------------------------------------
 
 
 def _convert_plugins(value: Any, config: dict) -> dict:
@@ -1048,138 +1223,3 @@ def _convert_plugins(value: Any, config: dict) -> dict:
 
     # Return plugins
     return plugins
-
-
-# ----------------------------------------------------------------------------
-
-
-def _yaml_load(source: IO) -> dict[str, Any]:
-    """Load configuration file, resolve environment variables and parent files.
-
-    Note that INHERIT is only a bandaid that was introduced to allow for some
-    degree of modularity, but with serious shortcomings. Zensical will use a
-    different approach in the future, which will allow for composable and
-    environment-specific configuration.
-    """
-    Loader.add_constructor("!ENV", _construct_env_tag)
-    try:
-        config = yaml.load(
-            # Compatibility shim: we remap Material's extension namespace to
-            # Zensical's, and the now deprecated materialx namespace as well
-            source.read()
-            .replace("material.extensions", "zensical.extensions")
-            .replace("materialx", "zensical.extensions"),
-            Loader=Loader,  # noqa: S506
-        )
-    except YAMLError as e:
-        raise ConfigurationError(
-            f"Encountered an error parsing the configuration file: {e}"
-        ) from e
-    if config is None:
-        return {}
-
-    # Try to resolve inherited configuration file
-    if "INHERIT" in config and not isinstance(source, str):
-        relpath = config.pop("INHERIT")
-        abspath = os.path.normpath(
-            os.path.join(os.path.dirname(source.name), relpath)
-        )
-        if not os.path.exists(abspath):
-            raise ConfigurationError(
-                f"Inherited config file '{relpath}' "
-                f"doesn't exist at '{abspath}'."
-            )
-        with open(abspath, encoding="utf-8") as fd:
-            parent = _yaml_load(fd)
-        config = always_merger.merge(parent, config)
-
-    # Return resulting configuration
-    return config
-
-
-def _yaml_load_theme_config(source: IO) -> dict[str, Any]:
-    Loader.add_constructor("!ENV", _construct_env_tag)
-    try:
-        config = yaml.load(source, Loader=Loader)  # noqa: S506
-    except YAMLError as e:
-        raise ConfigurationError(
-            f"Encountered an error parsing the theme configuration file: {e}"
-        ) from e
-    if config is None:
-        return {}
-    return config
-
-
-def _load_theme_config(theme_dir: str) -> tuple[dict[str, Any], list[str]]:
-    # Keep track of the theme directories,
-    # so that we can pass them up to Minijinja.
-    theme_dirs = [theme_dir]
-
-    if (theme_config_file := Path(theme_dir, "mkdocs_theme.yml")).is_file():
-        # We found a theme configuration file (mkdocs_theme.yml).
-        with theme_config_file.open(encoding="utf-8") as file:
-            theme_config = _yaml_load_theme_config(file)
-            if extends := theme_config.pop("extends", None):
-                # This theme extends another theme,
-                # so we load this parent theme's configuration (recursively)
-                # and merge the current theme's configuration into it.
-                parent_theme_dir = get_theme_dir(extends)
-                parent_config, parent_dirs = _load_theme_config(
-                    parent_theme_dir
-                )
-                parent_config.update(theme_config)
-                theme_dirs.extend(parent_dirs)
-                return parent_config, theme_dirs
-            # Otherwise we just return the current theme configuration.
-            return theme_config, theme_dirs
-
-    # No theme configuration.
-    return {}, theme_dirs
-
-
-def _construct_env_tag(
-    loader: yaml.Loader,
-    node: yaml.ScalarNode | yaml.SequenceNode | yaml.MappingNode,
-) -> Any:
-    """Assign value of ENV variable referenced at node.
-
-    MkDocs supports the use of !ENV to reference environment variables in YAML
-    configuration files. We won't likely support this in Zensical, but for now
-    we need it to build MkDocs projects. Zensical will use a different approach
-    to create environment-specific configuration in the future.
-
-    Licensed under MIT
-    Copyright (c) 2020 Waylan Limberg
-    Taken and adapted from
-        https://github.com/waylan/pyyaml-env-tag/blob/master/yaml_env_tag.py
-    """
-    default = None
-
-    # Handle !ENV <name>
-    if isinstance(node, yaml.nodes.ScalarNode):
-        vars = [loader.construct_scalar(node)]
-
-    # Handle !ENV [<name>, <fallback>]
-    elif isinstance(node, yaml.nodes.SequenceNode):
-        child_nodes = node.value
-        if len(child_nodes) > 1:
-            default = loader.construct_object(child_nodes[-1])
-            child_nodes = child_nodes[:-1]
-        # Env Vars are resolved as string values, ignoring (implicit) types.
-        vars = [loader.construct_scalar(child) for child in child_nodes]
-    else:
-        raise ConstructorError(
-            context=f"expected a scalar or sequence node, but found {node.id}",
-            context_mark=node.start_mark,
-        )
-
-    # Resolve environment variable
-    for var in vars:
-        if var in os.environ:
-            value = os.environ[var]
-            # Resolve value to Python type using YAML's implicit resolvers
-            tag = loader.resolve(yaml.nodes.ScalarNode, value, (True, False))
-            return loader.construct_object(yaml.nodes.ScalarNode(tag, value))
-
-    # Otherwise return default
-    return default

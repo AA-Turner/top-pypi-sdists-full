@@ -27,6 +27,7 @@ from weblate.trans.discovery import (
 )
 from weblate.trans.forms import AutoForm, BulkEditForm
 from weblate.trans.models import Translation
+from weblate.utils.files import is_path_within_resolved_directory
 from weblate.utils.forms import (
     CachedModelChoiceField,
     ContextDiv,
@@ -37,10 +38,10 @@ from weblate.utils.regex import compile_regex, regex_match, regex_sub
 from weblate.utils.render import validate_render, validate_render_translation
 from weblate.utils.validators import (
     DomainOrIPValidator,
-    validate_asset_url,
     validate_filename,
     validate_re,
     validate_re_nonempty,
+    validate_restricted_asset_url,
     validate_webhook_secret_string,
     validate_webhook_url,
 )
@@ -50,7 +51,7 @@ if TYPE_CHECKING:
         AutoTranslateAddon,
         AutoTranslateAddonStoredConfiguration,
     )
-    from weblate.addons.cdn import CDNJSAddon  # noqa: F401
+    from weblate.addons.cdn import CDNFilesAddon, CDNJSAddon  # noqa: F401
     from weblate.addons.consistency import LanguageConsistencyAddon  # noqa: F401
     from weblate.addons.generate import (
         GenerateFileAddon,  # noqa: F401
@@ -358,17 +359,24 @@ class XgettextExtractPotForm(BaseXgettextExtractPotForm):
                 validate_filename(potfiles_path)
                 component = self._addon.instance.component
                 if component is not None:
+                    component_root = Path(component.full_path).resolve(strict=False)
                     manifest = Path(component.full_path) / potfiles_path
-                    try:
-                        component.check_file_is_valid(str(manifest))
-                    except forms.ValidationError as error:
-                        self.add_error("potfiles_path", error)
+                    if not is_path_within_resolved_directory(manifest, component_root):
+                        self.add_error(
+                            "potfiles_path",
+                            gettext("Invalid symbolic link in a repository."),
+                        )
                     else:
-                        if manifest.exists() and manifest.is_dir():
-                            self.add_error(
-                                "potfiles_path",
-                                gettext("POTFILES path has to point to a file."),
-                            )
+                        try:
+                            component.check_file_is_valid(str(manifest))
+                        except forms.ValidationError as error:
+                            self.add_error("potfiles_path", error)
+                        else:
+                            if manifest.is_dir():
+                                self.add_error(
+                                    "potfiles_path",
+                                    gettext("POTFILES path has to point to a file."),
+                                )
             cleaned_data["source_patterns"] = []
             cleaned_data["potfiles_path"] = potfiles_path
         return self.clean_xgettext_options(cleaned_data)
@@ -425,10 +433,12 @@ class DjangoExtractPotForm(BaseExtractPotForm):
         component = self._addon.instance.component
         if component is None:
             return cleaned_data
-        if not component.new_base.endswith(".pot"):
+        if not component.is_gettext_po_template():
             self.add_error(
                 None,
-                gettext("The component has to define a POT file for new translations."),
+                gettext(
+                    "The component has to define a gettext template for new translations."
+                ),
             )
             return cleaned_data
         if Path(component.new_base).stem not in {"django", "djangojs"}:
@@ -436,7 +446,8 @@ class DjangoExtractPotForm(BaseExtractPotForm):
                 None,
                 gettext(
                     "The Django add-on expects the template for new translations to "
-                    'be named "django.pot" or "djangojs.pot".'
+                    'be named "django.pot", "djangojs.pot", "django.po", '
+                    'or "djangojs.po".'
                 ),
             )
         return cleaned_data
@@ -617,9 +628,10 @@ class RemoveSuggestionForm(RemoveForm):
     votes = forms.IntegerField(
         label=gettext_lazy("Voting threshold"),
         initial=0,
-        required=True,
+        required=False,
         help_text=gettext_lazy(
-            "Threshold for removal. This field has no effect with voting turned off."
+            "Threshold for removal. Leave empty to remove suggestions regardless of "
+            "votes. This field has no effect with voting turned off."
         ),
     )
 
@@ -838,7 +850,7 @@ class DiscoveryForm(BaseAddonForm):
             Field("copy_addons"),
             Field("remove"),
         )
-        if self.guided_preset_sections:
+        if not self._addon.documentation_build and self.guided_preset_sections:
             self.helper.layout.insert(
                 0,
                 ContextDiv(
@@ -1326,7 +1338,7 @@ class CDNJSForm(BaseAddonForm[dict[str, object], "CDNJSAddon"]):
                 continue
             try:
                 if filename.startswith(("http://", "https://")):
-                    validate_asset_url(filename)
+                    validate_restricted_asset_url(filename)
                 else:
                     validate_filename(filename)
             except forms.ValidationError as error:
@@ -1336,6 +1348,21 @@ class CDNJSForm(BaseAddonForm[dict[str, object], "CDNJSAddon"]):
             raise forms.ValidationError(errors)
 
         return files
+
+
+class CDNFilesForm(BaseAddonForm[dict[str, object], "CDNFilesAddon"]):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper(self)
+        layout = []
+        if self.is_bound and self._addon.instance.pk:
+            layout.append(
+                ContextDiv(
+                    template="addons/cdnfiles.html",
+                    context={"url": self._addon.cdn_files_url, "user": self.user},
+                )
+            )
+        self.helper.layout = Layout(*layout)
 
 
 class TranslationLanguageChoiceField(CachedModelChoiceField):

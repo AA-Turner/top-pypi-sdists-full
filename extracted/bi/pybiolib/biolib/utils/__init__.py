@@ -4,12 +4,12 @@ import os
 import socket
 import sys
 
-from biolib._internal.utils.package_version import get_package_version
-from biolib.typing_utils import Optional
-from biolib.utils.seq_util import SeqUtil, SeqUtilRecord
 from biolib._internal.http_client import HttpClient
-from biolib.biolib_logging import logger_no_user_data, logger
-from biolib.typing_utils import Tuple, Iterator
+from biolib._internal.utils.package_version import get_package_version
+from biolib.biolib_logging import logger, logger_no_user_data
+from biolib.typing_utils import Iterator, Optional, Tuple
+from biolib.utils.seq_util import SeqUtil, SeqUtilRecord
+
 from .multipart_uploader import MultiPartUploader, get_chunk_iterator_from_bytes
 
 BIOLIB_PACKAGE_VERSION = get_package_version()
@@ -61,18 +61,16 @@ IS_RUNNING_IN_CLOUD = BIOLIB_CLOUD_ENVIRONMENT == 'non-enclave'
 BASE_URL_IS_PUBLIC_BIOLIB: Optional[bool] = None
 
 # sys.stdout is an instance of OutStream in Jupyter and Colab which does not have .buffer
-if not hasattr(sys.stdout, 'buffer'):
-    IS_RUNNING_IN_NOTEBOOK = True
-else:
-    IS_RUNNING_IN_NOTEBOOK = False
+IS_RUNNING_IN_NOTEBOOK = bool(not hasattr(sys.stdout, 'buffer'))
 
 STREAM_STDOUT = False
 
 if BIOLIB_CLOUD_ENVIRONMENT and not IS_RUNNING_IN_CLOUD:
-    logger_no_user_data.warning((
-        'BIOLIB_CLOUD_ENVIRONMENT defined but does not specify the cloud environment correctly. ',
+    logger_no_user_data.warning(
+        'BIOLIB_CLOUD_ENVIRONMENT defined but does not specify the cloud environment correctly. '
         'The compute node will not act as a cloud compute node'
-    ))
+    )
+
 
 ByteRangeTuple = Tuple[int, int]
 DownloadChunkInputTuple = Tuple[ByteRangeTuple, str]
@@ -91,7 +89,7 @@ def _download_chunk(input_tuple: DownloadChunkInputTuple) -> bytes:
             retry_on_http_500=True,
         )
     except Exception as exception:
-        logger_no_user_data.exception("Hit error downloading chunk")
+        logger_no_user_data.exception('Hit error downloading chunk')
         logger_no_user_data.error(exception)
         raise exception
     logger_no_user_data.debug(f'Returning raw data for part {start}')
@@ -99,7 +97,6 @@ def _download_chunk(input_tuple: DownloadChunkInputTuple) -> bytes:
 
 
 class ChunkIterator(collections.abc.Iterator):
-
     def __init__(self, file_size: int, chunk_size: int, presigned_url: str):
         self._semaphore = multiprocessing.BoundedSemaphore(20)  # support 20 chunks to be processed at once
         self._iterator = self._get_chunk_input_iterator(file_size, chunk_size, presigned_url)
@@ -118,9 +115,9 @@ class ChunkIterator(collections.abc.Iterator):
 
     @staticmethod
     def _get_chunk_input_iterator(
-            file_size: int,
-            chunk_size: int,
-            presigned_url: str,
+        file_size: int,
+        chunk_size: int,
+        presigned_url: str,
     ) -> Iterator[DownloadChunkInputTuple]:
         for index in range(0, file_size, chunk_size):
             byte_range: ByteRangeTuple = (index, index + chunk_size - 1)

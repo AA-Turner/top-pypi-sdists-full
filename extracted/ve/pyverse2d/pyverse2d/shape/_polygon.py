@@ -13,35 +13,45 @@ class Polygon(Shape):
     """Forme géométrique 2D immuable : Polygone quelconque
 
     Args:
-        points: sommets du polygone (minimum 3, sans doublons)
+        points: sommets du polygone *(minimum 3, sans doublons)*
     """
     __slots__ = ("_source_vertices", "_convex")
 
     def __init__(self, *points: Point):
-        self._source_vertices: NDArray[np.float32] = np.asarray(points, dtype=np.float32)
+        # Transtypage et vérifications
+        vertices = np.asarray(points, dtype=np.float32)
 
         if __debug__:
             if len(points) < 3:
                 raise ValueError("Polygon must have at least 3 points")
-            if np.unique(self._source_vertices, axis=0).shape[0] != len(self._source_vertices):
+            if np.unique(vertices, axis=0).shape[0] != len(vertices):
                 raise ValueError("Polygon must not have duplicate points")
-        
-        self._source_vertices = center_bbox(order_ccw(self._source_vertices))
+
+        # Attributs publiques        
+        self._source_vertices: NDArray[np.float32] = center_bbox(order_ccw(vertices))
+
+        # Attributs internes
         self._convex: bool = is_convex(self._source_vertices)
+
+        # Initialisation de la forme
         super().__init__()
 
     # ======================================== CONVERSIONS ========================================
     def __repr__(self) -> str:
+        """Renvoie une représentation de la forme"""
         pts = [tuple(v) for v in self._source_vertices]
         return f"Polygon(points={pts})"
 
     def __str__(self) -> str:
+        """Renvoie une description de la forme"""
         return f"Polygon[{len(self._source_vertices)} pts | area={self.get_area():.4g} | perimeter={self.get_perimeter():.4g}]"
 
     def __len__(self) -> int:
+        """Renvoie le nombre de points du polygone"""
         return len(self._source_vertices)
 
     def __hash__(self) -> int:
+        """Renvoie le hash de la forme"""
         return hash(tuple(map(tuple, self._source_vertices)))
 
     # ======================================== GEOMETRY ========================================
@@ -58,13 +68,12 @@ class Polygon(Shape):
         return float(abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))) * 0.5)
 
     def get_bounding_box(self) -> tuple[float, float, float, float]:
-        """Renvoie (x_min, y_min, x_max, y_max) en espace local"""
+        """Renvoie ``(x_min, y_min, x_max, y_max)`` en espace local"""
         v = self._source_vertices
-        return (float(v[:, 0].min()), float(v[:, 1].min()),
-                float(v[:, 0].max()), float(v[:, 1].max()))
+        return (float(v[:, 0].min()), float(v[:, 1].min()), float(v[:, 0].max()), float(v[:, 1].max()))
 
     def compute_vertices(self) -> NDArray[np.float32]:
-        """Renvoie les sommets du polygone (copie des sources)"""
+        """Renvoie les sommets du polygone"""
         return self._source_vertices.copy()
 
     # ======================================== COMPARATORS ========================================
@@ -82,11 +91,11 @@ class Polygon(Shape):
         """Teste si un point est dans le polygone
 
         Args:
-            point: point à tester
+            point: ``Point`` à tester
         """
-        v   = self._source_vertices
+        v = self._source_vertices
         px, py = float(point[0]), float(point[1])
-        n   = len(v)
+        n = len(v)
         inside = False
         j = n - 1
         for i in range(n):
@@ -101,7 +110,12 @@ class Polygon(Shape):
         """Vérifie la convexité"""
         return self._convex
 
-    # ======================================== PUBLIC METHODS ========================================
+    # ======================================== INTERFACE ========================================
     def copy(self) -> Polygon:
         """Renvoie une copie du polygone"""
         return Polygon(*[Point(float(v[0]), float(v[1])) for v in self._source_vertices])
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Point",
+]

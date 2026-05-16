@@ -625,13 +625,20 @@ class AgentLoop:
             self.middleware_pipeline.add(PriceLimitMiddleware(self._max_price))
 
         active_model = self.config.get_active_model()
-        if active_model.auto_compact_threshold > 0:
+        _compact_thresh = active_model.auto_compact_threshold
+        _env_thresh = os.environ.get("DRYDOCK_AUTO_COMPACT_THRESHOLD", "")
+        if _env_thresh.strip():
+            try:
+                _compact_thresh = int(_env_thresh.strip())
+            except ValueError:
+                pass
+        if _compact_thresh > 0:
             self.middleware_pipeline.add(
-                AutoCompactMiddleware(active_model.auto_compact_threshold)
+                AutoCompactMiddleware(_compact_thresh)
             )
             if self.config.context_warnings:
                 self.middleware_pipeline.add(
-                    ContextWarningMiddleware(0.5, active_model.auto_compact_threshold)
+                    ContextWarningMiddleware(0.5, _compact_thresh)
                 )
 
         self.middleware_pipeline.add(
@@ -795,9 +802,10 @@ class AgentLoop:
         # template the model can specialize. Off under pytest, on by default
         # in production. Opt out via DRYDOCK_CONSTRAINT_HINT=0.
         _constraint_hint_default = "0" if _under_pytest else "1"
-        if os.environ.get(
+        _constraint_hint_on = os.environ.get(
             "DRYDOCK_CONSTRAINT_HINT", _constraint_hint_default
-        ).strip().lower() not in ("0", "false", "no"):
+        ).strip().lower() not in ("0", "false", "no")
+        if _constraint_hint_on:
             try:
                 from drydock.core.constraint_hint import (
                     detect_constraint_shape, build_hint,
@@ -813,6 +821,26 @@ class AgentLoop:
             except Exception as _e:
                 logger.warning(
                     "constraint hint failed (skipped): %s", _e, exc_info=True
+                )
+
+        # === AUTO-SOLVE (synthetic Z3 tool call) ===
+        # The escalation level above the advisory constraint hint: when
+        # the extractor produces a high-confidence ExtractResult AND Z3
+        # can actually decide it, we run Z3 ourselves and inject a
+        # synthetic solve() call + tool result. Models trust tool output
+        # as authoritative — much stronger signal than a system note.
+        # Same pattern as _auto_prefetch_retrieve for GraphRAG.
+        # Off under pytest. Opt out via DRYDOCK_AUTO_SOLVE=0.
+        _auto_solve_default = "0" if _under_pytest else "1"
+        if _constraint_hint_on and os.environ.get(
+            "DRYDOCK_AUTO_SOLVE", _auto_solve_default
+        ).strip().lower() not in ("0", "false", "no"):
+            try:
+                from drydock.core.auto_solve import maybe_inject_auto_solve
+                maybe_inject_auto_solve(self.messages, user_msg or "")
+            except Exception as _e:
+                logger.warning(
+                    "auto-solve failed (skipped): %s", _e, exc_info=True
                 )
 
         try:
@@ -838,9 +866,11 @@ class AgentLoop:
             STOP_NOW_WARN_AT = int(getattr(self, "_admiral_stop_now_warn_at",
                 int(os.environ.get("DRYDOCK_STOP_NOW_WARN_AT", 60))))
             STOP_NOW_TIME_SEC = int(os.environ.get("DRYDOCK_STOP_NOW_TIME_SEC", "0"))
+            TOOL_STOP_AFTER = int(os.environ.get("DRYDOCK_TOOL_STOP_AFTER", "0"))
             _prompt_start = time.perf_counter()
             _time_stop_injected = False
             _time_stop_escalated = False
+            _tool_stop_injected = False
             logger.warning("[TIMING] entering conversation while loop")
             while not should_break_loop:
                 # Drain any user messages typed while the agent was working.
@@ -923,6 +953,18 @@ class AgentLoop:
                         "this single request. STOP NOW. Emit a final text "
                         "response summarizing what you have or your best "
                         "guess."
+                        + (f" {_stop_suffix}" if _stop_suffix else "")
+                    )
+                if (TOOL_STOP_AFTER > 0
+                        and not _tool_stop_injected
+                        and tool_turns >= TOOL_STOP_AFTER):
+                    _tool_stop_injected = True
+                    _stop_suffix = os.environ.get("DRYDOCK_STOP_NOW_SUFFIX", "")
+                    self._inject_system_note(
+                        f"You have used {tool_turns} tool calls. "
+                        "You may NOT call any more tools. "
+                        "Your NEXT response must be plain text only — "
+                        "write your best answer right now."
                         + (f" {_stop_suffix}" if _stop_suffix else "")
                     )
                 if tool_turns == WRAP_UP_WARN_AT:
@@ -1030,7 +1072,10 @@ class AgentLoop:
                           or "400 bad request" in error_str.lower()
                           or "status: 400" in error_str.lower()
                           or "exceeds the available context" in error_str.lower()
-                          or "error code: 400" in error_str.lower()):
+                          or "error code: 400" in error_str.lower()
+                          or "500 internal server error" in error_str.lower()
+                          or "status: 500" in error_str.lower()
+                          or "llm backend error" in error_str.lower()):
                         # Context limit or malformed request — aggressive recovery
                         # Step 0 (added 2026-05-09): if the error looks like a
                         # malformed tool call (most common 400 cause that ISN'T
@@ -1106,11 +1151,31 @@ class AgentLoop:
                         except Exception:
                             pass
                         if dropped_bad_tool_call:
-                            error_text = (
-                                "Your last tool call was rejected by the "
-                                "server (likely malformed arguments). "
-                                "Try a simpler form, or use a different tool."
+                            # Detect JSON-truncation: llama.cpp returns this
+                            # when max_tokens is too low and the tool call
+                            # JSON gets cut off mid-string.
+                            _trunc = (
+                                "missing closing quote" in error_str.lower()
+                                or (
+                                    "parse error at" in error_str.lower()
+                                    and "column" in error_str.lower()
+                                )
                             )
+                            if _trunc:
+                                error_text = (
+                                    "Your write_file content was too large — "
+                                    "the server truncated the response mid-JSON "
+                                    "(hit max_tokens). Split the file into "
+                                    "smaller sections and write each with a "
+                                    "separate write_file call (aim for ≤50 "
+                                    "lines per call)."
+                                )
+                            else:
+                                error_text = (
+                                    "Your last tool call was rejected by the "
+                                    "server (likely malformed arguments). "
+                                    "Try a simpler form, or use a different tool."
+                                )
                         else:
                             error_text = (
                                 "Context compacted due to API error. "
@@ -1314,7 +1379,17 @@ class AgentLoop:
                 and bool(_prev_tool_result.strip())
             )
             if _stall_attempt == 0:
-                if _prev_write_path_error:
+                if _tool_stop_injected:
+                    _fa_suffix = os.environ.get(
+                        "DRYDOCK_STOP_NOW_SUFFIX",
+                        "End with 'FINAL ANSWER: <answer>'.",
+                    )
+                    note = (
+                        "STOP THINKING. Do NOT use any tools. "
+                        "Write your best answer as plain text RIGHT NOW. "
+                        + _fa_suffix
+                    )
+                elif _prev_write_path_error:
                     note = (
                         "Your write_file call failed because the path argument was empty. "
                         "Retry write_file RIGHT NOW with the correct path. "
@@ -1482,8 +1557,10 @@ class AgentLoop:
         # Detect repetitive text generation (Gemma 4 sometimes loops text within one response)
         if last_message.content and len(last_message.content) > 200:
             text = last_message.content
-            # Check if any sentence repeats 3+ times
-            sentences = [s.strip() for s in text.split('.') if len(s.strip()) > 30]
+            # Check if any sentence repeats 3+ times.
+            # Threshold 15: catches short repeated phrases like "(Wait, I'll call the tool."
+            # which split to 28-char fragments — previously filtered by the old > 30 threshold.
+            sentences = [s.strip() for s in text.split('.') if len(s.strip()) > 15]
             if sentences:
                 from collections import Counter
                 sentence_counts = Counter(sentences)

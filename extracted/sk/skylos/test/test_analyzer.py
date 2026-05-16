@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from collections import defaultdict
 from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
-from skylos.penalties import apply_penalties
+from skylos.analysis.penalties import apply_penalties
 
 from skylos.analyzer import (
     Skylos,
@@ -172,6 +172,37 @@ class TestSkylos:
         assert not skylos._should_exclude_file(file_path, root, exclude_folders)
 
         assert not skylos._should_exclude_file(file_path, root, None)
+
+    def test_trace_file_false_ignores_existing_project_root_trace(self, tmp_path):
+        module = tmp_path / "app.py"
+        module.write_text(
+            "def root_traced():\n    return 1\n\ndef unused():\n    return 2\n",
+            encoding="utf-8",
+        )
+        (tmp_path / ".skylos_trace").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "calls": [
+                        {
+                            "file": str(module),
+                            "function": "root_traced",
+                            "line": 1,
+                            "count": 1,
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(str(tmp_path), conf=0, grep_verify=False, trace_file=False)
+        )
+        names = {item.get("name") for item in result.get("unused_functions", [])}
+
+        assert "root_traced" in names
+        assert "unused" in names
 
     @patch("skylos.analyzer.Path")
     def test_get_python_files_single_file(self, mock_path, skylos):
@@ -384,6 +415,141 @@ class TestAnalyze:
         assert _architecture_iad_strict({"strict": True}) is False
         assert _architecture_iad_strict({"enforce_iad": True}) is True
         assert _architecture_iad_strict({"strict_iad": True}) is True
+
+    def test_package_subdir_scan_keeps_absolute_imports_live(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "api.py").write_text(
+            "from pkg.payload import action as _action\n\n"
+            "def action():\n"
+            "    return _action()\n",
+            encoding="utf-8",
+        )
+        (package / "payload.py").write_text(
+            "def action():\n"
+            "    return 'ok'\n",
+            encoding="utf-8",
+        )
+        (package / "consumer.py").write_text(
+            "from pkg.api import action\n\n"
+            "def run():\n"
+            "    return action()\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(package), conf=0, grep_verify=False))
+        unused = {
+            (Path(item["file"]).name, item["simple_name"])
+            for item in result.get("unused_functions", [])
+        }
+
+        assert ("api.py", "action") not in unused
+        assert ("payload.py", "action") not in unused
+
+    def test_package_scan_resolves_relative_and_module_import_styles(self, tmp_path):
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "api.py").write_text(
+            "from .payload import action as _action\n\n"
+            "def action():\n"
+            "    return _action()\n",
+            encoding="utf-8",
+        )
+        (package / "payload.py").write_text(
+            "def action():\n"
+            "    return 'ok'\n\n"
+            "def side():\n"
+            "    return 'side'\n\n"
+            "def unused():\n"
+            "    return 'dead'\n",
+            encoding="utf-8",
+        )
+        (package / "consumer.py").write_text(
+            "import pkg.api as api\n"
+            "from pkg import payload\n\n"
+            "def run():\n"
+            "    return api.action(), payload.side()\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(package), conf=0, grep_verify=False))
+        unused = {
+            (Path(item["file"]).name, item["simple_name"])
+            for item in result.get("unused_functions", [])
+        }
+
+        assert ("api.py", "action") not in unused
+        assert ("payload.py", "action") not in unused
+        assert ("payload.py", "side") not in unused
+        assert ("payload.py", "unused") in unused
+
+    def test_project_scan_strips_common_python_source_root(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
+        package = tmp_path / "lib" / "pkg"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "api.py").write_text(
+            "from pkg.payload import action as _action\n\n"
+            "def action():\n"
+            "    return _action()\n",
+            encoding="utf-8",
+        )
+        (package / "payload.py").write_text(
+            "def action():\n"
+            "    return 'ok'\n",
+            encoding="utf-8",
+        )
+        (package / "consumer.py").write_text(
+            "from pkg.api import action\n\n"
+            "def run():\n"
+            "    return action()\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(tmp_path), conf=0, grep_verify=False))
+        unused = {
+            (Path(item["file"]).name, item["simple_name"])
+            for item in result.get("unused_functions", [])
+        }
+
+        assert ("api.py", "action") not in unused
+        assert ("payload.py", "action") not in unused
+
+    def test_package_scan_without_project_root_matches_package_import_prefix(
+        self, tmp_path
+    ):
+        package = tmp_path / "pkg"
+        package.mkdir()
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "api.py").write_text(
+            "from pkg.payload import action as _action\n\n"
+            "def action():\n"
+            "    return _action()\n",
+            encoding="utf-8",
+        )
+        (package / "payload.py").write_text(
+            "def action():\n"
+            "    return 'ok'\n",
+            encoding="utf-8",
+        )
+        (package / "consumer.py").write_text(
+            "from pkg.api import action\n\n"
+            "def run():\n"
+            "    return action()\n",
+            encoding="utf-8",
+        )
+
+        result = json.loads(analyze(str(package), conf=0, grep_verify=False))
+        unused = {
+            (Path(item["file"]).name, item["simple_name"])
+            for item in result.get("unused_functions", [])
+        }
+
+        assert ("api.py", "action") not in unused
+        assert ("payload.py", "action") not in unused
 
     @patch("skylos.analyzer.proc_file")
     def test_analyze_basic(self, mock_proc_file, temp_python_project):
@@ -614,9 +780,7 @@ class TestAnalyze:
             (root / "package_b").mkdir()
             (root / "package_a" / "__init__.py").write_text("", encoding="utf-8")
             (root / "package_a" / "cli.py").write_text(
-                "import sync_common\n"
-                "def main():\n"
-                "    return sync_common.VALUE\n",
+                "import sync_common\ndef main():\n    return sync_common.VALUE\n",
                 encoding="utf-8",
             )
             (root / "package_b" / "__init__.py").write_text("", encoding="utf-8")
@@ -647,8 +811,7 @@ class TestAnalyze:
                 "", encoding="utf-8"
             )
             (root / "app" / "package_a" / "cli.py").write_text(
-                "def main():\n"
-                "    return 1\n",
+                "def main():\n    return 1\n",
                 encoding="utf-8",
             )
             (root / "app" / "package_b" / "__init__.py").write_text(
@@ -690,9 +853,7 @@ class TestAnalyze:
             (root / "app" / "domain").mkdir(parents=True)
             (root / "app" / "__init__.py").write_text("", encoding="utf-8")
             (root / "app" / "api" / "__init__.py").write_text("", encoding="utf-8")
-            (root / "app" / "domain" / "__init__.py").write_text(
-                "", encoding="utf-8"
-            )
+            (root / "app" / "domain" / "__init__.py").write_text("", encoding="utf-8")
             (root / "app" / "api" / "routes.py").write_text(
                 "API_VALUE = 1\n",
                 encoding="utf-8",
@@ -729,8 +890,7 @@ class TestAnalyze:
                 encoding="utf-8",
             )
             (pkg / "__init__.py").write_text(
-                "from .cli import main\n"
-                '__all__ = ["main"]\n',
+                'from .cli import main\n__all__ = ["main"]\n',
                 encoding="utf-8",
             )
             (pkg / "cli.py").write_text(
@@ -790,8 +950,7 @@ class TestAnalyze:
             )
             (pkg / "__init__.py").write_text("", encoding="utf-8")
             (pkg / "gui.py").write_text(
-                "def launch():\n"
-                '    print("hello")\n',
+                'def launch():\n    print("hello")\n',
                 encoding="utf-8",
             )
 
@@ -824,8 +983,7 @@ class TestAnalyze:
                 encoding="utf-8",
             )
             (pkg / "_banner.py").write_text(
-                "def print_banner():\n"
-                '    print("hello")\n',
+                'def print_banner():\n    print("hello")\n',
                 encoding="utf-8",
             )
 
@@ -850,9 +1008,7 @@ class TestAnalyze:
             pkg = root / "mypkg"
             pkg.mkdir()
             (root / "pyproject.toml").write_text(
-                "[project]\n"
-                'name = "disconnected-package-repro"\n'
-                'version = "0.1.0"\n',
+                '[project]\nname = "disconnected-package-repro"\nversion = "0.1.0"\n',
                 encoding="utf-8",
             )
             (pkg / "__init__.py").write_text("", encoding="utf-8")
@@ -1271,7 +1427,7 @@ class TestApplyPenalties:
             ("benchmarks/bench_api.py", "class", "benchmark entrypoint path"),
         ],
     )
-    @patch("skylos.penalties.detect_framework_usage")
+    @patch("skylos.analysis.penalties.detect_framework_usage")
     def test_non_library_paths_suppress_dead_code_callables(
         self,
         mock_detect_framework,
@@ -1300,7 +1456,7 @@ class TestApplyPenalties:
         assert mock_def.confidence == 0
         assert mock_def.skip_reason == expected_reason
 
-    @patch("skylos.penalties.detect_framework_usage")
+    @patch("skylos.analysis.penalties.detect_framework_usage")
     def test_private_name_penalty(
         self,
         mock_detect_framework,
@@ -1323,7 +1479,7 @@ class TestApplyPenalties:
         )
         assert mock_def.confidence < 100
 
-    @patch("skylos.penalties.detect_framework_usage")
+    @patch("skylos.analysis.penalties.detect_framework_usage")
     def test_magic_methods_confidence_zero(
         self,
         mock_detect_framework,
@@ -1343,7 +1499,7 @@ class TestApplyPenalties:
         )
         assert mock_def.confidence == 0
 
-    @patch("skylos.penalties.detect_framework_usage")
+    @patch("skylos.analysis.penalties.detect_framework_usage")
     def test_self_cls_parameters_confidence_zero(
         self,
         mock_detect_framework,
@@ -1378,7 +1534,7 @@ class TestApplyPenalties:
         assert mock_self.confidence == 0
         assert mock_cls.confidence == 0
 
-    @patch("skylos.penalties.detect_framework_usage")
+    @patch("skylos.analysis.penalties.detect_framework_usage")
     def test_conditional_import_penalty_reduces_confidence(
         self,
         mock_detect_framework,
@@ -1404,7 +1560,7 @@ class TestApplyPenalties:
         assert mock_def.confidence == 40
         assert "conditional_import_fallback" in mock_def.why_confidence_reduced
 
-    @patch("skylos.penalties.detect_framework_usage")
+    @patch("skylos.analysis.penalties.detect_framework_usage")
     def test_test_methods_confidence_zero(
         self, mock_detect_framework, mock_definition, mock_framework_aware_visitor
     ):
@@ -1427,7 +1583,7 @@ class TestApplyPenalties:
         apply_penalties(skylos, mock_def, test_visitor, mock_framework_aware_visitor)
         assert mock_def.confidence == 0
 
-    @patch("skylos.penalties.detect_framework_usage")
+    @patch("skylos.analysis.penalties.detect_framework_usage")
     def test_underscore_variable_confidence_zero(
         self,
         mock_detect_framework,
@@ -1590,9 +1746,7 @@ class PlainChild(Base):
         result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
         result = json.loads(result_json)
 
-        unused_parameters = {
-            item["full_name"] for item in result["unused_parameters"]
-        }
+        unused_parameters = {item["full_name"] for item in result["unused_parameters"]}
 
         assert "models.TypedChild.render.compat" not in unused_parameters
         assert "models.ExtensionChild.render.compat_ext" not in unused_parameters
@@ -1785,9 +1939,7 @@ def stale_path():
         assert "LegacyHandler.handle" in unreachable
         assert "stale_path" in unreachable
 
-    def test_analyze_explicit_protocol_implementer_method_can_be_dead(
-        self, tmp_path
-    ):
+    def test_analyze_explicit_protocol_implementer_method_can_be_dead(self, tmp_path):
         src = tmp_path / "service.py"
         src.write_text(
             """
@@ -2195,7 +2347,7 @@ ignore = []
                 ],
             ),
             patch(
-                "skylos.injection_scanner.scan_file",
+                "skylos.security.injection_scanner.scan_file",
                 return_value=[
                     {
                         "rule_id": "SKY-D260",
@@ -2558,9 +2710,7 @@ def handler(request):
         assert "dependency_vulnerabilities" not in result
         assert "sca_count" not in result.get("analysis_summary", {})
 
-    def test_enable_sca_runs_dependency_vulnerability_scan(
-        self, tmp_path, monkeypatch
-    ):
+    def test_enable_sca_runs_dependency_vulnerability_scan(self, tmp_path, monkeypatch):
         (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
         (tmp_path / "app.py").write_text("def handler():\n    return 1\n")
 

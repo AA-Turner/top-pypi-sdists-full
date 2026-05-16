@@ -5,12 +5,14 @@ Handles parsing of llm_model, llm_config, and llm_intent blocks.
 Part of Issue #33: LLM Jobs as First-Class Events.
 """
 
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from .. import ir
 from ..errors import make_parse_error
 from ..lexer import TokenType
+from .dispatch import KeywordParser, parse_block_with_dispatch
 
 
 class LLMParserMixin:
@@ -30,10 +32,15 @@ class LLMParserMixin:
         file: Any
 
     def parse_llm_model(self) -> ir.LLMModelSpec:
-        """
-        Parse llm_model declaration.
+        """Parse a ``llm_model <name> "Title"?:`` declaration.
 
-        Syntax:
+        Refactored to dispatch-table style (follow-on to #1098). 6
+        token-keyed `_lm_kw_*` parsers (provider/model_id/tier/max_tokens/
+        cost_per_1k_input/cost_per_1k_output) + a `_build_llm_model`
+        builder enforcing the required `provider` + `model_id` fields.
+
+        Syntax::
+
             llm_model claude_sonnet "Claude Sonnet":
               provider: anthropic
               model_id: claude-3-5-sonnet-20241022
@@ -50,119 +57,15 @@ class LLMParserMixin:
         self.skip_newlines()
         self.expect(TokenType.INDENT)
 
-        provider: ir.LLMProvider | None = None
-        model_id: str | None = None
-        tier: ir.ModelTier = ir.ModelTier.BALANCED
-        max_tokens: int = 4096
-        cost_per_1k_input: Decimal | None = None
-        cost_per_1k_output: Decimal | None = None
-
-        while not self.match(TokenType.DEDENT):
-            self.skip_newlines()
-            if self.match(TokenType.DEDENT):
-                break
-
-            # provider: anthropic | openai | google | local
-            if self.match(TokenType.PROVIDER):
-                self.advance()
-                self.expect(TokenType.COLON)
-                provider_str = self.expect_identifier_or_keyword().value
-                try:
-                    provider = ir.LLMProvider(provider_str)
-                except ValueError:
-                    token = self.current_token()
-                    raise make_parse_error(
-                        f"Invalid LLM provider: {provider_str}. "
-                        "Must be: anthropic, openai, google, or local",
-                        self.file,
-                        token.line,
-                        token.column,
-                    )
-                self.skip_newlines()
-
-            # model_id: claude-3-5-sonnet-20241022
-            elif self.match(TokenType.MODEL_ID):
-                self.advance()
-                self.expect(TokenType.COLON)
-                # model_id can be a string or identifier
-                if self.match(TokenType.STRING):
-                    model_id = self.current_token().value
-                    self.advance()
-                else:
-                    model_id = self._parse_model_id_value()
-                self.skip_newlines()
-
-            # tier: fast | balanced | quality
-            elif self.match(TokenType.TIER):
-                self.advance()
-                self.expect(TokenType.COLON)
-                tier_str = self.expect_identifier_or_keyword().value
-                try:
-                    tier = ir.ModelTier(tier_str)
-                except ValueError:
-                    token = self.current_token()
-                    raise make_parse_error(
-                        f"Invalid model tier: {tier_str}. Must be: fast, balanced, or quality",
-                        self.file,
-                        token.line,
-                        token.column,
-                    )
-                self.skip_newlines()
-
-            # max_tokens: 4096
-            elif self.match(TokenType.MAX_TOKENS):
-                self.advance()
-                self.expect(TokenType.COLON)
-                max_tokens = int(self.expect(TokenType.NUMBER).value)
-                self.skip_newlines()
-
-            # cost_per_1k_input: 0.003
-            elif self.match(TokenType.COST_PER_1K_INPUT):
-                self.advance()
-                self.expect(TokenType.COLON)
-                cost_per_1k_input = Decimal(self.expect(TokenType.NUMBER).value)
-                self.skip_newlines()
-
-            # cost_per_1k_output: 0.015
-            elif self.match(TokenType.COST_PER_1K_OUTPUT):
-                self.advance()
-                self.expect(TokenType.COLON)
-                cost_per_1k_output = Decimal(self.expect(TokenType.NUMBER).value)
-                self.skip_newlines()
-
-            else:
-                # Skip unknown fields
-                self.advance()
-                self.skip_newlines()
-
-        self.expect(TokenType.DEDENT)
-
-        # Validate required fields
-        if provider is None:
-            raise make_parse_error(
-                "llm_model requires 'provider' field",
-                self.file,
-                self.current_token().line,
-                self.current_token().column,
-            )
-        if model_id is None:
-            raise make_parse_error(
-                "llm_model requires 'model_id' field",
-                self.file,
-                self.current_token().line,
-                self.current_token().column,
-            )
-
-        return ir.LLMModelSpec(
-            name=name,
-            title=title,
-            provider=provider,
-            model_id=model_id,
-            tier=tier,
-            max_tokens=max_tokens,
-            cost_per_1k_input=cost_per_1k_input,
-            cost_per_1k_output=cost_per_1k_output,
+        state = _LLMModelState()
+        parse_block_with_dispatch(
+            self,
+            first_class_keywords=_LLM_MODEL_KEYWORDS,
+            state=state,
+            on_unknown=_on_unknown_llm_model,
         )
+        self.expect(TokenType.DEDENT)
+        return _build_llm_model(self, name, title, state)
 
     def _parse_model_id_value(self) -> str:
         """Parse a model ID value which may contain hyphens."""
@@ -185,10 +88,14 @@ class LLMParserMixin:
         return "-".join(parts)
 
     def parse_llm_config(self) -> ir.LLMConfigSpec:
-        """
-        Parse llm_config declaration.
+        """Parse a top-level ``llm_config:`` block.
 
-        Syntax:
+        Refactored to dispatch-table style (follow-on to #1098). 6
+        token-keyed `_lc_kw_*` + 1 IDENT-text-matched (`concurrency`)
+        + a `_build_llm_config` builder.
+
+        Syntax::
+
             llm_config:
               default_model: claude_sonnet
               artifact_store: local
@@ -208,105 +115,16 @@ class LLMParserMixin:
         self.skip_newlines()
         self.expect(TokenType.INDENT)
 
-        default_model: str | None = None
-        default_provider: ir.LLMProvider | None = None
-        budget_alert_usd: Decimal | None = None
-        artifact_store: ir.ArtifactStore = ir.ArtifactStore.LOCAL
-        logging: ir.LoggingPolicySpec = ir.LoggingPolicySpec()
-        rate_limits: dict[str, int] | None = None
-        concurrency: dict[str, int] | None = None
-
-        while not self.match(TokenType.DEDENT):
-            self.skip_newlines()
-            if self.match(TokenType.DEDENT):
-                break
-
-            # default_model: model_name
-            if self.match(TokenType.DEFAULT_MODEL):
-                self.advance()
-                self.expect(TokenType.COLON)
-                default_model = self.expect_identifier_or_keyword().value
-                self.skip_newlines()
-
-            # default_provider: anthropic | openai | google | local
-            elif self.match(TokenType.DEFAULT_PROVIDER):
-                self.advance()
-                self.expect(TokenType.COLON)
-                provider_str = self.expect_identifier_or_keyword().value
-                try:
-                    default_provider = ir.LLMProvider(provider_str)
-                except ValueError:
-                    token = self.current_token()
-                    raise make_parse_error(
-                        f"Invalid LLM provider: {provider_str}. "
-                        "Must be: anthropic, openai, google, or local",
-                        self.file,
-                        token.line,
-                        token.column,
-                    )
-                self.skip_newlines()
-
-            # budget_alert_usd: 50.00
-            elif self.match(TokenType.BUDGET_ALERT_USD):
-                self.advance()
-                self.expect(TokenType.COLON)
-                budget_alert_usd = Decimal(self.expect(TokenType.NUMBER).value)
-                self.skip_newlines()
-
-            # artifact_store: local | s3 | gcs
-            elif self.match(TokenType.ARTIFACT_STORE):
-                self.advance()
-                self.expect(TokenType.COLON)
-                store_str = self.expect_identifier_or_keyword().value
-                try:
-                    artifact_store = ir.ArtifactStore(store_str)
-                except ValueError:
-                    token = self.current_token()
-                    raise make_parse_error(
-                        f"Invalid artifact store: {store_str}. Must be: local, s3, or gcs",
-                        self.file,
-                        token.line,
-                        token.column,
-                    )
-                self.skip_newlines()
-
-            # logging: (nested block)
-            elif self.match(TokenType.LOGGING):
-                self.advance()
-                self.expect(TokenType.COLON)
-                self.skip_newlines()
-                logging = self._parse_logging_policy()
-
-            # rate_limits: (nested block)
-            elif self.match(TokenType.RATE_LIMITS):
-                self.advance()
-                self.expect(TokenType.COLON)
-                self.skip_newlines()
-                rate_limits = self._parse_rate_limits()
-
-            # concurrency: (nested block — same format as rate_limits)
-            elif self.match(TokenType.IDENTIFIER) and self.current_token().value == "concurrency":
-                self.advance()
-                self.expect(TokenType.COLON)
-                self.skip_newlines()
-                concurrency = self._parse_concurrency_limits()
-
-            else:
-                # Skip unknown fields
-                self.advance()
-                self.skip_newlines()
-
-        self.expect(TokenType.DEDENT)
-
-        return ir.LLMConfigSpec(
-            default_model=default_model,
-            default_provider=default_provider,
-            budget_alert_usd=budget_alert_usd,
-            artifact_store=artifact_store,
-            logging=logging,
-            rate_limits=rate_limits,
-            concurrency=concurrency,
+        state = _LLMConfigState()
+        parse_block_with_dispatch(
+            self,
+            first_class_keywords=_LLM_CONFIG_KEYWORDS,
+            ident_keywords=_LLM_CONFIG_IDENT_KEYWORDS,
+            state=state,
+            on_unknown=_on_unknown_llm_config,
         )
+        self.expect(TokenType.DEDENT)
+        return _build_llm_config(state)
 
     def _parse_logging_policy(self) -> ir.LoggingPolicySpec:
         """Parse logging policy block."""
@@ -380,29 +198,23 @@ class LLMParserMixin:
         return rate_limits
 
     def parse_llm_intent(self) -> ir.LLMIntentSpec:
-        """
-        Parse llm_intent declaration.
+        """Parse a ``llm_intent <name> "Title":`` declaration.
 
-        Syntax:
+        Refactored to dispatch-table style (follow-on to #1098). 9
+        token-keyed `_li_kw_*` parsers + 1 IDENT-text-matched (`model`
+        — IDENT-keyed because ``model`` is also a top-level
+        ``llm_model`` constructor) + a `_build_llm_intent` builder.
+
+        Syntax::
+
             llm_intent summarize_text "Summarize Text":
               model: claude_sonnet
               prompt: "Summarize the following: {{ input.text }}"
               timeout: 30
               output_schema: SummaryResult
-              retry:
-                max_attempts: 3
-                backoff: exponential
-              pii:
-                scan: true
-                action: redact
-              trigger:
-                on_entity: Ticket
-                on_event: created
-                input_map:
-                  title: entity.title
-                write_back:
-                  Ticket.category: output
-                when: "entity.category == null"
+              retry: ...
+              pii: ...
+              trigger: ...
         """
         self.expect(TokenType.LLM_INTENT)
         name = self.expect_identifier_or_keyword().value
@@ -412,114 +224,16 @@ class LLMParserMixin:
         self.skip_newlines()
         self.expect(TokenType.INDENT)
 
-        model_ref: str | None = None
-        prompt_template: str = ""
-        description: str | None = None
-        output_schema: str | None = None
-        timeout_seconds: int = 30
-        vision: bool = False
-        retry: ir.RetryPolicySpec | None = None
-        pii: ir.PIIPolicySpec | None = None
-        triggers: list[ir.LLMTriggerSpec] = []
-
-        while not self.match(TokenType.DEDENT):
-            self.skip_newlines()
-            if self.match(TokenType.DEDENT):
-                break
-
-            # model: model_name (note: 'model' is an identifier, not a keyword)
-            if self.match(TokenType.IDENTIFIER) and self.current_token().value == "model":
-                self.advance()
-                self.expect(TokenType.COLON)
-                model_ref = self.expect_identifier_or_keyword().value
-                self.skip_newlines()
-
-            # prompt: "template string"
-            elif self.match(TokenType.PROMPT):
-                self.advance()
-                self.expect(TokenType.COLON)
-                prompt_template = self.expect(TokenType.STRING).value
-                self.skip_newlines()
-
-            # description: "text"
-            elif self.match(TokenType.DESCRIPTION):
-                self.advance()
-                self.expect(TokenType.COLON)
-                description = self.expect(TokenType.STRING).value
-                self.skip_newlines()
-
-            # output_schema: EntityName
-            elif self.match(TokenType.OUTPUT_SCHEMA):
-                self.advance()
-                self.expect(TokenType.COLON)
-                output_schema = self.expect_identifier_or_keyword().value
-                self.skip_newlines()
-
-            # timeout: 30
-            elif self.match(TokenType.TIMEOUT):
-                self.advance()
-                self.expect(TokenType.COLON)
-                timeout_seconds = int(self.expect(TokenType.NUMBER).value)
-                self.skip_newlines()
-
-            # max_tokens: 4096
-            elif self.match(TokenType.MAX_TOKENS):
-                self.advance()
-                self.expect(TokenType.COLON)
-                # max_tokens on intent is informational — stored on the
-                # referenced model, but we accept it here for convenience
-                int(self.expect(TokenType.NUMBER).value)
-                self.skip_newlines()
-
-            # vision: true|false
-            elif self.match(TokenType.VISION):
-                self.advance()
-                self.expect(TokenType.COLON)
-                vision = self._parse_boolean()
-                self.skip_newlines()
-
-            # retry: (nested block)
-            elif self.match(TokenType.RETRY):
-                self.advance()
-                self.expect(TokenType.COLON)
-                self.skip_newlines()
-                retry = self._parse_retry_policy()
-
-            # pii: (nested block)
-            elif self.match(TokenType.PII):
-                self.advance()
-                self.expect(TokenType.COLON)
-                self.skip_newlines()
-                pii = self._parse_pii_policy()
-
-            # trigger: (nested block)
-            elif self.match(TokenType.TRIGGER):
-                self.advance()
-                self.expect(TokenType.COLON)
-                self.skip_newlines()
-                trigger = self._parse_llm_trigger()
-                triggers.append(trigger)
-
-            else:
-                # Skip unknown fields
-                self.advance()
-                self.skip_newlines()
-
-        self.expect(TokenType.DEDENT)
-
-        return ir.LLMIntentSpec(
-            name=name,
-            title=title,
-            description=description,
-            model_ref=model_ref,
-            prompt_template=prompt_template,
-            output_schema=output_schema,
-            timeout_seconds=timeout_seconds,
-            vision=vision,
-            retry=retry,
-            pii=pii,
-            triggers=triggers,
+        state = _LLMIntentState()
+        parse_block_with_dispatch(
+            self,
+            first_class_keywords=_LLM_INTENT_KEYWORDS,
+            ident_keywords=_LLM_INTENT_IDENT_KEYWORDS,
+            state=state,
+            on_unknown=_on_unknown_llm_intent,
         )
+        self.expect(TokenType.DEDENT)
+        return _build_llm_intent(name, title, state)
 
     def _parse_retry_policy(self) -> ir.RetryPolicySpec:
         """Parse retry policy block."""
@@ -840,3 +554,439 @@ class LLMParserMixin:
         self.expect(TokenType.DEDENT)
 
         return limits
+
+
+# ============================================================ #
+# parse_llm_intent — keyword-dispatch decomposition (#1098 template) #
+# ============================================================ #
+#
+# The 140-line monolith was replaced (v0.70.23) with the dispatch
+# pattern shipped in #1097. 9 token-keyed `_li_kw_*` parsers + 1
+# IDENT-text-matched (`model`) + a `_build_llm_intent` builder.
+
+
+@dataclass
+class _LLMIntentState:
+    """Accumulator for :meth:`LLMParserMixin.parse_llm_intent`."""
+
+    model_ref: str | None = None
+    prompt_template: str = ""
+    description: str | None = None
+    output_schema: str | None = None
+    timeout_seconds: int = 30
+    vision: bool = False
+    retry: ir.RetryPolicySpec | None = None
+    pii: ir.PIIPolicySpec | None = None
+    triggers: list[ir.LLMTriggerSpec] = field(default_factory=list)
+
+
+# ---------- Token-keyed keyword parsers ---------- #
+
+
+def _li_kw_prompt(parser: Any, state: _LLMIntentState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.prompt_template = parser.expect(TokenType.STRING).value
+    parser.skip_newlines()
+
+
+def _li_kw_description(parser: Any, state: _LLMIntentState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.description = parser.expect(TokenType.STRING).value
+    parser.skip_newlines()
+
+
+def _li_kw_output_schema(parser: Any, state: _LLMIntentState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.output_schema = parser.expect_identifier_or_keyword().value
+    parser.skip_newlines()
+
+
+def _li_kw_timeout(parser: Any, state: _LLMIntentState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.timeout_seconds = int(parser.expect(TokenType.NUMBER).value)
+    parser.skip_newlines()
+
+
+def _li_kw_max_tokens(parser: Any, state: _LLMIntentState) -> None:
+    """``max_tokens: <int>`` — informational at the intent level.
+
+    Authoritative ``max_tokens`` lives on the referenced ``llm_model``;
+    accept and discard here for authoring convenience.
+    """
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    int(parser.expect(TokenType.NUMBER).value)  # discarded
+    parser.skip_newlines()
+
+
+def _li_kw_vision(parser: Any, state: _LLMIntentState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.vision = parser._parse_boolean()
+    parser.skip_newlines()
+
+
+def _li_kw_retry(parser: Any, state: _LLMIntentState) -> None:
+    """``retry:`` — nested policy block (max_attempts/backoff/delays)."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    parser.skip_newlines()
+    state.retry = parser._parse_retry_policy()
+
+
+def _li_kw_pii(parser: Any, state: _LLMIntentState) -> None:
+    """``pii:`` — nested PII scan/action policy block."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    parser.skip_newlines()
+    state.pii = parser._parse_pii_policy()
+
+
+def _li_kw_trigger(parser: Any, state: _LLMIntentState) -> None:
+    """``trigger:`` — nested entity/event-bound trigger block (multi-allowed)."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    parser.skip_newlines()
+    state.triggers.append(parser._parse_llm_trigger())
+
+
+# ---------- IDENT-text-matched keyword parsers ---------- #
+
+
+def _li_kw_model(parser: Any, state: _LLMIntentState) -> None:
+    """``model: model_name`` — IDENT-keyed because ``model`` is not a lexer keyword."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.model_ref = parser.expect_identifier_or_keyword().value
+    parser.skip_newlines()
+
+
+# ---------- Dispatch tables + on_unknown + builder ---------- #
+
+
+_LLM_INTENT_KEYWORDS: dict[TokenType, KeywordParser[_LLMIntentState]] = {
+    TokenType.PROMPT: _li_kw_prompt,
+    TokenType.DESCRIPTION: _li_kw_description,
+    TokenType.OUTPUT_SCHEMA: _li_kw_output_schema,
+    TokenType.TIMEOUT: _li_kw_timeout,
+    TokenType.MAX_TOKENS: _li_kw_max_tokens,
+    TokenType.VISION: _li_kw_vision,
+    TokenType.RETRY: _li_kw_retry,
+    TokenType.PII: _li_kw_pii,
+    TokenType.TRIGGER: _li_kw_trigger,
+}
+
+
+_LLM_INTENT_IDENT_KEYWORDS: dict[str, KeywordParser[_LLMIntentState]] = {
+    "model": _li_kw_model,
+}
+
+
+def _on_unknown_llm_intent(parser: Any) -> None:
+    """Silently skip unknown keywords + their newline (mirrors legacy else branch)."""
+    parser.advance()
+    parser.skip_newlines()
+
+
+def _build_llm_intent(name: str, title: str | None, state: _LLMIntentState) -> ir.LLMIntentSpec:
+    return ir.LLMIntentSpec(
+        name=name,
+        title=title,
+        description=state.description,
+        model_ref=state.model_ref,
+        prompt_template=state.prompt_template,
+        output_schema=state.output_schema,
+        timeout_seconds=state.timeout_seconds,
+        vision=state.vision,
+        retry=state.retry,
+        pii=state.pii,
+        triggers=state.triggers,
+    )
+
+
+# ============================================================ #
+# parse_llm_model — keyword-dispatch decomposition (#1098 template) #
+# ============================================================ #
+#
+# The 133-line monolith was replaced (v0.70.25) with the dispatch
+# pattern shipped in #1097. 6 token-keyed `_lm_kw_*` parsers + a
+# `_build_llm_model` builder enforcing the required `provider` and
+# `model_id` fields.
+
+
+@dataclass
+class _LLMModelState:
+    """Accumulator for :meth:`LLMParserMixin.parse_llm_model`."""
+
+    provider: ir.LLMProvider | None = None
+    model_id: str | None = None
+    tier: ir.ModelTier = ir.ModelTier.BALANCED
+    max_tokens: int = 4096
+    cost_per_1k_input: Decimal | None = None
+    cost_per_1k_output: Decimal | None = None
+
+
+# ---------- Keyword parsers ---------- #
+
+
+def _lm_kw_provider(parser: Any, state: _LLMModelState) -> None:
+    """``provider: anthropic | openai | google | local`` — validated."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    provider_str = parser.expect_identifier_or_keyword().value
+    try:
+        state.provider = ir.LLMProvider(provider_str)
+    except ValueError:
+        token = parser.current_token()
+        raise make_parse_error(
+            f"Invalid LLM provider: {provider_str}. Must be: anthropic, openai, google, or local",
+            parser.file,
+            token.line,
+            token.column,
+        )
+    parser.skip_newlines()
+
+
+def _lm_kw_model_id(parser: Any, state: _LLMModelState) -> None:
+    """``model_id: <STRING | hyphenated-id>`` — accepts both forms."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    if parser.match(TokenType.STRING):
+        state.model_id = parser.current_token().value
+        parser.advance()
+    else:
+        state.model_id = parser._parse_model_id_value()
+    parser.skip_newlines()
+
+
+def _lm_kw_tier(parser: Any, state: _LLMModelState) -> None:
+    """``tier: fast | balanced | quality`` — validated."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    tier_str = parser.expect_identifier_or_keyword().value
+    try:
+        state.tier = ir.ModelTier(tier_str)
+    except ValueError:
+        token = parser.current_token()
+        raise make_parse_error(
+            f"Invalid model tier: {tier_str}. Must be: fast, balanced, or quality",
+            parser.file,
+            token.line,
+            token.column,
+        )
+    parser.skip_newlines()
+
+
+def _lm_kw_max_tokens(parser: Any, state: _LLMModelState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.max_tokens = int(parser.expect(TokenType.NUMBER).value)
+    parser.skip_newlines()
+
+
+def _lm_kw_cost_per_1k_input(parser: Any, state: _LLMModelState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.cost_per_1k_input = Decimal(parser.expect(TokenType.NUMBER).value)
+    parser.skip_newlines()
+
+
+def _lm_kw_cost_per_1k_output(parser: Any, state: _LLMModelState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.cost_per_1k_output = Decimal(parser.expect(TokenType.NUMBER).value)
+    parser.skip_newlines()
+
+
+# ---------- Dispatch table + on_unknown + builder ---------- #
+
+
+_LLM_MODEL_KEYWORDS: dict[TokenType, KeywordParser[_LLMModelState]] = {
+    TokenType.PROVIDER: _lm_kw_provider,
+    TokenType.MODEL_ID: _lm_kw_model_id,
+    TokenType.TIER: _lm_kw_tier,
+    TokenType.MAX_TOKENS: _lm_kw_max_tokens,
+    TokenType.COST_PER_1K_INPUT: _lm_kw_cost_per_1k_input,
+    TokenType.COST_PER_1K_OUTPUT: _lm_kw_cost_per_1k_output,
+}
+
+
+def _on_unknown_llm_model(parser: Any) -> None:
+    """Silently skip unknown keywords + their newline (mirrors legacy else branch)."""
+    parser.advance()
+    parser.skip_newlines()
+
+
+def _build_llm_model(
+    parser: Any, name: str, title: str | None, state: _LLMModelState
+) -> ir.LLMModelSpec:
+    """Enforce required provider + model_id; assemble the IR."""
+    if state.provider is None:
+        token = parser.current_token()
+        raise make_parse_error(
+            "llm_model requires 'provider' field",
+            parser.file,
+            token.line,
+            token.column,
+        )
+    if state.model_id is None:
+        token = parser.current_token()
+        raise make_parse_error(
+            "llm_model requires 'model_id' field",
+            parser.file,
+            token.line,
+            token.column,
+        )
+
+    return ir.LLMModelSpec(
+        name=name,
+        title=title,
+        provider=state.provider,
+        model_id=state.model_id,
+        tier=state.tier,
+        max_tokens=state.max_tokens,
+        cost_per_1k_input=state.cost_per_1k_input,
+        cost_per_1k_output=state.cost_per_1k_output,
+    )
+
+
+# ============================================================ #
+# parse_llm_config — keyword-dispatch decomposition (#1098 template) #
+# ============================================================ #
+#
+# The 122-line monolith was replaced (v0.70.26) with the dispatch
+# pattern shipped in #1097. 6 token-keyed `_lc_kw_*` + 1 IDENT-keyed
+# (`concurrency`) + a `_build_llm_config` builder.
+
+
+@dataclass
+class _LLMConfigState:
+    """Accumulator for :meth:`LLMParserMixin.parse_llm_config`."""
+
+    default_model: str | None = None
+    default_provider: ir.LLMProvider | None = None
+    budget_alert_usd: Decimal | None = None
+    artifact_store: ir.ArtifactStore = ir.ArtifactStore.LOCAL
+    logging: ir.LoggingPolicySpec = field(default_factory=ir.LoggingPolicySpec)
+    rate_limits: dict[str, int] | None = None
+    concurrency: dict[str, int] | None = None
+
+
+# ---------- Token-keyed keyword parsers ---------- #
+
+
+def _lc_kw_default_model(parser: Any, state: _LLMConfigState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.default_model = parser.expect_identifier_or_keyword().value
+    parser.skip_newlines()
+
+
+def _lc_kw_default_provider(parser: Any, state: _LLMConfigState) -> None:
+    """``default_provider: anthropic | openai | google | local`` — validated."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    provider_str = parser.expect_identifier_or_keyword().value
+    try:
+        state.default_provider = ir.LLMProvider(provider_str)
+    except ValueError:
+        token = parser.current_token()
+        raise make_parse_error(
+            f"Invalid LLM provider: {provider_str}. Must be: anthropic, openai, google, or local",
+            parser.file,
+            token.line,
+            token.column,
+        )
+    parser.skip_newlines()
+
+
+def _lc_kw_budget_alert_usd(parser: Any, state: _LLMConfigState) -> None:
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    state.budget_alert_usd = Decimal(parser.expect(TokenType.NUMBER).value)
+    parser.skip_newlines()
+
+
+def _lc_kw_artifact_store(parser: Any, state: _LLMConfigState) -> None:
+    """``artifact_store: local | s3 | gcs`` — validated."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    store_str = parser.expect_identifier_or_keyword().value
+    try:
+        state.artifact_store = ir.ArtifactStore(store_str)
+    except ValueError:
+        token = parser.current_token()
+        raise make_parse_error(
+            f"Invalid artifact store: {store_str}. Must be: local, s3, or gcs",
+            parser.file,
+            token.line,
+            token.column,
+        )
+    parser.skip_newlines()
+
+
+def _lc_kw_logging(parser: Any, state: _LLMConfigState) -> None:
+    """``logging:`` — nested LoggingPolicy block."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    parser.skip_newlines()
+    state.logging = parser._parse_logging_policy()
+
+
+def _lc_kw_rate_limits(parser: Any, state: _LLMConfigState) -> None:
+    """``rate_limits:`` — nested map of model_name → int RPM."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    parser.skip_newlines()
+    state.rate_limits = parser._parse_rate_limits()
+
+
+# ---------- IDENT-text-matched keyword parsers ---------- #
+
+
+def _lc_kw_concurrency(parser: Any, state: _LLMConfigState) -> None:
+    """``concurrency:`` — nested map (same shape as rate_limits)."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    parser.skip_newlines()
+    state.concurrency = parser._parse_concurrency_limits()
+
+
+# ---------- Dispatch tables + on_unknown + builder ---------- #
+
+
+_LLM_CONFIG_KEYWORDS: dict[TokenType, KeywordParser[_LLMConfigState]] = {
+    TokenType.DEFAULT_MODEL: _lc_kw_default_model,
+    TokenType.DEFAULT_PROVIDER: _lc_kw_default_provider,
+    TokenType.BUDGET_ALERT_USD: _lc_kw_budget_alert_usd,
+    TokenType.ARTIFACT_STORE: _lc_kw_artifact_store,
+    TokenType.LOGGING: _lc_kw_logging,
+    TokenType.RATE_LIMITS: _lc_kw_rate_limits,
+}
+
+
+_LLM_CONFIG_IDENT_KEYWORDS: dict[str, KeywordParser[_LLMConfigState]] = {
+    "concurrency": _lc_kw_concurrency,
+}
+
+
+def _on_unknown_llm_config(parser: Any) -> None:
+    """Silently skip unknown keywords + their newline (mirrors legacy else)."""
+    parser.advance()
+    parser.skip_newlines()
+
+
+def _build_llm_config(state: _LLMConfigState) -> ir.LLMConfigSpec:
+    return ir.LLMConfigSpec(
+        default_model=state.default_model,
+        default_provider=state.default_provider,
+        budget_alert_usd=state.budget_alert_usd,
+        artifact_store=state.artifact_store,
+        logging=state.logging,
+        rate_limits=state.rate_limits,
+        concurrency=state.concurrency,
+    )

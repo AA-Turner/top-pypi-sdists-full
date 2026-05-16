@@ -300,7 +300,7 @@ def main():
     
 
     mode_parser = ArgumentParser(description="Select mode to run g4f in.", exit_on_error=False)
-    mode_parser.add_argument("mode", nargs="?", choices=["api", "gui", "client", "mcp", "auth", "debug"], default="api", help="Mode to run g4f in (default: api).")
+    mode_parser.add_argument("mode", nargs="?", choices=["api", "gui", "client", "mcp", "auth", "dev"], default="api", help="Mode to run g4f in (default: api).")
     
     # Preserve original remaining so the API parser gets all args if mode
     # detection fails (e.g. `python -m g4f --port 8080` without a mode prefix).
@@ -319,7 +319,7 @@ def main():
             print(f"Handling auth for provider: {args.provider}, action: {args.action}")
             handle_auth(args.provider, args.action, remaining)
             return
-        elif args.mode == "debug":
+        elif args.mode == "dev":
             parser = get_api_parser()
             args = parser.parse_args(remaining)
             args.debug = True

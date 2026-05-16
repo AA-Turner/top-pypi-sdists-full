@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, profile_section
+from .._internal import expect, profile_section, CallbackList
 from .._flag import StackMode, SceneState
 from .._rendering import Pipeline, Camera, Viewport
 from .._managers import CoordinatesManager, MouseManager
@@ -20,21 +20,39 @@ class Scene:
         stack_mode: mode d'empilement par rapport aux autres scenes
     """
     __slots__ = (
+        "_viewport", "_camera", "_stack_mode",
         "_layers", "_z_orders",
-        "_viewport", "_camera",
-        "_stack_mode", "_state",
-        "_update_callbacks", "_draw_callbacks",
+        "_state",
+        "_on_start", "_on_stop", "_on_update", "_on_draw",
     )
 
     def __init__(self, viewport: Viewport = None, camera: Camera = None, stack_mode: StackMode = StackMode.OVERLAY):
+        # Transtypage et vérifications
+        if __debug__:
+            expect(viewport, (Viewport, None))
+            expect(camera, (Camera, None))
+            expect(stack_mode, StackMode)
+        
+        # Attributs publiques
+        self._viewport: Viewport = viewport if viewport is not None else Viewport()
+        self._camera: Camera = camera if camera is not None else Camera()
+        self._stack_mode: StackMode = stack_mode
+
+        # Layers
         self._layers: list[Layer] = []
         self._z_orders: list[int] = []
-        self._viewport: Viewport = expect(viewport, Viewport) if viewport else Viewport()
-        self._camera: Camera = expect(camera, Camera) if camera else Camera((0, 0))
-        self._stack_mode: StackMode = expect(stack_mode, StackMode)
+
+        # Etat
         self._state: SceneState = SceneState.SLEEPING
-        self._update_callbacks: list[Callable[[float], None]] = []
-        self._draw_callbacks: list[Callable[[], None]] = []
+        
+        # Hooks
+        self._on_start: CallbackList = CallbackList()
+        self._on_stop: CallbackList = CallbackList()
+        self._on_update: CallbackList | None = None
+        self._on_draw: CallbackList | None = None
+
+        self.on_start(self._start)
+        self.on_stop(self._stop)
 
     # ======================================== GETTERS ========================================
     @property
@@ -44,7 +62,9 @@ class Scene:
     
     @viewport.setter
     def viewport(self, value: Viewport) -> None:
-        self._viewport = expect(value, Viewport)
+        if __debug__:
+            expect(value, Viewport)
+        self._viewport = value
 
     @property
     def camera(self) -> Camera:
@@ -53,7 +73,9 @@ class Scene:
     
     @camera.setter
     def camera(self, value: Camera) -> None:
-        self._camera = expect(value, Camera)
+        if __debug__:
+            expect(value, Camera)
+        self._camera = value
 
     @property
     def stack_mode(self) -> StackMode:
@@ -65,7 +87,9 @@ class Scene:
     
     @stack_mode.setter
     def stack_mode(self, value: StackMode) -> None:
-        self._stack_mode = expect(value, StackMode)
+        if __debug__:
+            expect(value, StackMode)
+        self._stack_mode = value
 
     @property
     def state(self) -> SceneState:
@@ -83,7 +107,8 @@ class Scene:
             layer: layer à ajouter
             z: ordre de rendu
         """
-        expect(layer, Layer)
+        if __debug__:
+            expect(layer, Layer)
         i = bisect.bisect_right(self._z_orders, z)
         self._z_orders.insert(i, z)
         self._layers.insert(i, layer)
@@ -106,34 +131,34 @@ class Scene:
             layer.on_stop()
 
     # ======================================== HOOKS ========================================
-    def on_update(self, fn: Callable[[float], None]) -> Callable[[float], None]:
-        """Enregistre un callback appelé à chaque update
+    @property
+    def on_start(self) -> CallbackList:
+        """Hook d'activation"""
+        if self._on_start is None:
+            self._on_start = CallbackList()
+        return self._on_start
+    
+    @property
+    def on_stop(self) -> CallbackList:
+        """Hook d'affichage"""
+        if self._on_stop is None:
+            self._on_stop = CallbackList()
+        return self._on_stop
 
-        Args:
-            fn: fonction prenant dt en paramètre
-        """
-        self._update_callbacks.append(fn)
-        return fn
+    @property
+    def on_update(self) -> CallbackList:
+        """Hook d'actualisation"""
+        if self._on_update is None:
+            self._on_update = CallbackList()
+        return self._on_update
 
-    def on_draw(self, fn: Callable[[], None]) -> Callable[[], None]:
-        """Enregistre un callback appelé à chaque draw, après les layers
-
-        Args:
-            fn: fonction prenant pipeline en paramètre
-        """
-        self._draw_callbacks.append(fn)
-        return fn
-
-    def on_start(self):
-        """Démarre tous les layers"""
-        for layer in self._layers:
-            layer.on_start()
-
-    def on_stop(self):
-        """Arrête tous les layers"""
-        for layer in self._layers:
-            layer.on_stop()
-
+    @property
+    def on_draw(self) -> CallbackList:
+        """Hook d'affichage"""
+        if self._on_draw is None:
+            self._on_draw = CallbackList()
+        return self._on_draw
+    
     # ======================================== LIFE CYCLE ========================================
     def _preload(self, pipeline: Pipeline):
         """Préchargement"""
@@ -182,6 +207,16 @@ class Scene:
         """Fixe l'état de la scène"""
         self._state = value
 
+    def _start(self):
+        """Démarre tous les layers"""
+        for layer in self._layers:
+            layer.on_start()
+
+    def _stop(self):
+        """Arrête tous les layers"""
+        for layer in self._layers:
+            layer.on_stop()
+
     def _apply_context(self) -> None:
         """Applique le contexte de la scène"""
         coord: CoordinatesManager = Pipeline.get_coord()
@@ -194,3 +229,8 @@ class Scene:
         mouse._clear_world_position()
         coord: CoordinatesManager = Pipeline.get_coord()
         coord.clear_context()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Scene",
+]

@@ -347,6 +347,7 @@ class CondaEnvironment(MetaflowEnvironment):
                     env_dict = {
                         k: copy.deepcopy(decorator.attributes[k])
                         for k in decorator.attributes
+                        # Whitelist of attributes accepted by solve() implementations.
                         if k in ("python", "packages", "platform", "channels")
                     }
                     environment[env_key] = env_dict

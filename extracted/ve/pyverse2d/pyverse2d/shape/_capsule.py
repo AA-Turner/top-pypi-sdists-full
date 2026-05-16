@@ -1,15 +1,16 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, not_null, positive
+from .._internal import over
 from ..abc import Shape
 from ..math import Point
 
-from numbers import Real
-from typing import Iterator
-import math
 import numpy as np
 from numpy.typing import NDArray
+
+from numbers import Real
+from typing import Iterator, ClassVar
+import math
 
 # ======================================== SHAPE ========================================
 class Capsule(Shape):
@@ -21,11 +22,22 @@ class Capsule(Shape):
     """
     __slots__ = ("_radius", "_height")
 
-    CIRCLE_SEGMENTS: int = 64
+    CIRCLE_SEGMENTS: ClassVar[int] = 64
 
     def __init__(self, radius: Real, height: Real):
-        self._height: float = float(positive(not_null(expect(height, Real))))
-        self._radius: float = min(self._height * 0.5, float(positive(not_null(expect(radius, Real)))))
+        # Transtypage et vérifications
+        radius = float(radius)
+        height = float(height)
+
+        if __debug__:
+            over(height, 0, include=False)
+            over(radius, 0, include=False)
+
+        # Attributs publiques
+        self._height: float = height
+        self._radius: float = min(self._height * 0.5, radius)
+
+        # Initialisation de la forme
         super().__init__()
 
     # ======================================== CONVERSIONS ========================================
@@ -51,7 +63,7 @@ class Capsule(Shape):
     def radius(self) -> float:
         """Rayon des demi-cercles
 
-        Le rayon doit être un *réel positif non nul*.
+        Le rayon doit être un ``Real`` *positif non nul*.
         """
         return self._radius
 
@@ -59,7 +71,7 @@ class Capsule(Shape):
     def height(self) -> float:
         """Hauteur totale de la capsule
 
-        La hauteut doit être un *réel positif non nul*.
+        La hauteut doit être un ``Real`` *positif non nul*.
         """
         return self._height
 
@@ -115,7 +127,7 @@ class Capsule(Shape):
         """Teste si un point est dans la capsule
 
         Args:
-            point: point à tester
+            point: ``Point`` à tester
         """
         px, py = float(point[0]), float(point[1])
         half_spine = self.spine * 0.5
@@ -126,7 +138,12 @@ class Capsule(Shape):
         """Vérifie la convexité"""
         return True
 
-    # ======================================== PUBLIC METHODS ========================================
+    # ======================================== INTERFACE ========================================
     def copy(self) -> Capsule:
         """Renvoie une copie de la capsule"""
         return Capsule(self._radius, self._height)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Capsule",
+]

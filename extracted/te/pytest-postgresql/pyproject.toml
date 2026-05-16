@@ -1,6 +1,6 @@
 [project]
 name = "pytest-postgresql"
-version = "8.0.0"
+version = "8.1.0"
 description = "Postgresql fixtures and fixture factories for Pytest."
 readme = "README.rst"
 keywords = ["tests", "pytest", "fixture", "postgresql"]
@@ -39,7 +39,7 @@ requires-python = ">= 3.10"
 [project.urls]
 "Source" = "https://github.com/dbfixtures/pytest-postgresql"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-postgresql/issues"
-"Changelog" = "https://github.com/dbfixtures/pytest-postgresql/blob/v8.0.0/CHANGES.rst"
+"Changelog" = "https://github.com/dbfixtures/pytest-postgresql/blob/v8.1.0/CHANGES.rst"
 
 [project.entry-points."pytest11"]
 pytest_postgresql = "pytest_postgresql.plugin"
@@ -58,7 +58,7 @@ namespaces = false
 
 [tool.pytest]
 strict_xfail=true
-addopts = ["--showlocals", "--verbose", "--cov"]
+addopts = ["--showlocals", "--verbose"]
 testpaths = ["tests"]
 pytester_example_dir = "tests/examples"
 norecursedirs = ["examples"]
@@ -105,32 +105,38 @@ single_file=true
 filename="CHANGES.rst"
 issue_format="`#{issue} <https://github.com/dbfixtures/pytest-postgresql/issues/{issue}>`__"
 
-[tool.towncrier.fragment.feature]
-name = "Features"
-showcontent = true
-
-[tool.towncrier.fragment.bugfix]
-name = "Bugfixes"
-showcontent = true
-
-[tool.towncrier.fragment.docs]
-name = "Documentation"
-showcontent = true
-
-[tool.towncrier.fragment.deprecate]
-name = "Deprecations"
-showcontent = true
-
-[tool.towncrier.fragment.break]
+[[tool.towncrier.type]]
+directory = "break"
 name = "Breaking changes"
 showcontent = true
 
-[tool.towncrier.fragment.misc]
+[[tool.towncrier.type]]
+directory = "depr"
+name = "Deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bugfixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "docs"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
 name = "Miscellaneus"
-showcontent = false
+showcontent = true
 
 [tool.tbump.version]
-current = "8.0.0"
+current = "8.1.0"
 
 # Example of a semver regexp.
 # Make sure this matches current_version before

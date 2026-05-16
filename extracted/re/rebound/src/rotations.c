@@ -24,8 +24,10 @@
  * along with rebound.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-#include <stdlib.h>
 #include "rebound.h"
+#include "rebound_internal.h"
+#include <stdio.h>
+#include <math.h>
 #include "tools.h"
 
 // reb_vec3d manipulation functions
@@ -247,7 +249,7 @@ struct reb_rotation reb_rotation_init_orbit(const double Omega, const double inc
 void reb_rotation_to_orbital(struct reb_rotation q, double* Omega, double* inc, double* omega){
     // see https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0276302
     // and https://github.com/evbernardes/quaternion_to_euler/blob/main/euler_from_rotation.py
-    // Works but angles doen't always land in the right quadrant.
+    // Works but angles don't always land in the right quadrant.
     double ap = q.r;
     double bp = q.iz;
     double cp = q.ix;

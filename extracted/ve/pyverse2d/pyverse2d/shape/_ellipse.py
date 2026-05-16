@@ -1,15 +1,16 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, not_null, positive
+from .._internal import different_from
 from ..abc import Shape
 from ..math import Point
 
-from numbers import Real
-from typing import Iterator
-import math
 import numpy as np
 from numpy.typing import NDArray
+
+from numbers import Real
+from typing import Iterator, ClassVar
+import math
 
 # ======================================== SHAPE ========================================
 class Ellipse(Shape):
@@ -21,11 +22,22 @@ class Ellipse(Shape):
     """
     __slots__ = ("_rx", "_ry")
 
-    CIRCLE_SEGMENTS: int = 64
+    CIRCLE_SEGMENTS: ClassVar[int] = 64
 
     def __init__(self, rx: Real, ry: Real):
-        self._rx: float = float(positive(not_null(expect(rx, Real))))
-        self._ry: float = float(positive(not_null(expect(ry, Real))))
+        # Transtypage et vérifications
+        rx = abs(float(rx))
+        ry = abs(float(ry))
+
+        if __debug__:
+            different_from(rx, 0)
+            different_from(ry, 0)
+
+        # Attributs publiques
+        self._rx: float = rx
+        self._ry: float = ry
+
+        # Initialisation de la forme
         super().__init__()
 
     # ======================================== CONVERSIONS ========================================
@@ -51,7 +63,7 @@ class Ellipse(Shape):
     def rx(self) -> float:
         """Rayon horizontal de l'ellipse
 
-        Le rayon doit être un *réel positif non nul*.
+        Le rayon doit être un ``Real`` *positif non nul*.
         """
         return self._rx
 
@@ -59,7 +71,7 @@ class Ellipse(Shape):
     def ry(self) -> float:
         """Rayon vertical de l'ellipse
         
-        Le rayon doit être un *réel positif non nul*.
+        Le rayon doit être un ``Real`` *positif non nul*.
         """
         return self._ry
 
@@ -94,7 +106,7 @@ class Ellipse(Shape):
         """Teste si un point est dans l'ellipse
 
         Args:
-            point: point à tester
+            point: ``Point`` à tester
         """
         px, py = float(point[0]), float(point[1])
         return (px / self._rx) ** 2 + (py / self._ry) ** 2 <= 1.0
@@ -103,7 +115,12 @@ class Ellipse(Shape):
         """Vérifie la convexité"""
         return True
 
-    # ======================================== COLLECTIONS ========================================
+    # ======================================== INTERFACE ========================================
     def copy(self) -> Ellipse:
         """Renvoie une copie de l'ellipse"""
         return Ellipse(self._rx, self._ry)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Ellipse",
+]

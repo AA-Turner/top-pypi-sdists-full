@@ -16,9 +16,9 @@ TEST_CASE("Read source") {
     SourceManager manager;
     std::string testPath = getTestInclude();
 
-    CHECK(!manager.readSource("X:\\nonsense.txt", /* library */ nullptr));
+    CHECK(!manager.readSource("X:\\nonsense.txt"));
 
-    auto file = manager.readSource(testPath, /* library */ nullptr);
+    auto file = manager.readSource(testPath);
     REQUIRE(file);
     CHECK(file->data.length() > 0);
 }
@@ -135,7 +135,8 @@ TEST_CASE("File globbing") {
     globAndCheck(testDir, ".../f*.svh", GlobMode::Files, GlobRank::WildcardName, {},
                  {"file.svh", "file_defn.svh", "file_uses_defn.svh"});
     globAndCheck(testDir, "*ste*/", GlobMode::Files, GlobRank::Directory, {},
-                 {"file.svh", "macro.svh", "nested_local.svh", "system.svh", "system.map"});
+                 {"file.svh", "macro.svh", "nested_local.svh", "system.svh", "system.map",
+                  "incdir_shadow.svh"});
     globAndCheck(testDir, testDir + "/library/pkg.sv", GlobMode::Files, GlobRank::ExactPath, {},
                  {"pkg.sv"});
     globAndCheck(testDir, testDir + "/li?ra?y/pkg.sv", GlobMode::Files, GlobRank::SimpleName, {},
@@ -156,7 +157,7 @@ TEST_CASE("Directory globbing") {
     globAndCheck(testDir, "system", GlobMode::Directories, GlobRank::ExactPath, {}, {"system"});
     globAndCheck(testDir, "system/", GlobMode::Directories, GlobRank::ExactPath, {}, {"system"});
     globAndCheck(testDir, ".../", GlobMode::Directories, GlobRank::Directory, {},
-                 {"library", "nested", "system", "data", "libtest"});
+                 {"library", "nested", "system", "data", "libtest", "dirprefix", "dir_a"});
     globAndCheck(testDir, testDir + "/library/pkg.sv", GlobMode::Directories, GlobRank::ExactPath,
                  make_error_code(std::errc::not_a_directory), {});
 }

@@ -20,7 +20,6 @@ from .const import (
     DEVICES_URL,
     ENDURANCE_SCORE_URL,
     FITNESS_AGE_URL,
-    SENSORS_URL,
     GARMIN_CN_CONNECT_API,
     GARMIN_CONNECT_API,
     GEAR_DEFAULTS_URL,
@@ -38,6 +37,7 @@ from .const import (
     NUTRITION_LOGS_URL,
     NUTRITION_QUICK_ADD_URL,
     POWER_TO_WEIGHT_URL,
+    SENSORS_URL,
     SLEEP_URL,
     TRAINING_READINESS_URL,
     TRAINING_STATUS_URL,
@@ -334,6 +334,19 @@ def _extract_sleep_timezone_offset_minutes(
     return 0
 
 
+_TRAINING_STATUS_MAP: dict[int, str] = {
+    0: "No Status",
+    1: "Peaking (Legacy)",
+    2: "Maintaining",
+    3: "Recovering",
+    4: "Unproductive",
+    5: "Detraining",
+    6: "Peaking",
+    7: "Productive",
+    8: "Strained",
+}
+
+
 def _add_computed_fields(data: dict[str, Any]) -> dict[str, Any]:
     """Add pre-computed fields for common unit conversions and nested extractions.
 
@@ -416,9 +429,28 @@ def _add_computed_fields(data: dict[str, Any]) -> dict[str, Any]:
 
     training_status = result.get("trainingStatus") or {}
     if training_status:
-        result["trainingStatusPhrase"] = training_status.get("trainingStatusPhrase")
+        latest_status_data = (
+            training_status.get("mostRecentTrainingStatus") or {}
+        ).get("latestTrainingStatusData") or {}
+        if latest_status_data:
+            most_recent = max(
+                latest_status_data.values(),
+                key=lambda x: x.get("calendarDate") or "",
+            )
+            status_code = most_recent.get("trainingStatus")
+            result["trainingStatusPhrase"] = (
+                _TRAINING_STATUS_MAP.get(status_code)
+                if isinstance(status_code, int)
+                else None
+            )
+        else:
+            result["trainingStatusPhrase"] = None
         most_recent_vo2 = training_status.get("mostRecentVO2Max")
-        vo2_generic = (most_recent_vo2.get("generic") or {} if isinstance(most_recent_vo2, dict) else {})
+        vo2_generic = (
+            most_recent_vo2.get("generic") or {}
+            if isinstance(most_recent_vo2, dict)
+            else {}
+        )
         result["vo2MaxValue"] = (
             vo2_generic.get("vo2MaxValue")
             or (most_recent_vo2 if isinstance(most_recent_vo2, (int, float)) else None)
@@ -1417,31 +1449,41 @@ class GarminClient:
     async def _get_nutrition_meal(
         self, log_date: str, meal_time: str | None = None
     ) -> tuple[int | None, str | None]:
-        """Fetch the meal slot whose startTime best matches meal_time.
+        """Fetch the meal slot whose time range contains meal_time.
 
         Returns (mealId, mealStartTime) — both None if no meals are configured.
-        Picks the slot with the latest startTime that is <= meal_time so that
-        e.g. a 12:00 log goes to Lunch rather than always Breakfast.
+        Picks the slot where startTime <= meal_time <= endTime.
+        Falls back to the first slot with no time range (e.g. SNACKS),
+        then to meals[0].
         """
         try:
             data = await self._request("GET", f"{NUTRITION_LOGS_URL}/{log_date}")
             if isinstance(data, dict):
-                meals: list[tuple[int, str | None]] = []
+                meals: list[tuple[int, str | None, str | None]] = []
                 for detail in data.get("mealDetails") or []:
                     meal = detail.get("meal") or {}
                     meal_id = meal.get("mealId")
                     if meal_id is not None:
-                        meals.append((int(meal_id), meal.get("startTime")))
+                        meals.append(
+                            (int(meal_id), meal.get("startTime"), meal.get("endTime"))
+                        )
                 if not meals:
                     return None, None
                 if meal_time is None or len(meals) == 1:
-                    return meals[0]
-                # Pick the meal whose startTime is the latest one <= meal_time.
-                best = meals[0]
-                for mid, start in meals:
-                    if start is not None and start <= meal_time:
-                        best = (mid, start)
-                return best
+                    return meals[0][0], meals[0][1]
+                # Prefer the meal whose time range contains meal_time.
+                for mid, start, end in meals:
+                    if (
+                        start is not None
+                        and end is not None
+                        and start <= meal_time <= end
+                    ):
+                        return mid, start
+                # Fall back to a meal with no time range (e.g. SNACKS).
+                for mid, start, end in meals:
+                    if start is None and end is None:
+                        return mid, None
+                return meals[0][0], meals[0][1]
         except Exception:
             pass
         return None, None
@@ -1470,30 +1512,30 @@ class GarminClient:
             meal_id: Garmin meal slot ID. If not provided, fetched from today's
                      log; falls back to null which lets Garmin assign it.
         """
-        now = datetime.now(UTC)
-        log_date = now.strftime("%Y-%m-%d")
+        now_utc = datetime.now(UTC)
+        now_local = now_utc.astimezone()
+        log_date = now_local.strftime("%Y-%m-%d")
 
         if timestamp is None:
             log_timestamp = (
-                now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+                now_utc.strftime("%Y-%m-%dT%H:%M:%S.")
+                + f"{now_utc.microsecond // 1000:03d}Z"
             )
+            local_time = now_local
         else:
             dt = datetime.fromisoformat(timestamp)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
             dt_utc = dt.astimezone(UTC)
-            log_date = dt_utc.strftime("%Y-%m-%d")
+            local_time = dt.astimezone()
+            log_date = local_time.strftime("%Y-%m-%d")
             log_timestamp = (
                 dt_utc.strftime("%Y-%m-%dT%H:%M:%S.")
                 + f"{dt_utc.microsecond // 1000:03d}Z"
             )
 
         if meal_time is None:
-            meal_time = (
-                dt_utc.strftime("%H:%M:%S")
-                if timestamp is not None
-                else now.strftime("%H:%M:%S")
-            )
+            meal_time = local_time.strftime("%H:%M:%S")
 
         if meal_id is None:
             meal_id, _ = await self._get_nutrition_meal(log_date, meal_time)
@@ -2045,13 +2087,21 @@ class GarminClient:
         )
         lactate_threshold = await self._safe_call(self.get_lactate_threshold)
 
-        # Training status — fall back to yesterday if today's is empty
+        # Training status — fall back to yesterday if today's is empty or has no VO2Max
+        def _has_vo2max(ts: dict[str, Any] | None) -> bool:
+            return bool(
+                ts
+                and ((ts.get("mostRecentVO2Max") or {}).get("generic") or {}).get(
+                    "vo2MaxValue"
+                )
+            )
+
         training_status = await self._safe_call(self.get_training_status, target_date)
-        if not training_status or not training_status.get("mostRecentVO2Max"):
+        if not _has_vo2max(training_status):
             yesterday_status = await self._safe_call(
                 self.get_training_status, yesterday_date
             )
-            if yesterday_status and yesterday_status.get("mostRecentVO2Max"):
+            if _has_vo2max(yesterday_status):
                 training_status = yesterday_status
 
         # Endurance score — fall back to yesterday

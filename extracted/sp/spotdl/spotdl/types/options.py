@@ -34,6 +34,7 @@ class SpotifyOptions(TypedDict):
     no_cache: bool
     max_retries: int
     use_cache_file: bool
+    use_official_api: bool
 
 
 class DownloaderOptions(TypedDict):
@@ -128,6 +129,7 @@ class SpotifyOptionalOptions(TypedDict, total=False):
     no_cache: bool
     max_retries: int
     use_cache_file: bool
+    use_official_api: bool
 
 
 class DownloaderOptionalOptions(TypedDict, total=False):

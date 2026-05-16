@@ -104,7 +104,7 @@ endmodule
     auto& diagnostics = compilation.getAllDiagnostics();
     std::string result = "\n" + report(diagnostics);
     CHECK(result == R"(
-source:7:23: error: no member named 'bar' in '<unnamed unpacked struct>'
+source:7:23: error: no member named 'bar' in 'struct{int i}'
     int i = `BAR(asdf.bar);
                  ~~~~ ^~~
 )");
@@ -127,7 +127,7 @@ endmodule
     auto& diagnostics = compilation.getAllDiagnostics();
     std::string result = "\n" + report(diagnostics);
     CHECK(result == R"(
-source:7:13: error: no member named 'bar' in '<unnamed unpacked struct>'
+source:7:13: error: no member named 'bar' in 'struct{int i}'
     int i = `BAR(asdf);
             ^~~~~~~~~~
 source:3:19: note: expanded from macro 'BAR'
@@ -157,7 +157,7 @@ endmodule
     auto& diagnostics = compilation.getAllDiagnostics();
     std::string result = "\n" + report(diagnostics);
     CHECK(result == R"(
-source:8:17: error: invalid operand type '<unnamed unpacked struct>' to unary expression
+source:8:17: error: invalid operand type 'struct{int i}' to unary expression
     initial i = `BAR(asdf);
                 ^    ~~~~
 source:3:19: note: expanded from macro 'BAR'
@@ -210,7 +210,7 @@ endmodule
     auto& diagnostics = compilation.getAllDiagnostics();
     std::string result = "\n" + report(diagnostics);
     CHECK(result == R"(
-source:9:13: error: invalid operands to binary expression ('<unnamed unpacked struct>' and '<unnamed unpacked struct>')
+source:9:13: error: invalid operands to binary expression ('struct{int i}' and 'struct{int i}')
     int i = `BAR(asdf, bar);
             ^~~~~~~~~~~~~~~
 source:4:26: note: expanded from macro 'BAR'
@@ -240,7 +240,7 @@ endmodule
     auto& diagnostics = compilation.getAllDiagnostics();
     std::string result = "\n" + report(diagnostics);
     CHECK(result == R"(
-source:8:13: error: invalid operands to binary expression ('<unnamed unpacked struct>' and '<unnamed unpacked struct>')
+source:8:13: error: invalid operands to binary expression ('struct{int i}' and 'struct{int i}')
     int i = `BAR(asdf, bar);
             ^~~~~~~~~~~~~~~
 source:3:36: note: expanded from macro 'BAR'
@@ -317,12 +317,27 @@ endmodule
     auto& diagnostics = compilation.getAllDiagnostics();
     std::string result = "\n" + report(diagnostics);
     CHECK(result == R"(
-source:6:26: error: scalar type cannot be indexed
+source:6:14: warning: initializer for static variable 'j' refers to 'b' which will not have a value at initialization time [-Wstatic-init-value]
+    int j = (b).c `PASS([1]);
+             ^
+source:5:23: note: declared here
+    struct { bit c; } b;
+                      ^
+source:6:14: warning: implicit conversion changes signedness from 'bit[31:0]' to 'int' [-Wsign-conversion]
+    int j = (b).c `PASS([1]);
+          ~  ^~~~~~~~~~~~~~~
+source:6:14: warning: implicit conversion expands from 1 to 32 bits [-Wwidth-expand]
+    int j = (b).c `PASS([1]);
+          ~  ^~~~~~~~~~~~~~~
+source:6:26: warning: scalar type cannot be indexed [-Wcannot-index-scalar]
     int j = (b).c `PASS([1]);
              ~~~~        ^
 source:2:20: note: expanded from macro 'PASS'
 `define PASS(asdf) asdf
                    ^~~~
+source:6:26: warning: cannot refer to element 1 of 'bit' [-Windex-oob]
+    int j = (b).c `PASS([1]);
+                         ^
 )");
 }
 
@@ -513,6 +528,20 @@ TEST_CASE("DiagnosticEngine::setWarningOptions") {
 
     std::string msg = DiagnosticEngine::reportAll(getSourceManager(), diags);
     CHECK(msg == "warning: unknown warning option '-Wasdf' [-Wunknown-warning-option]\n");
+}
+
+TEST_CASE("DiagnosticEngine::setWarningOptions disables default group") {
+    // Regression test: -Wno-<group> should disable warnings included in the
+    // default group. Previously, the default group was processed first via
+    // try_emplace, and subsequent user group disables were silently ignored
+    // because try_emplace won't overwrite existing entries.
+    DiagnosticEngine engine(getSourceManager());
+    auto diags = engine.setWarningOptions(std::vector{"no-unconnected-port"s});
+    CHECK(diags.empty());
+
+    CHECK(engine.getSeverity(diag::UnconnectedInputPort, {}) == DiagnosticSeverity::Ignored);
+    CHECK(engine.getSeverity(diag::UnconnectedOutputPort, {}) == DiagnosticSeverity::Ignored);
+    CHECK(engine.getSeverity(diag::UnconnectedInOutPort, {}) == DiagnosticSeverity::Ignored);
 }
 
 TEST_CASE("Diagnostic Pragmas") {
@@ -779,4 +808,57 @@ TEST_CASE("Diagnostic warning option corner cases") {
         auto engine = createEngine({"no-unknown-sys-name"s});
         CHECK(engine.getSeverity(diag::UnknownSystemName, {}) == DiagnosticSeverity::Ignored);
     }
+}
+
+TEST_CASE("DiagnosticEngine::setBaselineSeverity -- global path") {
+    SourceManager sm;
+    DiagnosticEngine engine(sm);
+
+    engine.setBaselineSeverity(diag::UnknownSystemName, DiagnosticSeverity::Error);
+    CHECK(engine.getSeverity(diag::UnknownSystemName, {}) == DiagnosticSeverity::Error);
+
+    // Mainline explicit -Wno- overrides the baseline.
+    auto diags = engine.setWarningOptions(std::vector{"no-unknown-sys-name"s});
+    CHECK(diags.empty());
+    CHECK(engine.getSeverity(diag::UnknownSystemName, {}) == DiagnosticSeverity::Ignored);
+
+    // Mainline -Wno-error= downgrades an error-by-baseline from Error to Warning.
+    DiagnosticEngine engine2(sm);
+    engine2.setBaselineSeverity(diag::UnknownSystemName, DiagnosticSeverity::Error);
+    auto diags2 = engine2.setWarningOptions(std::vector{"no-error=unknown-sys-name"s});
+    CHECK(diags2.empty());
+    CHECK(engine2.getSeverity(diag::UnknownSystemName, {}) == DiagnosticSeverity::Warning);
+}
+
+TEST_CASE("DiagnosticEngine::setBaselineSeverity -- per-unit path") {
+    SourceManager sm;
+    auto buf = sm.assignText("dummy.sv", "");
+
+    DiagnosticEngine engine(sm);
+    engine.setBaselineSeverity(diag::UnknownSystemName, DiagnosticSeverity::Error);
+    engine.setBaselineSeverity(diag::StaticInitializerMustBeExplicit, DiagnosticSeverity::Ignored);
+
+    // Apply per-unit -Wnone for this buffer.
+    flat_hash_map<BufferID, std::vector<std::string>> bufOpts;
+    bufOpts[buf.id] = {"none"s};
+    auto diags = engine.setBufferWarningOptions(bufOpts);
+    CHECK(diags.empty());
+
+    // Baseline Error must survive per-unit -Wnone.
+    SourceLocation loc(buf.id, 0);
+    CHECK(engine.getSeverity(diag::UnknownSystemName, loc) == DiagnosticSeverity::Error);
+    CHECK(engine.getSeverity(diag::StaticInitializerMustBeExplicit, loc) ==
+          DiagnosticSeverity::Ignored);
+
+    // A default warning that is not in the baseline is suppressed by per-unit -Wnone.
+    CHECK(engine.getSeverity(diag::ConstantConversion, loc) == DiagnosticSeverity::Ignored);
+
+    // An explicit per-unit code-level override can still suppress a baseline error.
+    bufOpts[buf.id] = {"none"s, "no-unknown-sys-name"s};
+    DiagnosticEngine engine2(sm);
+    engine2.setBaselineSeverity(diag::UnknownSystemName, DiagnosticSeverity::Error);
+
+    auto diags2 = engine2.setBufferWarningOptions(bufOpts);
+    CHECK(diags2.empty());
+    CHECK(engine2.getSeverity(diag::UnknownSystemName, loc) == DiagnosticSeverity::Ignored);
 }

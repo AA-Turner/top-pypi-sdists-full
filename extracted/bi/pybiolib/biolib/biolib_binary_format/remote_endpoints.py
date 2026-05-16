@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import biolib.api
 from biolib.api.client import ApiClient
@@ -7,7 +8,7 @@ from biolib.biolib_binary_format.utils import RemoteEndpoint
 
 # from urllib.parse import urlparse, parse_qs
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Literal, Optional
+from biolib.typing_utils import Literal
 
 
 class RemoteJobStorageEndpoint(RemoteEndpoint):
@@ -15,14 +16,14 @@ class RemoteJobStorageEndpoint(RemoteEndpoint):
         self,
         job_uuid: str,
         job_auth_token: str,
-        storage_type: Literal['input', 'output'],
+        storage_type: Literal['input', 'output'],  # noqa: F821
         api_client: Optional[ApiClient] = None,
     ):
         self._expires_at = None
         self._job_auth_token = job_auth_token
         self._job_uuid = job_uuid
         self._presigned_url = None
-        self._storage_type: Literal['input', 'output'] = storage_type
+        self._storage_type: Literal['input', 'output'] = storage_type  # noqa: F821
         self._api_client: ApiClient = api_client or biolib.api.client
 
     def get_remote_url(self):

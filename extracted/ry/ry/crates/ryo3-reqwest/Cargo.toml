@@ -14,7 +14,6 @@ readme = "README.md"
 
 [dependencies]
 bytes.workspace = true
-cookie.workspace = true
 encoding_rs.workspace = true
 futures-core.workspace = true
 futures-util = { workspace = true, features = ["sink"] }
@@ -35,7 +34,6 @@ ryo3-serde.workspace = true
 ryo3-std = { workspace = true, features = ["time"] }
 ryo3-tokio-rt.workspace = true
 ryo3-url.workspace = true
-serde.workspace = true
 serde_urlencoded.workspace = true
 tokio.workspace = true
 tracing.workspace = true

@@ -9,6 +9,7 @@
 #include "slang/ast/expressions/ConversionExpression.h"
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/expressions/OperatorExpressions.h"
+#include "slang/ast/expressions/SelectExpressions.h"
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -539,7 +540,7 @@ source:9:13: error: size of vector literal is too large (> 16777215 bits)
 source:12:13: warning: signed integer literal overflows 32 bits, will be truncated to -727379969 [-Wint-overflow]
     int n = 999999999999;
             ^
-source:13:16: error: numeric literals must not start with a leading underscore
+source:13:16: warning: numeric literals must not start with a leading underscore [-Wliteral-leading-underscore]
     int o = 'b _?1;
                ^
 source:14:15: error: expected binary digit
@@ -601,9 +602,10 @@ TEST_CASE("Crazy long hex literal") {
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 2);
-    CHECK(diags[0].code == diag::ConstantConversion);
-    CHECK(diags[1].code == diag::LiteralSizeTooLarge);
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::SignConversion);
+    CHECK(diags[1].code == diag::WidthTruncate);
+    CHECK(diags[2].code == diag::LiteralSizeTooLarge);
 }
 #endif
 
@@ -854,6 +856,105 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ConstEvalExceededMaxSteps);
+}
+
+TEST_CASE("Consteval - max value size via variable decl") {
+    auto tree = SyntaxTree::fromText(R"(
+function automatic int foo;
+    int arr[1000];
+    return arr[0];
+endfunction
+module m;
+    localparam int i = foo();
+endmodule
+)");
+
+    CompilationOptions co;
+    co.maxConstantSize = 100; // 100 bits, a 1000-int array is far larger
+
+    Compilation compilation(co);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::ConstEvalExceededMaxSize);
+}
+
+TEST_CASE("Consteval - max value size via new []") {
+    auto tree = SyntaxTree::fromText(R"(
+function automatic int foo;
+    automatic int arr[] = new[1000];
+    return arr[0];
+endfunction
+module m;
+    localparam int i = foo();
+endmodule
+)");
+
+    CompilationOptions co;
+    co.maxConstantSize = 100;
+
+    Compilation compilation(co);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::ConstEvalExceededMaxSize);
+}
+
+TEST_CASE("Consteval - max value size via queue push_back") {
+    auto tree = SyntaxTree::fromText(R"(
+function automatic int foo;
+    int q[$];
+    for (int i = 0; i < 100; i++)
+        q.push_back(i);
+    return q[0];
+endfunction
+module m;
+    localparam int i = foo();
+endmodule
+)");
+
+    CompilationOptions co;
+    co.maxConstantSize = 100;
+
+    Compilation compilation(co);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::ConstEvalExceededMaxSize);
+}
+
+TEST_CASE("Consteval - max value size via operators / expressions") {
+    auto tree = SyntaxTree::fromText(R"(
+function automatic int f1;
+    logic [31:0][999:0] arr1;
+    logic [31:0][999:0] arr2;
+    return int'({arr1, arr2});
+endfunction
+
+function automatic int f2;
+    logic [31:0][499:0] arr1;
+    return int'({8 {arr1}});
+endfunction
+
+module m;
+    localparam int i = f1();
+    localparam int j = f2();
+endmodule
+)");
+
+    CompilationOptions co;
+    co.maxConstantSize = 8 * 4000;
+
+    Compilation compilation(co);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::ConstEvalExceededMaxSize);
+    CHECK(diags[1].code == diag::ConstEvalExceededMaxSize);
 }
 
 TEST_CASE("Consteval - enum used in constant function") {
@@ -1479,6 +1580,7 @@ TEST_CASE("Streaming operators") {
         {"int a; int b = {>>{a}} + 2;", diag::BadStreamContext},
         {"shortint a,b; int c = {{>>{a}}, b};", diag::BadStreamContext},
         {"int a,b; always_comb {>>{a}} += b;", diag::BadStreamContext},
+        {"int a,b; int c = a ? {>>{a}} + 2 : b;", diag::BadStreamContext},
         {"int a; int b = {<< string {a}};", diag::BadStreamSlice},
         {"typedef bit t[]; int a; int b = {<<t{a}};", diag::BadStreamSlice},
         {"int a, c; int b = {<< c {a}};", diag::ConstEvalNonConstVariable},
@@ -1566,8 +1668,7 @@ module sub(input byte b);
     }
 
     std::string legal[] = {
-        "int a = 0; byte b[4] = {<<3{a}};",
-        "int a; byte b[4]; assign {<<3{b}} = a;",
+        "int a = 0; byte b[4] = {<<3{a}};", "int a; byte b[4]; assign {<<3{b}} = a;",
         "int a; byte b[4]; assign {<<3{b}} = {<<5{a}};",
         "byte b[4] = '{default:0}; int a = int'({<<3{b}}) + 5;",
         "shortint a = 0; byte b[2] = '{default:0}; int c = {<<3{a, {<<5{b}}}};",
@@ -1575,6 +1676,12 @@ module sub(input byte b);
         "struct{bit a[];int b;}a;struct {byte a[];bit b;}b;assign{<<{a}}={>>{b}};",
         "struct{bit a[];int b;}a;int b;assign {>>{a}} = {<<{b}};",
         "localparam int p = {<<{6}}; enum {a={>>{2}},b={<<{p}}, c} t;",
+
+        // Streaming operator as a branch of a conditional (ternary) expression
+        "wire c; assign c = c ? {<<8{c & c}} : c;",
+        "bit s; int a; byte b[4]; assign b = s ? b : {<<3{a}};",
+        "bit s; int a; byte b[4]; assign b = s ? {<<3{a}} : b;",
+        "bit s; int a; byte b[4]; assign b = s ? {<<2{a}} : {<<3{a}};",
 
         R"(
     bit [0:1] c [2:0];
@@ -1601,7 +1708,7 @@ TEST_CASE("Stream expression with") {
         {"byte b[4] = '{default:0}; logic [39:0] a = {<<3{b with[2+:5]}};", diag::RangeOOB},
         {"byte b[3:0] = '{default:0}; int a = {<<3{b with[2+:3]}};", diag::RangeOOB},
         {"byte b[0:3] = '{default:0}; int a = {<<3{b with[2:5]}};", diag::RangeOOB},
-        {"byte b[]; int a = {<<3{b with[3:2]}};", diag::SelectEndianDynamic},
+        {"byte b[]; int a = {<<3{b with[3:2]}};", diag::RangeSelectReversed},
         {"byte b[], c[4]; always {>>{b, {<<3{c with[b[0]:b[1]]}}}} = 9;", diag::BadStreamWithOrder},
         {"int a[],b[],c[];bit d;always {>>{b}}={<<{a with [2+:3],c,d}};", diag::BadStreamSize},
     };
@@ -1844,7 +1951,6 @@ module m;
         arr[null] = 3;
     end
 
-    localparam int foo = bar();
     function automatic int bar;
         ft c = null;
         ft d, e;
@@ -1863,6 +1969,11 @@ module m;
 
     Foo farray[3] ();
     initial baz(farray[1]);
+
+    const virtual interface Foo d = null;
+    initial begin
+        d.i = 1;
+    end
 endmodule
 )");
 
@@ -1888,6 +1999,50 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ExpressionNotAssignable);
+}
+
+TEST_CASE("Nonstandard string concatenation with + and += operators") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    function automatic string foo();
+        string a = "a";
+        string b = "b";
+        a += b; // String concatentation using +=
+        return a;
+    endfunction
+    localparam string ab1 = foo();
+
+    // integer addition
+    localparam int ab2 = int'("a" + "b");
+    localparam int ab3 = int'("ab");
+
+    // If a and b were concatenated, this would fire.
+    $static_assert(ab2 != ab3);
+
+    localparam string ab4 = "a" + "b";
+    $static_assert(int'(ab4) == ab2);
+
+    // Another non-standard concat, since one is not a string literal
+    localparam string ab5 = "a" + ab4;
+
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::NonstandardStringConcat);
+    CHECK(diags[1].code == diag::NonstandardStringConcat);
+
+    auto& ab1 = compilation.getRoot().lookupName<ParameterSymbol>("m.ab1");
+    CHECK(ab1.getValue().str() == "ab");
+
+    auto& ab5 = compilation.getRoot().lookupName<ParameterSymbol>("m.ab5");
+    auto& abv = ab5.getValue().str();
+    CHECK(abv.at(0) == 'a');
+    CHECK((uint8_t)abv.at(1) == (uint8_t)('a' + 'b'));
 }
 
 TEST_CASE("Implicit param string literal propagation") {
@@ -1980,15 +2135,27 @@ module m;
     wire j = i[1];
     wire [1:0] k = i[1:0];
 endmodule
+
+interface I;
+    wire vectored integer i;
+endinterface
+
+module n;
+    virtual I vif;
+    initial begin
+        static logic [1:0] l = vif.i[1:0];
+    end
+endmodule
 )");
 
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 2);
+    REQUIRE(diags.size() == 3);
     CHECK(diags[0].code == diag::SelectOfVectoredNet);
     CHECK(diags[1].code == diag::SelectOfVectoredNet);
+    CHECK(diags[2].code == diag::SelectOfVectoredNet);
 }
 
 TEST_CASE("Initializing based on own variable") {
@@ -2389,7 +2556,7 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 28);
+    REQUIRE(diags.size() == 27);
     CHECK(diags[0].code == diag::BadAssignmentPatternType);
     CHECK(diags[1].code == diag::AssignmentPatternNoContext);
     CHECK(diags[2].code == diag::BadAssignmentPatternType);
@@ -2402,22 +2569,21 @@ endmodule
     CHECK(diags[9].code == diag::AssignmentPatternKeyExpr);
     CHECK(diags[10].code == diag::AssignmentPatternKeyExpr);
     CHECK(diags[11].code == diag::AssignmentPatternKeyDupValue);
-    CHECK(diags[12].code == diag::AssignmentPatternDynamicDefault);
-    CHECK(diags[13].code == diag::AssignmentPatternDynamicType);
-    CHECK(diags[14].code == diag::ValueMustBePositive);
-    CHECK(diags[15].code == diag::AssignmentPatternKeyDupDefault);
-    CHECK(diags[16].code == diag::AssignmentPatternKeyExpr);
-    CHECK(diags[17].code == diag::IndexValueInvalid);
-    CHECK(diags[18].code == diag::AssignmentPatternMissingElements);
-    CHECK(diags[19].code == diag::ValueMustBePositive);
-    CHECK(diags[20].code == diag::WrongNumberAssignmentPatterns);
+    CHECK(diags[12].code == diag::AssignmentPatternDynamicType);
+    CHECK(diags[13].code == diag::ValueMustBePositive);
+    CHECK(diags[14].code == diag::AssignmentPatternKeyDupDefault);
+    CHECK(diags[15].code == diag::AssignmentPatternKeyExpr);
+    CHECK(diags[16].code == diag::IndexValueInvalid);
+    CHECK(diags[17].code == diag::AssignmentPatternMissingElements);
+    CHECK(diags[18].code == diag::ValueMustBePositive);
+    CHECK(diags[19].code == diag::WrongNumberAssignmentPatterns);
+    CHECK(diags[20].code == diag::ValueMustBePositive);
     CHECK(diags[21].code == diag::ValueMustBePositive);
-    CHECK(diags[22].code == diag::ValueMustBePositive);
-    CHECK(diags[23].code == diag::AssignmentPatternKeyDupDefault);
-    CHECK(diags[24].code == diag::AssignmentPatternKeyDupValue);
-    CHECK(diags[25].code == diag::AssignmentPatternDynamicType);
-    CHECK(diags[26].code == diag::AssignmentPatternMissingElements);
-    CHECK(diags[27].code == diag::AssignmentPatternNoMember);
+    CHECK(diags[22].code == diag::AssignmentPatternKeyDupDefault);
+    CHECK(diags[23].code == diag::AssignmentPatternKeyDupValue);
+    CHECK(diags[24].code == diag::AssignmentPatternDynamicType);
+    CHECK(diags[25].code == diag::AssignmentPatternMissingElements);
+    CHECK(diags[26].code == diag::AssignmentPatternNoMember);
 }
 
 TEST_CASE("Set membership type checking regress GH #450") {
@@ -2436,6 +2602,24 @@ endfunction
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Inside expression without braces") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int x;
+    int arr[3];
+    logic result;
+    assign result = x inside arr;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::NonstandardInside);
 }
 
 TEST_CASE("Assignment assertion regress GH #456") {
@@ -2742,7 +2926,7 @@ endmodule
     CHECK(diags[0].code == diag::RangeSelectAssociative);
     CHECK(diags[1].code == diag::ExprMustBeIntegral);
     CHECK(diags[2].code == diag::ExprMustBeIntegral);
-    CHECK(diags[3].code == diag::SelectEndianMismatch);
+    CHECK(diags[3].code == diag::RangeSelectReversed);
     CHECK(diags[4].code == diag::ValueMustBePositive);
     CHECK(diags[5].code == diag::RangeOOB);
     CHECK(diags[6].code == diag::IndexValueInvalid);
@@ -3221,8 +3405,10 @@ TEST_CASE("v1800-2023 clarification: non-blocking assignments to elements of dyn
     auto tree = SyntaxTree::fromText(R"(
 module m;
     int i[];
+    struct { logic foo[]; } s;
     initial begin
         i[0] <= 1;
+        s.foo[0] <= 1;
     end
 endmodule
 )");
@@ -3231,8 +3417,9 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 1);
+    REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::NonblockingDynamicAssign);
+    CHECK(diags[1].code == diag::NonblockingDynamicAssign);
 }
 
 TEST_CASE("v1800-2023 clarification: static casts are assignment-like contexts") {
@@ -3731,4 +3918,312 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::AssignmentNotAllowed);
+}
+
+TEST_CASE("Nested block comments, slash corner case") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+  $info("Hello" /*/*/, " World" /**/);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::InfoTask);
+    CHECK(diags[1].code == diag::NestedBlockComment);
+}
+
+TEST_CASE("Range order mismatch error suppressed in untaken conditionals") {
+    auto tree = SyntaxTree::fromText(R"(
+module test #(
+    parameter int DELAY = 1
+) (
+    input  logic clk,
+    input  [7:0]  in_byte,
+    output [7:0]  out_byte
+);
+
+  logic [DELAY-1:0][7:0] byte_dl;
+
+  always_ff @(clk) begin
+    byte_dl[0] <= in_byte;
+
+    if (DELAY > 1) begin
+      byte_dl[DELAY-1:1] <= byte_dl[DELAY-2:0];
+    end
+  end
+
+  assign out_byte = byte_dl[DELAY-1];
+
+endmodule : test
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Virtual interface access should have valid source location") {
+    auto tree = SyntaxTree::fromText(R"(
+interface intf;
+    int eg;
+endinterface
+
+class C;
+    virtual intf vex;
+endclass
+
+module m (
+);
+    C c1 = new;
+    int a = c1.vex.eg;
+endmodule
+
+)");
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto aDecl = compilation.getRoot().lookupName("m.a");
+    REQUIRE(aDecl);
+    auto declarator = aDecl->getSyntax()
+                          ->as_if<DeclaratorSyntax>()
+                          ->initializer->as_if<EqualsValueClauseSyntax>()
+                          ->expr;
+
+    auto& expr = Expression::bind(*declarator,
+                                  ASTContext(*aDecl->getParentScope(), LookupLocation::max));
+
+    REQUIRE(expr.as<MemberAccessExpression>().sourceRange.start().valid());
+}
+
+TEST_CASE("Virtual interface lvalue errors") {
+    auto tree = SyntaxTree::fromText(R"(
+interface Foo;
+    logic i;
+    wire w;
+    modport m(output i);
+endinterface
+
+module m;
+    const virtual interface Foo d = null;
+    initial begin
+        d.w = 0;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::AssignToNet);
+}
+
+TEST_CASE("v1800-2023: nonblocking assignment to ref static") {
+    auto options = optionsFor(LanguageVersion::v1800_2023);
+    auto tree = SyntaxTree::fromText(R"(
+function automatic f(ref static r);
+    r <= 1'b0;
+endfunction
+)",
+                                     options);
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Bare associative array pattern -- diagnostic emitted with option") {
+    auto tree = SyntaxTree::fromText(R"(
+package P;
+    typedef int int_queue[$];
+    task automatic T();
+        int_queue q[string] = {"k":{0,1,2}};
+    endtask
+endpackage
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::BareAssociativePattern);
+}
+
+TEST_CASE("Bare associative pattern in unpacked array concat -- with option") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    class C;
+        string s[][int];
+        function f();
+            s = {
+                {0: "sv1", 1: "sv2"},
+                {1: "sv2",  2: "sv4"}
+            };
+        endfunction
+    endclass
+endmodule
+)");
+
+    CompilationOptions co;
+    co.flags |= CompilationFlags::AllowArrayConcatAssignPattern;
+
+    Compilation compilation(co);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::BareAssociativePattern);
+    CHECK(diags[1].code == diag::BareAssociativePattern);
+}
+
+TEST_CASE("Bare associative pattern in unpacked array concat -- without option") {
+    // Without the flag, each inner bare pattern raises BareAssociativePattern.
+    // The element type is not propagated, so AssignmentPatternNoContext fires too.
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    class C;
+        string s[][int];
+        function f();
+            s = {
+                {0: "sv1", 1: "sv2"},
+                {1: "sv2",  2: "sv4"}
+            };
+        endfunction
+    endclass
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::BareAssociativePattern);
+    CHECK(diags[1].code == diag::AssignmentPatternNoContext);
+    CHECK(diags[2].code == diag::BareAssociativePattern);
+    CHECK(diags[3].code == diag::AssignmentPatternNoContext);
+}
+
+TEST_CASE("Assignment pattern defaults with multi-dim arrays") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [7:0] r [10][20];
+    initial r = '{default:('{default:8'h00})};
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Assignment pattern unused default is still error checked") {
+    auto tree = SyntaxTree::fromText(R"(
+typedef logic [7:0] RT[2];
+
+function RT f1;
+    return '{0:8, 1:9, default:'{default:foo}};
+endfunction
+
+function RT f2;
+    return '{0:8, 1:9, default:'{-1{foo}}};
+endfunction
+
+$static_assert($sformatf("%p", f1()) == "'{8'd8, 8'd9}");
+$static_assert($sformatf("%p", f2()) == "'{8'd8, 8'd9}");
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::UndeclaredIdentifier);
+    CHECK(diags[1].code == diag::ValueMustBePositive);
+    CHECK(diags[2].code == diag::UndeclaredIdentifier);
+}
+
+TEST_CASE("Dynamic array new with assignment pattern default") {
+    auto tree = SyntaxTree::fromText(R"(
+typedef int DT[];
+
+function DT f1(int i);
+    return new[i] ('{default:3});
+endfunction
+
+function DT f2();
+    return '{default:2, 1:3, 4:5};
+endfunction
+
+$static_assert($sformatf("%p", f1(4)) == "'{3, 3, 3, 3}");
+$static_assert($sformatf("%p", f2()) == "'{2, 3, 2, 2, 5}");
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Bad concatenation expressions") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    string s;
+    int i;
+    event e;
+    initial begin
+        i = {i, e};
+        s = {s, e};
+        s = {s, i};
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::BadConcatExpression);
+    CHECK(diags[1].code == diag::BadConcatExpression);
+    CHECK(diags[2].code == diag::ConcatWithStringInt);
+}
+
+TEST_CASE("No range select ordering error for single bit value") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [0:0] a;
+    initial $display(a[-1:0]);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::RangeOOB);
+}
+
+TEST_CASE("Indexing with unknowns has reasonable diagnostic printing") {
+    auto tree = SyntaxTree::fromText(R"(
+logic [7:0] a;
+logic b = a['dx];
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto diags = compilation.getAllDiagnostics().filter({diag::StaticInitValue});
+    std::string result = "\n" + report(diags);
+    CHECK(result == R"(
+source:3:13: warning: cannot refer to element 32'dx of 'logic[7:0]' [-Windex-oob]
+logic b = a['dx];
+            ^~~
+)");
 }

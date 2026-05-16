@@ -314,7 +314,7 @@ class BaseIntegrationClient:
 
         # Seed from caller-supplied state so ADAPTIVE strategy survives across page calls
         if resolved.ctx is not None and resolved.ctx.last_known_state is not None:
-            config_id = resolved.config.effective_config_id
+            config_id = resolved.config.config_id
             config_state = resolved.ctx.last_known_state.get(config_id)
             if config_state is not None:
                 self._http_client.rate_limiter.seed_from_state(config_state)
@@ -336,7 +336,7 @@ class BaseIntegrationClient:
         if isinstance(self._http_client, RateLimitedClient):
             state = self._http_client.rate_limiter.get_current_state()
             if state is not None:
-                config_id = self._http_client.rate_limiter.config.effective_config_id
+                config_id = self._http_client.rate_limiter.config.config_id
                 existing = RATE_LIMIT_RESULT_CONTEXT.get() or {}
                 RATE_LIMIT_RESULT_CONTEXT.set({**existing, config_id: state})
         await self._http_client.__aexit__(exc_type, exc_val, exc_tb)
@@ -361,7 +361,7 @@ class BaseGraphQLSession(AsyncClientSession):
         ):
             state = self.client.transport.rate_limiter.get_current_state()
             if state is not None:
-                config_id = self.client.transport.rate_limiter.config.effective_config_id
+                config_id = self.client.transport.rate_limiter.config.config_id
                 existing = RATE_LIMIT_RESULT_CONTEXT.get() or {}
                 RATE_LIMIT_RESULT_CONTEXT.set({**existing, config_id: state})
 
@@ -391,7 +391,7 @@ class BaseGraphQLSession(AsyncClientSession):
 
         # Seed from state
         if resolved.ctx is not None and resolved.ctx.last_known_state is not None:
-            config_id = resolved.config.effective_config_id
+            config_id = resolved.config.config_id
             config_state = resolved.ctx.last_known_state.get(config_id)
             if config_state is not None:
                 client_args["transport"].rate_limiter.seed_from_state(config_state)

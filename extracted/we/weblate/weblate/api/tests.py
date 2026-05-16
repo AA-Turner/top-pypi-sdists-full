@@ -18,6 +18,7 @@ import yaml
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files import File
+from django.db import DatabaseError
 from django.test.utils import modify_settings, override_settings
 from django.urls import reverse
 from rest_framework.test import APITestCase
@@ -547,6 +548,29 @@ class UserAPITest(APIBaseTest):
         )
         self.assertEqual(audit.params["team"], group.name)
         self.assertEqual(audit.params["username"], self.user.username)
+
+    def test_add_group_rejects_special_users(self) -> None:
+        group = Group.objects.create(name="Special API group")
+        inactive = User.objects.create_user(
+            "target-inactive", "target-inactive@example.org", "x"
+        )
+        inactive.is_active = False
+        inactive.save()
+        users = [
+            User.objects.get(username=settings.ANONYMOUS_USER_NAME),
+            inactive,
+        ]
+
+        for target in users:
+            self.do_request(
+                "api:user-groups",
+                kwargs={"username": target.username},
+                method="post",
+                superuser=True,
+                code=400,
+                request={"group_id": group.id},
+            )
+            self.assertFalse(target.groups.filter(pk=group.pk).exists())
 
     def test_remove_group(self) -> None:
         group = Group.objects.get(name="Viewers")
@@ -1649,6 +1673,37 @@ class GroupAPITest(APIBaseTest):
             superuser=True,
             code=400,
         )
+
+    def test_grant_admin_rejects_special_users(self) -> None:
+        group = Group.objects.create(name="Test Special Group")
+        inactive = User.objects.create_user(
+            "grant-inactive", "grant-inactive@example.org", "x"
+        )
+        inactive.is_active = False
+        inactive.save()
+        bot = User.objects.create(
+            username="grant-bot",
+            full_name="Grant Bot",
+            email="grant-bot@example.org",
+            is_bot=True,
+        )
+        users = [
+            User.objects.get(username=settings.ANONYMOUS_USER_NAME),
+            inactive,
+            bot,
+        ]
+
+        for user in users:
+            self.do_request(
+                "api:group-grant-admin",
+                kwargs={"id": group.id},
+                method="post",
+                superuser=True,
+                request={"user_id": user.id},
+                code=400,
+            )
+            self.assertFalse(group.admins.filter(pk=user.pk).exists())
+            self.assertFalse(user.groups.filter(pk=group.pk).exists())
 
     def test_group_admin_edit(self) -> None:
         user = User.objects.create_user(username="testuser", password="12345")
@@ -4368,6 +4423,14 @@ class ComponentAPITest(APIBaseTest):
         self.component.save()
         self.do_request("api:component-new-template", self.component_kwargs)
 
+    def test_new_template_download_prohibited(self) -> None:
+        self.component.new_base = "po/cs.po"
+        self.component.save()
+        project = self.component.project
+        project.access_control = Project.ACCESS_PROTECTED
+        project.save(update_fields=["access_control"])
+        self.do_request("api:component-new-template", self.component_kwargs, code=403)
+
     def test_monolingual_404(self) -> None:
         self.do_request(
             "api:component-monolingual-base", self.component_kwargs, code=404
@@ -4378,6 +4441,17 @@ class ComponentAPITest(APIBaseTest):
         self.do_request(
             "api:component-monolingual-base",
             {"project__slug": component.project.slug, "slug": component.slug},
+        )
+
+    def test_monolingual_download_prohibited(self) -> None:
+        component = self.create_po_mono(name="mono", project=self.component.project)
+        project = component.project
+        project.access_control = Project.ACCESS_PROTECTED
+        project.save(update_fields=["access_control"])
+        self.do_request(
+            "api:component-monolingual-base",
+            {"project__slug": component.project.slug, "slug": component.slug},
+            code=403,
         )
 
     def test_translations(self) -> None:
@@ -6062,6 +6136,40 @@ class LanguageAPITest(APIBaseTest):
             },
         )
 
+    def test_create_invalid_plural_formula_range(self) -> None:
+        self.do_request(
+            "api:language-list",
+            method="post",
+            superuser=True,
+            code=400,
+            format="json",
+            request={
+                "code": "new_lang",
+                "name": "New Language",
+                "direction": "rtl",
+                "population": 100,
+                "plural": {"number": 2, "formula": "2"},
+            },
+        )
+        self.assertEqual(Language.objects.count(), len(LANGUAGES))
+
+    def test_create_invalid_plural_formula_evaluation_error(self) -> None:
+        self.do_request(
+            "api:language-list",
+            method="post",
+            superuser=True,
+            code=400,
+            format="json",
+            request={
+                "code": "new_lang",
+                "name": "New Language",
+                "direction": "rtl",
+                "population": 100,
+                "plural": {"number": 2, "formula": "n/0"},
+            },
+        )
+        self.assertEqual(Language.objects.count(), len(LANGUAGES))
+
     def test_delete(self) -> None:
         self.do_request(
             "api:language-list",
@@ -6163,6 +6271,61 @@ class TasksAPITest(APIBaseTest):
             response.data,
             {"completed": False, "progress": 0, "result": None, "log": ""},
         )
+
+    def test_retrieve_uses_cached_user_metadata(self) -> None:
+        cache.set(get_task_metadata_key(self.task_id), {"user_id": self.user.id}, 3600)
+
+        class DummyAsyncResult:
+            def __init__(self, task_id):
+                self.id = task_id
+                self.result = None
+                self.state = "PENDING"
+
+            def ready(self):
+                return False
+
+        with patch("weblate.api.views.AsyncResult", DummyAsyncResult):
+            response = self.do_request(
+                "api:task-detail",
+                kwargs={"pk": self.task_id},
+                method="get",
+                code=200,
+            )
+
+        self.assertEqual(
+            response.data,
+            {"completed": False, "progress": 0, "result": None, "log": ""},
+        )
+
+    def test_destroy_denies_cached_user_metadata(self) -> None:
+        cache.set(get_task_metadata_key(self.task_id), {"user_id": self.user.id}, 3600)
+
+        class DummyAsyncResult:
+            latest = None
+
+            def __init__(self, task_id):
+                self.id = task_id
+                self.result = None
+                self.revoked = False
+                self.state = "PENDING"
+                DummyAsyncResult.latest = self
+
+            def ready(self):
+                return False
+
+            def revoke(self, *args, **kwargs) -> None:
+                self.revoked = True
+
+        with patch("weblate.api.views.AsyncResult", DummyAsyncResult):
+            self.do_request(
+                "api:task-detail",
+                kwargs={"pk": self.task_id},
+                method="delete",
+                code=403,
+            )
+
+        self.assertIsNotNone(DummyAsyncResult.latest)
+        self.assertFalse(DummyAsyncResult.latest.revoked)
 
     def test_retrieve_hides_inaccessible_cached_component(self) -> None:
         other_component = self.create_acl()
@@ -6674,6 +6837,62 @@ class MemoryAPITest(APIBaseTest):
             get_fuzzy_match.call_args.args[4],
             "Batch fuzzy sourca",  # codespell:ignore sourca
         )
+
+    def test_lookup_exact_query_skips_fuzzy_fallback(self) -> None:
+        self.authenticate()
+        exact = self.create_memory(
+            source="Exact only match",
+            target="Pouze presna shoda",
+            project=self.component.project,
+            origin=self.component.full_slug,
+        )
+        fuzzy = self.create_memory(
+            source="Exact only fuzzy entry",
+            target="Pouze fuzzy shoda",
+            project=self.component.project,
+            origin=self.component.full_slug,
+        )
+
+        with patch.object(
+            MemoryViewSet,
+            "get_fuzzy_match",
+            autospec=True,
+            return_value=fuzzy,
+        ) as get_fuzzy_match:
+            response = self.client.post(
+                (
+                    f"{reverse('api:memory-lookup')}?source_language=en&target_language=cs"
+                    f"&project={self.component.project.slug}&exact=true"
+                ),
+                {
+                    "strings": [
+                        "Exact only match",
+                        "Exact only fuzzy entri",
+                    ]
+                },  # codespell:ignore entri
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["match"]["id"], exact.id)
+        self.assertTrue(response.data[0]["match"]["exact"])
+        self.assertIsNone(response.data[1]["match"])
+        get_fuzzy_match.assert_not_called()
+
+    def test_lookup_exact_query_rejects_invalid_boolean(self) -> None:
+        self.authenticate()
+
+        response = self.client.post(
+            (
+                f"{reverse('api:memory-lookup')}?source_language=en&target_language=cs"
+                "&exact=invalid"
+            ),
+            {"strings": ["Invalid exact parameter"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["errors"][0]["attr"], "exact")
 
     def test_get_exact_matches_uses_distinct_on_source(self) -> None:
         first = self.create_memory(
@@ -7229,6 +7448,34 @@ class TranslationAPITest(APIBaseTest):
         self.assertNotIn("ssh://", detail)
         self.assertNotIn(self.component.full_path, detail)
         self.assertIn(".../secret", detail)
+
+    def test_upload_database_error_is_hidden(self) -> None:
+        self.authenticate()
+        with (
+            patch.object(
+                Translation,
+                "handle_upload",
+                side_effect=DatabaseError(
+                    "invalid page in block 876338 of relation base/16386/17990"
+                ),
+            ),
+            patch("weblate.api.views.report_error") as mocked_report_error,
+            open(TEST_PO, "rb") as handle,
+        ):
+            response = self.client.put(
+                reverse("api:translation-file", kwargs=self.translation_kwargs),
+                {"file": handle},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        detail = response.data["errors"][0]["detail"]
+        self.assertIn("File upload has failed", detail)
+        self.assertIn("Please try again later.", detail)
+        self.assertNotIn("invalid page", detail)
+        self.assertNotIn("base/16386/17990", detail)
+        mocked_report_error.assert_called_once_with(
+            "Upload error", print_tb=True, project=self.component.project
+        )
 
     def test_upload_internal_error_is_sanitized(self) -> None:
         self.authenticate()
@@ -10294,7 +10541,6 @@ class AnnouncementAPITest(APIBaseTest):
             project=self.component.project, message="Test project announcement"
         )
         self.category_announcement = Announcement.objects.create(
-            project=self.component.project,
             category=self.category,
             message="Test category announcement",
         )
@@ -10556,7 +10802,7 @@ class AnnouncementAPITest(APIBaseTest):
             id=response.data["id"]
         )
         self.assertIsNotNone(announcement)
-        self.assertEqual(announcement.project, category.project)
+        self.assertIsNone(announcement.project)
         self.assertEqual(announcement.category, category)
         self.assertIsNone(announcement.component)
         self.assertIsNone(announcement.language)
@@ -10977,6 +11223,72 @@ class AnnouncementAPITest(APIBaseTest):
 
         # Verify announcement still exists
         self.assertTrue(Announcement.objects.filter(id=announcement.id).exists())
+
+    def test_delete_translation_announcement_language_scope(self) -> None:
+        """Test deleting a translation announcement checks language scope."""
+        czech_language = Language.objects.get(code="cs")
+        german_language = Language.objects.get(code="de")
+        czech_translation, _created = Translation.objects.get_or_create(
+            component=self.component, language=czech_language
+        )
+        german_translation, _created = Translation.objects.get_or_create(
+            component=self.component, language=german_language
+        )
+        german_announcement = Announcement.objects.create(
+            project=self.component.project,
+            component=self.component,
+            language=german_language,
+            message="Test German translation announcement",
+        )
+
+        permission = Permission.objects.get(codename="announcement.delete")
+        role = Role.objects.create(name="Czech announcement deleter")
+        role.permissions.add(permission)
+        group = Group.objects.create(
+            name="Czech announcement deleters",
+            project_selection=SELECTION_MANUAL,
+            language_selection=SELECTION_MANUAL,
+        )
+        group.projects.add(self.component.project)
+        group.languages.add(czech_language)
+        group.roles.add(role)
+        self.user.groups.add(group)
+        self.user.clear_cache()
+
+        self.assertTrue(self.user.has_perm("announcement.delete", czech_translation))
+        self.assertTrue(
+            self.user.has_perm("announcement.delete", self.translation_announcement)
+        )
+        self.assertFalse(self.user.has_perm("announcement.delete", german_translation))
+        self.assertFalse(self.user.has_perm("announcement.delete", german_announcement))
+
+        self.do_request(
+            "api:translation-delete-announcement",
+            kwargs={
+                "language__code": german_translation.language.code,
+                "component__slug": german_translation.component.slug,
+                "component__project__slug": german_translation.component.project.slug,
+                "announcement_id": german_announcement.id,
+            },
+            method="delete",
+            superuser=False,
+            code=403,
+        )
+        self.assertTrue(Announcement.objects.filter(id=german_announcement.id).exists())
+
+        self.do_request(
+            "api:translation-delete-announcement",
+            kwargs={
+                **self.translation_kwargs,
+                "announcement_id": self.translation_announcement.id,
+            },
+            method="delete",
+            superuser=False,
+            code=204,
+        )
+        self.assertFalse(
+            Announcement.objects.filter(id=self.translation_announcement.id).exists()
+        )
 
     def test_delete_nonexistent_translation_announcement(self) -> None:
         """Test deleting an announcement that doesn't exist."""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: foxglove-sdk
-Version: 0.23.1
+Version: 0.24.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
 Requires-Dist: anywidget ; extra == 'notebook'
@@ -42,8 +42,8 @@ Remote access is available on the following platforms:
 |----------------|-------------|---------------|
 | Linux (glibc)  | x86_64      | Yes (manylinux_2_28, glibc >= 2.28) |
 | Linux (glibc)  | aarch64     | Yes (manylinux_2_28, glibc >= 2.28) |
-| Linux (glibc)  | x86, armv7, s390x, ppc64le | No |
-| Linux (musl)   | all         | No            |
+| Linux (glibc)  | armv7       | No            |
+| Linux (musl)   | x86_64, aarch64, armv7 | No |
 | macOS          | aarch64     | Yes           |
 | macOS          | x86_64      | Yes           |
 | Windows        | x86_64      | Yes           |

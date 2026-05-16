@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: datadog-cdk-constructs-v2
-Version: 4.0.0
+Version: 4.1.0
 Summary: CDK Construct Library to automatically instrument Python and Node Lambda functions with Datadog using AWS CDK v2
 Home-page: https://github.com/DataDog/datadog-cdk-constructs
 Author: Datadog

@@ -11,10 +11,13 @@ from datadog_api_client.model_utils import (
     UnsetType,
     unset,
 )
+from datadog_api_client.v2.model.cost_anomalies_response import CostAnomaliesResponse
+from datadog_api_client.v2.model.cost_anomaly_response import CostAnomalyResponse
 from datadog_api_client.v2.model.arbitrary_rule_response_array import ArbitraryRuleResponseArray
 from datadog_api_client.v2.model.arbitrary_rule_response import ArbitraryRuleResponse
 from datadog_api_client.v2.model.arbitrary_cost_upsert_request import ArbitraryCostUpsertRequest
 from datadog_api_client.v2.model.reorder_rule_resource_array import ReorderRuleResourceArray
+from datadog_api_client.v2.model.arbitrary_rule_status_response_array import ArbitraryRuleStatusResponseArray
 from datadog_api_client.v2.model.aws_cur_configs_response import AwsCURConfigsResponse
 from datadog_api_client.v2.model.aws_cur_config_response import AwsCurConfigResponse
 from datadog_api_client.v2.model.aws_cur_config_post_request import AwsCURConfigPostRequest
@@ -29,6 +32,20 @@ from datadog_api_client.v2.model.validation_response import ValidationResponse
 from datadog_api_client.v2.model.budget_validation_response import BudgetValidationResponse
 from datadog_api_client.v2.model.budget_validation_request import BudgetValidationRequest
 from datadog_api_client.v2.model.budget_array import BudgetArray
+from datadog_api_client.v2.model.commitments_list_response import CommitmentsListResponse
+from datadog_api_client.v2.model.commitments_provider import CommitmentsProvider
+from datadog_api_client.v2.model.commitments_commitment_type import CommitmentsCommitmentType
+from datadog_api_client.v2.model.commitments_coverage_scalar_response import CommitmentsCoverageScalarResponse
+from datadog_api_client.v2.model.commitments_coverage_timeseries_response import CommitmentsCoverageTimeseriesResponse
+from datadog_api_client.v2.model.commitments_on_demand_hotspots_scalar_response import (
+    CommitmentsOnDemandHotspotsScalarResponse,
+)
+from datadog_api_client.v2.model.commitments_savings_scalar_response import CommitmentsSavingsScalarResponse
+from datadog_api_client.v2.model.commitments_savings_timeseries_response import CommitmentsSavingsTimeseriesResponse
+from datadog_api_client.v2.model.commitments_utilization_scalar_response import CommitmentsUtilizationScalarResponse
+from datadog_api_client.v2.model.commitments_utilization_timeseries_response import (
+    CommitmentsUtilizationTimeseriesResponse,
+)
 from datadog_api_client.v2.model.custom_costs_file_list_response import CustomCostsFileListResponse
 from datadog_api_client.v2.model.custom_costs_file_upload_response import CustomCostsFileUploadResponse
 from datadog_api_client.v2.model.custom_costs_file_line_item import CustomCostsFileLineItem
@@ -38,10 +55,16 @@ from datadog_api_client.v2.model.gcp_usage_cost_config_response import GCPUsageC
 from datadog_api_client.v2.model.gcp_usage_cost_config_post_request import GCPUsageCostConfigPostRequest
 from datadog_api_client.v2.model.gcp_uc_config_response import GcpUcConfigResponse
 from datadog_api_client.v2.model.gcp_usage_cost_config_patch_request import GCPUsageCostConfigPatchRequest
+from datadog_api_client.v2.model.oci_configs_response import OCIConfigsResponse
+from datadog_api_client.v2.model.cost_tag_descriptions_response import CostTagDescriptionsResponse
+from datadog_api_client.v2.model.cost_tag_keys_response import CostTagKeysResponse
+from datadog_api_client.v2.model.cost_tag_key_response import CostTagKeyResponse
+from datadog_api_client.v2.model.cost_tags_response import CostTagsResponse
 from datadog_api_client.v2.model.ruleset_resp_array import RulesetRespArray
 from datadog_api_client.v2.model.ruleset_resp import RulesetResp
 from datadog_api_client.v2.model.create_ruleset_request import CreateRulesetRequest
 from datadog_api_client.v2.model.reorder_ruleset_resource_array import ReorderRulesetResourceArray
+from datadog_api_client.v2.model.ruleset_status_resp_array import RulesetStatusRespArray
 from datadog_api_client.v2.model.rules_validate_query_response import RulesValidateQueryResponse
 from datadog_api_client.v2.model.rules_validate_query_request import RulesValidateQueryRequest
 from datadog_api_client.v2.model.update_ruleset_request import UpdateRulesetRequest
@@ -341,6 +364,412 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._get_commitments_commitment_list_endpoint = _Endpoint(
+            settings={
+                "response_type": (CommitmentsListResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/commitments/commitment-list",
+                "operation_id": "get_commitments_commitment_list",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "provider": {
+                    "required": True,
+                    "openapi_types": (CommitmentsProvider,),
+                    "attribute": "provider",
+                    "location": "query",
+                },
+                "product": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "product",
+                    "location": "query",
+                },
+                "start": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter_by": {
+                    "openapi_types": (str,),
+                    "attribute": "filterBy",
+                    "location": "query",
+                },
+                "commitment_type": {
+                    "openapi_types": (CommitmentsCommitmentType,),
+                    "attribute": "commitmentType",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_commitments_coverage_scalar_endpoint = _Endpoint(
+            settings={
+                "response_type": (CommitmentsCoverageScalarResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/commitments/coverage/scalar",
+                "operation_id": "get_commitments_coverage_scalar",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "provider": {
+                    "required": True,
+                    "openapi_types": (CommitmentsProvider,),
+                    "attribute": "provider",
+                    "location": "query",
+                },
+                "product": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "product",
+                    "location": "query",
+                },
+                "start": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter_by": {
+                    "openapi_types": (str,),
+                    "attribute": "filterBy",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_commitments_coverage_timeseries_endpoint = _Endpoint(
+            settings={
+                "response_type": (CommitmentsCoverageTimeseriesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/commitments/coverage/timeseries",
+                "operation_id": "get_commitments_coverage_timeseries",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "provider": {
+                    "required": True,
+                    "openapi_types": (CommitmentsProvider,),
+                    "attribute": "provider",
+                    "location": "query",
+                },
+                "product": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "product",
+                    "location": "query",
+                },
+                "start": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter_by": {
+                    "openapi_types": (str,),
+                    "attribute": "filterBy",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_commitments_on_demand_hotspots_scalar_endpoint = _Endpoint(
+            settings={
+                "response_type": (CommitmentsOnDemandHotspotsScalarResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/commitments/on-demand-hot-spots/scalar",
+                "operation_id": "get_commitments_on_demand_hotspots_scalar",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "provider": {
+                    "required": True,
+                    "openapi_types": (CommitmentsProvider,),
+                    "attribute": "provider",
+                    "location": "query",
+                },
+                "product": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "product",
+                    "location": "query",
+                },
+                "start": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter_by": {
+                    "openapi_types": (str,),
+                    "attribute": "filterBy",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_commitments_savings_scalar_endpoint = _Endpoint(
+            settings={
+                "response_type": (CommitmentsSavingsScalarResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/commitments/savings/scalar",
+                "operation_id": "get_commitments_savings_scalar",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "provider": {
+                    "required": True,
+                    "openapi_types": (CommitmentsProvider,),
+                    "attribute": "provider",
+                    "location": "query",
+                },
+                "product": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "product",
+                    "location": "query",
+                },
+                "start": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter_by": {
+                    "openapi_types": (str,),
+                    "attribute": "filterBy",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_commitments_savings_timeseries_endpoint = _Endpoint(
+            settings={
+                "response_type": (CommitmentsSavingsTimeseriesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/commitments/savings/timeseries",
+                "operation_id": "get_commitments_savings_timeseries",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "provider": {
+                    "required": True,
+                    "openapi_types": (CommitmentsProvider,),
+                    "attribute": "provider",
+                    "location": "query",
+                },
+                "product": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "product",
+                    "location": "query",
+                },
+                "start": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter_by": {
+                    "openapi_types": (str,),
+                    "attribute": "filterBy",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_commitments_utilization_scalar_endpoint = _Endpoint(
+            settings={
+                "response_type": (CommitmentsUtilizationScalarResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/commitments/utilization/scalar",
+                "operation_id": "get_commitments_utilization_scalar",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "provider": {
+                    "required": True,
+                    "openapi_types": (CommitmentsProvider,),
+                    "attribute": "provider",
+                    "location": "query",
+                },
+                "product": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "product",
+                    "location": "query",
+                },
+                "start": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter_by": {
+                    "openapi_types": (str,),
+                    "attribute": "filterBy",
+                    "location": "query",
+                },
+                "commitment_type": {
+                    "openapi_types": (CommitmentsCommitmentType,),
+                    "attribute": "commitmentType",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_commitments_utilization_timeseries_endpoint = _Endpoint(
+            settings={
+                "response_type": (CommitmentsUtilizationTimeseriesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/commitments/utilization/timeseries",
+                "operation_id": "get_commitments_utilization_timeseries",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "provider": {
+                    "required": True,
+                    "openapi_types": (CommitmentsProvider,),
+                    "attribute": "provider",
+                    "location": "query",
+                },
+                "product": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "product",
+                    "location": "query",
+                },
+                "start": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "required": True,
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter_by": {
+                    "openapi_types": (str,),
+                    "attribute": "filterBy",
+                    "location": "query",
+                },
+                "commitment_type": {
+                    "openapi_types": (CommitmentsCommitmentType,),
+                    "attribute": "commitmentType",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_cost_anomaly_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostAnomalyResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/anomalies/{anomaly_id}",
+                "operation_id": "get_cost_anomaly",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "anomaly_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "anomaly_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._get_cost_awscur_config_endpoint = _Endpoint(
             settings={
                 "response_type": (AwsCurConfigResponse,),
@@ -402,6 +831,42 @@ class CloudCostManagementApi:
                     "openapi_types": (int,),
                     "attribute": "cloud_account_id",
                     "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_cost_tag_key_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostTagKeyResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_keys/{tag_key}",
+                "operation_id": "get_cost_tag_key",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "tag_key": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "tag_key",
+                    "location": "path",
+                },
+                "filter_metric": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[metric]",
+                    "location": "query",
+                },
+                "page_size": {
+                    "validation": {
+                        "inclusive_maximum": 10000,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[size]",
+                    "location": "query",
                 },
             },
             headers_map={
@@ -495,6 +960,79 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._list_cost_anomalies_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostAnomaliesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/anomalies",
+                "operation_id": "list_cost_anomalies",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "start": {
+                    "openapi_types": (int,),
+                    "attribute": "start",
+                    "location": "query",
+                },
+                "end": {
+                    "openapi_types": (int,),
+                    "attribute": "end",
+                    "location": "query",
+                },
+                "filter": {
+                    "openapi_types": (str,),
+                    "attribute": "filter",
+                    "location": "query",
+                },
+                "min_anomalous_threshold": {
+                    "openapi_types": (str,),
+                    "attribute": "min_anomalous_threshold",
+                    "location": "query",
+                },
+                "min_cost_threshold": {
+                    "openapi_types": (str,),
+                    "attribute": "min_cost_threshold",
+                    "location": "query",
+                },
+                "dismissal_cause": {
+                    "openapi_types": (str,),
+                    "attribute": "dismissal_cause",
+                    "location": "query",
+                },
+                "order_by": {
+                    "openapi_types": (str,),
+                    "attribute": "order_by",
+                    "location": "query",
+                },
+                "order": {
+                    "openapi_types": (str,),
+                    "attribute": "order",
+                    "location": "query",
+                },
+                "limit": {
+                    "openapi_types": (int,),
+                    "attribute": "limit",
+                    "location": "query",
+                },
+                "offset": {
+                    "openapi_types": (int,),
+                    "attribute": "offset",
+                    "location": "query",
+                },
+                "provider_ids": {
+                    "openapi_types": ([str],),
+                    "attribute": "provider_ids",
+                    "location": "query",
+                    "collection_format": "multi",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._list_cost_awscur_configs_endpoint = _Endpoint(
             settings={
                 "response_type": (AwsCURConfigsResponse,),
@@ -543,12 +1081,141 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._list_cost_oci_configs_endpoint = _Endpoint(
+            settings={
+                "response_type": (OCIConfigsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/oci_config",
+                "operation_id": "list_cost_oci_configs",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_cost_tag_descriptions_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostTagDescriptionsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_descriptions",
+                "operation_id": "list_cost_tag_descriptions",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_cloud": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[cloud]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_cost_tag_keys_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostTagKeysResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_keys",
+                "operation_id": "list_cost_tag_keys",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_metric": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[metric]",
+                    "location": "query",
+                },
+                "filter_tags": {
+                    "openapi_types": ([str],),
+                    "attribute": "filter[tags]",
+                    "location": "query",
+                    "collection_format": "multi",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_cost_tags_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostTagsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tags",
+                "operation_id": "list_cost_tags",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_metric": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[metric]",
+                    "location": "query",
+                },
+                "filter_match": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[match]",
+                    "location": "query",
+                },
+                "filter_tags": {
+                    "openapi_types": ([str],),
+                    "attribute": "filter[tags]",
+                    "location": "query",
+                    "collection_format": "multi",
+                },
+                "filter_tag_keys": {
+                    "openapi_types": ([str],),
+                    "attribute": "filter[tag_keys]",
+                    "location": "query",
+                    "collection_format": "multi",
+                },
+                "page_size": {
+                    "validation": {
+                        "inclusive_maximum": 10000,
+                    },
+                    "openapi_types": (int,),
+                    "attribute": "page[size]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._list_custom_allocation_rules_endpoint = _Endpoint(
             settings={
                 "response_type": (ArbitraryRuleResponseArray,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/cost/arbitrary_rule",
                 "operation_id": "list_custom_allocation_rules",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_custom_allocation_rules_status_endpoint = _Endpoint(
+            settings={
+                "response_type": (ArbitraryRuleStatusResponseArray,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/arbitrary_rule/status",
+                "operation_id": "list_custom_allocation_rules_status",
                 "http_method": "GET",
                 "version": "v2",
             },
@@ -613,6 +1280,22 @@ class CloudCostManagementApi:
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/tags/enrichment",
                 "operation_id": "list_tag_pipelines_rulesets",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_tag_pipelines_rulesets_status_endpoint = _Endpoint(
+            settings={
+                "response_type": (RulesetStatusRespArray,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/tags/enrichment/status",
+                "operation_id": "list_tag_pipelines_rulesets_status",
                 "http_method": "GET",
                 "version": "v2",
             },
@@ -1120,6 +1803,353 @@ class CloudCostManagementApi:
 
         return self._get_budget_endpoint.call_with_http_info(**kwargs)
 
+    def get_commitments_commitment_list(
+        self,
+        provider: CommitmentsProvider,
+        product: str,
+        start: int,
+        end: int,
+        *,
+        filter_by: Union[str, UnsetType] = unset,
+        commitment_type: Union[CommitmentsCommitmentType, UnsetType] = unset,
+    ) -> CommitmentsListResponse:
+        """Get commitments list.
+
+        Get a list of individual cloud commitments (Reserved Instances or Savings Plans) with their utilization details. The response schema varies based on the provider, product, and commitment type.
+
+        :param provider: Cloud provider for commitment programs (aws or azure).
+        :type provider: CommitmentsProvider
+        :param product: Cloud product identifier (for example, ec2, rds, virtualmachines).
+        :type product: str
+        :param start: Start of the query time range in Unix milliseconds.
+        :type start: int
+        :param end: End of the query time range in Unix milliseconds.
+        :type end: int
+        :param filter_by: Optional filter expression to narrow down results.
+        :type filter_by: str, optional
+        :param commitment_type: Type of commitment to query. ri for Reserved Instances, sp for Savings Plans. Defaults to ri.
+        :type commitment_type: CommitmentsCommitmentType, optional
+        :rtype: CommitmentsListResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["provider"] = provider
+
+        kwargs["product"] = product
+
+        kwargs["start"] = start
+
+        kwargs["end"] = end
+
+        if filter_by is not unset:
+            kwargs["filter_by"] = filter_by
+
+        if commitment_type is not unset:
+            kwargs["commitment_type"] = commitment_type
+
+        return self._get_commitments_commitment_list_endpoint.call_with_http_info(**kwargs)
+
+    def get_commitments_coverage_scalar(
+        self,
+        provider: CommitmentsProvider,
+        product: str,
+        start: int,
+        end: int,
+        *,
+        filter_by: Union[str, UnsetType] = unset,
+    ) -> CommitmentsCoverageScalarResponse:
+        """Get commitments coverage (scalar).
+
+        Get scalar coverage metrics for cloud commitment programs, including hours and cost coverage percentages.
+
+        :param provider: Cloud provider for commitment programs (aws or azure).
+        :type provider: CommitmentsProvider
+        :param product: Cloud product identifier (for example, ec2, rds, virtualmachines).
+        :type product: str
+        :param start: Start of the query time range in Unix milliseconds.
+        :type start: int
+        :param end: End of the query time range in Unix milliseconds.
+        :type end: int
+        :param filter_by: Optional filter expression to narrow down results.
+        :type filter_by: str, optional
+        :rtype: CommitmentsCoverageScalarResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["provider"] = provider
+
+        kwargs["product"] = product
+
+        kwargs["start"] = start
+
+        kwargs["end"] = end
+
+        if filter_by is not unset:
+            kwargs["filter_by"] = filter_by
+
+        return self._get_commitments_coverage_scalar_endpoint.call_with_http_info(**kwargs)
+
+    def get_commitments_coverage_timeseries(
+        self,
+        provider: CommitmentsProvider,
+        product: str,
+        start: int,
+        end: int,
+        *,
+        filter_by: Union[str, UnsetType] = unset,
+    ) -> CommitmentsCoverageTimeseriesResponse:
+        """Get commitments coverage (timeseries).
+
+        Get timeseries coverage metrics for cloud commitment programs, broken down by coverage type (Reserved Instances, Savings Plans, On-Demand, and Spot) for both hours and cost.
+
+        :param provider: Cloud provider for commitment programs (aws or azure).
+        :type provider: CommitmentsProvider
+        :param product: Cloud product identifier (for example, ec2, rds, virtualmachines).
+        :type product: str
+        :param start: Start of the query time range in Unix milliseconds.
+        :type start: int
+        :param end: End of the query time range in Unix milliseconds.
+        :type end: int
+        :param filter_by: Optional filter expression to narrow down results.
+        :type filter_by: str, optional
+        :rtype: CommitmentsCoverageTimeseriesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["provider"] = provider
+
+        kwargs["product"] = product
+
+        kwargs["start"] = start
+
+        kwargs["end"] = end
+
+        if filter_by is not unset:
+            kwargs["filter_by"] = filter_by
+
+        return self._get_commitments_coverage_timeseries_endpoint.call_with_http_info(**kwargs)
+
+    def get_commitments_on_demand_hotspots_scalar(
+        self,
+        provider: CommitmentsProvider,
+        product: str,
+        start: int,
+        end: int,
+        *,
+        filter_by: Union[str, UnsetType] = unset,
+    ) -> CommitmentsOnDemandHotspotsScalarResponse:
+        """Get commitments on-demand hot spots (scalar).
+
+        Get scalar on-demand hot-spots data for cloud commitment programs, showing per-dimension breakdowns of on-demand spending with coverage metrics and potential savings.
+
+        :param provider: Cloud provider for commitment programs (aws or azure).
+        :type provider: CommitmentsProvider
+        :param product: Cloud product identifier (for example, ec2, rds, virtualmachines).
+        :type product: str
+        :param start: Start of the query time range in Unix milliseconds.
+        :type start: int
+        :param end: End of the query time range in Unix milliseconds.
+        :type end: int
+        :param filter_by: Optional filter expression to narrow down results.
+        :type filter_by: str, optional
+        :rtype: CommitmentsOnDemandHotspotsScalarResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["provider"] = provider
+
+        kwargs["product"] = product
+
+        kwargs["start"] = start
+
+        kwargs["end"] = end
+
+        if filter_by is not unset:
+            kwargs["filter_by"] = filter_by
+
+        return self._get_commitments_on_demand_hotspots_scalar_endpoint.call_with_http_info(**kwargs)
+
+    def get_commitments_savings_scalar(
+        self,
+        provider: CommitmentsProvider,
+        product: str,
+        start: int,
+        end: int,
+        *,
+        filter_by: Union[str, UnsetType] = unset,
+    ) -> CommitmentsSavingsScalarResponse:
+        """Get commitments savings (scalar).
+
+        Get scalar savings metrics for cloud commitment programs, including realized savings and effective savings rate.
+
+        :param provider: Cloud provider for commitment programs (aws or azure).
+        :type provider: CommitmentsProvider
+        :param product: Cloud product identifier (for example, ec2, rds, virtualmachines).
+        :type product: str
+        :param start: Start of the query time range in Unix milliseconds.
+        :type start: int
+        :param end: End of the query time range in Unix milliseconds.
+        :type end: int
+        :param filter_by: Optional filter expression to narrow down results.
+        :type filter_by: str, optional
+        :rtype: CommitmentsSavingsScalarResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["provider"] = provider
+
+        kwargs["product"] = product
+
+        kwargs["start"] = start
+
+        kwargs["end"] = end
+
+        if filter_by is not unset:
+            kwargs["filter_by"] = filter_by
+
+        return self._get_commitments_savings_scalar_endpoint.call_with_http_info(**kwargs)
+
+    def get_commitments_savings_timeseries(
+        self,
+        provider: CommitmentsProvider,
+        product: str,
+        start: int,
+        end: int,
+        *,
+        filter_by: Union[str, UnsetType] = unset,
+    ) -> CommitmentsSavingsTimeseriesResponse:
+        """Get commitments savings (timeseries).
+
+        Get timeseries savings metrics for cloud commitment programs, including actual cost, on-demand equivalent cost, realized savings, and effective savings rate over time.
+
+        :param provider: Cloud provider for commitment programs (aws or azure).
+        :type provider: CommitmentsProvider
+        :param product: Cloud product identifier (for example, ec2, rds, virtualmachines).
+        :type product: str
+        :param start: Start of the query time range in Unix milliseconds.
+        :type start: int
+        :param end: End of the query time range in Unix milliseconds.
+        :type end: int
+        :param filter_by: Optional filter expression to narrow down results.
+        :type filter_by: str, optional
+        :rtype: CommitmentsSavingsTimeseriesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["provider"] = provider
+
+        kwargs["product"] = product
+
+        kwargs["start"] = start
+
+        kwargs["end"] = end
+
+        if filter_by is not unset:
+            kwargs["filter_by"] = filter_by
+
+        return self._get_commitments_savings_timeseries_endpoint.call_with_http_info(**kwargs)
+
+    def get_commitments_utilization_scalar(
+        self,
+        provider: CommitmentsProvider,
+        product: str,
+        start: int,
+        end: int,
+        *,
+        filter_by: Union[str, UnsetType] = unset,
+        commitment_type: Union[CommitmentsCommitmentType, UnsetType] = unset,
+    ) -> CommitmentsUtilizationScalarResponse:
+        """Get commitments utilization (scalar).
+
+        Get scalar utilization metrics for cloud commitment programs, including utilization percentage and unused cost.
+
+        :param provider: Cloud provider for commitment programs (aws or azure).
+        :type provider: CommitmentsProvider
+        :param product: Cloud product identifier (for example, ec2, rds, virtualmachines).
+        :type product: str
+        :param start: Start of the query time range in Unix milliseconds.
+        :type start: int
+        :param end: End of the query time range in Unix milliseconds.
+        :type end: int
+        :param filter_by: Optional filter expression to narrow down results.
+        :type filter_by: str, optional
+        :param commitment_type: Type of commitment to query. ri for Reserved Instances, sp for Savings Plans. Defaults to ri.
+        :type commitment_type: CommitmentsCommitmentType, optional
+        :rtype: CommitmentsUtilizationScalarResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["provider"] = provider
+
+        kwargs["product"] = product
+
+        kwargs["start"] = start
+
+        kwargs["end"] = end
+
+        if filter_by is not unset:
+            kwargs["filter_by"] = filter_by
+
+        if commitment_type is not unset:
+            kwargs["commitment_type"] = commitment_type
+
+        return self._get_commitments_utilization_scalar_endpoint.call_with_http_info(**kwargs)
+
+    def get_commitments_utilization_timeseries(
+        self,
+        provider: CommitmentsProvider,
+        product: str,
+        start: int,
+        end: int,
+        *,
+        filter_by: Union[str, UnsetType] = unset,
+        commitment_type: Union[CommitmentsCommitmentType, UnsetType] = unset,
+    ) -> CommitmentsUtilizationTimeseriesResponse:
+        """Get commitments utilization (timeseries).
+
+        Get timeseries utilization metrics for cloud commitment programs, including used and unused cost series over time.
+
+        :param provider: Cloud provider for commitment programs (aws or azure).
+        :type provider: CommitmentsProvider
+        :param product: Cloud product identifier (for example, ec2, rds, virtualmachines).
+        :type product: str
+        :param start: Start of the query time range in Unix milliseconds.
+        :type start: int
+        :param end: End of the query time range in Unix milliseconds.
+        :type end: int
+        :param filter_by: Optional filter expression to narrow down results.
+        :type filter_by: str, optional
+        :param commitment_type: Type of commitment to query. ri for Reserved Instances, sp for Savings Plans. Defaults to ri.
+        :type commitment_type: CommitmentsCommitmentType, optional
+        :rtype: CommitmentsUtilizationTimeseriesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["provider"] = provider
+
+        kwargs["product"] = product
+
+        kwargs["start"] = start
+
+        kwargs["end"] = end
+
+        if filter_by is not unset:
+            kwargs["filter_by"] = filter_by
+
+        if commitment_type is not unset:
+            kwargs["commitment_type"] = commitment_type
+
+        return self._get_commitments_utilization_timeseries_endpoint.call_with_http_info(**kwargs)
+
+    def get_cost_anomaly(
+        self,
+        anomaly_id: str,
+    ) -> CostAnomalyResponse:
+        """Get cost anomaly.
+
+        Get a detected Cloud Cost Management anomaly by UUID.
+
+        :param anomaly_id: The UUID of the cost anomaly.
+        :type anomaly_id: str
+        :rtype: CostAnomalyResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["anomaly_id"] = anomaly_id
+
+        return self._get_cost_anomaly_endpoint.call_with_http_info(**kwargs)
+
     def get_cost_awscur_config(
         self,
         cloud_account_id: int,
@@ -1170,6 +2200,36 @@ class CloudCostManagementApi:
         kwargs["cloud_account_id"] = cloud_account_id
 
         return self._get_cost_gcp_usage_cost_config_endpoint.call_with_http_info(**kwargs)
+
+    def get_cost_tag_key(
+        self,
+        tag_key: str,
+        *,
+        filter_metric: Union[str, UnsetType] = unset,
+        page_size: Union[int, UnsetType] = unset,
+    ) -> CostTagKeyResponse:
+        """Get a Cloud Cost Management tag key.
+
+        Get details for a specific Cloud Cost Management tag key, including example tag values and description.
+
+        :param tag_key: The Cloud Cost Management tag key. Tag keys can contain forward slashes (for example, ``kubernetes/instance`` ).
+        :type tag_key: str
+        :param filter_metric: The Cloud Cost Management metric to scope the tag key details to. When omitted, returns details across all metrics.
+        :type filter_metric: str, optional
+        :param page_size: Controls the size of the internal tag value search scope. This does **not** restrict the number of example tag values returned in the response. Defaults to 50, maximum 10000.
+        :type page_size: int, optional
+        :rtype: CostTagKeyResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["tag_key"] = tag_key
+
+        if filter_metric is not unset:
+            kwargs["filter_metric"] = filter_metric
+
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        return self._get_cost_tag_key_endpoint.call_with_http_info(**kwargs)
 
     def get_custom_allocation_rule(
         self,
@@ -1234,6 +2294,85 @@ class CloudCostManagementApi:
         kwargs: Dict[str, Any] = {}
         return self._list_budgets_endpoint.call_with_http_info(**kwargs)
 
+    def list_cost_anomalies(
+        self,
+        *,
+        start: Union[int, UnsetType] = unset,
+        end: Union[int, UnsetType] = unset,
+        filter: Union[str, UnsetType] = unset,
+        min_anomalous_threshold: Union[str, UnsetType] = unset,
+        min_cost_threshold: Union[str, UnsetType] = unset,
+        dismissal_cause: Union[str, UnsetType] = unset,
+        order_by: Union[str, UnsetType] = unset,
+        order: Union[str, UnsetType] = unset,
+        limit: Union[int, UnsetType] = unset,
+        offset: Union[int, UnsetType] = unset,
+        provider_ids: Union[List[str], UnsetType] = unset,
+    ) -> CostAnomaliesResponse:
+        """List cost anomalies.
+
+        List detected Cloud Cost Management anomalies for the organization.
+
+        :param start: Start time as Unix milliseconds. Defaults to the start of the latest stable seven-day window.
+        :type start: int, optional
+        :param end: End time as Unix milliseconds. Defaults to the end of the latest stable seven-day window.
+        :type end: int, optional
+        :param filter: Optional JSON object mapping cost tag keys to allowed values, for example ``{"team":["payments"],"env":["prod"]}``. Filters match anomaly dimensions or correlated tags.
+        :type filter: str, optional
+        :param min_anomalous_threshold: Minimum absolute anomalous cost change to include. Numeric value; defaults to ``1``.
+        :type min_anomalous_threshold: str, optional
+        :param min_cost_threshold: Minimum absolute actual cost to include. Numeric value; defaults to ``0``.
+        :type min_cost_threshold: str, optional
+        :param dismissal_cause: Filter by resolution state. Use ``none`` for unresolved anomalies, ``all`` or ``*`` for resolved anomalies, or a comma-separated list of causes.
+        :type dismissal_cause: str, optional
+        :param order_by: Sort field. One of ``start_date`` , ``end_date`` , ``duration`` , ``max_cost`` , ``anomalous_cost`` , or ``dismissal_date``. Defaults to ``anomalous_cost``.
+        :type order_by: str, optional
+        :param order: Sort direction. One of ``asc`` or ``desc``. Defaults to ``desc``.
+        :type order: str, optional
+        :param limit: Maximum number of anomalies to return. Defaults to ``200``.
+        :type limit: int, optional
+        :param offset: Pagination offset. Defaults to ``0``.
+        :type offset: int, optional
+        :param provider_ids: Optional repeated cloud or SaaS provider filters, such as ``aws`` , ``gcp`` , ``azure`` , ``Oracle`` , ``datadog`` , ``OpenAI`` , or ``Anthropic``.
+        :type provider_ids: [str], optional
+        :rtype: CostAnomaliesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if start is not unset:
+            kwargs["start"] = start
+
+        if end is not unset:
+            kwargs["end"] = end
+
+        if filter is not unset:
+            kwargs["filter"] = filter
+
+        if min_anomalous_threshold is not unset:
+            kwargs["min_anomalous_threshold"] = min_anomalous_threshold
+
+        if min_cost_threshold is not unset:
+            kwargs["min_cost_threshold"] = min_cost_threshold
+
+        if dismissal_cause is not unset:
+            kwargs["dismissal_cause"] = dismissal_cause
+
+        if order_by is not unset:
+            kwargs["order_by"] = order_by
+
+        if order is not unset:
+            kwargs["order"] = order
+
+        if limit is not unset:
+            kwargs["limit"] = limit
+
+        if offset is not unset:
+            kwargs["offset"] = offset
+
+        if provider_ids is not unset:
+            kwargs["provider_ids"] = provider_ids
+
+        return self._list_cost_anomalies_endpoint.call_with_http_info(**kwargs)
+
     def list_cost_awscur_configs(
         self,
     ) -> AwsCURConfigsResponse:
@@ -1270,6 +2409,105 @@ class CloudCostManagementApi:
         kwargs: Dict[str, Any] = {}
         return self._list_cost_gcp_usage_cost_configs_endpoint.call_with_http_info(**kwargs)
 
+    def list_cost_oci_configs(
+        self,
+    ) -> OCIConfigsResponse:
+        """List Cloud Cost Management OCI configs.
+
+        List the OCI configs.
+
+        :rtype: OCIConfigsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._list_cost_oci_configs_endpoint.call_with_http_info(**kwargs)
+
+    def list_cost_tag_descriptions(
+        self,
+        *,
+        filter_cloud: Union[str, UnsetType] = unset,
+    ) -> CostTagDescriptionsResponse:
+        """List Cloud Cost Management tag descriptions.
+
+        List Cloud Cost Management tag key descriptions for the organization. Use ``filter[cloud]`` to scope the result to a single cloud provider; when omitted, both cross-cloud defaults and cloud-specific descriptions are returned.
+
+        :param filter_cloud: Filter descriptions to a specific cloud provider (for example, ``aws`` ). Omit to return descriptions across all clouds.
+        :type filter_cloud: str, optional
+        :rtype: CostTagDescriptionsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if filter_cloud is not unset:
+            kwargs["filter_cloud"] = filter_cloud
+
+        return self._list_cost_tag_descriptions_endpoint.call_with_http_info(**kwargs)
+
+    def list_cost_tag_keys(
+        self,
+        *,
+        filter_metric: Union[str, UnsetType] = unset,
+        filter_tags: Union[List[str], UnsetType] = unset,
+    ) -> CostTagKeysResponse:
+        """List Cloud Cost Management tag keys.
+
+        List Cloud Cost Management tag keys.
+
+        :param filter_metric: The Cloud Cost Management metric to scope the tag keys to. When omitted, returns tag keys across all metrics.
+        :type filter_metric: str, optional
+        :param filter_tags: Filter to return only tag keys that appear with the given ``key:value`` tag values. For example, ``filter[tags]=providername:aws`` returns tag keys found on the same cost data, such as ``is_aws_ec2_compute`` and ``aws_instance_type``.
+        :type filter_tags: [str], optional
+        :rtype: CostTagKeysResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if filter_metric is not unset:
+            kwargs["filter_metric"] = filter_metric
+
+        if filter_tags is not unset:
+            kwargs["filter_tags"] = filter_tags
+
+        return self._list_cost_tag_keys_endpoint.call_with_http_info(**kwargs)
+
+    def list_cost_tags(
+        self,
+        *,
+        filter_metric: Union[str, UnsetType] = unset,
+        filter_match: Union[str, UnsetType] = unset,
+        filter_tags: Union[List[str], UnsetType] = unset,
+        filter_tag_keys: Union[List[str], UnsetType] = unset,
+        page_size: Union[int, UnsetType] = unset,
+    ) -> CostTagsResponse:
+        """List Cloud Cost Management tags.
+
+        List Cloud Cost Management tags for a given metric.
+
+        :param filter_metric: The Cloud Cost Management metric to scope the tags to. When omitted, returns tags across all metrics.
+        :type filter_metric: str, optional
+        :param filter_match: A substring used to filter the returned tags by name.
+        :type filter_match: str, optional
+        :param filter_tags: Filter to return only tags that appear with the given ``key:value`` tag values. For example, ``filter[tags]=providername:aws`` returns tags found on the same cost data, such as ``aws_instance_type:t3.micro`` and ``aws_instance_type:m5.large``.
+        :type filter_tags: [str], optional
+        :param filter_tag_keys: Restrict the returned tags to those whose key matches one of the given tag keys.
+        :type filter_tag_keys: [str], optional
+        :param page_size: Controls the size of the internal tag search scope. This does **not** restrict the number of tags returned in the response. Defaults to 50, maximum 10000.
+        :type page_size: int, optional
+        :rtype: CostTagsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if filter_metric is not unset:
+            kwargs["filter_metric"] = filter_metric
+
+        if filter_match is not unset:
+            kwargs["filter_match"] = filter_match
+
+        if filter_tags is not unset:
+            kwargs["filter_tags"] = filter_tags
+
+        if filter_tag_keys is not unset:
+            kwargs["filter_tag_keys"] = filter_tag_keys
+
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        return self._list_cost_tags_endpoint.call_with_http_info(**kwargs)
+
     def list_custom_allocation_rules(
         self,
     ) -> ArbitraryRuleResponseArray:
@@ -1281,6 +2519,18 @@ class CloudCostManagementApi:
         """
         kwargs: Dict[str, Any] = {}
         return self._list_custom_allocation_rules_endpoint.call_with_http_info(**kwargs)
+
+    def list_custom_allocation_rules_status(
+        self,
+    ) -> ArbitraryRuleStatusResponseArray:
+        """List custom allocation rule statuses.
+
+        List the processing status of all custom allocation rules. Returns only the ID and processing status for each rule.
+
+        :rtype: ArbitraryRuleStatusResponseArray
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._list_custom_allocation_rules_status_endpoint.call_with_http_info(**kwargs)
 
     def list_custom_costs_files(
         self,
@@ -1342,6 +2592,18 @@ class CloudCostManagementApi:
         """
         kwargs: Dict[str, Any] = {}
         return self._list_tag_pipelines_rulesets_endpoint.call_with_http_info(**kwargs)
+
+    def list_tag_pipelines_rulesets_status(
+        self,
+    ) -> RulesetStatusRespArray:
+        """List tag pipeline ruleset statuses.
+
+        List the processing status of all tag pipeline rulesets. Returns only the ID and processing status for each ruleset.
+
+        :rtype: RulesetStatusRespArray
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._list_tag_pipelines_rulesets_status_endpoint.call_with_http_info(**kwargs)
 
     def reorder_custom_allocation_rules(
         self,

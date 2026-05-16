@@ -15,7 +15,7 @@ from dazzle.core import ir
 from dazzle.core.ir import FieldTypeKind, SurfaceMode
 from dazzle.core.ir.money import CURRENCY_SCALES, get_currency_scale
 from dazzle.core.strings import to_api_plural
-from dazzle.ui.runtime.template_context import (
+from dazzle.render.context import (
     ColumnContext,
     CompanionContext,
     CompanionEntryContext,
@@ -487,7 +487,7 @@ def _resolve_field_source(
     # Try the centralised resolver first (uses pre-built fragment_sources)
     source_ctx: FieldSourceContext | None = None
     try:
-        from dazzle.ui.runtime.template_context import build_field_source_context
+        from dazzle.render.context import build_field_source_context
 
         _fs = getattr(_build_form_fields, "_fragment_sources", {})
         source_ctx = build_field_source_context(source_ref, _fs)
@@ -509,7 +509,7 @@ def _resolve_field_source(
             if pack:
                 source_config = pack.generate_fragment_source(op_name)
                 source_ctx = FieldSourceContext(
-                    endpoint="/api/_fragments/search",
+                    endpoint="/_dazzle/fragments/search",
                     display_key=source_config.get("display_key", "name"),
                     value_key=source_config.get("value_key", "id"),
                     secondary_key=source_config.get("secondary_key", ""),

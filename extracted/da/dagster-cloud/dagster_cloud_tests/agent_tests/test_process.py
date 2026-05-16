@@ -27,7 +27,7 @@ def test_override_timeout(dagster_cloud_url):
         "token",
         user_code_launcher_config={"server_process_startup_timeout": 1234},
     ) as instance:
-        assert instance.user_code_launcher._server_process_startup_timeout == 1234  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._server_process_startup_timeout == 1234  # noqa: SLF001
 
 
 def test_launch_process(tmp_path, cleaup_zombie_processes):

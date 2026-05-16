@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from skylos.grader import (
+from skylos.reporting.grader import (
     score_to_letter,
     compute_grade,
     score_security,
@@ -280,6 +280,33 @@ class TestComputeGrade:
         assert grade["categories"]["security"]["score"] < 100
         assert grade["categories"]["quality"]["score"] < 100
         assert grade["categories"]["dead_code"]["score"] < 100
+
+    def test_dead_code_only_grade_uses_only_dead_code_category(self):
+        result = _empty_result(unused_functions=[{"name": f"f{i}"} for i in range(10)])
+        grade = compute_grade(result, 2000, included_categories=["dead_code"])
+
+        assert grade["overall"]["score"] == 85
+        assert grade["overall"]["letter"] == "B"
+        assert grade["scanned_categories"] == ["dead_code"]
+        assert list(grade["categories"]) == ["dead_code"]
+        assert grade["categories"]["dead_code"]["weight"] == 1.0
+
+    def test_selected_grade_categories_renormalize_weights(self):
+        result = _empty_result(
+            danger=[{"severity": "HIGH", "message": "XSS"}],
+            unused_functions=[{"name": f"f{i}"} for i in range(10)],
+        )
+        grade = compute_grade(
+            result,
+            2000,
+            included_categories=["security", "dead_code"],
+        )
+
+        assert grade["scanned_categories"] == ["security", "dead_code"]
+        assert set(grade["categories"]) == {"security", "dead_code"}
+        assert round(sum(cat["weight"] for cat in grade["categories"].values()), 5) == 1
+        assert "quality" not in grade["categories"]
+        assert grade["overall"]["score"] == 76
 
 
 class TestCountLinesOfCode:

@@ -10,11 +10,15 @@ class Vec6d(Structure):
 
 class Vec3dBasic(Structure):
     """
-    Internal use only. Not used as Vec3d directly because assigments to numpy arrays don't worl
+    Internal use only. Not used as Vec3d directly because assignments to numpy arrays don't work
     """
     _fields_ = [("x", c_double),
                 ("y", c_double),
                 ("z", c_double)]
+    
+    @property
+    def value(self):
+        return [self.x, self.y, self.z]
 
 class Vec3d:
     """

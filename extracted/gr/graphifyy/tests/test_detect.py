@@ -47,11 +47,17 @@ def test_detect_warns_small_corpus():
     assert result["needs_graph"] is False
     assert result["warning"] is not None
 
-def test_detect_skips_dotfiles():
+def test_detect_skips_noise_dot_dirs():
+    """Noise dot dirs (.next, .nuxt, .graphify cache, …) are skipped (#873).
+    Non-noise dot dirs (.github, .claude, …) are now allowed through."""
     result = detect(FIXTURES)
     for files in result["files"].values():
         for f in files:
-            assert "/." not in f
+            # graphify's own cache is always skipped
+            assert "/.graphify/" not in f
+            # well-known framework caches are always skipped
+            for noise in ("/.next/", "/.nuxt/", "/.turbo/", "/.angular/"):
+                assert noise not in f
 
 
 def test_classify_md_paper_by_signals(tmp_path):
@@ -371,3 +377,86 @@ def test_detect_skips_storybook_static_dir(tmp_path):
     all_files = [f for files in result["files"].values() for f in files]
     assert not any("storybook-static" in f for f in all_files)
     assert any("Button.tsx" in f for f in all_files)
+
+
+# --- #873: dot dirs allowed, framework caches blocked ---
+
+def test_detect_allows_github_dir(tmp_path):
+    """Files inside .github/ (workflows etc.) are now indexed (#873)."""
+    gh = tmp_path / ".github" / "workflows"
+    gh.mkdir(parents=True)
+    (gh / "ci.yml").write_text("name: CI\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n")
+    (tmp_path / "main.py").write_text("def run(): pass")
+    result = detect(tmp_path)
+    all_files = [f for files in result["files"].values() for f in files]
+    assert any(".github" in f for f in all_files), "expected .github/workflows/ci.yml to be detected"
+
+
+def test_detect_skips_next_cache(tmp_path):
+    """.next/ (Next.js build cache) must be excluded even after dot-dir fix (#873)."""
+    next_dir = tmp_path / ".next" / "cache"
+    next_dir.mkdir(parents=True)
+    (next_dir / "build.js").write_text("(function(){var s=1;})()")
+    pages = tmp_path / "pages"
+    pages.mkdir()
+    (pages / "index.tsx").write_text("export default function Home() { return <div/> }")
+    result = detect(tmp_path)
+    all_files = [f for files in result["files"].values() for f in files]
+    assert not any(".next" in f for f in all_files)
+    assert any("index.tsx" in f for f in all_files)
+
+
+def test_detect_skips_graphify_own_cache(tmp_path):
+    """.graphify/ (extraction cache) must never be re-indexed as source (#873)."""
+    cache = tmp_path / ".graphify" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "abc123.json").write_text('{"nodes": [], "edges": []}')
+    (tmp_path / "app.py").write_text("def go(): pass")
+    result = detect(tmp_path)
+    all_files = [f for files in result["files"].values() for f in files]
+    assert not any(".graphify" in f for f in all_files)
+    assert any("app.py" in f for f in all_files)
+
+
+# --- #882: gitignore parent-exclusion rule for ! re-includes ---
+
+def test_negation_cannot_rescue_file_under_excluded_dir(tmp_path):
+    """A ! re-include cannot un-ignore a file whose parent dir is excluded (#882)."""
+    from graphify.detect import _is_ignored, _load_graphifyignore
+    android = tmp_path / "android" / "app" / "src"
+    android.mkdir(parents=True)
+    victim = android / "Main.kt"
+    victim.write_text("fun main() {}")
+    (tmp_path / ".graphifyignore").write_text("android/\n!src/\n")
+    patterns = _load_graphifyignore(tmp_path)
+    assert _is_ignored(victim, tmp_path, patterns), (
+        "android/app/src/Main.kt must remain ignored even with !src/ because "
+        "the parent android/ is excluded"
+    )
+
+
+def test_negation_works_when_no_ancestor_excluded(tmp_path):
+    """A ! re-include must still un-ignore a file when no ancestor is excluded (#882)."""
+    from graphify.detect import _is_ignored, _load_graphifyignore
+    src = tmp_path / "src"
+    src.mkdir()
+    keep = src / "keep.py"
+    keep.write_text("x = 1")
+    (tmp_path / ".graphifyignore").write_text("*.py\n!src/keep.py\n")
+    patterns = _load_graphifyignore(tmp_path)
+    assert not _is_ignored(keep, tmp_path, patterns), (
+        "src/keep.py should be un-ignored by !src/keep.py since src/ itself is not excluded"
+    )
+
+
+def test_negation_ancestor_itself_reincluded(tmp_path):
+    """If the ancestor dir itself is re-included, its children should not be blocked (#882)."""
+    from graphify.detect import _is_ignored, _load_graphifyignore
+    vendor = tmp_path / "vendor" / "lib"
+    vendor.mkdir(parents=True)
+    f = vendor / "utils.py"
+    f.write_text("x = 1")
+    (tmp_path / ".graphifyignore").write_text("vendor/\n!vendor/\n")
+    patterns = _load_graphifyignore(tmp_path)
+    # vendor/ is excluded then re-included; ancestor eval returns False so file is evaluated on its own
+    assert not _is_ignored(f, tmp_path, patterns)

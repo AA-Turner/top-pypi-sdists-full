@@ -11,7 +11,7 @@ endif()
 FetchContent_Declare(
   pybind11
   GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG v3.0.1
+  GIT_TAG v3.0.4
   GIT_SHALLOW ON
   ${find_pkg_args})
 FetchContent_MakeAvailable(pybind11)
@@ -23,7 +23,7 @@ else()
   message(STATUS "Using remote pybind11 library")
 endif()
 
-# Generate bindings for syntax node types
+# Generate bindings for syntax node types and SyntaxFactory
 add_custom_command(
   COMMAND
     ${Python_EXECUTABLE} ${SCRIPTS_DIR}/syntax_gen.py --dir
@@ -33,6 +33,7 @@ add_custom_command(
          ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxBindings1.cpp
          ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxBindings2.cpp
          ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxBindings3.cpp
+         ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxFactory.cpp
   DEPENDS ${SCRIPTS_DIR}/syntax_gen.py ${SCRIPTS_DIR}/syntax.txt
   COMMENT "Generating syntax bindings")
 
@@ -54,7 +55,8 @@ pybind11_add_module(
   ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxBindings0.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxBindings1.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxBindings2.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxBindings3.cpp)
+  ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxBindings3.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/PySyntaxFactory.cpp)
 set_source_files_properties(
   python/pyslang.cpp PROPERTIES COMPILE_DEFINITIONS
                                 VERSION_INFO=${PROJECT_VERSION})
@@ -77,7 +79,7 @@ install(
 install(
   CODE "
   set(STUBGEN_PYTHON_EXECUTABLE \"${Python_EXECUTABLE}\")
-  set(CMAKE_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\")
+  # Do NOT override CMAKE_INSTALL_PREFIX - the install-time value is correct
   include(\"${CMAKE_CURRENT_SOURCE_DIR}/generate_stubs.cmake\")
 "
   COMPONENT pylib)

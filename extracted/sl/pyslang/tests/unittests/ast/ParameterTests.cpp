@@ -793,10 +793,11 @@ endmodule
 )");
 
     CompilationOptions coptions;
+    // No '=' at all -- should reject immediately.
     coptions.paramOverrides.push_back("foo");
+    // Empty value -- should reject immediately.
     coptions.paramOverrides.push_back("bar=");
-    coptions.paramOverrides.push_back("bar=lkj");
-    coptions.paramOverrides.push_back("baz=\"asdf\"");
+    // Hierarchical path to a non-existent parameter.
     coptions.paramOverrides.push_back("m.baz=\"asdf\"");
 
     Bag options;
@@ -806,11 +807,48 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 4);
+    REQUIRE(diags.size() == 3);
     CHECK(diags[0].code == diag::CouldNotResolveHierarchicalPath);
     CHECK(diags[1].code == diag::InvalidParamOverrideOpt);
     CHECK(diags[2].code == diag::InvalidParamOverrideOpt);
-    CHECK(diags[3].code == diag::InvalidParamOverrideOpt);
+}
+
+TEST_CASE("Param override with assignment pattern") {
+    auto tree = SyntaxTree::fromText(R"(
+typedef struct packed { int x; int y; } point_t;
+
+module m #(parameter point_t pt = '{0, 0});
+    localparam int sum = pt.x + pt.y;
+endmodule
+)");
+
+    CompilationOptions options;
+    options.paramOverrides.push_back("pt='{3, 4}");
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& sum = compilation.getRoot().lookupName<ParameterSymbol>("m.sum");
+    CHECK(sum.getValue().integer() == 7);
+}
+
+TEST_CASE("Param override with unpacked array concat") {
+    auto tree = SyntaxTree::fromText(R"(
+module m #(parameter int arr[3] = '{0, 0, 0});
+    localparam int total = arr[0] + arr[1] + arr[2];
+endmodule
+)");
+
+    CompilationOptions options;
+    options.paramOverrides.push_back("arr={1, 2, 3}");
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& total = compilation.getRoot().lookupName<ParameterSymbol>("m.total");
+    CHECK(total.getValue().integer() == 6);
 }
 
 TEST_CASE("Empty params for uninstantiated modules") {
@@ -945,7 +983,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::DefParamTargetChange);
 }
@@ -995,7 +1033,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::DefparamBadHierarchy);
 }
@@ -1026,7 +1064,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::DefparamBadHierarchy);
 }
@@ -1113,7 +1151,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::DuplicateDefparam);
 }
@@ -1512,4 +1550,25 @@ I I I d(
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     compilation.getAllDiagnostics();
+}
+
+TEST_CASE("$info with defparam modified args") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    defparam n.p = '{1, 2};
+endmodule
+
+module n;
+    parameter int p[2] = '{0, 0};
+
+    $info("%p", p);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::InfoTask);
 }

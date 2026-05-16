@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta:__legacy__"
 
 [project]
 name = "setuptools-git-versioning"
-version = "3.0.1"
+version = "3.1.0"
 authors = [{name = "dolfinus", email = "martinov.m.s.8@gmail.com"}]
 license = {text = "MIT"}
 description = "Use git repo data for building a version number according to PEP-440"
@@ -25,6 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.7"
@@ -65,8 +66,8 @@ dev_template = "{tag}.post{ccount}"
 
 [dependency-groups]
 dev = [
-  "ruff~=0.14.11",
-  "prek~=0.2.28",
+  "ruff~=0.15.13",
+  "prek~=0.4.0",
 ]
 test = [
   "build>=1.1.1",
@@ -77,19 +78,23 @@ test = [
   # Some tests need to write TOML, but tomli and tomllib are read-only, and toml package is unmaintained
   "tomli-w>=1.0.0",
   "wheel>=0.42.0",
+  "scikit-build-core>=0.5",
 ]
 docs = [
   "furo~=2025.12.19",
   "numpydoc~=1.10.0",
+  # https://github.com/sphinx-toolbox/sphinx-toolbox/issues/201
   "sphinx~=8.2.3",
   "sphinx-argparse~=0.5.2",
+  # https://github.com/sphinx-toolbox/sphinx-toolbox/pull/209
   "sphinx-autodoc-typehints~=3.5.2",
   "sphinx-copybutton~=0.5.2",
   "sphinx-last-updated-by-git~=0.3.8",
+  # https://github.com/sphinx-toolbox/sphinx-toolbox/issues/189
   "sphinx-tabs~=3.4.5",
   "sphinxcontrib-towncrier~=0.5.0a0",
   "towncrier~=25.8.0",
-  "sphinx-toolbox~=4.1.0",
+  "sphinx-toolbox~=4.1.2",
 ]
 
 [tool.uv]

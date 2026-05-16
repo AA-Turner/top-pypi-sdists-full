@@ -263,7 +263,7 @@ bool Type::isBitstreamType(bool destination) const {
         if (classType.isInterface || classType.hasCycles())
             return false;
 
-        for (auto& prop : classType.membersOfType<ClassPropertySymbol>()) {
+        for (auto& prop : classType.properties()) {
             if (!prop.getType().isBitstreamType(destination))
                 return false;
         }
@@ -389,6 +389,18 @@ bool Type::isHandleType() const {
     }
 }
 
+bool Type::isObjectHandleType() const {
+    auto ct = &getCanonicalType();
+    switch (ct->kind) {
+        case SymbolKind::VirtualInterfaceType:
+        case SymbolKind::ClassType:
+        case SymbolKind::CovergroupType:
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool Type::isUnion() const {
     const Type& ct = getCanonicalType();
     switch (ct.kind) {
@@ -426,8 +438,13 @@ bool Type::isMatching(const Type& rhs) const {
         return true;
 
     if (l->getSyntax() && l->getSyntax() == r->getSyntax() && l->getParentScope() &&
-        l->getParentScope() == r->getParentScope())
-        return true;
+        l->getParentScope() == r->getParentScope()) {
+        // Types declared with the same syntax in the same scope are identical,
+        // unless they are instances of a generic class.
+        return !l->isClass() || l->as<ClassType>().genericClass == nullptr ||
+               ParameterSymbolBase::allMatching(l->as<ClassType>().genericParameters,
+                                                r->as<ClassType>().genericParameters);
+    }
 
     // Special casing for type synonyms: real/realtime
     if (l->isFloating() && r->isFloating()) {
@@ -574,6 +591,26 @@ bool Type::isEquivalent(const Type& rhs) const {
     return false;
 }
 
+static bool isSameUnboundGenericClass(const Type& left, const Type& right) {
+    // In an uninstantiated generic class body, type parameters are not yet bound,
+    // so two specializations of the same generic class (e.g. Callback#(T) and
+    // Callback#(Base)) appear as different types but may become identical once the
+    // class is instantiated with a particular T. Treat them as assignment compatible
+    // so we don't emit spurious errors; concrete specializations of incompatible
+    // types will not be uninstantiated and will continue to be reported normally.
+    auto& lt = left.getCanonicalType();
+    auto& rt = right.getCanonicalType();
+    if (lt.isClass() && rt.isClass()) {
+        auto& lc = lt.as<ClassType>();
+        auto& rc = rt.as<ClassType>();
+        if (lc.genericClass && lc.genericClass == rc.genericClass &&
+            (lc.isUninstantiated || rc.isUninstantiated)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool Type::isAssignmentCompatible(const Type& rhs) const {
     // See [6.22.3] for Assignment Compatible
     const Type* l = &getCanonicalType();
@@ -618,6 +655,9 @@ bool Type::isAssignmentCompatible(const Type& rhs) const {
         // Classes can also be assigned to interface classes that they implement.
         if (r->implements(*l))
             return true;
+
+        if (r->isClass())
+            return isSameUnboundGenericClass(*l, *r);
     }
 
     if (l->isVirtualInterface()) {
@@ -686,7 +726,7 @@ bool Type::isDerivedFrom(const Type& base) const {
 
     while (d && d->isClass()) {
         d = d->as<ClassType>().getBaseClass();
-        if (d == b)
+        if (d == b || (d && isSameUnboundGenericClass(*d, *b)))
             return true;
     }
 
@@ -703,9 +743,17 @@ bool Type::implements(const Type& ifaceClass) const {
     if (!c->isClass())
         return false;
 
-    for (auto iface : c->as<ClassType>().getImplementedInterfaces()) {
-        if (iface->isMatching(ifaceClass))
-            return true;
+    const ClassType* cls = &c->as<ClassType>();
+    while (cls) {
+        for (auto iface : cls->getImplementedInterfaces()) {
+            if (iface->isMatching(ifaceClass))
+                return true;
+        }
+
+        auto base = cls->getBaseClass();
+        if (!base || base->isError())
+            break;
+        cls = &base->getCanonicalType().as<ClassType>();
     }
 
     return false;
@@ -851,8 +899,9 @@ bool Type::isValidForDPIReturn() const {
         case SymbolKind::CHandleType:
         case SymbolKind::StringType:
         case SymbolKind::ScalarType:
-        case SymbolKind::PredefinedIntegerType:
             return true;
+        case SymbolKind::PredefinedIntegerType:
+            return !isFourState();
         default:
             return false;
     }

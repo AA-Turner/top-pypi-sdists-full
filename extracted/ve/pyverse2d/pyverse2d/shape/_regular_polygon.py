@@ -1,14 +1,15 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import positive, not_null, over
+from .._internal import different_from, over
 from ..math.vertices import center_bbox
 from ..abc import Shape
 from ..math import Point
 
-from numbers import Real, Integral
 import numpy as np
 from numpy.typing import NDArray
+
+from numbers import Real, Integral
 import math
 
 # ======================================== SHAPE ========================================
@@ -16,20 +17,25 @@ class RegularPolygon(Shape):
     """Forme géométrique 2D immuable : Polygone régulier
 
     Args:
-        sides: nombre de côtés (minimum 3)
+        sides: nombre de côtés *(minimum 3)*
         radius: rayon du cercle circonscrit
     """
     __slots__ = ("_sides", "_radius")
 
     def __init__(self, sides: Integral, radius: Real):
-        # Attributs publiques
-        self._sides: int = int(sides)
-        self._radius: float = float(radius)
+        # Transtypage et vérifications
+        sides = int(sides)
+        radius = abs(float(radius))
 
         if __debug__:
-            over(self._sides, 3)
-            positive(not_null(self._radius))
+            over(sides, 3, include=True)
+            different_from(radius, 0)
 
+        # Attributs publiques
+        self._sides: int = sides
+        self._radius: float = radius
+
+        # Initialisation de la forme
         super().__init__()
 
     # ======================================== CONVERSIONS ========================================
@@ -42,6 +48,7 @@ class RegularPolygon(Shape):
         return f"RegularPolygon[{self._sides} sides | r={self._radius} | area={self.get_area():.4g}]"
 
     def __iter__(self):
+        """Renvoie les composants dans un itérateur"""
         yield self._sides
         yield self._radius
 
@@ -54,7 +61,7 @@ class RegularPolygon(Shape):
     def radius(self) -> float:
         """Rayon du cercle circonscrit
 
-        Le rayon doit être un *réel positif non nul*.
+        Le rayon doit être un ``Real`` *positif non nul*.
         """
         return self._radius
 
@@ -100,7 +107,7 @@ class RegularPolygon(Shape):
         """Teste si un point est dans le polygone régulier
 
         Args:
-            point: point à tester
+            point: ``Point`` à tester
         """
         if self._vertices is None:
             self._vertices = self.get_vertices()
@@ -120,15 +127,15 @@ class RegularPolygon(Shape):
         """Vérifie la convexité"""
         return True
 
-    # ======================================== PUBLIC METHODS ========================================
+    # ======================================== INTERFACE ========================================
     def copy(self) -> RegularPolygon:
         """Renvoie une copie du polygone régulier"""
         return RegularPolygon(self._sides, self._radius)
 
-# ======================================== FAÇADES ========================================
+# ======================================== SUBCLASSES ========================================
 class RegularTriangle(RegularPolygon):
     """Forme géométrique 2D : Triangle équilatéral"""
-    __slots__ = ()
+    __slots__ = tuple()
 
     def __init__(self, radius: Real):
         super().__init__(3, radius)
@@ -142,7 +149,7 @@ class RegularTriangle(RegularPolygon):
 
 class RegularPentagon(RegularPolygon):
     """Forme géométrique 2D : Pentagone régulier"""
-    __slots__ = ()
+    __slots__ = tuple()
 
     def __init__(self, radius: Real):
         super().__init__(5, radius)
@@ -156,7 +163,7 @@ class RegularPentagon(RegularPolygon):
 
 class RegularHexagon(RegularPolygon):
     """Forme géométrique 2D : Hexagone régulier"""
-    __slots__ = ()
+    __slots__ = tuple()
 
     def __init__(self, radius: Real):
         super().__init__(6, radius)
@@ -170,7 +177,7 @@ class RegularHexagon(RegularPolygon):
 
 class RegularOctagon(RegularPolygon):
     """Forme géométrique 2D : Octogone régulier"""
-    __slots__ = ()
+    __slots__ = tuple()
 
     def __init__(self, radius: Real):
         super().__init__(8, radius)
@@ -180,3 +187,13 @@ class RegularOctagon(RegularPolygon):
 
     def copy(self) -> RegularOctagon:
         return RegularOctagon(self._radius)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "RegularPolygon",
+    
+    "RegularTriangle",
+    "RegularPentagon",
+    "RegularHexagon",
+    "RegularOctagon",
+]

@@ -2,7 +2,7 @@
 import logging
 
 # Current version of the library
-__version__ = '3.2.0'
+__version__ = '4.0.0'
 
 
 def get_version():
@@ -23,14 +23,6 @@ def init_logging():
     stdout so that Travis doesn't think the build has hung.
     """
     set_stream_logger(__name__, level=logging.DEBUG)
-
-
-class NullHandler(logging.Handler):
-    """A null handler for the logger."""
-
-    def emit(self, record):
-        """Don't emit a log."""
-        pass
 
 
 TRACE = 5  # Lower than debug which is 10
@@ -58,7 +50,7 @@ default_format_string = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 logging.setLoggerClass(CBLogger)
 logging.addLevelName(TRACE, "TRACE")
 log = logging.getLogger('cloudbridge')
-log.addHandler(NullHandler())
+log.addHandler(logging.NullHandler())
 
 # Convenience functions to set logging to a particular file or stream
 # To enable either of these by default within CloudBridge, add the following

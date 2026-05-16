@@ -54,9 +54,10 @@ from dagster_shared.serdes.objects.models.defs_state_info import DefsStateInfo
     },
 )
 # Setup typically takes ~170s and the test body ~55s (~225s total), but under CI
-# resource pressure the setup can exceed the default 300s timeout. Use 600s to
-# provide adequate headroom.
-@pytest.mark.timeout(600)
+# resource pressure the docker-compose-up step alone can run close to its
+# `_DOCKER_COMPOSE_UP_TIMEOUT` (720s). Allow 900s to fit a worst-case slow setup
+# plus the test body and teardown.
+@pytest.mark.timeout(900)
 def test_load_pex_server(
     pex_files_tempdir,  # noqa: F811 (fixture)
     repo1_pex_tag,  # noqa: F811 (fixture)
@@ -585,7 +586,7 @@ def test_pex_server_watchdog(
         ),
     },
 )
-@pytest.mark.timeout(600)
+@pytest.mark.timeout(900)
 def test_defs_state_info_forwarded_to_pex_subprocess(
     pex_files_tempdir,  # noqa: F811 (fixture)
     repo1_pex_tag,  # noqa: F811 (fixture)

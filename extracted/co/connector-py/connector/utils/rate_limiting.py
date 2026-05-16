@@ -206,7 +206,7 @@ class RateLimiter(Generic[RequestType, ResponseType]):
 
     def debug_log(self, message: str):
         """Log the current rate limit status."""
-        logger.debug(f"[RateLimiter/{self.config.effective_config_id}] {message}")
+        logger.debug(f"[RateLimiter/{self.config.config_id}] {message}")
 
     def _get_deadline(self) -> float | None:
         """Return the caller-supplied execution deadline (Unix timestamp), if any."""

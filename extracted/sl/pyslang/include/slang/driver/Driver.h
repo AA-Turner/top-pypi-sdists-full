@@ -11,11 +11,14 @@
 #include "slang/ast/Compilation.h"
 #include "slang/diagnostics/DiagnosticClient.h"
 #include "slang/diagnostics/DiagnosticEngine.h"
+#include "slang/driver/CompatSettings.h"
 #include "slang/driver/SourceLoader.h"
 #include "slang/parsing/LexerFacts.h"
 #include "slang/text/SourceManager.h"
 #include "slang/util/Bag.h"
 #include "slang/util/CommandLine.h"
+#include "slang/util/ConcurrentMap.h"
+#include "slang/util/Function.h"
 #include "slang/util/LanguageVersion.h"
 #include "slang/util/OS.h"
 #include "slang/util/Util.h"
@@ -25,6 +28,7 @@ namespace slang {
 class JsonDiagnosticClient;
 class JsonWriter;
 class TextDiagnosticClient;
+class ThreadPool;
 enum class ShowHierarchyPathOption;
 
 } // namespace slang
@@ -50,9 +54,34 @@ enum class AnalysisFlags;
 
 namespace slang::driver {
 
-#define COMPAT(x) x(Vcs) x(All)
-SLANG_ENUM(CompatMode, COMPAT)
-#undef COMPAT
+class UserDefinedSubroutine;
+
+/// Flags that control output behavior when running the preprocessor directly.
+enum class SLANG_EXPORT PreprocessOutputFlags {
+    /// No flags specified.
+    None = 0,
+
+    /// Include comments in the output. If not set, comments are
+    /// stripped.
+    IncludeComments = 1 << 0,
+
+    /// Include preprocessor directives in the output. If not set,
+    /// directives are stripped.
+    IncludeDirectives = 1 << 1,
+
+    /// Obfuscate identifiers in the output by replacing them with
+    /// randomized alphanumeric strings.
+    ObfuscateIds = 1 << 2,
+
+    /// Obfuscated identifiers will be generated with a fixed
+    /// randomization seed, meaning they will be the same every
+    /// time the program is run. Used for testing.
+    UseFixedObfuscationSeed = 1 << 3,
+
+    /// Include source line information in the output.
+    IncludeSourceInfo = 1 << 4
+};
+SLANG_BITMASK(PreprocessOutputFlags, IncludeSourceInfo)
 
 /// @brief A top-level class that handles argument parsing, option preparation,
 /// and invoking various parts of the slang compilation process.
@@ -99,6 +128,10 @@ public:
     /// The object that handles loading and parsing source files.
     SourceLoader sourceLoader;
 
+    /// A shared thread pool for doing work in parallel.
+    /// Created on demand when threading is enabled, otherwise left null.
+    std::shared_ptr<ThreadPool> threadPool;
+
     /// A list of syntax trees that have been parsed.
     std::vector<std::shared_ptr<syntax::SyntaxTree>> syntaxTrees;
 
@@ -143,6 +176,19 @@ public:
         /// relative to the file containing the directive first.
         std::optional<bool> disableLocalIncludes;
 
+        /// If true, user-specified include directories (+incdir/-I) are searched before
+        /// the local directory of the file containing the include directive, matching the
+        /// behavior of VCS and similar simulators.
+        std::optional<bool> incDirFirst;
+
+        /// If true, the preprocessor will allow trailing spaces after the continuation character
+        /// in macro definitions.
+        std::optional<bool> allowMacroTrailingSpace;
+
+        /// If true, the preprocessor will print the name and kind of each file
+        /// as it is parsed.
+        std::optional<bool> showParsedFiles;
+
         /// @}
         /// @name Parsing
         /// @{
@@ -155,6 +201,11 @@ public:
 
         /// The number of threads to use for parsing.
         std::optional<uint32_t> numThreads;
+
+        /// If true, the preprocessor will assume that a missing end of scope token for a
+        /// module/program/package/class inside an include file with protected code has the
+        /// end of scope token inside the protected code.
+        std::optional<bool> allowMissingProtectedScopeEnd;
 
         /// @}
         /// @name Compilation
@@ -180,8 +231,15 @@ public:
         /// before abbreviating them.
         std::optional<uint32_t> maxConstexprBacktrace;
 
+        /// The maximum number of bits a single constant value can occupy before
+        /// an error is issued to prevent out-of-memory crashes.
+        std::optional<uint64_t> maxConstantSize;
+
         /// The maximum number of instances allowed in a single instance array.
         std::optional<uint32_t> maxInstanceArray;
+
+        /// The maximum number of members allowed in a single enum declaration.
+        std::optional<uint32_t> maxEnumValues;
 
         /// The maximum number of UDP coverage notes that will be generated for a single
         /// warning about missing edge transitions.
@@ -219,9 +277,6 @@ public:
         /// @}
         /// @name Diagnostics control
         /// @{
-
-        /// If true, print diagnostics with color.
-        std::optional<bool> colorDiags;
 
         /// If true, include column numbers in printed diagnostics.
         std::optional<bool> diagColumn;
@@ -329,8 +384,7 @@ public:
     template<typename TArgs>
     [[nodiscard]] bool parseCommandLine(int argc, TArgs argv) {
         if (!cmdLine.parse(argc, argv)) {
-            for (auto& err : cmdLine.getErrors())
-                OS::printE(err + '\n');
+            issueCommandLineErrors(cmdLine);
             return false;
         }
         return !anyFailedLoads;
@@ -340,7 +394,7 @@ public:
     ///
     /// Any errors encountered will be printed to stderr.
     [[nodiscard]] bool parseCommandLine(std::string_view argList,
-                                        CommandLine::ParseOptions parseOptions = {});
+                                        const CommandLine::ParseOptions& parseOptions = {});
 
     /// @brief Processes the given command file(s) for more options.
     ///
@@ -365,19 +419,11 @@ public:
     /// @brief Runs the preprocessor on all loaded buffers and outputs the result to stdout.
     ///
     /// Any errors encountered will be printed to stderr.
-    /// @param includeComments If true, comments will be included in the output.
-    /// @param includeDirectives If true, preprocessor directives will be included in the output.
-    /// @param obfuscateIds If true, identifiers will be obfuscated by replacing them with
-    ///                     randomized alphanumeric strings.
-    /// @param useFixedObfuscationSeed If true, obfuscated identifiers will be generated with
-    ///                                a fixed randomization seed, meaning they will be the
-    ///                                same every time the program is run. Used for testing.
-    /// @returns true on success and false if errors were encountered.
-    [[nodiscard]] bool runPreprocessor(bool includeComments, bool includeDirectives,
-                                       bool obfuscateIds, bool useFixedObfuscationSeed = false);
+    [[nodiscard]] bool runPreprocessor(bitmask<PreprocessOutputFlags> flags);
 
     /// Prints all macros from all loaded buffers to stdout.
-    void reportMacros();
+    /// If @a groupByFile is true, macros are grouped and labelled by source file.
+    void reportMacros(bool groupByFile = false);
 
     /// Writes any dependency files that have been requested via command line options.
     /// (if such options have not been specified this method does nothing).
@@ -435,12 +481,16 @@ public:
     /// Prints a note to stderr with appropriate terminal colors.
     void printNote(const std::string& message);
 
+    /// Sets whether terminal output should use color.
+    void setTerminalColorsEnabled(bool enable);
+
 private:
-    bool parseUnitListing(std::string_view text);
+    bool parseUnitListing(const SourceBuffer& sourceBuffer);
     std::string parseMapKeywordVersion(std::string_view value);
     void addLibraryFiles(std::string_view pattern);
     void addParseOptions(Bag& bag) const;
     void addCompilationOptions(Bag& bag) const;
+    void issueCommandLineErrors(const CommandLine& cl);
     bool reportLoadErrors();
 
     bool anyFailedLoads = false;
@@ -448,6 +498,7 @@ private:
     std::vector<std::tuple<std::string_view, std::string_view, std::string_view>>
         translateOffFormats;
     std::unique_ptr<JsonWriter> jsonWriter;
+    std::vector<std::shared_ptr<UserDefinedSubroutine>> userDefinedSubroutines;
 };
 
 } // namespace slang::driver

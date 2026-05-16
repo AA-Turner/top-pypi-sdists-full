@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: virl2_client
-Version: 2.9.1
+Version: 2.10.0
 Summary: VIRL2 Client Library
 License: Apache-2.0
 License-File: LICENSE
 License-File: NOTICE
 Author: Simon Knight
 Author-email: simknigh@cisco.com
-Requires-Python: >=3.9.2,<4.0.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: Apache Software License
@@ -22,10 +22,10 @@ Classifier: Topic :: System :: Networking
 Provides-Extra: docs
 Provides-Extra: events
 Provides-Extra: pyats
-Requires-Dist: aiohttp (>=3.11.18,<3.12.0) ; extra == "events"
+Requires-Dist: aiohttp (>=3,<4) ; extra == "events"
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: pyats (>=25,<26) ; extra == "pyats"
-Requires-Dist: sphinx (>=7,<8) ; extra == "docs"
+Requires-Dist: sphinx (<8.2) ; extra == "docs"
 Requires-Dist: sphinx_rtd_theme (>=3,<4) ; extra == "docs"
 Project-URL: Homepage, https://github.com/ciscodevnet/virl2-client
 Project-URL: Repository, https://github.com/ciscodevnet/virl2-client

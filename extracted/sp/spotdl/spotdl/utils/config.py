@@ -165,7 +165,6 @@ def get_web_ui_path() -> Path:
     # web_ui_path = get_spotdl_path() / "web-ui"
     # web_ui_path = get_spotdl_path() / "src" / "spotdl" / "web" / "static"
     web_ui_path = Path(__file__).parent.parent / "web" / "static"
-    print("Web UI path:", web_ui_path)
 
     if not web_ui_path.exists():
         os.mkdir(web_ui_path)
@@ -317,6 +316,7 @@ SPOTIFY_OPTIONS: SpotifyOptions = {
     "no_cache": False,
     "max_retries": 3,
     "use_cache_file": False,
+    "use_official_api": False,
 }
 
 DOWNLOADER_OPTIONS: DownloaderOptions = {

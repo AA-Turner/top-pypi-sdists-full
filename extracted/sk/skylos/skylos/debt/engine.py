@@ -6,8 +6,13 @@ from pathlib import Path
 from typing import Any
 
 from skylos.debt.result import DebtSignal, DebtSnapshot
-from skylos.debt.scoring import build_hotspots, compute_debt_score
-from skylos.file_discovery import find_git_root
+from skylos.debt.scoring import (
+    build_hotspots,
+    build_score_breakdown,
+    compute_debt_score,
+    score_model_metadata,
+)
+from skylos.core.file_discovery import find_git_root
 
 DEBT_VERSION = "1.0"
 
@@ -18,6 +23,7 @@ _QUALITY_DIMENSION_MAP: dict[str, str] = {
     "SKY-C303": "complexity",
     "SKY-C304": "complexity",
     "SKY-Q501": "modularity",
+    "SKY-Q502": "modularity",
     "SKY-Q701": "modularity",
     "SKY-Q702": "modularity",
     "SKY-Q802": "architecture",
@@ -245,6 +251,12 @@ def build_debt_snapshot(
         },
         "project_hotspot_count": len(all_hotspots),
         "visible_hotspot_count": len(hotspots),
+        "score_breakdown": build_score_breakdown(
+            all_hotspots,
+            score=score,
+            total_loc=total_loc,
+        ),
+        "score_model": score_model_metadata(),
     }
 
     return DebtSnapshot(

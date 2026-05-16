@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aiofile
-Version: 3.9.0
+Version: 3.10.0
 Summary: Asynchronous file operations.
-Home-page: http://github.com/mosquito/aiofile
-License: Apache-2.0
-Keywords: aio,python,asyncio,fileio,io
-Author: Dmitry Orlov
-Author-email: me@mosquito.su
-Requires-Python: >=3.8,<4
+Project-URL: Homepage, https://github.com/mosquito/aiofile
+Author-email: Dmitry Orlov <me@mosquito.su>
+License-Expression: Apache-2.0
+License-File: LICENCE
+License-File: LICENCE.md
+Keywords: aio,asyncio,fileio,io,python
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -19,19 +19,17 @@ Classifier: Natural Language :: Russian
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System
 Classifier: Topic :: System :: Operating System
-Requires-Dist: caio (>=0.9.0,<0.10.0)
+Requires-Python: >=3.11
+Requires-Dist: caio~=0.9.0
 Description-Content-Type: text/markdown
 
 # AIOFile
@@ -489,4 +487,3 @@ async def main():
 
 asyncio.run(main())
 ```
-

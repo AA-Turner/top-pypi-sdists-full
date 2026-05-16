@@ -1481,6 +1481,18 @@ _CONTEXT_CONFIG_SCHEMA_KUBERNETES = {
             },
         },
     },
+    # Alias of `kueue.local_queue_name`; `quota.queue` takes precedence
+    # when both are set.
+    'quota': {
+        'type': 'object',
+        'required': [],
+        'additionalProperties': False,
+        'properties': {
+            'queue': {
+                'type': 'string',
+            },
+        },
+    },
     'dws': {
         'type': 'object',
         'required': [],
@@ -1758,6 +1770,18 @@ def get_config_schema():
                             'type': 'null',
                         }
                     ],
+                },
+                'subnet_names': {
+                    'oneOf': [{
+                        'type': 'string',
+                    }, {
+                        'type': 'null',
+                    }, {
+                        'type': 'array',
+                        'items': {
+                            'type': 'string'
+                        }
+                    }],
                 },
                 **_CAPABILITIES_SCHEMA,
                 **_LABELS_SCHEMA,
@@ -2277,6 +2301,16 @@ def get_config_schema():
                                 },
                             },
                         },
+                        'quota': {
+                            'type': 'object',
+                            'required': [],
+                            'additionalProperties': False,
+                            'properties': {
+                                'queue': {
+                                    'type': 'string',
+                                },
+                            },
+                        },
                         'context_configs': {
                             'type': 'object',
                             'required': [],
@@ -2300,6 +2334,16 @@ def get_config_schema():
                                         'additionalProperties': False,
                                         'properties': {
                                             'local_queue_name': {
+                                                'type': 'string',
+                                            },
+                                        },
+                                    },
+                                    'quota': {
+                                        'type': 'object',
+                                        'required': [],
+                                        'additionalProperties': False,
+                                        'properties': {
+                                            'queue': {
                                                 'type': 'string',
                                             },
                                         },

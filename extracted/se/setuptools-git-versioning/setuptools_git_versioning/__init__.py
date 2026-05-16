@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from setuptools_git_versioning.archival import parse_archival_file, version_from_archival
 from setuptools_git_versioning.git import (
     count_since,
     get_all_tags,
@@ -37,5 +38,7 @@ __all__ = [
     "get_version",
     "infer_version",
     "is_dirty",
+    "parse_archival_file",
+    "version_from_archival",
     "version_from_git",
 ]

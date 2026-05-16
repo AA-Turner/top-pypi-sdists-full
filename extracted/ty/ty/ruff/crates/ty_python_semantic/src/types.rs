@@ -68,7 +68,9 @@ use crate::types::generics::{
     ApplySpecialization, InferableTypeVars, Specialization, bind_typevar,
 };
 use crate::types::infer::InferenceFlags;
-use crate::types::known_instance::{InternedConstraintSet, InternedType, UnionTypeInstance};
+use crate::types::known_instance::{
+    InternedConstraintSet, InternedType, SentinelInstance, UnionTypeInstance,
+};
 pub use crate::types::method::{BoundMethodType, KnownBoundMethodType, WrapperDescriptorKind};
 use crate::types::mro::{MroIterator, StaticMroError};
 pub(crate) use crate::types::narrow::{NarrowingConstraint, infer_narrowing_constraint};
@@ -2223,10 +2225,10 @@ impl<'db> Type<'db> {
             // We eagerly transform `SubclassOf` to `ClassLiteral` for final types, so `SubclassOf` is never a singleton.
             Type::SubclassOf(..) => false,
             Type::BoundSuper(..) => false,
+            Type::GenericAlias(..) => false,
             Type::FunctionLiteral(..)
             | Type::WrapperDescriptor(..)
             | Type::ClassLiteral(..)
-            | Type::GenericAlias(..)
             | Type::ModuleLiteral(..) => true,
             Type::SpecialForm(special_form) => {
                 // Nearly all `SpecialForm` types are singletons, but if a symbol could validly
@@ -2237,6 +2239,7 @@ impl<'db> Type<'db> {
                 !(special_form.check_module(KnownModule::Typing)
                     && special_form.check_module(KnownModule::TypingExtensions))
             }
+            Type::KnownInstance(KnownInstanceType::Sentinel(_)) => true,
             Type::KnownInstance(_) => false,
             Type::Callable(_) => {
                 // A callable type is never a singleton because for any given signature,
@@ -2514,7 +2517,7 @@ impl<'db> Type<'db> {
     }
 
     fn lookup_dunder_new(self, db: &'db dyn Db) -> Option<PlaceAndQualifiers<'db>> {
-        #[salsa::tracked(heap_size=ruff_memory_usage::heap_size)]
+        #[salsa::tracked(cycle_initial=|_, _, _, ()| None, heap_size=ruff_memory_usage::heap_size)]
         fn lookup_dunder_new_inner<'db>(
             db: &'db dyn Db,
             ty: Type<'db>,
@@ -5402,6 +5405,9 @@ impl<'db> Type<'db> {
                 }
                 KnownInstanceType::Callable(callable) => Ok(Type::Callable(*callable)),
                 KnownInstanceType::LiteralStringAlias(ty) => Ok(ty.inner(db)),
+                KnownInstanceType::Sentinel(sentinel) => {
+                    Ok(Type::KnownInstance(KnownInstanceType::Sentinel(*sentinel)))
+                }
                 KnownInstanceType::FunctoolsPartial(_) => Err(InvalidTypeExpressionError {
                     invalid_expressions: smallvec_inline![InvalidTypeExpression::InvalidType(
                         *self, scope_id
@@ -5829,7 +5835,13 @@ impl<'db> Type<'db> {
                     // Without this special handling, recursive type aliases would result in cycles, returning an unspecialized fallback type.
                     TypeMapping::ApplySpecialization(specialization)
                     | TypeMapping::ApplySpecializationWithMaterialization { specialization, .. }
-                    if matches!(specialization, ApplySpecialization::Specialization(_) | ApplySpecialization::Partial { .. }) => {
+                    if matches!(
+                        specialization,
+                        ApplySpecialization::Specialization(_)
+                            | ApplySpecialization::TypeAlias(_)
+                            | ApplySpecialization::Partial { .. }
+                    ) =>
+                    {
                         let mut current_specialization = specialization.as_specialization(db).unwrap();
                         if let TypeMapping::ApplySpecializationWithMaterialization {
                             materialization_kind,
@@ -5995,7 +6007,7 @@ impl<'db> Type<'db> {
                 });
             }
 
-            Type::BoundMethod(method) => {
+            Type::BoundMethod(method) => visitor.visit(self, || {
                 method.self_instance(db).find_legacy_typevars_impl(
                     db,
                     binding_context,
@@ -6008,30 +6020,30 @@ impl<'db> Type<'db> {
                     typevars,
                     visitor,
                 );
-            }
+            }),
 
             Type::KnownBoundMethod(
                 KnownBoundMethodType::FunctionTypeDunderGet(function)
                 | KnownBoundMethodType::FunctionTypeDunderCall(function),
-            ) => {
+            ) => visitor.visit(self, || {
                 function.find_legacy_typevars_impl(db, binding_context, typevars, visitor);
-            }
+            }),
 
             Type::KnownBoundMethod(
                 KnownBoundMethodType::PropertyDunderGet(property)
                 | KnownBoundMethodType::PropertyDunderSet(property)
                 | KnownBoundMethodType::PropertyDunderDelete(property),
-            ) => {
+            ) => visitor.visit(self, || {
                 property.find_legacy_typevars_impl(db, binding_context, typevars, visitor);
-            }
+            }),
 
             Type::Callable(callable) => {
                 callable.find_legacy_typevars_impl(db, binding_context, typevars, visitor);
             }
 
-            Type::PropertyInstance(property) => {
+            Type::PropertyInstance(property) => visitor.visit(self, || {
                 property.find_legacy_typevars_impl(db, binding_context, typevars, visitor);
-            }
+            }),
 
             Type::Union(union) => {
                 for element in union.elements(db) {
@@ -6133,6 +6145,7 @@ impl<'db> Type<'db> {
                 | KnownInstanceType::LiteralStringAlias(_)
                 | KnownInstanceType::NamedTupleSpec(_)
                 | KnownInstanceType::NewType(_)
+                | KnownInstanceType::Sentinel(_)
                 | KnownInstanceType::FunctoolsPartial(_) => {
                     // TODO: For some of these, we may need to try to find legacy typevars in inner types.
                 }
@@ -6610,15 +6623,12 @@ impl<'db> VarianceInferable<'db> for Type<'db> {
 
             Type::FunctionLiteral(function_type) => {
                 // TODO: do we need to replace self?
-                function_type.signature(db).variance_of(db, typevar)
+                function_type.variance_of(db, typevar)
             }
 
             Type::BoundMethod(method_type) => {
                 // TODO: do we need to replace self?
-                method_type
-                    .function(db)
-                    .signature(db)
-                    .variance_of(db, typevar)
+                method_type.function(db).variance_of(db, typevar)
             }
 
             Type::NominalInstance(nominal_instance_type) => {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-postgres
-Version: 0.29.4
+Version: 0.29.5
 Summary: A Dagster integration for postgres
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-postgres
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster==1.13.4
+Requires-Dist: dagster==1.13.5
 Requires-Dist: psycopg2-binary
 Provides-Extra: aws
 Requires-Dist: boto3>=1.26.0; extra == 'aws'
@@ -21,7 +21,6 @@ Provides-Extra: azure
 Requires-Dist: azure-identity>=1.12.0; extra == 'azure'
 Provides-Extra: gcp
 Requires-Dist: google-auth>=2.0.0; extra == 'gcp'
-Provides-Extra: test
 Provides-Extra: wif
 Requires-Dist: azure-identity>=1.12.0; extra == 'wif'
 Requires-Dist: boto3>=1.26.0; extra == 'wif'

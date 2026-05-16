@@ -1,8 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: click-aliases
-Version: 1.0.5
+Version: 1.0.6
 Summary: Add (mutiple) aliases to a click group or command
 License: MIT
+License-File: LICENSE
 Author: Robbin Bonthond
 Author-email: robbin@bonthond.com
 Requires-Python: >=3.7
@@ -15,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: click (>=8.1.7,<9.0.0)
 Description-Content-Type: text/markdown
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-fabricspark
-Version: 1.10.1
+Version: 1.11.0
 Summary: A Microsoft Fabric Spark adapter plugin for dbt
 Project-URL: homepage, https://github.com/microsoft/dbt-fabricspark
 Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-profiles/fabricspark-profile
@@ -82,6 +82,8 @@ The `dbt-fabricspark` package contains all of the code enabling dbt to work with
 
 - [Install dbt](https://docs.getdbt.com/docs/installation)
 - Read the [introduction](https://docs.getdbt.com/docs/introduction/) and [viewpoint](https://docs.getdbt.com/docs/about/viewpoint/)
+
+> To contribute to this adapter codebase, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Installation
 

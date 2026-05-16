@@ -30,7 +30,7 @@ class GracefulUserCodeTestLauncher(UserCodeTestLauncher):
         raise NotImplementedError()
 
     @property
-    def _reconcile_interval(self):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def _reconcile_interval(self):
         return 1
 
 

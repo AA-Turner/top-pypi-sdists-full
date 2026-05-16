@@ -95,7 +95,7 @@ StatementSyntax& Parser::parseStatement(bool allowEmpty, bool allowSuperNew) {
             return parseDisableStatement(label, attributes);
         case TokenKind::BeginKeyword:
             return parseBlock(SyntaxKind::SequentialBlockStatement, TokenKind::EndKeyword, label,
-                              attributes);
+                              attributes, allowSuperNew);
         case TokenKind::ForkKeyword:
             return parseBlock(SyntaxKind::ParallelBlockStatement, TokenKind::JoinKeyword, label,
                               attributes);
@@ -196,6 +196,16 @@ ConditionalStatementSyntax& Parser::parseConditionalStatement(NamedLabelSyntax* 
     else
         checkEmptyBody(statement, closeParen, "if statement"sv);
 
+    // Warn about dangling else: if outer if has no else and its then-branch is a bare
+    // if-else (not wrapped in begin/end), the structure is potentially confusing.
+    if (!elseClause && statement.kind == SyntaxKind::ConditionalStatement) {
+        auto& innerIf = statement.as<ConditionalStatementSyntax>();
+        if (innerIf.elseClause) {
+            auto& diag = addDiag(diag::DanglingElse, innerIf.elseClause->elseKeyword.range());
+            diag.addNote(diag::NoteMatchingIf, innerIf.ifKeyword.range());
+        }
+    }
+
     return factory.conditionalStatement(label, attributes, uniqueOrPriority, ifKeyword, openParen,
                                         predicate, closeParen, statement, elseClause);
 }
@@ -286,7 +296,7 @@ CaseStatementSyntax& Parser::parseCaseStatement(NamedLabelSyntax* label, AttrLis
                         buffer, TokenKind::Colon, TokenKind::Comma, colon, RequireItems::True,
                         diag::ExpectedValueRangeElement,
                         [this] { return &parseValueRangeElement(); });
-                    return &factory.standardCaseItem(buffer.copy(alloc), colon, parseStatement());
+                    return &factory.standardCaseItem({alloc, buffer}, colon, parseStatement());
                 });
             break;
         default:
@@ -300,7 +310,7 @@ CaseStatementSyntax& Parser::parseCaseStatement(NamedLabelSyntax* label, AttrLis
                     parseList<isPossibleExpressionOrComma, isEndOfCaseItem>(
                         buffer, TokenKind::Colon, TokenKind::Comma, colon, RequireItems::True,
                         diag::ExpectedExpression, [this] { return &parseExpression(); });
-                    return &factory.standardCaseItem(buffer.copy(alloc), colon, parseStatement());
+                    return &factory.standardCaseItem({alloc, buffer}, colon, parseStatement());
                 });
             break;
     }
@@ -312,7 +322,7 @@ CaseStatementSyntax& Parser::parseCaseStatement(NamedLabelSyntax* label, AttrLis
 
     auto endcase = expect(TokenKind::EndCaseKeyword);
     return factory.caseStatement(label, attributes, uniqueOrPriority, caseKeyword, openParen,
-                                 caseExpr, closeParen, matchesOrInside, itemBuffer.copy(alloc),
+                                 caseExpr, closeParen, matchesOrInside, {alloc, itemBuffer},
                                  endcase);
 }
 
@@ -358,7 +368,7 @@ SyntaxNode& Parser::parseForInitializer() {
         auto& decl = parseDeclarator(/* allowMinTypMax */ false,
                                      /* requireInitializers */ true);
         auto& result = factory.forVariableDeclaration(varKeyword, &type, decl);
-        result.previewNode = std::exchange(previewNode, nullptr);
+        result.setPreviewNode(alloc, std::exchange(previewNode, nullptr));
         return result;
     }
 
@@ -413,9 +423,8 @@ ForLoopStatementSyntax& Parser::parseForLoopStatement(NamedLabelSyntax* label,
 
     checkEmptyBody(body, closeParen, "for loop"sv);
 
-    return factory.forLoopStatement(label, attributes, forKeyword, openParen,
-                                    initializers.copy(alloc), semi1, stopExpr, semi2,
-                                    steps.copy(alloc), closeParen, body);
+    return factory.forLoopStatement(label, attributes, forKeyword, openParen, {alloc, initializers},
+                                    semi1, stopExpr, semi2, {alloc, steps}, closeParen, body);
 }
 
 NameSyntax& Parser::parseForeachLoopVariable() {
@@ -428,12 +437,14 @@ NameSyntax& Parser::parseForeachLoopVariable() {
 
 ForeachLoopListSyntax& Parser::parseForeachLoopVariables() {
     auto openParen = expect(TokenKind::OpenParenthesis);
-    auto& arrayName = parseName(NameOptions::ForeachName);
+    auto& arrayName = parseForeachArrayExpression();
 
     if (arrayName.kind == SyntaxKind::IdentifierSelectName)
         addDiag(diag::NonstandardForeach, arrayName.sourceRange());
+    else if (!NameSyntax::isKind(arrayName.kind))
+        addDiag(diag::ForeachCallExpr, arrayName.sourceRange());
 
-    std::span<TokenOrSyntax> list;
+    SeparatedSyntaxList<NameSyntax> list;
     Token openBracket;
     Token closeBracket;
     parseList<isIdentifierOrComma, isEndOfBracketedList>(
@@ -647,7 +658,7 @@ NamedBlockClauseSyntax* Parser::parseNamedBlockClause() {
     return nullptr;
 }
 
-std::span<SyntaxNode*> Parser::parseBlockItems(TokenKind endKind, Token& end, bool inConstructor) {
+SyntaxList<SyntaxNode> Parser::parseBlockItems(TokenKind endKind, Token& end, bool inConstructor) {
     SmallVector<SyntaxNode*, 16> buffer;
     auto kind = peek().kind;
     bool errored = false;
@@ -682,7 +693,14 @@ std::span<SyntaxNode*> Parser::parseBlockItems(TokenKind endKind, Token& end, bo
         }
 
         if (newNode) {
-            newNode->previewNode = std::exchange(previewNode, nullptr);
+            newNode->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
+
+            // Check for misleading indentation: if the last statement in the buffer
+            // is a single-statement loop/conditional, and the new statement is at the
+            // same column as that body, issue a warning.
+            if (isStmt && !buffer.empty())
+                checkMisleadingIndentation(*buffer.back(), newNode->getFirstToken());
+
             buffer.push_back(newNode);
             errored = false;
 
@@ -711,16 +729,17 @@ std::span<SyntaxNode*> Parser::parseBlockItems(TokenKind endKind, Token& end, bo
         end = expect(endKind);
     }
 
-    return buffer.copy(alloc);
+    return SyntaxList<SyntaxNode>(alloc, buffer);
 }
 
 BlockStatementSyntax& Parser::parseBlock(SyntaxKind blockKind, TokenKind endKind,
-                                         NamedLabelSyntax* label, AttrList attributes) {
+                                         NamedLabelSyntax* label, AttrList attributes,
+                                         bool inConstructor) {
     auto begin = consume();
     auto name = parseNamedBlockClause();
 
     Token end;
-    auto items = parseBlockItems(endKind, end, /* inConstructor */ false);
+    auto items = parseBlockItems(endKind, end, inConstructor);
     auto endName = parseNamedBlockClause();
 
     checkBlockNames(name, endName, label);
@@ -754,7 +773,7 @@ WaitOrderStatementSyntax& Parser::parseWaitOrderStatement(NamedLabelSyntax* labe
                                                      RequireItems::True, diag::ExpectedIdentifier,
                                                      [this] { return &parseName(); });
 
-    return factory.waitOrderStatement(label, attributes, keyword, openParen, buffer.copy(alloc),
+    return factory.waitOrderStatement(label, attributes, keyword, openParen, {alloc, buffer},
                                       closeParen, parseActionBlock());
 }
 
@@ -777,7 +796,7 @@ RandCaseStatementSyntax& Parser::parseRandCaseStatement(NamedLabelSyntax* label,
     }
 
     auto endcase = expect(TokenKind::EndCaseKeyword);
-    return factory.randCaseStatement(label, attributes, randCase, itemBuffer.copy(alloc), endcase);
+    return factory.randCaseStatement(label, attributes, randCase, {alloc, itemBuffer}, endcase);
 }
 
 EventTriggerStatementSyntax& Parser::parseEventTriggerStatement(NamedLabelSyntax* label,
@@ -864,8 +883,7 @@ RsCaseSyntax& Parser::parseRsCase() {
 
             auto& item = parseRsProdItem();
             auto semi = expect(TokenKind::Semicolon);
-            itemBuffer.push_back(
-                &factory.standardRsCaseItem(buffer.copy(alloc), colon, item, semi));
+            itemBuffer.push_back(&factory.standardRsCaseItem({alloc, buffer}, colon, item, semi));
         }
         else {
             break;
@@ -876,8 +894,7 @@ RsCaseSyntax& Parser::parseRsCase() {
         addDiag(diag::CaseStatementEmpty, keyword.location()) << "case"sv;
 
     auto endcase = expect(TokenKind::EndCaseKeyword);
-    return factory.rsCase(keyword, openParen, condition, closeParen, itemBuffer.copy(alloc),
-                          endcase);
+    return factory.rsCase(keyword, openParen, condition, closeParen, {alloc, itemBuffer}, endcase);
 }
 
 RsProdSyntax* Parser::parseRsProd() {
@@ -966,7 +983,7 @@ RsRuleSyntax& Parser::parseRsRule() {
         weightClause = &factory.rsWeightClause(colonEqual, weight, codeBlock);
     }
 
-    return factory.rsRule(randJoin, prods.copy(alloc), weightClause);
+    return factory.rsRule(randJoin, {alloc, prods}, weightClause);
 }
 
 ProductionSyntax& Parser::parseProduction() {
@@ -990,7 +1007,7 @@ ProductionSyntax& Parser::parseProduction() {
                                              RequireItems::True, diag::ExpectedRsRule,
                                              [this] { return &parseRsRule(); });
 
-    return factory.production(dataType, name, ports, colon, buffer.copy(alloc), semi);
+    return factory.production(dataType, name, ports, colon, {alloc, buffer}, semi);
 }
 
 StatementSyntax& Parser::parseRandSequenceStatement(NamedLabelSyntax* label, AttrList attributes) {
@@ -1003,7 +1020,7 @@ StatementSyntax& Parser::parseRandSequenceStatement(NamedLabelSyntax* label, Att
     while (isPossibleDataType(peek().kind)) {
         auto curr = peek();
         productions.push_back(&parseProduction());
-        productions.back()->previewNode = std::exchange(previewNode, nullptr);
+        productions.back()->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
 
         // If there are no consumed tokens then production was not parsed.
         if (curr == peek())
@@ -1015,7 +1032,7 @@ StatementSyntax& Parser::parseRandSequenceStatement(NamedLabelSyntax* label, Att
 
     auto endsequence = expect(TokenKind::EndSequenceKeyword);
     return factory.randSequenceStatement(label, attributes, keyword, openParen, firstProd,
-                                         closeParen, productions.copy(alloc), endsequence);
+                                         closeParen, {alloc, productions}, endsequence);
 }
 
 StatementSyntax& Parser::parseCheckerStatement(NamedLabelSyntax* label, AttrList attributes) {
@@ -1035,6 +1052,132 @@ void Parser::checkEmptyBody(const SyntaxNode& syntax, Token prevToken,
     }
 
     addDiag(diag::EmptyBody, ess.semicolon.location()) << syntaxName;
+}
+
+// Returns the single non-block body statement for a loop/conditional, if it has one.
+// For if-else chains, follows else-if down to find the last body.
+// Returns nullptr if the body uses begin/end, is missing, or the statement is not
+// a loop/conditional.
+static const StatementSyntax* getSingleBodyForIndentCheck(const SyntaxNode& stmt,
+                                                          std::string_view& ctrlName) {
+    const StatementSyntax* body = nullptr;
+    switch (stmt.kind) {
+        case SyntaxKind::ConditionalStatement: {
+            auto& cs = stmt.as<ConditionalStatementSyntax>();
+            if (cs.elseClause) {
+                // Follow else-if chains recursively
+                auto& elseBody = cs.elseClause->clause->as<StatementSyntax>();
+                if (elseBody.kind == SyntaxKind::ConditionalStatement)
+                    return getSingleBodyForIndentCheck(elseBody, ctrlName);
+
+                body = &elseBody;
+                ctrlName = "else clause"sv;
+            }
+            else {
+                body = cs.statement;
+                ctrlName = "if statement"sv;
+            }
+            break;
+        }
+        case SyntaxKind::ForeverStatement:
+            body = stmt.as<ForeverStatementSyntax>().statement;
+            ctrlName = "forever statement"sv;
+            break;
+        case SyntaxKind::LoopStatement: {
+            auto& ls = stmt.as<LoopStatementSyntax>();
+            body = ls.statement;
+            ctrlName = ls.repeatOrWhile.kind == TokenKind::RepeatKeyword ? "repeat loop"sv
+                                                                         : "while loop"sv;
+            break;
+        }
+        case SyntaxKind::ForLoopStatement:
+            body = stmt.as<ForLoopStatementSyntax>().statement;
+            ctrlName = "for loop"sv;
+            break;
+        case SyntaxKind::ForeachLoopStatement:
+            body = stmt.as<ForeachLoopStatementSyntax>().statement;
+            ctrlName = "foreach loop"sv;
+            break;
+        default:
+            return nullptr;
+    }
+
+    // If the body is a block statement (begin/end or fork/join), indentation is explicit.
+    SLANG_ASSERT(body);
+    if (body->kind == SyntaxKind::SequentialBlockStatement ||
+        body->kind == SyntaxKind::ParallelBlockStatement) {
+        return nullptr;
+    }
+
+    return body;
+}
+
+// Returns the leading whitespace text of a token - the run of whitespace
+// characters that appear after the last newline in the token's trivia.
+// Returns an empty string_view if the token has no newline in its trivia
+// (i.e. it is on the same line as the previous token) or if no whitespace
+// follows the last newline (i.e. the token starts at column 1 with no indent).
+static size_t getLeadingWhitespace(Token token) {
+    size_t result = 0;
+    bool seenNewline = false;
+    for (auto& t : token.trivia()) {
+        switch (t.kind) {
+            case TriviaKind::EndOfLine:
+            case TriviaKind::LineComment:
+                result = 0;
+                seenNewline = true;
+                break;
+            case TriviaKind::BlockComment: {
+                auto text = t.getRawText();
+                if (auto pos = text.find_last_of("\r\n"); pos != std::string_view::npos) {
+                    // Whitespace after the last newline in the block comment becomes
+                    // the indentation of the next thing on that line.
+                    result = text.substr(pos + 1).length();
+                    seenNewline = true;
+                }
+                break;
+            }
+            case TriviaKind::Whitespace:
+                if (seenNewline)
+                    result += t.getRawText().length();
+                break;
+            default:
+                return 0;
+        }
+    }
+    return result;
+}
+
+void Parser::checkMisleadingIndentation(const SyntaxNode& prevStmt, Token nextToken) {
+    std::string_view ctrlName;
+    auto body = getSingleBodyForIndentCheck(prevStmt, ctrlName);
+    if (!body)
+        return;
+
+    // The body must be on a different line from the preceding control keyword;
+    // if everything is on the same line (one-liner style), there's no indentation issue.
+    Token bodyToken = body->getFirstToken();
+    if (nextToken.isMissing() || bodyToken.isMissing() || bodyToken.isOnSameLine())
+        return;
+
+    // Two cases that are misleading:
+    //   1. The next statement is on the same line as the body:
+    //        if (a)
+    //          b = 1; b = 2;   // b = 2 looks guarded but isn't
+    //   2. The next statement is on a new line but at the same indentation as the body:
+    //        if (a)
+    //          b = 1;
+    //          b = 2;          // same indent as the body
+    // In case 1 we fire unconditionally (body is already on its own line).
+    // In case 2 we compare leading-whitespace trivia to avoid SourceManager column lookups.
+    if (!nextToken.isOnSameLine()) {
+        auto bodyWS = getLeadingWhitespace(bodyToken);
+        auto nextWS = getLeadingWhitespace(nextToken);
+        if (bodyWS == 0 || nextWS == 0 || bodyWS != nextWS)
+            return;
+    }
+
+    addDiag(diag::MisleadingIndentation, nextToken.location()) << ctrlName;
 }
 
 } // namespace slang::parsing

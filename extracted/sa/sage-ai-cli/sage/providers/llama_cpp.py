@@ -405,7 +405,20 @@ class LlamaCppProvider(ProviderBase):
         gram = self._maybe_grammar(enable_grammar)
         if gram is not None:
             kwargs["grammar"] = gram
-        result = self._model.create_chat_completion(**kwargs)  # type: ignore[union-attr]
+        try:
+            result = self._model.create_chat_completion(**kwargs)  # type: ignore[union-attr]
+        except TypeError as exc:
+            # Specific guard for the bug from the field:
+            #   `'<=' not supported between instances of 'list' and 'int'`
+            # Surfaces from inside the C binding when the loaded GGUF has
+            # a malformed chat template. We can't recover here, but we can
+            # raise a RuntimeError so the router's fallback chain catches
+            # it cleanly instead of letting a raw TypeError leak.
+            raise RuntimeError(
+                f"llama_cpp generate failed for '{name}': {exc}. "
+                "This usually means the GGUF file has a broken chat template. "
+                "Try a different model or re-download: `sage pull <model>`."
+            ) from exc
         return result["choices"][0]["message"]["content"]
 
     def stream(
@@ -429,7 +442,17 @@ class LlamaCppProvider(ProviderBase):
         gram = self._maybe_grammar(enable_grammar)
         if gram is not None:
             kwargs["grammar"] = gram
-        chunks = self._model.create_chat_completion(**kwargs)  # type: ignore[union-attr]
+        try:
+            chunks = self._model.create_chat_completion(**kwargs)  # type: ignore[union-attr]
+        except TypeError as exc:
+            # See `generate()` for the bug description. Raise as RuntimeError
+            # so the router's fallback chain treats it as a recoverable provider
+            # failure rather than a programmer error.
+            raise RuntimeError(
+                f"llama_cpp stream failed for '{name}': {exc}. "
+                "This usually means the GGUF file has a broken chat template. "
+                "Try a different model or re-download: `sage pull <model>`."
+            ) from exc
         for chunk in chunks:
             delta = chunk["choices"][0].get("delta", {})
             text = delta.get("content")

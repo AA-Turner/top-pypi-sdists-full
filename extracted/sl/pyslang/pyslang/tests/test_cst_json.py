@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: MIT
 
 import json
-from functools import cache
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
-import pyslang
+from pyslang.parsing import TokenKind, TriviaKind
+from pyslang.syntax import CSTJsonMode, SyntaxKind, SyntaxTree
 
 
-def to_dict(tree, mode: pyslang.CSTJsonMode):
+def to_dict(tree, mode: CSTJsonMode):
     json_str = tree.to_json(mode)
     return json.loads(json_str)
 
@@ -17,15 +17,15 @@ def get_enum_names(enum_class) -> set:
     return set([k for k in enum_class.__members__])
 
 
-SYNTAX_KINDS = get_enum_names(pyslang.SyntaxKind)
-TOKEN_KINDS = get_enum_names(pyslang.TokenKind)
-TRIVIA_KINDS = get_enum_names(pyslang.TriviaKind)
+SYNTAX_KINDS = get_enum_names(SyntaxKind)
+TOKEN_KINDS = get_enum_names(TokenKind)
+TRIVIA_KINDS = get_enum_names(TriviaKind)
 
 
 class CSTValidator:
     """Validates CST JSON structure properties based on serialization mode."""
 
-    def __init__(self, mode: pyslang.CSTJsonMode):
+    def __init__(self, mode: CSTJsonMode):
         self.mode = mode
         self.errors = list[str]()
 
@@ -80,7 +80,7 @@ class CSTValidator:
         """Validate a token node."""
         kind = token["kind"]
 
-        if self.mode == pyslang.CSTJsonMode.SimpleTokens:
+        if self.mode == CSTJsonMode.SimpleTokens:
             # In SimpleTokens mode, some tokens might be collapsed to strings
             return
 
@@ -116,7 +116,7 @@ class CSTValidator:
                 for i, item in enumerate(value):
                     if isinstance(item, dict):
                         self._validate_node(item, f"{child_path}[{i}]")
-                    elif self.mode == pyslang.CSTJsonMode.SimpleTokens and isinstance(
+                    elif self.mode == CSTJsonMode.SimpleTokens and isinstance(
                         item, str
                     ):
                         # In SimpleTokens mode, some nested structures might be strings
@@ -129,7 +129,7 @@ class CSTValidator:
                         )
             elif isinstance(value, str):
                 # In SimpleTokens mode, some fields might be collapsed to strings
-                if self.mode == pyslang.CSTJsonMode.SimpleTokens:
+                if self.mode == CSTJsonMode.SimpleTokens:
                     if not value.strip():
                         self._error("Empty string value", child_path)
                 else:
@@ -139,11 +139,11 @@ class CSTValidator:
 
     def _validate_trivia(self, trivia: Any, path: str):
         """Validate trivia field."""
-        if self.mode == pyslang.CSTJsonMode.NoTrivia:
+        if self.mode == CSTJsonMode.NoTrivia:
             self._error("Trivia should not be present in NoTrivia mode", path)
             return
 
-        if self.mode == pyslang.CSTJsonMode.SimpleTrivia:
+        if self.mode == CSTJsonMode.SimpleTrivia:
             if not isinstance(trivia, str):
                 self._error(
                     f"Trivia should be string in SimpleTrivia mode, got {type(trivia)}",
@@ -151,11 +151,12 @@ class CSTValidator:
                 )
             return
 
-        # Full mode: trivia should be a list of trivia objects
-        if self.mode == pyslang.CSTJsonMode.Full:
+        # Full and NoWhitespace modes: trivia should be a list of trivia objects
+        if self.mode in (CSTJsonMode.Full, CSTJsonMode.NoWhitespace):
             if not isinstance(trivia, list):
                 self._error(
-                    f"Trivia should be list in Full mode, got {type(trivia)}", path
+                    f"Trivia should be list in {self.mode} mode, got {type(trivia)}",
+                    path,
                 )
                 return
 
@@ -175,6 +176,14 @@ class CSTValidator:
                 if kind not in TRIVIA_KINDS:
                     self._error(f"Unknown trivia kind '{kind}'", f"{path}[{i}]")
 
+                # NoWhitespace mode must not contain Whitespace or EndOfLine trivia
+                if self.mode == CSTJsonMode.NoWhitespace:
+                    if kind in ("Whitespace", "EndOfLine"):
+                        self._error(
+                            f"Trivia kind '{kind}' should not appear in NoWhitespace mode",
+                            f"{path}[{i}]",
+                        )
+
                 if "text" not in trivia_item:
                     self._error("Trivia item missing 'text'", f"{path}[{i}]")
                     continue
@@ -189,7 +198,7 @@ class CSTValidator:
         """Validate trivia constraints based on mode."""
         has_trivia = "trivia" in node
 
-        if self.mode == pyslang.CSTJsonMode.NoTrivia and has_trivia:
+        if self.mode == CSTJsonMode.NoTrivia and has_trivia:
             self._error("Node should not have trivia in NoTrivia mode", path)
 
         if has_trivia:
@@ -206,21 +215,22 @@ def test_cst_json():
     ]
 
     for test_code in test_cases:
-        tree = pyslang.SyntaxTree.fromText(test_code)
+        tree = SyntaxTree.fromText(test_code)
 
         for mode in [
-            pyslang.CSTJsonMode.Full,
-            pyslang.CSTJsonMode.SimpleTrivia,
-            pyslang.CSTJsonMode.NoTrivia,
-            pyslang.CSTJsonMode.SimpleTokens,
+            CSTJsonMode.Full,
+            CSTJsonMode.SimpleTrivia,
+            CSTJsonMode.NoWhitespace,
+            CSTJsonMode.NoTrivia,
+            CSTJsonMode.SimpleTokens,
         ]:
             json_data = to_dict(tree, mode)
 
             # Verify tree has correct root structure
             assert "kind" in json_data, f"Tree JSON missing 'kind' for mode {mode}"
-            assert (
-                json_data["kind"] == "SyntaxTree"
-            ), f"Tree kind should be 'SyntaxTree' for mode {mode}"
+            assert json_data["kind"] == "SyntaxTree", (
+                f"Tree kind should be 'SyntaxTree' for mode {mode}"
+            )
             assert "root" in json_data, f"Tree JSON missing 'root' for mode {mode}"
 
             # Run the validator
@@ -233,6 +243,80 @@ def test_cst_json():
                 )
 
             # Verify that the root node matches the tree's root serialization
-            assert json_data["root"] == to_dict(
-                tree.root, mode
-            ), f"Tree root does not match node serialization for {test_code} in {mode}"
+            assert json_data["root"] == to_dict(tree.root, mode), (
+                f"Tree root does not match node serialization for {test_code} in {mode}"
+            )
+
+
+def _collect_trivia_kinds(node: Any) -> set:
+    """Recursively collect all trivia kind strings from a CST JSON tree."""
+    kinds = set()
+    if isinstance(node, dict):
+        if "trivia" in node and isinstance(node["trivia"], list):
+            for item in node["trivia"]:
+                if isinstance(item, dict) and "kind" in item:
+                    kinds.add(item["kind"])
+        for value in node.values():
+            kinds |= _collect_trivia_kinds(value)
+    elif isinstance(node, list):
+        for item in node:
+            kinds |= _collect_trivia_kinds(item)
+    return kinds
+
+
+def test_no_whitespace_filters_whitespace():
+    """Verify NoWhitespace mode filters Whitespace and EndOfLine trivia but keeps others."""
+    # Use code with a line comment so there's non-whitespace trivia to preserve
+    code = "module m; // a comment\nendmodule"
+    tree = SyntaxTree.fromText(code)
+
+    full_data = to_dict(tree, CSTJsonMode.Full)
+    nows_data = to_dict(tree, CSTJsonMode.NoWhitespace)
+
+    full_kinds = _collect_trivia_kinds(full_data)
+    nows_kinds = _collect_trivia_kinds(nows_data)
+
+    # Full mode should contain whitespace and EOL trivia
+    assert "Whitespace" in full_kinds, "Full mode should have Whitespace trivia"
+    assert "EndOfLine" in full_kinds, "Full mode should have EndOfLine trivia"
+
+    # NoWhitespace mode must not contain Whitespace or EndOfLine
+    assert "Whitespace" not in nows_kinds, (
+        "NoWhitespace mode should not have Whitespace trivia"
+    )
+    assert "EndOfLine" not in nows_kinds, (
+        "NoWhitespace mode should not have EndOfLine trivia"
+    )
+
+    # Comment trivia should be preserved in NoWhitespace mode
+    assert "LineComment" in full_kinds, "Full mode should have LineComment trivia"
+    assert "LineComment" in nows_kinds, (
+        "NoWhitespace mode should preserve LineComment trivia"
+    )
+
+
+def test_no_whitespace_vs_full_structure():
+    """NoWhitespace output should match Full output with whitespace trivia removed."""
+    code = "module m;\n  /* block */ wire w;\nendmodule"
+    tree = SyntaxTree.fromText(code)
+
+    full_data = to_dict(tree, CSTJsonMode.Full)
+    nows_data = to_dict(tree, CSTJsonMode.NoWhitespace)
+
+    # Both should have the same top-level structure
+    assert full_data["kind"] == nows_data["kind"]
+    assert full_data["root"]["kind"] == nows_data["root"]["kind"]
+
+    # NoWhitespace should have fewer or equal trivia entries everywhere
+    full_kinds = _collect_trivia_kinds(full_data)
+    nows_kinds = _collect_trivia_kinds(nows_data)
+
+    # All trivia kinds in NoWhitespace should also appear in Full
+    assert nows_kinds <= full_kinds, (
+        f"NoWhitespace has unexpected trivia kinds: {nows_kinds - full_kinds}"
+    )
+
+    # Block comment should be preserved
+    assert "BlockComment" in nows_kinds, (
+        "NoWhitespace mode should preserve BlockComment trivia"
+    )

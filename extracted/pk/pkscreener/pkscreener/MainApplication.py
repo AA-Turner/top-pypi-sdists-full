@@ -159,8 +159,8 @@ class MenuHandler:
             PKAnalyticsService().send_event(f"{menuOption}_{str(selDownloadOption).upper()}")
             time.sleep(2)
             os.system(f"{launcher} -a Y -e -d")
-            return None, None
-        # ... handle other download options
+            sys.exit(0)
+            # return None, None
     
     def handle_favorites_option(self):
         """Handle favorites menu option"""

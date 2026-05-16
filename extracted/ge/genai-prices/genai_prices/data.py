@@ -1447,6 +1447,27 @@ providers: list[Provider] = [
                     ),
                 ],
             ),
+            ModelInfo(
+                id='deepseek-v4-flash',
+                match=ClauseOr(or_=[ClauseStartsWith(starts_with='deepseek-v4-flash')]),
+                name='DeepSeek V4 Flash',
+                description='DeepSeek-V4-Flash. Supports both non-thinking and thinking (default) modes, JSON output, tool calls, chat prefix completion, and FIM completion (non-thinking only).',
+                context_window=1000000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.14'), cache_read_mtok=Decimal('0.0028'), output_mtok=Decimal('0.28')
+                ),
+            ),
+            ModelInfo(
+                id='deepseek-v4-pro',
+                match=ClauseOr(or_=[ClauseStartsWith(starts_with='deepseek-v4-pro')]),
+                name='DeepSeek V4 Pro',
+                description='DeepSeek-V4-Pro. Supports both non-thinking and thinking (default) modes, JSON output, tool calls, chat prefix completion, and FIM completion (non-thinking only).',
+                context_window=1000000,
+                price_comments='Standard (non-promotional) pricing. DeepSeek is offering a temporary 75% promotional discount that is not reflected here.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.74'), cache_read_mtok=Decimal('0.0145'), output_mtok=Decimal('3.48')
+                ),
+            ),
         ],
     ),
     Provider(
@@ -1639,7 +1660,7 @@ providers: list[Provider] = [
                     ),
                     UsageExtractorMapping(path='candidatesTokenCount', dest='output_tokens', required=False),
                     UsageExtractorMapping(path='thoughtsTokenCount', dest='output_tokens', required=False),
-                    UsageExtractorMapping(path='toolUsePromptTokenCount', dest='output_tokens', required=False),
+                    UsageExtractorMapping(path='toolUsePromptTokenCount', dest='input_tokens', required=False),
                 ],
                 api_flavor='default',
                 model_path='modelVersion',
@@ -2012,12 +2033,12 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('0.5'), output_mtok=Decimal('60')),
             ),
             ModelInfo(
-                id='gemini-3.1-flash-lite-preview',
-                match=ClauseStartsWith(starts_with='gemini-3.1-flash-lite-preview'),
-                name='Gemini 3.1 Flash Lite Preview',
+                id='gemini-3.1-flash-lite',
+                match=ClauseStartsWith(starts_with='gemini-3.1-flash-lite'),
+                name='Gemini 3.1 Flash Lite',
                 description="Google's fastest and most cost-efficient Gemini 3 series model, built for intelligence at scale. Optimized for high-volume, low-latency applications while maintaining strong multimodal capabilities.",
                 context_window=1000000,
-                price_comments='See https://ai.google.dev/gemini-api/docs/pricing. Preview model - pricing may change before becoming stable.',
+                price_comments='See https://ai.google.dev/gemini-api/docs/pricing.',
                 prices=ModelPrice(
                     input_mtok=Decimal('0.25'),
                     cache_read_mtok=Decimal('0.025'),
@@ -10405,6 +10426,22 @@ providers: list[Provider] = [
                 context_window=2000000,
                 prices=ModelPrice(
                     input_mtok=Decimal('0.2'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('0.5')
+                ),
+            ),
+            ModelInfo(
+                id='grok-4.3',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='grok-4.3'),
+                        ClauseEquals(equals='grok-4.3-latest'),
+                        ClauseEquals(equals='grok-latest'),
+                    ]
+                ),
+                name='Grok 4.3',
+                description='Most advanced flagship model, leading the industry in non-hallucination rate, agentic tool calling, and instruction following capabilities. Supports text and image inputs with text outputs, function calling, structured outputs, and reasoning.',
+                context_window=1000000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.25'), cache_read_mtok=Decimal('0.2'), output_mtok=Decimal('2.5')
                 ),
             ),
             ModelInfo(

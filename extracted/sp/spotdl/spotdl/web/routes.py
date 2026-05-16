@@ -4,7 +4,7 @@ Module which contains the web client routes and functions.
 
 import asyncio
 import uuid
-from typing import Optional
+from typing import Any, Optional, cast
 
 # from datastar_py.sse import DatastarEvent
 from datastar_py.fastapi import ReadSignals
@@ -109,11 +109,9 @@ async def handle_get_client_load(datastar_signals: ReadSignals):
     )
     try:
         while True:
-            yield SSE.patch_elements(
-                f"""<div id="overall-completed-tasks">
+            yield SSE.patch_elements(f"""<div id="overall-completed-tasks">
                 {len(client.downloader.progress_handler.progress_tracker.songs)}
-                </div>"""
-            )
+                </div>""")
             await asyncio.sleep(1)
     finally:
         app_state.logger.info(f"[{signals.client_id}] Unloading client...")
@@ -198,7 +196,7 @@ async def handle_get_client_settings(datastar_signals: ReadSignals):
     app_state.logger.info(f"[{signals.client_id}] Sending client settings...")
     yield SSE.patch_signals(
         {
-            "downloader_settings": client.downloader_settings,
+            "downloader_settings": cast(Any, client.downloader_settings),
         }
     )
 
@@ -215,8 +213,7 @@ async def handle_post_client_settings(datastar_signals: ReadSignals):
         app_state.logger.info(f"[{signals.client_id}] Updating settings...")
         if signals.downloader_settings is not None:
             client.downloader_settings = signals.downloader_settings
-        yield SSE.patch_elements(
-            """
+        yield SSE.patch_elements("""
                 <div id="settings-status">
                     <div id="settings-is-saved" class="alert alert-success shadow-lg">
                         <div>
@@ -235,11 +232,10 @@ async def handle_post_client_settings(datastar_signals: ReadSignals):
                         </div>
                     </div>
                 </div>
-            """
-        )
+            """)
         yield SSE.patch_signals(
             {
-                "downloader_settings": client.downloader_settings,
+                "downloader_settings": cast(Any, client.downloader_settings),
             }
         )
     else:
@@ -249,8 +245,7 @@ async def handle_post_client_settings(datastar_signals: ReadSignals):
         yield SSE.patch_elements(
             templates.get_template("status-disconnected.html.j2").render()
         )
-        yield SSE.patch_elements(
-            """
+        yield SSE.patch_elements("""
                 <div id="settings-status">
                     <div id="settings-is-not-saved" class="alert alert-error shadow-lg">
                         <div>
@@ -271,16 +266,13 @@ async def handle_post_client_settings(datastar_signals: ReadSignals):
                         </div>
                     </div>
                 </div>
-            """
-        )
+            """)
     #  sleep for 3 seconds then clear the status message
     await asyncio.sleep(3)
-    yield SSE.patch_elements(
-        """
+    yield SSE.patch_elements("""
             <div id="settings-status">
             </div>
-        """
-    )
+        """)
 
 
 @router.post("/client/download/")
@@ -313,12 +305,10 @@ async def gen_download(signals: Signals):
     app_state.logger.info(
         f"[{signals.client_id}] Download requested: {signals.song_url}"
     )
-    yield SSE.patch_elements(
-        f"""
+    yield SSE.patch_elements(f"""
             <button id="download-{signals.song_url}" class="btn btn-primary btn-square loading">
                 </button>
-        """
-    )
+        """)
 
     if app_state.web_settings.get("web_use_output_dir", False):
         client.downloader.settings["output"] = client.downloader_settings["output"]
@@ -334,13 +324,11 @@ async def gen_download(signals: Signals):
 
         # Download Song
         _, path = await client.downloader.pool_download(song)
-        yield SSE.patch_elements(
-            f"""
+        yield SSE.patch_elements(f"""
             <button id="download-{signals.song_url}" class="btn btn-primary btn-square">
                     <iconify-icon icon="clarity:check-line" style="font-size: 24px"></iconify-icon>
                 </button>
-        """
-        )
+        """)
 
         if path is None:
             app_state.logger.error(f"Failure downloading {song.name}")
@@ -386,7 +374,7 @@ async def handle_get_client_component_settings(datastar_signals: ReadSignals):
     # print(f"{spotify_client = }")
     yield SSE.patch_signals(
         {
-            "downloader_settings": client.downloader_settings,
+            "downloader_settings": cast(Any, client.downloader_settings),
             # "spotify_settings": {
             #     "client_id": spotify_client.credential_manager.client_id
             # },

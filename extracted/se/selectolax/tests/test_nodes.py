@@ -716,3 +716,79 @@ def test_any_css_matches_fails(parser):
     tree = parser(html)
     with pytest.raises(SelectolaxError):
         tree.any_css_matches(("##",))
+
+
+@pytest.mark.parametrize(*_PARSERS_PARAMETRIZER)
+def test_text_separator_correctness(parser):
+    inner = "".join(f"<span>word{i}</span>" for i in range(50))
+    html = f"<div>{inner}</div>"
+    tree = parser(html)
+    node = tree.css_first("div")
+
+    result = node.text(deep=True, separator=" ")
+    parts = result.split(" ")
+
+    assert parts[-1] != "", "Trailing separator found; join() not used correctly"
+    assert len(parts) == 50
+    for i, part in enumerate(parts):
+        assert part == f"word{i}"
+
+
+@pytest.mark.parametrize(*_PARSERS_PARAMETRIZER)
+def test_text_strip_and_separator(parser):
+    html = "<div><p>  hello  </p><p>  world  </p></div>"
+    tree = parser(html)
+    node = tree.css_first("div")
+
+    result = node.text(deep=True, separator="|", strip=True)
+    assert result == "hello|world"
+
+
+def test_attribute_longer_than_missing_attribute():
+    html = """
+    <div>
+        <a href="http://very-long-url.example.com/path/to/page">with href</a>
+        <a>no href at all</a>
+        <a href="short">short href</a>
+    </div>
+    """
+    tree = HTMLParser(html)
+    selector = tree.root.select("a").attribute_longer_than("href", 10)
+    matches = selector.matches
+    assert len(matches) == 1
+    assert "very-long-url" in matches[0].attributes["href"]
+
+
+def test_attribute_longer_than_missing_attribute_with_start():
+    html = """
+    <div>
+        <a href="http://long-domain.example.com/page">with href</a>
+        <a>no href</a>
+    </div>
+    """
+    tree = HTMLParser(html)
+    selector = tree.root.select("a").attribute_longer_than("href", 15, "http://")
+    matches = selector.matches
+    assert len(matches) == 1
+
+
+@pytest.mark.parametrize(*_PARSERS_PARAMETRIZER)
+def test_any_attribute_longer_than_missing_attribute(parser):
+    html = """
+    <div>
+        <a href="http://very-long-url.example.com/path/to/page">with href</a>
+        <a>no href at all</a>
+        <a href="short">short href</a>
+    </div>
+    """
+    tree = parser(html)
+    # Must not raise TypeError despite the middle <a> having no href
+    assert tree.root.select("a").any_attribute_longer_than("href", 10) is True
+    assert tree.root.select("a").any_attribute_longer_than("href", 200) is False
+
+
+@pytest.mark.parametrize(*_PARSERS_PARAMETRIZER)
+def test_any_attribute_longer_than_all_missing(parser):
+    html = "<div><a>one</a><a>two</a></div>"
+    tree = parser(html)
+    assert tree.root.select("a").any_attribute_longer_than("href", 0) is False

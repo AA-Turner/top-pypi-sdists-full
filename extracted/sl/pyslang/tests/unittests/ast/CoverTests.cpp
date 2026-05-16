@@ -799,3 +799,86 @@ endclass
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
 }
+
+TEST_CASE("Cover cross of crosses") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+
+class c;
+   bit [1:0] m1;
+   bit [1:0] m2;
+   bit [1:0] m3;
+
+  covergroup cg;
+    cp1 : coverpoint m1;
+    cx1 : cross cp1, m2;
+    cx2 : cross m3, cx1;
+  endgroup
+endclass
+
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Cover cross with dotted member access") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+
+struct packed {
+    logic [1:0] mpp;
+    logic [1:0] mode;
+} status;
+
+logic [3:0] a, b;
+
+covergroup cg @(posedge status.mpp[0]);
+    cross status.mpp, status.mode;
+    cross a[1:0], b[1:0];
+endgroup
+
+cg cg_inst = new;
+
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::NonstandardHierarchicalCross);
+    CHECK(diags[1].code == diag::NonstandardHierarchicalCross);
+    CHECK(diags[2].code == diag::CoverCrossSelectNotAllowed);
+    CHECK(diags[3].code == diag::CoverCrossSelectNotAllowed);
+}
+
+TEST_CASE("Cross identifier in binsof -- strict mode error") {
+    // LRM §19.6 Syntax 19-4: bins_expression only allows variable_identifier or
+    // cover_point_identifier[.bin_identifier]; a cross_identifier is not valid.
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic clk, a, b, c;
+    covergroup cg @(posedge clk);
+        cp_a : coverpoint a { bins zero = {0}; bins one = {1}; }
+        cp_b : coverpoint b { bins zero = {0}; bins one = {1}; }
+        cp_c : coverpoint c { bins zero = {0}; bins one = {1}; }
+        cp_a_cross_b : cross cp_a, cp_b;
+        cp_nested : cross cp_a_cross_b, cp_c {
+            bins with_c = binsof(cp_a_cross_b) && binsof(cp_c.one);
+        }
+    endgroup
+    cg cg_inst = new();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::CrossIdentInBinsof);
+}

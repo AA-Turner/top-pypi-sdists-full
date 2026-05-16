@@ -2650,3 +2650,74 @@ TEST_CASE("Eval bad statement") {
     ScriptSession session;
     CHECK(!session.eval("fork=L:for"));
 }
+
+TEST_CASE("Concat LHS assignment preserves signedness -- GH #1705") {
+    ScriptSession session;
+    session.eval(R"(
+function [7:0] f(input [7:0] value);
+    reg signed [2:0] tmp1, tmp2;
+    begin
+        {tmp1, tmp2} = {value[2:0], value[6:4]};
+        f[7:4] = tmp1;
+        f[3:0] = tmp2;
+    end
+endfunction
+)");
+
+    CHECK(session.eval("f(8'h5a)").integer() == 0x2d);
+    NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Void system functions in constant functions") {
+    // Regression test: void-returning system methods (push_back, sort, etc.)
+    // should not cause constant function evaluation to fail.
+    ScriptSession session;
+    session.eval(R"(
+function automatic int foo;
+    int a[$] = '{1, 2};
+    a.push_back(3);
+    return a[$];
+endfunction
+)");
+    CHECK(session.eval("foo()").integer() == 3);
+
+    session.eval(R"(
+function automatic int bar;
+    int a[] = '{3, 1, 2};
+    a.sort;
+    return a[0];
+endfunction
+)");
+    CHECK(session.eval("bar()").integer() == 1);
+
+    session.eval(R"(
+function automatic int baz;
+    int a[$] = '{1, 2, 3};
+    a.delete(0);
+    return a[0];
+endfunction
+)");
+    CHECK(session.eval("baz()").integer() == 2);
+
+    NO_SESSION_ERRORS;
+}
+
+TEST_CASE("Eval scalar bit select") {
+    // Bit-select of a scalar type is nonstandard but permitted as a warning.
+    // Verify constant evaluation returns correct values.
+    ScriptSession session;
+    session.eval("logic p = 1'b1;");
+    CHECK(session.eval("p[0]").integer() == 1);
+
+    session.eval("logic q = 1'bx;");
+    CHECK(session.eval("q[0]").integer().hasUnknown());
+
+    session.eval("bit b = 1'b1;");
+    CHECK(session.eval("b[0]").integer() == 1);
+
+    auto diags = session.getDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::CannotIndexScalar);
+    CHECK(diags[1].code == diag::CannotIndexScalar);
+    CHECK(diags[2].code == diag::CannotIndexScalar);
+}

@@ -260,6 +260,16 @@ def parse_spotify_options(parser: _ArgumentGroup):
         ),
     )
 
+    parser.add_argument(
+        "--use-official-api",
+        action="store_const",
+        const=True,
+        help=(
+            "Use the official Spotify Web API through Spotipy instead of "
+            "the default SpotipyFree client."
+        ),
+    )
+
 
 def parse_ffmpeg_options(parser: _ArgumentGroup):
     """
@@ -755,6 +765,12 @@ def parse_other_options(parser: _ArgumentGroup):
         "--download-ffmpeg",
         action="store_true",
         help="Download ffmpeg to spotdl directory.",
+    )
+
+    parser.add_argument(
+        "--download-deno",
+        action="store_true",
+        help="Download Deno to spotdl directory.",
     )
 
     parser.add_argument(

@@ -26,13 +26,23 @@ endif()
 # Determine our patch version by looking at git tags.
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 include(gitversion)
-get_git_version(SLANG_VERSION_PATCH SLANG_VERSION_HASH)
+get_git_version(SLANG_VERSION_PATCH SLANG_GIT_PRERELEASE SLANG_VERSION_HASH)
 
-set(SLANG_VERSION_MAJOR 10)
+set(SLANG_VERSION_MAJOR 11)
 set(SLANG_VERSION_MINOR 0)
+set(SLANG_VERSION_PRERELEASE
+    "${SLANG_GIT_PRERELEASE}"
+    CACHE STRING "Optional pre-release version segment (e.g. 'rc1')")
 set(SLANG_VERSION_STRING
     "${SLANG_VERSION_MAJOR}.${SLANG_VERSION_MINOR}.${SLANG_VERSION_PATCH}")
-message(STATUS "slang version: ${SLANG_VERSION_STRING}+${SLANG_VERSION_HASH}")
+if(SLANG_VERSION_PRERELEASE)
+  set(SLANG_VERSION_FULL_STRING
+      "${SLANG_VERSION_STRING}-${SLANG_VERSION_PRERELEASE}+${SLANG_VERSION_HASH}"
+  )
+else()
+  set(SLANG_VERSION_FULL_STRING "${SLANG_VERSION_STRING}+${SLANG_VERSION_HASH}")
+endif()
+message(STATUS "slang version: ${SLANG_VERSION_FULL_STRING}")
 
 # Set the default build type if none is set explicitly, but only for
 # single-config generators.
@@ -68,6 +78,7 @@ option(SLANG_INCLUDE_INSTALL "Include installation targets"
 option(SLANG_INCLUDE_COVERAGE "Enable code coverage" OFF)
 option(SLANG_INCLUDE_THREADTEST "Include threadtest target in the build" OFF)
 option(SLANG_INCLUDE_UVM_TEST "Include UVM as a test target in the build" OFF)
+option(SLANG_INCLUDE_BENCHMARKS "Include benchmark targets in the build" OFF)
 option(SLANG_CI_BUILD "Enable longer running tests for CI builds" OFF)
 option(SLANG_FUZZ_TARGET "Enables changes to make binaries easier to fuzz test"
        OFF)
@@ -98,6 +109,17 @@ if(SLANG_INCLUDE_PYLIB)
   find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 else()
   find_package(Python REQUIRED COMPONENTS Interpreter)
+endif()
+
+# Set up ccache if available.
+if(SLANG_MASTER_PROJECT AND CMAKE_GENERATOR MATCHES "Ninja|Makefiles")
+  find_program(CCACHE_EXECUTABLE ccache)
+  if(CCACHE_EXECUTABLE)
+    foreach(lang IN ITEMS C CXX)
+      set(CMAKE_${lang}_COMPILER_LAUNCHER ${CCACHE_EXECUTABLE})
+    endforeach()
+    message(STATUS "Using ccache: ${CCACHE_EXECUTABLE}")
+  endif()
 endif()
 
 # Set saner / consistent build directories on all platforms
@@ -154,6 +176,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "WASI")
+  # mimalloc is incompatible with WASM
+  set(SLANG_USE_MIMALLOC OFF)
+
   add_compile_options(-fno-exceptions)
 
   add_compile_definitions(_WASI_EMULATED_SIGNAL)
@@ -216,6 +241,10 @@ add_subdirectory(source)
 if(SLANG_INCLUDE_TESTS)
   include(CTest)
   add_subdirectory(tests)
+endif()
+
+if(SLANG_INCLUDE_BENCHMARKS)
+  add_subdirectory(tests/benchmarks)
 endif()
 
 if(SLANG_INCLUDE_TOOLS)

@@ -38,14 +38,12 @@ class SeqUtil:
         use_strict_alphabet: Optional[bool] = False,
         allow_empty_sequence: bool = True,
         file_name: Optional[str] = None,
-) -> Iterator[SeqUtilRecord]:
+    ) -> Iterator[SeqUtilRecord]:
         def process_and_yield_record(header: str, sequence_lines: List[str]):
             sequence = ''.join(sequence_lines)
             sequence_id = header.split()[0]
             if allow_any_sequence_characters and use_strict_alphabet:
-                raise Exception(
-                    'Error: Please choose either allow_any_sequence_characters or use_strict_alphabet'
-                )
+                raise Exception('Error: Please choose either allow_any_sequence_characters or use_strict_alphabet')
             if not allow_any_sequence_characters:
                 if use_strict_alphabet:
                     invalid_sequence_characters = SeqUtil._find_invalid_sequence_characters_strict(sequence)
@@ -60,7 +58,7 @@ class SeqUtil:
             yield SeqUtilRecord(
                 sequence=sequence,
                 sequence_id=sequence_id,
-                description=header[len(sequence_id):].strip()
+                description=header[len(sequence_id) :].strip(),
             )
 
         def line_generator_from_buffered_io_base(file_handle: BufferedIOBase) -> Iterator[str]:
@@ -68,8 +66,7 @@ class SeqUtil:
                 yield line.decode('utf-8')
 
         def line_generator_from_text_io_base(file_handle: TextIOBase) -> Iterator[str]:
-            for line in file_handle:
-                yield line
+            yield from file_handle
 
         if input_file is None:
             if file_name:
@@ -79,7 +76,7 @@ class SeqUtil:
 
         file_handle = None
         if isinstance(input_file, str):
-            file_handle = open(input_file, "rb")
+            file_handle = open(input_file, 'rb')  # noqa: SIM115
             line_iterator = line_generator_from_buffered_io_base(file_handle)
         elif isinstance(input_file, BufferedIOBase):
             line_iterator = line_generator_from_buffered_io_base(input_file)
@@ -95,7 +92,7 @@ class SeqUtil:
             for line_number, line in enumerate(line_iterator):
                 line = line.strip()
                 if not line:
-                    continue # skip empty lines
+                    continue  # skip empty lines
                 if line.startswith('>'):
                     if header is not None:
                         yield from process_and_yield_record(header, sequence_lines)
@@ -105,7 +102,7 @@ class SeqUtil:
                 else:
                     if header is None:
                         if default_header:
-                            yield from process_and_yield_record(f"{default_header}{line_number}", [line])
+                            yield from process_and_yield_record(f'{default_header}{line_number}', [line])
                         else:
                             raise Exception(f'No header line found in FASTA file "{file_name}"')
                     else:

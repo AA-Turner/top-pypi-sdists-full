@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ob-metaflow
-Version: 2.19.29.1
+Version: 2.19.29.2
 Summary: Metaflow: More AI and ML, Less Engineering
 Author: Netflix, Outerbounds & the Metaflow Community
 Author-email: help@outerbounds.co
@@ -12,7 +12,7 @@ Requires-Dist: boto3
 Requires-Dist: pylint
 Requires-Dist: kubernetes
 Provides-Extra: stubs
-Requires-Dist: metaflow-stubs==2.19.29.1; extra == "stubs"
+Requires-Dist: metaflow-stubs==2.19.29.2; extra == "stubs"
 Provides-Extra: dev
 Requires-Dist: kubernetes; extra == "dev"
 Requires-Dist: localbatch; extra == "dev"

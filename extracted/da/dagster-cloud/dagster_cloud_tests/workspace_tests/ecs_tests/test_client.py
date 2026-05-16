@@ -10,6 +10,7 @@ from unittest import mock
 
 import boto3
 import botocore
+import botocore.exceptions
 import pytest
 from botocore.stub import ANY, Stubber
 from dagster_aws.utils import ensure_dagster_aws_tests_import
@@ -31,7 +32,7 @@ def client(cluster_name="test"):
     def _mock_assign_public_ip(*args, **kwags):
         return "ENABLED"
 
-    client._infer_assign_public_ip = _mock_assign_public_ip
+    client._infer_assign_public_ip = _mock_assign_public_ip  # ty: ignore[invalid-assignment]
 
     yield client
 
@@ -53,7 +54,7 @@ def stubbed_client(stubbed_ecs, cluster_name="test"):
     def _mock_assign_public_ip(*args, **kwags):
         return "ENABLED"
 
-    client._infer_assign_public_ip = _mock_assign_public_ip
+    client._infer_assign_public_ip = _mock_assign_public_ip  # ty: ignore[invalid-assignment]
 
     yield client
 
@@ -400,8 +401,8 @@ def test_check_service_has_running_task__success():
                         ]
                     },
                 )
-                client._check_for_stopped_tasks = mock.MagicMock(return_value=[])
-                client._check_all_essential_containers_are_running = mock.MagicMock(
+                client._check_for_stopped_tasks = mock.MagicMock(return_value=[])  # ty: ignore[invalid-assignment]
+                client._check_all_essential_containers_are_running = mock.MagicMock(  # ty: ignore[invalid-assignment]
                     return_value=True
                 )
                 response = asyncio.run(
@@ -623,7 +624,7 @@ def test_check_service_has_running_task__task_stopped_with_transient_failure_imm
                         ]
                     },
                 )
-                client._check_all_essential_containers_are_running = mock.MagicMock(
+                client._check_all_essential_containers_are_running = mock.MagicMock(  # ty: ignore[invalid-assignment]
                     return_value=True
                 )
 
@@ -694,8 +695,8 @@ def test_check_service_has_running_task__running_task_moves_to_transient_startup
                         ]
                     },
                 )
-                client._check_for_stopped_tasks = mock.MagicMock(return_value=[])
-                client._check_all_essential_containers_are_running = mock.MagicMock(
+                client._check_for_stopped_tasks = mock.MagicMock(return_value=[])  # ty: ignore[invalid-assignment]
+                client._check_all_essential_containers_are_running = mock.MagicMock(  # ty: ignore[invalid-assignment]
                     return_value=True
                 )
 
@@ -882,9 +883,9 @@ def test_list_services(aws_mock, monkeypatch, caplog):
     # Create VPC, subnet, and security group for moto 5 compatibility
     ec2 = boto3.client("ec2")
     vpc = ec2.create_vpc(CidrBlock="10.0.0.0/16")
-    vpc_id = vpc["Vpc"]["VpcId"]  # type: ignore
+    vpc_id = vpc["Vpc"]["VpcId"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
     subnet = ec2.create_subnet(VpcId=vpc_id, CidrBlock="10.0.1.0/24")
-    subnet_id = subnet["Subnet"]["SubnetId"]  # type: ignore
+    subnet_id = subnet["Subnet"]["SubnetId"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
     security_group = ec2.create_security_group(
         GroupName="test-sg", Description="Test security group", VpcId=vpc_id
     )
@@ -925,7 +926,7 @@ def test_list_services(aws_mock, monkeypatch, caplog):
     with mock.patch.object(
         client.tags_client,
         "get_paginator",
-        side_effect=botocore.exceptions.ClientError(  # pyright: ignore[reportAttributeAccessIssue]
+        side_effect=botocore.exceptions.ClientError(
             operation_name="GetResources",
             error_response={"Error": {"Code": "AccessDeniedException"}},
         ),
@@ -978,7 +979,7 @@ def test_delete_service_golden_path(aws_mock):
     # Create VPC for service discovery namespace (moto 5 requires a real VPC)
     ec2 = boto3.client("ec2")
     vpc = ec2.create_vpc(CidrBlock="10.0.0.0/16")
-    vpc_id = vpc["Vpc"]["VpcId"]  # type: ignore
+    vpc_id = vpc["Vpc"]["VpcId"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
     ecs = boto3.client("ecs")
     service_discovery = boto3.client("servicediscovery")
@@ -1039,7 +1040,7 @@ def test_delete_service_golden_path(aws_mock):
                 return_value={"Operation": {"Status": "SUCCESS"}},
             ) as mock_get_operation:
                 with mock.patch.object(client.ecs, "delete_service") as mock_delete_service:
-                    StubService = namedtuple("Service", "name hostname")
+                    StubService = namedtuple("StubService", "name hostname")
                     client.delete_service(
                         StubService(name="my_service", hostname=f"my_service.{namespace}"),
                     )
@@ -1064,12 +1065,12 @@ def test_delete_service_service_missing(aws_mock, caplog):
     )
 
     # moto's ServiceNotFoundException is not a subclass of botocore.exceptions.ClientError
-    exception = botocore.exceptions.ClientError(  # pyright: ignore[reportAttributeAccessIssue]
+    exception = botocore.exceptions.ClientError(
         {"Error": {"Code": "ServiceNotFoundException", "Message": "Service was not found"}},
         "update_service",
     )
 
-    StubService = namedtuple("Service", "name hostname")
+    StubService = namedtuple("StubService", "name hostname")
     with mock.patch.object(client.ecs, "update_service", side_effect=exception):
         with mock.patch.object(client.ecs, "delete_service") as mock_delete_service:
             client.delete_service(

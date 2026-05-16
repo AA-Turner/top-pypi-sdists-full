@@ -3,6 +3,7 @@
 
 #include "Test.h"
 
+#include "slang/ast/Expression.h"
 #include "slang/ast/ScriptSession.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -11,6 +12,7 @@
 #include "slang/ast/symbols/SubroutineSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/AllTypes.h"
+#include "slang/ast/types/TypePrinter.h"
 #include "slang/syntax/AllSyntax.h"
 
 TEST_CASE("Enum declaration") {
@@ -146,6 +148,69 @@ endmodule
     CHECK(diags[8].code == diag::EnumRangeMultiDimensional);
     CHECK(diags[9].code == diag::EnumValueOverflow);
     CHECK(diags[10].code == diag::EnumIncrementUnknown);
+}
+
+TEST_CASE("Enum signed overflow check") {
+    // Regression test: signed enum with previous value == -1 should not trigger overflow.
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    enum int { A = -1, B, C } e1;
+    enum int { D = 2147483647, E } e2;  // max int, next should overflow
+    enum byte { F = 126, G, H } e3;    // 126->127->overflow
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& root = compilation.getRoot();
+    auto& m = root.lookupName<InstanceSymbol>("m");
+
+    auto& e1 = m.body.lookupName<EnumValueSymbol>("B");
+    CHECK(e1.getValue().integer() == 0);
+    auto& e1c = m.body.lookupName<EnumValueSymbol>("C");
+    CHECK(e1c.getValue().integer() == 1);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::EnumValueOverflow);
+    CHECK(diags[1].code == diag::EnumValueOverflow);
+}
+
+TEST_CASE("Enum value count limit") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    typedef enum logic [31:0] { BIG[0:99999] } big_e;
+endmodule
+)");
+
+    CompilationOptions options;
+    options.maxEnumValues = 16;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::EnumValueCountExceeded);
+}
+
+TEST_CASE("Enum value count limit - scalar members") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    typedef enum { A, B, C, D, E } small_e;
+endmodule
+)");
+
+    CompilationOptions options;
+    options.maxEnumValues = 3;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::EnumValueCountExceeded);
 }
 
 TEST_CASE("Enum assignment exception") {
@@ -291,6 +356,79 @@ endmodule
     CHECK(unionType.find("bar"));
     CHECK(unionType.find("bif"));
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Friendly struct/union name printing") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    struct packed { logic a; int b; } ps;
+
+    struct packed signed { logic [3:0] x; logic y; } sps;
+
+    union packed { logic [7:0] u8; logic [3:0][1:0] pair; } pu;
+
+    struct { int i; real r; } us;
+
+    union { int i; real r; } uu;
+
+    typedef struct packed { logic b; } my_t;
+    my_t named;
+
+    struct { struct { int x; int y; } inner; int z; } nested;
+
+    struct {
+        int f0[]; int f1[$]; int f2[*]; int f3[int]; int f4[4];
+        int f5; int f6; int f7; int f8; int f9;
+    } wide;
+
+    enum logic [1:0] { FOO, BAR, BAZ } ue;
+
+    typedef enum { X, Y } my_enum_t;
+    my_enum_t named_enum;
+
+    enum { E0, E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13, E14, E15 } wide_enum;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    TypePrinter printer;
+    printer.options.addSingleQuotes = true;
+    printer.options.anonymousTypeStyle = TypePrintingOptions::FriendlyName;
+    printer.options.elideScopeNames = true;
+
+    auto& m = compilation.getRoot().find<InstanceSymbol>("m").body;
+    auto typeStr = [&](std::string_view name) {
+        printer.clear();
+        printer.append(m.find<VariableSymbol>(name).getType());
+        return printer.toString();
+    };
+
+    CHECK(typeStr("ps") == "'struct packed{logic a, int b}'");
+
+    CHECK(typeStr("sps") == "'struct packed signed{logic[3:0] x, logic y}'");
+
+    CHECK(typeStr("pu") == "'union packed{logic[7:0] u8, logic[3:0][1:0] pair}'");
+
+    CHECK(typeStr("us") == "'struct{int i, real r}'");
+
+    CHECK(typeStr("uu") == "'union{int i, real r}'");
+
+    CHECK(typeStr("named") == "'my_t'");
+
+    CHECK(typeStr("nested") == "'struct{struct{int x, int y} inner, int z}'");
+
+    CHECK(typeStr("wide") ==
+          "'struct{int$[] f0, int$[$] f1, int$[*] f2, int$[int] f3, int$[4] f4, ...}'");
+
+    CHECK(typeStr("ue") == "'enum{FOO, BAR, BAZ}'");
+
+    CHECK(typeStr("named_enum") == "'my_enum_t'");
+
+    CHECK(typeStr("wide_enum") ==
+          "'enum{E0, E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13, ...}'");
 }
 
 TEST_CASE("Typedefs") {
@@ -593,7 +731,7 @@ source:4:14: error: 72'hffffffffffffffffff is out of allowed range (-2147483648 
 source:5:14: error: value must be positive
            i[0]);
              ^
-source:7:27: error: packed members must be of integral type (not 'unpacked array [3] of logic')
+source:7:27: error: packed members must be of integral type (not 'logic$[3]')
     struct packed { logic j[3]; } foo;
                           ^~~~
 )");
@@ -622,7 +760,7 @@ endmodule
 source:6:11: error: value of type 'blah' (aka 'asdf') cannot be assigned to type 'int'
     int i = b;
           ^ ~
-source:11:15: error: value of type 'test2' (aka 'unpacked array [3] of logic[3:0]') cannot be assigned to type 'chandle'
+source:11:15: error: value of type 'test2' (aka 'logic[3:0]$[3]') cannot be assigned to type 'chandle'
     chandle j = t;
               ^ ~
 )");
@@ -1604,7 +1742,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::TypeRefHierarchical);
 }
@@ -1923,8 +2061,8 @@ module top2;
     initial begin
         v16 = p16;
         v32 = p32;
-        v16 = p32; // illegal – parameter values don't match
-        v16 = v32; // illegal – parameter values don't match
+        v16 = p32; // illegal - parameter values don't match
+        v16 = v32; // illegal - parameter values don't match
         v16_phy = v16;
         v16 = v16_phy; // illegal assignment from selected modport to
                        // no selected modport
@@ -2139,6 +2277,33 @@ module m;
     integer intValue;
     initial begin
         intValue = strValue;
+    end
+endmodule
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::RelaxStringConversions;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Implicit string conversion for methods compat flag") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    reg [31:0] r;
+
+    function void f(string s);
+    endfunction
+
+    task t(string s);
+    endtask
+
+    initial begin
+        f(r);
+        t(r);
+        void'($fopen(r, "r"));
     end
 endmodule
 )");
@@ -2419,4 +2584,128 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::EnumCircularBaseType);
+}
+
+TEST_CASE("getResolvedDimensions - no dims") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int x;
+endmodule
+)");
+    Compilation compilation;
+    const auto& instance = evalModule(tree, compilation).body;
+    const auto& x = instance.find<VariableSymbol>("x");
+    auto dims = x.getDeclaredType()->getResolvedDimensions();
+    CHECK(dims.empty());
+    CHECK(compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("getResolvedDimensions - literal packed range") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    bit [7:0] data;
+endmodule
+)");
+    Compilation compilation;
+    const auto& instance = evalModule(tree, compilation).body;
+    const auto& data = instance.find<VariableSymbol>("data");
+    auto dims = data.getDeclaredType()->getResolvedDimensions();
+    REQUIRE(dims.size() == 1);
+    CHECK(dims[0].kind == DimensionKind::Range);
+    CHECK(dims[0].range.left == 7);
+    CHECK(dims[0].range.right == 0);
+    REQUIRE(dims[0].leftExpr != nullptr);
+    REQUIRE(dims[0].rightExpr != nullptr);
+    // Both are integer literal expressions
+    CHECK(dims[0].leftExpr->kind == ExpressionKind::IntegerLiteral);
+    CHECK(dims[0].rightExpr->kind == ExpressionKind::IntegerLiteral);
+    CHECK(compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("getResolvedDimensions - parameterized packed range") {
+    auto tree = SyntaxTree::fromText(R"(
+module m #(parameter int N = 4);
+    localparam int W = N * 2;
+    bit [W-1:0] data;
+endmodule
+)");
+    Compilation compilation;
+    const auto& instance = evalModule(tree, compilation).body;
+    const auto& data = instance.find<VariableSymbol>("data");
+    auto dims = data.getDeclaredType()->getResolvedDimensions();
+    REQUIRE(dims.size() == 1);
+    CHECK(dims[0].kind == DimensionKind::Range);
+    // N=4, W=8, so range is [7:0]
+    CHECK(dims[0].range.left == 7);
+    CHECK(dims[0].range.right == 0);
+    // The original expression for W-1 should be a binary subtraction, not a literal
+    REQUIRE(dims[0].leftExpr != nullptr);
+    CHECK(dims[0].leftExpr->kind == ExpressionKind::BinaryOp);
+    REQUIRE(dims[0].rightExpr != nullptr);
+    CHECK(dims[0].rightExpr->kind == ExpressionKind::IntegerLiteral);
+    CHECK(compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("getResolvedDimensions - packed + unpacked") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [3:0] arr [7:0];
+endmodule
+)");
+    Compilation compilation;
+    const auto& instance = evalModule(tree, compilation).body;
+    const auto& arr = instance.find<VariableSymbol>("arr");
+    auto dims = arr.getDeclaredType()->getResolvedDimensions();
+    // One packed dim [3:0], one unpacked dim [7:0]
+    REQUIRE(dims.size() == 2);
+    CHECK(dims[0].kind == DimensionKind::Range);
+    CHECK(dims[0].range.left == 3);
+    CHECK(dims[0].range.right == 0);
+    CHECK(dims[1].kind == DimensionKind::Range);
+    CHECK(dims[1].range.left == 7);
+    CHECK(dims[1].range.right == 0);
+    CHECK(compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("getResolvedDimensions - packed struct") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    struct packed { bit a; bit b; } [3:0] arr;
+endmodule
+)");
+    Compilation compilation;
+    const auto& instance = evalModule(tree, compilation).body;
+    const auto& arr = instance.find<VariableSymbol>("arr");
+    auto dims = arr.getDeclaredType()->getResolvedDimensions();
+    REQUIRE(dims.size() == 1);
+    CHECK(dims[0].kind == DimensionKind::Range);
+    CHECK(dims[0].range.left == 3);
+    CHECK(dims[0].range.right == 0);
+    CHECK(compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("getResolvedDimensions - typedef does not expose inner dims") {
+    // The variable's DeclaredType uses a named type (typedef), so it has no
+    // inline packed dims. The typedef's own DeclaredType carries the dims.
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    parameter int N = 4;
+    typedef bit [N-1:0] mytype_t;
+    mytype_t data;
+endmodule
+)");
+    Compilation compilation;
+    const auto& instance = evalModule(tree, compilation).body;
+    const auto& data = instance.find<VariableSymbol>("data");
+    auto dims = data.getDeclaredType()->getResolvedDimensions();
+    CHECK(dims.empty());
+
+    const auto& td = instance.find<TypeAliasType>("mytype_t");
+    auto tdDims = td.targetType.getResolvedDimensions();
+    REQUIRE(tdDims.size() == 1);
+    CHECK(tdDims[0].range.left == 3);
+    CHECK(tdDims[0].range.right == 0);
+    REQUIRE(tdDims[0].leftExpr != nullptr);
+    CHECK(tdDims[0].leftExpr->kind == ExpressionKind::BinaryOp);
+    CHECK(compilation.getAllDiagnostics().empty());
 }

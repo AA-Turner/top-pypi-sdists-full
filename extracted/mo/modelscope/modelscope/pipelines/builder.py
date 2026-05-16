@@ -12,7 +12,8 @@ from modelscope.utils.constant import (DEFAULT_MODEL_REVISION, Invoke, Tasks,
 from modelscope.utils.hub import read_config
 from modelscope.utils.import_utils import is_transformers_available
 from modelscope.utils.logger import get_logger
-from modelscope.utils.plugins import (register_modelhub_repo,
+from modelscope.utils.plugins import (filter_plugin_in_whitelist,
+                                      register_modelhub_repo,
                                       register_plugins_repo)
 from modelscope.utils.registry import Registry, build_from_cfg
 from modelscope.utils.task_utils import is_embedding_task
@@ -79,6 +80,7 @@ def pipeline(task: str = None,
              device: str = None,
              model_revision: Optional[str] = DEFAULT_MODEL_REVISION,
              ignore_file_pattern: List[str] = None,
+             trust_remote_code: bool = False,
              **kwargs) -> Pipeline:
     """ Factory method to build an obj:`Pipeline`.
 
@@ -95,6 +97,8 @@ def pipeline(task: str = None,
         device (str, optional): whether to use gpu or cpu is used to do inference.
         ignore_file_pattern(`str` or `List`, *optional*, default to `None`):
             Any file pattern to be ignored in downloading, like exact file names or file extensions.
+        trust_remote_code (bool, optional): Whether to allow execution of remote code or
+            plugins declared in the model configuration. Defaults to False.
 
     Return:
         pipeline (obj:`Pipeline`): pipeline object for certain task.
@@ -155,9 +159,24 @@ def pipeline(task: str = None,
                         third_party=third_party,
                         ignore_file_pattern=ignore_file_pattern)
 
-                    register_plugins_repo(cfg.safe_get('plugins'))
-                    register_modelhub_repo(model,
-                                           cfg.get('allow_remote', False))
+                    if cfg:
+                        plugins = cfg.safe_get('plugins')
+                        allow_remote = cfg.get('allow_remote', False)
+                        if (filter_plugin_in_whitelist(plugins)
+                                or allow_remote) and not trust_remote_code:
+                            raise RuntimeError(
+                                'Detected plugins or allow_remote field in the model '
+                                'configuration file, but trust_remote_code=True was not '
+                                'explicitly set.\n'
+                                'To prevent potential execution of malicious code, loading '
+                                'has been refused.\n'
+                                'If you trust this model repository, please pass '
+                                'trust_remote_code=True to pipeline().')
+                        register_plugins_repo(plugins)
+                        model_dir = model if isinstance(model,
+                                                        str) else model[0]
+                        register_modelhub_repo(
+                            model_dir, trust_remote_code and allow_remote)
 
                 if pipeline_name:
                     pipeline_props = {'type': pipeline_name}
@@ -226,7 +245,10 @@ def pipeline(task: str = None,
     if preprocessor is not None:
         cfg.preprocessor = preprocessor
 
-    return build_pipeline(cfg, task_name=task)
+    return build_pipeline(
+        cfg,
+        task_name=task,
+        default_args={'trust_remote_code': trust_remote_code})
 
 
 def add_default_pipeline_info(task: str,

@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 import dagster_cloud_cli
+import dagster_cloud_cli.core.pex_builder.util
 import pytest
 from dagster_cloud_cli.entrypoint import app
 from typer.testing import CliRunner
@@ -54,7 +55,7 @@ def test_build_quickstart_etl():
 
 def test_build_methods(sample_repos_dir, mocker):
     # mock pex builder function to allow forcing failure using deps_build_stderr
-    orig_build_pex = dagster_cloud_cli.core.pex_builder.util.build_pex  # pyright: ignore[reportAttributeAccessIssue]
+    orig_build_pex = dagster_cloud_cli.core.pex_builder.util.build_pex
     deps_build_stderr = None
 
     def build_pex_fail_deps(

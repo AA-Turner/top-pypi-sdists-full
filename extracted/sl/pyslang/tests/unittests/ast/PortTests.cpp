@@ -4,8 +4,10 @@
 #include "Test.h"
 
 #include "slang/ast/EvalContext.h"
-#include "slang/ast/LSPUtilities.h"
+#include "slang/ast/ValuePath.h"
+#include "slang/ast/expressions/AssignmentExpressions.h"
 #include "slang/ast/expressions/LiteralExpressions.h"
+#include "slang/ast/expressions/OperatorExpressions.h"
 #include "slang/ast/expressions/SelectExpressions.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
@@ -389,14 +391,15 @@ endmodule
     CHECK((it++)->code == diag::UsedBeforeDeclared);
     CHECK((it++)->code == diag::UsedBeforeDeclared);
     CHECK((it++)->code == diag::UsedBeforeDeclared);
-    CHECK((it++)->code == diag::UnconnectedNamedPort);
-    CHECK((it++)->code == diag::UnconnectedNamedPort);
-    CHECK((it++)->code == diag::UnconnectedNamedPort);
+    CHECK((it++)->code == diag::UnconnectedInputPort);
+    CHECK((it++)->code == diag::UnconnectedInputPort);
+    CHECK((it++)->code == diag::UnconnectedInputPort);
     CHECK((it++)->code == diag::MixingOrderedAndNamedPorts);
     CHECK((it++)->code == diag::DuplicateWildcardPortConnection);
-    CHECK((it++)->code == diag::UnconnectedNamedPort);
-    CHECK((it++)->code == diag::UnconnectedNamedPort);
-    CHECK((it++)->code == diag::UnconnectedNamedPort);
+    CHECK((it++)->code == diag::UnconnectedInputPort);
+    CHECK((it++)->code == diag::EmptyInputPortConn);
+    CHECK((it++)->code == diag::UnconnectedInputPort);
+    CHECK((it++)->code == diag::UnconnectedInputPort);
     CHECK((it++)->code == diag::DuplicatePortConnection);
     CHECK((it++)->code == diag::InterfacePortNotConnected);
     CHECK((it++)->code == diag::InterfacePortInvalidExpression);
@@ -450,6 +453,41 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Instance array packed port slicing") {
+    auto tree = SyntaxTree::fromText(R"(
+module top(output logic [1:0][2:0] d6);
+    sub sub6 [2:0] (.d(d6));
+endmodule
+module sub (output logic [1:0] d);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& arr = compilation.getRoot().lookupName<InstanceArraySymbol>("top.sub6");
+    REQUIRE(arr.elements.size() == 3);
+
+    // sub6[1] maps to flat bit range {3,2}, spanning d6[0][2] and d6[1][0].
+    // the port connection expression for the middle instance should be 2 bits,
+    // not 3 (which was the bug: the right-partial element was over-selected).
+    auto& midInst = arr.elements[1]->as<InstanceSymbol>();
+    auto* connExpr = midInst.getPortConnections()[0]->getExpression();
+    REQUIRE(connExpr);
+    // for an output port, the expression is an assignment; the LHS is the
+    // sliced destination in the parent scope (the concatenation of d6 slices).
+    auto& assign = connExpr->as<AssignmentExpression>();
+    auto& lhs = assign.left();
+    CHECK(lhs.kind == ExpressionKind::Concatenation);
+    CHECK(lhs.type->getBitWidth() == 2);
+    auto& concat = lhs.as<ConcatenationExpression>();
+    bitwidth_t totalWidth = 0;
+    for (auto op : concat.operands())
+        totalWidth += op->type->getBitWidth();
+    CHECK(totalWidth == 2);
 }
 
 TEST_CASE("Instance array port connection errors") {
@@ -716,9 +754,11 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 2);
-    CHECK(diags[0].code == diag::UnconnectedUnnamedPort);
-    CHECK(diags[1].code == diag::NullPortExpression);
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::NullPort);
+    CHECK(diags[1].code == diag::NullPort);
+    CHECK(diags[2].code == diag::UnconnectedUnnamedPort);
+    CHECK(diags[3].code == diag::NullPortExpression);
 }
 
 TEST_CASE("Clocking blocks in modports") {
@@ -1114,11 +1154,12 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 4);
+    REQUIRE(diags.size() == 5);
     CHECK(diags[0].code == diag::ExpressionNotAssignable);
     CHECK(diags[1].code == diag::ExpressionNotAssignable);
     CHECK(diags[2].code == diag::InvalidRefArg);
     CHECK(diags[3].code == diag::NullPortExpression);
+    CHECK(diags[4].code == diag::EmptyInputPortConn);
 }
 
 TEST_CASE("Ansi port initializers") {
@@ -1143,7 +1184,25 @@ endmodule
     REQUIRE(diags.size() == 3);
     CHECK(diags[0].code == diag::ConstEvalNonConstVariable);
     CHECK(diags[1].code == diag::AnsiIfacePortDefault);
-    CHECK(diags[2].code == diag::UnconnectedNamedPort);
+    CHECK(diags[2].code == diag::UnconnectedOutputPort);
+}
+
+TEST_CASE("Unconnected inout port warning") {
+    auto tree = SyntaxTree::fromText(R"(
+module m(inout wire w);
+endmodule
+
+module top;
+    m m1();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnconnectedInOutPort);
 }
 
 TEST_CASE("Implicit named port connection directions") {
@@ -1678,9 +1737,7 @@ endmodule
         auto& inst = compilation.getRoot().lookupName<InstanceSymbol>(path);
 
         EvalContext evalCtx(inst);
-        FormatBuffer buffer;
-        LSPUtilities::stringifyLSP(*inst.getPortConnections()[0]->getExpression(), evalCtx, buffer);
-        return buffer.str();
+        return ValuePath(*inst.getPortConnections()[0]->getExpression(), evalCtx).toString(evalCtx);
     };
 
     auto marr0 = getConnStr("top.marr[0]");
@@ -1786,4 +1843,55 @@ source:3:30: note: for connection to port 'sig'
     output logic [5:0][31:0] sig
                              ^
 )");
+}
+
+TEST_CASE("Explicit empty port connection warnings") {
+    auto tree = SyntaxTree::fromText(R"(
+module n(input logic a, input logic b = 1, output logic c, inout logic d);
+endmodule
+
+module m;
+    // .a() warns: input, no default
+    // .b() warns with note: input, has default
+    // .c() warns: output
+    // .d() warns: inout
+    n n1(.a(), .b(), .c(), .d());
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::EmptyInputPortConn);
+    CHECK(diags[1].code == diag::EmptyInputPortConn);
+    // diags[1] should have a note about the default value expression
+    REQUIRE(diags[1].notes.size() == 1);
+    CHECK(diags[1].notes[0].code == diag::EmptyInputPortConnDefault);
+    CHECK(diags[2].code == diag::EmptyOutputPortConn);
+    CHECK(diags[3].code == diag::EmptyInOutPortConn);
+}
+
+TEST_CASE("Explicit empty port connection vs truly unconnected") {
+    // Truly-unconnected ports fire UnconnectedInputPort, not an empty-connection warning.
+    auto tree = SyntaxTree::fromText(R"(
+module n(input logic a, output logic b, inout logic c);
+endmodule
+
+module m;
+    // a omitted: UnconnectedInputPort
+    // .b() and .c() explicitly connected to nothing: output/inout warnings
+    n n1(.b(), .c());
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::UnconnectedInputPort);
+    CHECK(diags[1].code == diag::EmptyOutputPortConn);
+    CHECK(diags[2].code == diag::EmptyInOutPortConn);
 }

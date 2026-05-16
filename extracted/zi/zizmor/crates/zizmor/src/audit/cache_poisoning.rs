@@ -492,14 +492,14 @@ impl CachePoisoning {
             } => {
                 let (field_value, title, _description) = match (toggle, field_type) {
                     (Toggle::OptOut, ControlFieldType::Boolean) => (
-                        serde_yaml::Value::Bool(true),
+                        yaml_serde::Value::Bool(true),
                         format!("Set {field_name}: true to disable caching"),
                         format!(
                             "Set '{field_name}' to 'true' to disable cache writes in this publishing workflow."
                         ),
                     ),
                     (Toggle::OptIn, ControlFieldType::Boolean) => (
-                        serde_yaml::Value::Bool(false),
+                        yaml_serde::Value::Bool(false),
                         format!("Set {field_name}: false to disable caching"),
                         format!(
                             "Set '{field_name}' to 'false' to disable caching in this publishing workflow."
@@ -547,7 +547,9 @@ impl CachePoisoning {
         // confidence accordingly.
         // TODO: We probably need to make this even more precise, e.g. for pushes with tag patterns.
         if let PublishingScenario::UsingReleaseTriggers(triggers) = scenario
-            && let [ReleaseTrigger::TagPush] = triggers.as_slice()
+            && triggers
+                .iter()
+                .all(|t| matches!(t, ReleaseTrigger::TagPush | ReleaseTrigger::ReleaseEvent))
             && let Some(control) = CacheControlField::extract(coord, step)
             && let Some(expr) = CacheControlExpr::parse(&control.raw_value.to_string())
         {

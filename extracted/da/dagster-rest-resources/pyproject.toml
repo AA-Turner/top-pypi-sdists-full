@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-rest-resources"
-version = "0.29.4"
+version = "0.29.5"
 description = ""
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -21,7 +21,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster-shared==1.13.4",
+    "dagster-shared==1.13.5",
     "httpx>=0.27.0",
     "pydantic>=2.12.5",
 ]
@@ -33,9 +33,6 @@ Homepage = "https://github.com/dagster-io/dagster/tree/master/python_modules/lib
 codegen = [
     "ariadne-codegen>=0.14.0",
 ]
-test = [
-    "pytest>=9.0.2",
-]
 
 [tool.ariadne-codegen]
 schema_path = "../../../../dagster-cloud/js_modules/app-cloud/src/graphql/schema.graphql"
@@ -46,4 +43,14 @@ async_client = false
 plugins = [
     "ariadne_codegen.contrib.client_forward_refs.ClientForwardRefsPlugin",
     "ariadne_codegen.contrib.no_reimports.NoReimportsPlugin",
+]
+
+[tool.uv.sources.dagster-shared]
+path = "../../../python_modules/libraries/dagster-shared"
+editable = true
+
+[dependency-groups]
+test = [
+    "dagster-shared",
+    "pytest>=9.0.2",
 ]

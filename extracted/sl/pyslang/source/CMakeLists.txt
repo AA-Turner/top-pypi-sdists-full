@@ -70,6 +70,7 @@ add_library(
   analysis/AnalyzedProcedure.cpp
   analysis/CaseDecisionDag.cpp
   analysis/ClockInference.cpp
+  analysis/DataFlowAnalysis.cpp
   analysis/DFAResults.cpp
   analysis/DriverTracker.cpp
   analysis/ValueDriver.cpp
@@ -78,8 +79,11 @@ add_library(
   diagnostics/Diagnostics.cpp
   diagnostics/JsonDiagnosticClient.cpp
   diagnostics/TextDiagnosticClient.cpp
+  driver/CompatSettings.cpp
   driver/Driver.cpp
+  driver/MemoryStats.cpp
   driver/SourceLoader.cpp
+  driver/UserDefinedSubroutine.cpp
   numeric/ConstantValue.cpp
   numeric/SVInt.cpp
   numeric/Time.cpp
@@ -101,7 +105,7 @@ add_library(
   syntax/SyntaxNode.cpp
   syntax/SyntaxPrinter.cpp
   syntax/SyntaxTree.cpp
-  syntax/SyntaxVisitor.cpp
+  syntax/SyntaxRewriter.cpp
   text/CharInfo.cpp
   text/Glob.cpp
   text/Json.cpp
@@ -152,8 +156,7 @@ if(SLANG_USE_THREADS)
 endif()
 
 if(SLANG_USE_MIMALLOC)
-  target_link_libraries(slang_slang PUBLIC ${mimalloc_target})
-  target_compile_definitions(slang_slang PUBLIC SLANG_USE_MIMALLOC)
+  target_link_libraries(slang_slang PRIVATE ${mimalloc_target})
 endif()
 
 if(SLANG_USE_CPPTRACE)

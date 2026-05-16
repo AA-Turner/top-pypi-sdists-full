@@ -1,49 +1,65 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, not_null, positive
+from .._internal import over
 from ..abc import Shape
 from ..math import Point
 
-from numbers import Real
-from typing import Iterator
-import math
 import numpy as np
 from numpy.typing import NDArray
+
+from numbers import Real
+from typing import Iterator, ClassVar
+import math
 
 # ======================================== SHAPE ========================================
 class RoundedRect(Shape):
     """Forme géométrique 2D immuable : Rectangle à coins arrondis
 
     Args:
-        width:  largeur totale du rectangle
-        height: hauteur totale du rectangle
+        width: largeur totale
+        height: hauteur totale
         radius: rayon des coins arrondis
     """
     __slots__ = ("_width", "_height", "_radius")
 
-    CIRCLE_SEGMENTS: int = 64
+    CIRCLE_SEGMENTS: ClassVar[int] = 64
 
     def __init__(self, width: Real, height: Real, radius: Real):
-        self._width:  float = float(positive(not_null(expect(width,  Real))))
-        self._height: float = float(positive(not_null(expect(height, Real))))
-        max_r = min(self._width, self._height) * 0.5
-        self._radius: float = min(max_r, float(positive(not_null(expect(radius, Real)))))
+        # Transtypage et vérifications
+        width = float(width)
+        height = float(height)
+        radius = abs(float(radius))
+
+        if __debug__:
+            over(width, 0, include=False)
+            over(height, 0, include=False)
+
+        # Attributs publiques
+        self._width: float = width
+        self._height: float = height
+        self._radius: float = min(radius, min(self._width, self._height) * 0.5)
+
+        # Initialisation de la forme
         super().__init__()
 
     # ======================================== CONVERSIONS ========================================
     def __repr__(self) -> str:
+        """Renvoie une représentation de la forme"""
         return f"RoundedRect(width={self._width}, height={self._height}, radius={self._radius})"
 
     def __str__(self) -> str:
+        """Renvoie une description de la forme"""
         return f"RoundedRect[{self._width}x{self._height} r={self._radius} | area={self.get_area():.4g}]"
 
     def __iter__(self) -> Iterator[float]:
+        """Renvoie les composants dans un itérateur"""
         yield self._width
         yield self._height
         yield self._radius
 
     def __hash__(self) -> int:
+        """Renvoie le hash de la forme"""
         return hash((self._width, self._height, self._radius))
 
     # ======================================== PROPERTIES ========================================
@@ -51,7 +67,7 @@ class RoundedRect(Shape):
     def width(self) -> float:
         """Largeur totale
         
-        La largeur doit être un *réel positif non nul*.
+        La largeur doit être un ``Real`` *positif non nul*.
         """
         return self._width
 
@@ -59,7 +75,7 @@ class RoundedRect(Shape):
     def height(self) -> float:
         """Hauteur totale
         
-        La hauteur doit être un *réel positif non nul*.
+        La hauteur doit être un ``Real`` *positif non nul*.
         """
         return self._height
 
@@ -67,7 +83,7 @@ class RoundedRect(Shape):
     def radius(self) -> float:
         """Rayon des coins
 
-        Le rayon doit être un *réel positif non nul*.
+        Le rayon doit être un ``Real`` *positif non nul*.
         """
         return self._radius
 
@@ -99,9 +115,9 @@ class RoundedRect(Shape):
     def compute_vertices(self) -> NDArray[np.float32]:
         """Contour polygonal du rectangle arrondi"""
         quarter = self.CIRCLE_SEGMENTS // 4
-        r   = self._radius
-        hx  = self._width  * 0.5 - r   # centre x du coin
-        hy  = self._height * 0.5 - r   # centre y du coin
+        r = self._radius
+        hx = self._width  * 0.5 - r
+        hy = self._height * 0.5 - r
 
         # Centres des 4 coins
         centers = np.array([
@@ -126,7 +142,7 @@ class RoundedRect(Shape):
     def __eq__(self, other: object) -> bool:
         """Vérifie la correspondance de deux rectangles arrondis"""
         if isinstance(other, RoundedRect):
-            return (self._width  == other._width and self._height == other._height and self._radius == other._radius)
+            return (self._width == other._width and self._height == other._height and self._radius == other._radius)
         return NotImplemented
 
     # ======================================== PREDICATES ========================================
@@ -134,7 +150,7 @@ class RoundedRect(Shape):
         """Teste si un point est dans le rectangle arrondi
 
         Args:
-            point: point à tester
+            point: ``Point`` à tester
         """
         px, py = abs(float(point[0])), abs(float(point[1]))
         hw, hh, r = self._width * 0.5, self._height * 0.5, self._radius
@@ -149,7 +165,12 @@ class RoundedRect(Shape):
         """Vérifie la convexité"""
         return True
 
-    # ======================================== PUBLIC METHODS ========================================
+    # ======================================== INTERFACE ========================================
     def copy(self) -> RoundedRect:
         """Renvoie une copie du rectangle arrondi"""
         return RoundedRect(self._width, self._height, self._radius)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "RoundedRect",
+]

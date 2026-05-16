@@ -94,7 +94,7 @@ class PKConsoleTools:
         try:
             forceTop = OutputControls().enableMultipleLineOutput
             if forceTop and OutputControls().lines == 0:
-                OutputControls().lines = 9
+                OutputControls().lines = 10
                 OutputControls().moveCursorToStartPosition()
                 
             if clearAlways or OutputControls().enableMultipleLineOutput:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-include-markdown-plugin
-Version: 7.2.2
+Version: 7.3.0
 Summary: Mkdocs Markdown includer plugin.
 Project-URL: Source, https://github.com/mondeja/mkdocs-include-markdown-plugin
 Project-URL: Documentation, https://github.com/mondeja/mkdocs-include-markdown-plugin#documentation
@@ -96,6 +96,7 @@ plugins:
       start: <!--start-->
       end: <!--end-->
       recursive: true
+      order: alpha-path
 ```
 
 #### `opening_tag` and `closing_tag`
@@ -174,6 +175,18 @@ plugins:
       directives:
         include-markdown: include-md
         include: replace
+```
+
+<!-- mdpo-disable-next-line -->
+
+#### `include_from_url`
+
+Allow including content from URLs.
+
+```yaml
+plugins:
+  - include-markdown:
+      include_from_url: true
 ```
 
 ### Reference

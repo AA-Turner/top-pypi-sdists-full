@@ -43,7 +43,7 @@ def hackernews_topstories(
     context.add_output_metadata(
         {
             "num_records": len(df),
-            "preview": MetadataValue.md(df.head().to_markdown()),
+            "preview": MetadataValue.md(df.head().to_markdown()),  # ty: ignore[invalid-argument-type]
         }
     )
     return df

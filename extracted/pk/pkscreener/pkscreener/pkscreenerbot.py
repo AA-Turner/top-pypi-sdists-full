@@ -249,7 +249,7 @@ try:
 except ImportError:
     import _thread as thread
 from telegram import __version__ as TG_VER
-from typing import Optional
+from typing import List, Tuple, Optional
 _trigger_thread: Optional[threading.Thread] = None
 _trigger_stop_event: Optional[threading.Event] = None
 
@@ -1381,7 +1381,7 @@ def kickOffScannerJobIfNotKickedOff(scanId, user, dbManager, requiredBalance, al
         menuText = "We encountered an error updating your subscription! Please reach out to @ItsOnlyPK on Telegram with your UTR and subscription scanner details."
     return menuText
 
-def trigger_prod_scans_workflow():
+def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_name="w7-workflow-prod-scans-trigger.yml"):
     """
     Trigger the production scans workflow via GitHub Actions.
     
@@ -1400,9 +1400,9 @@ def trigger_prod_scans_workflow():
         
         # Use run_workflow with correct parameters
         result = run_workflow(
-            repo="PKScreener", 
-            owner="pkjmesra",
-            workflow_name="w7-workflow-prod-scans-trigger.yml",
+            repo=repo, 
+            owner=owner,
+            workflow_name=workflow_name,
             ghp_token=github_token,
             workflowType=""
         )
@@ -1419,109 +1419,115 @@ def trigger_prod_scans_workflow():
         return False
 
 
-def scheduled_workflow_trigger():
+def scheduled_workflow_trigger(triggers: List[Tuple[int, int, str, str]]):
     """
-    Background thread that triggers the production scans workflow at scheduled times.
+    Background thread that triggers workflows at scheduled IST times.
     
-    Runs with optimized polling intervals:
-    - Every 10 minutes until ALERT_PRE_MINUTE (9:30 AM)
-    - Every 30 seconds from ALERT_PRE_MINUTE to ALERT_MINUTE (9:30
-    - Every 1 minute from ALERT_MINUTE to 10:00 AM
-    - Stops immediately after triggering the workflow
+    Args:
+        triggers: List of (hour, minute, repo, workflow_name) tuples.
+                  Example: [(9, 33, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
+                            (15, 33, "PKBrokers", "w1-workflow-history-data-parent.yml")]
     """
     global _trigger_stop_event
     
-    ist_tz = pytz.timezone('Asia/Kolkata')
-    last_trigger_date = None
-    ALERT_HOUR = 9
-    ALERT_PRE_MINUTE = 20
-    ALERT_MINUTE = 33
+    ist = pytz.timezone('Asia/Kolkata')
+    last_date = None
+    triggered_today = set()   # stores (hour, minute) that have been triggered (time-only key)
     
-    logger.info("🕐 Started scheduled workflow trigger thread")
+    logger.info(f"🕐 Scheduled workflow thread started. Triggers: {[(h,m) for h,m,_,_ in triggers]}")
     
     while not _trigger_stop_event.is_set():
-        try:
-            now = datetime.now(ist_tz)
-            current_time = now.time()
-            current_hour = current_time.hour
-            current_minute = current_time.minute
-            
-            # Check if we've already triggered today
-            if last_trigger_date == now.date():
-                sleep(3600)
-                continue
-            
-            # FIRST: Check if it's time to trigger (before calculating sleep)
-            if current_hour == ALERT_HOUR and current_minute == ALERT_MINUTE:
-                logger.info(f"🕐 It's {ALERT_HOUR}:{ALERT_MINUTE} AM IST on {now.date()} - triggering production scans workflow")
-                
-                success = trigger_prod_scans_workflow()
-                
+        now = datetime.now(ist)
+        current_date = now.date()
+        current_hour = now.hour
+        current_minute = now.minute
+        
+        # Reset at midnight
+        if current_date != last_date:
+            triggered_today.clear()
+            last_date = current_date
+            logger.debug(f"New day {current_date} – reset triggered set")
+        
+        # Check each trigger
+        for hour, minute, repo, wf_name in triggers:
+            key = (hour, minute)
+            if key not in triggered_today and current_hour == hour and current_minute == minute:
+                logger.info(f"🕐 Trigger time {hour:02d}:{minute:02d} IST reached – firing workflow {wf_name}")
+                success = trigger_prod_scans_workflow(repo=repo, workflow_name=wf_name)
                 if success:
-                    last_trigger_date = now.date()
-                    logger.info("✅ Workflow triggered successfully. Stopping trigger thread.")
-                    _trigger_stop_event.set()
-                    break
+                    triggered_today.add(key)
+                    logger.info(f"✅ Triggered {wf_name} successfully")
                 else:
-                    logger.warning("⚠️ Workflow trigger failed. Will retry next minute.")
-                    sleep(60)
-                    continue
-            
-            # SECOND: Determine sleep interval based on time
-            if current_hour < ALERT_HOUR or (current_hour == ALERT_HOUR and current_minute <= ALERT_PRE_MINUTE):
-                # Before ALERT_HOUR:ALERT_PRE_MINUTE AM IST - check every 10 minutes
-                sleep_interval = 600
-                logger.debug(f"Before {ALERT_HOUR}:{ALERT_PRE_MINUTE} AM IST - checking every 10 minutes. Current time: {current_time}")
-            elif current_hour == ALERT_HOUR and current_minute < ALERT_MINUTE:
-                # Between ALERT_HOUR:ALERT_PRE_MINUTE AM and ALERT_HOUR:ALERT_MINUTE AM IST - check every 30 seconds
-                sleep_interval = 30
-                logger.debug(f"Approaching {ALERT_HOUR}:{ALERT_MINUTE} AM IST - checking every 30 seconds. Current time: {current_time}")
+                    logger.warning(f"⚠️ Failed to trigger {wf_name}, will retry next minute")
+                    time.sleep(60)
+                    continue   # re-check after retry
+        
+        # Determine sleep interval based on next pending trigger (if any)
+        if len(triggered_today) == len(triggers):
+            # All done today
+            sleep_interval = 3600
+        else:
+            now_minutes = current_hour * 60 + current_minute
+            # Find smallest future minute among non-triggered times
+            next_minutes = [h*60 + m for (h,m,_,_) in triggers if (h,m) not in triggered_today]
+            if next_minutes:
+                next_trigger = min(next_minutes)
+                minutes_until = next_trigger - now_minutes
+                if minutes_until <= 5:
+                    sleep_interval = 30
+                elif minutes_until <= 60:
+                    sleep_interval = 60
+                else:
+                    sleep_interval = 600
             else:
-                # After ALERT_HOUR:ALERT_MINUTE AM IST - check every hour
                 sleep_interval = 3600
-                logger.debug(f"After {ALERT_HOUR}:{ALERT_MINUTE} AM IST - checking hourly. Current time: {current_time}")
-            
-            # Sleep in small chunks
-            chunk_size = min(10, sleep_interval)
-            for _ in range(sleep_interval // chunk_size):
-                if _trigger_stop_event.is_set():
-                    break
-                sleep(chunk_size)
-            remainder = sleep_interval % chunk_size
-            if remainder > 0 and not _trigger_stop_event.is_set():
-                sleep(remainder)
-                
-        except Exception as e:
-            logger.error(f"Error in scheduled workflow trigger: {e}")
-            sleep(30)
+        
+        # Sleep in chunks to allow early stop
+        chunk = min(10, sleep_interval)
+        for _ in range(sleep_interval // chunk):
+            if _trigger_stop_event.is_set():
+                break
+            time.sleep(chunk)
+        if sleep_interval % chunk and not _trigger_stop_event.is_set():
+            time.sleep(sleep_interval % chunk)
     
-    logger.info("🛑 Scheduled workflow trigger thread stopped")
+    logger.info("🛑 Scheduled workflow thread stopped")
 
-def start_scheduled_workflow():
-    """Start the background thread for daily workflow trigger."""
+
+def start_scheduled_workflow(triggers=None):
+    """Start background thread for daily workflow triggers."""
     global _trigger_thread, _trigger_stop_event
     
-    # Stop existing thread if running
-    stop_scheduled_workflow()
+    if triggers is None:
+        triggers = [
+            (9, 33, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
+            (15, 30, "PKBrokers", "w1-workflow-history-data-parent.yml")
+        ]
     
-    # Create new stop event and thread
+    stop_scheduled_workflow()   # ensure clean stop
+    
     _trigger_stop_event = threading.Event()
-    _trigger_thread = threading.Thread(target=scheduled_workflow_trigger, daemon=True)
+    _trigger_thread = threading.Thread(
+        target=scheduled_workflow_trigger,
+        args=(triggers,),
+        daemon=True
+    )
     _trigger_thread.start()
-    logger.info("✅ Started background thread for daily 9:30 AM IST workflow trigger")
+    
+    times_str = ", ".join([f"{h:02d}:{m:02d}" for h,m,_,_ in triggers])
+    logger.info(f"✅ Started background thread for workflow triggers at {times_str} IST")
 
 
 def stop_scheduled_workflow():
-    """Stop the background workflow trigger thread."""
+    """Stop the background thread."""
     global _trigger_thread, _trigger_stop_event
-    
-    if _trigger_stop_event is not None:
+    if _trigger_stop_event:
         _trigger_stop_event.set()
-    
-    if _trigger_thread is not None and _trigger_thread.is_alive():
+    if _trigger_thread and _trigger_thread.is_alive():
         _trigger_thread.join(timeout=5)
-        _trigger_thread = None
-        logger.info("🛑 Stopped background workflow trigger thread")
+    _trigger_thread = None
+    _trigger_stop_event = None
+    logger.info("🛑 Stopped scheduled workflow thread")
 
 
 def manual_trigger(update: Update, context: CallbackContext) -> None:

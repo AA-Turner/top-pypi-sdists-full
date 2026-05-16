@@ -92,6 +92,7 @@ def test_inner_html_pretty_parser():
     assert parser.inner_html_pretty(skip_ws_nodes=True) == clean_doc(
         """
         <span>
+          "Hello"
         </span>
         """
     )
@@ -181,6 +182,32 @@ def test_text_honors_skip_empty_flag():
     assert title is not None
     assert title.text(deep=False, skip_empty=False) == "\n   \n"
     assert title.text(deep=False, skip_empty=True) == ""
+
+
+def test_attrs_reject_non_element_nodes():
+    parser = LexborHTMLParser("<div>hello<!--comment--></div>")
+    div = parser.css_first("div")
+    text_node = div.first_child
+    comment_node = div.last_child
+
+    assert text_node is not None
+    assert comment_node is not None
+    assert text_node.is_text_node
+    assert comment_node.is_comment_node
+
+    with pytest.raises(TypeError, match="element nodes"):
+        _ = text_node.attrs
+
+    with pytest.raises(TypeError, match="element nodes"):
+        _ = comment_node.attrs
+
+
+def test_text_does_not_duplicate_fragment_root_text_node():
+    parser = LexborHTMLParser("hello", is_fragment=True)
+    root = parser.root
+    assert root is not None
+    assert root.is_text_node
+    assert root.text(deep=True) == "hello"
 
 
 def test_iter_includes_text_nodes_when_requested():

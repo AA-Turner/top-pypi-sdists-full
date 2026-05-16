@@ -174,6 +174,9 @@ def judge_with_gemma(question: str, gold: str, pred: str) -> tuple[str, str]:
                 "messages": [{"role": "user", "content": p}],
                 "temperature": 0.0,
                 "max_tokens": mt,
+                # Disable thinking for the judge: it doesn't need deep reasoning,
+                # and thinking tokens eat into max_tokens causing empty content.
+                "chat_template_kwargs": {"enable_thinking": False},
             }).encode(),
             headers={"Content-Type": "application/json"},
         )
@@ -211,17 +214,20 @@ def judge_with_gemma(question: str, gold: str, pred: str) -> tuple[str, str]:
                     return v
         return ""
 
+    # Do NOT include the QUESTION field — complex math questions cause the
+    # model to start solving instead of grading, producing no YES/NO/PARTIAL.
+    # Comparing GROUND TRUTH vs PREDICTED is sufficient for verdict.
     prompt = (
         "You are grading a free-form answer against a ground truth. "
+        "Do NOT solve the problem. Just compare the two answers below.\n"
         "Respond with exactly one of: YES, NO, or PARTIAL on the first "
         "line, then a one-sentence reason on the second.\n\n"
-        f"QUESTION: {question[:1200]}\n"
         f"GROUND TRUTH: {gold[:600]}\n"
         f"PREDICTED ANSWER: {pred[:1200]}\n\n"
-        "Verdict:"
+        "Verdict (YES / NO / PARTIAL):"
     )
     try:
-        text = _call(prompt, 200)
+        text = _call(prompt, 1024)
         verdict = _verdict_from(text)
         if not verdict:
             # reasoning_content (thinking tokens) may carry the verdict at
@@ -237,7 +243,7 @@ def judge_with_gemma(question: str, gold: str, pred: str) -> tuple[str, str]:
             "ONE WORD ONLY: YES, NO, or PARTIAL.\n\n"
             f"GROUND TRUTH: {gold[:600]}\nPREDICTED: {pred[:600]}\n\nAnswer:"
         )
-        text2 = _call(terse, 256)
+        text2 = _call(terse, 512)
         verdict = _verdict_from(text2)
         if not verdict:
             verdict = _verdict_from(text2, tail_only=True)
@@ -334,8 +340,9 @@ def _question_prompt(q: dict) -> str:
     detection race). Keeping this on one line until that's debugged.
     """
     return (
-        f"Answer this question. End your response with the literal string "
-        f"'FINAL ANSWER:' followed by your answer on the same line. "
+        f"Answer this question from your own knowledge. "
+        f"Use at most 1 tool lookup if truly needed, then commit to your answer. "
+        f"End your response with 'FINAL ANSWER:' followed by your answer on the same line. "
         f"QUESTION: {q['question']}"
     )
 
@@ -421,6 +428,13 @@ def _extract_answer(messages: list[dict]) -> str:
         if m.get("role") != "assistant":
             continue
         content = _flat(m.get("content")).strip()
+        # Skip internal drydock error messages — they are not model answers.
+        if content.startswith("[Drydock:"):
+            continue
+        # llama.cpp --jinja stores thinking in reasoning_content; content may
+        # be empty even when the model wrote a FINAL ANSWER inside thinking.
+        if not content:
+            content = _flat(m.get("reasoning_content")).strip()
         if not content:
             continue
         for line in reversed(content.splitlines()):
@@ -459,6 +473,7 @@ def run_one(q: dict, sk, run_dir: Path) -> dict:
            "DRYDOCK_WRAP_UP_WARN_AT": os.environ.get("DRYDOCK_WRAP_UP_WARN_AT", "8"),
            "DRYDOCK_STOP_NOW_WARN_AT": os.environ.get("DRYDOCK_STOP_NOW_WARN_AT", "12"),
            "DRYDOCK_STOP_NOW_TIME_SEC": os.environ.get("DRYDOCK_STOP_NOW_TIME_SEC", "300"),
+           "DRYDOCK_TOOL_STOP_AFTER": os.environ.get("DRYDOCK_TOOL_STOP_AFTER", "2"),
            "DRYDOCK_STOP_NOW_SUFFIX": "Write your best answer as 'FINAL ANSWER: <answer>' now."}
     start = time.time()
     # --dangerously-skip-permissions: HLE is batch eval against read-only

@@ -39,7 +39,7 @@ from datetime import datetime
 import joblib
 import numpy as np
 import pytz
-from halo import Halo
+from PKDevTools.classes.PKHalo import PKHalo
 from genericpath import isfile
 from PKDevTools.classes.log import default_logger
 from PKDevTools.classes.ColorText import colorText
@@ -183,7 +183,7 @@ class tools:
                 default_logger().debug(e,exc_info=True)
                 pass
 
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def tryFetchFromServer(cache_file,repoOwner="pkjmesra",repoName="PKScreener",directory="results/Data",hideOutput=False,branchName="refs/heads/actions-data-download", no_cache=False):
         if not hideOutput:
             if cache_file.endswith(".pdf"):
@@ -267,7 +267,7 @@ class tools:
             spinner = "dots_recur"
         return bar, spinner
 
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def getNiftyModel(retrial=False):
         if "Windows" in platform.system() and not 'pytest' in sys.modules:
             try:

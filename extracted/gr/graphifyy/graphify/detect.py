@@ -376,6 +376,10 @@ _SKIP_DIRS = {
     "__snapshots__", "snapshots",           # Jest/Vitest snapshot dirs
     "storybook-static",                     # Storybook production build output
     "dist-protected",                       # Protected dist variants (same noise as dist)
+    # Framework cache/build dirs — generated, never architecturally meaningful (#873)
+    ".next", ".nuxt", ".turbo", ".angular",
+    ".idea", ".cache", ".parcel-cache", ".svelte-kit", ".terraform", ".serverless",
+    ".graphify",  # graphify's own extraction cache — never index self-generated data
 }
 
 # Large generated files that are never useful to extract
@@ -477,55 +481,76 @@ def _is_ignored(path: Path, root: Path, patterns: list[tuple[Path, str]]) -> boo
     Uses gitignore last-match-wins semantics: all patterns are evaluated in
     order; the final matching pattern determines the result. Negation patterns
     (starting with !) un-ignore a previously ignored path.
+
+    Enforces gitignore's parent-exclusion rule: a ! pattern cannot re-include
+    a file whose ancestor directory is already excluded.
     """
     if not patterns:
         return False
 
-    def _matches(rel: str, p: str) -> bool:
-        parts = rel.split("/")
-        if fnmatch.fnmatch(rel, p):
-            return True
-        if fnmatch.fnmatch(path.name, p):
-            return True
-        for i, part in enumerate(parts):
-            if fnmatch.fnmatch(part, p):
+    def _eval(target: Path) -> bool:
+        """Apply last-match-wins to a single target path."""
+        def _matches(rel: str, p: str) -> bool:
+            parts = rel.split("/")
+            if fnmatch.fnmatch(rel, p):
                 return True
-            if fnmatch.fnmatch("/".join(parts[:i + 1]), p):
+            if fnmatch.fnmatch(target.name, p):
                 return True
-        return False
+            for i, part in enumerate(parts):
+                if fnmatch.fnmatch(part, p):
+                    return True
+                if fnmatch.fnmatch("/".join(parts[:i + 1]), p):
+                    return True
+            return False
 
-    result = False
-    for anchor, pattern in patterns:
-        negated = pattern.startswith("!")
-        raw = pattern[1:] if negated else pattern
-        anchored = raw.startswith("/")
-        p = raw.strip("/")
-        if not p:
-            continue
+        result = False
+        for anchor, pattern in patterns:
+            negated = pattern.startswith("!")
+            raw = pattern[1:] if negated else pattern
+            anchored = raw.startswith("/")
+            p = raw.strip("/")
+            if not p:
+                continue
 
-        matched = False
-        if anchored:
-            try:
-                rel_anchor = str(path.relative_to(anchor)).replace(os.sep, "/")
-                matched = _matches(rel_anchor, p)
-            except ValueError:
-                pass
-        else:
-            try:
-                rel = str(path.relative_to(root)).replace(os.sep, "/")
-                matched = _matches(rel, p)
-            except ValueError:
-                pass
-            if not matched and anchor != root:
+            matched = False
+            if anchored:
                 try:
-                    rel_anchor = str(path.relative_to(anchor)).replace(os.sep, "/")
+                    rel_anchor = str(target.relative_to(anchor)).replace(os.sep, "/")
                     matched = _matches(rel_anchor, p)
                 except ValueError:
                     pass
+            else:
+                try:
+                    rel = str(target.relative_to(root)).replace(os.sep, "/")
+                    matched = _matches(rel, p)
+                except ValueError:
+                    pass
+                if not matched and anchor != root:
+                    try:
+                        rel_anchor = str(target.relative_to(anchor)).replace(os.sep, "/")
+                        matched = _matches(rel_anchor, p)
+                    except ValueError:
+                        pass
 
-        if matched:
-            result = not negated  # last match wins; ! flips to un-ignore
-    return result
+            if matched:
+                result = not negated  # last match wins; ! flips to un-ignore
+        return result
+
+    # Gitignore parent-exclusion rule: a ! re-include cannot rescue a file
+    # whose ancestor directory is already excluded. Walk ancestors top-down;
+    # if any ancestor is excluded, the file is excluded regardless of later
+    # ! patterns targeting the file or a sub-path.
+    try:
+        rel_parts = path.relative_to(root).parts
+    except ValueError:
+        return _eval(path)
+
+    ancestor = root
+    for part in rel_parts[:-1]:
+        ancestor = ancestor / part
+        if _eval(ancestor):
+            return True
+    return _eval(path)
 
 
 def _load_graphifyinclude(root: Path) -> list[tuple[Path, str]]:
@@ -674,15 +699,14 @@ def detect(root: Path, *, follow_symlinks: bool = False, google_workspace: bool 
                     continue
             if not in_memory_tree:
                 # Prune noise dirs in-place so os.walk never descends into them.
-                # Hidden dirs are allowed through if they could contain an
-                # explicitly included path (.graphifyinclude allowlist).
+                # Dot dirs are allowed — users often want .github/, .claude/, etc.
+                # Framework caches (.next, .nuxt, …) are caught by _is_noise_dir.
                 # When negation patterns (!) exist, skip directory-level ignore
                 # pruning so negated files inside can still be reached.
                 has_negation = any(p.startswith("!") for _, p in ignore_patterns)
                 dirnames[:] = [
                     d for d in dirnames
-                    if (not d.startswith(".") or _could_contain_included_path(dp / d, root, include_patterns))
-                    and not _is_noise_dir(d)
+                    if not _is_noise_dir(d)
                     and (has_negation or not _is_ignored(dp / d, root, ignore_patterns))
                 ]
             for fname in filenames:
@@ -699,11 +723,6 @@ def detect(root: Path, *, follow_symlinks: bool = False, google_workspace: bool 
         # For memory dir files, skip hidden/noise filtering
         in_memory = memory_dir.exists() and str(p).startswith(str(memory_dir))
         if not in_memory:
-            # Hidden files are already excluded via dir pruning above,
-            # but catch hidden files at the root level. A .graphifyinclude
-            # entry can opt a specific hidden file back in.
-            if p.name.startswith(".") and not _is_included(p, root, include_patterns):
-                continue
             # Skip files inside our own converted/ dir (avoid re-processing sidecars)
             if str(p).startswith(str(converted_dir)):
                 continue

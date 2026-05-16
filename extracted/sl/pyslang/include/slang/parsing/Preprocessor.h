@@ -16,6 +16,7 @@
 #include "slang/text/SourceLocation.h"
 #include "slang/text/SourceManager.h"
 #include "slang/util/Bag.h"
+#include "slang/util/Function.h"
 #include "slang/util/SmallMap.h"
 #include "slang/util/SmallVector.h"
 
@@ -63,6 +64,17 @@ struct SLANG_EXPORT PreprocessorOptions {
 
     /// A list of mappings from file patterns to language keyword versions.
     std::vector<std::pair<std::string, KeywordVersion>> keywordMapping;
+
+    /// Optional callback invoked whenever the preprocessor pushes or pops a source
+    /// file (including include files and skipped headers). The arguments are the
+    /// BufferID of the affected file, whether we are returning to a file (isBack),
+    /// and whether the file is being skipped as an already-included header (isSkip).
+    function_ref<void(BufferID, bool isBack, bool isSkip)> bufferChangeCB;
+
+    /// If true, the preprocessor will assume that a missing end of scope token for a
+    /// module/program/package/class inside an include file with protected code has the
+    /// end of scope token inside the protected code.
+    bool allowMissingProtectedScopeEnd = false;
 };
 
 /// Metadata about an include directive that was invoked.
@@ -131,6 +143,12 @@ public:
     /// where directives may appear.
     void popDesignElementStack() { designElementDepth--; }
 
+    /// Sets the expected end keyword for the innermost open scope. Used by the parser
+    /// to inform the preprocessor what end token to fabricate if the scope's end is
+    /// inside a protected (encrypted) region at the end of an include file. Pass
+    /// TokenKind::Unknown to indicate that no scope is currently open.
+    void setExpectedEndKind(TokenKind kind) { expectedEndKind = kind; }
+
     /// Gets the currently active time scale value, if any has been set by the user.
     const std::optional<TimeScale>& getTimeScale() const { return activeTimeScale; }
 
@@ -159,6 +177,11 @@ public:
     /// Gets the allocator used by the preprocessor.
     BumpAllocator& getAllocator() const { return alloc; }
 
+    /// Enables or disables file path mode on the current lexer. When enabled,
+    /// '/' is not treated as a comment start, allowing file paths with glob
+    /// wildcards like $ROOT/*/subdir/*.v to be parsed correctly.
+    void setFilePathMode(bool enable);
+
     /// Gets the diagnostic bag passed to the Preprocessor's constructor.
     Diagnostics& getDiagnostics() const { return diagnostics; }
 
@@ -168,7 +191,13 @@ public:
     /// Gets all include directives that have been encountered thus far in the preprocessor.
     std::vector<IncludeMetadata> getIncludeDirectives() const;
 
+    /// Splits the provided token at the given offset, taking into account the current state
+    /// of the preprocessor (this calls into Lexer::splitTokens).
+    void splitTokens(Token sourceToken, size_t offset, SmallVectorBase<Token>& results);
+
 private:
+    friend class MacroOpEvaluator;
+
     Preprocessor(const Preprocessor& other);
     Preprocessor& operator=(const Preprocessor& other) = delete;
 
@@ -183,7 +212,7 @@ private:
     Trivia handleResetAllDirective(Token directive);
     Trivia handleDefineDirective(Token directive);
     std::pair<Trivia, Trivia> handleMacroUsage(Token directive);
-    Trivia handleIfDefDirective(Token directive, bool inverted);
+    Trivia handleIfDefDirective(Token directive, bool inverted, Token savedLastSeen);
     Trivia handleElsIfDirective(Token directive);
     Trivia handleElseDirective(Token directive);
     Trivia handleEndIfDirective(Token directive);
@@ -205,7 +234,7 @@ private:
     std::pair<Trivia, Trivia> handleProtectedDirective(Token directive);
 
     // Handle parsing a branch of a conditional directive
-    syntax::ConditionalDirectiveExpressionSyntax* parseConditionalExpr();
+    syntax::ConditionalDirectiveExpressionSyntax* parseConditionalExpr(int minPrec = 0);
     syntax::ConditionalDirectiveExpressionSyntax& parseConditionalExprTop();
     bool evalConditionalExpr(const syntax::ConditionalDirectiveExpressionSyntax& expr) const;
     bool shouldTakeElseBranch(SourceLocation location,
@@ -321,9 +350,7 @@ private:
     bool expandIntrinsic(MacroIntrinsic intrinsic, MacroExpansion& expansion);
     bool expandReplacementList(std::span<Token const>& tokens,
                                SmallSet<const syntax::DefineDirectiveSyntax*, 8>& alreadyExpanded);
-    bool applyMacroOps(std::span<Token const> tokens, SmallVectorBase<Token>& dest);
     void createBuiltInMacro(std::string_view name, int value, std::string_view valueStr = {});
-    void splitTokens(Token sourceToken, size_t offset, SmallVectorBase<Token>& results);
     Token getLastConsumed() const { return lastConsumed; }
 
     static bool isSameMacro(const syntax::DefineDirectiveSyntax& left,
@@ -386,7 +413,7 @@ private:
 
         syntax::MacroActualArgumentSyntax* parseActualArgument();
         syntax::MacroFormalArgumentSyntax* parseFormalArgument();
-        std::span<Token> parseTokenList(bool allowNewlines);
+        syntax::TokenList parseTokenList(bool allowNewlines);
 
         Token peek();
         Token consume();
@@ -396,6 +423,50 @@ private:
         Preprocessor& pp;
         std::span<Token const> buffer;
         uint32_t currentIndex = 0;
+    };
+
+    // Per-file state machine used to detect the header guard idiom.
+    // A header guard is only detected when the file looks exactly like:
+    //   [optional whitespace/comments]
+    //   `ifndef GUARD
+    //   `define GUARD
+    //   < file body >
+    //   `endif
+    //   [optional whitespace/comments]
+    //   <EOF>
+    struct HeaderGuardInfo {
+        // The macro name token from the candidate `ifndef.
+        Token ifndefToken;
+
+        // The macro name token from the immediately-following `define.
+        Token defineToken;
+
+        // The branchStack depth when this file was pushed; the candidate
+        // `ifndef must occur at exactly this depth.
+        size_t branchDepthAtPush = 0;
+
+        enum class State : uint8_t {
+            // Waiting for the opening `ifndef. Any real token or any
+            // directive other than `ifndef cancels detection for this file.
+            LookingForIfndef,
+
+            // Saw the outermost `ifndef. The very next directive must be
+            // `define; anything else cancels.
+            LookingForDefine,
+
+            // Saw `ifndef + immediately-following `define. Waiting for the
+            // matching `endif to close the outermost block.
+            LookingForEndif,
+
+            // The matching `endif was seen. Any further real token or
+            // directive before EOF cancels.
+            LookingForEof,
+
+            // Not a header guard pattern in this file.
+            Cancelled,
+        } state = State::LookingForIfndef;
+
+        HeaderGuardInfo(size_t branchDepthAtPush) : branchDepthAtPush(branchDepthAtPush) {}
     };
 
     // a pointer into expandedTokens if we're currently expanding a macro
@@ -427,6 +498,9 @@ private:
     // keep track of nested processor branches (ifdef, ifndef, else, elsif, endif)
     SmallVector<BranchEntry, 2> branchStack;
 
+    // Per-file header guard detection state; one entry per active lexer.
+    SmallVector<HeaderGuardInfo, 2> headerGuardStack;
+
     // map from macro name to macro definition
     flat_hash_map<std::string_view, MacroDef> macros;
 
@@ -436,9 +510,12 @@ private:
     // A buffer used to hold tokens while we're busy consuming them for directives.
     SmallVector<Token> scratchTokenBuffer;
 
-    // A set of files (identified by a pointer to the start of their text buffer) that
-    // have been marked pragma once so that we avoid trying to include them more than once.
-    flat_hash_set<const char*> includeOnceHeaders;
+    // A map of files (identified by a pointer to the start of their text buffer) that
+    // should be included at most once. The value is the name of the header guard macro
+    // that gates the include-once behavior (empty for `pragma once` files). At include
+    // time the file is skipped only when the guard macro is still defined (or when
+    // there is no guard macro, i.e. pragma once).
+    flat_hash_map<const char*, std::string_view> includeOnceHeaders;
 
     // If we encounter an include directive while expanding a macro
     // we will use this stack to pause playing out the macro tokens
@@ -446,6 +523,10 @@ private:
     struct MacroBufferFrame {
         SmallVector<Token> tokens;
         ptrdiff_t index = 0;
+
+        // The lexer stack depth (after popping the include that triggered the pause)
+        // at which this frame should be restored.
+        size_t lexerDepth = 0;
     };
     SmallVector<MacroBufferFrame> pendingMacroFrames;
 
@@ -474,7 +555,9 @@ private:
     std::optional<TimeScale> activeTimeScale;
     TokenKind defaultNetType = TokenKind::WireKeyword;
     TokenKind unconnectedDrive = TokenKind::Unknown;
+    TokenKind expectedEndKind = TokenKind::Unknown;
     bool cellDefine = false;
+    bool hasProtectedCode = false;
 
     int designElementDepth = 0;
     uint32_t includeDepth = 0;

@@ -1,15 +1,16 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, not_null, positive
+from .._internal import different_from
 from ..abc import Shape
 from ..math import Point
 
-from numbers import Real
-from typing import Iterator
-import math
 import numpy as np
 from numpy.typing import NDArray
+
+from numbers import Real
+from typing import Iterator, ClassVar
+import math
 
 # ======================================== SHAPE ========================================
 class Circle(Shape):
@@ -20,10 +21,19 @@ class Circle(Shape):
     """
     __slots__ = ("_radius",)
 
-    CIRCLE_SEGMENTS: int = 64
+    CIRCLE_SEGMENTS: ClassVar[int] = 64
 
     def __init__(self, radius: Real):
-        self._radius: float = float(positive(not_null(expect(radius, Real))))
+        # Transtypage et vérifications
+        radius = abs(float(radius))
+
+        if __debug__:
+            different_from(radius, 0)
+
+        # Attributs publiques
+        self._radius: float = radius
+
+        # Initialisation de la forme
         super().__init__()
 
     # ======================================== CONVERSIONS ========================================
@@ -48,13 +58,13 @@ class Circle(Shape):
     def radius(self) -> float:
         """Rayon du cercle
         
-        Le rayon doit être un *réel positif non nul*.
+        Le rayon doit être un ``Real`` *positif non nul*.
         """
         return self._radius
 
     @property
     def diameter(self) -> float:
-        """Diamètre du cercle"""
+        """Diamètre du cercle*"""
         return 2.0 * self._radius
     
     # ======================================== GEOMETRY ========================================
@@ -88,7 +98,7 @@ class Circle(Shape):
         """Teste si un point est dans le cercle
 
         Args:
-            point: point à tester
+            point: ``Point`` à tester
         """
         return float(point[0]) ** 2 + float(point[1]) ** 2 <= self._radius ** 2
     
@@ -96,7 +106,12 @@ class Circle(Shape):
         """Vérifie la convexité"""
         return True
 
-    # ======================================== COLLECTIONS ========================================
+    # ======================================== INTERFACE ========================================
     def copy(self) -> Circle:
         """Renvoie une copie du cercle"""
         return Circle(self._radius)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Circle",
+]

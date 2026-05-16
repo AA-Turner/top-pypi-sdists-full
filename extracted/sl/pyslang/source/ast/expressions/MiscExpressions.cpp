@@ -37,7 +37,7 @@ static std::string_view getNonValueName(const Symbol& symbol) {
         auto sym = &symbol;
         while (sym->kind == SymbolKind::GenerateBlock) {
             auto& block = sym->as<GenerateBlockSymbol>();
-            if (!block.arrayIndex)
+            if (!block.getArrayIndex())
                 return sym->name;
 
             auto scope = block.getParentScope();
@@ -99,9 +99,9 @@ Expression& ValueExpressionBase::fromSymbol(const ASTContext& context, const Sym
         else if (flags.has(ASTFlags::ForkJoinAnyNone) && !var.flags.has(VariableFlags::RefStatic) &&
                  symbol.kind == SymbolKind::FormalArgument &&
                  symbol.as<FormalArgumentSymbol>().direction == ArgumentDirection::Ref) {
-            // Can't refer to ref args in fork-join_any/none
+            // Can't refer to ref args in fork-join_any/none per LRM.
+            // Some tools allow this, so the diagnostic can be downgraded.
             context.addDiag(diag::RefArgForkJoin, sourceRange) << symbol.name;
-            return badExpr(comp, nullptr);
         }
     }
     else if (symbol.kind == SymbolKind::ConstraintBlock) {
@@ -148,10 +148,22 @@ Expression& ValueExpressionBase::fromSymbol(const ASTContext& context, const Sym
     if (!symbol.isValue()) {
         if ((symbol.kind == SymbolKind::ClockingBlock && flags.has(ASTFlags::AllowClockingBlock)) ||
             (symbol.kind == SymbolKind::ConstraintBlock && constraintAllowed) ||
-            (symbol.kind == SymbolKind::Coverpoint && flags.has(ASTFlags::AllowCoverpoint))) {
+            ((symbol.kind == SymbolKind::Coverpoint || symbol.kind == SymbolKind::CoverCross) &&
+             flags.has(ASTFlags::AllowCoverpoint))) {
             // Special case for event expressions and constraint block built-in methods.
             return *comp.emplace<ArbitrarySymbolExpression>(*context.scope, symbol,
                                                             comp.getVoidType(), hierRef,
+                                                            sourceRange);
+        }
+
+        // An UninstantiatedDef is a placeholder for an instance (module, interface, etc.)
+        // that could not be elaborated, e.g. because we are in an uninstantiated module
+        // context where parameter values are not known. The type is unknown in this case,
+        // so return an error-typed expression without emitting an error, consistent with
+        // how tryBindInterfaceRef handles the same situation.
+        if (symbol.kind == SymbolKind::UninstantiatedDef) {
+            return *comp.emplace<ArbitrarySymbolExpression>(*context.scope, symbol,
+                                                            comp.getErrorType(), hierRef,
                                                             sourceRange);
         }
 
@@ -174,19 +186,7 @@ Expression& ValueExpressionBase::fromSymbol(const ASTContext& context, const Sym
         return badExpr(comp, nullptr);
     }
 
-    if (auto syntax = symbol.getSyntax(); syntax && !flags.has(ASTFlags::NoReference)) {
-        bool isLValue = flags.has(ASTFlags::LValue);
-        if (isDottedAccess) {
-            auto& type = value.getType();
-            if (type.isClass() || type.isCovergroup())
-                isLValue = false;
-        }
-
-        comp.noteReference(*syntax, isLValue);
-
-        if (isLValue && flags.has(ASTFlags::LAndRValue))
-            comp.noteReference(*syntax, /* isLValue */ false);
-    }
+    context.noteReference(value, isDottedAccess);
 
     Expression* result;
     if (hierRef && hierRef->target) {
@@ -204,60 +204,8 @@ Expression& ValueExpressionBase::fromSymbol(const ASTContext& context, const Sym
 
 bool ValueExpressionBase::requireLValueImpl(const ASTContext& context, SourceLocation location,
                                             bitmask<AssignFlags> flags) const {
-    if (!location)
-        location = sourceRange.start();
-
-    if (symbol.kind == SymbolKind::Parameter || symbol.kind == SymbolKind::EnumValue ||
-        symbol.kind == SymbolKind::Specparam) {
-        auto& diag = context.addDiag(diag::CantModifyConst, location) << symbol.name;
-        diag.addNote(diag::NoteDeclarationHere, symbol.location);
-        diag << sourceRange;
+    if (!checkLValue(context, symbol, flags, location, sourceRange))
         return false;
-    }
-
-    if (context.flags.has(ASTFlags::NonProcedural)) {
-        // chandles can only be assigned in procedural contexts.
-        if (symbol.getType().isCHandle()) {
-            context.addDiag(diag::AssignToCHandle, sourceRange);
-            return false;
-        }
-
-        if (symbol.kind == SymbolKind::Net &&
-            symbol.as<NetSymbol>().netType.netKind == NetType::UWire &&
-            flags.has(AssignFlags::InOutPort)) {
-            context.addDiag(diag::InOutUWireConn, sourceRange) << symbol.name;
-            return false;
-        }
-    }
-    else {
-        // Nets can't be assigned in procedural contexts.
-        if (symbol.kind == SymbolKind::Net) {
-            context.addDiag(diag::AssignToNet, sourceRange);
-            return false;
-        }
-    }
-
-    if (VariableSymbol::isKind(symbol.kind)) {
-        if (!checkVariableAssignment(context, symbol.as<VariableSymbol>(), flags, location,
-                                     sourceRange)) {
-            return false;
-        }
-    }
-    else if (symbol.kind == SymbolKind::ModportPort) {
-        auto& modportPort = symbol.as<ModportPortSymbol>();
-        if (modportPort.direction == ArgumentDirection::In) {
-            auto& diag = context.addDiag(diag::InputPortAssign, sourceRange);
-            diag << symbol.name;
-            diag.addNote(diag::NoteDeclarationHere, symbol.location);
-            return false;
-        }
-
-        if (auto expr = modportPort.getConnectionExpr()) {
-            // The assignment is actually to the underlying connection expression,
-            // so redirect it there.
-            return expr->requireLValue(context, location, flags);
-        }
-    }
 
     if (kind == ExpressionKind::HierarchicalValue && !context.scope->isUninstantiated()) {
         auto& ref = as<HierarchicalValueExpression>().ref;
@@ -268,58 +216,100 @@ bool ValueExpressionBase::requireLValueImpl(const ASTContext& context, SourceLoc
     return true;
 }
 
-bool ValueExpressionBase::checkVariableAssignment(const ASTContext& context,
-                                                  const VariableSymbol& var,
-                                                  bitmask<AssignFlags> flags,
-                                                  SourceLocation assignLoc, SourceRange varRange) {
+bool ValueExpressionBase::checkLValue(const ASTContext& context, const ValueSymbol& symbol,
+                                      bitmask<AssignFlags> flags, SourceLocation assignLoc,
+                                      SourceRange varRange) {
     auto reportErr = [&](DiagCode code) {
         if (!assignLoc)
             assignLoc = varRange.start();
 
         auto& diag = context.addDiag(code, assignLoc);
-        diag.addNote(diag::NoteDeclarationHere, var.location);
-        diag << var.name << varRange;
+        diag.addNote(diag::NoteDeclarationHere, symbol.location);
+        diag << symbol.name << varRange;
         return false;
     };
 
-    if (var.flags.has(VariableFlags::Const)) {
-        // If we are in a class constructor and this variable does not have an initializer,
-        // it's ok to assign to it.
-        const Symbol* parent = &context.scope->asSymbol();
-        while (parent->kind == SymbolKind::StatementBlock) {
-            auto parentScope = parent->getParentScope();
-            SLANG_ASSERT(parentScope);
-            parent = &parentScope->asSymbol();
+    if (symbol.kind == SymbolKind::Parameter || symbol.kind == SymbolKind::EnumValue ||
+        symbol.kind == SymbolKind::Specparam) {
+        return reportErr(diag::CantModifyConst);
+    }
+
+    if (context.flags.has(ASTFlags::NonProcedural)) {
+        // chandles can only be assigned in procedural contexts.
+        if (symbol.getType().isCHandle()) {
+            context.addDiag(diag::AssignToCHandle, varRange);
+            return false;
         }
 
-        if (var.getInitializer() || parent->kind != SymbolKind::Subroutine ||
-            (parent->as<SubroutineSymbol>().flags & MethodFlags::Constructor) == 0) {
-            return reportErr(diag::AssignmentToConstVar);
+        if (symbol.kind == SymbolKind::Net &&
+            symbol.as<NetSymbol>().netType.netKind == NetType::UWire &&
+            flags.has(AssignFlags::InOutPort)) {
+            context.addDiag(diag::InOutUWireConn, varRange) << symbol.name;
+            return false;
+        }
+    }
+    else {
+        // Nets can't be assigned in procedural contexts.
+        if (symbol.kind == SymbolKind::Net) {
+            context.addDiag(diag::AssignToNet, varRange);
+            return false;
         }
     }
 
-    if (var.flags.has(VariableFlags::CheckerFreeVariable) && !flags.has(AssignFlags::NonBlocking))
-        return reportErr(diag::BlockingAssignToFreeVar);
+    if (VariableSymbol::isKind(symbol.kind)) {
+        auto& var = symbol.as<VariableSymbol>();
+        if (var.flags.has(VariableFlags::Const)) {
+            // If we are in a class constructor and this variable does not have an initializer,
+            // it's ok to assign to it.
+            auto parent = &context.scope->asSymbol();
+            while (parent->kind == SymbolKind::StatementBlock) {
+                auto parentScope = parent->getParentScope();
+                SLANG_ASSERT(parentScope);
+                parent = &parentScope->asSymbol();
+            }
 
-    if (flags.has(AssignFlags::NonBlocking) && var.lifetime == VariableLifetime::Automatic &&
-        var.kind != SymbolKind::ClassProperty) {
-        return reportErr(diag::NonblockingAssignmentToAuto);
+            if (var.getInitializer() || parent->kind != SymbolKind::Subroutine ||
+                (parent->as<SubroutineSymbol>().flags & MethodFlags::Constructor) == 0) {
+                return reportErr(diag::AssignmentToConstVar);
+            }
+        }
+
+        if (var.flags.has(VariableFlags::CheckerFreeVariable) &&
+            !flags.has(AssignFlags::NonBlocking)) {
+            return reportErr(diag::BlockingAssignToFreeVar);
+        }
+
+        if (flags.has(AssignFlags::NonBlocking) && var.lifetime == VariableLifetime::Automatic &&
+            var.kind != SymbolKind::ClassProperty && !var.flags.has(VariableFlags::RefStatic)) {
+            return reportErr(diag::NonblockingAssignmentToAuto);
+        }
+
+        if (var.kind == SymbolKind::ClockVar) {
+            if (flags.has(AssignFlags::InConcat))
+                reportErr(diag::ClockVarAssignConcat);
+
+            auto& cv = var.as<ClockVarSymbol>();
+            if (cv.direction == ArgumentDirection::In)
+                return reportErr(diag::WriteToInputClockVar);
+
+            if (!flags.has(AssignFlags::NonBlocking))
+                return reportErr(diag::ClockVarSyncDrive);
+        }
+
+        if (flags.has(AssignFlags::InOutPort))
+            return reportErr(diag::InOutVarPortConn);
     }
+    else if (symbol.kind == SymbolKind::ModportPort) {
+        auto& modportPort = symbol.as<ModportPortSymbol>();
+        if (modportPort.direction == ArgumentDirection::In)
+            return reportErr(diag::InputPortAssign);
 
-    if (var.kind == SymbolKind::ClockVar) {
-        if (flags.has(AssignFlags::InConcat))
-            reportErr(diag::ClockVarAssignConcat);
-
-        auto& cv = var.as<ClockVarSymbol>();
-        if (cv.direction == ArgumentDirection::In)
-            return reportErr(diag::WriteToInputClockVar);
-
-        if (!flags.has(AssignFlags::NonBlocking))
-            return reportErr(diag::ClockVarSyncDrive);
+        if (auto expr = modportPort.getConnectionExpr()) {
+            // The assignment is actually to the underlying connection expression,
+            // so redirect it there.
+            return expr->requireLValue(context, assignLoc, flags);
+        }
     }
-
-    if (flags.has(AssignFlags::InOutPort))
-        return reportErr(diag::InOutVarPortConn);
 
     return true;
 }
@@ -338,18 +328,22 @@ std::optional<bitwidth_t> ValueExpressionBase::getEffectiveWidthImpl() const {
 }
 
 bool ValueExpressionBase::checkConstantBase(EvalContext& context) const {
-    // Class types are disallowed in constant expressions. Note that I don't see anything
-    // in the spec that would explicitly disallow them, but literally every tool issues
-    // an error so for now we will follow suit.
-    if (type->isClass()) {
-        context.addDiag(diag::ConstEvalClassType, sourceRange);
-        return false;
-    }
-
-    // Same for covergroups.
-    if (type->isCovergroup()) {
-        context.addDiag(diag::ConstEvalCovergroupType, sourceRange);
-        return false;
+    // Class types (and covergroups and virtual interfaces) are disallowed in
+    // constant expressions. Note that I don't see anything in the spec that
+    // would explicitly disallow them, but literally every tool issues an error
+    // so for now we will follow suit.
+    switch (type->getCanonicalType().kind) {
+        case SymbolKind::ClassType:
+            context.addDiag(diag::ConstEvalClassType, sourceRange);
+            return false;
+        case SymbolKind::CovergroupType:
+            context.addDiag(diag::ConstEvalCovergroupType, sourceRange);
+            return false;
+        case SymbolKind::VirtualInterfaceType:
+            context.addDiag(diag::ConstEvalVifType, sourceRange);
+            return false;
+        default:
+            break;
     }
 
     if (symbol.kind == SymbolKind::Specparam && !context.flags.has(EvalFlags::SpecparamsAllowed)) {
@@ -1144,7 +1138,7 @@ Expression& AssertionInstanceExpression::makeDefault(const Symbol& symbol) {
     return *result;
 }
 
-struct CheckerArgVisitor : public ASTVisitor<CheckerArgVisitor, true, true> {
+struct CheckerArgVisitor : public ASTVisitor<CheckerArgVisitor, VisitFlags::AllGood> {
     const ASTContext& context;
     SourceRange argRange;
 

@@ -61,7 +61,7 @@ from PKDevTools.classes.Telegram import (
 from PKNSETools.morningstartools.PKMorningstarDataFetcher import morningstarDataFetcher
 from PKNSETools.Nasdaq.PKNasdaqIndex import PKNasdaqIndexFetcher
 from tabulate import tabulate
-from halo import Halo
+from PKDevTools.classes.PKHalo import PKHalo
 
 import pkscreener.classes.ConfigManager as ConfigManager
 import pkscreener.classes.Fetcher as Fetcher
@@ -1813,12 +1813,12 @@ class DataManager:
             
         return list_stock_codes
 
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def get_performance_stats(self):
         """Get performance statistics from Morningstar."""
         return self.mstar_fetcher.fetchMorningstarStocksPerformanceForExchange()
 
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def get_mfi_stats(self, pop_option):
         """
         Get MFI (Money Flow Index) statistics.
@@ -1973,7 +1973,7 @@ class BacktestManager:
         
         return index_option, execute_option, backtest_period
 
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def prepare_grouped_x_ray(self, backtest_period, backtest_df):
         """
         Prepare grouped X-ray analysis for backtest results.

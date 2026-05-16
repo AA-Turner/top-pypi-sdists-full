@@ -1,6 +1,6 @@
 from biolib.biolib_binary_format.base_bbf_package import BioLibBinaryFormatBasePackage
 from biolib.biolib_logging import logger
-from biolib.typing_utils import TypedDict, Dict, List
+from biolib.typing_utils import Dict, List, TypedDict
 
 
 class ModuleInputDict(TypedDict):
@@ -15,7 +15,7 @@ class ModuleInput(BioLibBinaryFormatBasePackage):
         self.package_type = 1
 
     def serialize(self, stdin, arguments, files) -> bytes:
-        for path in files.keys():
+        for path in files:
             if '//' in path:
                 raise ValueError(f"File path '{path}' contains double slashes which are not allowed")
 

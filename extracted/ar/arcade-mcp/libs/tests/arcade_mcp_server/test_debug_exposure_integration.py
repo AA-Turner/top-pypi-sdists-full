@@ -165,6 +165,66 @@ async def test_integration_baseline_no_leak(erroring_server):
 
 
 @pytest.mark.asyncio
+async def test_integration_tool_error_records_developer_message_on_current_span(
+    erroring_server, monkeypatch
+):
+    """Developer message stays out of MCP content but is attached to telemetry."""
+
+    class FakeSpan:
+        def __init__(self):
+            self.attributes = {}
+
+        def is_recording(self):
+            return True
+
+        def set_attribute(self, key, value):
+            self.attributes[key] = value
+
+    span = FakeSpan()
+    monkeypatch.setattr("arcade_mcp_server.server.trace.get_current_span", lambda: span)
+
+    result = await _call(erroring_server, "raises_fatal_tool_error")
+    text = result.content[0].text
+
+    assert "Failed to fetch results" in text
+    assert "HTTP 503" not in text
+    assert span.attributes["tool_error_kind"] == "TOOL_RUNTIME_FATAL"
+    assert span.attributes["tool_error_message"].startswith("[TOOL_RUNTIME_FATAL] FatalToolError")
+    assert (
+        span.attributes["tool_error_developer_message"]
+        == "[TOOL_RUNTIME_FATAL] FatalToolError during execution of tool "
+        "'raises_fatal_tool_error': HTTP 503 on upstream endpoint for query='ping'"
+    )
+
+
+@pytest.mark.asyncio
+async def test_integration_tool_error_skips_span_attributes_when_span_not_recording(
+    erroring_server, monkeypatch
+):
+    """A no-op/non-recording span should not be mutated."""
+
+    class FakeSpan:
+        def __init__(self):
+            self.attributes = {}
+
+        def is_recording(self):
+            return False
+
+        def set_attribute(self, key, value):
+            self.attributes[key] = value
+
+    span = FakeSpan()
+    monkeypatch.setattr("arcade_mcp_server.server.trace.get_current_span", lambda: span)
+
+    result = await _call(erroring_server, "raises_fatal_tool_error")
+    text = result.content[0].text
+
+    assert "Failed to fetch results" in text
+    assert "HTTP 503" not in text
+    assert span.attributes == {}
+
+
+@pytest.mark.asyncio
 async def test_integration_boolean_rejected_no_leak(erroring_server, monkeypatch, caplog):
     """Boolean-looking values are rejected by the MCP boundary too."""
     monkeypatch.setenv(_ENV_DEV_MSG, "true")
@@ -176,15 +236,11 @@ async def test_integration_boolean_rejected_no_leak(erroring_server, monkeypatch
     assert "Failed to fetch results" in text
     assert "[DEBUG]" not in text
     assert "HTTP 503" not in text
-    assert any(
-        "set to a truthy value but not to the required" in r.message for r in caplog.records
-    )
+    assert any("set to a truthy value but not to the required" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_integration_developer_message_flag_leaks_through_mcp(
-    erroring_server, monkeypatch
-):
+async def test_integration_developer_message_flag_leaks_through_mcp(erroring_server, monkeypatch):
     """When the flag is set to the magic value, the MCP response `content`
     carries `developer_message` alongside the sanitized message."""
     monkeypatch.setenv(_ENV_DEV_MSG, _LEAK_MAGIC)
@@ -213,6 +269,22 @@ async def test_integration_stacktrace_flag_leaks_traceback_through_mcp(
     assert "Traceback" in text
     assert "ValueError" in text
     assert "unexpected crash for query='ping'" in text
+
+
+@pytest.mark.asyncio
+async def test_integration_stacktrace_flag_reports_missing_traceback(erroring_server, monkeypatch):
+    """Directly raised ToolRuntimeError values may not carry a stacktrace.
+
+    When the stacktrace flag is enabled, the MCP response should say that
+    explicitly instead of silently omitting the stacktrace debug section.
+    """
+    monkeypatch.setenv(_ENV_STACKTRACE, _LEAK_MAGIC)
+    result = await _call(erroring_server, "raises_fatal_tool_error")
+    text = result.content[0].text
+    assert "Failed to fetch results" in text
+    assert "[DEBUG] stacktrace: unavailable" in text
+    assert "tool error payload did not include one" in text
+    assert "HTTP 503" not in text
 
 
 @pytest.mark.asyncio

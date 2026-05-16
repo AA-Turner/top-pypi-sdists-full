@@ -11,8 +11,9 @@ if TYPE_CHECKING:
 class FileInContainer:
     def __init__(self, container: 'Container', path_in_container: str, overlay_upper_dir_path: Optional[str]):
         self._container: 'Container' = container
-        self._path_on_disk: Optional[str] = overlay_upper_dir_path + path_in_container if overlay_upper_dir_path \
-            else None
+        self._path_on_disk: Optional[str] = (
+            overlay_upper_dir_path + path_in_container if overlay_upper_dir_path else None
+        )
 
         self._path_in_container: str = path_in_container
         self._path: str = path_in_container
@@ -64,18 +65,17 @@ class FileInContainer:
         else:
             tmp_file = self._get_temp_file_from_container_via_tar()
             if not tmp_file:
-                yield bytes()
+                yield b''
                 return
             else:
-                file = open(tmp_file, mode='rb')
-                while True:
-                    chunk = file.read(1_000_000)
-                    if not chunk:
-                        file.close()
-                        os.remove(tmp_file)
-                        return
+                with open(tmp_file, mode='rb') as file:
+                    while True:
+                        chunk = file.read(1_000_000)
+                        if not chunk:
+                            break
 
-                    yield chunk
+                        yield chunk
+                os.remove(tmp_file)
 
     def _get_temp_file_from_container_via_tar(self) -> Optional[str]:
         with tempfile.NamedTemporaryFile(mode='wb', delete=True) as tmp_io:

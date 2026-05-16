@@ -30,7 +30,7 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.core.mail.message import EmailMessage
-from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
+from django.core.signing import BadSignature, SignatureExpired
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
@@ -139,7 +139,11 @@ from weblate.accounts.utils import (
 )
 from weblate.auth.forms import UserEditForm
 from weblate.auth.models import Invitation, User, get_anonymous
-from weblate.auth.utils import format_address, get_auth_keys
+from weblate.auth.utils import (
+    format_address,
+    get_auth_keys,
+    validate_team_assignable_user,
+)
 from weblate.logger import LOGGER
 from weblate.trans.models import Change, Component, Project, Suggestion, Translation
 from weblate.trans.models.component import translation_prefetch_tasks
@@ -601,7 +605,9 @@ def contact(request: AuthenticatedHttpRequest):
         msg = "Contact form is disabled."
         raise Http404(msg)
 
+    show_form = False
     if request.method == "POST":
+        show_form = True
         form = ContactForm(
             request=request,
             hide_captcha=request.user.is_authenticated,
@@ -626,6 +632,9 @@ def contact(request: AuthenticatedHttpRequest):
         initial = get_initial_contact(request)
         if request.GET.get("t") in CONTACT_SUBJECTS:
             initial["subject"] = CONTACT_SUBJECTS[request.GET["t"]]
+            show_form = True
+        if request.GET.get("topic") == "server":
+            show_form = True
         form = ContactForm(
             request=request, hide_captcha=request.user.is_authenticated, initial=initial
         )
@@ -633,7 +642,7 @@ def contact(request: AuthenticatedHttpRequest):
     return render(
         request,
         "accounts/contact.html",
-        {"form": form, "title": gettext("Contact")},
+        {"form": form, "title": gettext("Contact"), "show_form": show_form},
     )
 
 
@@ -719,15 +728,29 @@ class UserPage(UpdateView):
     group_form = None
     request: AuthenticatedHttpRequest
 
+    def handle_add_group(
+        self, request: AuthenticatedHttpRequest, user: User
+    ) -> HttpResponseRedirect | None:
+        self.group_form = GroupAddForm(request.POST)
+        if not self.group_form.is_valid():
+            return None
+        try:
+            validate_team_assignable_user(user)
+        except ValidationError as error:
+            for message in error.messages:
+                messages.error(request, message)
+            return HttpResponseRedirect(f"{self.get_success_url()}#groups")
+        user.add_team(request, self.group_form.cleaned_data["add_group"])
+        return HttpResponseRedirect(f"{self.get_success_url()}#groups")
+
     def post(self, request: AuthenticatedHttpRequest, *args, **kwargs):  # type: ignore[override]
         if not request.user.has_perm("user.edit"):
             raise PermissionDenied
         user = self.object = self.get_object()
         if "add_group" in request.POST:
-            self.group_form = GroupAddForm(request.POST)
-            if self.group_form.is_valid():
-                user.add_team(request, self.group_form.cleaned_data["add_group"])
-                return HttpResponseRedirect(f"{self.get_success_url()}#groups")
+            response = self.handle_add_group(request, user)
+            if response is not None:
+                return response
         if "remove_group" in request.POST:
             form = GroupRemoveForm(request.POST)
             if form.is_valid():
@@ -1900,11 +1923,21 @@ def subscribe(request: AuthenticatedHttpRequest):
             onetime=True,
         )
         try:
-            subscription.full_clean()
+            subscription.full_clean(validate_unique=False, validate_constraints=False)
         except ValidationError:
             pass
         else:
-            subscription.save()
+            Subscription.objects.update_or_create(
+                user=subscription.user,
+                notification=subscription.notification,
+                scope=subscription.scope,
+                project=subscription.project,
+                component=subscription.component,
+                defaults={
+                    "frequency": subscription.frequency,
+                    "onetime": subscription.onetime,
+                },
+            )
         messages.success(request, gettext("Notification settings adjusted."))
     return redirect_profile("#notifications")
 
@@ -1912,14 +1945,8 @@ def subscribe(request: AuthenticatedHttpRequest):
 @login_not_required
 def unsubscribe(request: AuthenticatedHttpRequest):
     if "i" in request.GET:
-        signer = TimestampSigner()
         try:
-            subscription = Subscription.objects.get(
-                pk=int(signer.unsign(request.GET["i"], max_age=24 * 3600))
-            )
-            subscription.frequency = NotificationFrequency.FREQ_NONE
-            subscription.save(update_fields=["frequency"])
-            messages.success(request, gettext("Notification settings adjusted."))
+            subscription = Subscription.get_by_signed_id(request.GET["i"])
         except (BadSignature, SignatureExpired, Subscription.DoesNotExist):
             messages.error(
                 request,
@@ -1928,6 +1955,10 @@ def unsubscribe(request: AuthenticatedHttpRequest):
                     "please sign in to configure notifications."
                 ),
             )
+        else:
+            subscription.frequency = NotificationFrequency.FREQ_NONE
+            subscription.save(update_fields=["frequency"])
+            messages.success(request, gettext("Notification settings adjusted."))
 
     return redirect_profile("#notifications")
 

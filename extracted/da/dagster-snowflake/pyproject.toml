@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-snowflake"
-version = "0.29.4"
+version = "0.29.5"
 description = "Package for Snowflake Dagster framework components."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.13.4",
+    "dagster==1.13.5",
     "snowflake-snowpark-python>=1.24.0",
     "snowflake-core>=1.8.0",
     "snowflake-connector-python>=3.4.0",
@@ -44,3 +44,27 @@ pandas = [
     "pandas<3.0.0",
     "snowflake-connector-python[pandas]>=3.4.0",
 ]
+
+[dependency-groups]
+test = [
+    "dagster[test]",
+    "dagster-pipes",
+    "dagster-shared",
+    "dagster-pandas",
+]
+
+[tool.uv.sources.dagster]
+path = "../../dagster"
+editable = true
+
+[tool.uv.sources.dagster-pipes]
+path = "../../dagster-pipes"
+editable = true
+
+[tool.uv.sources.dagster-shared]
+path = "../dagster-shared"
+editable = true
+
+[tool.uv.sources.dagster-pandas]
+path = "../dagster-pandas"
+editable = true

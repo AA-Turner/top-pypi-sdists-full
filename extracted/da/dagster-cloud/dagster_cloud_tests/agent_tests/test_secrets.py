@@ -43,14 +43,14 @@ def test_instance_secrets_loader(
     assert "FOO_KEY" not in os.environ
 
     with environ(
-        {"FOO_KEY": None}  # pyright: ignore[reportArgumentType]
+        {"FOO_KEY": None}  # ty: ignore[invalid-argument-type]
     ):  # clean up after messing with os.environ
         agent_instance.inject_env_vars(location_name="foo_location")
 
         assert os.environ.get("FOO_KEY") == "bar_with_location"
 
     with environ(
-        {"FOO_KEY": None}  # pyright: ignore[reportArgumentType]
+        {"FOO_KEY": None}  # ty: ignore[invalid-argument-type]
     ):  # clean up after messing with os.environ
         agent_instance.inject_env_vars(location_name=None)
 

@@ -1,67 +1,131 @@
-import docutils
+"""Tests for the rich-rst CLI entrypoint."""
+
+import sys
+import os
+import tempfile
+
 import pytest
-from rich_rst import RestructuredText
-from pathlib import Path
-from rich.console import Console
-from rich.terminal_theme import TerminalTheme
 
-test_vectors_path = Path("tests/test_vectors")
-rst_paths = sorted(str(x) for x in test_vectors_path.glob("*.rst"))
-docutils_0_22_mark = pytest.mark.skipif(
-    docutils.__version_info__ < (0, 22),
-    reason="requires docutils 0.22 or higher",
-)
-
-
-def render_to_html(rst):
-    DRACULA_TERMINAL_THEME = TerminalTheme(
-        (40, 42, 54),
-        (248, 248, 242),
-        [
-            (40, 42, 54),
-            (255, 85, 85),
-            (80, 250, 123),
-            (241, 250, 140),
-            (189, 147, 249),
-            (255, 121, 198),
-            (139, 233, 253),
-            (255, 255, 255),
-        ],
-        [
-            (40, 42, 54),
-            (255, 85, 85),
-            (80, 250, 123),
-            (241, 250, 140),
-            (189, 147, 249),
-            (255, 121, 198),
-            (139, 233, 253),
-            (255, 255, 255),
-        ],
-    )
-    console = Console(force_terminal=True, width=120, record=True)
-    console.print(rst)
-    return console.export_html(theme=DRACULA_TERMINAL_THEME)
+from rich_rst.__main__ import main
 
 
 @pytest.mark.parametrize(
-    "rst_path",
+    "error_type,error_message",
     [
-        (
-            pytest.param(path, marks=docutils_0_22_mark)
-            if path.endswith(("directives.rst", "specification.rst"))
-            else path
-        )
-        for path in rst_paths
+        (FileNotFoundError, "missing.rst"),
+        (PermissionError, "unreadable.rst"),
     ],
 )
-def test_main(rst_path):
-    rst_path = Path(rst_path)
-    actual_html_path = rst_path.parent / (rst_path.stem + "_actual.html")
-    expected_html_path = rst_path.parent / (rst_path.stem + "_expected.html")
+def test_cli_reports_file_read_errors(monkeypatch, capsys, error_type, error_message):
+    path = error_message
 
-    rst = RestructuredText(rst_path.read_text(), show_errors=True)
-    actual_html = render_to_html(rst)
-    actual_html_path.write_text(actual_html)
+    def fake_open(*args, **kwargs):
+        raise error_type(path)
 
-    expected_html = expected_html_path.read_text()
-    assert expected_html == actual_html
+    monkeypatch.setattr(sys, "argv", ["rich-rst", path])
+    monkeypatch.setattr("builtins.open", fake_open)
+
+    exit_code = main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "Input File Error" in captured.out
+    assert f"Could not read {path!r}." in captured.out
+    assert "Check that the file exists" in captured.out
+    assert "Traceback" not in captured.out
+
+
+# ── --list-html-themes ────────────────────────────────────────────────────────
+
+def test_list_html_themes_exits_zero(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["rich-rst", "--list-html-themes"])
+    exit_code = main()
+    assert exit_code == 0
+
+
+def test_list_html_themes_prints_theme_names(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["rich-rst", "--list-html-themes"])
+    main()
+    captured = capsys.readouterr()
+    lines = [l.strip() for l in captured.out.splitlines() if l.strip()]
+    assert "dracula" in lines
+    assert "monokai" in lines
+    assert "default" in lines
+
+
+def test_list_html_themes_does_not_require_path(monkeypatch, capsys):
+    """--list-html-themes must not fail even without a PATH argument."""
+    monkeypatch.setattr(sys, "argv", ["rich-rst", "--list-html-themes"])
+    exit_code = main()
+    assert exit_code == 0
+
+
+# ── --html-theme ──────────────────────────────────────────────────────────────
+
+def test_html_theme_argument_accepted(monkeypatch, tmp_path):
+    """--html-theme monokai must be accepted without error."""
+    rst_file = tmp_path / "test.rst"
+    rst_file.write_text("Hello world.", encoding="utf-8")
+    html_out = tmp_path / "out.html"
+    monkeypatch.setattr(
+        sys, "argv",
+        ["rich-rst", str(rst_file), "--html-theme", "monokai", "--save-html", str(html_out)],
+    )
+    exit_code = main()
+    assert exit_code == 0
+    assert html_out.exists()
+
+
+# ── --output / -o ─────────────────────────────────────────────────────────────
+
+def test_output_flag_writes_to_file(monkeypatch, tmp_path):
+    rst_file = tmp_path / "test.rst"
+    rst_file.write_text("Hello **world**.", encoding="utf-8")
+    out_file = tmp_path / "rendered.txt"
+    monkeypatch.setattr(
+        sys, "argv",
+        ["rich-rst", str(rst_file), "-o", str(out_file)],
+    )
+    exit_code = main()
+    assert exit_code == 0
+    assert out_file.exists()
+    content = out_file.read_text(encoding="utf-8")
+    assert "Hello" in content
+    assert "world" in content
+
+
+def test_output_short_flag(monkeypatch, tmp_path):
+    rst_file = tmp_path / "test.rst"
+    rst_file.write_text("Short text.", encoding="utf-8")
+    out_file = tmp_path / "out.txt"
+    monkeypatch.setattr(
+        sys, "argv",
+        ["rich-rst", str(rst_file), "-o", str(out_file)],
+    )
+    exit_code = main()
+    assert exit_code == 0
+    content = out_file.read_text(encoding="utf-8")
+    assert "Short text." in content
+
+
+def test_output_flag_error_on_bad_path(monkeypatch, capsys):
+    import builtins
+    _real_open = builtins.open
+
+    def selective_open(path, *args, **kwargs):
+        # fail only for the output file write (mode 'w')
+        mode = args[0] if args else kwargs.get('mode', 'r')
+        if mode == 'w':
+            raise OSError("no space left")
+        return _real_open(path, *args, **kwargs)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        rst_path = os.path.join(tmpdir, "test.rst")
+        with open(rst_path, "w") as f:
+            f.write("Hello world.")
+
+        monkeypatch.setattr(sys, "argv", ["rich-rst", rst_path, "-o", "/bad/path/out.txt"])
+        monkeypatch.setattr("builtins.open", selective_open)
+
+        exit_code = main()
+        assert exit_code == 1

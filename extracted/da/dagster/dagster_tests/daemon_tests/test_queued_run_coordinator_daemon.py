@@ -792,10 +792,10 @@ class QueuedRunCoordinatorDaemonTests(ABC):
             return original_method(
                 self,
                 origin,
-                host,  # pyright: ignore[reportArgumentType]
+                host,  # ty: ignore[invalid-argument-type]
                 port,
                 socket,
-                heartbeat,  # pyright: ignore[reportArgumentType]
+                heartbeat,  # ty: ignore[invalid-argument-type]
                 watch_server,
                 grpc_server_registry,
             )
@@ -1115,7 +1115,7 @@ class QueuedRunCoordinatorDaemonTests(ABC):
         caplog.text.count(f"Run {run_id_2} is blocked by global concurrency limits") == 1  # pyright: ignore[reportUnusedExpression]
         caplog.text.count(f"Run {run_id_3} is blocked by global concurrency limits") == 1  # pyright: ignore[reportUnusedExpression]
 
-    @pytest.mark.flaky(max_runs=2)
+    @pytest.mark.flaky(reruns=1)
     @pytest.mark.parametrize(
         "run_coordinator_config",
         [

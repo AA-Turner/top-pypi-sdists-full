@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytubefix
-Version: 10.6.1
+Version: 10.7.1
 Summary: Python3 library for downloading YouTube Videos.
 Author-email: Juan Bindez <juanbindez780@gmail.com>
 License: MIT license
@@ -33,18 +33,27 @@ Requires-Dist: aiohttp>=3.12.13
 Requires-Dist: nodejs-wheel-binaries>=22.20.0
 Dynamic: license-file
 
-# Pytubefix
+<p align="center">
+  <img
+    width="220"
+    alt="pytubefix_logo"
+    src="https://github.com/user-attachments/assets/b28b3379-4b72-4846-b2c4-2ade07202e45"
+  />
+</p>
 
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/pytubefix)](https://pypi.org/project/pytubefix/)
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/juanbindez)](https://github.com/sponsors/juanbindez)
-[![PyPI - License](https://img.shields.io/pypi/l/pytubefix)](https://opensource.org/licenses/MIT)
-[![Read the Docs](https://img.shields.io/readthedocs/pytubefix)](https://pytubefix.readthedocs.io/)
-[![GitHub Tag](https://img.shields.io/github/v/tag/JuanBindez/pytubefix?include_prereleases)](https://github.com/JuanBindez/pytubefix/releases)
-[![PyPI - Version](https://img.shields.io/pypi/v/pytubefix)](https://pypi.org/project/pytubefix/)
+<p align="center">
+  <img src="https://img.shields.io/pypi/dm/pytubefix">
+  <img src="https://img.shields.io/github/sponsors/juanbindez">
+  <img src="https://img.shields.io/pypi/l/pytubefix">
+  <img src="https://img.shields.io/readthedocs/pytubefix">
+  <img src="https://img.shields.io/github/v/tag/JuanBindez/pytubefix?include_prereleases">
+  <img src="https://img.shields.io/pypi/v/pytubefix">
+</p>
 
-## Python3 Library for Downloading YouTube Videos
+<h2 align="center">
+  Python3 Library for Downloading YouTube Videos
+</h2>
 
----
 
 ## Installation
 

@@ -59,6 +59,13 @@ class TestEncoder(object):
         res = enc.output()
         assert res == b'\x02\x0f\xfe\xfd\xfc\xfb\xfa\xf9\xf8\xf7\xf6\xf5\xf4\xf3\xf2\xf1\xf1'
 
+    def test_application_integer(self):
+        enc = asn1.Encoder()
+        enc.start()
+        enc.write(55, nr=asn1.Numbers.Integer, typ=asn1.Types.Primitive, cls=asn1.Classes.Application)
+        res = enc.output()
+        assert res == b'\x42\x01\x37'
+
     def test_twos_complement_boundaries(self):
         enc = asn1.Encoder()
         enc.start()
@@ -1435,6 +1442,74 @@ class TestDecoder(object):
         assert tag == (asn1.Numbers.Real, asn1.Types.Primitive, asn1.Classes.Universal)
         assert isinstance(value, float)
         assert value == 1024.0
+
+    def test_nested_der(self):
+        buf = b'\x30\x0d\x13\x01\x41\x30\x08\x13\x01\x42\x30\x03\x13\x01\x43'
+        dec = asn1.Decoder()
+        dec.start(buf)
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.Sequence, asn1.Types.Constructed, asn1.Classes.Universal)
+        dec.enter()
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.PrintableString, asn1.Types.Primitive, asn1.Classes.Universal)
+        tag, value = dec.read()
+        assert value == 'A'
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.Sequence, asn1.Types.Constructed, asn1.Classes.Universal)
+        dec.enter()
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.PrintableString, asn1.Types.Primitive, asn1.Classes.Universal)
+        tag, value = dec.read()
+        assert value == 'B'
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.Sequence, asn1.Types.Constructed, asn1.Classes.Universal)
+        dec.enter()
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.PrintableString, asn1.Types.Primitive, asn1.Classes.Universal)
+        tag, value = dec.read()
+        assert value == 'C'
+        tag = dec.peek()
+        assert tag is None
+        dec.leave()
+        tag = dec.peek()
+        assert tag is None
+        dec.leave()
+        tag = dec.peek()
+        assert tag is None
+
+    def test_nested_cer(self):
+        buf = b'\x30\x80\x13\x01\x41\x30\x80\x13\x01\x42\x30\x80\x13\x01\x43\x00\x00\x00\x00\x00\x00'
+        dec = asn1.Decoder()
+        dec.start(buf)
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.Sequence, asn1.Types.Constructed, asn1.Classes.Universal)
+        dec.enter()
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.PrintableString, asn1.Types.Primitive, asn1.Classes.Universal)
+        tag, value = dec.read()
+        assert value == 'A'
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.Sequence, asn1.Types.Constructed, asn1.Classes.Universal)
+        dec.enter()
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.PrintableString, asn1.Types.Primitive, asn1.Classes.Universal)
+        tag, value = dec.read()
+        assert value == 'B'
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.Sequence, asn1.Types.Constructed, asn1.Classes.Universal)
+        dec.enter()
+        tag = dec.peek()
+        assert tag == (asn1.Numbers.PrintableString, asn1.Types.Primitive, asn1.Classes.Universal)
+        tag, value = dec.read()
+        assert value == 'C'
+        tag = dec.peek()
+        assert tag is None
+        dec.leave()
+        tag = dec.peek()
+        assert tag is None
+        dec.leave()
+        tag = dec.peek()
+        assert tag is None
 
 
 class TestEncoderDecoder(object):

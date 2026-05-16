@@ -66,7 +66,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -233,6 +233,7 @@ class HeterogeneousAdoptionDiDResults:
           ``(Ybar_{Z=1} - Ybar_{Z=0}) / (Dbar_{Z=1} - Dbar_{Z=0})``.
     se : float
         Standard error on the beta-scale. For continuous designs:
+
         - Unweighted or ``weights=<array>``: CCT-2014 weighted-robust SE
           from Phase 1c divided by ``|den|`` (``den`` = raw or weighted
           denominator depending on fit path).
@@ -241,6 +242,7 @@ class HeterogeneousAdoptionDiDResults:
           aligned with ``tau_bc``) routed through
           :func:`compute_survey_if_variance` for PSU-aggregated,
           FPC/strata-adjusted variance, divided by ``|den|``.
+
         In both cases the higher-order variance from ``mean(ΔY)`` is
         dominated by the nonparametric boundary estimate in large
         samples and is not included in the leading-order formula. For
@@ -345,25 +347,32 @@ class HeterogeneousAdoptionDiDResults:
 
     # Phase 4.5 weighted-path extras (optional so unweighted fits stay unchanged)
     variance_formula: Optional[str] = None
-    """HAD-specific label for the SE formula on the weighted continuous
-    path: ``"pweight"`` (weighted-robust CCT 2014) under ``weights=``,
-    ``"survey_binder_tsl"`` (Binder 1983 TSL with PSU/strata/FPC) under
-    ``survey=SurveyDesign(...)``, ``None`` on unweighted or mass-point
-    fits. Orthogonal to ``survey_metadata`` which is the repo-standard
-    :class:`diff_diff.survey.SurveyMetadata` shared with downstream
-    report/diagnostic consumers (no HAD-specific leakage)."""
+    """HAD-specific label for the SE formula on weighted fits, populated
+    on BOTH continuous and mass-point designs (Phase 4.5 A / B):
+    ``"pweight"`` (continuous, weighted-robust CCT 2014 under the
+    ``weights=`` shortcut), ``"survey_binder_tsl"`` (continuous, Binder
+    1983 TSL with PSU/strata/FPC under ``survey_design=SurveyDesign(...)``),
+    ``"pweight_2sls"`` (mass-point + ``weights=``; label applied
+    uniformly across vcov families — classical / HC1 / CR1 — on the
+    weighted 2SLS path, with the actual sandwich resolved via
+    ``vcov_type``), or ``"survey_binder_tsl_2sls"`` (mass-point, Binder
+    1983 TSL under ``survey_design=``). ``None`` on unweighted fits. Orthogonal to ``survey_metadata`` which is the
+    repo-standard :class:`diff_diff.survey.SurveyMetadata` shared with
+    downstream report/diagnostic consumers (no HAD-specific leakage)."""
     effective_dose_mean: Optional[float] = None
-    """Weighted denominator used by the beta-scale rescaling on the
-    continuous path: ``sum(w_g · D_g) / sum(w_g)`` for
-    ``continuous_at_zero`` or ``sum(w_g · (D_g - d_lower)) / sum(w_g)``
-    for ``continuous_near_d_lower``. Reduces bit-exactly to
-    ``dose_mean`` / ``mean(D - d_lower)`` when weights are uniform or
-    absent. ``None`` when ``fit()`` was called without
-    ``survey=`` / ``weights=`` (use ``dose_mean`` there). Exists because
-    ``dose_mean`` is the raw sample mean of the dose column; under
-    weighted fits the estimator's actual denominator is the weighted
-    mean, and users reconstructing the β-scale value by hand need the
-    weighted one."""
+    """Weighted denominator used by the beta-scale rescaling, populated
+    on weighted fits across all designs: ``sum(w_g · D_g) / sum(w_g)``
+    on ``continuous_at_zero``, ``sum(w_g · (D_g - d_lower)) / sum(w_g)``
+    on ``continuous_near_d_lower``, and the weighted Wald-IV dose gap
+    ``mean(D | Z=1, w) - mean(D | Z=0, w)`` on ``mass_point`` (where
+    ``Z = 1{D > d_lower}``). On the continuous designs reduces
+    bit-exactly to ``dose_mean`` / ``mean(D - d_lower)`` when weights
+    are uniform or absent. ``None`` when ``fit()`` was called without
+    ``survey_design=`` / ``survey=`` / ``weights=`` (use ``dose_mean``
+    there). Exists because ``dose_mean`` is the raw sample mean of the
+    dose column; under weighted fits the estimator's actual denominator
+    is the weighted form above, and users reconstructing the β-scale
+    value by hand need the weighted one."""
 
     def __repr__(self) -> str:
         base = (
@@ -477,9 +486,21 @@ class HeterogeneousAdoptionDiDResults:
           ``design_effect`` / ``sum_weights`` / ``weight_range`` +
           ``n_strata`` / ``n_psu`` / ``df_survey`` (latter three
           ``None`` on the ``weights=`` shortcut).
-        - ``variance_formula``: ``"pweight"`` or ``"survey_binder_tsl"``.
+        - ``variance_formula``: HAD-specific SE label, populated on BOTH
+          continuous and mass-point designs (Phase 4.5 A / B):
+          ``"pweight"`` (continuous, weighted-robust CCT 2014 under
+          ``weights=``), ``"survey_binder_tsl"`` (continuous, Binder
+          1983 TSL under ``survey_design=``), ``"pweight_2sls"``
+          (mass-point + ``weights=``; label applied uniformly across
+          vcov families — classical / HC1 / CR1 — with the sandwich
+          resolved via ``vcov_type``), or ``"survey_binder_tsl_2sls"``
+          (mass-point, Binder 1983 TSL under ``survey_design=``). See
+          the field docstring above for the full contract.
         - ``effective_dose_mean``: weighted denominator used by the
-          beta-scale rescaling."""
+          beta-scale rescaling - weighted ``mean(D)`` on
+          ``continuous_at_zero``, weighted ``mean(D - d_lower)`` on
+          ``continuous_near_d_lower``, or the weighted Wald-IV dose gap
+          ``mean(D | Z=1, w) - mean(D | Z=0, w)`` on ``mass_point``."""
         return {
             "att": self.att,
             "se": self.se,
@@ -2065,6 +2086,7 @@ def _sup_t_multiplier_bootstrap(
         caller.
     """
     from diff_diff.bootstrap_utils import (
+        apply_stratum_centering,
         generate_bootstrap_weights_batch,
         generate_survey_multiplier_weights_batch,
     )
@@ -2150,39 +2172,13 @@ def _sup_t_multiplier_bootstrap(
             # Each unit is its own PSU (psu_ids = np.arange(n_units)).
             Psi_psu = influence_matrix.copy()
 
-        if resolved_survey.strata is not None:
-            strata = np.asarray(resolved_survey.strata)
-            # Build PSU -> stratum map (strata constant-within-PSU by
-            # SurveyDesign.resolve contract).
-            psu_stratum = np.empty(n_psu, dtype=strata.dtype)
-            if resolved_survey.psu is not None:
-                seen = np.zeros(n_psu, dtype=bool)
-                unit_psu = np.asarray(resolved_survey.psu)
-                for i in range(n_units):
-                    col = psu_id_to_col[int(unit_psu[i])]
-                    if not seen[col]:
-                        psu_stratum[col] = strata[i]
-                        seen[col] = True
-            else:
-                psu_stratum = strata.copy()
-
-            for h in np.unique(psu_stratum):
-                mask_h = psu_stratum == h
-                n_h = int(mask_h.sum())
-                if n_h < 2:
-                    # Singleton / empty stratum contributes 0 variance
-                    # regardless; the helper's lonely-PSU logic already
-                    # zeros those multipliers. Skip centering to avoid
-                    # a divide-by-zero on sqrt(n_h / (n_h - 1)).
-                    continue
-                Psi_psu[mask_h] -= Psi_psu[mask_h].mean(axis=0, keepdims=True)
-                Psi_psu[mask_h] *= np.sqrt(n_h / (n_h - 1))
-        else:
-            # Single implicit stratum — demean across all PSUs, scale by
-            # sqrt(n_psu / (n_psu - 1)).
-            if n_psu >= 2:
-                Psi_psu -= Psi_psu.mean(axis=0, keepdims=True)
-                Psi_psu *= np.sqrt(n_psu / (n_psu - 1))
+        # Stratum centering + Bessel rescale on the PSU-aggregated
+        # influence tensor. Shared with the HAD Stute survey-bootstrap
+        # family (had_pretests.stute_test / stute_joint_pretest) which
+        # applies the same algebra to PSU multipliers instead — see
+        # ``apply_stratum_centering`` docstring and REGISTRY
+        # § "Note (Stute stratified survey-bootstrap calibration)".
+        apply_stratum_centering(Psi_psu, resolved_survey, psu_ids, psu_axis=0)
 
         # PSU-level perturbations: (B, H) = (B, n_psu) @ (n_psu, H).
         # No (1/n) prefactor — Psi_psu_scaled is already on the θ̂-scale
@@ -2804,7 +2800,7 @@ class HeterogeneousAdoptionDiD:
         *,
         survey_design: Any = None,
         trends_lin: bool = False,
-    ) -> HeterogeneousAdoptionDiDResults:
+    ) -> Union[HeterogeneousAdoptionDiDResults, HeterogeneousAdoptionDiDEventStudyResults]:
         """Fit the HAD estimator.
 
         ``aggregate="overall"`` (default) fits on a two-period panel and
@@ -2925,6 +2921,13 @@ class HeterogeneousAdoptionDiD:
         Returns
         -------
         HeterogeneousAdoptionDiDResults
+            When ``aggregate="overall"`` (the default; two-period only):
+            single-period WAS estimate plus shared metadata.
+        HeterogeneousAdoptionDiDEventStudyResults
+            When ``aggregate="event_study"`` (multi-period panel; on
+            staggered panels auto-filters to the last cohort plus
+            never-treated): per-event-time WAS estimates with per-
+            horizon arrays.
         """
         # ---- aggregate / survey_design / survey / weights validation ----
         if aggregate not in _VALID_AGGREGATES:
@@ -3021,12 +3024,11 @@ class HeterogeneousAdoptionDiD:
 
         # Dispatch the event-study path to a dedicated method so the
         # single-period path stays unchanged (Phase 2a contract preserved).
-        # Note: event_study returns HeterogeneousAdoptionDiDEventStudyResults
-        # (distinct type from the overall path's HeterogeneousAdoptionDiDResults);
-        # the static return-type annotation reflects the common "overall" case
-        # to keep Phase 2a call-sites type-clean. Users explicitly passing
-        # aggregate="event_study" should annotate the result as
-        # HeterogeneousAdoptionDiDEventStudyResults.
+        # The static return-type annotation on `fit()` is
+        # Union[HeterogeneousAdoptionDiDResults,
+        # HeterogeneousAdoptionDiDEventStudyResults]; callers should
+        # narrow via isinstance (or by the aggregate they passed) to
+        # access aggregate-specific fields.
         if aggregate == "event_study":
             return self._fit_event_study(  # type: ignore[return-value]
                 data=data,

@@ -15,6 +15,7 @@
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/AllTypes.h"
 #include "slang/diagnostics/SysFuncsDiags.h"
+#include "slang/parsing/Lexer.h"
 #include "slang/util/String.h"
 
 namespace slang::ast {
@@ -45,8 +46,9 @@ static bool isValidForRaw(const Type& type) {
     return false;
 }
 
-template<typename TContext>
-static bool checkArgType(TContext& context, const Expression& arg, char spec, SourceRange range) {
+template<typename TContext, typename TRangeGetter>
+static bool checkArgType(TContext& context, const Expression& arg, char spec,
+                         TRangeGetter&& rangeGetter) {
     if (arg.bad())
         return false;
 
@@ -58,11 +60,12 @@ static bool checkArgType(TContext& context, const Expression& arg, char spec, So
         case 'o':
         case 'b':
         case 'c':
-            if (type.isIntegral() || type.isString())
+            if (type.isIntegral() || type.isString() || type.isClass() || type.isNull() ||
+                type.isCHandle())
                 return true;
             if (type.isFloating()) {
                 // Just a warning, we will implicitly convert.
-                context.addDiag(diag::FormatRealInt, arg.sourceRange) << spec << range;
+                context.addDiag(diag::FormatRealInt, arg.sourceRange) << spec << rangeGetter();
                 return true;
             }
             break;
@@ -76,7 +79,7 @@ static bool checkArgType(TContext& context, const Expression& arg, char spec, So
         case 'v':
             if (type.isIntegral()) {
                 if (type.getBitWidth() > 1)
-                    context.addDiag(diag::FormatMultibitStrength, arg.sourceRange) << range;
+                    context.addDiag(diag::FormatMultibitStrength, arg.sourceRange) << rangeGetter();
                 return true;
             }
             break;
@@ -97,26 +100,23 @@ static bool checkArgType(TContext& context, const Expression& arg, char spec, So
             break;
     }
 
-    context.addDiag(diag::FormatMismatchedType, arg.sourceRange) << type << spec << range;
+    context.addDiag(diag::FormatMismatchedType, arg.sourceRange) << type << spec << rangeGetter();
     return false;
 }
 
 static bool checkFormatString(const ASTContext& context, const StringLiteral& arg,
                               Args::iterator& argIt, Args::iterator argEnd) {
-    // Strip quotes from the raw string.
-    std::string_view fmt = arg.getRawValue();
-    if (fmt.length() >= 2)
-        fmt = fmt.substr(1, fmt.length() - 2);
-
-    SourceLocation loc = arg.sourceRange.start() + 1;
-    auto getRange = [&](size_t offset, size_t len) {
-        SourceLocation sl = loc + offset;
-        return SourceRange{sl, sl + len};
+    auto getRange = [&arg](size_t offset, size_t len) {
+        size_t charLen = 1;
+        auto sl = arg.sourceRange.start() +
+                  parsing::Lexer::getLocForStringChar(arg.getRawValue(), offset, charLen);
+        sl -= charLen;
+        return SourceRange{sl, sl + len + charLen - 1};
     };
 
     bool ok = true;
     bool parseOk = SFormat::parse(
-        fmt, [](std::string_view) {},
+        arg.getValue(), [](std::string_view) {},
         [&](char spec, size_t offset, size_t len, const SFormat::FormatOptions&) {
             // Filter out non-consuming arguments.
             switch (charToLower(spec)) {
@@ -127,23 +127,23 @@ static bool checkFormatString(const ASTContext& context, const StringLiteral& ar
                     break;
             }
 
-            SourceRange range = getRange(offset, len);
             if (argIt == argEnd) {
                 // If we've run out of arguments, this is an error.
-                context.addDiag(diag::FormatNoArgument, range) << spec;
+                context.addDiag(diag::FormatNoArgument, getRange(offset, len)) << spec;
                 ok = false;
                 return;
             }
 
             auto arg = *argIt++;
             if (arg->kind == ExpressionKind::EmptyArgument) {
-                // Empty arguments aren't allowed for format args.
-                context.addDiag(diag::FormatEmptyArg, arg->sourceRange) << spec << range;
-                ok = false;
+                // Empty arguments aren't allowed for format args; emit a warning so
+                // suppressible-mode users can opt in to tolerating it.
+                context.addDiag(diag::FormatEmptyArg, arg->sourceRange)
+                    << spec << getRange(offset, len);
                 return;
             }
 
-            ok &= checkArgType(context, *arg, spec, range);
+            ok &= checkArgType(context, *arg, spec, [&]() { return getRange(offset, len); });
         },
         [&](DiagCode code, size_t offset, size_t len, std::optional<char> specifier) {
             auto& diag = context.addDiag(code, getRange(offset, len));
@@ -189,10 +189,10 @@ bool FmtHelpers::checkSFormatArgs(const ASTContext& context, const Args& args) {
     if (!checkFormatString(context, arg->as<StringLiteral>(), argIt, args.end()))
         return false;
 
-    // Leftover arguments are invalid (all must be consumed by the format string).
     if (argIt != args.end()) {
+        // Extra arguments are tolerated as a suppressible warning so that
+        // some tools' lenient behavior can be matched.
         context.addDiag(diag::FormatTooManyArgs, (*argIt)->sourceRange);
-        return false;
     }
 
     return true;
@@ -220,46 +220,36 @@ static bool formatSpecialArg(char spec, const Scope& scope, std::string& result)
     }
 }
 
-std::optional<std::string> FmtHelpers::formatArgs(std::string_view formatString, SourceLocation loc,
-                                                  const Scope& scope, EvalContext& context,
-                                                  const std::span<const Expression* const>& args,
-                                                  bool isStringLiteral) {
-    auto getRange = [&](size_t offset, size_t len) {
-        // If this is not a string literal, we can't meaningfully get an offset.
-        if (!isStringLiteral)
-            return SourceRange{loc, loc};
-
-        SourceLocation sl = loc + offset;
-        return SourceRange{sl, sl + len};
-    };
-
+std::optional<std::string> FmtHelpers::formatArgs(std::string_view formatString,
+                                                  const Expression& formatExpr, const Scope& scope,
+                                                  EvalContext& context,
+                                                  const std::span<const Expression* const>& args) {
     std::string result;
     auto argIt = args.begin();
 
     bool ok = true;
     bool parseOk = SFormat::parse(
         formatString, [&](std::string_view text) { result += text; },
-        [&](char spec, size_t offset, size_t len, const SFormat::FormatOptions& options) {
+        [&](char spec, size_t, size_t, const SFormat::FormatOptions& options) {
             if (formatSpecialArg(spec, scope, result))
                 return;
 
-            SourceRange range = getRange(offset, len);
             if (argIt == args.end()) {
                 // If we've run out of arguments, this is an error.
-                context.addDiag(diag::FormatNoArgument, range) << spec;
+                context.addDiag(diag::FormatNoArgument, formatExpr.sourceRange) << spec;
                 ok = false;
                 return;
             }
 
             auto arg = *argIt++;
             if (arg->kind == ExpressionKind::EmptyArgument) {
-                // Empty arguments aren't allowed for format args.
-                context.addDiag(diag::FormatEmptyArg, arg->sourceRange) << spec << range;
-                ok = false;
+                // Empty arguments are diagnosed separately at bind time;
+                // substitute a single space so the format string can still be rendered.
+                result.push_back(' ');
                 return;
             }
 
-            if (!checkArgType(context, *arg, spec, range)) {
+            if (!checkArgType(context, *arg, spec, [&]() { return formatExpr.sourceRange; })) {
                 ok = false;
                 return;
             }
@@ -272,13 +262,13 @@ std::optional<std::string> FmtHelpers::formatArgs(std::string_view formatString,
 
             SFormat::formatArg(result, value, *arg->type, spec, options, arg->isImplicitString());
         },
-        [&](DiagCode code, size_t offset, size_t len, std::optional<char> specifier) {
-            // If this is from a string literal format string, we already checked
+        [&](DiagCode code, size_t, size_t, std::optional<char> specifier) {
+            // If this is from a string literal format string we already checked
             // the string at expression creation time, so don't re-issue diagnostics.
-            if (isStringLiteral)
+            if (formatExpr.kind == ExpressionKind::StringLiteral)
                 return;
 
-            auto& diag = context.addDiag(code, getRange(offset, len));
+            auto& diag = context.addDiag(code, formatExpr.sourceRange);
             if (specifier)
                 diag << *specifier;
         });
@@ -332,15 +322,9 @@ std::optional<std::string> FmtHelpers::formatDisplay(
 
         // Handle string literals as format strings.
         if (arg->kind == ExpressionKind::StringLiteral) {
-            // Strip quotes from the raw string.
-            auto& lit = arg->as<StringLiteral>();
-            std::string_view fmt = lit.getRawValue();
-            if (fmt.length() >= 2)
-                fmt = fmt.substr(1, fmt.length() - 2);
-
             bool ok = true;
             bool parseOk = SFormat::parse(
-                fmt, [&](std::string_view text) { result += text; },
+                arg->as<StringLiteral>().getValue(), [&](std::string_view text) { result += text; },
                 [&](char specifier, size_t, size_t, const SFormat::FormatOptions& options) {
                     if (formatSpecialArg(specifier, scope, result))
                         return;

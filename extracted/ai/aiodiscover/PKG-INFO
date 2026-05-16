@@ -1,29 +1,28 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: aiodiscover
-Version: 2.7.1
+Version: 3.0.0
 Summary: Discover hosts by arp and ptr lookup
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Author: J. Nick Koston
 Author-email: nick@koston.org
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: aiodns (>=3.1.1)
 Requires-Dist: async_timeout (>=4.0.1) ; python_version < "3.11"
 Requires-Dist: cached_ipaddress (>=0.2.0)
 Requires-Dist: ifaddr (>0.0.0)
-Requires-Dist: netifaces (>=0.11.0)
-Requires-Dist: pyroute2 (>=0.7.3)
+Requires-Dist: pyroute2 (>=0.9.6)
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/aiodiscover/issues
 Project-URL: Changelog, https://github.com/bluetooth-devices/aiodiscover/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://aiodiscover.readthedocs.io
@@ -32,8 +31,8 @@ Description-Content-Type: text/markdown
 
 # Async Host discovery
 
-[![Build Status](https://github.com/bluetooth-devices/aiodiscover/workflows/Build%20Main/badge.svg)](https://github.com/bluetooth-devices/aiodiscover/actions)
-[![Documentation](https://github.com/bluetooth-devices/aiodiscover/workflows/Documentation/badge.svg)](https://bluetooth-devices.github.io/aiodiscover/)
+[![CI Status](https://github.com/bluetooth-devices/aiodiscover/actions/workflows/ci.yml/badge.svg)](https://github.com/bluetooth-devices/aiodiscover/actions/workflows/ci.yml)
+[![Documentation Status](https://readthedocs.org/projects/aiodiscover/badge/?version=latest)](https://aiodiscover.readthedocs.io/en/latest/?badge=latest)
 [![Code Coverage](https://codecov.io/gh/bluetooth-devices/aiodiscover/branch/main/graph/badge.svg)](https://codecov.io/gh/bluetooth-devices/aiodiscover)
 
 Discover hosts by arp and ptr lookup
@@ -63,7 +62,7 @@ pprint.pprint(hosts)
 
 ## Documentation
 
-For full package documentation please visit [bluetooth-devices.github.io/aiodiscover](https://bluetooth-devices.github.io/aiodiscover).
+For full package documentation please visit [aiodiscover.readthedocs.io](https://aiodiscover.readthedocs.io).
 
 ## Development
 

@@ -29,7 +29,7 @@ class Ollama(OpenaiTemplate):
         "gpt-oss-120b": "gpt-oss:120b",
         "gpt-oss-20b": "gpt-oss:20b"
     }
-    default_model = "gemini-3-flash-preview"
+    default_model = "nemotron-3-super"
 
     @classmethod
     async def get_quota(cls, api_key: Optional[str] = None) -> Optional[dict]:

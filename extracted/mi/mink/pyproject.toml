@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "mink"
-version = "1.1.0"
+version = "1.1.1"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 readme = { file = "README.md", content-type = "text/markdown" }
@@ -26,16 +26,16 @@ classifiers = [
 description = "Python inverse kinematics based on MuJoCo"
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "mujoco >= 3.3.6",
-    "qpsolvers[daqp] >= 4.3.1",
+    "mujoco >= 3.8.1",
+    "qpsolvers[daqp] >= 4.12.0",
     "typing_extensions",
 ]
 
 [dependency-groups]
 dev = [
     "ipdb>=0.13.13",
-    "pyright>=1.1.407",
-    "pytest>=8.4.2",
+    "pyright>=1.1.408",
+    "pytest>=9.0.3",
     "absl-py",
     "coveralls",
     "robot_descriptions>=1.14.0",
@@ -45,10 +45,13 @@ dev = [
 ]
 doc = [
     "sphinx>=7.2.6",
+    "sphinx-autobuild",
+    "sphinx-copybutton",
+    "sphinx-design",
     "sphinx-favicon",
     "sphinx-mathjax-offline",
-    "sphinx_rtd_theme>=2.0.0",
     "toml>=0.10.2",
+    "sphinx-book-theme>=1.1.4",
 ]
 
 [project.urls]
@@ -107,7 +110,10 @@ exclude_also = [
     "@(abc\\.)?abstractmethod",
     "def __repr__",
     "if use_taylor:",
-    "if theta_sq < get_epsilon(theta_sq\\.dtype):",
+    "if t2 < get_epsilon",
+    "if norm < get_epsilon",
+    "MINK_DISABLE_NATIVE",
+    "except ImportError:",
     "def ljac",
     "def rjac",
 ]
@@ -119,6 +125,12 @@ omit = [
 [tool.scikit-build]
 wheel.packages = ["src/mink"]
 sdist.exclude = ["examples", "benchmarks", "docs", "tests", "typings", "uv.lock"]
+
+[tool.cibuildwheel]
+build-frontend = "build[uv]"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
 
 [[tool.scikit-build.overrides]]
 if.failed = true

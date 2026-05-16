@@ -9,6 +9,7 @@ from collections.abc import Iterator
 import httpx
 
 from ..config import SageConfig
+from .anonymizer import anonymize_payload
 from .base import Message, ModelInfo, ProviderBase
 from .retry import (
     CircuitBreaker,
@@ -83,7 +84,9 @@ def _build_payload(
     }
     if system_parts:
         payload["systemInstruction"] = {"parts": system_parts}
-    return payload
+    # Anonymize before returning — strips identifying top-level fields and
+    # scrubs email/phone PII from contents + systemInstruction parts.
+    return anonymize_payload(payload, provider_name="gemini")
 
 
 def _extract_text(data: dict) -> str:

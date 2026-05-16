@@ -129,6 +129,39 @@ def test_collect_debt_signals_maps_dimensions_and_dead_code():
     assert ("SKY-U001", "dead_code") in dimensions
 
 
+def test_god_file_signal_becomes_modularity_debt_hotspot():
+    result = {
+        "analysis_summary": {"total_files": 1, "total_loc": 700},
+        "quality": [
+            {
+                "rule_id": "SKY-Q502",
+                "severity": "HIGH",
+                "file": "/repo/app/api.py",
+                "line": 1,
+                "name": "app.api",
+                "message": "File 'api.py' is a god file candidate",
+                "value": 700,
+                "threshold": 500,
+            }
+        ],
+        "unused_functions": [],
+        "unused_imports": [],
+        "unused_variables": [],
+        "unused_classes": [],
+        "unused_parameters": [],
+    }
+
+    snapshot = build_debt_snapshot(result, project_root="/repo")
+
+    assert snapshot.summary["dimensions"]["modularity"] == 1
+    assert len(snapshot.hotspots) == 1
+    hotspot = snapshot.hotspots[0]
+    assert hotspot.file == "app/api.py"
+    assert hotspot.primary_dimension == "modularity"
+    assert hotspot.signals[0].rule_id == "SKY-Q502"
+    assert hotspot.signals[0].dimension == "modularity"
+
+
 def test_collect_debt_signals_filters_to_changed_files():
     signals = collect_debt_signals(
         SAMPLE_RESULT,
@@ -151,6 +184,14 @@ def test_run_debt_analysis_builds_snapshot():
     assert snapshot.total_loc == 500
     assert snapshot.score.hotspot_count == len(snapshot.hotspots)
     assert snapshot.summary["dimensions"]["complexity"] == 1
+    assert snapshot.summary["score_breakdown"]["dimensions"][0]["dimension"] == (
+        "complexity"
+    )
+    assert snapshot.summary["score_breakdown"]["top_rules"][0]["rule_id"] == "SKY-Q301"
+    assert snapshot.summary["score_model"]["included_sources"] == [
+        "quality",
+        "dead_code",
+    ]
 
 
 def test_run_debt_analysis_changed_mode_keeps_project_score_and_filters_hotspots():
@@ -179,6 +220,10 @@ def test_build_debt_snapshot_reuses_static_result():
     assert snapshot.total_loc == 500
     assert snapshot.score.hotspot_count == len(snapshot.hotspots)
     assert snapshot.summary["dimensions"]["complexity"] == 1
+    assert snapshot.summary["score_breakdown"]["signal_points"] == 41.15
+    assert snapshot.summary["score_model"]["signal_formula"] == (
+        "severity_weight * dimension_weight * magnitude"
+    )
 
 
 def test_build_hotspots_changed_files_raise_priority_not_structural_score():
@@ -346,11 +391,7 @@ def test_augment_hotspots_with_advisories_sets_advisory(tmp_path):
 def test_safe_excerpt_returns_context_and_missing_file_is_empty(tmp_path):
     services = tmp_path / "app.py"
     services.write_text(
-        "line 1\n"
-        "line 2\n"
-        "line 3\n"
-        "line 4\n"
-        "line 5\n",
+        "line 1\nline 2\nline 3\nline 4\nline 5\n",
         encoding="utf-8",
     )
 
@@ -362,9 +403,7 @@ def test_safe_excerpt_returns_context_and_missing_file_is_empty(tmp_path):
 
 def test_parse_json_object_handles_plain_fenced_and_invalid_payloads():
     assert _parse_json_object('{"summary":"ok"}') == {"summary": "ok"}
-    assert _parse_json_object('```json\n{"summary":"ok"}\n```') == {
-        "summary": "ok"
-    }
+    assert _parse_json_object('```json\n{"summary":"ok"}\n```') == {"summary": "ok"}
     assert _parse_json_object("not json") is None
     assert _parse_json_object("") is None
 
@@ -481,7 +520,10 @@ def test_format_debt_table_renders_changed_scope_empty_state_and_baseline():
     assert "Skylos Technical Debt Report" in rendered
     assert "Hotspots: 0 shown (3 project total)" in rendered
     assert "View: changed files only" in rendered
-    assert "Baseline: 1 new | 2 worsened | 0 improved | 4 unchanged | 1 resolved" in rendered
+    assert (
+        "Baseline: 1 new | 2 worsened | 0 improved | 4 unchanged | 1 resolved"
+        in rendered
+    )
     assert "No debt hotspots found in changed files." in rendered
 
 
@@ -506,6 +548,14 @@ def test_format_debt_table_renders_hotspot_advisory_and_delta():
     assert (
         "1. app/services.py | score=14.00 | priority=16.50 | "
         "signals=1 | dimensions=complexity | worsened (+1.25)"
+    ) in rendered
+    assert (
+        "why: primary=complexity, strongest=HIGH, breadth_bonus=0.00, "
+        "priority_bonus=2.50"
+    ) in rendered
+    assert (
+        "SKY-Q301 | HIGH | complexity | app/services.py:20 | "
+        "Cyclomatic complexity is 18 (threshold: 10) (points=14.00)"
     ) in rendered
     assert "advisor: Split summary and detail formatting into helpers." in rendered
     assert "step: Extract summary line builders." in rendered
@@ -545,6 +595,24 @@ def test_format_debt_table_orders_by_priority_and_applies_top_limit():
 
     assert "1. app/core.py | score=9.00 | priority=18.00" in rendered
     assert "app/services.py" not in rendered
+
+
+def test_format_debt_table_explains_score_breakdown_and_model():
+    snapshot = build_debt_snapshot(SAMPLE_RESULT, project_root="/repo")
+
+    rendered = format_debt_table(snapshot)
+
+    assert "Score Breakdown:" in rendered
+    assert "complexity: 21.60 pts" in rendered
+    assert "Top rules: SKY-Q301 21.60 pts" in rendered
+    assert "How Score Is Calculated:" in rendered
+    assert "severity weight * dimension weight * magnitude" in rendered
+    assert "included sources: quality, dead_code" in rendered
+    assert (
+        "SKY-Q301 | HIGH | complexity | app/services.py:20 | "
+        "Cyclomatic complexity is 18 (threshold: 10) "
+        "(metric=18 threshold=10 points=21.60)"
+    ) in rendered
 
 
 def test_format_debt_history_table_renders_deltas_and_limit():
@@ -636,7 +704,9 @@ def test_cli_debt_json_upload_uses_quiet_mode(tmp_path, monkeypatch):
 
     with (
         patch("skylos.debt.run_debt_analysis", return_value=snapshot),
-        patch("skylos.api.upload_debt_report", return_value={"success": True}) as mock_upload,
+        patch(
+            "skylos.api.upload_debt_report", return_value={"success": True}
+        ) as mock_upload,
         patch("builtins.print") as mock_print,
         patch("skylos.cli.Console", return_value=Mock()),
         pytest.raises(SystemExit) as exc,
@@ -723,6 +793,30 @@ def test_cli_debt_fail_on_status_uses_baseline_comparison(tmp_path, monkeypatch)
         cli.main()
 
     assert exc.value.code == 1
+
+
+def test_cli_debt_json_min_score_includes_gate_failure(tmp_path, monkeypatch):
+    snapshot = _snapshot(str(tmp_path))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["skylos", "debt", str(tmp_path), "--json", "--min-score", "95"],
+    )
+
+    with (
+        patch("skylos.debt.run_debt_analysis", return_value=snapshot),
+        patch("builtins.print") as mock_print,
+        patch("skylos.cli.Console", return_value=Mock()),
+        pytest.raises(SystemExit) as exc,
+    ):
+        cli.main()
+
+    assert exc.value.code == 1
+    payload = json.loads(mock_print.call_args.args[0])
+    assert payload["summary"]["gate"]["passed"] is False
+    assert payload["summary"]["gate"]["failures"] == [
+        "score 93% is below min_score 95%"
+    ]
 
 
 def test_cli_debt_uses_project_policy_for_report_top(tmp_path, monkeypatch):

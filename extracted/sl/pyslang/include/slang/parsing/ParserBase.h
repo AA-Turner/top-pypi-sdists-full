@@ -37,6 +37,7 @@ protected:
     Token expect(TokenKind kind);
     void skipToken(std::optional<DiagCode> diagCode);
     void pushTokens(std::span<const Token> tokens);
+    void replaceCurrentToken(Token token);
 
     Token missingToken(TokenKind kind, SourceLocation location);
     Token placeholderToken();
@@ -110,15 +111,16 @@ protected:
 
     /// This is a generalized method for parsing a delimiter separated list of things
     /// with bookend tokens in a way that robustly handles bad tokens.
-    template<bool (*IsExpected)(TokenKind), bool (*IsEnd)(TokenKind), typename TParserFunc>
+    template<bool (*IsExpected)(TokenKind), bool (*IsEnd)(TokenKind), typename TParserFunc,
+             typename TElement>
     void parseList(TokenKind openKind, TokenKind closeKind, TokenKind separatorKind,
-                   Token& openToken, std::span<syntax::TokenOrSyntax>& list, Token& closeToken,
+                   Token& openToken, syntax::SeparatedSyntaxList<TElement>& list, Token& closeToken,
                    RequireItems requireItems, DiagCode code, TParserFunc&& parseItem,
                    AllowEmpty allowEmpty = {}) {
         openToken = expect(openKind);
         if (openToken.isMissing()) {
             closeToken = missingToken(closeKind, openToken.location());
-            list = std::span<syntax::TokenOrSyntax>();
+            list = syntax::SeparatedSyntaxList<TElement>();
             return;
         }
 
@@ -126,7 +128,7 @@ protected:
         parseList<IsExpected, IsEnd, TParserFunc>(buffer, closeKind, separatorKind, closeToken,
                                                   requireItems, code,
                                                   std::forward<TParserFunc>(parseItem), allowEmpty);
-        list = buffer.copy(alloc);
+        list = syntax::SeparatedSyntaxList<TElement>(alloc, buffer);
     }
 
     template<bool (*IsExpected)(TokenKind), bool (*IsEnd)(TokenKind), typename TParserFunc>

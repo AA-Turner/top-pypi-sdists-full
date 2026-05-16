@@ -7,7 +7,8 @@
 import json
 import os
 import tempfile
-from unittest.mock import patch
+from shutil import copyfile
+from unittest.mock import MagicMock, patch
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
 from django.conf import settings
@@ -39,7 +40,11 @@ from weblate.trans.models import (
     Unit,
     Vote,
 )
-from weblate.trans.tasks import cleanup_project_backup_download, cleanup_project_backups
+from weblate.trans.tasks import (
+    cleanup_project_backup_download,
+    cleanup_project_backups,
+    import_project_backup,
+)
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.tests.utils import get_test_file
 
@@ -163,6 +168,67 @@ class BackupsTest(ViewTestCase):
                 "Original component",
             )
 
+    def test_import_task_returns_project_url(self) -> None:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_handle:
+            temp_name = temp_handle.name
+        copyfile(TEST_BACKUP, temp_name)
+
+        result = import_project_backup(
+            "Restored URL", "restored-url", self.user.id, temp_name
+        )
+
+        project = Project.objects.get(slug="restored-url")
+        self.assertEqual(
+            result,
+            {
+                "message": "Project backup import completed.",
+                "url": project.get_absolute_url(),
+            },
+        )
+        self.assertFalse(os.path.exists(temp_name))
+
+    def test_import_task_reports_progress(self) -> None:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_handle:
+            temp_name = temp_handle.name
+        copyfile(TEST_BACKUP, temp_name)
+        task = MagicMock()
+        task.request.id = "task-id"
+
+        with patch("weblate.trans.tasks.current_task", task):
+            import_project_backup(
+                "Restored Progress", "restored-progress", self.user.id, temp_name
+            )
+
+        self.assertEqual(
+            [
+                call.kwargs["meta"]["progress"]
+                for call in task.update_state.call_args_list
+            ],
+            [5, 10, 30, 60, 90, 95],
+        )
+
+    def test_import_task_unlinks_file_when_user_lookup_fails(self) -> None:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_handle:
+            temp_name = temp_handle.name
+
+        with self.assertRaises(type(self.user).DoesNotExist):
+            import_project_backup("Restored", "restored", 0, temp_name)
+
+        self.assertFalse(os.path.exists(temp_name))
+
+    def test_import_task_unlinks_file_when_billing_lookup_fails(self) -> None:
+        from weblate.billing.models import Billing  # noqa: PLC0415
+
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_handle:
+            temp_name = temp_handle.name
+
+        with self.assertRaises(Billing.DoesNotExist):
+            import_project_backup(
+                "Restored", "restored", self.user.id, temp_name, billing_id=0
+            )
+
+        self.assertFalse(os.path.exists(temp_name))
+
     def test_restore_batches_change_addon_dispatch(self) -> None:
         backup = ProjectBackup()
         backup.backup_project(self.project)
@@ -247,9 +313,10 @@ class BackupsTest(ViewTestCase):
 
         restore.validate()
 
-        restored = restore.restore(
-            project_name="Restored", project_slug="restored", user=self.user
-        )
+        with patch.object(ProjectBackup, "IMPORT_BATCH_SIZE", 1):
+            restored = restore.restore(
+                project_name="Restored", project_slug="restored", user=self.user
+            )
 
         self.assertEqual(
             Vote.objects.filter(
@@ -490,6 +557,8 @@ class BackupsTest(ViewTestCase):
 
     def verify_restored(self) -> None:
         restored = Project.objects.get(slug="restored")
+        component = restored.component_set.get(slug="test")
+        glossary = restored.component_set.get(slug="glossary")
         self.assertEqual(
             16,
             Unit.objects.filter(translation__component__project=restored).count(),
@@ -522,6 +591,9 @@ class BackupsTest(ViewTestCase):
             {("Label", "navy")},
             set(restored.label_set.values_list("name", "color")),
         )
+        # check that set_language_team is migrated to file format parameters
+        self.assertTrue(component.file_format_params["po_set_language_team"])
+        self.assertIsNone(glossary.file_format_params.get("po_set_language_team"))
 
     def test_restore_duplicate(self) -> None:
         restore = ProjectBackup(TEST_BACKUP_DUPLICATE)
@@ -628,7 +700,8 @@ class BackupsTest(ViewTestCase):
                     PROJECT_BACKUP_IMPORT_MAX_TOTAL_UNCOMPRESSED_SIZE=total_size
                 ),
                 self.assertRaisesRegex(
-                    ValueError, "contains too much uncompressed data"
+                    ValueError,
+                    "data after unpacking, exceeding the configured limit",
                 ),
             ):
                 restore.validate()
@@ -862,6 +935,46 @@ class BackupsTest(ViewTestCase):
                 },
                 follow=True,
             )
-            self.assertContains(response, "Import Test")
+            self.assertContains(response, "Project backup import in progress")
             project = Project.objects.get(slug="import-test")
             self.assertEqual(project.component_set.count(), 2)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=False)
+    @patch("weblate.trans.views.create.import_project_backup.delay")
+    def test_view_restore_schedules_background_import(self, delay) -> None:
+        delay.return_value.id = "01234567-89ab-cdef-0123-456789abcdef"
+        self.user.is_superuser = True
+        self.user.save()
+        with open(TEST_BACKUP, "rb") as handle:
+            response = self.client.post(
+                reverse("create-project-import"),
+                {
+                    "zipfile": handle,
+                },
+                follow=True,
+            )
+        self.assertContains(
+            response, "Created on Weblate (example.com) by Weblate 4.14-dev"
+        )
+
+        response = self.client.post(
+            reverse("create-project-import"),
+            {
+                "name": "Import Test",
+                "slug": "import-test",
+            },
+            follow=True,
+        )
+        self.assertContains(response, "Project backup import in progress")
+        delay.assert_called_once()
+        kwargs = delay.call_args.kwargs
+        filename = kwargs["filename"]
+        try:
+            self.assertEqual(kwargs["project_name"], "Import Test")
+            self.assertEqual(kwargs["project_slug"], "import-test")
+            self.assertEqual(kwargs["user_id"], self.user.id)
+            self.assertIsNone(kwargs["billing_id"])
+            self.assertFalse(Project.objects.filter(slug="import-test").exists())
+        finally:
+            if os.path.exists(filename):
+                os.unlink(filename)

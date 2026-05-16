@@ -191,7 +191,7 @@ def _uncached_parse_advertisement_bytes(
     gap_data = gap_bytes
     # IMPORTANT: All data must be manually bounds checked
     # because the data is untrusted and can be malformed.
-    while offset + 2 < total_length:
+    while offset + 2 <= total_length:
         if not (length := gap_data[offset]):
             offset += 1  # Handle zero padding
             continue
@@ -203,9 +203,10 @@ def _uncached_parse_advertisement_bytes(
         offset += 1 + length
         if end > total_length or end - start <= 0:
             _LOGGER.debug(
-                "Invalid BLE GAP AD structure at offset %s: %s (%s)",
+                "Invalid BLE GAP AD structure at offset %s: %s (length=%s)",
                 offset,
                 gap_bytes,
+                length,
             )
             continue
         if gap_type_num == TYPE_SHORT_LOCAL_NAME and local_name is None:

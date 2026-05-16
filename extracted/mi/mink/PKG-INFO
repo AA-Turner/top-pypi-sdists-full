@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mink
-Version: 1.1.0
+Version: 1.1.1
 Summary: Python inverse kinematics based on MuJoCo
 Keywords: inverse,kinematics,mujoco
 Author-Email: Kevin Zakka <zakka@berkeley.edu>
@@ -21,8 +21,8 @@ Project-URL: Changelog, https://github.com/kevinzakka/mink/blob/main/CHANGELOG.m
 Project-URL: Homepage, https://kevinzakka.github.io/mink/
 Project-URL: Documentation, https://kevinzakka.github.io/mink/
 Requires-Python: <3.14,>=3.10
-Requires-Dist: mujoco>=3.3.6
-Requires-Dist: qpsolvers[daqp]>=4.3.1
+Requires-Dist: mujoco>=3.8.1
+Requires-Dist: qpsolvers[daqp]>=4.12.0
 Requires-Dist: typing_extensions
 Description-Content-Type: text/markdown
 
@@ -42,19 +42,19 @@ Features include:
 * Limits on joint positions and velocities;
 * Collision avoidance between any geom pair;
 * Support for closed-chain kinematics (loop closures) via [equality constraints](https://mujoco.readthedocs.io/en/stable/computation/index.html#coequality);
-* Lie group interface for rigid body transformations.
+* Lie group interface for rigid body transformations, with native C optimization for IK hot paths.
 
 For usage and API reference, see the [documentation](https://kevinzakka.github.io/mink/).
 
 If you use mink in your research, please cite it as follows:
 
 ```bibtex
-@software{Zakka_Mink_Python_inverse_2025,
+@software{Zakka_Mink_Python_inverse_2026,
   author = {Zakka, Kevin},
   title = {{Mink: Python inverse kinematics based on MuJoCo}},
-  year = {2025},
-  month = dec,
-  version = {1.0.0},
+  year = {2026},
+  month = feb,
+  version = {1.1.0},
   url = {https://github.com/kevinzakka/mink},
   license = {Apache-2.0}
 }

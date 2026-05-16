@@ -98,21 +98,21 @@ def k8s_instance(user_code_launcher_overrides=None):
 def test_default_instance():
     with k8s_instance() as instance:
         assert (
-            instance.user_code_launcher._deployment_startup_timeout  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher._deployment_startup_timeout  # noqa: SLF001
             == DEFAULT_DEPLOYMENT_STARTUP_TIMEOUT
         )
         assert (
-            instance.user_code_launcher._server_process_startup_timeout  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher._server_process_startup_timeout  # noqa: SLF001
             == DEFAULT_SERVER_PROCESS_STARTUP_TIMEOUT
         )
 
         assert (
-            instance.user_code_launcher._image_pull_grace_period  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher._image_pull_grace_period  # noqa: SLF001
             == DEFAULT_IMAGE_PULL_GRACE_PERIOD
         )
 
-        assert instance.user_code_launcher._labels == {}  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher._resources == {}  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._labels == {}  # noqa: SLF001
+        assert instance.user_code_launcher._resources == {}  # noqa: SLF001
 
 
 def test_timeout_overrides():
@@ -123,21 +123,21 @@ def test_timeout_overrides():
             "image_pull_grace_period": 789,
         }
     ) as instance:
-        assert instance.user_code_launcher._deployment_startup_timeout == 123  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher._server_process_startup_timeout == 456  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
-        assert instance.user_code_launcher._image_pull_grace_period == 789  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._deployment_startup_timeout == 123  # noqa: SLF001
+        assert instance.user_code_launcher._server_process_startup_timeout == 456  # noqa: SLF001
+        assert instance.user_code_launcher._image_pull_grace_period == 789  # noqa: SLF001
 
 
 def test_labels():
     with k8s_instance({"labels": {"foo": "bar"}}) as instance:
-        assert instance.user_code_launcher._labels == {"foo": "bar"}  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._labels == {"foo": "bar"}  # noqa: SLF001
 
 
 def test_env_vars():
     env_vars = ["FOO_ENV_VAR", "BAR_ENV_VAR=BAR_VALUE"]
 
     with k8s_instance({"env_vars": env_vars}) as instance:
-        assert instance.user_code_launcher._env_vars == env_vars  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._env_vars == env_vars  # noqa: SLF001
 
 
 def test_volumes_instance():
@@ -149,14 +149,14 @@ def test_volumes_instance():
             ],
         }
     ) as instance:
-        assert instance.user_code_launcher._volume_mounts == [  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._volume_mounts == [  # noqa: SLF001
             {
                 "name": "foo",
                 "mount_path": "biz/buz",
                 "sub_path": "file.txt",
             }
         ]
-        assert instance.user_code_launcher._volumes == [  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._volumes == [  # noqa: SLF001
             {"name": "foo", "config_map": {"name": "settings-cm"}}
         ]
 
@@ -167,7 +167,7 @@ def test_resources_instance():
         "limits": {"cpu": "500m", "memory": "2560Mi"},
     }
     with k8s_instance({"resources": resources}) as instance:
-        assert instance.user_code_launcher._resources == resources  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+        assert instance.user_code_launcher._resources == resources  # noqa: SLF001
 
 
 def test_security_context_instance():
@@ -175,7 +175,7 @@ def test_security_context_instance():
 
     with k8s_instance({"security_context": sacred_rites_of_debugging}) as instance:
         assert (
-            instance.user_code_launcher._security_context  # noqa: SLF001  # pyright: ignore[reportAttributeAccessIssue]
+            instance.user_code_launcher._security_context  # noqa: SLF001
             == sacred_rites_of_debugging
         )
 
@@ -232,7 +232,7 @@ def test_construct_code_location_service():
         assert obj["metadata"]["labels"]["foo_label"] == "bar"
         assert obj["metadata"]["labels"]["managed_by"] == "K8sUserCodeLauncher"
         assert obj["metadata"]["labels"]["location_name"] == "biz.buz"
-        assert obj["metadata"]["labels"]["agent_id"] == instance.instance_uuid  # pyright: ignore[reportAttributeAccessIssue]
+        assert obj["metadata"]["labels"]["agent_id"] == instance.instance_uuid
         assert obj["metadata"]["labels"]["server_timestamp"] == str(server_timestamp)
         assert obj["metadata"]["labels"]["extra_label"] == "extra_value"
 
@@ -308,7 +308,7 @@ def test_construct_code_location_deployment():
         assert obj["metadata"]["labels"]["foo_label"] == "bar"
         assert obj["metadata"]["labels"]["managed_by"] == "K8sUserCodeLauncher"
         assert obj["metadata"]["labels"]["location_name"] == "foobar"
-        assert obj["metadata"]["labels"]["agent_id"] == instance.instance_uuid  # pyright: ignore[reportAttributeAccessIssue]
+        assert obj["metadata"]["labels"]["agent_id"] == instance.instance_uuid
         assert obj["metadata"]["labels"]["server_timestamp"] == str(server_timestamp)
 
         assert len(obj["spec"]["template"]["spec"]["containers"]) == 1
@@ -316,7 +316,7 @@ def test_construct_code_location_deployment():
         assert obj["spec"]["template"]["metadata"]["labels"]["foo_label"] == "bar"
         assert obj["spec"]["template"]["metadata"]["labels"]["managed_by"] == "K8sUserCodeLauncher"
         assert obj["spec"]["template"]["metadata"]["labels"]["location_name"] == "foobar"
-        assert obj["spec"]["template"]["metadata"]["labels"]["agent_id"] == instance.instance_uuid  # pyright: ignore[reportAttributeAccessIssue]
+        assert obj["spec"]["template"]["metadata"]["labels"]["agent_id"] == instance.instance_uuid
 
         assert obj["spec"]["template"]["spec"]["containers"][0]["image"] == "bizbuz"
         assert (
@@ -376,7 +376,7 @@ def test_construct_code_location_deployment():
                 labels={},
                 resources={},
             )
-            construct_code_location_deployment(  # pyright: ignore[reportCallIssue]
+            construct_code_location_deployment(  # pyright: ignore[reportCallIssue]  # ty: ignore[missing-argument]
                 instance,
                 deployment_name="sandbox",
                 location_name="foobar_",
@@ -615,7 +615,7 @@ def test_launch_k8s_server(kubeconfig_file):
             },
             only_allow_user_defined_env_vars=["FOO", "BAR"],
         )
-        user_code_launcher.register_instance(instance)  # pyright: ignore[reportArgumentType]
+        user_code_launcher.register_instance(instance)
 
         user_code_launcher._start_new_server_spinup(  # noqa: SLF001
             deployment_name="acme",
@@ -754,7 +754,7 @@ def test_launch_k8s_server(kubeconfig_file):
 
         # Ensure that agent_id was properly set on deployment
         deployment_labels = body["metadata"]["labels"]
-        assert deployment_labels["agent_id"] == instance.instance_uuid  # pyright: ignore[reportAttributeAccessIssue]
+        assert deployment_labels["agent_id"] == instance.instance_uuid
 
         # Verify service_spec_config from location-level container_context is applied
         # This exercises the persisted code-location container_context path
@@ -1000,3 +1000,96 @@ def test_construct_code_location_deployment_custom_port(monkeypatch):
         container_env = obj["spec"]["template"]["spec"]["containers"][0]["env"]
         port_env = next(e for e in container_env if e["name"] == "DAGSTER_CLI_API_GRPC_PORT")
         assert port_env["value"] == "5000"
+
+
+def test_construct_code_location_deployment_default_server_replica_count():
+    resource_name = unique_k8s_resource_name("sandbox", "foobar")
+    with k8s_instance() as instance:
+        obj = construct_code_location_deployment(
+            instance,
+            deployment_name="sandbox",
+            location_name="foobar_",
+            k8s_deployment_name=resource_name,
+            metadata=CodeLocationDeployData("bizbuz", package_name="blim"),
+            container_context=K8sContainerContext(),
+            args=["ls"],
+            server_timestamp=time.time(),
+        ).to_dict()
+
+        # Single-replica default leaves spec.replicas unset (k8s defaults to 1) and
+        # does not inject a readiness probe.
+        assert "replicas" not in obj["spec"] or obj["spec"]["replicas"] is None
+        assert obj["spec"]["template"]["spec"]["containers"][0].get("readiness_probe") is None
+
+
+def test_construct_code_location_deployment_server_replica_count_injects_probe():
+    resource_name = unique_k8s_resource_name("sandbox", "foobar")
+    with k8s_instance() as instance:
+        obj = construct_code_location_deployment(
+            instance,
+            deployment_name="sandbox",
+            location_name="foobar_",
+            k8s_deployment_name=resource_name,
+            metadata=CodeLocationDeployData("bizbuz", package_name="blim"),
+            container_context=K8sContainerContext(server_replica_count=3),
+            args=["ls"],
+            server_timestamp=time.time(),
+            server_replica_count=3,
+        ).to_dict()
+
+        assert obj["spec"]["replicas"] == 3
+        # The Dagster gRPC server only binds its port after user code is loaded,
+        # so a tcpSocket probe gates routing on user-code-imported.
+        from dagster_cloud.workspace.user_code_launcher.utils import get_code_server_port
+
+        probe = obj["spec"]["template"]["spec"]["containers"][0]["readiness_probe"]
+        assert probe["tcp_socket"]["port"] == get_code_server_port()
+
+
+def test_construct_code_location_deployment_server_replica_count_preserves_user_probe():
+    resource_name = unique_k8s_resource_name("sandbox", "foobar")
+    user_probe = {
+        "http_get": {"path": "/healthz", "port": 8080},
+        "period_seconds": 7,
+    }
+    with k8s_instance() as instance:
+        container_context = K8sContainerContext(
+            server_replica_count=2,
+            server_k8s_config=UserDefinedDagsterK8sConfig.from_dict(
+                {"container_config": {"readiness_probe": user_probe}}
+            ),
+        )
+        obj = construct_code_location_deployment(
+            instance,
+            deployment_name="sandbox",
+            location_name="foobar_",
+            k8s_deployment_name=resource_name,
+            metadata=CodeLocationDeployData("bizbuz", package_name="blim"),
+            container_context=container_context,
+            args=["ls"],
+            server_timestamp=time.time(),
+            server_replica_count=2,
+        ).to_dict()
+
+        assert obj["spec"]["replicas"] == 2
+        # User-supplied probe is left alone — we do not overwrite with the default tcpSocket.
+        probe = obj["spec"]["template"]["spec"]["containers"][0]["readiness_probe"]
+        assert probe["http_get"]["path"] == "/healthz"
+        assert probe["http_get"]["port"] == 8080
+        assert probe["period_seconds"] == 7
+        assert "tcp_socket" not in probe or probe["tcp_socket"] is None
+
+
+def test_k8s_container_context_server_replica_count_from_config():
+    container_context = K8sContainerContext.create_from_config(
+        {"k8s": {"server_replica_count": 4}},
+    )
+    assert container_context.server_replica_count == 4
+
+
+def test_k8s_container_context_server_replica_count_merge_override():
+    base = K8sContainerContext(server_replica_count=2)
+    override = K8sContainerContext(server_replica_count=5)
+    assert base.merge(override).server_replica_count == 5
+    # An explicit None on the right side should not clobber a set base value.
+    assert base.merge(K8sContainerContext()).server_replica_count == 2

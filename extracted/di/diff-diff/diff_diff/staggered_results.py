@@ -138,6 +138,27 @@ class CallawaySantAnnaResults:
     epv_threshold: float = 10
     pscore_fallback: str = "error"
 
+    # --- Inference-field aliases (balance/external-adapter compatibility) ---
+    @property
+    def att(self) -> float:
+        return self.overall_att
+
+    @property
+    def se(self) -> float:
+        return self.overall_se
+
+    @property
+    def conf_int(self) -> Tuple[float, float]:
+        return self.overall_conf_int
+
+    @property
+    def p_value(self) -> float:
+        return self.overall_p_value
+
+    @property
+    def t_stat(self) -> float:
+        return self.overall_t_stat
+
     def __repr__(self) -> str:
         """Concise string representation."""
         sig = _get_significance_stars(self.overall_p_value)
@@ -150,7 +171,7 @@ class CallawaySantAnnaResults:
 
     @property
     def coef_var(self) -> float:
-        """Coefficient of variation: SE / |overall ATT|. NaN when ATT is 0 or SE non-finite."""
+        """Coefficient of variation: SE / abs(overall ATT). NaN when ATT is 0 or SE non-finite."""
         if not (np.isfinite(self.overall_se) and self.overall_se >= 0):
             return np.nan
         if not np.isfinite(self.overall_att) or self.overall_att == 0:
@@ -213,7 +234,7 @@ class CallawaySantAnnaResults:
 
         cv = self.coef_var
         if np.isfinite(cv):
-            lines.append(f"{'CV (SE/|ATT|):':<25} {cv:>10.4f}")
+            lines.append(f"{'CV (SE/abs(ATT)):':<25} {cv:>10.4f}")
 
         lines.append("")
 

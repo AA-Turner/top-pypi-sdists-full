@@ -274,9 +274,10 @@ class ProjectModel(BaseModel):
     default_gateway_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("gateways.id", use_alter=True, ondelete="SET NULL"), nullable=True
     )
-    default_gateway: Mapped[Optional["GatewayModel"]] = relationship(
-        foreign_keys=[default_gateway_id]
-    )
+    """
+    **NOTE**: default_gateway_id may point to a previously imported gateway that the project is no
+    longer authorized to use. Check access before using the gateway.
+    """
 
     # TODO: drop `default_pool_id` after the release without pools.
     default_pool_id: Mapped[Optional[UUIDType]] = mapped_column(
@@ -614,6 +615,11 @@ class GatewayModel(PipelineModelMixin, BaseModel):
     status_message: Mapped[Optional[str]] = mapped_column(Text)
     last_processed_at: Mapped[datetime] = mapped_column(NaiveDateTime)
     to_be_deleted: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    forbid_new_services: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    """
+    `forbid_new_services` is useful when migrating off the gateway or doing maintenance.
+    For now, it can only be set by server admins via an SQL query.
+    """
 
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     project: Mapped["ProjectModel"] = relationship(foreign_keys=[project_id])
@@ -1133,12 +1139,17 @@ class ExportModel(BaseModel):
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
     project: Mapped["ProjectModel"] = relationship()
+    is_global: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(NaiveDateTime, default=get_current_datetime)
     imports: Mapped[List["ImportModel"]] = relationship(
         back_populates="export",
         cascade=CASCADE_DEFAULT_WITH_DELETE_ORPHAN,
     )
     exported_fleets: Mapped[List["ExportedFleetModel"]] = relationship(
+        back_populates="export",
+        cascade=CASCADE_DEFAULT_WITH_DELETE_ORPHAN,
+    )
+    exported_gateways: Mapped[List["ExportedGatewayModel"]] = relationship(
         back_populates="export",
         cascade=CASCADE_DEFAULT_WITH_DELETE_ORPHAN,
     )
@@ -1185,6 +1196,27 @@ class ExportedFleetModel(BaseModel):
         ForeignKey("fleets.id", ondelete="CASCADE"), index=True
     )
     fleet: Mapped["FleetModel"] = relationship()
+
+
+class ExportedGatewayModel(BaseModel):
+    __tablename__ = "exported_gateways"
+    __table_args__ = (
+        UniqueConstraint(
+            "export_id", "gateway_id", name="uq_exported_gateways_export_id_gateway_id"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUIDType(binary=False), primary_key=True, default=uuid.uuid4
+    )
+    export_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("exports.id", ondelete="CASCADE"), index=True
+    )
+    export: Mapped["ExportModel"] = relationship()
+    gateway_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("gateways.id", ondelete="CASCADE"), index=True
+    )
+    gateway: Mapped["GatewayModel"] = relationship()
 
 
 class UserPublicKeyModel(BaseModel):

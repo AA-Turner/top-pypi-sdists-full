@@ -117,7 +117,10 @@ std::pair<PragmaExpressionSyntax*, bool> Preprocessor::parsePragmaValue() {
                                            lastToken, Token());
     }
 
-    return {alloc.emplace<ParenPragmaExpressionSyntax>(openParen, values.copy(alloc), closeParen),
+    return {alloc.emplace<ParenPragmaExpressionSyntax>(
+                openParen,
+                syntax::SeparatedSyntaxList<syntax::PragmaExpressionSyntax>(alloc, values),
+                closeParen),
             ok};
 }
 
@@ -238,7 +241,7 @@ void Preprocessor::applyOncePragma(const PragmaDirectiveSyntax& pragma) {
 
     auto text = sourceManager.getSourceText(pragma.directive.location().buffer());
     if (!text.empty())
-        includeOnceHeaders.emplace(text.data());
+        includeOnceHeaders.emplace(text.data(), std::string_view{});
 }
 
 void Preprocessor::applyDiagnosticPragma(const PragmaDirectiveSyntax& pragma) {
@@ -500,6 +503,7 @@ void Preprocessor::handleEncryptedRegion(Token keyword, const PragmaExpressionSy
 
     Token token = lexerStack.back()->lexEncodedText(protectEncoding, protectBytes, isSingleLine,
                                                     /* legacyProtectedMode */ false);
+    hasProtectedCode = true;
     addDiag(diag::ProtectedEnvelope, token.location());
 
     skippedTokens.push_back(token);

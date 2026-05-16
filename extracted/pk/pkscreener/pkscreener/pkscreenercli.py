@@ -167,7 +167,7 @@ except ImportError:
     # protobuf not installed, nothing to patch
     pass
 except Exception as e:
-    print(f"⚠️ Protobuf patch warning: {e}", file=sys.stderr)
+    default_logger().warning(f"⚠️ Protobuf patch warning: {e}", file=sys.stderr)
 
 from time import sleep
 
@@ -862,8 +862,11 @@ class ApplicationRunner:
         
         # Handle monitor mode
         if self.args.monitor:
+            import PKDevTools.classes.PKHalo as pkHalo
+            pkHalo.ENABLE_SPINNER = False   # Disable spinner globally
             self._setup_monitor_mode(cli_runner, refresh_data)
             monitor_option_org = MarketMonitor().currentMonitorOption()
+            self.args.options = monitor_option_org
         
         # Run the scan
         try:
@@ -991,6 +994,8 @@ class ApplicationRunner:
             MarketMonitor().saveMonitorResultStocks(self.plain_results)
             if self.results is not None and len(monitor_option_org) > 0:
                 chosen_menu = self.args.pipedtitle if self.args.pipedtitle is not None else update_menu_hierarchy()
+                if self.db_timestamp is None:
+                    self.db_timestamp = PKDateUtilities.currentDateTime().strftime("%H:%M:%S")
                 MarketMonitor().refresh(
                     screen_df=self.results,
                     screenOptions=monitor_option_org,
@@ -1076,7 +1081,9 @@ def _exit_gracefully(config_manager, arg_parser):
         # Flush any pending analytics events
         try:
             from pkscreener.classes.PKAnalytics import PKAnalyticsService
+            from pkscreener.classes.PKScanRunner import PKScanRunner
             PKAnalyticsService().flush(timeout=2)
+            PKScanRunner.cleanup()
         except Exception:
             pass
         from pkscreener.globals import resetConfigToDefault
@@ -1511,6 +1518,11 @@ logFilePath = LoggerSetup.get_log_file_path
 warnAboutDependencies = DependencyChecker.warn_about_dependencies
 exitGracefully = lambda: _exit_gracefully(configManager, argParser)
 
+def signal_handler(signum, frame):
+    from pkscreener.classes.PKScanRunner import PKScanRunner
+    PKScanRunner.cleanup()
+    sys.exit(0)
+
 
 if __name__ == "__main__":
     """Main entry point when script is executed directly.
@@ -1528,6 +1540,9 @@ if __name__ == "__main__":
             pass
     
     try:
+        import signal
+        signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+        signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
         pkscreenercli()
     except KeyboardInterrupt:
         from pkscreener.globals import closeWorkersAndExit

@@ -31,14 +31,7 @@ from langchain_aws.function_calling import convert_to_anthropic_tool
 
 def test_profile() -> None:
     model = ChatBedrock(
-        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
-        region_name="us-west-2",
-    )
-    assert model.profile
-    assert not model.profile["reasoning_output"]
-
-    model = ChatBedrock(
-        model_id="anthropic.claude-sonnet-4-20250514-v1:0",
+        model_id="anthropic.claude-sonnet-4-6",
         region_name="us-west-2",
     )
     assert model.profile
@@ -172,6 +165,44 @@ def test__format_anthropic_messages_with_tool_calls() -> None:
     )
     actual = _format_anthropic_messages(messages)
     assert expected == actual
+
+
+def test__format_anthropic_messages_strips_streaming_fields_on_invalid_tool() -> None:
+    """Regression for langchain-ai/langchain#31208."""
+    ai = AIMessage(
+        content=[
+            {
+                "type": "tool_use",
+                "id": "toolu_bad",
+                "name": "web_search",
+                "input": {},
+                "index": 2,
+                "partial_json": '{"bad": json}',
+            },
+        ],
+        tool_calls=[],
+        invalid_tool_calls=[
+            {
+                "type": "invalid_tool_call",
+                "id": "toolu_bad",
+                "name": "web_search",
+                "args": '{"bad": json}',
+                "error": "JSONDecodeError",
+            }
+        ],
+    )
+    _, formatted = _format_anthropic_messages([HumanMessage("go"), ai])
+    tool_use_block = next(
+        b for b in formatted[1]["content"] if b.get("type") == "tool_use"
+    )
+    assert "index" not in tool_use_block
+    assert "partial_json" not in tool_use_block
+    assert tool_use_block == {
+        "type": "tool_use",
+        "id": "toolu_bad",
+        "name": "web_search",
+        "input": {},
+    }
 
 
 def test__format_anthropic_messages_with_str_content_and_tool_calls() -> None:

@@ -18,7 +18,7 @@ class RateLimitExecutionContext:
     # Set from CapabilityMetadata.rate_limit_mode at capability registration time
     capability_override_mode: RateLimitMode | None = None
     # Carried from request.rate_limit.last_known_state to seed the RateLimiter.
-    # Keyed by effective_config_id so each tier's state seeds the correct limiter.
+    # Keyed by config_id so each tier's state seeds the correct limiter.
     last_known_state: dict[str, RateLimitStateSnapshot] | None = None
     # Absolute Unix timestamp deadline derived from request.rate_limit.max_execution_time.
     deadline: float | None = None
@@ -30,7 +30,7 @@ RATE_LIMIT_CONTEXT: ContextVar[RateLimitExecutionContext | None] = ContextVar(
 )
 
 # Written by BaseIntegrationClient.__aexit__ so the executor can collect it for the response.
-# Keyed by effective_config_id so multi-tier connectors accumulate all states in one pass.
+# Keyed by config_id so multi-tier connectors accumulate all states in one pass.
 RATE_LIMIT_RESULT_CONTEXT: ContextVar[dict[str, RateLimitStateSnapshot] | None] = ContextVar(
     "rate_limit_result_context",
     default=None,

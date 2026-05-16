@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //------------------------------------------------------------------------------
 #include "slang/diagnostics/ParserDiags.h"
+#include "slang/parsing/LexerFacts.h"
 #include "slang/parsing/Parser.h"
 #include "slang/parsing/Preprocessor.h"
 #include "slang/util/String.h"
@@ -81,12 +82,15 @@ MemberSyntax& Parser::parseModule(AttrList attributes, SyntaxKind parentKind,
     auto savedDefinitionKind = currentDefinitionKind;
     currentDefinitionKind = declKind;
 
+    getPP().setExpectedEndKind(endKind);
+
     Token endmodule;
     auto members = parseMemberList<MemberSyntax>(
         endKind, endmodule, declKind, [this](SyntaxKind parentKind, bool& anyLocalModules) {
             return parseMember(parentKind, anyLocalModules);
         });
 
+    getPP().setExpectedEndKind(TokenKind::Unknown);
     currentDefinitionKind = savedDefinitionKind;
     pp.popDesignElementStack();
 
@@ -107,6 +111,8 @@ AnonymousProgramSyntax& Parser::parseAnonymousProgram(AttrList attributes) {
     auto keyword = consume();
     auto semi = expect(TokenKind::Semicolon);
 
+    getPP().setExpectedEndKind(TokenKind::EndProgramKeyword);
+
     Token endkeyword;
     auto members = parseMemberList<MemberSyntax>(
         TokenKind::EndProgramKeyword, endkeyword, SyntaxKind::AnonymousProgram,
@@ -114,6 +120,7 @@ AnonymousProgramSyntax& Parser::parseAnonymousProgram(AttrList attributes) {
             return parseMember(parentKind, anyLocalModules);
         });
 
+    getPP().setExpectedEndKind(TokenKind::Unknown);
     pp.popDesignElementStack();
 
     return factory.anonymousProgram(attributes, keyword, semi, members, endkeyword);
@@ -129,9 +136,37 @@ ClassDeclarationSyntax& Parser::parseClass() {
     return parseClassDeclaration(attributes, virtualOrInterface);
 }
 
-MemberSyntax* Parser::parseMember(SyntaxKind parentKind, bool& anyLocalModules) {
-    auto attributes = parseAttributes();
+// Keywords that are candidates for typo correction.
+static constexpr std::array MemberTypoKeywords = {
+    TokenKind::GenerateKeyword,   TokenKind::ModuleKeyword,     TokenKind::AssignKeyword,
+    TokenKind::PackageKeyword,    TokenKind::ProgramKeyword,    TokenKind::CheckerKeyword,
+    TokenKind::InterfaceKeyword,  TokenKind::ModPortKeyword,    TokenKind::CoverGroupKeyword,
+    TokenKind::SpecifyKeyword,    TokenKind::AssertKeyword,     TokenKind::AssumeKeyword,
+    TokenKind::CoverKeyword,      TokenKind::RestrictKeyword,   TokenKind::FinalKeyword,
+    TokenKind::InitialKeyword,    TokenKind::ClassKeyword,      TokenKind::AlwaysKeyword,
+    TokenKind::AlwaysCombKeyword, TokenKind::AlwaysFFKeyword,   TokenKind::AlwaysLatchKeyword,
+    TokenKind::FunctionKeyword,   TokenKind::TaskKeyword,       TokenKind::ClockingKeyword,
+    TokenKind::ExportKeyword,     TokenKind::ImportKeyword,     TokenKind::PropertyKeyword,
+    TokenKind::SequenceKeyword,   TokenKind::ForKeyword,        TokenKind::CaseKeyword,
+    TokenKind::GenVarKeyword,     TokenKind::ConstraintKeyword, TokenKind::RandKeyword,
+    TokenKind::PrimitiveKeyword,  TokenKind::WireKeyword,       TokenKind::InterconnectKeyword,
+    TokenKind::VarKeyword,        TokenKind::AutomaticKeyword,  TokenKind::CHandleKeyword,
+    TokenKind::EventKeyword,      TokenKind::StructKeyword,     TokenKind::UnionKeyword,
+    TokenKind::EnumKeyword,       TokenKind::TypedefKeyword,    TokenKind::NetTypeKeyword,
+    TokenKind::LocalParamKeyword, TokenKind::ParameterKeyword,  TokenKind::LetKeyword,
+    TokenKind::VirtualKeyword,    TokenKind::StringKeyword,     TokenKind::ConstKeyword,
+    TokenKind::BitKeyword,        TokenKind::LogicKeyword,      TokenKind::RegKeyword,
+    TokenKind::ByteKeyword,       TokenKind::ShortIntKeyword,   TokenKind::IntKeyword,
+    TokenKind::LongIntKeyword,    TokenKind::IntegerKeyword,    TokenKind::TimeKeyword,
+    TokenKind::ShortRealKeyword,  TokenKind::RealKeyword,
+};
 
+MemberSyntax* Parser::parseMember(SyntaxKind parentKind, bool& anyLocalModules) {
+    return parseMemberImpl(parseAttributes(), parentKind, anyLocalModules);
+}
+
+MemberSyntax* Parser::parseMemberImpl(AttrList attributes, SyntaxKind parentKind,
+                                      bool& anyLocalModules) {
     if (isHierarchyInstantiation(/* requireName */ false))
         return &parseHierarchyInstantiation(attributes);
     if (isPortDeclaration(/* inStatement */ false))
@@ -196,7 +231,7 @@ MemberSyntax* Parser::parseMember(SyntaxKind parentKind, bool& anyLocalModules) 
         case TokenKind::SpecifyKeyword:
             errorIfAttributes(attributes);
             return &parseSpecifyBlock(attributes);
-        case TokenKind::Identifier:
+        case TokenKind::Identifier: {
             if (peek(1).kind == TokenKind::Colon) {
                 // Declarations and instantiations have already been handled, so if we reach this
                 // point we either have a labeled assertion, or this is some kind of error.
@@ -231,8 +266,34 @@ MemberSyntax* Parser::parseMember(SyntaxKind parentKind, bool& anyLocalModules) 
                 return &parseCheckerInstantiation(attributes);
             }
 
+            // Check whether this identifier looks like a typo for a member-starting keyword.
+            // If so issue a diagnostic and then replace the current token with one using the
+            // corrected keyword type.
+            TokenKind bestKw = TokenKind::Unknown;
+            int bestDist = INT_MAX;
+            const auto identText = token.valueText();
+            for (auto kw : MemberTypoKeywords) {
+                int dist = editDistance(identText, LexerFacts::getTokenKindText(kw), bestDist);
+                if (dist < bestDist) {
+                    bestKw = kw;
+                    bestDist = dist;
+                }
+            }
+
+            if (bestDist > 0 && identText.length() / size_t(bestDist) >= 3) {
+                addDiag(diag::TypoKeyword, token.range())
+                    << identText << LexerFacts::getTokenKindText(bestKw);
+                skipToken({});
+
+                auto newTok = Token::createMissing(alloc, bestKw, token.location());
+                replaceCurrentToken(newTok);
+
+                return parseMemberImpl(attributes, parentKind, anyLocalModules);
+            }
+
             // Otherwise, assume it's an (erroneous) attempt at a variable declaration.
             return &parseVariableDeclaration(attributes);
+        }
         case TokenKind::UnitSystemName: {
             // The only valid thing this can be is a checker instantiation, since
             // variable declarations would have been handled previously. Because these
@@ -396,7 +457,7 @@ MemberSyntax* Parser::parseMember(SyntaxKind parentKind, bool& anyLocalModules) 
                     addDiag(diag::ConstraintQualOutOfBlock, qual.range()) << qual.valueText();
             }
 
-            return &parseConstraint(attributes, quals.copy(alloc), true);
+            return &parseConstraint(attributes, {alloc, quals}, true);
         }
     }
 
@@ -420,14 +481,14 @@ MemberSyntax* Parser::parseSingleMember(SyntaxKind parentKind) {
 
     if (result) {
         checkMemberAllowed(*result, parentKind);
-        result->previewNode = std::exchange(previewNode, nullptr);
+        result->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
     }
 
     return result;
 }
 
 template<typename TMember, typename TParseFunc>
-std::span<TMember*> Parser::parseMemberList(TokenKind endKind, Token& endToken,
+SyntaxList<TMember> Parser::parseMemberList(TokenKind endKind, Token& endToken,
                                             SyntaxKind parentKind, TParseFunc&& parseFunc) {
     SmallVector<TMember*, 8> members;
     bool errored = false;
@@ -444,7 +505,7 @@ std::span<TMember*> Parser::parseMemberList(TokenKind endKind, Token& endToken,
             members.push_back(member);
             errored = false;
 
-            member->previewNode = std::exchange(previewNode, nullptr);
+            member->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
         }
         else {
             if (isCloseDelimOrKeyword(kind)) {
@@ -468,7 +529,7 @@ std::span<TMember*> Parser::parseMemberList(TokenKind endKind, Token& endToken,
         moduleDeclStack.pop_back();
 
     endToken = expect(endKind);
-    return members.copy(alloc);
+    return SyntaxList<TMember>(alloc, members);
 }
 
 TimeUnitsDeclarationSyntax& Parser::parseTimeUnitsDeclaration(AttrList attributes) {
@@ -493,7 +554,7 @@ MemberSyntax& Parser::parseModportSubroutinePortList(AttrList attributes) {
         if (peek(TokenKind::FunctionKeyword) || peek(TokenKind::TaskKeyword)) {
             auto& proto = parseFunctionPrototype(SyntaxKind::Unknown, FunctionOptions::IsPrototype);
             auto& msp = factory.modportSubroutinePort(proto);
-            msp.previewNode = std::exchange(previewNode, nullptr);
+            msp.setPreviewNode(alloc, std::exchange(previewNode, nullptr));
             buffer.push_back(&msp);
         }
         else {
@@ -512,7 +573,7 @@ MemberSyntax& Parser::parseModportSubroutinePortList(AttrList attributes) {
         buffer.push_back(consume());
     }
 
-    return factory.modportSubroutinePortList(attributes, importExport, buffer.copy(alloc));
+    return factory.modportSubroutinePortList(attributes, importExport, {alloc, buffer});
 }
 
 MemberSyntax& Parser::parseModportPort() {
@@ -568,14 +629,14 @@ MemberSyntax& Parser::parseModportPort() {
         buffer.push_back(consume());
     }
 
-    return factory.modportSimplePortList(attributes, direction, buffer.copy(alloc));
+    return factory.modportSimplePortList(attributes, direction, {alloc, buffer});
 }
 
 ModportItemSyntax& Parser::parseModportItem() {
     auto name = expect(TokenKind::Identifier);
 
     Token openParen, closeParen;
-    std::span<TokenOrSyntax> items;
+    SeparatedSyntaxList<MemberSyntax> items;
     parseList<isPossibleModportPort, isEndOfParenList>(
         TokenKind::OpenParenthesis, TokenKind::CloseParenthesis, TokenKind::Comma, openParen, items,
         closeParen, RequireItems::True, diag::ExpectedModportPort,
@@ -594,7 +655,7 @@ ModportDeclarationSyntax& Parser::parseModportDeclaration(AttrList attributes) {
                                                 semi, RequireItems::True, diag::ExpectedIdentifier,
                                                 [this] { return &parseModportItem(); });
 
-    return factory.modportDeclaration(attributes, keyword, buffer.copy(alloc), semi);
+    return factory.modportDeclaration(attributes, keyword, {alloc, buffer}, semi);
 }
 
 FunctionPortBaseSyntax& Parser::parseFunctionPort(bitmask<FunctionOptions> options) {
@@ -652,7 +713,7 @@ FunctionPortBaseSyntax& Parser::parseFunctionPort(bitmask<FunctionOptions> optio
 
     auto& result = factory.functionPort(attributes, constKeyword, direction, staticKeyword,
                                         varKeyword, dataType, *decl);
-    result.previewNode = std::exchange(previewNode, nullptr);
+    result.setPreviewNode(alloc, std::exchange(previewNode, nullptr));
     return result;
 }
 
@@ -680,7 +741,12 @@ FunctionPortListSyntax* Parser::parseFunctionPortList(bitmask<FunctionOptions> o
         buffer, TokenKind::CloseParenthesis, TokenKind::Comma, closeParen, RequireItems::False,
         diag::ExpectedFunctionPort, [this, options] { return &parseFunctionPort(options); });
 
-    return &factory.functionPortList(openParen, buffer.copy(alloc), closeParen);
+    return &factory.functionPortList(openParen, {alloc, buffer}, closeParen);
+}
+
+FunctionPrototypeSyntax& Parser::parseFunctionPrototype() {
+    return parseFunctionPrototype(SyntaxKind::Unknown, FunctionOptions::AllowImplicitReturn |
+                                                           FunctionOptions::IsPrototype);
 }
 
 FunctionPrototypeSyntax& Parser::parseFunctionPrototype(SyntaxKind parentKind,
@@ -796,7 +862,7 @@ FunctionDeclarationSyntax& Parser::parseFunctionDeclaration(AttrList attributes,
 GenvarDeclarationSyntax& Parser::parseGenvarDeclaration(AttrList attributes) {
     Token keyword;
     Token semi;
-    std::span<TokenOrSyntax> identifiers;
+    SeparatedSyntaxList<IdentifierNameSyntax> identifiers;
 
     parseList<isIdentifierOrComma, isSemicolon>(
         TokenKind::GenVarKeyword, TokenKind::Semicolon, TokenKind::Comma, keyword, identifiers,
@@ -920,7 +986,7 @@ CaseGenerateSyntax& Parser::parseCaseGenerateConstruct(AttrList attributes) {
                 buffer, TokenKind::Colon, TokenKind::Comma, colon, RequireItems::True,
                 diag::ExpectedExpression, [this] { return &parseExpression(); });
             itemBuffer.push_back(
-                &factory.standardCaseItem(buffer.copy(alloc), colon, parseGenerateBlock()));
+                &factory.standardCaseItem({alloc, buffer}, colon, parseGenerateBlock()));
         }
         else {
             break;
@@ -932,7 +998,7 @@ CaseGenerateSyntax& Parser::parseCaseGenerateConstruct(AttrList attributes) {
 
     auto endcase = expect(TokenKind::EndCaseKeyword);
     return factory.caseGenerate(attributes, keyword, openParen, condition, closeParen,
-                                itemBuffer.copy(alloc), endcase);
+                                {alloc, itemBuffer}, endcase);
 }
 
 MemberSyntax& Parser::parseGenerateBlock() {
@@ -987,7 +1053,7 @@ ImplementsClauseSyntax* Parser::parseImplementsClause(TokenKind keywordKind, Tok
                                                         diag::ExpectedInterfaceClassName,
                                                         [this] { return &parseName(); });
 
-    return &factory.implementsClause(implements, buffer.copy(alloc));
+    return &factory.implementsClause(implements, {alloc, buffer});
 }
 
 ClassSpecifierSyntax* Parser::parseClassSpecifier() {
@@ -1020,14 +1086,14 @@ ClassSpecifierSyntax* Parser::parseClassSpecifier() {
     return nullptr;
 }
 
-std::span<syntax::ClassSpecifierSyntax*> Parser::parseClassSpecifierList(bool allowSpecifiers) {
+SyntaxList<syntax::ClassSpecifierSyntax> Parser::parseClassSpecifierList(bool allowSpecifiers) {
     bool erroredOnFinal = false;
     SmallVector<ClassSpecifierSyntax*> specifiers;
     while (peek(TokenKind::Colon)) {
         auto specifier = parseClassSpecifier();
         SLANG_ASSERT(specifier);
 
-        if (!specifier->keyword.isMissing()) {
+        if (specifier->keyword && !specifier->keyword.isMissing()) {
             if (specifiers.empty() && !allowSpecifiers)
                 addDiag(diag::SpecifiersNotAllowed, specifier->sourceRange());
 
@@ -1047,7 +1113,7 @@ std::span<syntax::ClassSpecifierSyntax*> Parser::parseClassSpecifierList(bool al
                     break;
                 }
 
-                if (!ok.isMissing() && ok.kind != TokenKind::FinalKeyword &&
+                if (ok && !ok.isMissing() && ok.kind != TokenKind::FinalKeyword &&
                     sk.kind != TokenKind::FinalKeyword) {
                     addDiag(diag::ClassSpecifierConflict, sk.range())
                         << sk.valueText() << ok.range() << ok.valueText();
@@ -1059,7 +1125,7 @@ std::span<syntax::ClassSpecifierSyntax*> Parser::parseClassSpecifierList(bool al
         specifiers.push_back(specifier);
     }
 
-    return specifiers.copy(alloc);
+    return SyntaxList<ClassSpecifierSyntax>(alloc, specifiers);
 }
 
 ClassDeclarationSyntax& Parser::parseClassDeclaration(AttrList attributes,
@@ -1127,12 +1193,16 @@ ClassDeclarationSyntax& Parser::parseClassDeclaration(AttrList attributes,
         implementsClause = parseImplementsClause(TokenKind::ImplementsKeyword, semi);
     }
 
+    getPP().setExpectedEndKind(TokenKind::EndClassKeyword);
+
     Token endClass;
     auto members = parseMemberList<MemberSyntax>(
         TokenKind::EndClassKeyword, endClass, SyntaxKind::ClassDeclaration,
         [this, isIfaceClass, extendsClause](SyntaxKind, bool&) {
             return parseClassMember(isIfaceClass, extendsClause != nullptr);
         });
+
+    getPP().setExpectedEndKind(TokenKind::Unknown);
 
     auto endBlockName = parseNamedBlockClause();
     checkBlockNames(name, endBlockName);
@@ -1272,7 +1342,7 @@ MemberSyntax* Parser::parseClassMember(bool isIfaceClass, bool hasBaseClass) {
             isPureOrExtern = true;
     }
 
-    auto qualifiers = qualifierBuffer.copy(alloc);
+    auto qualifiers = TokenList(alloc, qualifierBuffer);
     checkClassQualifiers(qualifiers, peek(TokenKind::ConstraintKeyword));
 
     if (isVariableDeclaration()) {
@@ -1312,10 +1382,14 @@ MemberSyntax* Parser::parseClassMember(bool isIfaceClass, bool hasBaseClass) {
 
             errorIfIface(decl);
         }
-        else if (decl.kind == SyntaxKind::PackageImportDeclaration ||
-                 decl.kind == SyntaxKind::NetTypeDeclaration ||
+        else if (decl.kind == SyntaxKind::PackageImportDeclaration) {
+            // Package imports are not allowed in classes per the LRM but are supported
+            // by some tools; emit a separate downgradable diagnostic.
+            addDiag(diag::PackageImportInClass, decl.sourceRange());
+        }
+        else if (decl.kind == SyntaxKind::NetTypeDeclaration ||
                  decl.kind == SyntaxKind::LetDeclaration) {
-            // Nettypes and package imports are disallowed in classes.
+            // Nettypes and let declarations are disallowed in classes.
             addDiag(diag::NotAllowedInClass, decl.sourceRange());
         }
         else {
@@ -1414,8 +1488,11 @@ MemberSyntax* Parser::parseClassMember(bool isIfaceClass, bool hasBaseClass) {
 
         // Pure or extern functions don't have bodies.
         if (isPureOrExtern) {
+            // Note: the grammar in the LRM does not allow an implicit return type
+            // here but all other tools do so we do as well for compatibility.
             auto& proto = parseFunctionPrototype(SyntaxKind::ClassDeclaration,
-                                                 funcOptions | FunctionOptions::IsPrototype);
+                                                 funcOptions | FunctionOptions::IsPrototype |
+                                                     FunctionOptions::AllowImplicitReturn);
             checkProto(proto, false);
 
             // Final specifier is illegal on pure virtual methods.
@@ -1517,7 +1594,7 @@ ContinuousAssignSyntax& Parser::parseContinuousAssign(AttrList attributes) {
             return &expr;
         });
 
-    return factory.continuousAssign(attributes, assign, strength, delay, buffer.copy(alloc), semi);
+    return factory.continuousAssign(attributes, assign, strength, delay, {alloc, buffer}, semi);
 }
 
 DefParamAssignmentSyntax& Parser::parseDefParamAssignment() {
@@ -1537,7 +1614,7 @@ DefParamSyntax& Parser::parseDefParam(AttrList attributes) {
         diag::ExpectedVariableAssignment, [this] { return &parseDefParamAssignment(); });
 
     meta.hasDefparams = true;
-    return factory.defParam(attributes, defparam, buffer.copy(alloc), semi);
+    return factory.defParam(attributes, defparam, {alloc, buffer}, semi);
 }
 
 static bool isValidOption(const ExpressionSyntax& expr) {
@@ -1789,13 +1866,13 @@ TransRangeSyntax& Parser::parseTransRange() {
                                            expect(TokenKind::CloseBracket));
     }
 
-    return factory.transRange(buffer.copy(alloc), repeat);
+    return factory.transRange({alloc, buffer}, repeat);
 }
 
 TransSetSyntax& Parser::parseTransSet() {
     Token openParen;
     Token closeParen;
-    std::span<TokenOrSyntax> list;
+    SeparatedSyntaxList<TransRangeSyntax> list;
 
     parseList<isPossibleTransSet, isEndOfTransSet>(
         TokenKind::OpenParenthesis, TokenKind::CloseParenthesis, TokenKind::EqualsArrow, openParen,
@@ -1815,7 +1892,7 @@ TransListCoverageBinInitializerSyntax& Parser::parseTransListInitializer() {
         buffer.push_back(consume());
     }
 
-    return factory.transListCoverageBinInitializer(buffer.copy(alloc));
+    return factory.transListCoverageBinInitializer({alloc, buffer});
 }
 
 BlockEventExpressionSyntax& Parser::parseBlockEventExpression() {
@@ -1841,13 +1918,28 @@ BlockEventExpressionSyntax& Parser::parseBlockEventExpression() {
     return left;
 }
 
+static bool nameHasSelects(const NameSyntax& name) {
+    if (name.kind == SyntaxKind::IdentifierSelectName)
+        return true;
+    if (name.kind == SyntaxKind::ScopedName) {
+        auto& scoped = name.as<ScopedNameSyntax>();
+        return nameHasSelects(*scoped.left) || nameHasSelects(*scoped.right);
+    }
+    return false;
+}
+
 CoverCrossSyntax* Parser::parseCoverCross(AttrList attributes, NamedLabelSyntax* label) {
     auto keyword = expect(TokenKind::CrossKeyword);
 
     SmallVector<TokenOrSyntax, 8> buffer;
     while (true) {
-        auto name = expect(TokenKind::Identifier);
-        buffer.push_back(&factory.identifierName(name));
+        auto& name = parseName();
+        if (nameHasSelects(name))
+            addDiag(diag::CoverCrossSelectNotAllowed, name.sourceRange());
+        else if (name.kind != SyntaxKind::IdentifierName)
+            addDiag(diag::NonstandardHierarchicalCross, name.sourceRange());
+
+        buffer.push_back(&name);
         if (!peek(TokenKind::Comma))
             break;
 
@@ -1867,13 +1959,13 @@ CoverCrossSyntax* Parser::parseCoverCross(AttrList attributes, NamedLabelSyntax*
             TokenKind::CloseBrace, closeBrace, SyntaxKind::CoverCross,
             [this](SyntaxKind, bool&) { return parseCoverCrossMember(); });
 
-        return &factory.coverCross(attributes, label, keyword, buffer.copy(alloc), iff, openBrace,
+        return &factory.coverCross(attributes, label, keyword, {alloc, buffer}, iff, openBrace,
                                    members, closeBrace, Token());
     }
 
     // no brace, so this is an empty list, expect a semicolon
-    return &factory.coverCross(attributes, label, keyword, buffer.copy(alloc), iff, Token(),
-                               nullptr, Token(), expect(TokenKind::Semicolon));
+    return &factory.coverCross(attributes, label, keyword, {alloc, buffer}, iff, Token(), nullptr,
+                               Token(), expect(TokenKind::Semicolon));
 }
 
 BinsSelectExpressionSyntax& Parser::parseBinsSelectPrimary() {
@@ -2073,7 +2165,7 @@ static bool checkConstraintName(const NameSyntax& name) {
     return name.kind == SyntaxKind::IdentifierName;
 }
 
-MemberSyntax& Parser::parseConstraint(AttrList attributes, std::span<Token> qualifiers,
+MemberSyntax& Parser::parseConstraint(AttrList attributes, const TokenList& qualifiers,
                                       bool hasBaseClass) {
     bool isStatic = false;
     bool isPure = false;
@@ -2170,8 +2262,8 @@ ConstraintItemSyntax* Parser::parseConstraintItem(bool allowBlock, bool isTopLev
                 afterBuffer, TokenKind::Semicolon, TokenKind::Comma, semi, RequireItems::True,
                 diag::ExpectedExpression, [this] { return &parseExpression(); });
 
-            return &factory.solveBeforeConstraint(solve, beforeBuffer.copy(alloc), before,
-                                                  afterBuffer.copy(alloc), semi);
+            return &factory.solveBeforeConstraint(solve, {alloc, beforeBuffer}, before,
+                                                  {alloc, afterBuffer}, semi);
         }
         case TokenKind::DisableKeyword: {
             auto disable = consume();
@@ -2214,13 +2306,13 @@ ConstraintItemSyntax* Parser::parseConstraintItem(bool allowBlock, bool isTopLev
             // Ambiguity here: an open brace could either be the start of a constraint block
             // or the start of a concatenation expression. Descend into the expression until
             // we can find out for sure one way or the other.
-            if (allowBlock) {
-                uint32_t index = 1;
-                if (peek(1).kind == TokenKind::CloseBrace ||
-                    !scanTypePart<isNotInConcatenationExpr>(index, TokenKind::OpenBrace,
-                                                            TokenKind::CloseBrace)) {
-                    return &parseConstraintBlock(false);
-                }
+            uint32_t index = 1;
+            if (peek(1).kind == TokenKind::CloseBrace ||
+                !scanTypePart<isNotInConcatenationExpr>(index, TokenKind::OpenBrace,
+                                                        TokenKind::CloseBrace)) {
+                if (!allowBlock)
+                    addDiag(diag::NonstandardConstraintBlock, peek().location());
+                return &parseConstraintBlock(false);
             }
             break;
         }
@@ -2257,7 +2349,7 @@ DistConstraintListSyntax& Parser::parseDistConstraintList() {
 
     Token openBrace;
     Token closeBrace;
-    std::span<TokenOrSyntax> list;
+    SeparatedSyntaxList<DistItemBaseSyntax> list;
     parseList<isPossibleValueRangeElement, isEndOfBracedList>(
         TokenKind::OpenBrace, TokenKind::CloseBrace, TokenKind::Comma, openBrace, list, closeBrace,
         RequireItems::True, diag::ExpectedDistItem, [this] { return &parseDistItem(); });
@@ -2307,11 +2399,11 @@ DistItemBaseSyntax& Parser::parseDistItem() {
     return factory.defaultDistItem(defaultKeyword, weight);
 }
 
-std::span<PackageImportDeclarationSyntax*> Parser::parsePackageImports() {
+SyntaxList<PackageImportDeclarationSyntax> Parser::parsePackageImports() {
     SmallVector<PackageImportDeclarationSyntax*> buffer;
     while (peek(TokenKind::ImportKeyword))
         buffer.push_back(&parseImportDeclaration({}));
-    return buffer.copy(alloc);
+    return SyntaxList<PackageImportDeclarationSyntax>(alloc, buffer);
 }
 
 PackageImportDeclarationSyntax& Parser::parseImportDeclaration(AttrList attributes) {
@@ -2323,7 +2415,7 @@ PackageImportDeclarationSyntax& Parser::parseImportDeclaration(AttrList attribut
                                                 RequireItems::True, diag::ExpectedPackageImport,
                                                 [this] { return &parsePackageImportItem(); });
 
-    auto& result = factory.packageImportDeclaration(attributes, keyword, items.copy(alloc), semi);
+    auto& result = factory.packageImportDeclaration(attributes, keyword, {alloc, items}, semi);
     meta.packageImports.push_back(&result);
     return result;
 }
@@ -2359,7 +2451,7 @@ MemberSyntax& Parser::parseExportDeclaration(AttrList attributes) {
                                                 RequireItems::True, diag::ExpectedPackageImport,
                                                 [this] { return &parsePackageImportItem(); });
 
-    return factory.packageExportDeclaration(attributes, keyword, items.copy(alloc), semi);
+    return factory.packageExportDeclaration(attributes, keyword, {alloc, items}, semi);
 }
 
 Token Parser::parseDPISpecString() {
@@ -2492,7 +2584,7 @@ AssertionItemPortSyntax& Parser::parseAssertionItemPort(SyntaxKind parentKind) {
 
     auto& result = factory.assertionItemPort(attributes, local, direction, *type, name, dimensions,
                                              defaultValue);
-    result.previewNode = std::exchange(previewNode, nullptr);
+    result.setPreviewNode(alloc, std::exchange(previewNode, nullptr));
     return result;
 }
 
@@ -2509,7 +2601,7 @@ AssertionItemPortListSyntax* Parser::parseAssertionItemPortList(SyntaxKind paren
         diag::ExpectedAssertionItemPort,
         [this, parentKind] { return &parseAssertionItemPort(parentKind); });
 
-    return &factory.assertionItemPortList(openParen, buffer.copy(alloc), closeParen);
+    return &factory.assertionItemPortList(openParen, {alloc, buffer}, closeParen);
 }
 
 PropertyDeclarationSyntax& Parser::parsePropertyDeclaration(AttrList attributes) {
@@ -2530,7 +2622,7 @@ PropertyDeclarationSyntax& Parser::parsePropertyDeclaration(AttrList attributes)
     checkBlockNames(name, blockName);
 
     return factory.propertyDeclaration(attributes, keyword, name, portList, semi,
-                                       declarations.copy(alloc), spec, optSemi, end, blockName);
+                                       {alloc, declarations}, spec, optSemi, end, blockName);
 }
 
 SequenceDeclarationSyntax& Parser::parseSequenceDeclaration(AttrList attributes) {
@@ -2551,7 +2643,7 @@ SequenceDeclarationSyntax& Parser::parseSequenceDeclaration(AttrList attributes)
     checkBlockNames(name, blockName);
 
     return factory.sequenceDeclaration(attributes, keyword, name, portList, semi,
-                                       declarations.copy(alloc), expr, semi2, end, blockName);
+                                       {alloc, declarations}, expr, semi2, end, blockName);
 }
 
 CheckerDeclarationSyntax& Parser::parseCheckerDeclaration(AttrList attributes) {
@@ -2654,7 +2746,7 @@ MemberSyntax* Parser::parseClockingItem() {
                                                 RequireItems::True, diag::ExpectedIdentifier,
                                                 [this] { return &parseAttributeSpec(); });
 
-    return &factory.clockingItem(nullptr, direction, decls.copy(alloc), semi);
+    return &factory.clockingItem(nullptr, direction, {alloc, decls}, semi);
 }
 
 MemberSyntax& Parser::parseClockingDeclaration(AttrList attributes) {
@@ -2744,8 +2836,7 @@ HierarchyInstantiationSyntax& Parser::parseHierarchyInstantiation(AttrList attri
                                                diag::ExpectedHierarchicalInstantiation,
                                                [this] { return &parseHierarchicalInstance(); });
 
-    auto& ret = factory.hierarchyInstantiation(attributes, type, parameters, items.copy(alloc),
-                                               semi);
+    auto& ret = factory.hierarchyInstantiation(attributes, type, parameters, {alloc, items}, semi);
 
     if (addToInstances)
         meta.globalInstances.push_back(&ret);
@@ -2836,8 +2927,7 @@ PrimitiveInstantiationSyntax& Parser::parsePrimitiveInstantiation(AttrList attri
                                                diag::ExpectedHierarchicalInstantiation,
                                                [this] { return &parseHierarchicalInstance(); });
 
-    return factory.primitiveInstantiation(attributes, type, strength, delay, items.copy(alloc),
-                                          semi);
+    return factory.primitiveInstantiation(attributes, type, strength, delay, {alloc, items}, semi);
 }
 
 CheckerInstantiationSyntax& Parser::parseCheckerInstantiation(AttrList attributes) {
@@ -2851,7 +2941,7 @@ CheckerInstantiationSyntax& Parser::parseCheckerInstantiation(AttrList attribute
                                                diag::ExpectedHierarchicalInstantiation,
                                                [this] { return &parseHierarchicalInstance(); });
 
-    return factory.checkerInstantiation(attributes, type, parameters, items.copy(alloc), semi);
+    return factory.checkerInstantiation(attributes, type, parameters, {alloc, items}, semi);
 }
 
 HierarchicalInstanceSyntax& Parser::parseHierarchicalInstance() {
@@ -2864,7 +2954,7 @@ HierarchicalInstanceSyntax& Parser::parseHierarchicalInstance() {
 
     Token openParen;
     Token closeParen;
-    std::span<TokenOrSyntax> items;
+    SeparatedSyntaxList<PortConnectionSyntax> items;
     parseList<isPossiblePortConnection, isEndOfParenList>(
         TokenKind::OpenParenthesis, TokenKind::CloseParenthesis, TokenKind::Comma, openParen, items,
         closeParen, RequireItems::False, diag::ExpectedPortConnection,
@@ -2893,7 +2983,7 @@ BindDirectiveSyntax& Parser::parseBindDirective(AttrList attr) {
             names.push_back(consume());
         }
 
-        targetInstances = &factory.bindTargetList(colon, names.copy(alloc));
+        targetInstances = &factory.bindTargetList(colon, {alloc, names});
     }
 
     meta.hasBindDirectives = true;
@@ -2942,7 +3032,7 @@ UdpPortDeclSyntax& Parser::parseUdpPortDecl(bool& isReg) {
         ports.push_back(consume());
     }
 
-    return factory.udpInputPortDecl(attrs, input, ports.copy(alloc));
+    return factory.udpInputPortDecl(attrs, input, {alloc, ports});
 }
 
 UdpPortListSyntax& Parser::parseUdpPortList(bool& isSequential) {
@@ -2963,7 +3053,7 @@ UdpPortListSyntax& Parser::parseUdpPortList(bool& isSequential) {
             diag::ExpectedUdpPort,
             [this, &isSequential] { return &parseUdpPortDecl(isSequential); });
 
-        return factory.ansiUdpPortList(openParen, ports.copy(alloc), closeParen,
+        return factory.ansiUdpPortList(openParen, {alloc, ports}, closeParen,
                                        expect(TokenKind::Semicolon));
     }
     else {
@@ -2974,7 +3064,7 @@ UdpPortListSyntax& Parser::parseUdpPortList(bool& isSequential) {
             diag::ExpectedUdpPort,
             [this] { return &factory.identifierName(expect(TokenKind::Identifier)); });
 
-        return factory.nonAnsiUdpPortList(openParen, ports.copy(alloc), closeParen,
+        return factory.nonAnsiUdpPortList(openParen, {alloc, ports}, closeParen,
                                           expect(TokenKind::Semicolon));
     }
 }
@@ -3183,7 +3273,7 @@ UdpEntrySyntax& Parser::parseUdpEntry(bool isSequential) {
     else if (!currentState && isSequential && !semi.isMissing())
         addDiag(diag::UdpSequentialState, semi.location());
 
-    return factory.udpEntry(inputs.copy(alloc), colon1, currentState, colon2, nextState, semi);
+    return factory.udpEntry({alloc, inputs}, colon1, currentState, colon2, nextState, semi);
 }
 
 UdpBodySyntax& Parser::parseUdpBody(bool isSequential) {
@@ -3225,7 +3315,7 @@ UdpBodySyntax& Parser::parseUdpBody(bool isSequential) {
     }
 
     auto endtable = expect(TokenKind::EndTableKeyword);
-    return factory.udpBody(portDecls.copy(alloc), initial, table, entries.copy(alloc), endtable);
+    return factory.udpBody({alloc, portDecls}, initial, table, {alloc, entries}, endtable);
 }
 
 UdpDeclarationSyntax& Parser::parseUdpDeclaration(AttrList attr) {
@@ -3285,7 +3375,7 @@ SpecparamDeclarationSyntax& Parser::parseSpecparam(AttrList attr, SyntaxKind par
     if (dim)
         dims.push_back(dim);
 
-    auto& type = factory.implicitType(Token(), dims.copy(alloc), placeholderToken());
+    auto& type = factory.implicitType(Token(), {alloc, dims}, placeholderToken());
 
     Token semi;
     SmallVector<TokenOrSyntax, 4> buffer;
@@ -3295,10 +3385,10 @@ SpecparamDeclarationSyntax& Parser::parseSpecparam(AttrList attr, SyntaxKind par
                                                        return &parseSpecparamDeclarator(parentKind);
                                                    });
 
-    return factory.specparamDeclaration(attr, keyword, type, buffer.copy(alloc), semi);
+    return factory.specparamDeclaration(attr, keyword, type, {alloc, buffer}, semi);
 }
 
-std::span<TokenOrSyntax> Parser::parsePathTerminals() {
+SeparatedSyntaxList<NameSyntax> Parser::parsePathTerminals() {
     SmallVector<TokenOrSyntax, 4> results;
     while (true) {
         results.push_back(&parseName(NameOptions::NoClassScope));
@@ -3308,7 +3398,7 @@ std::span<TokenOrSyntax> Parser::parsePathTerminals() {
         results.push_back(consume());
     }
 
-    return results.copy(alloc);
+    return SeparatedSyntaxList<NameSyntax>(alloc, results);
 }
 
 PathDeclarationSyntax& Parser::parsePathDeclaration() {
@@ -3322,10 +3412,10 @@ PathDeclarationSyntax& Parser::parsePathDeclaration() {
         }
     };
 
-    auto checkTerminals = [&](std::span<TokenOrSyntax> terminals, bool isFull) {
-        if (!isFull && terminals.size() > 2) {
-            Token first = terminals[2].node()->getFirstToken();
-            Token last = terminals.back().node()->getLastToken();
+    auto checkTerminals = [&](const SeparatedSyntaxList<NameSyntax>& terminals, bool isFull) {
+        if (!isFull && terminals.size() > 1) {
+            Token first = terminals[1]->getFirstToken();
+            Token last = terminals[terminals.size() - 1]->getLastToken();
             addDiag(diag::MultipleParallelTerminals,
                     SourceRange{first.location(), last.location() + last.rawText().length()});
         }
@@ -3406,7 +3496,7 @@ PathDeclarationSyntax& Parser::parsePathDeclaration() {
 
     Token semi;
     Token valueOpenParen, valueCloseParen;
-    std::span<TokenOrSyntax> delays;
+    SeparatedSyntaxList<ExpressionSyntax> delays;
 
     if (peek(TokenKind::OpenParenthesis)) {
         parseList<isPossibleExpressionOrComma, isEndOfParenList>(
@@ -3420,15 +3510,13 @@ PathDeclarationSyntax& Parser::parsePathDeclaration() {
         parseList<isPossibleExpressionOrComma, isSemicolon>(
             buffer, TokenKind::Semicolon, TokenKind::Comma, semi, RequireItems::True,
             diag::ExpectedExpression, [this] { return &parseMinTypMaxExpression(); });
-        delays = buffer.copy(alloc);
+        delays = SeparatedSyntaxList<ExpressionSyntax>(alloc, buffer);
     }
 
-    if (delays.size() > 0 && delays.size() != 1 && delays.size() != 3 && delays.size() != 5 &&
-        delays.size() != 11 && delays.size() != 23) {
-        auto& lastDelay = delays.back();
-        auto range = lastDelay.isNode() ? lastDelay.node()->sourceRange()
-                                        : lastDelay.token().range();
-        addDiag(diag::WrongSpecifyDelayCount, range);
+    if (!delays.empty() && delays.size() != 1 && delays.size() != 2 && delays.size() != 3 &&
+        delays.size() != 6 && delays.size() != 12) {
+        auto* lastDelay = delays[delays.size() - 1];
+        addDiag(diag::WrongSpecifyDelayCount, lastDelay->sourceRange());
     }
 
     return factory.pathDeclaration(nullptr, desc, equals, valueOpenParen, delays, valueCloseParen,
@@ -3511,7 +3599,7 @@ TimingCheckArgSyntax& Parser::parseTimingCheckArg() {
         EdgeControlSpecifierSyntax* control = nullptr;
         if (peek(TokenKind::OpenBracket)) {
             Token openBracket, closeBracket;
-            std::span<TokenOrSyntax> list;
+            SeparatedSyntaxList<EdgeDescriptorSyntax> list;
             parseList<isPossibleEdgeDescriptor, isEndOfBracketedList>(
                 TokenKind::OpenBracket, TokenKind::CloseBracket, TokenKind::Comma, openBracket,
                 list, closeBracket, RequireItems::True, diag::ExpectedEdgeDescriptor,
@@ -3519,12 +3607,10 @@ TimingCheckArgSyntax& Parser::parseTimingCheckArg() {
 
             control = &factory.edgeControlSpecifier(openBracket, list, closeBracket);
 
-            // List is allowed to have up to 6 specifiers (plus 5 commas)
-            if (list.size() > 11) {
-                auto& lastDesc = list[11];
-                auto range = lastDesc.isNode() ? lastDesc.node()->sourceRange()
-                                               : lastDesc.token().range();
-                addDiag(diag::TooManyEdgeDescriptors, range);
+            // List is allowed to have up to 6 specifiers.
+            if (list.size() > 6) {
+                auto* lastDesc = list[6];
+                addDiag(diag::TooManyEdgeDescriptors, lastDesc->sourceRange());
             }
 
             if (edge.kind != TokenKind::EdgeKeyword) {
@@ -3551,7 +3637,7 @@ SystemTimingCheckSyntax& Parser::parseSystemTimingCheck() {
     auto name = consume();
 
     Token openParen, closeParen;
-    std::span<TokenOrSyntax> list;
+    SeparatedSyntaxList<TimingCheckArgSyntax> list;
     parseList<isPossibleTimingCheckArg, isEndOfParenList>(
         TokenKind::OpenParenthesis, TokenKind::CloseParenthesis, TokenKind::Comma, openParen, list,
         closeParen, RequireItems::True, diag::ExpectedExpression,
@@ -3625,7 +3711,7 @@ NetAliasSyntax& Parser::parseNetAlias(AttrList attributes) {
         diag::ExpectedExpression,
         [this] { return &parsePrimaryExpression(ExpressionOptions::None); });
 
-    return factory.netAlias(attributes, keyword, buffer.copy(alloc), semi);
+    return factory.netAlias(attributes, keyword, {alloc, buffer}, semi);
 }
 
 MemberSyntax* Parser::parseExternMember(SyntaxKind parentKind, AttrList attributes) {
@@ -3696,7 +3782,7 @@ ConfigLiblistSyntax& Parser::parseConfigLiblist() {
             skipToken(diag::NoCommaInList);
     }
 
-    return factory.configLiblist(liblist, tokens.copy(alloc));
+    return factory.configLiblist(liblist, {alloc, tokens});
 }
 
 ConfigUseClauseSyntax& Parser::parseConfigUseClause() {
@@ -3826,7 +3912,7 @@ ConfigDeclarationSyntax& Parser::parseConfigDeclaration(AttrList attributes) {
             else
                 rule = &parseConfigLiblist();
 
-            rules.push_back(&factory.instanceConfigRule(token, topModule, instanceNames.copy(alloc),
+            rules.push_back(&factory.instanceConfigRule(token, topModule, {alloc, instanceNames},
                                                         *rule, expect(TokenKind::Semicolon)));
         }
         else {
@@ -3838,9 +3924,9 @@ ConfigDeclarationSyntax& Parser::parseConfigDeclaration(AttrList attributes) {
     auto blockName = parseNamedBlockClause();
     checkBlockNames(name, blockName);
 
-    return factory.configDeclaration(attributes, config, name, semi1, localparams.copy(alloc),
-                                     design, topCells.copy(alloc), semi2, rules.copy(alloc),
-                                     endconfig, blockName);
+    return factory.configDeclaration(attributes, config, name, semi1, {alloc, localparams}, design,
+                                     {alloc, topCells}, semi2, {alloc, rules}, endconfig,
+                                     blockName);
 }
 
 MemberSyntax* Parser::parseLibraryMember() {
@@ -3852,7 +3938,9 @@ MemberSyntax* Parser::parseLibraryMember() {
             return &factory.emptyMember(nullptr, nullptr, consume());
         case TokenKind::IncludeKeyword: {
             auto keyword = consume();
+            getPP().setFilePathMode(true);
             auto& path = parseFilePathSpec();
+            getPP().setFilePathMode(false);
             auto semi = expect(TokenKind::Semicolon);
             return &factory.libraryIncludeStatement(nullptr, keyword, path, semi);
         }
@@ -3878,9 +3966,10 @@ LibraryDeclarationSyntax& Parser::parseLibraryDecl() {
             buffer.push_back(consume());
         }
 
-        return buffer.copy(alloc);
+        return SeparatedSyntaxList<FilePathSpecSyntax>(alloc, buffer);
     };
 
+    getPP().setFilePathMode(true);
     auto filePaths = parseFilePathList();
 
     LibraryIncDirClauseSyntax* incDir = nullptr;
@@ -3890,6 +3979,7 @@ LibraryDeclarationSyntax& Parser::parseLibraryDecl() {
         auto incPaths = parseFilePathList();
         incDir = &factory.libraryIncDirClause(minus, incDirKeyword, incPaths);
     }
+    getPP().setFilePathMode(false);
 
     return factory.libraryDeclaration(nullptr, keyword, name, filePaths, incDir,
                                       expect(TokenKind::Semicolon));

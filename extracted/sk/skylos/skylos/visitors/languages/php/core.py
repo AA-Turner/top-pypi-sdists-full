@@ -3,12 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from tree_sitter import Language, Parser
+
 try:
     import tree_sitter_php as tsphp
 except ImportError:
     tsphp = None
 
-from skylos.visitor import Definition
+from skylos.visitors.base import Definition
 
 try:
     PHP_LANG: Language | None = (
@@ -62,7 +63,9 @@ def _get_parser(lang: Language) -> Parser:
 
 def _is_test_path(file_path: str | Path) -> bool:
     lower = str(file_path).lower().replace("\\", "/")
-    return "/tests/" in lower or lower.endswith("test.php") or lower.endswith("tests.php")
+    return (
+        "/tests/" in lower or lower.endswith("test.php") or lower.endswith("tests.php")
+    )
 
 
 class PhpCore:
@@ -495,7 +498,9 @@ class PhpCore:
                 break
         source_text = ""
         if expr is not None:
-            source_text = self._extract_literal_path(expr) or self._get_text(expr).strip()
+            source_text = (
+                self._extract_literal_path(expr) or self._get_text(expr).strip()
+            )
         self.raw_imports.append(
             {"source": source_text, "names": [], "line": node.start_point[0] + 1}
         )

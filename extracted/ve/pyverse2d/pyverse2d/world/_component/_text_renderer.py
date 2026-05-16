@@ -1,61 +1,82 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, clamped
-from ...abc import Component
+from ..._internal import expect, over
+from ...abc import RendererComponent
 from ...asset import Text, Color
 from ...math import Vector
+from ...typing import HorizontalAlign
 
-from numbers import Real
+from numbers import Real, Integral
+from typing import ClassVar
 
 # ======================================== COMPONENT ========================================
-class TextRenderer(Component):
+class TextRenderer(RendererComponent):
     """Composant gérant le rendu d'un texte
 
     Ce composant est manipulé par ``RenderSystem``.
 
     Args:
-        text(Text): descripteur de texte
-        offset(Vector, optional): décalage par rapport au Transform
-        color(Color, optional): couleur RGBA
-        opacity(Real, optional): opacité multiplicative [0.0 – 1.0]
-        weight(bool, optional): épaisseur
-        italic(bool, optional): italique
-        multiline(bool, optional): active le retour à la ligne automatique
-        align(str, optional): alignement du texte multiline ("left"|"center"|"right")
-        width(int, optional): largeur max en pixels (requis pour multiline)
-        z(int, optional): ordre de rendu
-        visible(bool, optional): visibilité
+        text: descripteur de texte
+        offset: décalage par rapport au Transform
+        color: couleur RGBA
+        weight: épaisseur
+        italic: italique
+        multiline: active le retour à la ligne automatique
+        align: alignement du texte multiline *("left"|"center"|"right")*
+        width: largeur max *(requis pour multiline)*
+        opacity: facteur d'opacité *[0, 1]*
+        z: ordre de rendu
+        visible: visibilité
     """
-    __slots__ = ("_text", "_offset", "_color", "_opacity", "_bold", "_italic", "_multiline", "_align", "_width", "_z", "_visible")
+    __slots__ = (
+        "_text", "_offset",
+        "_color", "_bold", "_italic",
+        "_multiline", "_align", "_width",
+    )
     
-    requires = ("Transform",)
+    requires: ClassVar[tuple[str]] = ("Transform",)
 
     def __init__(
         self,
-        text: Text = None,
+        text: Text,
         offset: Vector = (0.0, 0.0),
         color: Color = (255, 255, 255, 1.0),
-        opacity: Real = 1.0,
         weight: str = "regular",
         italic: bool = False,
         multiline: bool = False,
-        align: str = "left",
-        width: int = None,
-        z: int = 0,
+        align: HorizontalAlign = "left",
+        width: Integral | None = None,
+        opacity: Real = 1.0,
+        z: Integral = 0,
         visible: bool = True,
     ):
-        self._text: Text = expect(text, Text)
-        self._offset: Vector = Vector(offset)
-        self._color: Color = Color(color)
-        self._opacity: float = float(clamped(expect(opacity, Real)))
-        self._weight: bool = expect(weight, str)
-        self._italic: bool = expect(italic, bool)
-        self._multiline: bool = expect(multiline, bool)
-        self._align: str = expect(align, str)
-        self._width: int | None = expect(width, int) if width is not None else None
-        self._z: int = expect(z, int)
-        self._visible: bool = expect(visible, bool)
+        # Initialisation du composant de rendu
+        super().__int__(opacity, z, visible)
+
+        # Transtypage et vérifications
+        offset = Vector(offset)
+        color = Color(color)
+        weight = str(weight)
+        italic = bool(italic)
+        multiline = bool(multiline)
+        align = str(align)
+        width = int(width) if width is not None else None
+
+        if __debug__:
+            expect(text, Text)
+            expect(align, HorizontalAlign)
+            if width is not None: over(width, 0, include=False)
+
+        # Attributs publiques
+        self._text: Text = text
+        self._offset: Vector = offset
+        self._color: Color = color
+        self._weight: bool = weight
+        self._italic: bool = italic
+        self._multiline: bool = multiline
+        self._align: str = align
+        self._width: int | None = width
 
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
@@ -74,110 +95,84 @@ class TextRenderer(Component):
     # ======================================== GETTERS ========================================
     @property
     def text(self) -> Text:
-        """Renvoie le descripteur de texte"""
+        """Descripteur de texte"""
         return self._text
+    
+    @text.setter
+    def text(self, value: Text) -> None:
+        value = expect(value, Text)
+        self._text = value
 
     @property
     def offset(self) -> Vector:
-        """Renvoie le décalage par rapport au Transform"""
+        """Décalage par rapport au Transform"""
         return self._offset
+    
+    @offset.setter
+    def offset(self, value: Vector) -> None:
+        self._offset.x, self._offset.y = value
 
     @property
     def color(self) -> Color:
-        """Renvoie la couleur de rendu"""
+        """Couleur de rendu"""
         return self._color
-
-    @property
-    def opacity(self) -> float:
-        """Renvoie le facteur d'opacité"""
-        return self._opacity
+    
+    @color.setter
+    def color(self, value: Color) -> None:
+        value = Color(value)
+        self._color = value
 
     @property
     def weight(self) -> str:
-        """Renvoie l'épaisseur du texte"""
+        """Epaisseur du texte"""
         return self._weight
+    
+    @weight.setter
+    def weight(self, value: str) -> None:
+        value = str(value)
+        self._weight = value
 
     @property
     def italic(self) -> bool:
-        """Renvoie l'italique du texte"""
+        """Italique"""
         return self._italic
+    
+    @italic.setter
+    def italic(self, value: bool) -> None:
+        value = bool(value)
+        self._italic = value
 
     @property
     def multiline(self) -> bool:
         """Renvoie l'état du retour à la ligne automatique"""
         return self._multiline
+    
+    @multiline.setter
+    def multiline(self, value: bool) -> None:
+        value = bool(value)
+        self._multiline = value
 
     @property
-    def align(self) -> str:
-        """Renvoie l'alignement du texte multiline"""
+    def align(self) -> HorizontalAlign:
+        """Alignement du texte multiline"""
         return self._align
+    
+    @align.setter
+    def align(self, value: HorizontalAlign) -> None:
+        value = str(value)
+        if __debug__:
+            expect(value, HorizontalAlign)
+        self._align = value
 
     @property
     def width(self) -> int | None:
-        """Renvoie la largeur maximale en pixels"""
+        """Largeur maximale en pixels"""
         return self._width
-
-    @property
-    def z(self) -> int:
-        """Renvoie l'ordre de rendu"""
-        return self._z
-
-    # ======================================== SETTERS ========================================
-    @text.setter
-    def text(self, value: Text) -> None:
-        """Fixe le descripteur de texte"""
-        self._text = expect(value, Text)
-
-    @offset.setter
-    def offset(self, value: Vector) -> None:
-        """Fixe le décalage par rapport au Transform"""
-        self._offset = Vector(value)
-
-    @color.setter
-    def color(self, value: Color) -> None:
-        """Fixe la couleur de rendu"""
-        self._color = Color(value)
-
-    @opacity.setter
-    def opacity(self, value: Real) -> None:
-        """Fixe le facteur d'opacité"""
-        self._opacity = float(clamped(expect(value, Real)))
-
-    @weight.setter
-    def weight(self, value: str) -> None:
-        """Fixe l'épaisseur du texte"""
-        self._weight = expect(value, str)
-
-    @italic.setter
-    def italic(self, value: bool) -> None:
-        """Fixe l'italique du texte"""
-        self._italic = expect(value, bool)
-
-    @align.setter
-    def align(self, value: str) -> None:
-        """Fixe l'alignement du texte multiline"""
-        self._align = expect(value, str)
-
+    
     @width.setter
-    def width(self, value: int | None) -> None:
-        """Fixe la largeur maximale en pixels"""
-        self._width = expect(value, int) if value is not None else None
-
-    @z.setter
-    def z(self, value: int):
-        """Fixe l'ordre de rendu"""
-        self._z = expect(value, int)
-
-    # ======================================== PREDICATES ========================================
-    def is_visible(self) -> bool:
-        """Vérifie la visibilité"""
-        return self._visible
-
-    # ======================================== PUBLIC METHODS ========================================
-    def show(self) -> None:
-        """Montre le texte"""
-        self._visible = True
-
-    def hide(self) -> None:
-        """Cache le texte"""
-        self._visible = False
+    def width(self, value: Integral | None) -> None:
+        if value is not None:
+            value = int(value)
+            if __debug__:
+                over(value, 0, include=False)
+        self._width = value

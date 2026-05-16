@@ -394,10 +394,15 @@ class ChaisemartinDHaultfoeuilleResults:
     path_effects : dict, optional
         Per-path event-study effects keyed by observed treatment
         trajectory (tuple of int). Populated when ``by_path`` is a
-        positive int at estimator construction. Each entry holds
+        positive int OR ``paths_of_interest`` is a list of int tuples
+        at estimator construction. Each entry holds
         ``{"n_groups": int, "frequency_rank": int,
         "horizons": {l: {"effect", "se", "t_stat", "p_value",
-        "conf_int", "n_obs"}}}`` for ``l = 1..L_max``.
+        "conf_int", "n_obs"}}}`` for ``l = 1..L_max``. Under
+        ``paths_of_interest``, dict-insertion order matches the user-
+        specified path order; ``frequency_rank`` is the within-
+        selected-paths rank by descending observed-group count
+        (decoupled from iteration order).
     path_placebo_event_study : dict, optional
         Per-path backward-horizon placebos ``DID^{pl}_{path, l}`` for
         ``l = 1..L_max``, keyed by observed treatment trajectory (tuple
@@ -407,26 +412,42 @@ class ChaisemartinDHaultfoeuilleResults:
         **path_placebo_event_study[p]}`` view is well-formed across
         forward and backward horizons. Each inner entry holds
         ``{"effect", "se", "t_stat", "p_value", "conf_int", "n_obs"}``.
-        Populated when ``by_path`` is a positive int AND
-        ``placebo=True`` AND ``L_max >= 1``. Empty-state contract
-        mirrors ``path_effects``: ``None`` when ``by_path + placebo``
-        was not requested; ``{}`` when requested but no observed path
-        has a complete window ``[F_g-1, F_g-1+L_max]`` within the
+        Populated when (``by_path`` is a positive int OR
+        ``paths_of_interest`` is set) AND ``placebo=True`` AND
+        ``L_max >= 1``. Empty-state contract mirrors ``path_effects``:
+        ``None`` when ``by_path / paths_of_interest + placebo`` was
+        not requested; ``{}`` when requested but no observed path has
+        a complete window ``[F_g-1, F_g-1+L_max]`` within the
         panel (the same regime where ``path_effects`` returns ``{}``,
         with the same ``UserWarning`` at fit-time). Downstream callers
         should distinguish the two states. Inherits the cross-path
         cohort-sharing SE deviation from R documented for
         ``path_effects``. See REGISTRY.md
         ``Note (Phase 3 by_path ...)`` → "Per-path placebos".
+    path_heterogeneity_effects : dict, optional
+        Per-path heterogeneity test results (Web Appendix Section 1.5,
+        Lemma 7) when ``heterogeneity`` is set AND (``by_path=k`` or
+        ``paths_of_interest=[(...), ...]``) is set. Inner dict keyed by
+        horizon directly (no ``"horizons"`` wrapper); each entry holds
+        ``{"beta", "se", "t_stat", "p_value", "conf_int", "n_obs"}``,
+        where ``beta`` is the heterogeneity coefficient on the path-
+        restricted switcher subsample - plain OLS on the non-survey
+        path, WLS-on-pweights under ``survey_design``. Cohort
+        dummies in the design matrix absorb baseline by construction.
+        Empty-state contract mirrors ``path_effects``: ``None`` when not
+        requested; ``{}`` when requested but no path has eligible
+        switchers. Mirrors R ``did_multiplegt_dyn(..., by_path,
+        predict_het)`` per-by_level dispatch. See REGISTRY.md
+        ``Note (Phase 3 by_path ...)`` → "Per-path heterogeneity testing".
     path_cumulated_event_study : dict, optional
         Per-path cumulated level effects ``delta_{path, l} =
         sum_{l'=1..l} DID^{fd}_{path, l'}`` for ``l = 1..L_max``,
         keyed by observed treatment trajectory (tuple of int). Inner
         dict is keyed by horizon directly (no ``"horizons"`` wrapper);
         each entry holds ``{"effect", "se", "t_stat", "p_value",
-        "conf_int", "n_obs"}``. Populated when ``by_path`` is a
-        positive int AND ``trends_linear=True`` AND ``L_max >= 1``;
-        ``None`` otherwise. Mirrors the global ``linear_trends_effects``
+        "conf_int", "n_obs"}``. Populated when (``by_path`` is a
+        positive int OR ``paths_of_interest`` is set) AND
+        ``trends_linear=True`` AND ``L_max >= 1``; ``None`` otherwise. Mirrors the global ``linear_trends_effects``
         cumulation: SE on the cumulated layer is the conservative
         upper bound (sum of per-horizon component SEs from
         ``path_effects[path]["horizons"][l]["se"]``, NaN-consistent).
@@ -443,13 +464,15 @@ class ChaisemartinDHaultfoeuilleResults:
         observed treatment trajectory (tuple of int). Each entry holds
         ``{"crit_value": float, "alpha": float, "n_bootstrap": int,
         "method": str, "n_valid_horizons": int}``. Populated when
-        ``by_path`` is a positive int AND ``n_bootstrap > 0``. The
+        (``by_path`` is a positive int OR ``paths_of_interest`` is
+        set) AND ``n_bootstrap > 0``. The
         band itself is applied per-horizon as ``cband_conf_int`` on
         ``path_effects[path]["horizons"][l]`` and rendered as
         ``cband_lower`` / ``cband_upper`` columns on
         ``to_dataframe(level="by_path")``. Empty-state contract:
-        ``None`` when not requested (no bootstrap or ``by_path is None``);
-        ``{}`` when requested but no path passed both gates (``>=2``
+        ``None`` when not requested (no bootstrap, or both ``by_path``
+        and ``paths_of_interest`` are ``None``); ``{}`` when requested
+        but no path passed both gates (``>=2``
         valid horizons with finite bootstrap SE ``> 0`` AND a strict
         majority — more than 50% — of finite sup-t draws). Bands
         cover joint inference WITHIN a
@@ -572,6 +595,18 @@ class ChaisemartinDHaultfoeuilleResults:
     path_placebo_event_study: Optional[Dict[Tuple[int, ...], Dict[int, Dict[str, Any]]]] = field(
         default=None, repr=False
     )
+    # Per-path heterogeneity test (Web Appendix Section 1.5, Lemma 7)
+    # under `by_path` / `paths_of_interest`. Inner dict keyed by horizon
+    # directly: `{path: {l: {beta, se, t_stat, p_value, conf_int, n_obs}}}`.
+    # Mirrors the simpler `path_placebo_event_study` shape — no metadata
+    # wrapper because frequency_rank / n_groups already live on
+    # `path_effects[path]` for the same path. Empty-state contract
+    # mirrors `path_effects`: None when not requested (no `heterogeneity`
+    # kwarg or no `by_path` / `paths_of_interest` selector); `{}` when
+    # requested but no path is observed.
+    path_heterogeneity_effects: Optional[Dict[Tuple[int, ...], Dict[int, Dict[str, Any]]]] = field(
+        default=None, repr=False
+    )
     # Per-path cumulated event study (level effects under `trends_linear`
     # = True). `path_effects[path]["horizons"][l]` surfaces raw
     # `DID^{fd}_l` per path; this field surfaces the cumulated level
@@ -585,21 +620,22 @@ class ChaisemartinDHaultfoeuilleResults:
     # conservative upper bound (sum of per-horizon component SEs,
     # NaN-consistent), matching the global `linear_trends_effects`
     # convention.
-    path_cumulated_event_study: Optional[
-        Dict[Tuple[int, ...], Dict[int, Dict[str, Any]]]
-    ] = field(default=None, repr=False)
+    path_cumulated_event_study: Optional[Dict[Tuple[int, ...], Dict[int, Dict[str, Any]]]] = field(
+        default=None, repr=False
+    )
     # Per-path joint sup-t simultaneous-band metadata. Keyed by path
     # tuple; each entry holds `{"crit_value", "alpha", "n_bootstrap",
-    # "method", "n_valid_horizons"}`. Populated when `by_path` is a
-    # positive int AND `n_bootstrap > 0`. The joint band itself is
-    # written per-horizon as `cband_conf_int` on
-    # `path_effects[path]["horizons"][l]` (mirrors the OVERALL
-    # `event_study_effects[l]["cband_conf_int"]` pattern at
-    # `chaisemartin_dhaultfoeuille.py:2865-2875`). Empty-state contract:
-    # `None` when not requested (no bootstrap or `by_path is None`); `{}`
-    # when requested but no path passed both gates (>=2 valid horizons
-    # AND a strict majority — more than 50% — of finite sup-t draws).
-    # The bands cover joint inference
+    # "method", "n_valid_horizons"}`. Populated when EITHER `by_path` is
+    # a positive int OR `paths_of_interest` is non-empty AND
+    # `n_bootstrap > 0`. The joint band itself is written per-horizon as
+    # `cband_conf_int` on `path_effects[path]["horizons"][l]` (mirrors
+    # the OVERALL `event_study_effects[l]["cband_conf_int"]` pattern
+    # populated alongside the bootstrap propagation in
+    # `chaisemartin_dhaultfoeuille.py::fit`). Empty-state contract:
+    # `None` when not requested (no bootstrap, or both `by_path` and
+    # `paths_of_interest` are `None`); `{}` when requested but no path
+    # passed both gates (>=2 valid horizons AND a strict majority — more
+    # than 50% — of finite sup-t draws). The bands cover joint inference
     # WITHIN a single path across horizons; they do NOT provide
     # simultaneous coverage across paths.
     path_sup_t_bands: Optional[Dict[Tuple[int, ...], Dict[str, Any]]] = field(
@@ -687,6 +723,27 @@ class ChaisemartinDHaultfoeuilleResults:
             return f"{did_part}{suffix}_{sub_part}" if sub_part else f"{did_part}{suffix}"
         return base
 
+    # --- Inference-field aliases (balance/external-adapter compatibility) ---
+    @property
+    def att(self) -> float:
+        return self.overall_att
+
+    @property
+    def se(self) -> float:
+        return self.overall_se
+
+    @property
+    def conf_int(self) -> Tuple[float, float]:
+        return self.overall_conf_int
+
+    @property
+    def p_value(self) -> float:
+        return self.overall_p_value
+
+    @property
+    def t_stat(self) -> float:
+        return self.overall_t_stat
+
     def __repr__(self) -> str:
         """Concise string representation."""
         sig = _get_significance_stars(self.overall_p_value)
@@ -701,7 +758,7 @@ class ChaisemartinDHaultfoeuilleResults:
 
     @property
     def coef_var(self) -> float:
-        """SE / |DID_M|; NaN when DID_M is 0 or SE non-finite."""
+        """SE / abs(DID_M); NaN when DID_M is 0 or SE non-finite."""
         if not (np.isfinite(self.overall_se) and self.overall_se >= 0):
             return np.nan
         if not np.isfinite(self.overall_att) or self.overall_att == 0:
@@ -836,7 +893,7 @@ class ChaisemartinDHaultfoeuilleResults:
 
         cv = self.coef_var
         if np.isfinite(cv):
-            cv_label = f"CV (SE/|{overall_row_label}|):"
+            cv_label = f"CV (SE/abs({overall_row_label})):"
             lines.append(f"{cv_label:<25} {cv:>10.4f}")
 
         lines.append("")
@@ -1259,13 +1316,26 @@ class ChaisemartinDHaultfoeuilleResults:
         if self.path_effects is None:
             return
         if not self.path_effects:
+            # Distinguish the two empty causes for paths_of_interest
+            # users (every requested path unobserved) from by_path=k
+            # users (no panel path has a complete window).
+            poi = getattr(self._estimator_ref, "paths_of_interest", None)
+            if poi is not None:
+                detail_lines = [
+                    "  Every path in paths_of_interest was unobserved or had a window outside L_max+1.",
+                    "  (See per-path 'zero observed groups' UserWarnings emitted at fit().)",
+                ]
+            else:
+                detail_lines = [
+                    "  No observed paths have a complete [F_g-1, F_g-1+L_max] window.",
+                    "  (See UserWarning emitted at fit(); by_path was a no-op on this panel.)",
+                ]
             lines.extend(
                 [
                     thin,
-                    "Treatment-Path Disaggregation (by_path)".center(width),
+                    "Treatment-Path Disaggregation".center(width),
                     thin,
-                    "  No observed paths have a complete [F_g-1, F_g-1+L_max] window.",
-                    "  (See UserWarning emitted at fit(); by_path was a no-op " "on this panel.)",
+                    *detail_lines,
                     thin,
                     "",
                 ]
@@ -1274,14 +1344,15 @@ class ChaisemartinDHaultfoeuilleResults:
         lines.extend(
             [
                 thin,
-                "Treatment-Path Disaggregation (by_path)".center(width),
+                "Treatment-Path Disaggregation".center(width),
                 thin,
             ]
         )
-        for path in sorted(
-            self.path_effects.keys(),
-            key=lambda p: self.path_effects[p]["frequency_rank"],
-        ):
+        # Iterate in path_effects insertion order so summary preserves
+        # the user-specified path order under `paths_of_interest`. Under
+        # `by_path=k`, insertion order matches descending frequency_rank
+        # (the enumeration sorts by count), so the rendering is identical.
+        for path in self.path_effects.keys():
             entry = self.path_effects[path]
             rank = entry["frequency_rank"]
             n_groups = entry["n_groups"]
@@ -1337,9 +1408,7 @@ class ChaisemartinDHaultfoeuilleResults:
             ):
                 cum_horizons = self.path_cumulated_event_study[path]
                 if cum_horizons:
-                    lines.append(
-                        "  Cumulated Level Effects (DID^{fd}, trends_linear):"
-                    )
+                    lines.append("  Cumulated Level Effects (DID^{fd}, trends_linear):")
                     for l_h in sorted(cum_horizons.keys()):
                         ce = cum_horizons[l_h]
                         lines.append(
@@ -1349,6 +1418,29 @@ class ChaisemartinDHaultfoeuilleResults:
                                 ce["se"],
                                 ce["t_stat"],
                                 ce["p_value"],
+                            )
+                        )
+            # Per-path heterogeneity rows (under heterogeneity=col).
+            # Mirrors the global `_render_heterogeneity_section` block
+            # but scoped to this path. Skip silently when
+            # path_heterogeneity_effects is None or this path lacks an
+            # entry (e.g., when `heterogeneity` was not requested).
+            if (
+                self.path_heterogeneity_effects is not None
+                and path in self.path_heterogeneity_effects
+            ):
+                het_horizons = self.path_heterogeneity_effects[path]
+                if het_horizons:
+                    lines.append("  Heterogeneity Test (Section 1.5, partial):")
+                    for l_h in sorted(het_horizons.keys()):
+                        het = het_horizons[l_h]
+                        lines.append(
+                            _format_inference_row(
+                                f"  l={l_h}",
+                                het["beta"],
+                                het["se"],
+                                het["t_stat"],
+                                het["p_value"],
                             )
                         )
             # Per-path joint sup-t critical value (when populated).
@@ -1434,14 +1526,17 @@ class ChaisemartinDHaultfoeuilleResults:
               Available when ``trends_linear=True``.
             - ``"design2"``: Design-2 switch-in/switch-out descriptive
               summary. Available when ``design2=True``.
-            - ``"by_path"``: one row per (path, horizon) when
-              ``by_path=k`` was passed to the estimator. Columns:
+            - ``"by_path"``: one row per (path, horizon) when either
+              ``by_path=k`` or ``paths_of_interest=[(...), ...]`` was
+              passed to the estimator. Columns:
               ``path``, ``frequency_rank``, ``n_groups``, ``horizon``,
               ``effect``, ``se``, ``t_stat``, ``p_value``,
               ``conf_int_lower``, ``conf_int_upper``, ``n_obs``,
               ``cband_lower``, ``cband_upper``, ``cumulated_effect``,
-              ``cumulated_se``. The ``horizon`` column takes negative
-              ints for placebo rows when ``placebo=True``. The
+              ``cumulated_se``, ``het_beta``, ``het_se``,
+              ``het_t_stat``, ``het_p_value``, ``het_conf_int_lower``,
+              ``het_conf_int_upper``. The ``horizon`` column takes
+              negative ints for placebo rows when ``placebo=True``. The
               ``cband_*`` columns mirror the OVERALL
               ``level="event_study"`` schema (joint sup-t simultaneous
               bands); they are populated for positive-horizon rows of
@@ -1453,7 +1548,13 @@ class ChaisemartinDHaultfoeuilleResults:
               positive-horizon rows when ``trends_linear=True`` is
               also set, NaN for placebo rows or non-trends_linear fits
               (always-present, NaN-when-None — same convention as
-              ``cband_*``).
+              ``cband_*``). The ``het_*`` columns surface the per-path
+              heterogeneity coefficient (Web Appendix Section 1.5,
+              Lemma 7) when ``heterogeneity="<col>"`` is also set;
+              populated for positive-horizon rows and NaN for placebo
+              rows / non-heterogeneity fits / the requested-but-empty
+              fallback DataFrame (always-present, NaN-when-None — same
+              convention as ``cband_*`` and ``cumulated_*``).
 
         Returns
         -------
@@ -1693,9 +1794,11 @@ class ChaisemartinDHaultfoeuilleResults:
             # Mirrors the linear_trends pattern above.
             if self.path_effects is None:
                 raise ValueError(
-                    "Path effects not available. Pass by_path=k (positive int) "
+                    "Path effects not available. Pass by_path=k "
+                    "(positive int) or paths_of_interest=[(...), ...] "
                     "to ChaisemartinDHaultfoeuille(drop_larger_lower=False, "
-                    "by_path=k) and L_max >= 1 to fit()."
+                    "by_path=k) (or paths_of_interest=...) and L_max >= 1 "
+                    "to fit()."
                 )
             if not self.path_effects:
                 return pd.DataFrame(
@@ -1715,13 +1818,20 @@ class ChaisemartinDHaultfoeuilleResults:
                         "cband_upper",
                         "cumulated_effect",
                         "cumulated_se",
+                        "het_beta",
+                        "het_se",
+                        "het_t_stat",
+                        "het_p_value",
+                        "het_conf_int_lower",
+                        "het_conf_int_upper",
                     ]
                 )
             rows = []
-            for path in sorted(
-                self.path_effects.keys(),
-                key=lambda p: self.path_effects[p]["frequency_rank"],
-            ):
+            # Iterate in path_effects insertion order so the long-format
+            # table preserves the user-specified path order under
+            # `paths_of_interest`. Under `by_path=k`, insertion order
+            # matches descending frequency_rank, so output is identical.
+            for path in self.path_effects.keys():
                 entry = self.path_effects[path]
                 rank = entry["frequency_rank"]
                 n_groups = entry["n_groups"]
@@ -1741,6 +1851,14 @@ class ChaisemartinDHaultfoeuilleResults:
                 path_cumulated = (
                     self.path_cumulated_event_study.get(path, {})
                     if self.path_cumulated_event_study is not None
+                    else {}
+                )
+                # Per-path heterogeneity entries (under heterogeneity=col).
+                # Always-present het_* columns, NaN when not requested or
+                # when the path's per-horizon entry is missing.
+                path_het = (
+                    self.path_heterogeneity_effects.get(path, {})
+                    if self.path_heterogeneity_effects is not None
                     else {}
                 )
                 for lag_key in sorted(placebo_horizons.keys()):
@@ -1771,6 +1889,19 @@ class ChaisemartinDHaultfoeuilleResults:
                             "cband_upper": ph_cband[1] if ph_cband else np.nan,
                             "cumulated_effect": np.nan,
                             "cumulated_se": np.nan,
+                            # Heterogeneity is forward-only in this release.
+                            # Per-path placebo heterogeneity is not exposed
+                            # yet; R may emit placebo het rows under
+                            # did_multiplegt_dyn(..., by_path, predict_het)
+                            # but R-parity for that surface has not been
+                            # validated, so we emit NaN on placebo rows
+                            # rather than claim parity. See REGISTRY note.
+                            "het_beta": np.nan,
+                            "het_se": np.nan,
+                            "het_t_stat": np.nan,
+                            "het_p_value": np.nan,
+                            "het_conf_int_lower": np.nan,
+                            "het_conf_int_upper": np.nan,
                         }
                     )
                 for l_h in sorted(horizons.keys()):
@@ -1781,6 +1912,8 @@ class ChaisemartinDHaultfoeuilleResults:
                     # `TestByPathSupTBands::test_path_sup_t_to_dataframe_emits_cband_columns`.
                     h_cband = h_entry.get("cband_conf_int", (np.nan, np.nan))
                     cum_entry = path_cumulated.get(l_h, {})
+                    het_entry = path_het.get(l_h, {}) if path_het else {}
+                    het_ci = het_entry.get("conf_int", (np.nan, np.nan))
                     rows.append(
                         {
                             "path": path,
@@ -1798,6 +1931,16 @@ class ChaisemartinDHaultfoeuilleResults:
                             "cband_upper": h_cband[1] if h_cband else np.nan,
                             "cumulated_effect": cum_entry.get("effect", np.nan),
                             "cumulated_se": cum_entry.get("se", np.nan),
+                            # Per-path heterogeneity (Wave 5 #11). Always-
+                            # present, NaN when not requested or when the
+                            # entry is missing (mirrors cband_*/cumulated_*
+                            # convention).
+                            "het_beta": het_entry.get("beta", np.nan),
+                            "het_se": het_entry.get("se", np.nan),
+                            "het_t_stat": het_entry.get("t_stat", np.nan),
+                            "het_p_value": het_entry.get("p_value", np.nan),
+                            "het_conf_int_lower": het_ci[0] if het_ci else np.nan,
+                            "het_conf_int_upper": het_ci[1] if het_ci else np.nan,
                         }
                     )
             return pd.DataFrame(rows)

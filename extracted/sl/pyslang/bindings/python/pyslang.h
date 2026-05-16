@@ -6,15 +6,19 @@
 #pragma once
 
 #include <fmt/core.h>
+#include <optional>
 #include <pybind11/cast.h>
+#include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
+#include <vector>
 
 #include "slang/ast/ASTVisitor.h"
 #include "slang/syntax/SyntaxNode.h"
+#include "slang/util/BumpAllocator.h"
 #include "slang/util/Enum.h"
 #include "slang/util/Hash.h"
 #include "slang/util/ScopeGuard.h"
@@ -218,29 +222,144 @@ public:
     explicit operator bitmask<type>() { return cast_op<type>(subcaster); }
 };
 
+// Common base for SyntaxList<T>/SeparatedSyntaxList<T>/TokenList type casters.
+// Derived must provide:
+//   static constexpr auto name = const_name("...");
+//   static bool loadElement(handle item, std::vector<Element>& storage);
+//   static void appendCast(list& result, const ListType& src);
+template<typename Derived, typename ListType, typename Element>
+struct syntax_list_caster_base {
+protected:
+    // BumpAllocator that backs the wrapped list's storage. Owned by this
+    // caster; the wrapped list remains valid for the duration of the
+    // binding call.
+    slang::BumpAllocator alloc;
+    std::optional<ListType> value;
+
+public:
+    bool load(handle src, bool) {
+        if (!isinstance<sequence>(src))
+            return false;
+        sequence seq = reinterpret_borrow<sequence>(src);
+
+        std::vector<Element> vec;
+        vec.reserve(len(seq));
+        for (auto item : seq) {
+            if (!Derived::loadElement(item, vec))
+                return false;
+        }
+        value.emplace(alloc, vec);
+        return true;
+    }
+
+    static handle cast(const ListType& src, return_value_policy, handle) {
+        list result;
+        Derived::appendCast(result, src);
+        return result.release();
+    }
+
+    static handle cast(const ListType* src, return_value_policy policy, handle parent) {
+        if (!src)
+            return none().release();
+        return cast(*src, policy, parent);
+    }
+
+    operator ListType*() { return value ? &*value : nullptr; }
+    operator ListType&() {
+        if (!value) {
+            throw std::runtime_error(std::string(Derived::name.text) +
+                                     " type cast failed: null pointer");
+        }
+        return *value;
+    }
+    template<typename T_>
+    using cast_op_type = pybind11::detail::cast_op_type<T_>;
+};
+
+template<typename T>
+struct type_caster<SyntaxList<T>>
+    : syntax_list_caster_base<type_caster<SyntaxList<T>>, SyntaxList<T>, T*> {
+    static constexpr auto name = const_name("SyntaxList");
+
+    static bool loadElement(handle item, std::vector<T*>& storage) {
+        try {
+            storage.push_back(item.cast<T*>());
+        }
+        catch (const cast_error&) {
+            return false;
+        }
+        return true;
+    }
+
+    static void appendCast(list& result, const SyntaxList<T>& src) {
+        for (auto item : src) {
+            result.append(reinterpret_borrow<object>(
+                type_caster<SyntaxNode>::cast(item, return_value_policy::reference, handle())));
+        }
+    }
+};
+
+template<typename T>
+struct type_caster<SeparatedSyntaxList<T>>
+    : syntax_list_caster_base<type_caster<SeparatedSyntaxList<T>>, SeparatedSyntaxList<T>,
+                              TokenOrSyntax> {
+    static constexpr auto name = const_name("SeparatedSyntaxList");
+
+    static bool loadElement(handle item, std::vector<TokenOrSyntax>& storage) {
+        if (isinstance<Token>(item)) {
+            storage.push_back(item.cast<Token>());
+            return true;
+        }
+        try {
+            storage.push_back(item.cast<T*>());
+        }
+        catch (const cast_error&) {
+            return false;
+        }
+        return true;
+    }
+
+    static void appendCast(list& result, const SeparatedSyntaxList<T>& src) {
+        for (size_t i = 0, count = src.getChildCount(); i < count; i++) {
+            auto ele = src.getChild(i);
+            if (ele.isToken()) {
+                result.append(reinterpret_borrow<object>(
+                    type_caster<Token>::cast(ele.token(), return_value_policy::copy, handle())));
+            }
+            else if (ele.node()) {
+                result.append(reinterpret_borrow<object>(type_caster<SyntaxNode>::cast(
+                    ele.node(), return_value_policy::reference, handle())));
+            }
+        }
+    }
+};
+
+template<>
+struct type_caster<TokenList> : syntax_list_caster_base<type_caster<TokenList>, TokenList, Token> {
+    static constexpr auto name = const_name("TokenList");
+
+    static bool loadElement(handle item, std::vector<Token>& storage) {
+        if (!isinstance<Token>(item))
+            return false;
+        storage.push_back(item.cast<Token>());
+        return true;
+    }
+
+    static void appendCast(list& result, const TokenList& src) {
+        for (auto t : src) {
+            result.append(reinterpret_borrow<object>(
+                type_caster<Token>::cast(t, return_value_policy::copy, handle())));
+        }
+    }
+};
+
 } // namespace detail
-
-template<typename T>
-struct is_SyntaxList : std::false_type {};
-template<typename T>
-struct is_SyntaxList<SyntaxList<T>> : std::true_type {};
-
-template<typename T>
-struct is_SeparatedSyntaxList : std::false_type {};
-template<typename T>
-struct is_SeparatedSyntaxList<SeparatedSyntaxList<T>> : std::true_type {};
 
 template<typename T>
 struct polymorphic_type_hook<T, detail::enable_if_t<std::is_base_of<SyntaxNode, T>::value>> {
     static const void* get(const T* src, const std::type_info*& type) {
         type = src ? typeFromSyntaxKind(src->kind) : nullptr;
-        if constexpr (is_SyntaxList<T>::value || is_SeparatedSyntaxList<T>::value ||
-                      std::is_same_v<T, TokenList>) {
-            return static_cast<const SyntaxNode*>(src);
-        }
-        else {
-            return src;
-        }
+        return src;
     }
 };
 

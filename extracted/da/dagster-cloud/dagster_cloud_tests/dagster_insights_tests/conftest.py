@@ -98,7 +98,7 @@ def _fake_cost_rows():
         else:
             bytes_billed = 1000
             slot_ms = None
-        rows.append(BigqueryCostRow("fake_job_id", unique_id, bytes_billed, slot_ms))  # pyright: ignore[reportArgumentType]
+        rows.append(BigqueryCostRow("fake_job_id", unique_id, bytes_billed, slot_ms))  # ty: ignore[invalid-argument-type]
     return rows
 
 

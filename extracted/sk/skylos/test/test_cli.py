@@ -35,6 +35,11 @@ class TestCleanFormatter:
 
 
 class TestSetupLogger:
+    def teardown_method(self):
+        logger = logging.getLogger("skylos")
+        logger.handlers.clear()
+        logger.propagate = True
+
     @patch("skylos.cli.logging.FileHandler")
     @patch("skylos.cli.RichHandler")
     def test_setup_logger_console_only(self, mock_rich_handler, mock_file_handler):
@@ -44,6 +49,7 @@ class TestSetupLogger:
 
         logger = setup_logger()
 
+        assert logger.name == "skylos"
         mock_rich_handler.assert_called_once()
         mock_file_handler.assert_not_called()
 
@@ -56,6 +62,7 @@ class TestSetupLogger:
 
         logger = setup_logger("output.log")
 
+        assert logger.name == "skylos"
         mock_rich_handler.assert_called_once()
         mock_file_handler.assert_called_once_with("output.log")
 
@@ -408,7 +415,9 @@ class TestMainFunction:
 
             assert mock_analyze.call_args.kwargs["enable_danger"] is True
 
-    def test_main_uses_policy_enabled_categories_when_no_flags(self, mock_skylos_result):
+    def test_main_uses_policy_enabled_categories_when_no_flags(
+        self, mock_skylos_result
+    ):
         test_args = ["cli.py", "test_path", "--json", "--no-provenance"]
 
         with (
@@ -594,6 +603,25 @@ def test_generate_llm_report_formats_findings_and_defaults_dead_code(tmp_path):
     assert result["unused_functions"][0]["severity"] == "MEDIUM"
 
 
+def test_llm_report_code_block_returns_empty_for_invalid_line(tmp_path):
+    src = tmp_path / "app.py"
+    src.write_text("print('ok')\n", encoding="utf-8")
+
+    assert cli._llm_report_code_block(str(src), "bad", tmp_path, {}) == ""
+
+
+def test_llm_report_code_block_handles_unreadable_file(tmp_path, monkeypatch):
+    src = tmp_path / "app.py"
+    src.write_text("print('ok')\n", encoding="utf-8")
+
+    def fail_read_text(self, *args, **kwargs):
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(cli.pathlib.Path, "read_text", fail_read_text)
+
+    assert cli._llm_report_code_block(str(src), 1, tmp_path, {}) == ""
+
+
 def test_render_results_unused_table_includes_confidence_column_and_formats():
     console = Mock()
 
@@ -651,6 +679,32 @@ def test_render_results_unused_table_includes_confidence_column_and_formats():
     assert conf_cells[0] == "[red]95%[/red]"
     assert conf_cells[1] == "[yellow]80%[/yellow]"
     assert conf_cells[2] == "[dim]50%[/dim]"
+
+
+def test_render_results_shows_grep_verify_summary():
+    console = Mock()
+    result = {
+        "analysis_summary": {
+            "total_files": 1,
+            "grep_verify": {"enabled": True, "rescued_count": 3},
+        },
+        "unused_functions": [],
+        "unused_imports": [],
+        "unused_parameters": [],
+        "unused_variables": [],
+        "unused_classes": [],
+        "quality": [],
+        "danger": [],
+        "secrets": [],
+    }
+
+    cli.render_results(console, result, tree=False, root_path="/root")
+
+    printed = "\n".join(
+        str(call.args[0]) for call in console.print.call_args_list if call.args
+    )
+    assert "Grep verify: on" in printed
+    assert "rescued 3" in printed
 
 
 def test_render_results_tree_mode_groups_by_file_and_sorts_by_line():
@@ -756,7 +810,7 @@ def test_main_whitelist_subcommand_calls_run_whitelist_and_exits(monkeypatch):
 
 def test_main_sync_subcommand_calls_sync_main_and_exits(monkeypatch):
     fake_sync = types.SimpleNamespace(main=Mock())
-    monkeypatch.setitem(sys.modules, "skylos.sync", fake_sync)
+    monkeypatch.setitem(sys.modules, "skylos.cloud.sync", fake_sync)
 
     monkeypatch.setattr(cli.sys, "argv", ["skylos", "sync", "--pull"])
     with pytest.raises(SystemExit) as e:
@@ -1074,6 +1128,46 @@ def test_main_concise_clean_output_prints_nothing(monkeypatch):
     progress.assert_not_called()
 
 
+def test_main_rich_output_writes_report_file(monkeypatch, tmp_path):
+    result = {
+        "analysis_summary": {"total_files": 1},
+        "unused_functions": [{"name": "dead", "file": "app.py", "line": 1}],
+        "unused_imports": [],
+        "unused_variables": [],
+        "unused_classes": [],
+        "unused_parameters": [],
+        "danger": [],
+        "quality": [],
+        "secrets": [],
+    }
+    output_path = tmp_path / "skylos.txt"
+
+    monkeypatch.setattr(
+        cli.sys,
+        "argv",
+        [
+            "skylos",
+            ".",
+            "--output",
+            str(output_path),
+            "--no-provenance",
+            "--no-upload",
+        ],
+    )
+
+    with (
+        patch("skylos.cli.Progress", return_value=_progress_ctx()),
+        patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+        patch("skylos.cli.load_config", return_value={}),
+    ):
+        cli.main()
+
+    output = output_path.read_text(encoding="utf-8")
+    assert "Python Static Analysis Results" in output
+    assert "Unused Functions" in output
+    assert "dead" in output
+
+
 def test_main_json_strict_failure_exits_nonzero(monkeypatch):
     result = {
         "analysis_summary": {"total_files": 1},
@@ -1148,9 +1242,7 @@ def test_main_strict_failure_renders_results_then_exits_nonzero(monkeypatch):
 
 
 @pytest.mark.parametrize("llm_args", (["--llm"], ["--format", "llm"]))
-def test_main_llm_output_is_quiet_and_gate_failure_exits_nonzero(
-    monkeypatch, llm_args
-):
+def test_main_llm_output_is_quiet_and_gate_failure_exits_nonzero(monkeypatch, llm_args):
     result = {
         "analysis_summary": {"total_files": 1},
         "unused_functions": [],
@@ -1334,9 +1426,8 @@ def test_main_command_exec_failure_exits_with_code(monkeypatch):
     assert e.value.code == 7
 
 
-def test_render_upload_failure_shows_large_upload_guidance(monkeypatch):
+def test_render_upload_failure_shows_large_upload_guidance():
     console = Mock()
-    monkeypatch.delenv("SKYLOS_ALLOW_DEGRADED_LARGE_UPLOAD", raising=False)
 
     cli._render_upload_failure(
         console,
@@ -1353,7 +1444,6 @@ def test_render_upload_failure_shows_large_upload_guidance(monkeypatch):
     assert "Upload unavailable:" in printed
     assert "only supports inline scan uploads right now" in printed
     assert "/api/report/init and /api/report/complete" in printed
-    assert "SKYLOS_ALLOW_DEGRADED_LARGE_UPLOAD=1" in printed
 
 
 def test_render_upload_failure_shows_generic_error_for_other_failures():

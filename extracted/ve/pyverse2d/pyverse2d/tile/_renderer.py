@@ -1,13 +1,14 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-import ctypes
-import numpy as np
+from ._tile_map import TileMap, FLIP_H, FLIP_V, FLIP_D
+
 import pyglet.gl as gl
 import pyglet.image
 import pyglet.graphics.shader as shader_module
 
-from ._tile_map import TileMap, FLIP_H, FLIP_V, FLIP_D
+import numpy as np
+import ctypes
 
 # ======================================== SHADER ========================================
 _VERT_SRC = """
@@ -40,9 +41,8 @@ void main() {
 
 _program: shader_module.ShaderProgram | None = None
 
-
 def _get_program() -> shader_module.ShaderProgram:
-    """Renvoie le shader program (singleton par contexte GL)"""
+    """Renvoie le shader program"""
     global _program
     if _program is None:
         vert = shader_module.Shader(_VERT_SRC, 'vertex')
@@ -52,7 +52,7 @@ def _get_program() -> shader_module.ShaderProgram:
 
 # ======================================== TEXTURE ARRAY ========================================
 class TileArrayTexture:
-    """Texture array GL — une tranche par tile du tileset"""
+    """Texture array GL"""
     __slots__ = ("_tex_id", "_tile_to_layer")
 
     def __init__(self, image_path: str, src_tw: int, src_th: int, margin: int, spacing: int):
@@ -234,10 +234,7 @@ class TileRenderer:
         self._built = True
 
     def _build_chunk_verts(self, cc: int, cr: int, tw: float, th: float) -> np.ndarray | None:
-        """Génère les sommets (x, y, u, v, layer) pour tous les quads d'un chunk
-
-        Pré-alloue le buffer numpy au maximum théorique puis tronque.
-        """
+        """Génère les sommets ``(x, y, u, v, layer)`` pour tous les quads d'un chunk"""
         tm = self._tile_map
         row_start = cr * self._chunk_size
         col_start = cc * self._chunk_size
@@ -259,12 +256,12 @@ class TileRenderer:
                 wx, wy = tm.tile_to_world(col, row)
                 bl, br, tr_, tl = _flip_uvs(tm.flags_at(col, row))
                 l = float(layer)
-                buf[idx    ] = [wx,      wy,      bl[0],  bl[1],  l]
-                buf[idx + 1] = [wx + tw, wy,      br[0],  br[1],  l]
+                buf[idx ] = [wx, wy, bl[0], bl[1], l]
+                buf[idx + 1] = [wx + tw, wy, br[0], br[1], l]
                 buf[idx + 2] = [wx + tw, wy + th, tr_[0], tr_[1], l]
-                buf[idx + 3] = [wx,      wy,      bl[0],  bl[1],  l]
+                buf[idx + 3] = [wx, wy, bl[0], bl[1], l]
                 buf[idx + 4] = [wx + tw, wy + th, tr_[0], tr_[1], l]
-                buf[idx + 5] = [wx,      wy + th, tl[0],  tl[1],  l]
+                buf[idx + 5] = [wx, wy + th, tl[0], tl[1], l]
                 idx += 6
 
         return buf[:idx] if idx > 0 else None
@@ -284,10 +281,10 @@ class TileRenderer:
         """Dessine tous les chunks visibles en un seul appel GL
 
         Args:
-            cc_min(int): colonne de chunk minimale (inclusive)
-            cc_max(int): colonne de chunk maximale (exclusive)
-            cr_min(int): ligne de chunk minimale (inclusive)
-            cr_max(int): ligne de chunk maximale (exclusive)
+            cc_min: colonne de chunk minimale (inclusive)
+            cc_max: colonne de chunk maximale (exclusive)
+            cr_min: ligne de chunk minimale (inclusive)
+            cr_max: ligne de chunk maximale (exclusive)
         """
         firsts: list[int] = []
         counts: list[int] = []
@@ -332,10 +329,10 @@ class TileRenderer:
 
 # ======================================== UV HELPERS ========================================
 def _flip_uvs(flip: int) -> tuple[tuple, tuple, tuple, tuple]:
-    """Calcule les UV des 4 coins (BL, BR, TR, TL) selon les flags de flip Tiled
+    """Calcule les UV des 4 coins ``(BL, BR, TR, TL)`` selon les flags de flip Tiled
 
     Args:
-        flip(int): combinaison de FLIP_H, FLIP_V, FLIP_D
+        flip: combinaison de FLIP_H, FLIP_V, FLIP_D
     """
     corners = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
     if flip & FLIP_D:
@@ -345,3 +342,8 @@ def _flip_uvs(flip: int) -> tuple[tuple, tuple, tuple, tuple]:
     if flip & FLIP_V:
         corners = [(u, 1.0 - v) for u, v in corners]
     return tuple(corners)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "TileRenderer",
+]

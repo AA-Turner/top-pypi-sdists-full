@@ -1,5 +1,6 @@
 import os
 import platform
+import re
 import subprocess
 import sys
 from typing import TypedDict
@@ -189,7 +190,7 @@ def execute(
 
     if version != "nightly":
         try:
-            checkout_stable_comfyui(version=version, repo_dir=repo_dir)
+            checkout_stable_comfyui(version=version, repo_dir=repo_dir, url=url)
         except GitHubRateLimitError as e:
             rprint(f"[bold red]Error checking out ComfyUI version: {e}[/bold red]")
             sys.exit(1)
@@ -434,17 +435,136 @@ def clone_comfyui(url: str, repo_dir: str):
         subprocess.run(["git", "clone", url, repo_dir], check=True)
 
 
-def checkout_stable_comfyui(version: str, repo_dir: str):
+def _resolve_latest_tag_from_local(repo_dir: str) -> tuple[str | None, bool]:
+    """Pick the highest stable semver tag from the local clone.
+
+    Returns ``(tag, fetch_ok)``:
+    - ``tag``: the tag string (e.g. ``"v0.20.1"``), or ``None`` when no stable
+      semver tag is available (or the directory isn't a git repo).
+    - ``fetch_ok``: whether ``git fetch --tags`` succeeded. Callers can use this
+      to distinguish "no new releases" from "couldn't reach the remote", which
+      changes the right messaging when falling back to the API.
+
+    Pre-release tags (e.g. ``v1.2.3-rc1``) are skipped to mirror GitHub's
+    ``releases/latest`` behavior. Note that this picks the highest semver tag,
+    which may differ from the release a maintainer has manually marked as
+    "Latest" on GitHub — acceptable trade-off given the unauthenticated API's
+    60 req/hr per-IP cap; users can pin a specific version with ``--version``
+    if needed.
+
+    ``git_checkout_tag`` skips its own ``git fetch --tags`` when the resolved
+    tag is already present locally, so on the happy path we fetch exactly once
+    here. Crucially, that also lets the cached-tag offline path succeed: if
+    fetch above fails (``fetch_ok=False``) but a tag is found from disk,
+    ``git_checkout_tag`` will not retry the unreachable fetch.
+    """
+    fetch_ok = False
+    try:
+        completed = subprocess.run(
+            ["git", "-C", repo_dir, "fetch", "--tags", "--quiet"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        fetch_ok = completed.returncode == 0
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        # Tolerate timeout / OS-level failure; fall through with whatever's on disk.
+        pass
+
+    try:
+        result = subprocess.run(
+            ["git", "-C", repo_dir, "tag", "--list"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        return None, fetch_ok
+
+    best: tuple[semver.VersionInfo, str] | None = None
+    for line in result.stdout.splitlines():
+        tag = line.strip()
+        if not tag:
+            continue
+        try:
+            parsed = semver.VersionInfo.parse(tag.lstrip("v"))
+        except ValueError:
+            continue
+        if parsed.prerelease:
+            continue
+        if best is None or parsed > best[0]:
+            best = (parsed, tag)
+
+    return (best[1] if best else None), fetch_ok
+
+
+_GITHUB_REPO_RE = re.compile(
+    # `github.com[:/]<owner>/<repo>` with optional `.git` and optional setuptools-style
+    # `@branch` suffix (matching what ``clone_comfyui`` accepts via ``rsplit("@", 1)``).
+    # Branch names may contain slashes (`release/1.0`), so the `@<branch>` group is greedy
+    # to end-of-string. The repo segment forbids `@` and `/` to avoid eating those parts.
+    r"github\.com[/:]([^/\s]+)/([^/@\s]+?)(?:\.git)?(?:@.+)?/?$",
+)
+
+
+def _parse_github_owner_repo(url: str | None) -> tuple[str, str] | None:
+    """Parse a GitHub repo URL into ``(owner, repo)``.
+
+    Handles the URL forms ``clone_comfyui`` accepts:
+    - ``https://github.com/owner/repo``
+    - ``https://github.com/owner/repo.git``
+    - ``https://github.com/owner/repo@branch`` (setuptools-style branch suffix)
+    - ``git@github.com:owner/repo`` (SSH form)
+
+    Returns ``None`` for empty input, local paths, or non-GitHub URLs (GitLab,
+    self-hosted, etc.) — the caller decides what to do with that.
+    """
+    if not url:
+        return None
+    match = _GITHUB_REPO_RE.search(url)
+    return (match.group(1), match.group(2)) if match else None
+
+
+def checkout_stable_comfyui(version: str, repo_dir: str, url: str | None = None):
     """
     Supports installing stable releases of Comfy (semantic versioning) or the 'latest' version.
+
+    For ``version="latest"`` we resolve the highest stable semver tag from the
+    local clone first to avoid burning the unauthenticated GitHub API budget
+    (60 req/hr per IP). The ``releases/latest`` API is only consulted when local
+    resolution turns up nothing.
+
+    The optional ``url`` is the install URL forwarded from ``execute``; it lets
+    the API fallback query the same repo we cloned from (forks included)
+    instead of always asking upstream. Non-GitHub URLs and missing URLs
+    fall back to ``comfyanonymous/ComfyUI`` so the prior behavior is preserved
+    for users who pass a local path or a non-GitHub remote.
     """
     rprint(f"Looking for ComfyUI version '{version}'...")
     if version == "latest":
-        selected_release = get_latest_release("comfyanonymous", "ComfyUI")
-        if selected_release is None:
-            rprint(f"Error: No release found for version '{version}'.")
-            sys.exit(1)
-        tag = str(selected_release["tag"])
+        tag, fetch_ok = _resolve_latest_tag_from_local(repo_dir)
+        if tag is None:
+            if not fetch_ok:
+                rprint(
+                    "[yellow]Could not refresh tags from the remote (offline or auth failure); "
+                    "trying GitHub API as a last resort.[/yellow]"
+                )
+            else:
+                rprint("[yellow]No stable release tags found locally; querying GitHub API.[/yellow]")
+            owner, repo = _parse_github_owner_repo(url) or ("comfyanonymous", "ComfyUI")
+            selected_release = get_latest_release(owner, repo)
+            if selected_release is None:
+                rprint(f"Error: No release found for version '{version}'.")
+                sys.exit(1)
+            tag = str(selected_release["tag"])
+        elif not fetch_ok:
+            # Tag list comes from a cached state — flag it so the user knows
+            # they may not be on the actual newest release.
+            rprint(
+                f"[yellow]Warning: could not refresh tags from remote; "
+                f"using cached tag {tag}. Re-run with network access to get the newest release.[/yellow]"
+            )
     else:
         # For specific versions, directly construct the tag (add 'v' prefix if needed)
         tag = f"v{version}" if not version.startswith("v") else version
@@ -490,9 +610,18 @@ def get_latest_release(repo_owner: str, repo_name: str) -> GithubRelease | None:
 
         data = response.json()
 
+        # Forks may use non-semver tags (e.g. "release-2026-04"); the caller
+        # only needs the raw tag string for git checkout, so let `version`
+        # fall back to None instead of crashing.
+        tag_name = data["tag_name"]
+        try:
+            parsed_version = semver.VersionInfo.parse(tag_name.lstrip("v"))
+        except ValueError:
+            parsed_version = None
+
         return GithubRelease(
-            tag=data["tag_name"],
-            version=semver.VersionInfo.parse(data["tag_name"].lstrip("v")),
+            tag=tag_name,
+            version=parsed_version,
             download_url=data["zipball_url"],
         )
 

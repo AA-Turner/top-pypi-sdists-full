@@ -90,7 +90,8 @@ class MenuOptionHandler:
         PKAnalyticsService().send_event("D_D")
         sleep(2)
         os.system(f"{launcher} -a Y -e -d")
-        return None, None
+        sys.exit(0)
+        # return None, None
     
     def _handle_download_intraday(self, launcher) -> Tuple[None, None]:
         """Handle intraday download option"""
@@ -494,7 +495,8 @@ def _handle_download_menu(launcher, m0, m1, m2, configManager, fetcher) -> bool:
         )
         sleep(2)
         os.system(f"{launcher} -a Y -e -d")
-        return True
+        sys.exit(0)
+        # return True
     
     elif selDownloadOption.upper() == "I":
         PKAnalyticsService().send_event("D_I")

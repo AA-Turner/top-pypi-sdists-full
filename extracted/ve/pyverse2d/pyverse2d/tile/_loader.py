@@ -1,14 +1,16 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
+from ..abc import Shape
 from ..shape import Rect, Polygon
 
 from ._tile_map import TileMap, FLIP_H, FLIP_V, FLIP_D
 from ._map_asset import MapAsset
 from ._tile import Tile, TileMeta
 
-import json
 import numpy as np
+
+import json
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -18,14 +20,19 @@ class MapLoader:
 
     # ======================================== TILED JSON ========================================
     @staticmethod
-    def from_tiled_json(path: str | Path, scale: float = 1.0, tile_width: float = 1.0, tile_height: float = 1.0) -> MapAsset:
+    def from_tiled_json(
+        path: str | Path,
+        scale: float = 1.0,
+        tile_width: float = 1.0,
+        tile_height: float = 1.0
+    ) -> MapAsset:
         """Charge un fichier Tiled au format JSON
 
         Args:
-            path(str | Path): chemin du fichier
-            scale(float, optional): facteur de redimensionnement des tuiles monde
-            tile_width(float, optional): largeur cible des tuiles en unités
-            tile_height(float, optional): hauteur cible des tuiles en unités
+            path: chemin du fichier
+            scale: facteur de redimensionnement des tuiles monde
+            tile_width: largeur cible des tuiles en unités
+            tile_height: hauteur cible des tuiles en unités
         """
         path = Path(path)
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -42,14 +49,19 @@ class MapLoader:
 
     # ======================================== TILED TMX ========================================
     @staticmethod
-    def from_tiled_tmx(path: str | Path, scale: float = 1.0, tile_width: float = 1.0, tile_height: float = 1.0) -> MapAsset:
+    def from_tiled_tmx(
+        path: str | Path,
+        scale: float = 1.0,
+        tile_width: float = 1.0,
+        tile_height: float = 1.0
+    ) -> MapAsset:
         """Charge un fichier Tiled au format natif XML (.tmx)
 
         Args:
-            path(str | Path): chemin du fichier
-            scale(float, optional): facteur de redimensionnement des tuiles monde
-            tile_width(float, optional): largeur cible des tuiles monde ; prioritaire sur scale
-            tile_height(float, optional): hauteur cible des tuiles monde ; prioritaire sur scale
+            path: chemin du fichier
+            scale: facteur de redimensionnement des tuiles monde
+            tile_width: largeur cible des tuiles monde ; prioritaire sur scale
+            tile_height: hauteur cible des tuiles monde ; prioritaire sur scale
         """
         path = Path(path)
         root = ET.parse(path).getroot()
@@ -65,16 +77,20 @@ class MapLoader:
 
         return MapAsset(layers)
 
-
 # ======================================== JSON INTERNALS ========================================
-def _load_tiles_json(raw_tilesets: list[dict], base_dir: Path, tw: float, th: float) -> list[tuple[int, Tile]]:
+def _load_tiles_json(
+    raw_tilesets: list[dict],
+    base_dir: Path,
+    tw: float,
+    th: float
+) -> list[tuple[int, Tile]]:
     """Charge tous les tilesets JSON et renvoie une liste ``(firstgid, Tile)`` triée
 
     Args:
-        raw_tilesets(list[dict]): liste brute des tilesets depuis le JSON
-        base_dir(Path): répertoire de base pour résoudre les chemins relatifs
-        tw(float): largeur cible des tuiles en unités monde
-        th(float): hauteur cible des tuiles en unités monde
+        raw_tilesets: liste brute des tilesets depuis le JSON
+        base_dir: répertoire de base pour résoudre les chemins relatifs
+        tw: largeur cible des tuiles en unités monde
+        th: hauteur cible des tuiles en unités monde
     """
     result = []
     for entry in raw_tilesets:
@@ -87,15 +103,19 @@ def _load_tiles_json(raw_tilesets: list[dict], base_dir: Path, tw: float, th: fl
     result.sort(key=lambda t: t[0])
     return result
 
-
-def _tile_from_dict(data: dict, base_dir: Path, tw: float, th: float) -> Tile:
+def _tile_from_dict(
+    data: dict,
+    base_dir: Path,
+    tw: float,
+    th: float
+) -> Tile:
     """Construit un Tile depuis un dict JSON de tileset
 
     Args:
-        data(dict): données brutes du tileset
-        base_dir(Path): répertoire de base pour résoudre les chemins relatifs
-        tw(float): largeur cible des tuiles en unités monde
-        th(float): hauteur cible des tuiles en unités monde
+        data: données brutes du tileset
+        base_dir: répertoire de base pour résoudre les chemins relatifs
+        tw: largeur cible des tuiles en unités monde
+        th: hauteur cible des tuiles en unités monde
     """
     src_tw = data["tilewidth"]
     src_th = data["tileheight"]
@@ -115,17 +135,23 @@ def _tile_from_dict(data: dict, base_dir: Path, tw: float, th: float) -> Tile:
             tile.set_meta(local_id, meta)
     return tile
 
-
-def _parse_layer_json(layer: dict, raw: dict, tiles: list[tuple[int, Tile]], scale: float = 1.0, tile_width: float = 1.0, tile_height: float = 1.0) -> TileMap:
+def _parse_layer_json(
+    layer: dict,
+    raw: dict,
+    tiles: list[tuple[int, Tile]],
+    scale: float = 1.0,
+    tile_width: float = 1.0,
+    tile_height: float = 1.0
+) -> TileMap:
     """Construit un TileMap depuis un layer JSON Tiled
 
     Args:
-        layer(dict): données brutes du layer
-        raw(dict): données brutes de la map entière (pour tilewidth/tileheight globaux)
-        tiles(list): liste (firstgid, Tile) issue de _load_tiles_json
-        scale(float, optional): facteur de redimensionnement fallback
-        tile_width(float, optional): largeur cible des tuiles en unités monde
-        tile_height(float, optional): hauteur cible des tuiles en unités monde
+        layer: données brutes du layer
+        raw: données brutes de la map entière (pour tilewidth/tileheight globaux)
+        tiles: liste (firstgid, Tile) issue de _load_tiles_json
+        scale: facteur de redimensionnement fallback
+        tile_width: largeur cible des tuiles en unités monde
+        tile_height: hauteur cible des tuiles en unités monde
     """
     cols = layer["width"]
     rows = layer["height"]
@@ -140,8 +166,13 @@ def _parse_layer_json(layer: dict, raw: dict, tiles: list[tuple[int, Tile]], sca
     th = tile_height if tile_height is not None else raw["tileheight"] * scale
     return TileMap(tile=tile, grid=grid, flags=flags, tile_width=tw, tile_height=th)
 
-
-def _parse_collision_shape_json(tile_data: dict, src_tw: int, src_th: int, tw: float, th: float):
+def _parse_collision_shape_json(
+    tile_data: dict,
+    src_tw: int,
+    src_th: int,
+    tw: float,
+    th: float
+):
     """Parse l'objectgroup d'une tuile JSON et renvoie la Shape correspondante
 
     Args:
@@ -177,9 +208,13 @@ def _parse_collision_shape_json(tile_data: dict, src_tw: int, src_th: int, tw: f
     h = float(obj.get("height", src_th))
     return Rect(w / src_tw * tw, h / src_th * th)
 
-
 # ======================================== TMX INTERNALS ========================================
-def _load_tiles_tmx(tileset_nodes: list[ET.Element], base_dir: Path, tw: float, th: float) -> list[tuple[int, Tile]]:
+def _load_tiles_tmx(
+    tileset_nodes: list[ET.Element],
+    base_dir: Path, 
+    tw: float,
+    th: float
+) -> list[tuple[int, Tile]]:
     """Charge tous les tilesets TMX et renvoie une liste ``(firstgid, Tile)`` triée
 
     Args:
@@ -201,8 +236,12 @@ def _load_tiles_tmx(tileset_nodes: list[ET.Element], base_dir: Path, tw: float, 
     result.sort(key=lambda t: t[0])
     return result
 
-
-def _tile_from_tsx(node: ET.Element, base_dir: Path, tw: float, th: float) -> Tile:
+def _tile_from_tsx(
+    node: ET.Element,
+    base_dir: Path,
+    tw: float,
+    th: float
+) -> Tile:
     """Construit un Tile depuis un noeud TSX/XML
 
     Args:
@@ -236,8 +275,15 @@ def _tile_from_tsx(node: ET.Element, base_dir: Path, tw: float, th: float) -> Ti
             tile.set_meta(local_id, meta)
     return tile
 
-
-def _parse_layer_tmx(layer: ET.Element, map_tw: int, map_th: int, tiles: list[tuple[int, Tile]], scale: float = 1.0, tile_width: float = 1.0, tile_height: float = 1.0) -> TileMap:
+def _parse_layer_tmx(
+    layer: ET.Element,
+    map_tw: int,
+    map_th: int,
+    tiles: list[tuple[int, Tile]],
+    scale: float = 1.0,
+    tile_width: float = 1.0,
+    tile_height: float = 1.0
+) -> TileMap:
     """Construit un TileMap depuis un layer TMX Tiled
 
     Args:
@@ -249,10 +295,10 @@ def _parse_layer_tmx(layer: ET.Element, map_tw: int, map_th: int, tiles: list[tu
         tile_width: largeur cible des tuiles en unités monde
         tile_height: hauteur cible des tuiles en unités monde
     """
-    cols      = int(layer.attrib["width"])
-    rows      = int(layer.attrib["height"])
+    cols = int(layer.attrib["width"])
+    rows = int(layer.attrib["height"])
     data_node = layer.find("data")
-    encoding  = data_node.attrib.get("encoding", "xml")
+    encoding = data_node.attrib.get("encoding", "xml")
 
     if encoding == "csv":
         raw_ids = [int(v) for v in data_node.text.strip().split(",") if v.strip()]
@@ -264,21 +310,20 @@ def _parse_layer_tmx(layer: ET.Element, map_tw: int, map_th: int, tiles: list[tu
     flags_flat, flat_ids = _extract_flags(raw_ids)
     firstgid, tile = _tile_for(flat_ids, tiles)
     local_ids = [(gid - firstgid + 1) if gid != 0 else 0 for gid in flat_ids]
-    grid  = np.array(local_ids, dtype=np.int32).reshape(rows, cols)
+    grid = np.array(local_ids, dtype=np.int32).reshape(rows, cols)
     flags = np.array(flags_flat, dtype=np.uint8).reshape(rows, cols)
-    grid  = np.flipud(grid)
+    grid = np.flipud(grid)
     flags = np.flipud(flags)
-    tw = tile_width  if tile_width  is not None else map_tw * scale
+    tw = tile_width if tile_width is not None else map_tw * scale
     th = tile_height if tile_height is not None else map_th * scale
     return TileMap(tile=tile, grid=grid, flags=flags, tile_width=tw, tile_height=th)
-
 
 # ======================================== SHARED INTERNALS ========================================
 def _cast_xml_prop(prop: ET.Element):
     """Convertit une propriété XML Tiled vers le bon type Python
 
     Args:
-        prop(ET.Element): noeud <property>
+        prop: noeud <property>
     """
     ptype = prop.attrib.get("type", "string")
     value = prop.attrib.get("value", "")
@@ -288,7 +333,13 @@ def _cast_xml_prop(prop: ET.Element):
     return value
 
 
-def _parse_collision_shape(tile_node, src_tw: int, src_th: int, tw: float, th: float):
+def _parse_collision_shape(
+    tile_node,
+    src_tw: int,
+    src_th: int,
+    tw: float,
+    th: float
+) -> Shape | None:
     """Parse l'objectgroup d'une tuile TMX et renvoie la Shape correspondante
 
     Args:
@@ -392,3 +443,8 @@ def _tile_for(flat_ids: list[int], tiles: list[tuple[int, Tile]]) -> tuple[int, 
         if firstgid <= min_gid:
             candidate = (firstgid, tile)
     return candidate
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "MapLoader",
+]

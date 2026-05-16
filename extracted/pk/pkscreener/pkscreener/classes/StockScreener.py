@@ -235,6 +235,7 @@ class StockScreener:
                 else:
                     raise ScreeningStatistics.EligibilityConditionNotMet("Bid/Ask Eligibility Not met.")
             # hostRef.default_logger.info(f"Will pre-process data:\n{data.tail(10)}")
+            data = data.rename(columns=str.lower)
             fullData, processedData, data = self.getCleanedDataForDuration(backtestDuration, portfolio, screeningDictionary, saveDictionary, configManager, screener, data)
             if "RUNNER" not in os.environ.keys() and backtestDuration == 0 and configManager.calculatersiintraday:
                 if (intraday_data is not None and not intraday_data.empty):

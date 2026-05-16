@@ -16,21 +16,15 @@ from .._world import World
 from .._component import Transform, VideoPlayer
 
 # ======================================== CONSTANTS ========================================
-_VIDEO_BUFFER:     int   = 16
-_AUDIO_RATE:       int   = 44100
-_AUDIO_CH:         int   = 2
-_AUDIO_BUFFER_MAX: int   = 4 * _AUDIO_RATE * _AUDIO_CH * 2
-_AUDIO_PREBUFFER:  float = 0.6
-
+_VIDEO_BUFFER: int = 16
+_AUDIO_RATE: int = 44100
+_AUDIO_CH: int = 2
+_AUDIO_BUFFER_MAX: int = 4 * _AUDIO_RATE * _AUDIO_CH * 2
+_AUDIO_PREBUFFER: float = 0.6
 
 # ======================================== NO-SEEK PLAYER ========================================
 class _NoSeekPlayer(_media.Player):
-    """Player pyglet qui ne tente pas de seek() à la fin d'un StreamingSource.
-
-    Le comportement par défaut de pyglet sur on_eos sans source suivante est
-    d'appeler next_source() → seek(0.0), ce qui lève CannotSeekException sur
-    tout StreamingSource. On override pour ignorer silencieusement ce cas.
-    """
+    """Player pyglet qui ne tente pas de seek() à la fin d'un StreamingSource"""
 
     def __init__(self) -> None:
         super().__init__()
@@ -42,13 +36,7 @@ class _NoSeekPlayer(_media.Player):
 
 # ======================================== AUDIO FEED ========================================
 class _AudioFeed(_media.StreamingSource):
-    """Source PCM streaming thread-safe pour pyglet/OpenAL.
-
-    Clock de synchro : monotonic ancrée au moment du PREMIER appel réel à
-    ``get_audio_data`` qui retourne des données non-silencieuses. C'est le
-    moment où OpenAL commence effectivement à consommer le signal — bien plus
-    précis que l'instant de ``player.play()`` qui précède la latence driver.
-    """
+    """Source PCM streaming thread-safe pour pyglet/OpenAL"""
 
     def __init__(self, sample_rate: int = _AUDIO_RATE, channels: int = _AUDIO_CH) -> None:
         self.audio_format = _codecs.AudioFormat(
@@ -452,6 +440,8 @@ class VideoSystem(System):
 
     @staticmethod
     def _blit_frame(vp: VideoPlayer, w: int, h: int, data: bytes) -> None:
+        if not vp.visible:
+            return
         img = _image.ImageData(w, h, "RGB", data, pitch=-w * 3)
         if vp._texture is not None and vp._texture.width == w and vp._texture.height == h:
             vp._texture.blit_into(img, 0, 0, 0)

@@ -336,6 +336,12 @@ const Type& EnumType::fromSyntax(Compilation& comp, const EnumTypeSyntax& syntax
     SVInt allOnes(bitWidth, 0, cb->isSigned());
     allOnes.setAllOnes();
 
+    // The maximum value that can be incremented without overflow depends on signedness.
+    // For unsigned types this is all-ones (e.g. 0xFF); for signed types it is the
+    // largest positive value (e.g. 0x7F), since incrementing it wraps to the most
+    // negative value.
+    SVInt maxVal = cb->isSigned() ? allOnes.lshr(1) : allOnes;
+
     SVInt one(bitWidth, 1, cb->isSigned());
     ConstantValue previous;
     SourceRange previousRange;
@@ -453,7 +459,7 @@ const Type& EnumType::fromSyntax(Compilation& comp, const EnumTypeSyntax& syntax
                 previous = nullptr;
                 return;
             }
-            else if (prev == allOnes) {
+            else if (prev == maxVal) {
                 auto& diag = context.addDiag(diag::EnumValueOverflow, loc);
                 diag << prev << *base << previousRange;
                 previous = nullptr;
@@ -470,8 +476,18 @@ const Type& EnumType::fromSyntax(Compilation& comp, const EnumTypeSyntax& syntax
         previousRange = range;
     };
 
+    const uint32_t maxEnumValues = comp.getOptions().maxEnumValues;
+    uint32_t enumValueCount = 0;
+
     for (auto member : syntax.members) {
         if (member->dimensions.empty()) {
+            if (enumValueCount >= maxEnumValues) {
+                auto& diag = context.addDiag(diag::EnumValueCountExceeded, member->sourceRange());
+                diag << enumValueCount + 1 << maxEnumValues;
+                break;
+            }
+            ++enumValueCount;
+
             auto& ev = EnumValueSymbol::fromSyntax(comp, *member, *resultType, std::nullopt);
             enumType->addMember(ev);
             insertCB(ev);
@@ -501,6 +517,16 @@ const Type& EnumType::fromSyntax(Compilation& comp, const EnumTypeSyntax& syntax
             // Enum ranges must be integer literals.
             checkEnumRange(context, *member->dimensions[0]);
 
+            // Check that this range won't exceed the member count limit.
+            auto rangeWidth = dim.range.width();
+            if (rangeWidth > maxEnumValues - enumValueCount) {
+                auto& diag = context.addDiag(diag::EnumValueCountExceeded,
+                                             member->dimensions[0]->sourceRange());
+                diag << enumValueCount + rangeWidth << maxEnumValues;
+                continue;
+            }
+            enumValueCount += rangeWidth;
+
             // Set up the first element using the initializer. All other elements (if there are any)
             // don't get the initializer.
             int32_t index = dim.range.left;
@@ -515,7 +541,7 @@ const Type& EnumType::fromSyntax(Compilation& comp, const EnumTypeSyntax& syntax
                     inferValue(ev, member->sourceRange());
             }
 
-            bool down = dim.range.isLittleEndian();
+            bool down = dim.range.isDescending();
             while (index != dim.range.right) {
                 index = down ? index - 1 : index + 1;
 
@@ -843,8 +869,8 @@ const Type& PackedStructType::fromSyntax(Compilation& comp, const StructUnionTyp
 
     SmallVector<FieldSymbol*> members;
     for (auto member : syntax.members) {
-        if (member->previewNode)
-            structType->addMembers(*member->previewNode);
+        if (auto preview = member->previewNode())
+            structType->addMembers(*preview);
 
         const Type& type = comp.getType(*member->type, context);
         structType->isFourState |= type.isFourState();
@@ -936,8 +962,8 @@ const Type& UnpackedStructType::fromSyntax(const ASTContext& context,
     uint64_t bitstreamWidth = 0;
     SmallVector<const FieldSymbol*> fields;
     for (auto member : syntax.members) {
-        if (member->previewNode)
-            result->addMembers(*member->previewNode);
+        if (auto preview = member->previewNode())
+            result->addMembers(*preview);
 
         RandMode randMode = RandMode::None;
         switch (member->randomQualifier.kind) {
@@ -1014,8 +1040,8 @@ const Type& PackedUnionType::fromSyntax(Compilation& comp, const StructUnionType
     ASTContext context(*unionType, LookupLocation::max, parentContext.flags);
 
     for (auto member : syntax.members) {
-        if (member->previewNode)
-            unionType->addMembers(*member->previewNode);
+        if (auto preview = member->previewNode())
+            unionType->addMembers(*preview);
 
         const Type& type = comp.getType(*member->type, context);
         unionType->isFourState |= type.isFourState();
@@ -1123,8 +1149,8 @@ const Type& UnpackedUnionType::fromSyntax(const ASTContext& context,
 
     SmallVector<const FieldSymbol*> fields;
     for (auto member : syntax.members) {
-        if (member->previewNode)
-            result->addMembers(*member->previewNode);
+        if (auto preview = member->previewNode())
+            result->addMembers(*preview);
 
         for (auto decl : member->declarators) {
             auto field = comp.emplace<FieldSymbol>(decl->name.valueText(), decl->name.location(),
@@ -1170,11 +1196,11 @@ void UnpackedUnionType::serializeTo(ASTSerializer& serializer) const {
 }
 
 ConstantValue NullType::getDefaultValueImpl() const {
-    return ConstantValue::NullPlaceholder{};
+    return NullConstant;
 }
 
 ConstantValue CHandleType::getDefaultValueImpl() const {
-    return ConstantValue::NullPlaceholder{};
+    return NullConstant;
 }
 
 ConstantValue StringType::getDefaultValueImpl() const {
@@ -1182,7 +1208,7 @@ ConstantValue StringType::getDefaultValueImpl() const {
 }
 
 ConstantValue EventType::getDefaultValueImpl() const {
-    return ConstantValue::NullPlaceholder{};
+    return NullConstant;
 }
 
 const Type& VirtualInterfaceType::fromSyntax(const ASTContext& context,
@@ -1229,7 +1255,7 @@ const Type& VirtualInterfaceType::fromSyntax(const ASTContext& context,
 }
 
 ConstantValue VirtualInterfaceType::getDefaultValueImpl() const {
-    return ConstantValue::NullPlaceholder{};
+    return NullConstant;
 }
 
 void VirtualInterfaceType::serializeTo(ASTSerializer& serializer) const {

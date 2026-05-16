@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagstermill
-Version: 0.29.4
+Version: 0.29.5
 Summary: run notebooks using the Dagster tools
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
@@ -9,15 +9,11 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster==1.13.4
+Requires-Dist: dagster==1.13.5
 Requires-Dist: ipykernel!=5.4.0,!=5.4.1,>=4.9.0
 Requires-Dist: ipython-genutils>=0.2.0
 Requires-Dist: jupyter-client<8
 Requires-Dist: nbconvert
 Requires-Dist: packaging>=20.9
-Requires-Dist: papermill>=1.0.0
+Requires-Dist: papermill>=2.0.0
 Requires-Dist: scrapbook>=0.5.0
-Provides-Extra: test
-Requires-Dist: matplotlib; extra == 'test'
-Requires-Dist: scikit-learn>=0.19.0; extra == 'test'
-Requires-Dist: tqdm; extra == 'test'

@@ -98,6 +98,11 @@ bool Expression::isImplicitlyAssignableTo(Compilation& compilation, const Type& 
         return true;
     }
 
+    if (targetType.isString() && type->isIntegral() &&
+        compilation.hasFlag(CompilationFlags::RelaxStringConversions)) {
+        return true;
+    }
+
     return false;
 }
 
@@ -170,20 +175,6 @@ Expression& Expression::convertAssignment(const ASTContext& context, const Type&
         if (expr.isImplicitlyAssignableTo(comp, type)) {
             return ConversionExpression::makeImplicit(context, type, ConversionKind::Implicit,
                                                       *result, nullptr, assignmentRange);
-        }
-
-        if (expr.kind == ExpressionKind::Streaming) {
-            if (Bitstream::canBeSource(type, expr.as<StreamingConcatenationExpression>(),
-                                       assignmentRange, context)) {
-                // Add an implicit bit-stream casting otherwise types are not assignment compatible.
-                // The size rule is not identical to explicit bit-stream casting so a different
-                // ConversionKind is used.
-                result = comp.emplace<ConversionExpression>(type, ConversionKind::StreamingConcat,
-                                                            *result, result->sourceRange);
-                selfDetermined(context, result);
-                return *result;
-            }
-            return badExpr(comp, &expr);
         }
 
         if (expr.kind == ExpressionKind::ValueRange) {
@@ -291,7 +282,15 @@ Expression& ConversionExpression::fromSyntax(Compilation& comp, const CastExpres
             return badExpr(comp, nullptr);
         }
 
-        operand = &create(comp, *syntax.right, context, ASTFlags::StreamingAllowed, type);
+        // Don't pass type as assignmentTarget for streaming operands: the existing
+        // isBitstreamCast path below handles them with the correct semantics and error codes.
+        // For other operands (e.g. assignment patterns), assignmentTarget is needed for type
+        // deduction. The cast syntax wraps the operand in ParenthesizedExpressionSyntax, so
+        // check the inner expression kind.
+        const bool isStreamingOperand = syntax.right->expression->kind ==
+                                        SyntaxKind::StreamingConcatenationExpression;
+        operand = &create(comp, *syntax.right, context, ASTFlags::StreamingAllowed,
+                          isStreamingOperand ? nullptr : type);
         if (operand->bad())
             return badExpr(comp, nullptr);
     }
@@ -438,7 +437,8 @@ Expression& ConversionExpression::makeImplicit(const ASTContext& context, const 
                                                const Expression* parentExpr,
                                                SourceRange operatorRange) {
     auto& comp = context.getCompilation();
-    SLANG_ASSERT(expr.isImplicitlyAssignableTo(comp, targetType));
+    SLANG_ASSERT(conversionKind == ConversionKind::Explicit ||
+                 expr.isImplicitlyAssignableTo(comp, targetType));
 
     Expression* op = &expr;
     selfDetermined(context, op);

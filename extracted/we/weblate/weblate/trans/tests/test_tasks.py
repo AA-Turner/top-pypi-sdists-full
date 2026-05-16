@@ -2,19 +2,20 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import os
+import time
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import patch
 
-from django.test.utils import override_settings
 from django.utils import timezone
 
 from weblate.checks.tasks import finalize_component_checks
-from weblate.trans.models import Comment, PendingUnitChange, Suggestion
+from weblate.trans.models import Category, PendingUnitChange, Suggestion
 from weblate.trans.models.project import CommitPolicyChoices
 from weblate.trans.tasks import (
-    cleanup_old_comments,
-    cleanup_old_suggestions,
     cleanup_repos,
+    cleanup_stale_repos,
     cleanup_suggestions,
     commit_pending,
     daily_update_checks,
@@ -73,32 +74,6 @@ class CleanupTest(ComponentTestCase):
         cleanup_suggestions()
         self.assertEqual(len(self.get_unit().suggestions), 1)
 
-    def test_cleanup_old_suggestions(self, expected=2) -> None:
-        request = self.get_request()
-        unit = self.get_unit()
-        Suggestion.objects.add(unit, ["Zkouška"], request)
-        Suggestion.objects.all().update(timestamp=timezone.now() - timedelta(days=30))
-        Suggestion.objects.add(unit, ["Zkouška 2"], request)
-        cleanup_old_suggestions()
-        self.assertEqual(Suggestion.objects.count(), expected)
-
-    @override_settings(SUGGESTION_CLEANUP_DAYS=15)
-    def test_cleanup_old_suggestions_enabled(self) -> None:
-        self.test_cleanup_old_suggestions(1)
-
-    def test_cleanup_old_comments(self, expected=2) -> None:
-        request = self.get_request()
-        unit = self.get_unit()
-        Comment.objects.add(request, unit, "Zkouška", "global")
-        Comment.objects.all().update(timestamp=timezone.now() - timedelta(days=30))
-        Comment.objects.add(request, unit, "Zkouška 2", "global")
-        cleanup_old_comments()
-        self.assertEqual(Comment.objects.count(), expected)
-
-    @override_settings(COMMENT_CLEANUP_DAYS=15)
-    def test_cleanup_old_comments_enabled(self) -> None:
-        self.test_cleanup_old_comments(1)
-
 
 class TasksTest(ComponentTestCase):
     def test_daily_update_checks(self) -> None:
@@ -106,6 +81,29 @@ class TasksTest(ComponentTestCase):
 
     def test_cleanup_repos(self) -> None:
         cleanup_repos()
+
+    def test_cleanup_stale_repos_keeps_category_with_stale_git_dir(self) -> None:
+        category = Category.objects.create(
+            project=self.project, name="WorkshopApp", slug="workshopapp"
+        )
+        component = self.create_po(
+            project=self.project, category=category, name="startup", vcs="local"
+        )
+        stale_git = Path(category.full_path) / ".git"
+        stale_git.mkdir()
+        (stale_git / "config").write_text("[core]\n", encoding="utf-8")
+
+        old_timestamp = time.time() - 2 * 86400
+        os.utime(category.full_path, (old_timestamp, old_timestamp))
+        os.utime(component.full_path, (old_timestamp, old_timestamp))
+
+        cleanup_stale_repos()
+
+        self.assertTrue(os.path.isdir(category.full_path))
+        self.assertTrue(os.path.isdir(component.full_path))
+        self.assertTrue(
+            os.path.isfile(os.path.join(component.full_path, ".git", "config"))
+        )
 
     def test_update_remotes(self) -> None:
         update_remotes()

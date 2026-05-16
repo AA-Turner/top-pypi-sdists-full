@@ -34,9 +34,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-solutions-constructs/core",
-    "2.101.0",
+    "2.102.0",
     __name__[0:-6],
-    "core@2.101.0.jsii.tgz",
+    "core@2.102.0.jsii.tgz",
 )
 
 __all__ = [

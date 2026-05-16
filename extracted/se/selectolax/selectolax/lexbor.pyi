@@ -171,6 +171,7 @@ class LexborNode:
         tag_with_ns: bool = False,
         without_text_indent: bool = False,
         full_doctype: bool = False,
+        html5test: bool = False,
     ) -> str | None:
         """Return pretty-printed HTML for the current node.
 
@@ -192,6 +193,8 @@ class LexborNode:
             Disable extra indentation added around text and comment content.
         full_doctype : bool, optional
             Serialize the full document type declaration when a doctype node is present.
+        html5test : bool, optional
+            Serialize using Lexbor's HTML5 test formatting mode.
         """
         ...
 
@@ -813,6 +816,7 @@ class LexborNode:
         tag_with_ns: bool = False,
         without_text_indent: bool = False,
         full_doctype: bool = False,
+        html5test: bool = False,
     ) -> str | None:
         """Return pretty-printed HTML representation of the child nodes.
 
@@ -834,6 +838,8 @@ class LexborNode:
             Disable extra indentation added around text and comment content.
         full_doctype : bool, optional
             Serialize the full document type declaration when a doctype node is present.
+        html5test : bool, optional
+            Serialize using Lexbor's HTML5 test formatting mode.
         """
         ...
 
@@ -895,7 +901,13 @@ class LexborHTMLParser:
 
     raw_html: bytes
 
-    def __init__(self, html: str | bytes, is_fragment: bool = False) -> None:
+    def __init__(
+        self,
+        html: str | bytes,
+        is_fragment: bool = False,
+        fragment_tag: str = "div",
+        fragment_namespace: str = "html",
+    ) -> None:
         """Create a parser and load HTML.
 
         Parameters
@@ -914,6 +926,13 @@ class LexborHTMLParser:
             Behaves the same way as `DocumentFragment` in browsers.
             When `<html>`, `<head>` or `<body>` are present, ignores them entirely.
             As per the HTML Standard.
+        fragment_tag : str, optional
+            Context element tag used for fragment parsing. Defaults to ``"div"``.
+            Only used when ``is_fragment`` is ``True``.
+        fragment_namespace : str, optional
+            Context element namespace used for fragment parsing. Defaults to ``"html"``.
+            Accepts Lexbor namespace names such as ``"html"``, ``"svg"``, and ``"math"``,
+            or a namespace URI recognized by Lexbor. Only used when ``is_fragment`` is ``True``.
 
         """
         ...
@@ -1044,6 +1063,7 @@ class LexborHTMLParser:
         tag_with_ns: bool = False,
         without_text_indent: bool = False,
         full_doctype: bool = False,
+        html5test: bool = False,
     ) -> str | None:
         """Return pretty-printed HTML representation of the page.
 
@@ -1065,6 +1085,8 @@ class LexborHTMLParser:
             Disable extra indentation added around text and comment content.
         full_doctype : bool, optional
             Serialize the full document type declaration when a doctype node is present.
+        html5test : bool, optional
+            Serialize using Lexbor's HTML5 test formatting mode.
         """
         ...
 
@@ -1367,6 +1389,7 @@ class LexborHTMLParser:
         tag_with_ns: bool = False,
         without_text_indent: bool = False,
         full_doctype: bool = False,
+        html5test: bool = False,
     ) -> str | None:
         """Return pretty-printed HTML representation of the child nodes.
 
@@ -1388,6 +1411,8 @@ class LexborHTMLParser:
             Disable extra indentation added around text and comment content.
         full_doctype : bool, optional
             Serialize the full document type declaration when a doctype node is present.
+        html5test : bool, optional
+            Serialize using Lexbor's HTML5 test formatting mode.
         """
         ...
     def create_node(self, tag: str) -> LexborNode:

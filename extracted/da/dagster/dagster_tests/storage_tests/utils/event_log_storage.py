@@ -565,7 +565,7 @@ class TestEventLogStorage:
                 instance.delete_run(run)
 
     # .watch() is async, there's a small chance they don't run before the asserts
-    @pytest.mark.flaky(max_runs=2)
+    @pytest.mark.flaky(reruns=1)
     def test_event_log_storage_watch(
         self,
         test_run_id: str,
@@ -1112,7 +1112,7 @@ class TestEventLogStorage:
             assert set(map(lambda e: e.run_id, out_events_two)) == {result_two.run_id}
 
     # .watch() is async, there's a small chance they don't run before the asserts
-    @pytest.mark.flaky(max_runs=2)
+    @pytest.mark.flaky(reruns=1)
     def test_event_watcher_single_run_event(self, storage, test_run_id):
         if not self.can_watch():
             pytest.skip("storage cannot watch runs")
@@ -1133,7 +1133,7 @@ class TestEventLogStorage:
         assert all([isinstance(event, dg.EventLogEntry) for event in event_list])
 
     # .watch() is async, there's a small chance they don't run before the asserts
-    @pytest.mark.flaky(max_runs=2)
+    @pytest.mark.flaky(reruns=1)
     def test_event_watcher_filter_run_event(self, instance, storage):
         if not self.can_watch():
             pytest.skip("storage cannot watch runs")
@@ -1162,7 +1162,7 @@ class TestEventLogStorage:
             assert all([isinstance(event, dg.EventLogEntry) for event in event_list])
 
     # .watch() is async, there's a small chance they don't run before the asserts
-    @pytest.mark.flaky(max_runs=2)
+    @pytest.mark.flaky(reruns=1)
     def test_event_watcher_filter_two_runs_event(self, storage, instance):
         if not self.can_watch():
             pytest.skip("storage cannot watch runs")
@@ -1584,7 +1584,7 @@ class TestEventLogStorage:
         materializations = [
             e
             for e in events
-            if e.dagster_event.event_type == "ASSET_MATERIALIZATION"  # pyright: ignore[reportOptionalMemberAccess]
+            if e.dagster_event.event_type == "ASSET_MATERIALIZATION"  # ty: ignore[unresolved-attribute]
         ]
         storage.store_event_batch(materializations)
 
@@ -1620,7 +1620,7 @@ class TestEventLogStorage:
         materializations = [
             e
             for e in events
-            if e.dagster_event.event_type == "ASSET_MATERIALIZATION"  # pyright: ignore[reportOptionalMemberAccess]
+            if e.dagster_event.event_type == "ASSET_MATERIALIZATION"  # ty: ignore[unresolved-attribute]
         ]
         storage.store_event_batch(materializations)
 
@@ -1723,7 +1723,7 @@ class TestEventLogStorage:
         def _get_counts(result):
             assert isinstance(result, dg.EventRecordsResult)
             return [
-                record.asset_materialization.metadata.get("count").value  # pyright: ignore[reportOptionalMemberAccess]
+                record.asset_materialization.metadata.get("count").value
                 for record in result.records
             ]
 
@@ -1878,8 +1878,7 @@ class TestEventLogStorage:
         def _get_counts(result):
             assert isinstance(result, dg.EventRecordsResult)
             return [
-                record.asset_observation.metadata.get("count").value  # pyright: ignore[reportOptionalMemberAccess]
-                for record in result.records
+                record.asset_observation.metadata.get("count").value for record in result.records
             ]
 
         # results come in descending order, by default
@@ -2000,7 +1999,7 @@ class TestEventLogStorage:
 
     def test_asset_materialization_null_key_fails(self):
         with pytest.raises(check.CheckError):
-            dg.AssetMaterialization(asset_key=None)  # pyright: ignore[reportArgumentType]
+            dg.AssetMaterialization(asset_key=None)  # ty: ignore[invalid-argument-type]
 
     def test_asset_events_error_parsing(self, storage, instance):
         if not isinstance(storage, SqlEventLogStorage):
@@ -2671,7 +2670,7 @@ class TestEventLogStorage:
             assert len(run_status_change_events) == 6
 
     # .watch() is async, there's a small chance they don't run before the asserts
-    @pytest.mark.flaky(max_runs=2)
+    @pytest.mark.flaky(reruns=1)
     def test_watch_exc_recovery(self, storage):
         if not self.can_watch():
             pytest.skip("storage cannot watch runs")
@@ -5708,7 +5707,7 @@ class TestEventLogStorage:
         storage.delete_events(run_id=two)
         assert storage.get_concurrency_run_ids() == set()
 
-    @pytest.mark.flaky(max_runs=3)
+    @pytest.mark.flaky(reruns=2)
     def test_threaded_concurrency(self, storage: EventLogStorage):
         if not storage.supports_global_concurrency_limits:
             pytest.skip("storage does not support global op concurrency")

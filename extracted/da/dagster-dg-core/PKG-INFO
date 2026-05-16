@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-dg-core
-Version: 1.13.4
+Version: 1.13.5
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dg-core
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
@@ -13,8 +13,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: click-aliases
 Requires-Dist: click<9,>=8
-Requires-Dist: dagster-cloud-cli==1.13.4
-Requires-Dist: dagster-shared==1.13.4
+Requires-Dist: dagster-cloud-cli==1.13.5
+Requires-Dist: dagster-shared==1.13.5
 Requires-Dist: gql[requests]
 Requires-Dist: jinja2
 Requires-Dist: jsonschema
@@ -31,9 +31,9 @@ Requires-Dist: watchdog
 Requires-Dist: yaspin
 Provides-Extra: test
 Requires-Dist: click; extra == 'test'
-Requires-Dist: create-dagster==1.13.4; extra == 'test'
-Requires-Dist: dagster-graphql==1.13.4; extra == 'test'
-Requires-Dist: dagster==1.13.4; extra == 'test'
+Requires-Dist: create-dagster==1.13.5; extra == 'test'
+Requires-Dist: dagster-graphql==1.13.5; extra == 'test'
+Requires-Dist: dagster==1.13.5; extra == 'test'
 Requires-Dist: freezegun; extra == 'test'
 Requires-Dist: psutil; extra == 'test'
 Requires-Dist: pydantic; extra == 'test'

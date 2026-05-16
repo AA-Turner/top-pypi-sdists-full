@@ -217,3 +217,9 @@ class WidgetWrapper:
     def __lt__(self, other: WidgetWrapper) -> bool:
         """Comparaison inférieure"""
         return self.z < other.z
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "GuiLayer",
+    "WidgetWrapper",
+]

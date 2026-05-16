@@ -67,6 +67,29 @@ class TwoWayFixedEffects(DifferenceInDifferences):
     ``TODO.md`` under Methodology/Correctness; also documented in
     ``docs/methodology/REGISTRY.md``.
 
+    **Conley spatial-HAC (``vcov_type="conley"``) is supported via the
+    block-decomposed panel sandwich (matches R ``conleyreg`` with
+    ``lag_cutoff > 0``).** Pass ``conley_coords=(lat_col, lon_col)``,
+    ``conley_cutoff_km=<float>``, and ``conley_lag_cutoff=<int>`` on the
+    constructor; the ``time`` / ``unit`` arrays are auto-derived from the
+    estimator's ``time`` and ``unit`` column-name arguments at fit-time.
+    The sandwich sums within-period spatial pairs plus within-unit
+    Bartlett serial pairs (lag=0 excluded to avoid double-counting); this
+    is NOT a multiplicative product kernel. FWL composability: the
+    within-transformed scores ``S = X_demeaned * residuals_demeaned`` form
+    the same meat as the full-dummy-expansion design. The temporal kernel
+    is hardcoded Bartlett regardless of ``conley_kernel`` (matches
+    ``conleyreg::time_dist``). Explicit ``cluster=<col>`` + Conley
+    enables the combined spatial + cluster product kernel
+    ``K_total[i, j] = K_space(d_ij/h) · 1{cluster_i = cluster_j}``;
+    cluster membership must be constant within each unit across periods
+    (validator-enforced on the panel block-decomposed path). When
+    ``cluster=`` is unset, TWFE's default auto-cluster at the unit level
+    is silently dropped on the Conley path — Conley spatial HAC alone is
+    applied, not the combined kernel. Restrictions:
+    ``inference="wild_bootstrap"`` + Conley raises (incompatible inference
+    modes); ``survey_design=`` + Conley raises (Phase 5 follow-up).
+
     Warning: TWFE can be biased with staggered treatment timing
     and heterogeneous treatment effects. Consider using
     more robust estimators (e.g., Callaway-Sant'Anna) for
@@ -141,6 +164,27 @@ class TwoWayFixedEffects(DifferenceInDifferences):
                 "switch to fixed_effects= dummies on DifferenceInDifferences "
                 "for a full-dummy design where HC2/CR2-BM are computed on "
                 "the full projection."
+            )
+
+        # Phase 2 panel block-decomposed Conley (matches R conleyreg).
+        # FWL composability: the within-transformed scores S = X_demeaned *
+        # residuals_demeaned form the same meat as the full-dummy expansion,
+        # so passing the demeaned X / residuals to compute_conley_vcov along
+        # with the original (un-demeaned) time / unit vectors and coords
+        # yields the correct block-decomposed sandwich.
+        if self.vcov_type == "conley":
+            from diff_diff.conley import _validate_conley_estimator_inputs
+
+            _validate_conley_estimator_inputs(
+                estimator_name="TwoWayFixedEffects",
+                data=data,
+                unit=unit,
+                conley_coords=self.conley_coords,
+                conley_cutoff_km=self.conley_cutoff_km,
+                conley_lag_cutoff=self.conley_lag_cutoff,
+                survey_design=survey_design,
+                inference=self.inference,
+                cluster=self.cluster,
             )
 
         # Check for staggered treatment timing and warn if detected
@@ -298,16 +342,60 @@ class TwoWayFixedEffects(DifferenceInDifferences):
         # remapped vcov_type disagrees; the remapped `vcov_type` is the
         # single source of truth.
         _fit_vcov_type = self._resolve_effective_vcov_type(survey_cluster_ids)
+
+        # Phase 2 panel-Conley: build coord array + row-aligned time/unit
+        # vectors from the original (un-demeaned) data. FWL composability:
+        # within-transformed X already encodes the FE; the meat is computed
+        # on demeaned scores but the kernel grid uses the original space
+        # (coords) and time/unit indexing.
+        if _fit_vcov_type == "conley":
+            _conley_coords_arr: Optional[np.ndarray] = np.column_stack(
+                [
+                    data[self.conley_coords[0]].values.astype(np.float64),
+                    data[self.conley_coords[1]].values.astype(np.float64),
+                ]
+            )
+            # Preserve the original time-label dtype (int, datetime64, pd.Period,
+            # string). `_compute_conley_vcov` normalizes to dense 0..T-1 codes
+            # internally; float coercion here would break datetime64 / Period /
+            # string encodings before the normalizer runs.
+            _conley_time_arr: Optional[np.ndarray] = np.asarray(data[time].values)
+            _conley_unit_arr: Optional[np.ndarray] = data[unit].values
+            # Combined spatial + cluster product kernel: thread the user's
+            # EXPLICIT cluster=<col> through when set. TWFE's default auto-
+            # cluster at the unit level is silently dropped on the Conley
+            # path — combining Conley with the unit-cluster mask zeros out
+            # all between-unit pairs (defeating Conley's spatial pooling).
+            # Users who want the combined kernel must pass an above-unit
+            # cluster (e.g. region) explicitly.
+            _conley_cluster_override = (
+                data[self.cluster].values if self.cluster is not None else None
+            )
+        else:
+            _conley_coords_arr = None
+            _conley_time_arr = None
+            _conley_unit_arr = None
+            _conley_cluster_override = (
+                survey_cluster_ids if self.inference != "wild_bootstrap" else None
+            )
+
         if self.rank_deficient_action == "error":
             reg = LinearRegression(
                 include_intercept=False,
-                cluster_ids=survey_cluster_ids if self.inference != "wild_bootstrap" else None,
+                cluster_ids=_conley_cluster_override,
                 alpha=self.alpha,
                 rank_deficient_action="error",
                 weights=survey_weights,
                 weight_type=survey_weight_type,
                 survey_design=_lr_survey_twfe,
                 vcov_type=_fit_vcov_type,
+                conley_coords=_conley_coords_arr,
+                conley_cutoff_km=self.conley_cutoff_km,
+                conley_metric=self.conley_metric,
+                conley_kernel=self.conley_kernel,
+                conley_time=_conley_time_arr,
+                conley_unit=_conley_unit_arr,
+                conley_lag_cutoff=self.conley_lag_cutoff,
             ).fit(X, y, df_adjustment=df_adjustment)
         else:
             # Suppress generic warning, TWFE provides context-specific messages below
@@ -315,15 +403,20 @@ class TwoWayFixedEffects(DifferenceInDifferences):
                 warnings.filterwarnings("ignore", message="Rank-deficient design matrix")
                 reg = LinearRegression(
                     include_intercept=False,
-                    cluster_ids=(
-                        survey_cluster_ids if self.inference != "wild_bootstrap" else None
-                    ),
+                    cluster_ids=_conley_cluster_override,
                     alpha=self.alpha,
                     rank_deficient_action="silent",
                     weights=survey_weights,
                     weight_type=survey_weight_type,
                     survey_design=_lr_survey_twfe,
                     vcov_type=_fit_vcov_type,
+                    conley_coords=_conley_coords_arr,
+                    conley_cutoff_km=self.conley_cutoff_km,
+                    conley_metric=self.conley_metric,
+                    conley_kernel=self.conley_kernel,
+                    conley_time=_conley_time_arr,
+                    conley_unit=_conley_unit_arr,
+                    conley_lag_cutoff=self.conley_lag_cutoff,
                 ).fit(X, y, df_adjustment=df_adjustment)
 
         coefficients = reg.coefficients_
@@ -460,9 +553,18 @@ class TwoWayFixedEffects(DifferenceInDifferences):
         # `self.cluster is None` AND the vcov family is cluster-compatible.
         # One-way families (`classical`, `hc2`) disable the auto-cluster (see
         # the `cluster_var` block above); report None so summary() labels the
-        # one-way family instead of "CR1 cluster-robust at unit".
-        if self.cluster is not None:
-            _twfe_cluster_label: Optional[str] = self.cluster
+        # one-way family instead of "CR1 cluster-robust at unit". On the
+        # Conley path, the auto-cluster is silently dropped (combining with
+        # unit-level clusters would zero out all between-unit pairs and
+        # defeat the spatial pooling); when the user passes an explicit
+        # `cluster=<col>` ALONGSIDE Conley, the combined spatial + cluster
+        # product kernel applies and the label tracks the user's column.
+        # Either way, the cluster_name reflects the cluster IDs actually
+        # passed to LinearRegression.
+        if _fit_vcov_type == "conley":
+            _twfe_cluster_label: Optional[str] = self.cluster if self.cluster is not None else None
+        elif self.cluster is not None:
+            _twfe_cluster_label = self.cluster
         elif cluster_var is None:
             # One-way family path: auto-cluster was intentionally dropped.
             _twfe_cluster_label = None
@@ -492,6 +594,7 @@ class TwoWayFixedEffects(DifferenceInDifferences):
             # remapped hc1 under the legacy alias path, not self.vcov_type.
             vcov_type=_fit_vcov_type,
             cluster_name=_twfe_cluster_label,
+            conley_lag_cutoff=(self.conley_lag_cutoff if _fit_vcov_type == "conley" else None),
         )
 
         self.is_fitted_ = True
@@ -602,6 +705,7 @@ class TwoWayFixedEffects(DifferenceInDifferences):
             Use 0 (or np.inf) for never-treated units.
         weights : str, default="approximate"
             Weight calculation method:
+
             - "approximate": Fast simplified formula (default). Good for
               diagnostic purposes where relative weights are sufficient.
             - "exact": Variance-based weights from Goodman-Bacon (2021)

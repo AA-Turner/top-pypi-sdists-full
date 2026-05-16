@@ -167,7 +167,7 @@ endfunction
     CHECK(diags[11].code == diag::InvalidMethodQualifier);
     CHECK(diags[12].code == diag::MethodStaticLifetime);
     CHECK(diags[13].code == diag::InvalidQualifierForMember);
-    CHECK(diags[14].code == diag::NotAllowedInClass);
+    CHECK(diags[14].code == diag::PackageImportInClass);
     CHECK(diags[15].code == diag::InvalidQualifierForConstructor);
     CHECK(diags[16].code == diag::InvalidQualifierForConstructor);
     CHECK(diags[17].code == diag::QualifiersOnOutOfBlock);
@@ -652,6 +652,30 @@ endfunction
 
     EvalContext ctx(ASTContext(compilation.getRoot(), LookupLocation::max));
     CHECK(init->eval(ctx).integer() == 1);
+}
+
+TEST_CASE("This handle in extern method default arg") {
+    auto tree = SyntaxTree::fromText(R"(
+class A;
+    int a = 1;
+    extern function void disp(int x = this.a);
+endclass
+
+function void A::disp(int x = this.a);
+    $display("x = %0d", x);
+endfunction
+
+module test;
+    initial begin
+        automatic A a = new();
+        a.disp();
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }
 
 TEST_CASE("This handle errors") {
@@ -1262,6 +1286,41 @@ class Fifo#(type T = logic) implements PutImp#(T), GetImp#(T);
         get = myFifo.pop_front();
     endfunction
 endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Interface class compatibility through abstract base class") {
+    auto tree = SyntaxTree::fromText(R"(
+interface class FullInterface;
+    pure virtual function bit funcA();
+    pure virtual function bit funcB();
+endclass
+
+virtual class PartialImpl implements FullInterface;
+    virtual function bit funcA();
+        return 1;
+    endfunction
+    pure virtual function bit funcB();
+endclass
+
+class CompleteImpl extends PartialImpl;
+    virtual function bit funcB();
+        return 1;
+    endfunction
+endclass
+
+module test;
+    FullInterface fi;
+    CompleteImpl ci;
+    initial begin
+        ci = new();
+        fi = ci;
+    end
+endmodule
 )");
 
     Compilation compilation;
@@ -2058,7 +2117,7 @@ endclass
     REQUIRE(diags.size() == 11);
     CHECK(diags[0].code == diag::MemberDefinitionBeforeClass);
     CHECK(diags[1].code == diag::NoConstraintBody);
-    CHECK(diags[2].code == diag::NoMemberImplFound);
+    CHECK(diags[2].code == diag::MemberImplNotFound);
     CHECK(diags[3].code == diag::PureConstraintInAbstract);
     CHECK(diags[4].code == diag::ConstraintQualOutOfBlock);
     CHECK(diags[5].code == diag::Redefinition);
@@ -2107,7 +2166,7 @@ class B;
         k = a.randomize with { k + this.l < $bits(super.IntT) + $bits(this.super.IntT); };
         k = a.randomize with { k + local::this.l < 10; };
         k = a.randomize with (a.l, 1+k) { 1; };
-        k = local::k; // error
+        k = local::k; // LocalNotAllowed
         k = a.randomize (l, j);
         k = a.randomize (l, j) with (l) { l[0] > 1; };
         k = randomize (k) with { this.k < 10; };
@@ -2115,9 +2174,9 @@ class B;
         k = randomize (k[0]);
         k = randomize (null);
         k = std::randomize(a, k) with { k < a.j; };
-        k = std::randomize(a.j, u) with { k < a.j; };
-        k = std::randomize(u) with { k < a.j; };
-        k = std::randomize() with (a, b) { k < a.j; };
+        k = std::randomize(a.j, u) with { k < a.j; }; // NonstandardScopeRandomize, InvalidRandType
+        k = std::randomize(u) with { k < a.j; }; // InvalidRandType
+        k = std::randomize() with (a, b) { k < a.j; }; // NameListWithScopeRandomize
     endfunction
 endclass
 )");
@@ -2126,7 +2185,7 @@ endclass
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 10);
+    REQUIRE(diags.size() == 11);
     CHECK(diags[0].code == diag::BadBinaryExpression);
     CHECK(diags[1].code == diag::UnknownMember);
     CHECK(diags[2].code == diag::ExpectedIdentifier);
@@ -2134,9 +2193,10 @@ endclass
     CHECK(diags[4].code == diag::LocalNotAllowed);
     CHECK(diags[5].code == diag::ExpectedClassPropertyName);
     CHECK(diags[6].code == diag::ExpectedClassPropertyName);
-    CHECK(diags[7].code == diag::ExpectedVariableName);
+    CHECK(diags[7].code == diag::NonstandardScopeRandomize);
     CHECK(diags[8].code == diag::InvalidRandType);
-    CHECK(diags[9].code == diag::NameListWithScopeRandomize);
+    CHECK(diags[9].code == diag::InvalidRandType);
+    CHECK(diags[10].code == diag::NameListWithScopeRandomize);
 }
 
 TEST_CASE("Scope randomize rand variables") {
@@ -3577,4 +3637,407 @@ endclass
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     compilation.getAllDiagnostics();
+}
+
+TEST_CASE("std::randomize with element select") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int segment_size[2];
+    int traffic_type[2];
+
+    function automatic void test;
+        int idx = 1;
+
+        // Randomize with element select and dist constraint
+        void'(std::randomize(traffic_type[idx]) with {
+            traffic_type[idx] dist {
+                0 :/ 1,
+                1 :/ 10,
+                2 :/ 2
+            };
+        });
+
+        // Randomize with element select and inside constraint
+        void'(std::randomize(segment_size[0]) with {
+            segment_size[0] inside {[10:10000]};
+        });
+
+        // Randomize with element select, variable index
+        void'(std::randomize(segment_size[idx]) with {
+            segment_size[idx] inside {[1:100]};
+        });
+    endfunction
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::NonstandardScopeRandomize);
+    CHECK(diags[1].code == diag::NonstandardScopeRandomize);
+    CHECK(diags[2].code == diag::NonstandardScopeRandomize);
+}
+
+TEST_CASE("std::randomize with member access") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    struct { int x; } s;
+    struct { int arr[2]; } s2;
+
+    function automatic void test;
+        // Struct member access - non-standard but allowed
+        void'(std::randomize(s.x));
+
+        // Element select on struct member - non-standard but allowed
+        void'(std::randomize(s2.arr[0]));
+    endfunction
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::NonstandardScopeRandomize);
+    CHECK(diags[1].code == diag::NonstandardScopeRandomize);
+}
+
+TEST_CASE("std::randomize with function return value") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    function automatic int test;
+        int a = 1;
+        // Randomize the function's return value along with a local variable
+        void'(std::randomize(test, a) with {
+            test inside {[0:100]};
+            a inside {[0:50]};
+        });
+        return test;
+    endfunction
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("std::randomize with hierarchical reference error") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    int x;
+endmodule
+
+module m;
+    function automatic void test;
+        // Hierarchical reference not allowed - not in current scope
+        void'(std::randomize($root.top.x));
+    endfunction
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::ExpectedVariableName);
+}
+
+TEST_CASE("Re-entrant getBaseConstructorCall during forceElaborate regress") {
+    // Reproducer for assertion failure in getBaseConstructorCall when:
+    // 1. A class inside a package extends a parameterized class with a virtual
+    //    interface type parameter
+    // 2. That virtual interface imports from the package and uses a re-exported type
+    // 3. This triggers forceElaborate on the package during handleExtends
+    // 4. forceElaborate visits the GenericClassDefSymbol and its specializations
+    // 5. getBaseConstructorCall is called before handleExtends completes
+    auto tree = SyntaxTree::fromText(R"(
+package inner_pkg;
+  typedef int some_t;
+endpackage
+
+package main_pkg;
+  import inner_pkg::*;
+  export inner_pkg::*;
+
+  class Base #(type T);
+    some_t t;
+  endclass
+
+  class Config extends Base #(virtual Ifc);
+  endclass
+endpackage
+
+interface Ifc import main_pkg::*; #(parameter some_t p = 1);
+  $static_assert($bits(Config) == 32);
+endinterface
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Randomize constraint variable shadow warning") {
+    auto tree = SyntaxTree::fromText(R"(
+class A;
+    rand int x;
+    rand int y;
+endclass
+
+class B;
+    function void f();
+        A a;
+        int y = 5;
+        // y refers to A::y here, not the local y -- should warn
+        void'(a.randomize() with { x == y; });
+        // Using local:: is explicit -- no warning
+        void'(a.randomize() with { x == local::y; });
+        // x is only in A, no local x -- no warning
+        void'(a.randomize() with { x < 10; });
+    endfunction
+endclass
+
+module m;
+    int x;
+    A a;
+    initial begin
+        // x refers to A::x since classScope.find("x") succeeds; local x also exists -- warn
+        void'(a.randomize() with { x < 10; });
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::RandomizeConstraintShadow);
+    CHECK(diags[1].code == diag::RandomizeConstraintShadow);
+}
+
+TEST_CASE("Randomize constraint variable shadow warning -- no false positives") {
+    // No warning when name only exists in class, when using local::, or
+    // when the 'with(varlist)' restriction excludes the name.
+    auto tree = SyntaxTree::fromText(R"(
+class A;
+    rand int x;
+    rand int y;
+endclass
+
+class B;
+    function void f();
+        A a;
+        // y is only in A -- no local y, no warning
+        void'(a.randomize() with { y < 10; });
+    endfunction
+
+    function void g();
+        A a;
+        int y = 5;
+        // 'with(x)' restricts the constraint to x only; y is not resolved in class scope
+        void'(a.randomize() with (x) { x < y; });
+        void'(a.randomize() with { x < this.y; });
+    endfunction
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Missing extern pre_randomize doesn't crash") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    extern function void pre_randomize();
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::MemberImplNotFound);
+}
+
+TEST_CASE("Generic class specializations are not assignment compatible") {
+    auto tree = SyntaxTree::fromText(R"(
+class C #(int i);
+endclass
+
+module m;
+    C #(1) c1;
+    C #(2) c2;
+    initial begin
+        c1 = c2;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::BadAssignment);
+}
+
+TEST_CASE("Generic class uninstantiated body -- no diagnostic for same-class assignments") {
+    auto tree = SyntaxTree::fromText(R"(
+class Base; endclass
+class Callback #(type T = Base);
+  T obj;
+endclass
+class Handler #(type T = Base);
+  function void store(Callback #(T) cb);
+    Callback #(Base) b;
+    b = cb;
+  endfunction
+  function bit compare_callback(Callback #(T) cb);
+    Callback #(Base) b;
+    return (b == cb);
+  endfunction
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Parameterized class base upcast with unbound generic params") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    class cb_base #(type T = int);
+    endclass
+
+    class ev_cls #(type T = int);
+        typedef cb_base#(T) cb_type;
+
+        function void add_callback(cb_type cb);
+        endfunction
+
+        function void add_direct(cb_base#(T) cb);
+        endfunction
+    endclass
+
+    class veto_cb extends cb_base#(int);
+    endclass
+
+    initial begin
+        ev_cls#(int) ev;
+        veto_cb cb;
+        ev = new;
+        cb = new;
+        ev.add_callback(cb);
+        ev.add_direct(cb);
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Generic class concrete specialization with different types is an error") {
+    // Both class handles are concrete specializations with T fully resolved
+    // to different types, so the assignment is incompatible.
+    auto tree = SyntaxTree::fromText(R"(
+class Base; endclass
+class Derived extends Base; endclass
+class Callback #(type T = Base);
+  T obj;
+endclass
+module m;
+  Callback #(Derived) cd;
+  Callback #(Base) cb;
+  initial cb = cd;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::BadAssignment);
+}
+
+TEST_CASE("Complex base classes with generic param regress -- GH #1666") {
+    auto tree = SyntaxTree::fromText(R"(
+package P;
+    class txn;
+    endclass
+
+    virtual class uvm_port_base #(type IF) extends IF;
+        typedef uvm_port_base #(IF) this_type;
+
+        virtual function void connect(this_type provider);
+        endfunction
+    endclass
+
+    virtual class uvm_tlm_if_base #(type T1=int, type T2=int);
+    endclass
+
+    class uvm_analysis_imp #(type T=int, type IMP=int) extends uvm_port_base #(uvm_tlm_if_base #(T,T));
+        local IMP m_imp;
+    endclass
+
+    class uvm_analysis_export #(type T=int) extends uvm_port_base #(uvm_tlm_if_base #(T,T));
+    endclass
+
+    class uvm_tlm_analysis_fifo #(type T = int);
+        uvm_analysis_imp #(T, uvm_tlm_analysis_fifo #(T)) analysis_export;
+    endclass
+
+    class uvm_sequencer #(type REQ, type RSP = REQ);
+        uvm_analysis_export #(RSP) rsp_export;
+    endclass
+
+    class my_sequencer extends uvm_sequencer#(P::txn);
+        uvm_tlm_analysis_fifo #(P::txn) fifo;
+
+        function void connect_phase();
+            rsp_export.connect(fifo.analysis_export);
+        endfunction
+    endclass
+endpackage
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Package import inside class") {
+    auto tree = SyntaxTree::fromText(R"(
+package p1;
+  bit b;
+endpackage
+
+package p2;
+  class c;
+    import p1::*;
+    int i;
+    function void f;
+      i = b ? 1 : 0;
+    endfunction
+  endclass
+endpackage
+)");
+
+    // Package imports in classes are non-standard but allowed with a warning.
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::PackageImportInClass);
 }

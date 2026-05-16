@@ -9,6 +9,7 @@
 #include "slang/ast/Compilation.h"
 #include "slang/ast/EvalContext.h"
 #include "slang/ast/SystemSubroutine.h"
+#include "slang/ast/ValuePath.h"
 #include "slang/syntax/AllSyntax.h"
 
 void registerAST(py::module_& m) {
@@ -39,6 +40,8 @@ void registerAST(py::module_& m) {
     py::classh<EvalContext> evalCtx(m, "EvalContext");
     evalCtx
         .def(py::init<const ASTContext&, bitmask<EvalFlags>>(), "astCtx"_a,
+             "flags"_a = bitmask<EvalFlags>{})
+        .def(py::init<const Symbol&, bitmask<EvalFlags>>(), "symbol"_a,
              "flags"_a = bitmask<EvalFlags>{})
         .def_readonly("flags", &EvalContext::flags)
         .def("createLocal", &EvalContext::createLocal, byrefint, "symbol"_a, "value"_a = nullptr)
@@ -127,6 +130,8 @@ void registerAST(py::module_& m) {
         .def_readonly("range", &EvaluatedDimension::range)
         .def_readonly("associativeType", &EvaluatedDimension::associativeType)
         .def_readonly("queueMaxSize", &EvaluatedDimension::queueMaxSize)
+        .def_readonly("leftExpr", &EvaluatedDimension::leftExpr)
+        .def_readonly("rightExpr", &EvaluatedDimension::rightExpr)
         .def_property_readonly("isRange", &EvaluatedDimension::isRange);
 
     py::classh<ASTContext>(m, "ASTContext")
@@ -204,6 +209,40 @@ void registerAST(py::module_& m) {
         .def("addAssertionBacktrace", &ASTContext::addAssertionBacktrace, "diag"_a)
         .def("resetFlags", &ASTContext::resetFlags, "addedFlags"_a);
 
+    py::classh<ValuePath>(m, "ValuePath")
+        .def(py::init<>())
+        .def(py::init<const Expression&, EvalContext&>(), "expr"_a, "evalContext"_a)
+        .def_readonly("rootExpr", &ValuePath::rootExpr)
+        .def_readonly("fullExpr", &ValuePath::fullExpr)
+        .def_readonly("lsp", &ValuePath::lsp)
+        .def_readonly("lspBounds", &ValuePath::lspBounds)
+        .def_property_readonly("rootSymbol", &ValuePath::rootSymbol)
+        .def_property_readonly("empty", &ValuePath::empty)
+        .def_property_readonly("isFullyStatic", &ValuePath::isFullyStatic)
+        .def("toString", &ValuePath::toString, "evalContext"_a)
+        .def("overlaps", &ValuePath::overlaps, "other"_a)
+        .def(
+            "__iter__",
+            [](const ValuePath& self) { return py::make_iterator(self.begin(), self.end()); },
+            py::keep_alive<0, 1>())
+        .def(
+            "expandIndirectRefs",
+            [](const ValuePath& self, BumpAllocator& alloc, EvalContext& evalContext,
+               py::function callback) {
+                self.expandIndirectRefs(alloc, evalContext,
+                                        [&callback](const ValuePath& path) { callback(path); });
+            },
+            "alloc"_a, "evalContext"_a, "callback"_a)
+        .def_static(
+            "visitPaths",
+            [](const Expression& expr, EvalContext& evalContext, py::function callback,
+               bool skipSelectors) {
+                ValuePath::visitPaths(
+                    expr, evalContext, [&callback](const ValuePath& path) { callback(path); },
+                    skipSelectors);
+            },
+            "expr"_a, "evalContext"_a, "callback"_a, "skipSelectors"_a = false);
+
     py::classh<Pattern>(m, "Pattern")
         .def_readonly("kind", &Pattern::kind)
         .def_readonly("syntax", &Pattern::syntax)
@@ -242,7 +281,8 @@ void registerAST(py::module_& m) {
         .def_readonly("sourceRange", &TimingControl::sourceRange)
         .def_property_readonly("bad", &TimingControl::bad)
         .def("isEquivalentTo", &TimingControl::isEquivalentTo, "other"_a)
-        .def("visit", &pyASTVisit<TimingControl>, "f"_a, PyASTVisitor::doc)
+        .def("visit", &pyASTVisit<TimingControl>, "f"_a = py::none(), "lookup_table"_a = py::none(),
+             PyASTVisitor::doc)
         .def("__repr__", [](const TimingControl& self) {
             return fmt::format("TimingControl(TimingControlKind.{})", toString(self.kind));
         });

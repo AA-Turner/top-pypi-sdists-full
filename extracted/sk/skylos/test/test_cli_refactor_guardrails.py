@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from rich.console import Console
 
 import skylos.cli as cli
 from skylos.debt.result import DebtHotspot, DebtScore, DebtSnapshot
@@ -57,11 +58,36 @@ def _progress_ctx():
     return cm
 
 
+def test_cli_grade_render_only_shows_scanned_categories():
+    console = Console(record=True, width=120, theme=cli._skylos_console_theme())
+    grade_data = {
+        "overall": {"score": 85, "letter": "B"},
+        "scanned_categories": ["dead_code"],
+        "categories": {
+            "dead_code": {
+                "score": 85,
+                "letter": "B",
+                "weight": 1.0,
+                "key_issue": "10 dead symbols (5.0/1K LOC)",
+            }
+        },
+        "total_loc": 2000,
+    }
+
+    cli._render_grade(console, grade_data, copy_badge=False)
+
+    rendered = console.export_text()
+    assert "Dead Code" in rendered
+    assert "100%" in rendered
+    assert "Security" not in rendered
+    assert "Quality" not in rendered
+
+
 def test_cli_guardrail_overview_dispatch_exits_zero(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["skylos"])
 
     with (
-        patch("skylos.help.print_command_overview") as mock_overview,
+        patch("skylos.ui.help.print_command_overview") as mock_overview,
         patch("skylos.cli.Console", return_value=Mock()),
         pytest.raises(SystemExit) as exc,
     ):
@@ -75,7 +101,7 @@ def test_cli_guardrail_commands_dispatch_exits_zero(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["skylos", "commands"])
 
     with (
-        patch("skylos.help.print_flat_commands") as mock_commands,
+        patch("skylos.ui.help.print_flat_commands") as mock_commands,
         patch("skylos.cli.Console", return_value=Mock()),
         pytest.raises(SystemExit) as exc,
     ):
@@ -89,7 +115,7 @@ def test_cli_guardrail_tour_dispatch_exits_zero(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["skylos", "tour"])
 
     with (
-        patch("skylos.tour.run_tour") as mock_tour,
+        patch("skylos.ui.tour.run_tour") as mock_tour,
         patch("skylos.cli.Console", return_value=Mock()),
         pytest.raises(SystemExit) as exc,
     ):
@@ -172,9 +198,7 @@ def test_cli_guardrail_init_dispatch_exits_zero(monkeypatch):
 
 
 @pytest.mark.parametrize("help_flag", ["--help", "-h"])
-def test_cli_guardrail_init_help_has_no_side_effects(
-    tmp_path, monkeypatch, help_flag
-):
+def test_cli_guardrail_init_help_has_no_side_effects(tmp_path, monkeypatch, help_flag):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "argv", ["skylos", "init", help_flag])
 
@@ -724,7 +748,7 @@ def test_ingest_command_json_output_prints_normalized_result():
 
     with (
         patch(
-            "skylos.ingest.ingest_claude_security", return_value=result
+            "skylos.integrations.ingest.ingest_claude_security", return_value=result
         ) as mock_ingest,
         patch("builtins.print") as mock_print,
     ):
@@ -754,7 +778,7 @@ def test_provenance_command_json_output_prints_report(tmp_path):
 
     with (
         patch(
-            "skylos.provenance.analyze_provenance", return_value=report
+            "skylos.reporting.provenance.analyze_provenance", return_value=report
         ) as mock_analyze,
         patch("builtins.print") as mock_print,
     ):
@@ -945,7 +969,7 @@ def test_cli_guardrail_agent_watch_forwards_learn_flag(monkeypatch):
 
     with (
         patch(
-            "skylos.agent_center.watch_project", return_value={"summary": {}}
+            "skylos.agents.center.watch_project", return_value={"summary": {}}
         ) as mock_watch,
         patch("builtins.print") as mock_print,
         pytest.raises(SystemExit) as exc,

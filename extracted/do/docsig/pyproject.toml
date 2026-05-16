@@ -11,7 +11,7 @@ line-length = 79
 allow_dirty = true
 commit = true
 commit_args = "-sS"
-current_version = "0.84.0"
+current_version = "0.85.0"
 message = "bump: version {current_version} → {new_version}"
 sign_tags = true
 tag = true
@@ -122,7 +122,7 @@ maintainers = [
 name = "docsig"
 readme = "README.rst"
 repository = "https://github.com/jshwi/docsig"
-version = "0.84.0"
+version = "0.85.0"
 
 [tool.poetry.dependencies]
 Sphinx = ">=7,<9"
@@ -139,7 +139,7 @@ deptry = ">=0.16.1,<0.26.0"
 flynt = "^1.0.1"
 gitpython = "^3.1.43"
 isort = ">=5.13.2,<9.0.0"
-mypy = "^1.10.0"
+mypy = ">=1.10,<3.0"
 pre-commit = ">=3.3.3,<5.0.0"
 pylint = "^4.0.4"
 tomli = "^2.0.1"

@@ -39,7 +39,7 @@ def sleep_calls(monkeypatch):
 
 
 RATE_LIMIT_CONFIG = RateLimitConfig(
-    app_id="test-app",
+    config_id="test-app",
     requests_per_window=1,
     window_seconds=10,
     strategy=RateLimitStrategy.FIXED,
@@ -332,7 +332,7 @@ async def test_batch_request_rate_limiting(monkeypatch, sleep_calls):
 
     # Create a rate limit config that allows batching
     batch_rate_config = RateLimitConfig(
-        app_id="test-batch-app",
+        config_id="test-batch-app",
         requests_per_window=3,  # Allow 3 requests per window
         window_seconds=5,  # 5 second window
         strategy=RateLimitStrategy.FIXED,
@@ -400,7 +400,7 @@ async def test_batch_request_with_default_kwargs(monkeypatch, sleep_calls):
     )
 
     batch_rate_config = RateLimitConfig(
-        app_id="test-batch-kwargs",
+        config_id="test-batch-kwargs",
         requests_per_window=5,
         window_seconds=1,
         strategy=RateLimitStrategy.FIXED,
@@ -460,7 +460,7 @@ async def test_batch_request_empty_list(monkeypatch, sleep_calls):
     )
 
     batch_rate_config = RateLimitConfig(
-        app_id="test-batch-empty",
+        config_id="test-batch-empty",
         requests_per_window=5,
         window_seconds=1,
         strategy=RateLimitStrategy.FIXED,
@@ -540,7 +540,7 @@ async def test_rate_limiter_wait_time_calculation(monkeypatch, sleep_calls):
 
     # Create a config that allows only 1 request per 5 seconds
     config = RateLimitConfig(
-        app_id="test-wait-time",
+        config_id="test-wait-time",
         requests_per_window=1,
         window_seconds=5,
         strategy=RateLimitStrategy.FIXED,
@@ -647,7 +647,7 @@ async def test_rate_limiter_large_batch_size(monkeypatch, sleep_calls):
 
     # Create config with large batch size
     config = RateLimitConfig(
-        app_id="test-large-batch",
+        config_id="test-large-batch",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,
@@ -710,7 +710,7 @@ async def test_rate_limiter_fixed_strategy_behavior(monkeypatch, sleep_calls):
 
     # Create config with specific delay settings
     config = RateLimitConfig(
-        app_id="test-fixed-strategy",
+        config_id="test-fixed-strategy",
         requests_per_window=1,
         window_seconds=10,
         strategy=RateLimitStrategy.FIXED,
@@ -777,7 +777,7 @@ async def test_rate_limiter_edge_case_no_requests_in_window(monkeypatch, sleep_c
 
     # Create config
     config = RateLimitConfig(
-        app_id="test-no-requests-window",
+        config_id="test-no-requests-window",
         requests_per_window=1,
         window_seconds=5,
         strategy=RateLimitStrategy.FIXED,
@@ -818,7 +818,7 @@ async def test_rate_limiter_max_batch_size_none(monkeypatch, sleep_calls):
 
     # Create config without max_batch_size
     config = RateLimitConfig(
-        app_id="test-no-max-batch",
+        config_id="test-no-max-batch",
         requests_per_window=3,
         window_seconds=10,
         strategy=RateLimitStrategy.FIXED,
@@ -875,7 +875,7 @@ async def test_rate_limiter_fixed_strategy_behavior_custom_error_check(monkeypat
 
     # Create config with specific delay settings
     config = RateLimitConfig(
-        app_id="test-fixed-strategy",
+        config_id="test-fixed-strategy",
         requests_per_window=1,
         window_seconds=10,
         strategy=RateLimitStrategy.FIXED,
@@ -937,7 +937,7 @@ async def test_rate_limiter_large_batch_size_custom_error_check(monkeypatch, sle
 
     # Create config with large batch size
     config = RateLimitConfig(
-        app_id="test-large-batch",
+        config_id="test-large-batch",
         requests_per_window=10,
         window_seconds=60,
         strategy=RateLimitStrategy.FIXED,

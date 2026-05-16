@@ -67,7 +67,7 @@ from PKDevTools.classes.Telegram import (
 from PKNSETools.morningstartools.PKMorningstarDataFetcher import morningstarDataFetcher
 from PKNSETools.Nasdaq.PKNasdaqIndex import PKNasdaqIndexFetcher
 from tabulate import tabulate
-from halo import Halo
+from PKDevTools.classes.PKHalo import PKHalo
 
 import pkscreener.classes.ConfigManager as ConfigManager
 import pkscreener.classes.Fetcher as Fetcher
@@ -922,7 +922,7 @@ def resetUserMenuChoiceOptions():
     menuChoiceHierarchy = ""
     userPassedArgs.pipedtitle = ""
 
-@Halo(text='', spinner='dots')
+@PKHalo(text='', spinner='dots')
 def refreshStockData(startupoptions=None):
     """
     Refresh stock data by loading from database or fetching from source.
@@ -1499,8 +1499,6 @@ def main(userArgs=None, optionalFinalOutcome_df=None):
         # Let's use screening only for the stocks for which we could get the data.
         savedOrDownloadedKeys = listStockCodes if (userArgs.options is not None and "," in userArgs.options) else list(stockDictPrimary.keys())
         missingStocks = set(listStockCodes) - set([ x.replace("-BE","").replace("-BZ","") for x in savedOrDownloadedKeys ])
-        # print(missingStocks)
-        # default_logger().debug(missingStocks)
         OutputControls().printOutput(f"{colorText.GREEN}  [+] Adding {len(savedOrDownloadedKeys)+1-len(missingStocks)} stocks out of {len(savedOrDownloadedKeys)} to the queue...{colorText.END}")
         listStockCodes = list(set(savedOrDownloadedKeys)-set(missingStocks)) if not downloadOnly else savedOrDownloadedKeys
         if downloadOnly:
@@ -1902,7 +1900,7 @@ def main(userArgs=None, optionalFinalOutcome_df=None):
         else:
             return screenResults, saveResults
 
-@Halo(text='', spinner='dots')
+@PKHalo(text='', spinner='dots')
 def getPerformanceStats():
     """
     Fetch performance statistics from Morningstar.
@@ -1912,7 +1910,7 @@ def getPerformanceStats():
     """
     return mstarFetcher.fetchMorningstarStocksPerformanceForExchange()
 
-@Halo(text='', spinner='dots')
+@PKHalo(text='', spinner='dots')
 def getMFIStats(popOption):
     """
     Get MFI (Money Flow Index) statistics from Morningstar.
@@ -1931,7 +1929,7 @@ def getMFIStats(popOption):
                 )
     return screenResults
 
-@Halo(text='', spinner='dots')
+@PKHalo(text='', spinner='dots')
 def analysisFinalResults(screenResults, saveResults, optionalFinalOutcome_df, runOptionName=None):
     """
     Prepare final analysis results for intraday analysis mode.
@@ -2230,7 +2228,7 @@ def describeUser():
     service = PKAnalyticsService()
     service.collectMetrics(user=configManager.userid)
 
-@Halo(text='', spinner='dots')
+@PKHalo(text='', spinner='dots')
 def prepareGroupedXRay(backtestPeriod, backtest_df):
     """
     Prepare grouped X-Ray analysis from backtest data.
@@ -3373,7 +3371,7 @@ def sendKiteBasketOrderReviewDetails(saveResultsTrimmed, runOptionName, caption,
             pass
     return kite_file_path, kite_caption
 
-@Halo(text='', spinner='dots')
+@PKHalo(text='', spinner='dots')
 def prepareGrowthOf10kResults(saveResults, selectedChoice, menuChoiceHierarchy, testing, user, pngName, pngExtension, eligible):
     """
     Prepare Growth of 10k portfolio results for display.

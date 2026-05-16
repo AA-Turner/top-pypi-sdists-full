@@ -17,7 +17,10 @@ class Transform(_Transform, Component):
         rotation: angle de rotation en degrés
         scale: facteur de redimensionnement
     """
-    __slots__ = ("_position", "_anchor", "_rotation", "_scale")
+    __slots__ = (
+        "_position", "_anchor",
+        "_rotation", "_scale",
+    )
 
     def __init__(
             self,
@@ -26,6 +29,7 @@ class Transform(_Transform, Component):
             rotation: float = 0.0,
             scale: float = 1.0,
         ):
+        # Initialisation de la tranformation
         super().__init__(position, anchor, rotation, scale)
 
     # ======================================== CONTRACT ========================================

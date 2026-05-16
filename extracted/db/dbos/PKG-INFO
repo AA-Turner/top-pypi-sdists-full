@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbos
-Version: 2.21.0
+Version: 2.22.0
 Summary: Ultra-lightweight durable execution in Python
 Author-Email: "DBOS, Inc." <contact@dbos.dev>
 License: MIT
@@ -27,13 +27,15 @@ Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: psycopg[binary]>=3.1
 Requires-Dist: websockets>=14.0
 Requires-Dist: typer-slim>=0.17.4
-Requires-Dist: sqlalchemy>=2.0.43
+Requires-Dist: sqlalchemy[asyncio]>=2.0.43
 Provides-Extra: otel
 Requires-Dist: opentelemetry-api>=1.37.0; extra == "otel"
 Requires-Dist: opentelemetry-sdk>=1.37.0; extra == "otel"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.37.0; extra == "otel"
 Provides-Extra: validation
 Requires-Dist: pydantic>=2.0; extra == "validation"
+Provides-Extra: aiosqlite
+Requires-Dist: aiosqlite>=0.20.0; extra == "aiosqlite"
 Description-Content-Type: text/markdown
 
 

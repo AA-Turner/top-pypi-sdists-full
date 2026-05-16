@@ -19,10 +19,17 @@ class PyPIStepDecorator(StepDecorator):
     python : str, optional, default: None
         Version of Python to use, e.g. '3.7.4'. A default value of None implies
         that the version used will correspond to the version of the Python interpreter used to start the run.
+    index_strategy : str, optional, default: None
+        an index-strategy to use when resolving packages over multiple indices. Currently only supported on fast-bakery.
     """
 
     name = "pypi"
-    defaults = {"packages": {}, "python": None, "disabled": None}  # wheels
+    defaults = {
+        "packages": {},
+        "python": None,
+        "disabled": None,
+        "index_strategy": None,
+    }  # wheels
 
     def __init__(self, attributes=None, statically_defined=False, inserted_by=None):
         self._attributes_with_user_values = (
@@ -52,6 +59,10 @@ class PyPIStepDecorator(StepDecorator):
             }
             self.attributes["python"] = (
                 self.attributes["python"] or super_attributes["python"]
+            )
+
+            self.attributes["index_strategy"] = (
+                self.attributes["index_strategy"] or super_attributes["index_strategy"]
             )
             self.attributes["disabled"] = (
                 self.attributes["disabled"]
@@ -123,10 +134,17 @@ class PyPIFlowDecorator(FlowDecorator):
     python : str, optional, default: None
         Version of Python to use, e.g. '3.7.4'. A default value of None implies
         that the version used will correspond to the version of the Python interpreter used to start the run.
+    index_strategy : str, optional, default: None
+        an index-strategy to use when resolving packages over multiple indices. Currently only supported on fast-bakery.
     """
 
     name = "pypi_base"
-    defaults = {"packages": {}, "python": None, "disabled": None}
+    defaults = {
+        "packages": {},
+        "python": None,
+        "disabled": None,
+        "index_strategy": None,
+    }
 
     def __init__(self, attributes=None, statically_defined=False, inserted_by=None):
         self._attributes_with_user_values = (

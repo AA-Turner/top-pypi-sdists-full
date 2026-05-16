@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instagrapi"
-version = "2.6.5"
+version = "2.6.7"
 authors = [
     {name = "Mark Subzeroid", email = "143403577+subzeroid@users.noreply.github.com"}
 ]
@@ -51,10 +51,10 @@ keywords = [
     "instagram-note",
 ]
 dependencies = [
-    "requests==2.34.0",
+    "requests==2.34.2",
     "PySocks==1.7.1",
     "pydantic==2.13.4",
-    "moviepy==1.0.3",
+    "Pillow==12.2.0",
     "pycryptodomex==3.23.0",
 ]
 
@@ -66,9 +66,24 @@ Issues = "https://github.com/subzeroid/instagrapi/issues"
 Guides = "https://instagrapi.com/guides/"
 
 [project.optional-dependencies]
+curl = [
+    "curl-adapter>=1.2.1",
+]
+video = [
+    # MoviePy 2.2.1 still declares pillow<12, while instagrapi requires Pillow 12.2.0
+    # for security fixes. Install MoviePy itself with --no-deps after this extra.
+    "decorator>=4.0.2,<6.0",
+    "imageio>=2.5,<3.0",
+    "imageio-ffmpeg>=0.2.0",
+    "numpy>=1.25.0",
+    "proglog<=1.0.0",
+    "python-dotenv>=0.10",
+]
 test = [
-    "Pillow==12.2.0",
     "bandit==1.9.4",
+    "decorator>=4.0.2,<6.0",
+    "imageio>=2.5,<3.0",
+    "imageio-ffmpeg>=0.2.0",
     "mike==2.2.0",
     # mike implicitly imports pkg_resources from setuptools — see
     # https://github.com/jimporter/mike/issues/148
@@ -76,10 +91,13 @@ test = [
     "markdown-include==0.8.1",
     "mkdocs-material==9.7.6",
     "mkdocstrings[python]==1.0.4",
+    "numpy>=1.25.0",
     "pre-commit==4.6.0",
+    "proglog<=1.0.0",
     "pytest-xdist==3.8.0",
     "pytest==9.0.3",
-    "ruff==0.15.12",
+    "python-dotenv>=0.10",
+    "ruff==0.15.13",
 ]
 
 [tool.setuptools]

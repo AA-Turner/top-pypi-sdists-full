@@ -936,6 +936,60 @@ def execute_argv(
         )
 
 
+def _check_hallucinated_command(cmd: str) -> str | None:
+    """Return a clear error string if `cmd` looks like a model-hallucinated invocation.
+
+    Catches two common hallucination patterns from the field:
+      1. `python -m FAKE_MODULE` where the module isn't importable
+      2. `npm <subcommand>` in a directory with no package.json (only
+         when we have enough info to know cwd)
+
+    Returns None if the command looks fine (real or unverifiable).
+    """
+    import importlib.util
+    import shlex
+
+    try:
+        argv = shlex.split(cmd)
+    except ValueError:
+        return None  # Unparseable; let downstream handle the error message
+
+    # Pattern 1: python -m <module>
+    if (
+        len(argv) >= 3
+        and argv[0] in ("python", "python3", "python2", "py")
+        and argv[1] == "-m"
+    ):
+        module = argv[2].split(".")[0]
+        # Modules with all-caps names or underscores at boundaries are
+        # almost always hallucinated. Real modules use lowercase.
+        if module != module.lower() and module.upper() == module:
+            return (
+                f"Refused to run: 'python -m {argv[2]}' — module name '{module}' "
+                "is all-uppercase, which is the signature of a hallucinated module "
+                "(real Python modules use lowercase). If you meant a real module, "
+                "lowercase it. Sage will treat this as a no-op."
+            )
+        # Try to resolve the module spec. find_spec() doesn't import it.
+        try:
+            spec = importlib.util.find_spec(module)
+        except (ModuleNotFoundError, ValueError, AttributeError):
+            spec = None
+        except Exception:
+            # Anything else (e.g. package init crashes during spec lookup)
+            # is the module's problem — fall through and let subprocess handle it.
+            return None
+        if spec is None:
+            return (
+                f"Refused to run: 'python -m {argv[2]}' — module '{module}' "
+                "is not installed in this environment. If sage hallucinated this "
+                "command, ignore it. If you meant to install it: `pip install "
+                f"{module}` first."
+            )
+
+    return None
+
+
 def execute_command(
     cmd: str,
     cwd: Path | str | None = None,
@@ -962,6 +1016,18 @@ def execute_command(
         CommandResult with execution result
     """
     parsed = parse_command(cmd)
+
+    # Hallucination guard: model often produces `python -m FAKE_MODULE` or
+    # invents npm scripts. We detect these BEFORE running so the user sees
+    # a clear "module 'X' isn't installed" instead of a confusing subprocess
+    # crash log. Pure-Python check via importlib.util.find_spec — doesn't
+    # actually import the module (no side effects).
+    halluc = _check_hallucinated_command(cmd)
+    if halluc is not None:
+        return CommandResult(
+            success=False, returncode=-1, stdout="", stderr="",
+            command=cmd, error=halluc,
+        )
 
     if not parsed.is_valid:
         return CommandResult(

@@ -3,6 +3,7 @@ from typing import Optional, Union
 
 DATAHUB_CLOUD_LOG_PATH_ENV_VAR = "DATAHUB_CLOUD_LOG_PATH"
 DATAHUB_CLOUD_LOG_BUCKET_ENV_VAR = "DATAHUB_CLOUD_LOG_BUCKET"
+DATAHUB_CLOUD_LOG_CLEANUP_ENV_VAR = "DATAHUB_CLOUD_LOG_CLEANUP"
 DEFAULT_GMS_PAYLOAD_MAX_LENGTH = 15368520
 
 
@@ -35,6 +36,10 @@ def get_cloud_log_bucket() -> Union[str, None]:
 
 def get_cloud_log_path() -> str:
     return os.environ.get("DATAHUB_CLOUD_LOG_PATH", "")
+
+
+def get_cloud_log_cleanup() -> bool:
+    return string_to_bool(os.environ.get(DATAHUB_CLOUD_LOG_CLEANUP_ENV_VAR, "false"))
 
 
 def is_datahub_hosted() -> bool:

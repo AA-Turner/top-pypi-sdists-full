@@ -401,7 +401,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ConstEvalHierarchicalName);
 }
@@ -612,7 +612,7 @@ endmodule
     CHECK((it++)->code == diag::UndeclaredIdentifier);
     CHECK((it++)->code == diag::SelectAfterRangeSelect);
     CHECK((it++)->code == diag::UndeclaredIdentifier);
-    CHECK((it++)->code == diag::InstanceArrayEndianMismatch);
+    CHECK((it++)->code == diag::InstanceArrayOrderMismatch);
     CHECK((it++)->code == diag::ValueMustBePositive);
     CHECK((it++)->code == diag::BadInstanceArrayRange);
     CHECK((it++)->code == diag::RangeWidthOverflow);
@@ -1007,7 +1007,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::StaticInitOrder);
 }
@@ -1128,8 +1128,8 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diagnostics = compilation.getAllDiagnostics();
-    std::string result = "\n" + report(diagnostics);
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
+    std::string result = "\n" + report(diags);
     CHECK(result == R"(
 source:64:33: error: reference to 'gen3' by hierarchical name is not allowed in a constant expression
     localparam int blah2 = int'(m_inst.gen3.a[0]);
@@ -1158,9 +1158,15 @@ source:68:16: error: no member named 'bar' in package 'p1'
 source:69:18: error: could not resolve hierarchical path name 'bar'
     wire d = gen1.bar;          // no member
                  ^~~~
+source:47:15: note: did you mean 'baz'?
+        logic baz;
+              ^
 source:71:18: error: could not resolve hierarchical path name 'baz'
     wire f = func.baz;          // no upward lookup because of import
                  ^~~~
+source:8:26: note: did you mean 'bar'?
+    function func; logic bar; return 1; endfunction
+                         ^
 source:72:20: error: cannot use dot operator on a type name
     wire g = type_t.a;          // can't dot into a typedef
              ~~~~~~^~
@@ -1677,7 +1683,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter({diag::DivisionByZero});
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::ValueMustNotBeUnknown);
     CHECK(diags[1].code == diag::GenvarUnknownBits);
@@ -1813,7 +1819,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::StaticInitValue);
     CHECK(diags[1].code == diag::UndeclaredIdentifier);
@@ -2150,7 +2156,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 4);
     CHECK(diags[0].code == diag::CompilationUnitFromPackage);
     CHECK(diags[1].code == diag::CompilationUnitFromPackage);
@@ -2634,4 +2640,238 @@ endmodule
     Compilation compilation(options);
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Pick correct variable with use before declaration over local var") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    localparam K = 4;
+
+    function automatic int f;
+        bit [K:0] width; // Should use localparam K
+        int K;
+        f = 12;
+    endfunction
+endmodule
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::AllowUseBeforeDeclare;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Pick correct variable with use before declaration over param") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    localparam K = 4;
+
+    function automatic bit[K:0] f;
+        input bit [K:0] width; // Should use localparam K
+        input int K;
+        f = 12;
+    endfunction
+endmodule
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::AllowUseBeforeDeclare;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Method lookup within parent modules") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    child ch();
+
+    function automatic int f;
+        return 12;
+    endfunction
+
+    task t;
+    endtask
+endmodule
+
+module child;
+    grandchild gc();
+
+    initial $display(f());
+endmodule
+
+module grandchild;
+    initial begin
+        $display(f());
+        t();
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Upward hierarchical name warning") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+    logic flag;
+    child ch();
+
+    function int foo;
+        return 1;
+    endfunction
+endmodule
+
+module child;
+    wire w = top.flag;
+    int i = foo();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::UpwardHierarchicalName);
+    CHECK(diags[1].code == diag::UpwardHierarchicalName);
+}
+
+TEST_CASE("Did-you-mean for struct member") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    struct packed { logic foo; logic bar; } s;
+    initial begin
+        s.foi = 1;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnknownMember);
+    REQUIRE(diags[0].notes.size() == 1);
+    CHECK(diags[0].notes[0].code == diag::NoteDidYouMean);
+}
+
+TEST_CASE("Did-you-mean for class member") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    int foobar;
+    function void test();
+        int x = this.fobar;
+    endfunction
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnknownMember);
+    REQUIRE(diags[0].notes.size() == 1);
+    CHECK(diags[0].notes[0].code == diag::NoteDidYouMean);
+}
+
+TEST_CASE("Did-you-mean for package member") {
+    auto tree = SyntaxTree::fromText(R"(
+package pkg;
+    int myValue = 42;
+endpackage
+
+module m;
+    int x = pkg::myValu;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnknownPackageMember);
+    REQUIRE(diags[0].notes.size() == 1);
+    CHECK(diags[0].notes[0].code == diag::NoteDidYouMean);
+}
+
+TEST_CASE("Did-you-mean for hierarchical path member") {
+    auto tree = SyntaxTree::fromText(R"(
+module child;
+    logic mySignal;
+endmodule
+
+module top;
+    child c();
+    initial begin
+        c.mySignal_ = 1;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::CouldNotResolveHierarchicalPath);
+    REQUIRE(diags[0].notes.size() == 1);
+    CHECK(diags[0].notes[0].code == diag::NoteDidYouMean);
+}
+
+TEST_CASE("No did-you-mean for completely wrong member name") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    struct packed { logic foo; } s;
+    initial begin
+        s.xyz = 1;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::UnknownMember);
+    CHECK(diags[0].notes.size() == 0);
+}
+
+TEST_CASE("Redefinition -- first definition wins") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+  int i = 5;
+  int i = 99;
+  bit [3:0] j;
+  bit [3:0] j = 4'b1010;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::Redefinition);
+    CHECK(diags[1].code == diag::Redefinition);
+
+    auto& body = compilation.getRoot().topInstances[0]->body;
+
+    // 'i' resolves to 'int' (first definition), not the second 'int i = 99'
+    auto& iSym = body.find<VariableSymbol>("i");
+    CHECK(iSym.getType().getBitWidth() == 32);
+    CHECK(iSym.getType().isSigned());
+
+    // 'j' resolves to the first 'bit [3:0] j' which has no initializer
+    auto& jSym = body.find<VariableSymbol>("j");
+    CHECK(jSym.getInitializer() == nullptr);
 }

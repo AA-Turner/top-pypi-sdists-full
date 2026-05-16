@@ -1,6 +1,5 @@
 import asyncio
 import os
-from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import graphene
@@ -116,7 +115,7 @@ class GrapheneRepositoryLocation(graphene.ObjectType):
         )
 
     def resolve_id(self, _) -> str:
-        return self.name
+        return self.name  # ty: ignore[invalid-return-type]
 
     def get_location(self, graphene_info: ResolveInfo) -> CodeLocation:
         if self._location is None:
@@ -134,7 +133,7 @@ class GrapheneRepositoryLocation(graphene.ObjectType):
         if libs is None:
             return None
 
-        return [GrapheneDagsterLibraryVersion(name, ver) for name, ver in libs.items()]
+        return [GrapheneDagsterLibraryVersion(name, ver) for name, ver in libs.items()]  # ty: ignore[too-many-positional-arguments]
 
     def resolve_server_id(self, graphene_info: ResolveInfo):
         location = self.get_location(graphene_info)
@@ -355,19 +354,6 @@ class GrapheneRepository(graphene.ObjectType):
             )
         return self._batch_loader
 
-    @staticmethod
-    def to_manifest_dict(handle: RepositoryHandle) -> dict:
-        return {
-            "__typename": "Repository",
-            "id": handle.selector_id,
-            "name": handle.repository_name,
-            "location": {
-                "__typename": "RepositoryLocation",
-                "id": handle.location_name,
-                "name": handle.location_name,
-            },
-        }
-
     def resolve_id(self, _graphene_info: ResolveInfo) -> str:
         return self._handle.selector_id
 
@@ -505,19 +491,10 @@ class GrapheneRepository(graphene.ObjectType):
 
         asset_node_snaps = repository.get_asset_node_snaps()
 
-        # dependedByKeys: derive downstream edges from parent_edges.
-        child_keys_by_asset_key: dict[AssetKey, list[AssetKey]] = defaultdict(list)
-        for snap in asset_node_snaps:
-            for dep in snap.parent_edges:
-                child_keys_by_asset_key[dep.parent_asset_key].append(snap.asset_key)
-
         # hasAssetChecks: which assets have at least one check
         asset_keys_with_checks: set[AssetKey] = {
             check_snap.asset_key for check_snap in repository.get_asset_check_node_snaps()
         }
-
-        # Same dict for every asset in this repo — hoist out of the per-asset loop.
-        repository_dict = GrapheneRepository.to_manifest_dict(self._handle)
 
         return [
             GrapheneAssetNode.to_manifest_dict(
@@ -525,9 +502,7 @@ class GrapheneRepository(graphene.ObjectType):
                 self._handle,
                 graphene_info,
                 asset_graph_differ,
-                child_keys=child_keys_by_asset_key.get(snap.asset_key, ()),
                 has_asset_checks=snap.asset_key in asset_keys_with_checks,
-                repository_dict=repository_dict,
             )
             for snap in asset_node_snaps
         ]
@@ -542,7 +517,7 @@ class GrapheneRepository(graphene.ObjectType):
 
         return [
             GrapheneAssetGroup(
-                f"{self._handle.location_name}-{self._handle.repository_name}-{group_name}",
+                f"{self._handle.location_name}-{self._handle.repository_name}-{group_name}",  # ty: ignore[too-many-positional-arguments]
                 group_name,
                 [external_node.asset_key for external_node in asset_node_snaps],
             )
@@ -715,9 +690,11 @@ class GrapheneDefsStateInfo(graphene.ObjectType):
         super().__init__(
             keyStateInfo=[
                 GrapheneDefsKeyStateInfoEntry(
-                    key,
+                    key,  # ty: ignore[too-many-positional-arguments]
                     GrapheneDefsKeyStateInfo(
-                        info.version, info.create_timestamp, info.management_type
+                        info.version,  # ty: ignore[too-many-positional-arguments]
+                        info.create_timestamp,
+                        info.management_type,
                     )
                     if info
                     else None,

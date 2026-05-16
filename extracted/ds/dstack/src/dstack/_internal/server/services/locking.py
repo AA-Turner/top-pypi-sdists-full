@@ -126,6 +126,24 @@ def string_to_lock_id(s: str) -> int:
 async def advisory_lock_ctx(
     bind: Union[AsyncConnection, AsyncSession], dialect_name: str, resource: str
 ):
+    """
+    Acquire a Postgres advisory lock on `resource`. No-op for SQLite.
+
+    **NOTE**: The lock must be released by the same database connection that acquired it.
+    Attempts to release in a different connection will fail.
+
+    To prevent unreleased locks:
+
+    1. When possible, prefer using `pg_advisory_xact_lock` instead of this context manager.
+       `pg_advisory_xact_lock` is automatically released at the end of transaction.
+
+    1. Prefer using `AsyncConnection` as `bind`.
+
+    1. If using `AsyncSession` as `bind`, **do not** commit before exiting from the context manager.
+       Committing will prompt `AsyncSession` to start a new transaction for releasing the lock,
+       which may be assigned to a different database connection, which will fail to release.
+    """
+
     if dialect_name == "postgresql":
         await bind.execute(select(func.pg_advisory_lock(string_to_lock_id(resource))))
     try:

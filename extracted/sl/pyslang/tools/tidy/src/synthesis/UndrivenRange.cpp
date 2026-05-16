@@ -6,6 +6,7 @@
 #include "fmt/ranges.h"
 
 #include "slang/analysis/AnalysisManager.h"
+#include "slang/analysis/ValueDriver.h"
 #include "slang/syntax/AllSyntax.h"
 
 using namespace slang;
@@ -14,11 +15,7 @@ using namespace slang::analysis;
 
 namespace undriven_range {
 struct UndrivenRangeVisitor : public TidyVisitor,
-                              ASTVisitor<UndrivenRangeVisitor,
-                                         /*visitStatements=*/true,
-                                         /*visitExprerssions=*/true,
-                                         /*visitBad=*/false,
-                                         /*visitCanonical=*/true> {
+                              ASTVisitor<UndrivenRangeVisitor, VisitFlags::AllCanonical> {
     const AnalysisManager& analysisManager;
 
     UndrivenRangeVisitor(Diagnostics& diagnostics, const AnalysisManager& analysisManager) :
@@ -62,7 +59,8 @@ struct UndrivenRangeVisitor : public TidyVisitor,
                 return;
             }
 
-            for (auto [driver, bounds] : drivers) {
+            for (auto driver : drivers) {
+                auto bounds = driver->getBounds();
                 if (bounds.first + start > current) {
                     undriven.push_back({current, (int)bounds.first + start - 1});
                 }

@@ -1,12 +1,13 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, profile_section
+from .._internal import expect, profile_section, over
 from .._rendering import Pipeline, Camera
 from ..abc import Layer
 from ..tile import TileMap, TileRenderer
 
 from contextlib import nullcontext
+from numbers import Integral
 
 # ======================================== LAYER ========================================
 class TileLayer(Layer):
@@ -27,18 +28,27 @@ class TileLayer(Layer):
     def __init__(
         self,
         tile_map: TileMap,
-        chunk_size: int = 16,
+        chunk_size: Integral = 16,
         clip_camera: Camera | None = None,
         camera: Camera = None,
     ):
+        # Initialisation du layer
         super().__init__(camera)
 
-        # TileMap
-        self._tile_map: TileMap = expect(tile_map, TileMap)
-        self._chunk_size: int = max(1, expect(chunk_size, int))
-        self._clip_camera: Camera | None = expect(clip_camera, (Camera, None))
+        # Transtypage et vérifications
+        chunk_size = int(chunk_size)
 
-        # Rendu
+        if __debug__:
+            expect(tile_map, TileMap)
+            over(chunk_size, 0, include=False)
+            expect(clip_camera, (Camera, None))
+
+        # Attributs publiques
+        self._tile_map: TileMap = tile_map
+        self._chunk_size: int = chunk_size
+        self._clip_camera: Camera | None = clip_camera
+
+        # Attributs internes
         self._renderer: TileRenderer = TileRenderer(self._tile_map, self._chunk_size)
 
     # ======================================== GETTERS ========================================
@@ -49,7 +59,9 @@ class TileLayer(Layer):
     
     @tile_map.setter
     def tile_map(self, value: TileMap) -> None:
-        self._tile_map = expect(value, TileMap)
+        if __debug__:
+            expect(value, TileMap)
+        self._tile_map = value
         self._renderer.delete()
         self._renderer = TileRenderer(self._tile_map, self._chunk_size)
     
@@ -59,8 +71,11 @@ class TileLayer(Layer):
         return self._chunk_size
     
     @chunk_size.setter
-    def chunk_size(self, value: int) -> None:
-        self._chunk_size = max(1, expect(value, int))
+    def chunk_size(self, value: Integral) -> None:
+        value = int(value)
+        if __debug__:
+            over(value, 0, include=False)
+        self._chunk_size = value
         self._renderer.delete()
         self._renderer = TileRenderer(self._tile_map, self._chunk_size)
     
@@ -74,12 +89,14 @@ class TileLayer(Layer):
     
     @clip_camera.setter
     def clip_camera(self, value: Camera | None) -> None:
-        self._clip_camera = expect(value, (Camera, None))
+        if __debug__:
+            expect(value, (Camera, None))
+        self._clip_camera = value
 
     # ======================================== HOOKS========================================
     def on_start(self) -> None:
         """Activation du layer"""
-        ...
+        pass
 
     def on_stop(self) -> None:
         """Désactivation du layer"""
@@ -92,21 +109,30 @@ class TileLayer(Layer):
 
     @profile_section("scene.tile_layer.draw")
     def _update(self, dt: float) -> None:
-        """Actualisation"""
-        ...
+        """Actualisation
+        
+        Args:
+            dt: delta-time
+        """
+        pass
 
     @profile_section("scene.tile_layer.draw")
     def _draw(self, pipeline: Pipeline) -> None:
-        """Affuchage"""
+        """Affichage
+        
+        Args:
+            pipeline: ``Pipeline``de rendu courant
+        """
+        # Vérifications
         if not self._renderer.built:
             self._renderer.build()
         if not self._renderer.has_chunks:
             return
 
-        # Frustum visible (world space)
+        # Frustum visible
         vx_min, vy_min, vx_max, vy_max = pipeline.visible_world_rect()
 
-        # Region visible (tilemap)
+        # Region visible
         tm = self._tile_map
         tw, th = tm.tile_width, tm.tile_height
         ox, oy = tm.origin
@@ -131,3 +157,8 @@ class TileLayer(Layer):
             self._renderer.begin()
             self._renderer.draw_visible(cc_min, cc_max, cr_min, cr_max)
             self._renderer.end()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "TileLayer",
+]

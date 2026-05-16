@@ -1,57 +1,76 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, clamped
-from ...abc import Component, Shape
+from ..._internal import expect, clamped, positive
+from ...abc import RendererComponent, Shape
 from ...asset import Color
 from ...math import Vector
 from ...typing import BorderAlign
 
-from numbers import Real
+from numbers import Real, Integral
+from typing import ClassVar
 
 # ======================================== COMPONENT ========================================
-class ShapeRenderer(Component):
+class ShapeRenderer(RendererComponent):
     """Composant gérant le rendu d'une forme
 
     Ce composant est manipulé par ``RenderSystem``.
 
     Args:
-        shape(Shape, optional): forme du rendu
-        offset(Vector, optional): décalage par rapport au Transform
-        filling(bool, optional): activation du remplissage
-        filling_color(Color, optional): couleur de remplissage
-        border_width(int, optinal): épaisseur de la bordure
-        border_color(Color, optional): couleur de la bordure
-        opacity(Real, optional): facteur d'opacité
-        z(int, optional): ordre de rendu
-        visible(bool, optional): visibilité
+        shape: forme du rendu
+        offset: décalage par rapport au Transform
+        filling: activation du remplissage
+        filling_color: couleur de remplissage
+        border_width: épaisseur de la bordure
+        border_color: couleur de la bordure
+        opacity: facteur d'opacité
+        z: ordre de rendu
+        visible: visibilité
     """
-    __slots__ = ("_shape", "_offset", "_filling", "_filling_color", "_border_width", "_border_align", "_border_color", "_opacity", "_z", "_visible")
-    requires = ("Transform",)
+    __slots__ = (
+        "_shape", "_offset",
+        "_filling", "_filling_color",
+        "_border_width", "_border_align", "_border_color",
+    )
+
+    requires: ClassVar[tuple[str]] = ("Transform",)
 
     def __init__(
             self,
-            shape: Shape = None,
+            shape: Shape,
             offset: Vector = (0.0, 0.0),
             filling: bool = True,
             filling_color: Color = (255, 255, 255, 1.0),
-            border_width: int = 0,
+            border_width: Integral = 0,
             border_align: BorderAlign = "center",
             border_color: Color = (0, 0, 0, 1.0),
             opacity: Real = 1.0,
-            z: int = 0,
+            z: Integral = 0,
             visible: bool = True,
         ):
-        self._shape: Shape = expect(shape, Shape)
-        self._offset: Vector =Vector(offset)
-        self._filling: bool = expect(filling, bool)
-        self._filling_color: Color = Color(filling_color)
-        self._border_width: int = int(expect(border_width, Real))
-        self._border_align: BorderAlign = expect(border_align, str)
-        self._border_color: Color = Color(border_color)
-        self._opacity: float = float(clamped(expect(opacity, Real)))
-        self._z: int = expect(z, int)
-        self._visible: bool = expect(visible, bool)
+        # Initialiastion du composant de rendu
+        super().__init__(opacity, z, visible)
+
+        # Transtypage et vérifications
+        offset = Vector(offset)
+        filling = bool(filling)
+        filling_color = Color(filling_color)
+        border_width = int(border_width)
+        border_align = str(border_align)
+        border_color = Color(border_color)
+
+        if __debug__:
+            expect(shape, Shape)
+            positive(border_width)
+
+        # Attributs publiques
+        self._shape: Shape = shape
+        self._offset: Vector = offset
+        self._filling: bool = filling
+        self._filling_color: Color = filling_color
+        self._border_width: int = border_width
+        self._border_align: BorderAlign = border_align
+        self._border_color: Color = border_color
     
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
@@ -67,113 +86,89 @@ class ShapeRenderer(Component):
         new = ShapeRenderer(self._shape, self._offset, self._filling, self._filling_color, self._border_width, self._border_align, self._border_color, self._opacity, self._z, self._visible)
         return new
     
-    # ======================================== GETTERS ========================================
+    # ======================================== PROPERTIES ========================================
     @property
     def shape(self) -> Shape:
-        """Renvoie la forme du renderer"""
+        """Forme du renderer *(lecture seule)*"""
         return self._shape
     
     @property
     def offset(self) -> Vector:
-        """Renvoie le décalage par rapport au Transform"""
+        """Décalage par rapport au Transform"""
         return self._offset
+    
+    @offset.setter
+    def offset(self, value: Vector):
+        self._offset.x, self._offset.y = value
     
     @property
     def offset_x(self) -> float:
-        """Renvoie le décalage horizontal"""
+        """Décalage horizontal"""
         return self._offset.x
+    
+    @offset_x.setter
+    def offset_x(self, value: Real) -> None:
+        self._offset.x = value
     
     @property
     def offset_y(self) -> float:
-        """Renvoie le décalage vertical"""
+        """Décalage vertical"""
         return self._offset.y
+    
+    @offset_y.setter
+    def offset_y(self, value: Real) -> None:
+        self._offset.y = value
     
     @property
     def filling(self) -> bool:
-        """Renvoie l'état du remplissage"""
+        """Etat du remplissage"""
         return self._filling
+    
+    @filling.setter
+    def filling(self, value: bool):
+        value = bool(value)
+        self._filling = value
     
     @property
     def filling_color(self) -> Color:
-        """Renvoie la couleur du remplissage"""
+        """Couleur de remplissage"""
         return self._filling_color
+    
+    @filling_color.setter
+    def filling_color(self, value: Color):
+        value = Color(value)
+        self._filling_color = value
     
     @property
     def border_width(self) -> int:
-        """Renvoie l'épaisseur de la bordure"""
+        """Epaisseur de la bordure"""
         return self._border_width
+    
+    @border_width.setter
+    def border_width(self, value: Integral):
+        value = int(value)
+        if __debug__:
+            positive(value)
+        self._border_width = value
     
     @property
     def border_align(self) -> BorderAlign:
-        """Renvoie l'alignement de la bordure"""
+        """Alignement de la bordure"""
         return self._border_align
+    
+    @border_align.setter
+    def border_align(self, value: BorderAlign):
+        value = str(value)
+        if __debug__:
+            expect(value, BorderAlign)
+        self._border_align = value
     
     @property
     def border_color(self) -> Color:
-        """Renvoie la couleur de la bordure"""
+        """Couleur de la bordure"""
         return self._border_color
-    
-    @property
-    def opacity(self) -> float:
-        """Renvoie le facteur d'opacité"""
-        return self._opacity
-
-    @property
-    def z(self) -> int:
-        """Renvoie l'ordre de rendu"""
-        return self._z
-    
-    # ======================================== SETTERS ========================================
-    @offset.setter
-    def offset(self, value: Vector):
-        """Fixe le décalage par rapport au tranform"""
-        self._offset = Vector(value)
-
-    @filling.setter
-    def filling(self, value: bool):
-        """Fixe l'état du remplissage"""
-        self._filling = expect(value, bool)
-
-    @filling_color.setter
-    def filling_color(self, value: Color):
-        """Fixe la couleur de remplissage"""
-        self._filling_color = expect(value, Color)
-
-    @border_width.setter
-    def border_width(self, value: int):
-        """Fixe l'épaisseur de la bordure"""
-        self._border_width = int(expect(value, Real))
-
-    @border_align.setter
-    def border_align(self, value: BorderAlign):
-        """Fixe l'alignement de la bordure"""
-        self._border_align = expect(value, str)
     
     @border_color.setter
     def border_color(self, value: Color):
-        """Fixe la couleur de la bordure"""
-        self._border_color = Color(value)
-
-    @opacity.setter
-    def opacity(self, value: Real):
-        """Fixe le facteur d'opacité"""
-        self._opacity = float(clamped(expect(value, Real)))
-
-    @z.setter
-    def z(self, value: int):
-        """Fixe l'ordre de rendu"""
-        self._z = expect(value, int)
-    
-    # ======================================== PREDICATES ========================================
-    def is_visible(self) -> bool:
-        """Vérifie la visibilité"""
-        return self._visible
-
-    # ======================================== PUBLIC METHODS ========================================
-    def show(self):
-        """Montre la forme"""
-        self._visible = True
-
-    def hide(self):
-        """Cache la forme"""
-        self._visible = False
+        value = Color(value)
+        self._border_color = value

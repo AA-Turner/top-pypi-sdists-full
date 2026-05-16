@@ -151,6 +151,10 @@ std::string_view SemanticFacts::getCaseConditionStr(CaseStatementCondition kind)
     }
 }
 
+std::string_view SemanticFacts::getSubroutineKindStr(SubroutineKind kind) {
+    return kind == SubroutineKind::Task ? "task"sv : "function"sv;
+}
+
 static DriveStrength getDriveStrengthVal(TokenKind kind) {
     switch (kind) {
         case TokenKind::Supply0Keyword:
@@ -266,6 +270,18 @@ std::string_view SemanticFacts::getTypeRestrictionText(ForwardTypeRestriction ty
         default:
             return ""sv;
     }
+}
+
+std::string_view SemanticFacts::getRangeSelectOpText(RangeSelectionKind kind) {
+    switch (kind) {
+        case RangeSelectionKind::Simple:
+            return ":"sv;
+        case RangeSelectionKind::IndexedUp:
+            return "+:"sv;
+        case RangeSelectionKind::IndexedDown:
+            return "-:"sv;
+    }
+    SLANG_UNREACHABLE;
 }
 
 void SemanticFacts::populateTimeScale(TimeScale& timeScale, const Scope& scope,

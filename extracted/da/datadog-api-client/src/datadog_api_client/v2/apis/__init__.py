@@ -25,6 +25,7 @@ from datadog_api_client.v2.api.cloud_cost_management_api import CloudCostManagem
 from datadog_api_client.v2.api.cloud_network_monitoring_api import CloudNetworkMonitoringApi
 from datadog_api_client.v2.api.cloudflare_integration_api import CloudflareIntegrationApi
 from datadog_api_client.v2.api.code_coverage_api import CodeCoverageApi
+from datadog_api_client.v2.api.compliance_api import ComplianceApi
 from datadog_api_client.v2.api.confluent_cloud_api import ConfluentCloudApi
 from datadog_api_client.v2.api.container_images_api import ContainerImagesApi
 from datadog_api_client.v2.api.containers_api import ContainersApi
@@ -47,7 +48,6 @@ from datadog_api_client.v2.api.google_chat_integration_api import GoogleChatInte
 from datadog_api_client.v2.api.high_availability_multi_region_api import HighAvailabilityMultiRegionApi
 from datadog_api_client.v2.api.ip_allowlist_api import IPAllowlistApi
 from datadog_api_client.v2.api.incident_services_api import IncidentServicesApi
-from datadog_api_client.v2.api.incident_teams_api import IncidentTeamsApi
 from datadog_api_client.v2.api.incidents_api import IncidentsApi
 from datadog_api_client.v2.api.integrations_api import IntegrationsApi
 from datadog_api_client.v2.api.jira_integration_api import JiraIntegrationApi
@@ -99,11 +99,13 @@ from datadog_api_client.v2.api.spans_api import SpansApi
 from datadog_api_client.v2.api.spans_metrics_api import SpansMetricsApi
 from datadog_api_client.v2.api.static_analysis_api import StaticAnalysisApi
 from datadog_api_client.v2.api.status_pages_api import StatusPagesApi
+from datadog_api_client.v2.api.storage_management_api import StorageManagementApi
 from datadog_api_client.v2.api.synthetics_api import SyntheticsApi
 from datadog_api_client.v2.api.teams_api import TeamsApi
 from datadog_api_client.v2.api.test_optimization_api import TestOptimizationApi
 from datadog_api_client.v2.api.usage_metering_api import UsageMeteringApi
 from datadog_api_client.v2.api.users_api import UsersApi
+from datadog_api_client.v2.api.web_integrations_api import WebIntegrationsApi
 from datadog_api_client.v2.api.widgets_api import WidgetsApi
 from datadog_api_client.v2.api.workflow_automation_api import WorkflowAutomationApi
 
@@ -136,6 +138,7 @@ __all__ = [
     "CloudNetworkMonitoringApi",
     "CloudflareIntegrationApi",
     "CodeCoverageApi",
+    "ComplianceApi",
     "ConfluentCloudApi",
     "ContainerImagesApi",
     "ContainersApi",
@@ -158,7 +161,6 @@ __all__ = [
     "HighAvailabilityMultiRegionApi",
     "IPAllowlistApi",
     "IncidentServicesApi",
-    "IncidentTeamsApi",
     "IncidentsApi",
     "IntegrationsApi",
     "JiraIntegrationApi",
@@ -210,11 +212,13 @@ __all__ = [
     "SpansMetricsApi",
     "StaticAnalysisApi",
     "StatusPagesApi",
+    "StorageManagementApi",
     "SyntheticsApi",
     "TeamsApi",
     "TestOptimizationApi",
     "UsageMeteringApi",
     "UsersApi",
+    "WebIntegrationsApi",
     "WidgetsApi",
     "WorkflowAutomationApi",
 ]

@@ -22,12 +22,15 @@ import tarfile
 from asyncio import tasks
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any, Optional
 
 import pydantic
 import yaml
+from boto3.exceptions import Boto3Error
+from botocore.exceptions import BotoCoreError, ClientError
 from datahub.configuration.env_vars import get_debug
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.masking.bootstrap import shutdown_secret_masking
@@ -39,10 +42,13 @@ from acryl.executor.cloud_utils.cloud_copier import CloudCopier
 from acryl.executor.cloud_utils.cloud_copier_location import CloudCopierLocation
 from acryl.executor.cloud_utils.env_utils import (
     DATAHUB_CLOUD_LOG_BUCKET_ENV_VAR,
+    DATAHUB_CLOUD_LOG_CLEANUP_ENV_VAR,
     DATAHUB_CLOUD_LOG_PATH_ENV_VAR,
     get_cloud_log_bucket,
+    get_cloud_log_cleanup,
     get_cloud_log_path,
     get_print_subprocess_logs,
+    string_to_bool,
 )
 from acryl.executor.cloud_utils.executor_credentials import ExecutorCredentials
 from acryl.executor.cloud_utils.s3_cloud_copier import S3CloudCopier
@@ -74,6 +80,15 @@ class SubProcessIngestionTaskConfig(ConfigModel):
     max_log_lines: int = SubProcessTaskUtil.MAX_LOG_LINES
     cloud_log_bucket: Optional[str] = get_cloud_log_bucket()
     cloud_log_path: Optional[str] = get_cloud_log_path()
+    # Cleanup is opt-in (default false). When enabled and cloud_log_bucket is set,
+    # cleanup only executes after a successful upload.
+    cloud_log_cleanup: bool = get_cloud_log_cleanup()
+
+
+@dataclass
+class _TarUpload:
+    tar_path: Path
+    source_files: list[Path] = field(default_factory=list)
 
 
 class SubProcessIngestionTaskArgs(SubProcessRecipeTaskArgs):
@@ -151,7 +166,10 @@ class SubProcessIngestionTask(Task):
         return tar_file
 
     def create_tar_archives(
-        self, artifacts_path: str, cloud_copier: CloudCopier
+        self,
+        artifacts_path: str,
+        cloud_copier: CloudCopier,
+        cloud_log_cleanup: bool = False,
     ) -> None:
         # Ensure the artifacts_path is absolute
         artifacts_path = os.path.abspath(artifacts_path)
@@ -161,26 +179,36 @@ class SubProcessIngestionTask(Task):
             raise ValueError(
                 f"The provided path '{artifacts_path}' does not exist or is not a directory."
             )
-        tars = []
+        tar_uploads: list[_TarUpload] = []
         # Iterate over the items in the base directory
         for item in os.listdir(artifacts_path):
             item_path = os.path.join(artifacts_path, item)
             if os.path.isdir(item_path) and item != "artifacts":
                 logger.debug(f"Initiate Creating tar archives for {item_path}")
+                source_files = [
+                    p
+                    for p in Path(item_path).iterdir()
+                    if p.is_file() and p.suffix != ".tgz"
+                ]
                 tar_file = self.create_tar_from_dir(item_path)
                 if tar_file:
                     logger.info(f"Created archive: {tar_file}")
-                    tars.append(tar_file)
+                    tar_uploads.append(_TarUpload(tar_file, source_files))
 
         # Iterate over the items in the artifacts directory
         for item in os.listdir(os.path.join(artifacts_path, "artifacts")):
             item_path = os.path.join(artifacts_path, "artifacts", item)
             if os.path.isdir(item_path):
                 logger.debug(f"Initiate Creating tar archives for {item_path}")
+                source_files = [
+                    p
+                    for p in Path(item_path).iterdir()
+                    if p.is_file() and p.suffix != ".tgz"
+                ]
                 tar_file = self.create_tar_from_dir(item_path)
                 if tar_file:
                     logger.info(f"Created archive: {tar_file}")
-                    tars.append(tar_file)
+                    tar_uploads.append(_TarUpload(tar_file, source_files))
 
         # Create a single tar archive for the single files in the artifacts directory
         for item in os.listdir(os.path.join(artifacts_path, "artifacts")):
@@ -192,18 +220,57 @@ class SubProcessIngestionTask(Task):
                     artifacts_tar.add(item_path, arcname=item)
                     logger.debug(f"Added to {tar_file}: {item_path}")
                 logger.info(f"Created archive: {tar_file}")
-                tars.append(tar_file)
+                tar_uploads.append(_TarUpload(tar_file, [Path(item_path)]))
 
         upload_failed = False
-        for tar_to_upload in tars:
+        for entry in tar_uploads:
+            s3_uri: str
+            upload_success = False
             try:
-                relative_path = str(tar_to_upload).replace(artifacts_path, "")
-                cloud_copier.upload(str(tar_to_upload), relative_path)
-            except Exception:
-                logger.exception(f"Failed to upload {tar_to_upload} to S3")
+                relative_path = str(entry.tar_path).replace(artifacts_path, "")
+                logger.debug(
+                    f"Uploading archive to cloud: {entry.tar_path} -> {relative_path}"
+                )
+                s3_uri = cloud_copier.upload(str(entry.tar_path), relative_path)
+                upload_success = True
+            except (ClientError, BotoCoreError, Boto3Error, OSError) as e:
+                logger.error(f"S3 upload failed for {entry.tar_path}: {e}")
                 upload_failed = True
+            except Exception:
+                logger.exception(f"Unexpected error uploading {entry.tar_path}. ")
+                raise
             finally:
-                tar_to_upload.unlink()
+                try:
+                    entry.tar_path.unlink()
+                except OSError as e:
+                    logger.warning(
+                        f"Failed to delete temporary tar file {entry.tar_path}: {e}. "
+                        f"Manual cleanup may be required."
+                    )
+
+            if upload_success and cloud_log_cleanup:
+                upload_time = datetime.now(timezone.utc)
+                for src in entry.source_files:
+                    if src.is_file():
+                        try:
+                            original_size = src.stat().st_size
+                            sentinel = src.with_name(src.name + ".s3")
+                            logger.debug(f"Deleting local file after S3 upload: {src}")
+                            src.unlink()
+                            sentinel.write_text(
+                                json.dumps(
+                                    {
+                                        "s3_uri": s3_uri,
+                                        "uploaded_at": upload_time.isoformat(),
+                                        "original_size_bytes": original_size,
+                                    }
+                                )
+                            )
+                        except OSError as e:
+                            logger.error(
+                                f"Failed to cleanup local file {src} after S3 upload to {s3_uri}. "
+                                f"Original file may still exist. Error: {e}"
+                            )
 
         if upload_failed:
             raise Exception("One or more tar archive uploads failed")
@@ -416,8 +483,13 @@ class SubProcessIngestionTask(Task):
             ]
         if DATAHUB_CLOUD_LOG_PATH_ENV_VAR in subprocess_env:
             self.config.cloud_log_path = subprocess_env[DATAHUB_CLOUD_LOG_PATH_ENV_VAR]
+        if DATAHUB_CLOUD_LOG_CLEANUP_ENV_VAR in subprocess_env:
+            self.config.cloud_log_cleanup = string_to_bool(
+                subprocess_env[DATAHUB_CLOUD_LOG_CLEANUP_ENV_VAR]
+            )
         logger.debug(f"Cloud log bucket: {self.config.cloud_log_bucket}")
         logger.debug(f"Cloud log path: {self.config.cloud_log_path}")
+        logger.debug(f"Cloud log cleanup: {self.config.cloud_log_cleanup}")
 
         # Create shared LogHolder for both venv setup and subprocess monitoring
         shared_logs = LogHolder(
@@ -648,7 +720,11 @@ class SubProcessIngestionTask(Task):
                     self.config.cloud_log_bucket,
                     path_to_upload,
                 )
-            self.create_tar_archives(artifact_output_dir, cloud_copier)
+            self.create_tar_archives(
+                artifact_output_dir,
+                cloud_copier,
+                cloud_log_cleanup=self.config.cloud_log_cleanup,
+            )
             CloudCopierLocation().send_location(
                 bucket=self.config.cloud_log_bucket,
                 base_path=path_to_upload,

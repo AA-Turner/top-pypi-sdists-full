@@ -13,7 +13,6 @@ from collections import defaultdict
 from datetime import datetime
 from functools import partial
 from io import BytesIO
-from itertools import chain
 from operator import itemgetter
 from pathlib import Path
 from shutil import copyfileobj
@@ -115,13 +114,14 @@ class ProjectBackup:
     COMPONENTS_PREFIX = "components/"
     VCS_PREFIX = "vcs/"
     VCS_PREFIX_LEN = len(VCS_PREFIX)
+    IMPORT_BATCH_SIZE = 2000
     MAX_ARCHIVE_MEMBERS = 100_000
     # Per-entry limits reject suspiciously high compression ratios, while the
     # total uncompressed limit constrains low-compression archives as a whole.
     MAX_COMPRESSED_ENTRY_SIZE = 250 * 1024 * 1024
     MIN_COMPRESSED_RATIO_SIZE = 1 * 1024 * 1024
     MAX_COMPRESSED_ENTRY_RATIO = 250
-    MAX_TOTAL_UNCOMPRESSED_SIZE = 250 * 1024 * 1024
+    MAX_TOTAL_UNCOMPRESSED_SIZE = 512 * 1024 * 1024
 
     def __init__(self, filename: str = "", *, fileio: BinaryIO | None = None) -> None:
         self.data: dict[str, Any] = {}
@@ -138,6 +138,8 @@ class ProjectBackup:
         self.components_cache: dict[str, Component] = {}
         self.categories_cache: dict[str, Category] = {}
         self.roles_cache: dict[str, Role] = {}
+        # Project.set_language_team field was migrated to file format parameters after 5.17
+        self.set_language_team_project: bool = False
 
     @staticmethod
     def full_slug_without_project(obj: Component | Category) -> str:
@@ -676,6 +678,7 @@ class ProjectBackup:
         do_restore: Literal[False] = False,
         actor: None = None,
         changes: None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> None: ...
 
     @overload
@@ -686,6 +689,7 @@ class ProjectBackup:
         do_restore: Literal[True],
         actor: User,
         changes: list[Change],
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> None: ...
 
     def load_components(
@@ -695,6 +699,7 @@ class ProjectBackup:
         do_restore: bool = False,
         actor: User | None = None,
         changes: list[Change] | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> None:
         pending: list[str] = []
         if do_restore:
@@ -704,7 +709,10 @@ class ProjectBackup:
             if changes is None:
                 msg = "Need a restore changes list."
                 raise TypeError(msg)
-            for component in self.list_components(zipfile):
+            restored = 0
+            components = self.list_components(zipfile)
+            total = len(components)
+            for component in components:
                 processed = self.load_component(
                     zipfile,
                     component,
@@ -715,6 +723,10 @@ class ProjectBackup:
                 )
                 if not processed:
                     pending.append(component)
+                else:
+                    restored += 1
+                    if progress_callback is not None:
+                        progress_callback(restored, total)
             for component in pending:
                 self.load_component(
                     zipfile,
@@ -724,6 +736,9 @@ class ProjectBackup:
                     actor=actor,
                     changes=changes,
                 )
+                restored += 1
+                if progress_callback is not None:
+                    progress_callback(restored, total)
             return
 
         for component in self.list_components(zipfile):
@@ -760,17 +775,17 @@ class ProjectBackup:
         self,
         item: dict,
         translation_lookup: dict[int, Translation],
-        source_unit_lookup: dict[int, Unit] | None = None,
+        source_unit_lookup: dict[int, int] | None = None,
     ) -> Unit:
         kwargs = item.copy()
         for skip in ("labels", "comments", "suggestions", "checks", "pending"):
             kwargs.pop(skip, None)
         kwargs["id_hash"] = checksum_to_hash(kwargs["id_hash"])
         kwargs["translation_id"] = translation_lookup[kwargs["translation_id"]].id
+        if source_unit_lookup is not None:
+            kwargs["source_unit_id"] = source_unit_lookup[item["id_hash"]]
         unit = Unit(**kwargs)
         unit.import_data = item
-        if source_unit_lookup is not None:
-            unit.source_unit = source_unit_lookup[item["id_hash"]]
         return unit
 
     def restore_user(self, username: str) -> User:
@@ -844,29 +859,34 @@ class ProjectBackup:
         self,
         data: dict,
         *,
-        translation_lookup: dict,
-        source_units: list[Unit],
         units: list[Unit],
+        pending_unit_change_map: dict[tuple[int, int], list[dict]] | None = None,
     ) -> None:
         if "pending_unit_changes" in data:
-            all_units: dict[int, dict[int, Unit]] = defaultdict(dict)
-            for unit in chain(source_units, units):
-                all_units[unit.translation.id][unit.checksum] = unit
-
-            pending_unit_changes = []
-            for item in data["pending_unit_changes"]:
-                new_translation = translation_lookup[item["translation_id"]]
-                unit = all_units[new_translation.id][item["unit_id_hash"]]
-                pending_unit_changes.append(
-                    PendingUnitChange(
-                        unit=unit,
-                        author=self.restore_user(item["author"]),
-                        target=item["target"],
-                        explanation=item["explanation"],
-                        source_unit_explanation=item["source_unit_explanation"],
-                        timestamp=item["timestamp"],
-                        add_unit=item["add_unit"],
-                        state=item["state"],
+            pending_unit_changes: list[PendingUnitChange] = []
+            if pending_unit_change_map is None:
+                pending_unit_change_map = defaultdict(list)
+                for item in data["pending_unit_changes"]:
+                    pending_unit_change_map[
+                        item["translation_id"], item["unit_id_hash"]
+                    ].append(item)
+            for unit in units:
+                backup_unit = unit.import_data
+                pending_unit_changes.extend(
+                    (
+                        PendingUnitChange(
+                            unit=unit,
+                            author=self.restore_user(item["author"]),
+                            target=item["target"],
+                            explanation=item["explanation"],
+                            source_unit_explanation=item["source_unit_explanation"],
+                            timestamp=item["timestamp"],
+                            add_unit=item["add_unit"],
+                            state=item["state"],
+                        )
+                    )
+                    for item in pending_unit_change_map.get(
+                        (backup_unit["translation_id"], backup_unit["id_hash"]), []
                     )
                 )
         else:
@@ -880,115 +900,17 @@ class ProjectBackup:
                     state=unit.state,
                     add_unit=unit.details.get("add_unit", False),
                 )
-                for unit in chain(source_units, units)
+                for unit in units
                 if unit.import_data.get("pending")
             ]
 
         if pending_unit_changes:
-            PendingUnitChange.objects.bulk_create(pending_unit_changes)
-
-    def restore_component(  # noqa: C901
-        self,
-        zipfile: ZipFile,
-        data: dict,
-        actor: User,
-        changes: list[Change],
-    ) -> None:
-        if self.project is None:
-            raise TypeError
-        original_slug = self.get_component_backup_slug(data["component"])
-        kwargs = data["component"].copy()
-        source_language = kwargs["source_language"] = self.import_language(
-            kwargs["source_language"]
-        )
-
-        # Fixup linked components
-        if kwargs["repo"].startswith("weblate:"):
-            old_slug = f"weblate://{self.data['project']['slug']}/"
-            new_slug = f"weblate://{self.project.slug}/"
-            kwargs["repo"] = kwargs["repo"].replace(old_slug, new_slug)
-            # Update linked_component attribute
-            if kwargs["repo"].startswith(new_slug):
-                kwargs["linked_component"] = self.components_cache[
-                    kwargs["repo"].removeprefix(new_slug)
-                ]
-
-        if "category" in kwargs:
-            kwargs["category"] = self.categories_cache[kwargs["category"]]
-
-        component = Component(project=self.project, **kwargs)
-        # Trigger pre_save to update git export URL
-        pre_save.send(
-            sender=component.__class__,
-            instance=component,
-            raw=False,
-            using=None,
-            update_fields=None,
-        )
-        # Use bulk create to avoid triggering save() and any post_save signals
-        component = Component.objects.bulk_create([component])[0]
-
-        # Create translations
-        translations = []
-        source_translation_id = -1
-        for item in data["translations"]:
-            language = self.import_language(item["language_code"])
-            plurals = language.plural_set.filter(**item["plural"])
-            try:
-                plural = plurals[0]
-            except IndexError:
-                if item["plural"]["source"] == Plural.SOURCE_DEFAULT:
-                    plural = language.plural
-                elif item["plural"]["source"] in {
-                    Plural.SOURCE_MANUAL,
-                    Plural.SOURCE_GETTEXT,
-                }:
-                    plural = language.plural_set.create(**item["plural"])
-                else:
-                    plural = language.plural_set.filter(
-                        source=item["plural"]["source"]
-                    )[0]
-            translation = Translation(
-                component=component,
-                filename=item["filename"],
-                language_code=item["language_code"],
-                language=self.import_language(item["language_code"]),
-                plural=plural,
-                revision=item["revision"],
+            PendingUnitChange.objects.bulk_create(
+                pending_unit_changes, batch_size=self.IMPORT_BATCH_SIZE
             )
-            translation.sync_readonly_check_flag(save=False)
-            translation.original_id = item["id"]
-            if language == source_language:
-                source_translation_id = item["id"]
-            translations.append(translation)
-        translations = Translation.objects.bulk_create(translations)
-        translation_lookup = {
-            translation.original_id: translation for translation in translations
-        }
 
-        # Create source units
-        source_units = [
-            self.restore_unit(item, translation_lookup)
-            for item in data["units"]
-            if item["translation_id"] == source_translation_id
-        ]
-        source_units = Unit.objects.bulk_create(source_units)
-        # Fix source unit links
-        for unit in source_units:
-            unit.source_unit = unit
-        Unit.objects.bulk_update(source_units, ["source_unit"])
-        source_unit_lookup = {unit.checksum: unit for unit in source_units}
-
-        # Create translation units
-        units = [
-            self.restore_unit(item, translation_lookup, source_unit_lookup)
-            for item in data["units"]
-            if item["translation_id"] != source_translation_id
-        ]
-        units = Unit.objects.bulk_create(units)
-
-        # Apply metadata
-        for unit in chain(source_units, units):
+    def restore_unit_metadata(self, units: list[Unit]) -> None:
+        for unit in units:
             # Labels
             unit.labels.through.objects.bulk_create(
                 unit.labels.through(unit=unit, label=self.labels_map[label])
@@ -1034,12 +956,248 @@ class ProjectBackup:
                             ignore_conflicts=True,
                         )
 
+    def clear_unit_import_data(self, units: list[Unit]) -> None:
+        for unit in units:
+            unit.import_data = {}
+
+    def get_pending_unit_change_map(
+        self, data: dict
+    ) -> dict[tuple[int, int], list[dict]] | None:
+        if "pending_unit_changes" not in data:
+            return None
+
+        result: dict[tuple[int, int], list[dict]] = defaultdict(list)
+        for item in data["pending_unit_changes"]:
+            result[item["translation_id"], item["unit_id_hash"]].append(item)
+        return result
+
+    def restore_unit_batch(
+        self,
+        batch: list[Unit],
+        data: dict,
+        pending_unit_change_map: dict[tuple[int, int], list[dict]] | None,
+    ) -> list[Unit]:
+        if not batch:
+            return []
+
+        units = Unit.objects.bulk_create(batch, batch_size=self.IMPORT_BATCH_SIZE)
+        self.restore_unit_metadata(units)
         self.restore_pending_unit_changes(
             data,
-            translation_lookup=translation_lookup,
-            source_units=source_units,
             units=units,
+            pending_unit_change_map=pending_unit_change_map,
         )
+        self.clear_unit_import_data(units)
+        return units
+
+    def restore_source_unit_batch(
+        self,
+        batch: list[Unit],
+        data: dict,
+        pending_unit_change_map: dict[tuple[int, int], list[dict]] | None,
+        source_unit_lookup: dict[int, int],
+    ) -> None:
+        if not batch:
+            return
+
+        source_units = Unit.objects.bulk_create(
+            batch, batch_size=self.IMPORT_BATCH_SIZE
+        )
+        for unit in source_units:
+            unit.source_unit = unit
+        Unit.objects.bulk_update(
+            source_units, ["source_unit"], batch_size=self.IMPORT_BATCH_SIZE
+        )
+        source_unit_lookup.update(
+            {unit.checksum: unit.id for unit in source_units if unit.id is not None}
+        )
+        self.restore_unit_metadata(source_units)
+        self.restore_pending_unit_changes(
+            data,
+            units=source_units,
+            pending_unit_change_map=pending_unit_change_map,
+        )
+        self.clear_unit_import_data(source_units)
+
+    def restore_source_units(
+        self,
+        data: dict,
+        *,
+        translation_lookup: dict,
+        source_translation_id: int,
+        pending_unit_change_map: dict[tuple[int, int], list[dict]] | None,
+    ) -> dict[int, int]:
+        source_unit_lookup: dict[int, int] = {}
+        batch: list[Unit] = []
+        for item in data["units"]:
+            if item["translation_id"] != source_translation_id:
+                continue
+            batch.append(self.restore_unit(item, translation_lookup))
+            if len(batch) >= self.IMPORT_BATCH_SIZE:
+                self.restore_source_unit_batch(
+                    batch, data, pending_unit_change_map, source_unit_lookup
+                )
+                batch = []
+        self.restore_source_unit_batch(
+            batch, data, pending_unit_change_map, source_unit_lookup
+        )
+        return source_unit_lookup
+
+    def restore_translation_units(
+        self,
+        data: dict,
+        *,
+        translation_lookup: dict,
+        source_translation_id: int,
+        source_unit_lookup: dict[int, int],
+        pending_unit_change_map: dict[tuple[int, int], list[dict]] | None,
+    ) -> None:
+        batch: list[Unit] = []
+        for item in data["units"]:
+            if item["translation_id"] == source_translation_id:
+                continue
+            batch.append(
+                self.restore_unit(item, translation_lookup, source_unit_lookup)
+            )
+            if len(batch) >= self.IMPORT_BATCH_SIZE:
+                self.restore_unit_batch(batch, data, pending_unit_change_map)
+                batch = []
+        self.restore_unit_batch(batch, data, pending_unit_change_map)
+
+    def restore_memory(self, zipfile: ZipFile, project: Project) -> None:
+        memory = self.load_memory(zipfile)
+        memory_batch = []
+        for entry in memory:
+            memory_batch.append(
+                Memory(
+                    project=project,
+                    origin=entry["origin"],
+                    source=entry["source"],
+                    context=entry.get("context", ""),
+                    target=entry["target"],
+                    source_language=self.import_language(entry["source_language"]),
+                    target_language=self.import_language(entry["target_language"]),
+                    status=entry.get("status", Memory.STATUS_ACTIVE),
+                )
+            )
+            if len(memory_batch) >= self.IMPORT_BATCH_SIZE:
+                Memory.objects.bulk_create(
+                    memory_batch, batch_size=self.IMPORT_BATCH_SIZE
+                )
+                memory_batch.clear()
+        if memory_batch:
+            Memory.objects.bulk_create(memory_batch, batch_size=self.IMPORT_BATCH_SIZE)
+
+        memory.clear()
+
+    def restore_component(
+        self,
+        zipfile: ZipFile,
+        data: dict,
+        actor: User,
+        changes: list[Change],
+    ) -> None:
+        if self.project is None:
+            raise TypeError
+        original_slug = self.get_component_backup_slug(data["component"])
+        kwargs = data["component"].copy()
+        source_language = kwargs["source_language"] = self.import_language(
+            kwargs["source_language"]
+        )
+
+        # Fixup linked components
+        if kwargs["repo"].startswith("weblate:"):
+            old_slug = f"weblate://{self.data['project']['slug']}/"
+            new_slug = f"weblate://{self.project.slug}/"
+            kwargs["repo"] = kwargs["repo"].replace(old_slug, new_slug)
+            # Update linked_component attribute
+            if kwargs["repo"].startswith(new_slug):
+                kwargs["linked_component"] = self.components_cache[
+                    kwargs["repo"].removeprefix(new_slug)
+                ]
+
+        if "category" in kwargs:
+            kwargs["category"] = self.categories_cache[kwargs["category"]]
+
+        component = Component(project=self.project, **kwargs)
+        # Trigger pre_save to update git export URL
+        pre_save.send(
+            sender=component.__class__,
+            instance=component,
+            raw=False,
+            using=None,
+            update_fields=None,
+        )
+
+        if component.file_format in {"po", "po-mono"} and (
+            "file_format_params" not in kwargs
+            or kwargs["file_format_params"].get("po_set_language_team") is None
+        ):
+            # fallback to project setting if not set in backup
+            component.file_format_params["po_set_language_team"] = (
+                self.set_language_team_project
+            )
+        # Use bulk create to avoid triggering save() and any post_save signals
+        component = Component.objects.bulk_create([component])[0]
+
+        # Create translations
+        translations = []
+        source_translation_id = -1
+        for item in data["translations"]:
+            language = self.import_language(item["language_code"])
+            plurals = language.plural_set.filter(**item["plural"])
+            try:
+                plural = plurals[0]
+            except IndexError:
+                if item["plural"]["source"] == Plural.SOURCE_DEFAULT:
+                    plural = language.plural
+                elif item["plural"]["source"] in {
+                    Plural.SOURCE_MANUAL,
+                    Plural.SOURCE_GETTEXT,
+                }:
+                    plural = language.plural_set.create(**item["plural"])
+                else:
+                    plural = language.plural_set.filter(
+                        source=item["plural"]["source"]
+                    )[0]
+            translation = Translation(
+                component=component,
+                filename=item["filename"],
+                language_code=item["language_code"],
+                language=self.import_language(item["language_code"]),
+                plural=plural,
+                revision=item["revision"],
+            )
+            translation.sync_readonly_check_flag(save=False)
+            translation.original_id = item["id"]
+            if language == source_language:
+                source_translation_id = item["id"]
+            translations.append(translation)
+        translations = Translation.objects.bulk_create(translations)
+        translation_lookup = {
+            translation.original_id: translation for translation in translations
+        }
+
+        pending_unit_change_map = self.get_pending_unit_change_map(data)
+
+        # Create source units first so translation units can link to them.
+        source_unit_lookup = self.restore_source_units(
+            data,
+            translation_lookup=translation_lookup,
+            source_translation_id=source_translation_id,
+            pending_unit_change_map=pending_unit_change_map,
+        )
+
+        # Create translation units in batches to avoid keeping all Unit objects
+        # in memory for components with many languages.
+        self.restore_translation_units(
+            data,
+            translation_lookup=translation_lookup,
+            source_translation_id=source_translation_id,
+            source_unit_lookup=source_unit_lookup,
+            pending_unit_change_map=pending_unit_change_map,
+        )
+        data["units"].clear()
 
         # Create screenshots
         screenshots = []
@@ -1136,6 +1294,7 @@ class ProjectBackup:
         project_slug: str,
         user: User,
         billing: Billing | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> Project:
         if not self.filename:
             msg = "Need a filename string."
@@ -1152,6 +1311,8 @@ class ProjectBackup:
             kwargs = self.data["project"].copy()
             kwargs["name"] = project_name
             kwargs["slug"] = project_slug
+            # the attribute `set_language_team` is present in legacy backups prior to 5.17.1
+            self.set_language_team_project = kwargs.pop("set_language_team", False)
             self.project = project = Project.objects.create(**kwargs)
 
             # Handle billing and ACL (creating user needs access)
@@ -1166,22 +1327,7 @@ class ProjectBackup:
                 self.restore_categories(self.data["categories"], None)
 
             # Import translation memory
-            memory = self.load_memory(zipfile)
-            Memory.objects.bulk_create(
-                [
-                    Memory(
-                        project=project,
-                        origin=entry["origin"],
-                        source=entry["source"],
-                        context=entry.get("context", ""),
-                        target=entry["target"],
-                        source_language=self.import_language(entry["source_language"]),
-                        target_language=self.import_language(entry["target_language"]),
-                        status=entry.get("status", Memory.STATUS_ACTIVE),
-                    )
-                    for entry in memory
-                ]
-            )
+            self.restore_memory(zipfile, project)
 
             # Extract VCS
             project_path = Path(project.full_path)
@@ -1215,6 +1361,7 @@ class ProjectBackup:
                 do_restore=True,
                 actor=user,
                 changes=restore_changes,
+                progress_callback=progress_callback,
             )
 
             if "teams" in self.data:

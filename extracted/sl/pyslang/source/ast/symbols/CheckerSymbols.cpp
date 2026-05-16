@@ -50,8 +50,8 @@ CheckerSymbol& CheckerSymbol::fromSyntax(const Scope& scope,
         ArgumentDirection lastDir = ArgumentDirection::In;
 
         for (auto item : syntax.portList->ports) {
-            if (item->previewNode)
-                result->addMembers(*item->previewNode);
+            if (auto preview = item->previewNode())
+                result->addMembers(*preview);
 
             auto port = comp.emplace<AssertionPortSymbol>(item->name.valueText(),
                                                           item->name.location());
@@ -116,7 +116,7 @@ CheckerSymbol& CheckerSymbol::fromSyntax(const Scope& scope,
 
 namespace {
 
-using DimIterator = std::span<VariableDimensionSyntax*>::iterator;
+using DimIterator = SyntaxList<VariableDimensionSyntax>::const_iterator;
 
 Symbol* recurseCheckerArray(Compilation& comp, const CheckerSymbol& checker,
                             const HierarchicalInstanceSyntax& instance, const ASTContext& context,
@@ -273,8 +273,10 @@ static const Symbol* createCheckerFormal(Compilation& comp, const AssertionPortS
                                          CheckerInstanceBodySymbol& instance,
                                          const ExpressionSyntax*& outputInitialSyntax,
                                          const ASTContext& context) {
-    if (auto portSyntax = port.getSyntax(); portSyntax && portSyntax->previewNode)
-        instance.addMembers(*portSyntax->previewNode);
+    if (auto portSyntax = port.getSyntax()) {
+        if (auto preview = portSyntax->previewNode())
+            instance.addMembers(*preview);
+    }
 
     // Output ports are special; they aren't involved in the rewriting process,
     // they just act like normal formal ports / arguments.
@@ -608,7 +610,7 @@ const Expression* CheckerInstanceSymbol::Connection::getOutputInitialExpr() cons
     return *outputInitialExpr;
 }
 
-class CheckerMemberVisitor : public ASTVisitor<CheckerMemberVisitor, true, true> {
+class CheckerMemberVisitor : public ASTVisitor<CheckerMemberVisitor, VisitFlags::AllGood> {
 public:
     CheckerMemberVisitor(const CheckerInstanceBodySymbol& body) : body(body) {}
 

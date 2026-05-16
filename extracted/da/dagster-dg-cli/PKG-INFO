@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-dg-cli
-Version: 1.13.4
+Version: 1.13.5
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dg-cli
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
@@ -11,13 +11,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: dagster-cloud-cli==1.13.4
-Requires-Dist: dagster-dg-core==1.13.4
-Requires-Dist: dagster-rest-resources==0.29.4
-Requires-Dist: dagster==1.13.4
+Requires-Dist: dagster-cloud-cli==1.13.5
+Requires-Dist: dagster-dg-core==1.13.5
+Requires-Dist: dagster-rest-resources==0.29.5
+Requires-Dist: dagster==1.13.5
 Requires-Dist: typer
 Provides-Extra: ai
 Requires-Dist: anthropic; (python_version >= '3.10') and extra == 'ai'
 Requires-Dist: claude-code-sdk>=0.0.19; (python_version >= '3.10') and extra == 'ai'
-Provides-Extra: test
-Requires-Dist: syrupy>=4.0.0; extra == 'test'

@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: iterable-io
-Version: 1.0.1
+Version: 1.0.2
 Summary: Adapt generators and other iterables to a file-like interface
-Home-page: https://github.com/pR0Ps/iterable-io
-License: LGPL-3.0-only
-Project-URL: Source, https://github.com/pR0Ps/iterable-io
-Project-URL: Changelog, https://github.com/pR0Ps/iterable-io/blob/master/CHANGELOG.md
+Project-URL: repository, https://github.com/pR0Ps/iterable-io
+Project-URL: changelog, https://github.com/pR0Ps/iterable-io/blob/master/CHANGELOG.md
+License-Expression: LGPL-3.0-only
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
@@ -17,18 +18,9 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.5
 Description-Content-Type: text/markdown
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: project-url
-Dynamic: requires-python
-Dynamic: summary
 
 iterable-io
 ===========
@@ -102,7 +94,7 @@ for line in fp:
 
 Tests
 -----
-This package contains extensive tests. To run them, install `pytest` (`pip install pytest`) and run
+This package contains tests. To run them, install `pytest` (`pip install pytest`) and run
 `py.test` in the project directory.
 
 

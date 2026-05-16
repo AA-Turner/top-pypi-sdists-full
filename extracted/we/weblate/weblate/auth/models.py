@@ -118,7 +118,7 @@ class Role(models.Model):
         return pgettext("Access-control role", self.name)
 
 
-class GroupQuerySet(models.QuerySet["Group"]):
+class GroupQuerySet(models.QuerySet["Group", "Group"]):
     def order(self):
         """Ordering in project scope by priority."""
         return self.order_by("defining_project__name", "name")
@@ -289,7 +289,7 @@ class UserManager(BaseUserManager["User"]):
             return user
 
 
-class UserQuerySet(models.QuerySet["User"]):
+class UserQuerySet(models.QuerySet["User", "User"]):
     def having_perm(self, perm: str, project: Project) -> Self:
         """
         All users having explicit permission on a project.
@@ -1170,7 +1170,7 @@ def sync_create_groups(sender, **kwargs) -> None:
 
 def auto_assign_group(user: User) -> None:
     """Automatic group assignment based on user e-mail address."""
-    if user.username == settings.ANONYMOUS_USER_NAME:
+    if user.is_anonymous:
         return
     # Add user to automatic groups
     for auto in AutoGroup.objects.prefetch_related("group"):
@@ -1395,7 +1395,7 @@ class Invitation(models.Model):
         elif self.user is not None:
             email = self.user.email
         else:
-            msg = "Intiviation without an e-mail!"
+            msg = "Invitation without an e-mail!"
             raise ValueError(msg)
 
         send_notification_email(

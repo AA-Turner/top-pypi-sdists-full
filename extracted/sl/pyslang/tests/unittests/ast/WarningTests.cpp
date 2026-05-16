@@ -153,7 +153,7 @@ module m;
     initial if (i || r) begin end
 
     // These don't warn
-    initial if (i >> 2) begin end
+    initial if (i >>> 2) begin end
     initial if (i & 2) begin end
     initial if (i ^ 2) begin end
 endmodule
@@ -252,6 +252,193 @@ endfunction
     CHECK(diags[4].code == diag::SignConversion);
 }
 
+TEST_CASE("Signed logical shift warning") {
+    auto tree = SyntaxTree::fromText(R"(
+// Should warn: logical shift of signed variable
+function automatic int f1(int i);
+    return i >> 5;
+endfunction
+
+// Should NOT warn: signed but known non-negative constant
+function automatic int f2();
+    return 42 >> 1;
+endfunction
+
+// Should NOT warn: unsigned variable
+function automatic int unsigned f3(int unsigned i);
+    return i >> 5;
+endfunction
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::SignedLogicalShift);
+}
+
+TEST_CASE("Shift count overflow warning") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [2:0] v;
+    int i;
+    logic [3:0] r;
+
+    initial begin
+        r = v << 4;     // warn: shift by 4 == width (4 bits)
+        r = v << 5;     // warn: shift by 5 > width
+        r = v >> 4;     // warn: shift by 4 == width
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::ShiftCountOverflow);
+    CHECK(diags[1].code == diag::ShiftCountOverflow);
+    CHECK(diags[2].code == diag::ShiftCountOverflow);
+}
+
+TEST_CASE("Shift count overflow - valid cases") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [2:0] v;
+    int i;
+    logic [3:0] r;
+
+    initial begin
+        r = v << 3;     // ok: shift by 3 < width
+        r = v << i;     // ok: non-constant shift amount
+        r = v >> 0;     // ok: shift by 0
+    end
+    if (0) begin
+        assign r = v << 4;  // ok: unevaluated branch
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Shift count overflow warning - arithmetic shifts") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int v;          // signed 32-bit
+    int r;
+
+    initial begin
+        r = v >>> 32;   // warn: shift by 32 == width
+        r = v >>> 31;   // ok: shift by 31 < width
+        r = v <<< 32;   // warn: shift by 32 == width
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::ShiftCountOverflow);
+    CHECK(diags[1].code == diag::ShiftCountOverflow);
+}
+
+TEST_CASE("Shift count negative warning") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [7:0] v;
+    logic [7:0] r;
+    int i;
+
+    initial begin
+        r = v << -1;    // warn: negative shift amount
+        r = v >> -2;    // warn: negative shift amount
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::ShiftCountNegative);
+    CHECK(diags[1].code == diag::ShiftCountNegative);
+}
+
+TEST_CASE("Shift count negative warning -- valid cases") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [7:0] v;
+    logic [7:0] r;
+    int i;
+
+    initial begin
+        r = v << i;     // ok: non-constant shift amount
+        r = v << 0;     // ok: zero is valid
+    end
+    if (0) begin
+        assign r = v << -1;  // ok: unevaluated branch
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Division by zero warning") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int r;
+    real fr;
+
+    initial begin
+        r = 10 / 0;         // warn: integer divide by zero
+        r = 10 % 0;         // warn: modulo by zero
+        fr = 1.0 / 0.0;     // warn: real divide by zero
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::DivisionByZero);
+    CHECK(diags[1].code == diag::DivisionByZero);
+    CHECK(diags[2].code == diag::DivisionByZero);
+}
+
+TEST_CASE("Division by zero warning -- valid cases") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int r;
+    int v;
+
+    initial begin
+        r = 10 / 1;         // ok: divisor is not zero
+        r = 10 / v;         // ok: divisor is not a compile-time constant
+    end
+    if (0) begin
+        assign r = 10 / 0;  // ok: unevaluated branch
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
 TEST_CASE("Indeterminate variable initialization order") {
     auto tree = SyntaxTree::fromText(R"(
 package p;
@@ -278,6 +465,43 @@ endmodule
     CHECK(diags[0].code == diag::StaticInitValue);
     CHECK(diags[1].code == diag::StaticInitOrder);
     CHECK(diags[2].code == diag::StaticInitValue);
+}
+
+TEST_CASE("Init-self warning") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int i = i;
+    int j = j + 1;
+    int k = $bits(k);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::InitSelf);
+    CHECK(diags[1].code == diag::InitSelf);
+}
+
+TEST_CASE("Init-self warning -- no false positives") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    int a = 1;
+    int b = a;
+    int c = $bits(c);
+    int d = $size(d);
+    typedef enum { P, Q, R } my_e;
+    my_e e0 = e0.first();
+    my_e e1 = e1.last();
+    my_e e2 = e2.num() > 0 ? P : Q;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }
 
 TEST_CASE("Float conversion warnings") {
@@ -392,12 +616,13 @@ module m;
     int unsigned flags;
     logic a, b, c;
     int unsigned d, e;
+    logic [3:0] f;
     initial begin
         if (flags & 'h1 == 'h1) begin end
         if (a & b | c) begin end
         if (a | b ^ c) begin end
         if (a || b && c) begin end
-        if (a << 1 + 1) begin end
+        if ((f << 1 + 1) == 2) begin end
         if (!d < e) begin end
         if (!d & e) begin end
         if ((a + b ? 1 : 2) == 2) begin end
@@ -716,4 +941,51 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Comparison mismatch with unpacked array selects -- GH #1637") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    logic [3:0] current_num [16];
+    logic comps [8];
+    genvar i;
+    generate for (genvar i=0; i < 8; i++) begin : g_COMP_BLOCKS
+        assign comps[i] = current_num[0 +: i+1]==current_num[i+1 +: i+1];
+    end endgenerate
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Increment/decrement of 1-bit operand") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    bit b;
+    logic l;
+    logic [3:0] v;
+    int i;
+
+    initial begin
+        b++;   // warn
+        ++b;   // warn
+        l--;   // warn
+        --l;   // warn
+        v++;   // ok
+        i++;   // ok
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    CHECK(diags[0].code == diag::IncDecBit);
+    CHECK(diags[1].code == diag::IncDecBit);
+    CHECK(diags[2].code == diag::IncDecBit);
+    CHECK(diags[3].code == diag::IncDecBit);
 }

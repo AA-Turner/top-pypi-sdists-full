@@ -49,12 +49,313 @@ void Preprocessor::createBuiltInMacro(std::string_view name, int value, std::str
 
     MacroDef def;
     def.syntax = alloc.emplace<DefineDirectiveSyntax>(directive, nameTok, nullptr,
-                                                      body.copy(alloc));
+                                                      syntax::TokenList(alloc, body));
     def.builtIn = true;
     macros[name] = def;
 
 #undef NL
 }
+
+// Helper class for applying macro operators (stringification, concatenation, etc).
+class MacroOpEvaluator {
+public:
+    MacroOpEvaluator(Preprocessor& pp, SmallVectorBase<Token>& dest,
+                     bool preserveTrailingTrivia = false) :
+        pp(pp), dest(dest), preserveTrailingTrivia(preserveTrailingTrivia) {}
+
+    // Goes through each token and appends it to the dest buffer,
+    // applying any macro operators it finds in the process.
+    bool apply(std::span<Token const> tokens) {
+        for (size_t i = 0; i < tokens.size(); i++) {
+            const bool prevDidConcat = std::exchange(didConcat, false);
+
+            // Once we see a `" token, we start collecting tokens into their own
+            // buffer for stringification. Otherwise, just add them to the final
+            // expansion buffer.
+            Token token = tokens[i];
+            switch (token.kind) {
+                case TokenKind::MacroQuote:
+                case TokenKind::MacroTripleQuote:
+                    handleStringifyOp(token);
+                    break;
+                case TokenKind::MacroPaste:
+                    if (handleConcatOp(token, tokens, i))
+                        i++;
+                    break;
+                default: {
+                    if (token.trivia().empty() && emptyArgTrivia.empty() && !stringify &&
+                        !syntheticComment) {
+                        // If last iteration we did a token concatenation, check whether this
+                        // token is right next to it (not leading trivia). If so, we should try
+                        // to continue the concatenation process.
+                        //
+                        // Additionally, if we find two tokens back to back that should have
+                        // been lexed as a single identifier, we know that the second token
+                        // could only have come from expanding out a macro. Other tools implicitly
+                        // concatenate in this case, so we will do the same for compatibility.
+                        if (prevDidConcat ||
+                            (!dest.empty() && shouldImplicitConcat(dest.back(), token))) {
+                            if (doConcat(dest, token))
+                                break;
+                        }
+                    }
+
+                    // Check if we found the end of a synthetic line comment.
+                    if (syntheticComment && syntheticIsLineComment && !token.isOnSameLine())
+                        finishSyntheticComment();
+
+                    // Otherwise take the token as it is.
+                    append(token);
+                    break;
+                }
+            }
+        }
+
+        if (stringify) {
+            pp.addDiag(diag::ExpectedMacroStringifyEnd, stringify.location());
+        }
+        else if (syntheticComment) {
+            if (syntheticIsLineComment) {
+                auto loc = syntheticComment.location();
+                finishSyntheticComment();
+
+                dest.push_back(
+                    Token(pp.alloc, TokenKind::EmptyMacroArgument, emptyArgTrivia, ""sv, loc));
+            }
+            else {
+                pp.addDiag(diag::ExpectedMacroCommentEnd, syntheticComment.location());
+            }
+        }
+        else if (preserveTrailingTrivia && !emptyArgTrivia.empty() && !dest.empty()) {
+            // Preserve any leftover trivia as an EmptyMacroArgument so that it
+            // can be properly consumed by the outer expansion context (e.g. spacing
+            // that terminates an escaped identifier formed via token paste).
+            auto loc = dest.back().location() + dest.back().rawText().length();
+            dest.push_back(
+                Token(pp.alloc, TokenKind::EmptyMacroArgument, emptyArgTrivia, ""sv, loc));
+        }
+
+        return anyNewMacros;
+    }
+
+private:
+    void handleStringifyOp(Token token) {
+        if (!stringify) {
+            stringify = token;
+            stringifyBuffer.clear();
+
+            if (token.kind == TokenKind::MacroTripleQuote &&
+                pp.options.languageVersion < LanguageVersion::v1800_2023) {
+                pp.addDiag(diag::WrongLanguageVersion, token.location())
+                    << toString(pp.options.languageVersion);
+            }
+        }
+        else if (token.kind == stringify.kind) {
+            // all done stringifying; convert saved tokens to string
+            append(doStringify(token));
+        }
+        else if (stringify.kind == TokenKind::MacroTripleQuote) {
+            // We found a `" inside of a triple quoted stringification.
+            // Just keep it, let it become part of the string contents.
+            append(token);
+        }
+        else {
+            // We found a `""" inside of a single quoted stringification.
+            // The LRM doesn't say what to do, but I think it makes sense to
+            // split the token, end the previous stringification, and then
+            // append the essentially empty string literal after it.
+            // This will cause an error down the line since two string literals
+            // next to each other isn't ever valid.
+            append(doStringify(token));
+            dest.push_back(
+                Token(pp.alloc, TokenKind::StringLiteral, {}, "\"\"", token.location() + 2, ""sv));
+        }
+    }
+
+    bool handleConcatOp(Token token, std::span<Token const> inputTokens, size_t index) {
+        // Paste together previous token and next token; a macro paste on either end
+        // of the buffer or one that borders whitespace should be ignored.
+        // This isn't specified in the standard so I'm just guessing.
+        if (index == 0 || index == inputTokens.size() - 1 || !token.trivia().empty() ||
+            !inputTokens[index + 1].trivia().empty() || !emptyArgTrivia.empty()) {
+
+            pp.addDiag(diag::IgnoredMacroPaste, token.location());
+
+            // We're ignoring this token, but don't lose its trivia or our
+            // spacing can get messed up.
+            emptyArgTrivia.append_range(token.trivia());
+        }
+        else if (stringify) {
+            // If this is right after the opening quote or right before the closing
+            // quote, we're trying to concatenate something with nothing.
+            if (stringifyBuffer.empty() || inputTokens[index + 1].kind == TokenKind::MacroQuote ||
+                inputTokens[index + 1].kind == TokenKind::MacroTripleQuote) {
+                pp.addDiag(diag::IgnoredMacroPaste, token.location());
+            }
+            else {
+                return doConcat(stringifyBuffer, inputTokens[index + 1]);
+            }
+        }
+        else if (syntheticComment && !syntheticIsLineComment) {
+            // Check for a *``/ to end the synthetic comment. Otherwise ignore the
+            // paste, since this is just going to become a comment anyway.
+            if (commentBuffer.back().kind == TokenKind::Star &&
+                inputTokens[index + 1].kind == TokenKind::Slash) {
+
+                commentBuffer.push_back(inputTokens[index + 1]);
+                finishSyntheticComment();
+                return true;
+            }
+        }
+        else if (!dest.empty()) {
+            Token left = dest.back();
+            Token right = inputTokens[index + 1];
+
+            // Other tools allow concatenating a '/' with a '*' to form a block comment
+            // (and similarly '/' with '/' for a line comment).
+            // This seems like utter nonsense but real world code depends on it so
+            // we have to support it as well.
+            if (left.kind == TokenKind::Slash &&
+                (right.kind == TokenKind::Star || right.kind == TokenKind::Slash)) {
+
+                commentBuffer.clear();
+                syntheticComment = left;
+                syntheticIsLineComment = right.kind == TokenKind::Slash;
+                dest.pop_back();
+
+                commentBuffer.push_back(left.withTrivia(pp.alloc, {}));
+                append(right);
+                return true;
+            }
+            else {
+                return doConcat(dest, inputTokens[index + 1]);
+            }
+        }
+
+        return false;
+    }
+
+    void append(Token token) {
+        // If we have an empty macro argument just collect its trivia and use it on the next token
+        // we find. Note that this can be left over at the end of applying ops; that's fine,
+        // nothing is relying on observing this after the end of the macro's tokens.
+        if (token.kind == TokenKind::EmptyMacroArgument) {
+            emptyArgTrivia.append_range(token.trivia());
+            return;
+        }
+
+        if (!emptyArgTrivia.empty()) {
+            emptyArgTrivia.append_range(token.trivia());
+            token = token.withTrivia(pp.alloc, emptyArgTrivia);
+            emptyArgTrivia.clear();
+        }
+
+        if (stringify) {
+            // If this is an escaped identifier that includes a `" within it, we need to split the
+            // token up to match the behavior of other simulators.
+            auto raw = token.rawText();
+            if (token.kind == TokenKind::Identifier && !raw.empty() && raw[0] == '\\') {
+                size_t offset = raw.find("`\"");
+                if (offset != std::string_view::npos) {
+                    // Like above, we need to handle the case of mismatched delimiters.
+                    // If we match, we complete the stringification. If we found a `"
+                    // inside a triple quoted string, just keep going. If we found a `"""
+                    // inside a single quoted string, split and end.
+                    const bool startIsTriple = stringify.kind == TokenKind::MacroTripleQuote;
+                    const bool endIsTriple = raw.substr(offset).starts_with(R"(`""")");
+                    if (startIsTriple == endIsTriple || !startIsTriple) {
+                        stringifyBuffer.push_back(
+                            token.withRawText(pp.alloc, raw.substr(0, offset)));
+
+                        // Note: token parameter here doesn't matter,
+                        // we know there is no trivia to take.
+                        dest.push_back(doStringify(Token()));
+
+                        // Now we have the unfortunate task of re-lexing the remaining stuff after
+                        // the split and then appending those tokens to the destination as well.
+                        SmallVector<Token, 8> splits;
+                        pp.splitTokens(token, offset + (endIsTriple ? 4 : 2), splits);
+
+                        MacroOpEvaluator nestedEvaluator(pp, dest);
+                        anyNewMacros |= nestedEvaluator.apply(splits);
+                        return;
+                    }
+                }
+            }
+
+            stringifyBuffer.push_back(token);
+        }
+        else if (syntheticComment) {
+            commentBuffer.push_back(token);
+        }
+        else {
+            dest.push_back(token);
+        }
+    }
+
+    void finishSyntheticComment() {
+        emptyArgTrivia.append_range(syntheticComment.trivia());
+        emptyArgTrivia.push_back(
+            Lexer::commentify(pp.alloc, pp.sourceManager, pp.lexerOptions, commentBuffer));
+        syntheticComment = Token();
+    }
+
+    Token doStringify(Token token) {
+        auto result = Lexer::stringify(pp.alloc, pp.sourceManager, pp.lexerOptions, stringify,
+                                       stringifyBuffer, token);
+        stringify = Token();
+        return result;
+    }
+
+    bool doConcat(SmallVectorBase<Token>& targetBuf, Token right) {
+        SmallVector<Token> results;
+        if (!Lexer::concatenateTokens(pp.alloc, pp.sourceManager, pp.lexerOptions, targetBuf.back(),
+                                      right, results)) {
+            return false;
+        }
+
+        targetBuf.pop_back();
+
+        for (auto& newToken : results) {
+            append(newToken);
+            if (!stringify) {
+                anyNewMacros |= newToken.kind == TokenKind::Directive &&
+                                newToken.directiveKind() == SyntaxKind::MacroUsage;
+            }
+        }
+
+        didConcat = true;
+        return true;
+    }
+
+    static bool shouldImplicitConcat(Token left, Token right) {
+        auto check = [](TokenKind kind) {
+            switch (kind) {
+                case TokenKind::IntegerLiteral:
+                case TokenKind::RealLiteral:
+                case TokenKind::TimeLiteral:
+                case TokenKind::Identifier:
+                case TokenKind::SystemIdentifier:
+                    return true;
+                default:
+                    return LF::isKeyword(kind);
+            }
+        };
+        return check(left.kind) && check(right.kind);
+    }
+
+    Preprocessor& pp;
+    SmallVectorBase<Token>& dest;
+    SmallVector<Trivia, 8> emptyArgTrivia;
+    SmallVector<Token, 8> stringifyBuffer;
+    SmallVector<Token, 8> commentBuffer;
+    Token stringify;
+    Token syntheticComment;
+    bool anyNewMacros = false;
+    bool didConcat = false;
+    bool syntheticIsLineComment = false;
+    bool preserveTrailingTrivia = false;
+};
 
 std::pair<MacroActualArgumentListSyntax*, Trivia> Preprocessor::handleTopLevelMacro(
     Token directive) {
@@ -118,7 +419,8 @@ std::pair<MacroActualArgumentListSyntax*, Trivia> Preprocessor::handleTopLevelMa
 
         // Now that all macros have been expanded, handle token concatenation and stringification.
         expandedTokens.clear();
-        if (!applyMacroOps(tokens, expandedTokens) && ptr == tokens.data())
+        MacroOpEvaluator opEvaluator(*this, expandedTokens);
+        if (!opEvaluator.apply(tokens) && ptr == tokens.data())
             break;
 
         tokens = expandedTokens;
@@ -130,276 +432,6 @@ std::pair<MacroActualArgumentListSyntax*, Trivia> Preprocessor::handleTopLevelMa
         currentMacroToken = expandedTokens.begin();
 
     return {actualArgs, Trivia()};
-}
-
-static bool shouldImplicitConcat(Token left, Token right) {
-    auto check = [](TokenKind kind) {
-        switch (kind) {
-            case TokenKind::IntegerLiteral:
-            case TokenKind::RealLiteral:
-            case TokenKind::TimeLiteral:
-            case TokenKind::Identifier:
-            case TokenKind::SystemIdentifier:
-                return true;
-            default:
-                return LF::isKeyword(kind);
-        }
-    };
-    return check(left.kind) && check(right.kind);
-}
-
-bool Preprocessor::applyMacroOps(std::span<Token const> tokens, SmallVectorBase<Token>& dest) {
-    SmallVector<Trivia, 8> emptyArgTrivia;
-    SmallVector<Token, 8> stringifyBuffer;
-    SmallVector<Token, 8> commentBuffer;
-    Token stringify;
-    Token syntheticComment;
-    Token extraToAppend;
-    bool anyNewMacros = false;
-    bool didConcat = false;
-    bool syntheticIsLineComment = false;
-
-    auto finishSyntheticComment = [&] {
-        emptyArgTrivia.append_range(syntheticComment.trivia());
-        emptyArgTrivia.push_back(Lexer::commentify(alloc, sourceManager, commentBuffer));
-        syntheticComment = Token();
-    };
-
-    for (size_t i = 0; i < tokens.size(); i++) {
-        Token newToken;
-        bool nextDidConcat = false;
-
-        // Once we see a `" token, we start collecting tokens into their own
-        // buffer for stringification. Otherwise, just add them to the final
-        // expansion buffer.
-        Token token = tokens[i];
-        switch (token.kind) {
-            case TokenKind::MacroQuote:
-            case TokenKind::MacroTripleQuote:
-                if (!stringify) {
-                    stringify = token;
-                    stringifyBuffer.clear();
-
-                    if (token.kind == TokenKind::MacroTripleQuote &&
-                        options.languageVersion < LanguageVersion::v1800_2023) {
-                        addDiag(diag::WrongLanguageVersion, token.location())
-                            << toString(options.languageVersion);
-                    }
-                }
-                else if (token.kind == stringify.kind) {
-                    // all done stringifying; convert saved tokens to string
-                    newToken = Lexer::stringify(*lexerStack.back(), stringify, stringifyBuffer,
-                                                token);
-                    stringify = Token();
-                }
-                else if (stringify.kind == TokenKind::MacroTripleQuote) {
-                    // We found a `" inside of a triple quoted stringification.
-                    // Just keep it, let it become part of the string contents.
-                    newToken = token;
-                }
-                else {
-                    // We found a `""" inside of a single quoted stringification.
-                    // The LRM doesn't say what to do, but I think it makes sense to
-                    // split the token, end the previous stringification, and then
-                    // append the essentially empty string literal after it.
-                    // This will cause an error down the line since two string literals
-                    // next to each other isn't ever valid.
-                    newToken = Lexer::stringify(*lexerStack.back(), stringify, stringifyBuffer,
-                                                token);
-                    stringify = Token();
-                    extraToAppend = Token(alloc, TokenKind::StringLiteral, {}, "\"\"",
-                                          token.location() + 2, ""sv);
-                }
-                break;
-            case TokenKind::MacroPaste:
-                // Paste together previous token and next token; a macro paste on either end
-                // of the buffer or one that borders whitespace should be ignored.
-                // This isn't specified in the standard so I'm just guessing.
-                if (i == 0 || i == tokens.size() - 1 || !token.trivia().empty() ||
-                    !tokens[i + 1].trivia().empty() || !emptyArgTrivia.empty()) {
-
-                    addDiag(diag::IgnoredMacroPaste, token.location());
-
-                    // We're ignoring this token, but don't lose its trivia or our
-                    // spacing can get messed up.
-                    emptyArgTrivia.append_range(token.trivia());
-                }
-                else if (stringify) {
-                    // If this is right after the opening quote or right before the closing quote,
-                    // we're trying to concatenate something with nothing.
-                    if (stringifyBuffer.empty() || tokens[i + 1].kind == TokenKind::MacroQuote ||
-                        tokens[i + 1].kind == TokenKind::MacroTripleQuote) {
-                        addDiag(diag::IgnoredMacroPaste, token.location());
-                    }
-                    else {
-                        newToken = Lexer::concatenateTokens(alloc, sourceManager,
-                                                            stringifyBuffer.back(), tokens[i + 1]);
-                        if (newToken) {
-                            stringifyBuffer.pop_back();
-                            ++i;
-                        }
-                    }
-                }
-                else if (syntheticComment && !syntheticIsLineComment) {
-                    // Check for a *``/ to end the synthetic comment. Otherwise ignore the paste,
-                    // since this is just going to become a comment anyway.
-                    if (commentBuffer.back().kind == TokenKind::Star &&
-                        tokens[i + 1].kind == TokenKind::Slash) {
-                        commentBuffer.push_back(tokens[i + 1]);
-                        i++;
-
-                        finishSyntheticComment();
-                    }
-                }
-                else if (!dest.empty()) {
-                    Token left = dest.back();
-                    Token right = tokens[i + 1];
-
-                    // Other tools allow concatenating a '/' with a '*' to form a block comment
-                    // (and similarly '/' with '/' for a line comment).
-                    // This seems like utter nonsense but real world code depends on it so
-                    // we have to support it as well.
-                    if (left.kind == TokenKind::Slash &&
-                        (right.kind == TokenKind::Star || right.kind == TokenKind::Slash)) {
-
-                        commentBuffer.clear();
-                        syntheticComment = left;
-                        syntheticIsLineComment = right.kind == TokenKind::Slash;
-                        dest.pop_back();
-                        ++i;
-
-                        commentBuffer.push_back(left.withTrivia(alloc, {}));
-                        newToken = right;
-                    }
-                    else {
-                        newToken = Lexer::concatenateTokens(alloc, sourceManager, dest.back(),
-                                                            tokens[i + 1]);
-                        if (newToken) {
-                            dest.pop_back();
-                            ++i;
-
-                            nextDidConcat = true;
-                            anyNewMacros |= newToken.kind == TokenKind::Directive &&
-                                            newToken.directiveKind() == SyntaxKind::MacroUsage;
-                        }
-                    }
-                }
-                break;
-            default: {
-                if (token.trivia().empty() && emptyArgTrivia.empty() && !stringify &&
-                    !syntheticComment) {
-                    // If last iteration we did a token concatenation, check whether this
-                    // token is right next to it (not leading trivia). If so, we should try
-                    // to continue the concatenation process.
-                    //
-                    // Additionally, if we find two tokens back to back that should have
-                    // been lexed as a single identifier, we know that the second token
-                    // could only have come from expanding out a macro. Other tools implicitly
-                    // concatenate in this case, so we will do the same for compatibility.
-                    if (didConcat || (!dest.empty() && shouldImplicitConcat(dest.back(), token))) {
-                        newToken = Lexer::concatenateTokens(alloc, sourceManager, dest.back(),
-                                                            token);
-                        if (newToken) {
-                            dest.pop_back();
-                            nextDidConcat = true;
-                            break;
-                        }
-                    }
-                }
-
-                // Check if we found the end of a synthetic line comment.
-                if (syntheticComment && syntheticIsLineComment && !token.isOnSameLine())
-                    finishSyntheticComment();
-
-                // Otherwise take the token as it is.
-                newToken = token;
-                break;
-            }
-        }
-
-        didConcat = nextDidConcat;
-        if (!newToken)
-            continue;
-
-        // If we have an empty macro argument just collect its trivia and use it on the next token
-        // we find. Note that this can be left over at the end of applying ops; that's fine,
-        // nothing is relying on observing this after the end of the macro's tokens.
-        if (newToken.kind == TokenKind::EmptyMacroArgument) {
-            emptyArgTrivia.append_range(newToken.trivia());
-            continue;
-        }
-
-        if (!emptyArgTrivia.empty()) {
-            emptyArgTrivia.append_range(newToken.trivia());
-            newToken = newToken.withTrivia(alloc, emptyArgTrivia.copy(alloc));
-            emptyArgTrivia.clear();
-        }
-
-        if (!stringify) {
-            if (syntheticComment) {
-                commentBuffer.push_back(newToken);
-            }
-            else {
-                dest.push_back(newToken);
-                if (extraToAppend) {
-                    dest.push_back(extraToAppend);
-                    extraToAppend = Token();
-                }
-            }
-            continue;
-        }
-
-        // If this is an escaped identifier that includes a `" within it, we need to split the
-        // token up to match the behavior of other simulators.
-        auto raw = newToken.rawText();
-        if (newToken.kind == TokenKind::Identifier && !raw.empty() && raw[0] == '\\') {
-            size_t offset = raw.find("`\"");
-            if (offset != std::string_view::npos) {
-                // Like above, we need to handle the case of mismatched delimiters.
-                // If we match, we complete the stringification. If we found a `"
-                // inside a triple quoted string, just keep going. If we found a `"""
-                // inside a single quoted string, split and end.
-                const bool startIsTriple = stringify.kind == TokenKind::MacroTripleQuote;
-                const bool endIsTriple = raw.substr(offset).starts_with(R"(`""")");
-                if (startIsTriple == endIsTriple || !startIsTriple) {
-                    stringifyBuffer.push_back(newToken.withRawText(alloc, raw.substr(0, offset)));
-
-                    // Note: endToken parameter here doesn't matter,
-                    // we know there is no trivia to take.
-                    dest.push_back(
-                        Lexer::stringify(*lexerStack.back(), stringify, stringifyBuffer, Token()));
-                    stringify = Token();
-
-                    // Now we have the unfortunate task of re-lexing the remaining stuff after the
-                    // split and then appending those tokens to the destination as well.
-                    SmallVector<Token, 8> splits;
-                    splitTokens(newToken, offset + (endIsTriple ? 4 : 2), splits);
-                    anyNewMacros |= applyMacroOps(splits, dest);
-                    continue;
-                }
-            }
-        }
-
-        stringifyBuffer.push_back(newToken);
-    }
-
-    if (stringify) {
-        addDiag(diag::ExpectedMacroStringifyEnd, stringify.location());
-    }
-    else if (syntheticComment) {
-        if (syntheticIsLineComment) {
-            auto loc = syntheticComment.location();
-            finishSyntheticComment();
-
-            dest.push_back(
-                Token(alloc, TokenKind::EmptyMacroArgument, emptyArgTrivia.copy(alloc), ""sv, loc));
-        }
-        else {
-            addDiag(diag::ExpectedMacroCommentEnd, syntheticComment.location());
-        }
-    }
-
-    return anyNewMacros;
 }
 
 bool Preprocessor::expandMacro(MacroDef macro, MacroExpansion& expansion,
@@ -525,8 +557,25 @@ bool Preprocessor::expandMacro(MacroDef macro, MacroExpansion& expansion,
         if (!it->second.isExpanded) {
             std::span<const Token> argTokens = it->second;
             SmallSet<const DefineDirectiveSyntax*, 8> alreadyExpanded;
-            if (!expandReplacementList(argTokens, alreadyExpanded))
-                return false;
+
+            while (true) {
+                const Token* ptr = argTokens.data();
+                if (!expandReplacementList(argTokens, alreadyExpanded))
+                    return false;
+
+                // Apply all macro ops eagerly. If we don't we can get different expansions
+                // later if they refer to an argument of the parent expansion context.
+                SmallVector<Token, 8> argExpanded;
+                MacroOpEvaluator argEvaluator(*this, argExpanded,
+                                              /* preserveTrailingTrivia */ true);
+
+                const bool foundNewMacros = argEvaluator.apply(argTokens);
+                const bool expandedAnything = ptr != argTokens.data();
+
+                argTokens = argExpanded.copy(alloc);
+                if (!foundNewMacros && !expandedAnything)
+                    break;
+            }
 
             it->second = argTokens;
             it->second.isExpanded = true;
@@ -558,10 +607,12 @@ bool Preprocessor::expandMacro(MacroDef macro, MacroExpansion& expansion,
         // See note above about weird macro usage being argument replaced.
         // In that case we want to fabricate the correct directive token here.
         if (token.kind == TokenKind::Directive) {
+            SmallVector<Token> concatResult;
             Token grave(alloc, TokenKind::Unknown, first.trivia(), "`"sv, firstLoc);
-            Token combined = Lexer::concatenateTokens(alloc, sourceManager, grave, first);
-            if (combined) {
-                first = combined;
+            if (Lexer::concatenateTokens(alloc, sourceManager, lexerOptions, grave, first,
+                                         concatResult) &&
+                concatResult.size() == 1) {
+                first = concatResult[0];
             }
             else {
                 // Failed to combine, so ignore the grave and issue an error.
@@ -623,8 +674,7 @@ bool Preprocessor::expandMacro(MacroDef macro, MacroExpansion& expansion,
                     triviaBuf.emplace_back(TriviaKind::Whitespace, " "sv);
 
                     auto loc = splits.back().location() + splits.back().rawText().length();
-                    Token empty(alloc, TokenKind::EmptyMacroArgument, triviaBuf.copy(alloc), ""sv,
-                                loc);
+                    Token empty(alloc, TokenKind::EmptyMacroArgument, triviaBuf, ""sv, loc);
 
                     if (!handleToken(empty))
                         return false;
@@ -682,8 +732,7 @@ void Preprocessor::MacroExpansion::append(Token token, SourceLocation location,
         newTrivia.append_range(token.trivia());
         newTrivia.push_back(Trivia(TriviaKind::EndOfLine, token.rawText().substr(1)));
 
-        dest.push_back(
-            Token(alloc, TokenKind::EmptyMacroArgument, newTrivia.copy(alloc), "", location));
+        dest.push_back(Token(alloc, TokenKind::EmptyMacroArgument, newTrivia, "", location));
     }
     else {
         dest.push_back(token.withLocation(alloc, location));
@@ -696,6 +745,7 @@ bool Preprocessor::expandReplacementList(
     SmallVector<Token, 16> outBuffer;
     SmallVector<Token, 16> expansionBuffer;
 
+    bool inDefineDirective = false;
     bool expandedSomething = false;
     MacroParser parser(*this);
     parser.setBuffer(tokens);
@@ -703,7 +753,20 @@ bool Preprocessor::expandReplacementList(
     // loop through each token in the replacement list and expand it if it's a nested macro
     Token token;
     while ((token = parser.next())) {
+        if (inDefineDirective) {
+            // If we're in a nested define directive we don't expand any macros we find,
+            // just skip right over tokens until we get to the next line.
+            if (token.isOnSameLine()) {
+                outBuffer.push_back(token);
+                continue;
+            }
+
+            inDefineDirective = false;
+        }
+
         if (token.kind != TokenKind::Directive || token.directiveKind() != SyntaxKind::MacroUsage) {
+            inDefineDirective = token.kind == TokenKind::Directive &&
+                                token.directiveKind() == SyntaxKind::DefineDirective;
             outBuffer.push_back(token);
             continue;
         }
@@ -803,8 +866,10 @@ MacroFormalArgumentListSyntax* Preprocessor::MacroParser::parseFormalArgumentLis
     SmallVector<TokenOrSyntax, 8> arguments;
     parseArgumentList(arguments, [this]() { return parseFormalArgument(); }, closeParen);
 
-    return pp.alloc.emplace<MacroFormalArgumentListSyntax>(openParen, arguments.copy(pp.alloc),
-                                                           closeParen);
+    return pp.alloc.emplace<MacroFormalArgumentListSyntax>(
+        openParen,
+        syntax::SeparatedSyntaxList<syntax::MacroFormalArgumentSyntax>(pp.alloc, arguments),
+        closeParen);
 }
 
 MacroActualArgumentListSyntax* Preprocessor::MacroParser::parseActualArgumentList(Token prevToken) {
@@ -819,8 +884,10 @@ MacroActualArgumentListSyntax* Preprocessor::MacroParser::parseActualArgumentLis
     SmallVector<TokenOrSyntax, 8> arguments;
     parseArgumentList(arguments, [this]() { return parseActualArgument(); }, closeParen);
 
-    return pp.alloc.emplace<MacroActualArgumentListSyntax>(openParen, arguments.copy(pp.alloc),
-                                                           closeParen);
+    return pp.alloc.emplace<MacroActualArgumentListSyntax>(
+        openParen,
+        syntax::SeparatedSyntaxList<syntax::MacroActualArgumentSyntax>(pp.alloc, arguments),
+        closeParen);
 }
 
 template<typename TFunc>
@@ -858,7 +925,7 @@ MacroFormalArgumentSyntax* Preprocessor::MacroParser::parseFormalArgument() {
     return pp.alloc.emplace<MacroFormalArgumentSyntax>(arg, argDef);
 }
 
-std::span<Token> Preprocessor::MacroParser::parseTokenList(bool allowNewlines) {
+syntax::TokenList Preprocessor::MacroParser::parseTokenList(bool allowNewlines) {
     SmallVector<Token, 16> tokens;
     SmallVector<TokenKind> delimPairStack;
 
@@ -889,7 +956,7 @@ std::span<Token> Preprocessor::MacroParser::parseTokenList(bool allowNewlines) {
         if (closeKind != TokenKind::Unknown)
             delimPairStack.push_back(closeKind);
     }
-    return tokens.copy(pp.alloc);
+    return syntax::TokenList(pp.alloc, tokens);
 }
 
 void Preprocessor::MacroParser::setBuffer(std::span<Token const> newBuffer) {
@@ -929,7 +996,7 @@ Token Preprocessor::MacroParser::expect(TokenKind kind) {
 }
 
 void Preprocessor::splitTokens(Token sourceToken, size_t offset, SmallVectorBase<Token>& results) {
-    Lexer::splitTokens(alloc, diagnostics, sourceManager, sourceToken, offset,
+    Lexer::splitTokens(alloc, diagnostics, sourceManager, lexerOptions, sourceToken, offset,
                        getCurrentKeywordVersion(), results);
 }
 

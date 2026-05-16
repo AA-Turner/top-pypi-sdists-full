@@ -38,6 +38,7 @@ __all__ = (
     "EngagementInvitationPayloadTypeType",
     "EngagementScoreType",
     "EngagementSortNameType",
+    "ExpectedContractDurationTermType",
     "IndustryType",
     "InvitationStatusType",
     "InvolvementTypeChangeReasonType",
@@ -644,6 +645,7 @@ EngagementContextTypeType = Literal["CustomerProject", "Lead"]
 EngagementInvitationPayloadTypeType = Literal["LeadInvitation", "OpportunityInvitation"]
 EngagementScoreType = Literal["High", "Low", "Medium"]
 EngagementSortNameType = Literal["CreatedDate"]
+ExpectedContractDurationTermType = Literal["Months"]
 IndustryType = Literal[
     "Aerospace",
     "Agriculture",

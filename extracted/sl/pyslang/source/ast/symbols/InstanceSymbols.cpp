@@ -91,7 +91,7 @@ public:
     const NetType& netType;
 
 private:
-    using DimIterator = std::span<VariableDimensionSyntax*>::iterator;
+    using DimIterator = SyntaxList<VariableDimensionSyntax>::const_iterator;
 
     Compilation& comp;
     const ASTContext& context;
@@ -429,16 +429,16 @@ Symbol& InstanceSymbol::createDefaultNested(const Scope& scope,
     SmallVector<TokenOrSyntax, 4> instances;
     auto& header = *syntax.header;
     auto loc = header.name.location();
-    auto instName = comp.emplace<InstanceNameSyntax>(header.name,
-                                                     std::span<VariableDimensionSyntax*>());
+    auto instName = comp.emplace<InstanceNameSyntax>(header.name, nullptr);
     auto instance = comp.emplace<HierarchicalInstanceSyntax>(
-        instName, missing(TokenKind::OpenParenthesis, loc), std::span<TokenOrSyntax>(),
+        instName, missing(TokenKind::OpenParenthesis, loc), nullptr,
         missing(TokenKind::CloseParenthesis, loc));
 
     instances.push_back(instance);
 
     auto instantiation = comp.emplace<HierarchyInstantiationSyntax>(
-        std::span<AttributeInstanceSyntax*>(), header.name, nullptr, instances.copy(comp),
+        nullptr, header.name, nullptr,
+        syntax::SeparatedSyntaxList<syntax::HierarchicalInstanceSyntax>(comp, instances),
         header.semi);
 
     ASTContext context(scope, LookupLocation::max);
@@ -718,7 +718,7 @@ void InstanceSymbol::fromSyntax(Compilation& comp, const HierarchyInstantiationS
 
     // Simple case: look up the definition and create all instances in one go.
     auto defResult = comp.getDefinition(defName, *context.scope, syntax.type.range(),
-                                        diag::UnknownModule);
+                                        diag::UnknownModule, syntax.attributes);
     createInstances(defResult, nullptr);
 }
 
@@ -745,15 +745,16 @@ void InstanceSymbol::fromFixupSyntax(Compilation& comp, const DefinitionSymbol& 
 
         auto instName = comp.emplace<InstanceNameSyntax>(decl->name, decl->dimensions);
         auto instance = comp.emplace<HierarchicalInstanceSyntax>(
-            instName, missing(TokenKind::OpenParenthesis, loc), std::span<TokenOrSyntax>(),
+            instName, missing(TokenKind::OpenParenthesis, loc), nullptr,
             missing(TokenKind::CloseParenthesis, loc));
 
         instances.push_back(instance);
     }
 
     auto instantiation = comp.emplace<HierarchyInstantiationSyntax>(
-        std::span<AttributeInstanceSyntax*>(), syntax.type->getFirstToken(), nullptr,
-        instances.copy(comp), syntax.semi);
+        nullptr, syntax.type->getFirstToken(), nullptr,
+        syntax::SeparatedSyntaxList<syntax::HierarchicalInstanceSyntax>(comp, instances),
+        syntax.semi);
 
     SmallVector<const Symbol*> implicitNets;
     fromSyntax(comp, *instantiation, context, results, implicitNets);
@@ -1139,32 +1140,8 @@ bool InstanceBodySymbol::hasSameType(const InstanceBodySymbol& other) const {
     if (&definition != &other.definition)
         return false;
 
-    if (parameters.size() != other.parameters.size())
-        return false;
-
-    for (auto li = parameters.begin(), ri = other.parameters.begin(); li != parameters.end();
-         li++, ri++) {
-
-        auto& lp = (*li)->symbol;
-        auto& rp = (*ri)->symbol;
-        if (lp.kind != rp.kind)
-            return false;
-
-        if (lp.kind == SymbolKind::Parameter) {
-            auto& lv = lp.as<ParameterSymbol>().getValue();
-            auto& rv = rp.as<ParameterSymbol>().getValue();
-            if (lv != rv)
-                return false;
-        }
-        else {
-            auto& lt = lp.as<TypeParameterSymbol>().targetType.getType();
-            auto& rt = rp.as<TypeParameterSymbol>().targetType.getType();
-            if (!lt.isMatching(rt))
-                return false;
-        }
-    }
-
-    return true;
+    auto getSym = std::views::transform([](auto& paramBase) { return &paramBase->symbol; });
+    return ParameterSymbolBase::allMatching(parameters | getSym, other.parameters | getSym);
 }
 
 void InstanceBodySymbol::serializeTo(ASTSerializer& serializer) const {
@@ -1354,8 +1331,9 @@ static const AssertionExpr* bindUnknownPortConn(const ASTContext& context,
                     }
                 }
 
-                return comp.emplace<SimpleAssertionExpr>(Expression::bind(*expr, context, flags),
-                                                         std::nullopt);
+                return comp.emplace<SimpleAssertionExpr>(
+                    Expression::bindRValue(comp.getErrorType(), *expr, {}, context, flags),
+                    std::nullopt);
             }
         }
     }
@@ -1389,7 +1367,9 @@ std::span<const AssertionExpr* const> UninstantiatedDefSymbol::getPortConnection
                     results.push_back(bindUnknownPortConn(context, *ex));
                 }
                 else if (npc.openParen) {
-                    results.push_back(comp.emplace<InvalidAssertionExpr>(nullptr));
+                    auto emptyExpr = comp.emplace<EmptyArgumentExpression>(comp.getVoidType(),
+                                                                           npc.sourceRange());
+                    results.push_back(comp.emplace<SimpleAssertionExpr>(*emptyExpr, std::nullopt));
                 }
                 else {
                     auto idName = comp.emplace<IdentifierNameSyntax>(npc.name);
@@ -1471,7 +1451,7 @@ PrimitiveInstanceSymbol* createPrimInst(Compilation& compilation, const Scope& s
     return result;
 }
 
-using DimIterator = std::span<VariableDimensionSyntax*>::iterator;
+using DimIterator = SyntaxList<VariableDimensionSyntax>::const_iterator;
 
 Symbol* recursePrimArray(Compilation& comp, const PrimitiveSymbol& primitive,
                          const HierarchicalInstanceSyntax& instance, const ASTContext& context,
@@ -1632,7 +1612,7 @@ void PrimitiveInstanceSymbol::fromSyntax(const PrimitiveInstantiationSyntax& syn
                 auto pvas = comp.emplace<ParameterValueAssignmentSyntax>(
                     delaySyntax.hash,
                     missing(TokenKind::OpenParenthesis, delayVal.getFirstToken().location()),
-                    parameters.copy(comp),
+                    syntax::SeparatedSyntaxList<syntax::ParamAssignmentSyntax>(comp, parameters),
                     missing(TokenKind::CloseParenthesis, delayVal.getLastToken().location()));
 
                 // Rebuild the instance list. The const_casts are fine because
@@ -1648,7 +1628,10 @@ void PrimitiveInstanceSymbol::fromSyntax(const PrimitiveInstantiationSyntax& syn
                 }
 
                 auto instantiation = comp.emplace<HierarchyInstantiationSyntax>(
-                    syntax.attributes, syntax.type, pvas, instanceBuf.copy(comp), syntax.semi);
+                    syntax.attributes, syntax.type, pvas,
+                    syntax::SeparatedSyntaxList<syntax::HierarchicalInstanceSyntax>(comp,
+                                                                                    instanceBuf),
+                    syntax.semi);
                 InstanceSymbol::fromSyntax(comp, *instantiation, context, results, implicitNets);
                 return;
             }

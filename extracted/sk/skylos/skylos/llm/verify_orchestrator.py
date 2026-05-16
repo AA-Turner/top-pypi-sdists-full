@@ -4,12 +4,11 @@ import ast
 import json
 import logging
 import os
-import re
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from . import entry_points as _entry_points
 from .dead_code_verifier import (
     DeadCodeVerifierAgent,
     Verdict,
@@ -18,8 +17,39 @@ from .dead_code_verifier import (
     _parse_confidence,
     _parse_int,
 )
+from .verify_llm import (
+    BATCH_SURVIVOR_SYSTEM as BATCH_SURVIVOR_SYSTEM,
+    BATCH_VERIFY_SYSTEM,
+    GRAPH_VERIFY_SYSTEM,
+    HAIKU_PREFILTER_MAX_BATCH,
+    HAIKU_PREFILTER_SYSTEM,
+    MAX_BATCH_CONTEXT_CHARS,
+    SUPPRESSION_AUDIT_SYSTEM,
+    SURVIVOR_SYSTEM as SURVIVOR_SYSTEM,
+    SURVIVOR_USER as SURVIVOR_USER,
+    _call_llm_with_retry,
+    _parse_batch_response,
+    _parse_batch_survivor_response as _parse_batch_survivor_response,
+    _strip_markdown_fences as _strip_markdown_fences,
+)
+from .verify_survivors import (
+    _batch_challenge_survivors,
+    _find_heuristic_match_sites as _find_heuristic_match_sites,
+    _find_local_on_emit_survivors,
+    _find_survivors,
+    challenge_survivor,
+)
+from .verify_types import (
+    VALID_VERIFICATION_MODES,
+    VERIFICATION_MODE_JUDGE_ALL,
+    VERIFICATION_MODE_PRODUCTION,
+    EdgeResolution as EdgeResolution,
+    SuppressionDecision,
+    SurvivorVerdict as SurvivorVerdict,
+    VerifyStats,
+)
 
-from skylos.grep_verify import (
+from skylos.core.grep_verify import (
     _run_grep,
     multi_strategy_search as _multi_strategy_search,
     parallel_multi_strategy_search as _parallel_multi_strategy_search,
@@ -29,309 +59,29 @@ from skylos.grep_verify import (
     detect_language as _detect_language,
 )
 
-MAX_LLM_RETRIES = 3
-RETRY_BACKOFF_BASE = 5
 
 logger = logging.getLogger(__name__)
 
-VERIFICATION_MODE_PRODUCTION = "production"
-VERIFICATION_MODE_JUDGE_ALL = "judge_all"
-VALID_VERIFICATION_MODES = {
-    VERIFICATION_MODE_PRODUCTION,
-    VERIFICATION_MODE_JUDGE_ALL,
-}
 
-
-@dataclass
-class EntryPoint:
-    name: str
-    source: str
-    reason: str
-
-
-@dataclass
-class EdgeResolution:
-    caller: str
-    callee: str
-    is_real: bool
-    reason: str
-
-
-@dataclass
-class SurvivorVerdict:
-    name: str
-    full_name: str
-    file: str
-    line: int
-    heuristic_refs: dict
-    verdict: Verdict
-    rationale: str
-    original_confidence: int
-    suggested_confidence: int
-
-
-@dataclass
-class SuppressionDecision:
-    code: str
-    rationale: str
-    evidence: list[str] = field(default_factory=list)
-    hard: bool = False
-
-
-@dataclass
-class VerifyStats:
-    total_findings: int = 0
-    verified_true_positive: int = 0
-    verified_false_positive: int = 0
-    deterministic_suppressed: int = 0
-    uncertain: int = 0
-    suppression_challenged: int = 0
-    suppression_reclassified_dead: int = 0
-    survivors_challenged: int = 0
-    survivors_reclassified_dead: int = 0
-    entry_points_discovered: int = 0
-    edges_resolved: int = 0
-    edges_spurious: int = 0
-    haiku_prefiltered: int = 0
-    llm_calls: int = 0
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-    elapsed_seconds: float = 0.0
-
-
-@dataclass
-class RepoFacts:
-    config_files: dict[str, str] = field(default_factory=dict)
-    pytest_class_patterns: list[str] = field(default_factory=lambda: ["Test"])
-    pytest_function_patterns: list[str] = field(default_factory=lambda: ["test"])
-    mkdocs_hook_files: set[str] = field(default_factory=set)
-
-
-ENTRY_POINT_SYSTEM = """\
-You are a Python project analyst. Given project configuration files, identify ALL \
-entry points — functions or modules that are invoked externally (CLI commands, web \
-routes, scheduled tasks, test hooks, plugin registrations).
-
-Return JSON: {"entry_points": [{"name": "qualified.name", "source": "file", "reason": "..."}]}
-
-Only include entry points you can confirm from the config. Do not speculate.\
-"""
-
-ENTRY_POINT_USER = """\
-Analyze these project configuration files to find entry points that a static \
-analyzer might miss.
-
-{config_contents}
-
-Known entry points already detected by static analysis:
-{known_entry_points}
-
-Find any ADDITIONAL entry points referenced in these configs that are NOT in the \
-known list above. Focus on:
-- console_scripts / gui_scripts in pyproject.toml or setup.cfg
-- CMD / ENTRYPOINT in Dockerfile
-- Celery tasks, APScheduler jobs
-- MkDocs hooks registered in mkdocs.yml / mkdocs.yaml
-- pytest plugins and fixtures registered in conftest.py
-- Click/Typer command groups registered via entry_points
-- ASGI/WSGI application references
-- GitHub Actions workflow steps that invoke Python
-- package.json "main", "bin", "scripts" entries (TypeScript/JS)
-- Next.js/Vite/Webpack entry points and page routes
-- Go main() functions referenced in go.mod or Dockerfile
-- Java main classes in pom.xml/build.gradle, Spring Boot @SpringBootApplication
-- Rust binary targets in Cargo.toml [[bin]] sections
-
-JSON response:\
-"""
+EntryPoint = _entry_points.EntryPoint
+RepoFacts = _entry_points.RepoFacts
+ENTRY_POINT_SYSTEM = _entry_points.ENTRY_POINT_SYSTEM
+ENTRY_POINT_USER = _entry_points.ENTRY_POINT_USER
 
 
 def _gather_config_files(project_root: Path) -> dict[str, str]:
-    candidates = [
-        # Python
-        "pyproject.toml",
-        "setup.py",
-        "setup.cfg",
-        "pytest.ini",
-        "tox.ini",
-        "mkdocs.yml",
-        "mkdocs.yaml",
-        "conftest.py",
-        "manage.py",
-        "app.py",
-        "wsgi.py",
-        "asgi.py",
-        # TypeScript/JS
-        "package.json",
-        "tsconfig.json",
-        "tsconfig.*.json",
-        "next.config.js",
-        "next.config.mjs",
-        "next.config.ts",
-        "vite.config.ts",
-        "vite.config.js",
-        "webpack.config.js",
-        "jest.config.js",
-        "jest.config.ts",
-        ".eslintrc.json",
-        ".eslintrc.js",
-        # Go
-        "go.mod",
-        "go.sum",
-        # Java
-        "pom.xml",
-        "build.gradle",
-        "build.gradle.kts",
-        "settings.gradle",
-        "settings.gradle.kts",
-        # Rust
-        "Cargo.toml",
-        "Cargo.lock",
-        # Universal
-        "Dockerfile",
-        "docker-compose.yml",
-        "docker-compose.yaml",
-        ".github/workflows/*.yml",
-        ".github/workflows/*.yaml",
-        "Makefile",
-        "Procfile",
-    ]
-
-    configs = {}
-    for pattern in candidates:
-        if "*" in pattern:
-            for p in project_root.glob(pattern):
-                try:
-                    text = p.read_text(encoding="utf-8", errors="ignore")
-                    if len(text) > 10_000:
-                        text = text[:10_000] + "\n... (truncated)"
-                    configs[str(p.relative_to(project_root))] = text
-                except Exception:
-                    pass
-        else:
-            p = project_root / pattern
-            if p.exists():
-                try:
-                    text = p.read_text(encoding="utf-8", errors="ignore")
-                    if len(text) > 10_000:
-                        text = text[:10_000] + "\n... (truncated)"
-                    configs[pattern] = text
-                except Exception:
-                    pass
-
-    return configs
-
-
-def _load_pytest_patterns_from_text(raw_value: Any) -> list[str]:
-    if isinstance(raw_value, list):
-        return [str(v).strip() for v in raw_value if str(v).strip()]
-    if isinstance(raw_value, str):
-        lines = [
-            line.strip().strip('"').strip("'")
-            for line in raw_value.splitlines()
-            if line.strip()
-        ]
-        return lines
-    return []
-
-
-def _parse_mkdocs_hook_files(configs: dict[str, str]) -> set[str]:
-    hook_files: set[str] = set()
-    for name in ("mkdocs.yml", "mkdocs.yaml"):
-        text = configs.get(name, "")
-        if not text:
-            continue
-        in_hooks = False
-        hooks_indent = 0
-        for raw_line in text.splitlines():
-            line = raw_line.rstrip()
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            indent = len(line) - len(line.lstrip())
-            if stripped == "hooks:":
-                in_hooks = True
-                hooks_indent = indent
-                continue
-            if in_hooks:
-                if indent <= hooks_indent and not stripped.startswith("- "):
-                    in_hooks = False
-                    continue
-                if stripped.startswith("- "):
-                    hook_path = stripped[2:].strip().strip('"').strip("'")
-                    if hook_path:
-                        hook_files.add(hook_path.replace("\\", "/"))
-    return hook_files
+    return _entry_points._gather_config_files(project_root)
 
 
 def _build_repo_facts(project_root: Path) -> RepoFacts:
-    import configparser
-    import tomllib
-
-    configs = _gather_config_files(project_root)
-    facts = RepoFacts(config_files=configs)
-
-    pyproject_path = project_root / "pyproject.toml"
-    if pyproject_path.exists():
-        try:
-            with pyproject_path.open("rb") as handle:
-                pyproject = tomllib.load(handle)
-            ini_options = (
-                pyproject.get("tool", {}).get("pytest", {}).get("ini_options", {})
-            )
-            class_patterns = _load_pytest_patterns_from_text(
-                ini_options.get("python_classes")
-            )
-            function_patterns = _load_pytest_patterns_from_text(
-                ini_options.get("python_functions")
-            )
-            if class_patterns:
-                facts.pytest_class_patterns = class_patterns
-            if function_patterns:
-                facts.pytest_function_patterns = function_patterns
-        except Exception:
-            pass
-
-    parser = configparser.ConfigParser()
-    for cfg_name, section in (
-        ("pytest.ini", "pytest"),
-        ("tox.ini", "pytest"),
-        ("setup.cfg", "tool:pytest"),
-    ):
-        cfg_path = project_root / cfg_name
-        if not cfg_path.exists():
-            continue
-        try:
-            parser.read(cfg_path, encoding="utf-8")
-            if not parser.has_section(section):
-                continue
-            class_patterns = _load_pytest_patterns_from_text(
-                parser.get(section, "python_classes", fallback="")
-            )
-            function_patterns = _load_pytest_patterns_from_text(
-                parser.get(section, "python_functions", fallback="")
-            )
-            if class_patterns:
-                facts.pytest_class_patterns = class_patterns
-            if function_patterns:
-                facts.pytest_function_patterns = function_patterns
-        except Exception:
-            continue
-
-    facts.mkdocs_hook_files = _parse_mkdocs_hook_files(configs)
-    return facts
+    return _entry_points._build_repo_facts(
+        project_root,
+        gather_config_files=_gather_config_files,
+    )
 
 
 def _matches_pytest_pattern(name: str, patterns: list[str]) -> bool:
-    import fnmatch
-
-    for pattern in patterns:
-        if name.startswith(pattern):
-            return True
-        if any(ch in pattern for ch in "*?[") and fnmatch.fnmatch(name, pattern):
-            return True
-    return False
+    return _entry_points._matches_pytest_pattern(name, patterns)
 
 
 def _class_node_for_finding(source: str, finding: dict) -> Any | None:
@@ -532,14 +282,11 @@ def _parameter_contract_evidence(
 
 
 def _entry_point_cache_path(project_root: Path) -> Path:
-    return project_root / ".skylos" / "cache" / "entry_points.json"
+    return _entry_points._entry_point_cache_path(project_root)
 
 
 def _config_files_hash(configs: dict[str, str]) -> str:
-    import hashlib
-
-    content = json.dumps(configs, sort_keys=True)
-    return hashlib.sha256(content.encode()).hexdigest()[:16]
+    return _entry_points._config_files_hash(configs)
 
 
 def discover_entry_points(
@@ -547,188 +294,16 @@ def discover_entry_points(
     project_root: Path,
     known_entry_points: list[str],
 ) -> list[EntryPoint]:
-    configs = _gather_config_files(project_root)
-    if not configs:
-        return []
-
-    cache_path = _entry_point_cache_path(project_root)
-    current_hash = _config_files_hash(configs)
-    if cache_path.exists():
-        try:
-            cached = json.loads(cache_path.read_text())
-            if cached.get("hash") == current_hash:
-                return [
-                    EntryPoint(
-                        name=ep["name"], source=ep["source"], reason=ep["reason"]
-                    )
-                    for ep in cached.get("entry_points", [])
-                    if ep.get("name") and ep["name"] not in known_entry_points
-                ]
-        except Exception:
-            pass
-
-    config_text = []
-    for name, content in configs.items():
-        config_text.append(f"=== {name} ===\n{content}\n")
-
-    known_text = "\n".join(f"  - {ep}" for ep in known_entry_points[:50]) or "  (none)"
-
-    user = ENTRY_POINT_USER.format(
-        config_contents="\n".join(config_text),
-        known_entry_points=known_text,
+    return _entry_points.discover_entry_points(
+        agent,
+        project_root,
+        known_entry_points,
+        llm_call=_call_llm_with_retry,
+        gather_config_files=_gather_config_files,
+        entry_point_cache_path=_entry_point_cache_path,
+        config_files_hash=_config_files_hash,
+        log=logger,
     )
-
-    try:
-        response = _call_llm_with_retry(agent, ENTRY_POINT_SYSTEM, user)
-        if not response:
-            return []
-        clean = response.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[-1]
-        if clean.endswith("```"):
-            clean = clean.rsplit("```", 1)[0]
-        clean = clean.strip()
-
-        data = json.loads(clean)
-        results = []
-        all_discovered = []
-        for ep in data.get("entry_points", []):
-            name = ep.get("name", "")
-            if name:
-                all_discovered.append(
-                    {
-                        "name": name,
-                        "source": ep.get("source", "config"),
-                        "reason": ep.get("reason", ""),
-                    }
-                )
-                if name not in known_entry_points:
-                    results.append(
-                        EntryPoint(
-                            name=name,
-                            source=ep.get("source", "config"),
-                            reason=ep.get("reason", ""),
-                        )
-                    )
-
-        # Save cache
-        try:
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(
-                json.dumps(
-                    {"hash": current_hash, "entry_points": all_discovered}, indent=2
-                )
-            )
-        except Exception:
-            pass
-
-        return results
-
-    except (json.JSONDecodeError, Exception) as e:
-        logger.warning(f"Entry point discovery failed: {e}")
-        return []
-
-
-GRAPH_VERIFY_SYSTEM = """\
-You are verifying if code flagged as "unused" is actually dead or alive.
-
-You will receive:
-1. The flagged symbol's source code
-2. Call graph context (callers, callees)
-3. Inheritance context (parent class overrides)
-4. Search results: grep across the ENTIRE project (source, tests, docs, configs)
-5. File context around matches (actual source code, not just grep snippets)
-
-Your job: READ the evidence and REASON about whether each match is a real usage.
-
-What counts as ALIVE (FALSE_POSITIVE):
-- Called somewhere: .name() pattern in actual code (not just in the definition file)
-- Imported and used in another file
-- Overrides a confirmed parent class method (look for CONFIRMED in inheritance context)
-- Used in cast() or bound in TypeVar
-- Referenced by a Sphinx directive (:func:, autofunction) — documented public API
-- Used via dynamic dispatch: getattr(obj, "name"), dict["name"], .do("name")
-- Conditional import inside try/except ImportError — the symbol IS used in the guarded code path
-- File or module path is referenced by a loader/CLI/config entry and the symbol is the runtime entry surface
-- Explicit changelog/docs note that a symbol was reintroduced, restored, or kept as an alias/synonym for compatibility counts as ALIVE when the symbol remains a top-level API/type alias surface
-- A pytest-collected test class/function is alive even without direct imports or calls
-- A hook function registered in repo config (e.g. mkdocs hooks) is alive
-- A class definition inside pytest.raises()/assertRaises() is executed for its side effect
-- Parameters required by a callback/hook signature or by an interface/base-method signature are ALIVE even if unused inside the body
-- Method on a class that substitutes/replaces a standard object (e.g. assigned to sys.stdout, \
-used as a file-like object, wraps a socket) — standard protocol methods are called by the runtime
-- Enum members (FOO, BAR) on a class inheriting from Enum/IntEnum — accessed via iteration, \
-Choice(), or member lookup at runtime even without explicit references
-- A public symbol (no underscore prefix) in an importable package that is documented in the \
-project's docs/ directory (rst, md, or autodoc) is ALIVE — it exists for downstream consumers \
-even if unused internally. Look for the public_api_docs search results.
-- A symbol marked as exported (is_exported=true) is part of the package's public API. \
-It exists for downstream consumers. Unless you find strong evidence it's truly orphaned \
-(e.g., the entire module is dead), treat it as ALIVE.
-- TypeScript/JS: imported via `import {{ X }}` or `require()`, used as JSX `<Component />`, \
-exported via barrel `export {{ X }}`, used with decorator `@X`, or `implements Interface`
-- Go: called as `package.Func()`, referenced in interface method signatures, struct field access
-- Java: imported, annotated with @Override/@Bean/@Autowired, implements/extends
-- Rust: imported via `use crate::`, referenced in `impl Trait for`, `#[derive(X)]`
-
-What counts as DEAD (TRUE_POSITIVE):
-- ZERO references anywhere in the project (only the definition itself found)
-- Only referenced in docstrings, comments, or string descriptions — these are NOT usages
-- Keyword argument values are NOT usages: fg="green" does NOT mean a variable named \
-green is used
-- TypeVar definitions like T = TypeVar("T") are NOT usages of T
-- A class docstring mentioning a name is NOT a usage of that name
-- Listed in __all__ but NOT imported or used anywhere — __all__ can be stale, but when \
-combined with is_exported=true, treat __all__ membership as meaningful public API intent.
-- TypeScript: only re-exported from index.ts but never actually consumed downstream
-- Go: only referenced in _test.go files with Test* prefix (test-only symbol)
-
-Decision rules:
-- COMMIT to a verdict. Use UNCERTAIN only if evidence genuinely conflicts.
-- If you see a real code usage (call, import, dispatch), it is FALSE_POSITIVE — full stop.
-- If ZERO real code usages exist, it is TRUE_POSITIVE — full stop.
-- Read the file context around each match to distinguish real code from comments/docs.
-- __all__ alone is NOT enough to call something alive — but __all__ combined with is_exported=true IS strong evidence for ALIVE.
-- A generic docs mention is not enough, but an explicit compatibility-retention note is strong evidence for ALIVE.
-- If public_api_docs results show the symbol documented in docs/ AND the symbol is public \
-(no underscore) in an importable package, it is FALSE_POSITIVE — library public API.
-
-IMPORTANT: Respond with ONLY JSON. No explanations, no preamble.
-{"verdict": "TRUE_POSITIVE"|"FALSE_POSITIVE"|"UNCERTAIN", "rationale": "brief explanation"}\
-"""
-
-SUPPRESSION_AUDIT_SYSTEM = """\
-You are auditing a prior ALIVE (FALSE_POSITIVE) decision for code flagged as "unused".
-
-Your job is to catch FALSE NEGATIVES: cases where the earlier verifier or suppressor \
-incorrectly decided the symbol was alive and removed a real dead-code finding.
-
-You will receive:
-1. The flagged symbol's source code and graph context
-2. Search results and file context around matches
-3. The prior FALSE_POSITIVE rationale and any suppression evidence
-
-Decision standard:
-- Return TRUE_POSITIVE if the prior "alive" story is weak, speculative, or unsupported by \
-concrete runtime usage.
-- Return FALSE_POSITIVE only if the evidence shows a real, defensible usage that keeps the \
-symbol alive.
-- Return UNCERTAIN only if the evidence genuinely conflicts.
-
-Evidence that is NOT enough to keep something alive:
-- Comments, docstrings, or plain string mentions
-- Vague "might be dynamic" claims without a concrete dispatch/registration path
-- Generic test mentions that do not execute or import the symbol
-- File/module mentions without evidence the symbol is actually the runtime entry surface
-- __all__ exports without real imports or usage
-
-Evidence that IS enough to keep something alive:
-- A public symbol (no underscore prefix) documented in docs/ (rst, md, autodoc) in an \
-importable package — this is library public API for downstream consumers, even if unused internally
-
-IMPORTANT: Respond with ONLY JSON. No explanations, no preamble.
-{"verdict": "TRUE_POSITIVE"|"FALSE_POSITIVE"|"UNCERTAIN", "rationale": "brief explanation"}\
-"""
 
 
 def _find_git_root(path: Path) -> Path | None:
@@ -769,7 +344,7 @@ def _read_context_around_match(grep_line: str, context_lines: int = 8) -> str | 
             context_parts.append(f"{i + 1:4d}{marker}{all_lines[i].rstrip()}")
 
         return "\n".join(context_parts)
-    except Exception:
+    except (OSError, ValueError, IndexError):
         return None
 
 
@@ -1085,8 +660,10 @@ def _find_parent_class_info(
                             info += f"\n  CONFIRMED (via importlib): Parent `{module_path}.{base_name}` defines `{simple_name}`"
                             found_in_parent = True
                             break
-                    except Exception:
-                        pass
+                    except (OSError, _sp.SubprocessError) as exc:
+                        logger.debug(
+                            "Failed to inspect parent method via import: %s", exc
+                        )
 
             if not found_in_parent:
                 import sys
@@ -1190,8 +767,8 @@ def _find_string_dispatch(
             for line in result.stdout.strip().splitlines():
                 if "__pycache__" not in line and line not in results:
                     results.append(line)
-        except Exception:
-            pass
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.debug("String dispatch grep failed: %s", exc)
 
     return results[:max_results]
 
@@ -1960,81 +1537,6 @@ def audit_suppressed_finding(
     )
 
 
-BATCH_VERIFY_SYSTEM = """\
-You are verifying if multiple code symbols flagged as "unused" are actually dead or alive.
-
-Each symbol includes: source code, call graph, inheritance info, and multi-strategy \
-search results with file context. Definition-only matches have been pre-filtered — \
-all grep results shown are USAGES, not the definition itself.
-
-Your job: READ the evidence for each symbol and REASON about whether each match is a real usage.
-
-What counts as ALIVE (FALSE_POSITIVE):
-- Called somewhere: .name() pattern in actual code (not just in the definition file)
-- Imported and used in another file
-- Overrides a confirmed parent class method (look for CONFIRMED in inheritance context)
-- Used in cast() or bound in TypeVar
-- Referenced by a Sphinx directive (:func:, autofunction) — documented public API
-- Used via dynamic dispatch: getattr(obj, "name"), dict["name"], .do("name")
-- Conditional import inside try/except ImportError — the symbol IS used in the guarded code path
-- File or module path is referenced by a loader/CLI/config entry and the symbol is the runtime entry surface
-- Explicit changelog/docs note that a symbol was reintroduced, restored, or kept as an alias/synonym for compatibility counts as ALIVE when the symbol remains a top-level API/type alias surface
-- A pytest-collected test class/function is alive even without direct imports or calls
-- A hook function registered in repo config (e.g. mkdocs hooks) is alive
-- A class definition inside pytest.raises()/assertRaises() is executed for its side effect
-- Parameters required by a callback/hook signature or by an interface/base-method signature are ALIVE even if unused inside the body
-- Method on a class that substitutes/replaces a standard object (e.g. assigned to sys.stdout, \
-used as a file-like object, wraps a socket) — standard protocol methods are called by the runtime
-- Enum members (FOO, BAR) on a class inheriting from Enum/IntEnum — accessed via iteration, \
-Choice(), or member lookup at runtime even without explicit references
-- A public symbol (no underscore prefix) in an importable package that is documented in the \
-project's docs/ directory (rst, md, or autodoc) is ALIVE — it exists for downstream consumers \
-even if unused internally. Look for the public_api_docs search results.
-- A symbol marked as exported (is_exported=true) is part of the package's public API. \
-It exists for downstream consumers. Unless you find strong evidence it's truly orphaned \
-(e.g., the entire module is dead), treat it as ALIVE.
-
-What counts as DEAD (TRUE_POSITIVE):
-- ZERO references anywhere in the project (only the definition itself found)
-- Only referenced in docstrings, comments, or string descriptions — these are NOT usages
-- Keyword argument values are NOT usages: fg="green" does NOT mean a variable named \
-green is used
-- TypeVar definitions like T = TypeVar("T") are NOT usages of T
-- A class docstring mentioning a name is NOT a usage of that name
-- Listed in __all__ but NOT imported or used anywhere — __all__ can be stale, but when \
-combined with is_exported=true, treat __all__ membership as meaningful public API intent.
-
-Decision rules:
-- COMMIT to a verdict. Use UNCERTAIN only if evidence genuinely conflicts.
-- If you see a real code usage (call, import, dispatch), it is FALSE_POSITIVE — full stop.
-- If ZERO real code usages exist, it is TRUE_POSITIVE — full stop.
-- Read the file context around each match to distinguish real code from comments/docs.
-- __all__ alone is NOT enough to call something alive — but __all__ combined with is_exported=true IS strong evidence for ALIVE.
-- A generic docs mention is not enough, but an explicit compatibility-retention note is strong evidence for ALIVE.
-- If public_api_docs results show the symbol documented in docs/ AND the symbol is public \
-(no underscore) in an importable package, it is FALSE_POSITIVE — library public API.
-
-IMPORTANT: You MUST respond with ONLY a JSON array. No explanations, no preamble.
-[{"id": 1, "verdict": "TRUE_POSITIVE", "rationale": "..."}, {"id": 2, "verdict": "FALSE_POSITIVE", "rationale": "..."}]
-"""
-
-BATCH_SURVIVOR_SYSTEM = """\
-You are checking if multiple functions are INCORRECTLY marked as alive by static \
-analysis due to "heuristic attribute matches" (e.g. `obj.foo()` matching any \
-function named `foo`).
-
-For EACH function, determine if the heuristic matches are:
-- REAL: the attribute access actually calls this specific function
-- SPURIOUS: a different class/object has a method with the same name
-- UNCERTAIN: cannot determine
-
-IMPORTANT: You MUST respond with ONLY a JSON array. No explanations, no preamble, no markdown.
-Output ONLY this format, nothing else:
-[{"id": 1, "is_dead": true, "rationale": "...", "heuristic_assessment": "spurious"}, ...]
-"""
-
-MAX_BATCH_CONTEXT_CHARS = 50_000
-
 _FIXTURE_DECORATORS = {"fixture", "pytest.fixture"}
 _FRAMEWORK_REGISTRATION_MARKERS = {
     "route",
@@ -2672,431 +2174,6 @@ def _batch_verify_findings(
     return results
 
 
-def _batch_challenge_survivors(
-    agent: DeadCodeVerifierAgent,
-    survivors: list[dict],
-    defs_map: dict[str, Any],
-    source_cache: dict[str, str],
-) -> list[SurvivorVerdict]:
-    results = []
-    batch = []
-    batch_contexts = []
-    batch_size = 0
-
-    def _flush_batch():
-        nonlocal batch, batch_contexts, batch_size
-        if not batch:
-            return
-
-        combined = "\n\n---\n\n".join(
-            f"### Function {i + 1}: `{s.get('full_name', s.get('name'))}`\n{ctx}"
-            for i, (s, ctx) in enumerate(zip(batch, batch_contexts))
-        )
-        user_prompt = (
-            f"{combined}\n\nAssess all {len(batch)} functions above. "
-            f"Are their heuristic matches real or spurious? JSON array response:"
-        )
-
-        verdicts = _parse_batch_survivor_response(
-            agent, BATCH_SURVIVOR_SYSTEM, user_prompt, len(batch)
-        )
-
-        for surv, v_data in zip(batch, verdicts):
-            name = surv.get("name", "unknown")
-            full_name = surv.get("full_name", name)
-            confidence = surv.get("confidence", 0)
-            is_dead = v_data.get("is_dead", False)
-            rationale = v_data.get("rationale", "")
-            assessment = v_data.get("heuristic_assessment", "uncertain")
-
-            if is_dead:
-                verdict = Verdict.TRUE_POSITIVE
-                suggested = min(95, confidence + 30)
-            elif assessment == "real":
-                verdict = Verdict.FALSE_POSITIVE
-                suggested = max(20, confidence - 20)
-            else:
-                verdict = Verdict.UNCERTAIN
-                suggested = confidence
-
-            results.append(
-                SurvivorVerdict(
-                    name=name,
-                    full_name=full_name,
-                    file=surv.get("file", ""),
-                    line=surv.get("line", 0),
-                    heuristic_refs=surv.get("heuristic_refs", {}),
-                    verdict=verdict,
-                    rationale=rationale,
-                    original_confidence=confidence,
-                    suggested_confidence=suggested,
-                )
-            )
-
-        batch = []
-        batch_contexts = []
-        batch_size = 0
-
-    for surv in survivors:
-        simple_name = surv.get("simple_name", surv.get("name", "").split(".")[-1])
-        full_name = surv.get("full_name", surv.get("name", ""))
-        file_path = surv.get("file", "")
-        line = surv.get("line", 0)
-        heuristic_refs = surv.get("heuristic_refs", {})
-
-        source = source_cache.get(file_path, "")
-        if source:
-            slines = source.splitlines()
-            start = max(0, line - 6)
-            end = min(len(slines), line + 20)
-            snippet = "\n".join(f"{i + 1:4d} | {slines[i]}" for i in range(start, end))
-        else:
-            snippet = "(source not available)"
-
-        match_sites = _find_heuristic_match_sites(
-            full_name, simple_name, source_cache, defs_map
-        )
-
-        ctx = (
-            f"- File: `{file_path}:{line}`\n"
-            f"- Heuristic refs: {json.dumps(heuristic_refs)}\n"
-            f"- Confidence: {surv.get('confidence', 0)}\n\n"
-            f"Source:\n{snippet}\n\n"
-            f"Match sites:\n{match_sites}"
-        )
-        ctx_len = len(ctx)
-
-        if batch and (
-            batch_size + ctx_len > MAX_BATCH_CONTEXT_CHARS or len(batch) >= 5
-        ):
-            _flush_batch()
-
-        batch.append(surv)
-        batch_contexts.append(ctx)
-        batch_size += ctx_len
-
-    _flush_batch()
-    return results
-
-
-def _is_error_response(response: str) -> bool:
-    if response:
-        lower = response.lower()
-    else:
-        lower = ""
-    return any(
-        marker in lower
-        for marker in [
-            "error:",
-            "ratelimiterror",
-            "rate_limit_error",
-            "ratelimit",
-            "unauthorized",
-            "quota",
-            "exceeded",
-            "apiconnectionerror",
-            "anthropicexception",
-            "openaiexception",
-            "no api key found",
-            "set openai_api_key",
-            "set anthropic_api_key",
-            "timed out",
-            "timeout",
-        ]
-    )
-
-
-def _call_llm_with_retry(
-    agent: DeadCodeVerifierAgent,
-    system: str,
-    user: str,
-) -> str:
-    for attempt in range(MAX_LLM_RETRIES):
-        response = agent._call_llm(system, user)
-        if not _is_error_response(response):
-            return response
-        if "rate_limit" in response.lower() or "ratelimit" in response.lower():
-            wait = RETRY_BACKOFF_BASE * (2**attempt)
-            logger.info(
-                f"Rate limited, retrying in {wait}s (attempt {attempt + 1}/{MAX_LLM_RETRIES})"
-            )
-            time.sleep(wait)
-        else:
-            logger.warning(f"LLM returned error: {response[:200]}")
-            return ""
-    logger.warning(f"LLM rate limited after {MAX_LLM_RETRIES} retries")
-    return ""
-
-
-def _parse_batch_response(
-    agent: DeadCodeVerifierAgent,
-    system: str,
-    user: str,
-    expected_count: int,
-) -> list[dict]:
-    try:
-        response = _call_llm_with_retry(agent, system, user)
-        if not response:
-            return [
-                {"verdict": Verdict.UNCERTAIN, "rationale": "LLM call failed"}
-            ] * expected_count
-
-        logger.debug(f"Raw LLM response ({len(response)} chars): {response[:300]}")
-        clean = _strip_markdown_fences(response)
-        logger.debug(f"After strip_markdown_fences ({len(clean)} chars): {clean[:300]}")
-        data = json.loads(clean)
-
-        if isinstance(data, list):
-            verdicts = []
-            for i in range(expected_count):
-                if i < len(data):
-                    item = data[i]
-                    verdict_str = item.get("verdict", "UNCERTAIN")
-                    try:
-                        verdict = Verdict(verdict_str)
-                    except (ValueError, KeyError):
-                        verdict = Verdict.UNCERTAIN
-                    verdicts.append(
-                        {
-                            "verdict": verdict,
-                            "rationale": item.get("rationale", ""),
-                        }
-                    )
-                else:
-                    verdicts.append(
-                        {
-                            "verdict": Verdict.UNCERTAIN,
-                            "rationale": "Missing from batch response",
-                        }
-                    )
-            return verdicts
-
-    except (json.JSONDecodeError, Exception) as e:
-        logger.warning(f"Batch verification parse failed: {e}")
-
-    return [
-        {"verdict": Verdict.UNCERTAIN, "rationale": "Batch parse failed"}
-    ] * expected_count
-
-
-def _parse_batch_survivor_response(
-    agent: DeadCodeVerifierAgent,
-    system: str,
-    user: str,
-    expected_count: int,
-) -> list[dict]:
-    try:
-        response = _call_llm_with_retry(agent, system, user)
-        if not response:
-            return [
-                {
-                    "is_dead": False,
-                    "rationale": "LLM call failed",
-                    "heuristic_assessment": "uncertain",
-                }
-            ] * expected_count
-
-        clean = _strip_markdown_fences(response)
-        data = json.loads(clean)
-
-        if isinstance(data, list):
-            results = []
-            for i in range(expected_count):
-                if i < len(data):
-                    results.append(data[i])
-                else:
-                    results.append(
-                        {
-                            "is_dead": False,
-                            "rationale": "Missing",
-                            "heuristic_assessment": "uncertain",
-                        }
-                    )
-            return results
-
-    except (json.JSONDecodeError, Exception) as e:
-        logger.warning(f"Batch survivor parse failed: {e}")
-
-    return [
-        {
-            "is_dead": False,
-            "rationale": "Batch parse failed",
-            "heuristic_assessment": "uncertain",
-        }
-    ] * expected_count
-
-
-def _strip_markdown_fences(text: str) -> str:
-    import re
-
-    clean = text.strip()
-
-    if clean.startswith("```"):
-        clean = clean.split("\n", 1)[-1]
-    if clean.endswith("```"):
-        clean = clean.rsplit("```", 1)[0]
-    clean = clean.strip()
-
-    if clean and clean[0] in "[{":
-        return clean
-
-    match = re.search(r"\[[\s\S]*\]", clean)
-    if match:
-        return match.group(0)
-
-    match = re.search(r"\{[\s\S]*\}", clean)
-    if match:
-        return match.group(0)
-
-    return clean
-
-
-SURVIVOR_SYSTEM = """\
-You are checking if a function is INCORRECTLY marked as alive by static analysis.
-
-The static analyzer gave this function a passing score because of "heuristic \
-attribute matches" — meaning somewhere in the codebase, code like `obj.{name}()` \
-was found, and the analyzer assumed it MIGHT call this function.
-
-Your job: determine if those heuristic matches are REAL calls or SPURIOUS noise.
-
-SPURIOUS example: `logger.info()` matches any function named `info` in the project.
-REAL example: `self.handler.process()` where self.handler is an instance of HandlerClass.
-
-Respond with JSON:
-{{"is_dead": true/false, "rationale": "explanation", "heuristic_assessment": "real"|"spurious"|"uncertain"}}\
-"""
-
-SURVIVOR_USER = """\
-- File: `{file}`
-- Line: {line}
-- Type: {kind}
-- Static confidence: {confidence} (low = likely alive, high = likely dead)
-- Heuristic refs that kept it alive: {heuristic_refs}
-
-{source_snippet}
-
-These are the attribute access sites that matched this function's name:
-{match_sites}
-
-Are the heuristic attribute matches REAL calls to this specific function, or \
-SPURIOUS matches (e.g. a different class has a method with the same name)?
-
-JSON response:\
-"""
-
-
-def _find_heuristic_match_sites(
-    name: str,
-    simple_name: str,
-    source_cache: dict[str, str],
-    defs_map: dict[str, Any],
-) -> str:
-    sites = []
-    search_attr = f".{simple_name}"
-
-    for file_path, source in source_cache.items():
-        lines = source.splitlines()
-        for i, line_text in enumerate(lines):
-            if search_attr in line_text and "def " not in line_text:
-                sites.append(f"  {file_path}:{i + 1} | {line_text.strip()}")
-                if len(sites) >= 15:
-                    break
-        if len(sites) >= 15:
-            break
-
-    if sites:
-        return "\n".join(sites)
-    else:
-        return "  (no match sites found)"
-
-
-def challenge_survivor(
-    agent: DeadCodeVerifierAgent,
-    defn_info: dict,
-    defs_map: dict[str, Any],
-    source_cache: dict[str, str],
-) -> SurvivorVerdict:
-    name = defn_info.get("name", "unknown")
-    full_name = defn_info.get("full_name", name)
-    simple_name = defn_info.get("simple_name", name.split(".")[-1])
-    file_path = defn_info.get("file", "")
-    line = defn_info.get("line", 0)
-    kind = defn_info.get("type", "function")
-    confidence = defn_info.get("confidence", 0)
-    heuristic_refs = defn_info.get("heuristic_refs", {})
-
-    source = source_cache.get(file_path, "")
-    if source:
-        source_lines = source.splitlines()
-        start = max(0, line - 6)
-        end = min(len(source_lines), line + 20)
-        snippet = "\n".join(
-            f"{i + 1:4d} | {source_lines[i]}" for i in range(start, end)
-        )
-    else:
-        snippet = "(source not available)"
-
-    match_sites = _find_heuristic_match_sites(
-        full_name, simple_name, source_cache, defs_map
-    )
-
-    user = SURVIVOR_USER.format(
-        full_name=full_name,
-        file=file_path,
-        line=line,
-        kind=kind,
-        confidence=confidence,
-        heuristic_refs=json.dumps(heuristic_refs),
-        source_snippet=snippet,
-        match_sites=match_sites,
-    )
-
-    try:
-        response = _call_llm_with_retry(agent, SURVIVOR_SYSTEM, user)
-        if not response:
-            raise ValueError("LLM call failed")
-        clean = response.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[-1]
-        if clean.endswith("```"):
-            clean = clean.rsplit("```", 1)[0]
-        clean = clean.strip()
-
-        data = json.loads(clean)
-        is_dead = data.get("is_dead", False)
-        rationale = data.get("rationale", "")
-        assessment = data.get("heuristic_assessment", "uncertain")
-
-        if is_dead:
-            verdict = Verdict.TRUE_POSITIVE
-            suggested = min(95, confidence + 30)
-        elif assessment == "real":
-            verdict = Verdict.FALSE_POSITIVE
-            suggested = max(20, confidence - 20)
-        else:
-            verdict = Verdict.UNCERTAIN
-            suggested = confidence
-
-    except (json.JSONDecodeError, Exception) as e:
-        logger.warning(f"Survivor challenge failed for {name}: {e}")
-        verdict = Verdict.UNCERTAIN
-        rationale = f"LLM call failed: {e}"
-        suggested = confidence
-
-    return SurvivorVerdict(
-        name=name,
-        full_name=full_name,
-        file=file_path,
-        line=line,
-        heuristic_refs=heuristic_refs,
-        verdict=verdict,
-        rationale=rationale,
-        original_confidence=confidence,
-        suggested_confidence=suggested,
-    )
-
-
 def _build_source_cache(
     findings: list[dict],
     defs_map: dict[str, Any],
@@ -3125,25 +2202,10 @@ def _build_source_cache(
     for fp in files_needed:
         try:
             cache[fp] = Path(fp).read_text(encoding="utf-8", errors="ignore")
-        except Exception:
-            pass
+        except OSError as exc:
+            logger.debug("Skipping unreadable verification source file %s: %s", fp, exc)
 
     return cache
-
-
-HAIKU_PREFILTER_SYSTEM = """\
-You are a quick pre-filter for dead code analysis. For each symbol below, determine if it is \
-a public API method meant to be called by external users of this package.
-
-Answer YES if the symbol is clearly part of the public API (public method on a public class, \
-exported in __init__.py or __all__, documented for external use).
-Answer NO if the symbol appears to be internal implementation detail, private, or orphaned.
-
-IMPORTANT: Respond with ONLY a JSON array. No explanations, no preamble.
-[{"id": 1, "public_api": "YES", "reason": "brief reason"}, ...]
-"""
-
-HAIKU_PREFILTER_MAX_BATCH = 20
 
 
 def _create_haiku_agent(api_key: str) -> DeadCodeVerifierAgent:
@@ -3351,7 +2413,7 @@ def run_verification(
 ) -> dict[str, Any]:
     from skylos.llm.agents import AgentConfig
 
-    from skylos.grep_cache import GrepCache
+    from skylos.core.grep_cache import GrepCache
 
     start_time = time.time()
     project_root = Path(project_root)
@@ -3883,8 +2945,12 @@ def run_verification(
     stats.elapsed_seconds = round(time.time() - start_time, 1)
 
     try:
-        usage = getattr(agent.get_adapter(), "total_usage", {}) or {}
-    except Exception:
+        usage = (
+            getattr(agent.get_adapter(), "total_usage", {}) or {}
+            if stats.llm_calls
+            else {}
+        )
+    except (AttributeError, ImportError, RuntimeError, TypeError):
         usage = {}
     stats.prompt_tokens = int(usage.get("prompt_tokens") or 0)
     stats.completion_tokens = int(usage.get("completion_tokens") or 0)
@@ -3905,176 +2971,6 @@ def run_verification(
     grep_cache.save(grep_root)
 
     return output
-
-
-def _find_survivors(
-    defs_map: dict[str, Any],
-    already_flagged: list[dict],
-) -> list[dict]:
-    flagged_names = set()
-    for f in already_flagged:
-        flagged_names.add(f.get("full_name", f.get("name", "")))
-
-    survivors = []
-    for name, info in defs_map.items():
-        if not isinstance(info, dict):
-            continue
-        if name in flagged_names:
-            continue
-        if info.get("type") not in ("function", "method"):
-            continue
-
-        heuristic_refs = info.get("heuristic_refs", {})
-        if not heuristic_refs:
-            continue
-
-        refs = info.get("references", 0)
-        if refs > 3:
-            continue
-
-        total_heuristic = sum(
-            v if isinstance(v, (int, float)) else 0 for v in heuristic_refs.values()
-        )
-        if total_heuristic > 0:
-            survivors.append(
-                {
-                    "name": name.split(".")[-1],
-                    "full_name": name,
-                    "simple_name": name.split(".")[-1],
-                    "file": str(info.get("file", "")),
-                    "line": info.get("line", 0),
-                    "type": info.get("type", "function"),
-                    "confidence": info.get("confidence", 50),
-                    "heuristic_refs": heuristic_refs,
-                    "references": refs,
-                }
-            )
-
-    survivors.sort(
-        key=lambda s: sum(
-            v if isinstance(v, (int, float)) else 0
-            for v in s.get("heuristic_refs", {}).values()
-        ),
-        reverse=True,
-    )
-
-    return survivors
-
-
-_LOCAL_ON_DECORATOR_RE = re.compile(
-    r"""@(?P<owner>[A-Za-z_][A-Za-z0-9_]*)\.on\(\s*(['"])(?P<event>[^'"]+)\2\s*\)"""
-)
-
-
-def _extract_local_on_listener_registration(
-    file_path: str, line: int
-) -> tuple[str, str] | None:
-    try:
-        source = Path(file_path).read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return None
-
-    lines = source.splitlines()
-    start = max(0, line - 6)
-    end = max(0, line - 1)
-    for idx in range(end - 1, start - 1, -1):
-        text = lines[idx].strip()
-        if not text:
-            continue
-        if not text.startswith("@"):
-            break
-        match = _LOCAL_ON_DECORATOR_RE.search(text)
-        if match:
-            return match.group("owner"), match.group("event")
-    return None
-
-
-def _supports_local_on_emit_registry(file_path: str, owner: str) -> bool:
-    try:
-        source = Path(file_path).read_text(encoding="utf-8", errors="ignore")
-    except Exception:
-        return False
-
-    if not re.search(rf"\bclass\s+{re.escape(owner)}\b", source):
-        return False
-
-    return bool(re.search(r"\bdef\s+emit\s*\(", source))
-
-
-def _search_local_emit_sites(
-    owner: str, event_name: str, project_root: str | Path
-) -> list[str]:
-    pattern = (
-        re.escape(owner) + r"""\.emit\(\s*['"]""" + re.escape(event_name) + r"""['"]"""
-    )
-    matches: list[str] = []
-    for subdir in ("app", "tests"):
-        root = Path(project_root) / subdir
-        if not root.exists():
-            continue
-        matches.extend(
-            _run_grep(
-                pattern,
-                str(root),
-                use_regex=True,
-                include_globs=["*.py"],
-                max_results=20,
-            )
-        )
-    return matches[:20]
-
-
-def _find_local_on_emit_survivors(
-    defs_map: dict[str, Any],
-    already_flagged: list[dict],
-    project_root: str | Path,
-) -> list[dict]:
-    flagged_names = {f.get("full_name", f.get("name", "")) for f in already_flagged}
-    survivors: list[dict] = []
-
-    for name, info in defs_map.items():
-        if not isinstance(info, dict):
-            continue
-        if name in flagged_names:
-            continue
-        if info.get("type") not in ("function", "method"):
-            continue
-        if info.get("called_by"):
-            continue
-
-        file_path = str(info.get("file", "") or "")
-        line = int(info.get("line", 0) or 0)
-        if not file_path or line <= 0:
-            continue
-
-        registration = _extract_local_on_listener_registration(file_path, line)
-        if not registration:
-            continue
-        owner, event_name = registration
-
-        if not _supports_local_on_emit_registry(file_path, owner):
-            continue
-
-        emit_sites = _search_local_emit_sites(owner, event_name, project_root)
-        if emit_sites:
-            continue
-
-        survivors.append(
-            {
-                "name": name.split(".")[-1],
-                "full_name": name,
-                "simple_name": name.split(".")[-1],
-                "file": file_path,
-                "line": line,
-                "type": info.get("type", "function"),
-                "confidence": info.get("confidence", 50),
-                "references": int(info.get("references", 0) or 0),
-                "_registry_owner": owner,
-                "_event_name": event_name,
-            }
-        )
-
-    return survivors
 
 
 def _estimate_batches(

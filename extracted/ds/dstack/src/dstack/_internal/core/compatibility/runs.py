@@ -2,6 +2,7 @@ from typing import Optional
 
 from dstack._internal.core.compatibility.common import patch_profile_params
 from dstack._internal.core.models.common import (
+    EntityReference,
     IncludeExcludeDictType,
     IncludeExcludeSetType,
 )
@@ -108,6 +109,16 @@ def get_run_spec_excludes(run_spec: RunSpec) -> IncludeExcludeDictType:
                 replica_group_excludes["router"] = True
             if all(g.scaling is None or g.scaling.window is None for g in replicas):
                 replica_group_excludes["scaling"] = {"window": True}
+            if all(g.image is None for g in replicas):
+                replica_group_excludes["image"] = True
+            if all(g.docker is None for g in replicas):
+                replica_group_excludes["docker"] = True
+            if all(g.python is None for g in replicas):
+                replica_group_excludes["python"] = True
+            if all(g.nvcc is None for g in replicas):
+                replica_group_excludes["nvcc"] = True
+            if all(g.privileged is None for g in replicas):
+                replica_group_excludes["privileged"] = True
             if replica_group_excludes:
                 configuration_excludes["replicas"] = {"__all__": replica_group_excludes}
 
@@ -167,3 +178,7 @@ def patch_run_spec(run_spec: RunSpec) -> None:
     patch_profile_params(run_spec.configuration)
     if run_spec.profile is not None:
         patch_profile_params(run_spec.profile)
+    if isinstance(run_spec.configuration, ServiceConfiguration):
+        if isinstance(run_spec.configuration.gateway, EntityReference):
+            # Pre-0.20.20 servers do not support `EntityReference` in `gateway`
+            run_spec.configuration.gateway = run_spec.configuration.gateway.format()

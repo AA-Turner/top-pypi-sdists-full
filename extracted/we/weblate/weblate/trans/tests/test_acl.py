@@ -103,6 +103,34 @@ class ACLTest(FixtureTestCase, RegistrationTestMixin):
         response = self.client.get(self.access_url)
         self.assertContains(response, "Users")
 
+    @override_settings(DEFAULT_PAGE_LIMIT=10)
+    def test_edit_acl_users_pagination(self) -> None:
+        """Project user list should be paginated."""
+        self.project.add_user(self.user, "Administration")
+        users = []
+        for idx in range(11):
+            user = User.objects.create_user(
+                f"acl-page-{idx:02d}",
+                f"acl-page-{idx:02d}@example.org",
+                "testpassword",
+            )
+            self.project.add_user(user, "Translate")
+            users.append(user)
+
+        response = self.client.get(self.access_url)
+
+        self.assertContains(response, "acl-page-00")
+        self.assertContains(response, "acl-page-09")
+        self.assertNotContains(response, "acl-page-10")
+        self.assertNotContains(response, f"edit_user_{users[10].id}")
+        self.assertContains(response, "?page=2&amp;limit=10#users")
+
+        response = self.client.get(f"{self.access_url}?page=2")
+
+        self.assertContains(response, "acl-page-10")
+        self.assertContains(response, self.user.username)
+        self.assertNotContains(response, "acl-page-00")
+
     def add_user(self) -> None:
         self.add_acl()
         self.project.add_user(self.user, "Administration")
@@ -553,6 +581,36 @@ class ACLTest(FixtureTestCase, RegistrationTestMixin):
             follow=True,
         )
         self.assertContains(response, "Could not find any such user")
+
+    def test_special_users_denied_project_membership(self) -> None:
+        """Test that special users can not be assigned to project teams."""
+        self.project.add_user(self.user, "Administration")
+        inactive = User.objects.create_user(
+            "inactive-acl", "inactive-acl@example.org", "testpassword"
+        )
+        inactive.is_active = False
+        inactive.save()
+        users = [get_anonymous(), inactive]
+
+        for user in users:
+            response = self.client.post(
+                reverse("add-user", kwargs=self.kw_project),
+                {"user": user.username, "group": self.admin_group.pk},
+                follow=True,
+            )
+            self.assertContains(response, "can not be assigned to teams")
+            self.assertFalse(
+                Invitation.objects.filter(user=user, group=self.admin_group).exists()
+            )
+            self.assertFalse(user.groups.filter(pk=self.admin_group.pk).exists())
+
+            response = self.client.post(
+                reverse("set-groups", kwargs=self.kw_project),
+                {"user": user.username, "groups": [self.admin_group.pk]},
+                follow=True,
+            )
+            self.assertContains(response, "can not be assigned to teams")
+            self.assertFalse(user.groups.filter(pk=self.admin_group.pk).exists())
 
     def test_acl_groups(self) -> None:
         """Test handling ACL groups."""

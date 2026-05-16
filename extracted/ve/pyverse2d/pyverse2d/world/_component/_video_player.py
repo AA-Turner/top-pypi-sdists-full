@@ -3,18 +3,19 @@ from __future__ import annotations
 
 from ..._internal import over, expect, expect_callable, positive, clamped, CallbackList
 from ...asset import Video
-from ...abc import Component
+from ...abc import RendererComponent
 from ...math import Vector
 from ...math.easing import EasingFunc, linear
 
-import threading
-import queue
-from numbers import Real
-
 import pyglet.media as _media
 
+import threading
+import queue
+from typing import ClassVar
+from numbers import Real, Integral
+
 # ======================================== COMPONENT ========================================
-class VideoPlayer(Component):
+class VideoPlayer(RendererComponent):
     """Composant permettant la lecture de vidéos
 
     Ce composant est manipulé par ``VideoSystem``.
@@ -22,18 +23,18 @@ class VideoPlayer(Component):
     Args:
         width: largeur d'affichage du lecteur, en pixels
         height: hauteur d'affichage du lecteur, en pixels
-        offset: décalage (dx, dy) par rapport au ``Transform`` frère
+        offset: décalage ``(dx, dy)`` par rapport au ``Transform`` frère
         volume: volume de base du lecteur ; doit être un réel positif
         inner_radius: rayon (en unités monde) dans lequel le son est au volume plein
         outer_radius: rayon au-delà duquel le son est inaudible ; ``0.0`` = infini
         falloff: fonction d'atténuation appliquée entre ``inner_radius`` et ``outer_radius``
         opacity: opacité d'affichage, dans l'intervalle *[0, 1]*
-        z: z-order d'affichage (ordre de superposition)
+        z: z-order d'affichage *(ordre de superposition)*
+        visible: visibilité
     """
     __slots__ = (
         "_width", "_height", "_offset",
         "_volume", "_inner_radius", "_outer_radius", "_falloff",
-        "_opacity", "_z",
         "_video", "_loop", "_ready",
         "_on_start", "_on_end",
         "_texture", "_pending_frame",
@@ -49,79 +50,88 @@ class VideoPlayer(Component):
         "_frames_ready", "_audio_ready", "_audio_start_time",
     )
 
-    requires = ("Transform",)
+    requires: ClassVar[tuple[str]] = ("Transform",)
 
     def __init__(
             self,
-            width: int,
-            height: int,
+            width: Integral,
+            height: Integral,
             offset: Vector = (0.0, 0.0),
             volume: Real = 1.0,
             inner_radius: Real = 0.0,
             outer_radius: Real = 0.0,
             falloff: EasingFunc = linear,
             opacity: Real = 1.0,
-            z: int = 0,
+            z: Integral = 0,
+            visible: bool = True,
         ):
+        # Initialisation du composant de rendu
+        super().__init__(opacity, z, visible)
+
+        # Transtypage et vérifications
         width = int(width)
         height = int(height)
         offset = Vector(offset)
         volume = float(volume)
         inner_radius = abs(float(inner_radius))
         outer_radius = abs(float(outer_radius))
-        opacity = float(opacity)
-        z = int(z)
 
         if __debug__:
             over(width, 0, include=False)
             over(height, 0, include=False)
             positive(volume)
             expect_callable(falloff)
-            clamped(opacity)
 
+        # Attributs publiques
         self._width: int = width
         self._height: int = height
         self._offset: Vector = offset
-
         self._volume: float = volume
         self._inner_radius: float = inner_radius
         self._outer_radius: float = outer_radius
         self._falloff: EasingFunc = falloff
 
-        self._opacity: float = opacity
-        self._z: int = z
-
+        # Attributs internes
         self._video: Video | None = None
         self._loop: bool = False
 
+        # Hooks
         self._on_start: CallbackList | None = None
         self._on_end: CallbackList | None = None
 
+        # Frames
         self._texture = None
         self._pending_frame: tuple | None = None
 
+        # Decodage
         self._frame_queue: queue.Queue | None = None
         self._decode_thread: threading.Thread | None = None
         self._stop_event: threading.Event | None = None
         self._pause_event: threading.Event | None = None
 
+        # Evénements
         self._end_event: threading.Event | None = None
         self._loop_event: threading.Event | None = None
 
+        # Construction audio
         self._audio_player: _media.Player | None = None
         self._audio_feed = None
         self._audio_started: bool = False
         self._prev_audio_feed = None
 
+        # Loop
         self._paused_time: float = 0.0
         self._loop_time_offset: float = 0.0
 
+        # Durée
         self._duration: float | None = None
 
+        # Etat
         self._playing: bool = False
         self._paused: bool = False
         self._initialized: bool = False
 
+        # Flags
         self._frames_ready: bool = False
         self._audio_ready: bool = False
         self._audio_start_time: float = 0.0
@@ -247,27 +257,6 @@ class VideoPlayer(Component):
         if __debug__:
             expect_callable(value)
         self._falloff = value or linear
-
-    @property
-    def opacity(self) -> float:
-        """Opacité d'affichage du lecteur, dans l'intervalle *[0, 1]*"""
-        return self._opacity
-
-    @opacity.setter
-    def opacity(self, value: Real) -> None:
-        value = float(value)
-        if __debug__:
-            clamped(value)
-        self._opacity = value
-
-    @property
-    def z(self) -> int:
-        """Z-order d'affichage (ordre de superposition des rendus)"""
-        return self._z
-
-    @z.setter
-    def z(self, value: int) -> None:
-        self._z = int(value)
 
     @property
     def texture(self):

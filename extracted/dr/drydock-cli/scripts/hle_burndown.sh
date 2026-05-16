@@ -200,6 +200,8 @@ run_loop() {
             DRYDOCK_STOP_NOW_WARN_AT=12 \
             DRYDOCK_STOP_NOW_TIME_SEC=240 \
             DRYDOCK_THINKING_BUDGET_TOKENS=8000 \
+            DRYDOCK_TOOL_STOP_AFTER=3 \
+            DRYDOCK_STOP_NOW_SUFFIX="End your response with 'FINAL ANSWER: <your answer>' on its own line." \
             PYTHONUNBUFFERED=1 \
             nohup "$PY" -u "$DRYDOCK/scripts/hle_eval.py" \
                 --source hle --limit "$LIMIT" --shuffle --seed "$SEED" \
@@ -210,6 +212,8 @@ run_loop() {
             DRYDOCK_STOP_NOW_WARN_AT=12 \
             DRYDOCK_STOP_NOW_TIME_SEC=240 \
             DRYDOCK_THINKING_BUDGET_TOKENS=8000 \
+            DRYDOCK_TOOL_STOP_AFTER=3 \
+            DRYDOCK_STOP_NOW_SUFFIX="End your response with 'FINAL ANSWER: <your answer>' on its own line." \
             PYTHONUNBUFFERED=1 \
             nohup "$PY" -u "$DRYDOCK/scripts/hle_eval.py" \
                 --source hle --limit "$LIMIT" --shuffle --seed "$SEED" \
@@ -247,9 +251,12 @@ run_loop() {
             fi
         done
 
-        # Per-batch summary
-        local lifetime=$(grep -c "RESULT" "$RUN_LOG" 2>/dev/null || echo 0)
-        local correct=$(grep -E "→ (YES|PARTIAL)" "$RUN_LOG" 2>/dev/null | wc -l)
+        # Per-batch summary — count "→ YES/NO/PARTIAL/UNGRADED" verdict
+        # lines (what hle_eval actually emits). Earlier version greped
+        # for "RESULT" which the eval script doesn't print, so $lifetime
+        # was always 0.
+        local lifetime=$(grep -cE "→ (YES|NO|PARTIAL|UNGRADED)" "$RUN_LOG" 2>/dev/null || echo 0)
+        local correct=$(grep -cE "→ (YES|PARTIAL)" "$RUN_LOG" 2>/dev/null || echo 0)
         log "batch complete slot=$slot pid=$BATCH_PID category=$CAT correct=$correct/$lifetime"
 
         rm -f "$BATCH_PID_FILE"

@@ -37,10 +37,10 @@ def quote(text):
     return "'{}'".format(text)
 
 
-def api_request(particle, datestart, dateend, plane):
+def api_request(name, datestart, dateend, plane):
     get_params = {
         "format": "text",
-        "COMMAND": quote(particle),
+        "COMMAND": quote(name),
         "START_TIME": quote(str(datestart)),
         "STOP_TIME": quote(str(dateend)),
         "MAKE_EPHEM": quote("YES"),
@@ -68,7 +68,7 @@ def api_request(particle, datestart, dateend, plane):
     try:
         f = urlopen(url,context=ssl_context)
     except Exception as e:
-        raise RuntimeError("An error occured while accessing NASA HORIZONS. If this is a SSL certificate issue, you can try disabling the certificate verification by setting rebound.horizons.SSL_CONTEXT = 'unverified'.") from e
+        raise RuntimeError("An error occurred while accessing NASA HORIZONS. If this is a SSL certificate issue, you can try disabling the certificate verification by setting rebound.horizons.SSL_CONTEXT = 'unverified'.") from e
 
     if "pyodide" in sys.modules:
         body = f.read()
@@ -78,8 +78,8 @@ def api_request(particle, datestart, dateend, plane):
     return body
 
 
-def query_horizons_for_particle(mass_unit=None, particle=None, m=None, x=None, y=None, z=None, vx=None, vy=None, vz=None, primary=None, a=None,
-                anom=None, e=None, omega=None, inc=None, Omega=None, MEAN=None, date=None, plane="ecliptic", hash=0):
+def query_horizons_for_particle(name, mass_unit, m=None, x=None, y=None, z=None, vx=None, vy=None, vz=None, primary=None, a=None,
+                anom=None, e=None, omega=None, inc=None, Omega=None, MEAN=None, date=None, plane="ecliptic"):
     if plane not in ["ecliptic", "frame"]:
         raise AttributeError(
             "Reference plane needs to be either 'ecliptic' or 'frame'. See Horizons for a definition of these coordinate systems.")
@@ -97,7 +97,7 @@ def query_horizons_for_particle(mass_unit=None, particle=None, m=None, x=None, y
                     except:
                         continue
                 if found_match == False:
-                    raise AttributeError("An error occured while calculating the date. Use one "+" or ".join(formats) + " or JDxxxxxxx.xxxxxx")
+                    raise AttributeError("An error occurred while calculating the date. Use one "+" or ".join(formats) + " or JDxxxxxxx.xxxxxx")
     # set the cached initialization time if it's not set
     global INITDATE
     if INITDATE is None:
@@ -116,9 +116,9 @@ def query_horizons_for_particle(mass_unit=None, particle=None, m=None, x=None, y
         date_f = float(re.sub("[^0-9\\.]","",date))
         dateend = "JD%.8f"%(date_f+0.1)
 
-    print("Searching NASA Horizons for '{}'... ".format(particle))
+    print("Searching NASA Horizons for '{}'... ".format(name))
     idn = None
-    body = api_request(particle, datestart, dateend, plane)
+    body = api_request(name, datestart, dateend, plane)
     made_choice = False
     if "Multiple major-bodies match string" in body:
         try:
@@ -155,13 +155,13 @@ def query_horizons_for_particle(mass_unit=None, particle=None, m=None, x=None, y
     if match:
         bodyname = match.group(1).strip()
         idn = match.group(2)
-        print("Found: {} ({})".format(bodyname, idn), "(chosen from query '{}')".format(particle) if made_choice else "")
+        print("Found: {} ({})".format(bodyname, idn), "(chosen from query '{}')".format(name) if made_choice else "")
     else:
         # fall back to more general regex
         match = re.search(r"Target body name: (.+) {", body)
         if match:
             bodyname = match.group(1).strip()
-            print("Found: {}".format(bodyname), "(chosen from query '{}')".format(particle) if made_choice else "")
+            print("Found: {}".format(bodyname), "(chosen from query '{}')".format(name) if made_choice else "")
         else:
             print("Found body (Name could not be detected)")
     if m is not None:
@@ -183,7 +183,10 @@ def query_horizons_for_particle(mass_unit=None, particle=None, m=None, x=None, y
     else:
         warnings.warn("Warning: Mass cannot be retrieved from NASA HORIZONS. Set to 0.", RuntimeWarning)
         p.m = 0
-    p.hash = hash
+    if bodyname:
+        p.name = bodyname
+    else:
+        p.name = name
     return p
 
 

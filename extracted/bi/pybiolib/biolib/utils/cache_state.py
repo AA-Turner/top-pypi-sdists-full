@@ -45,7 +45,7 @@ class CacheState(abc.ABC, Generic[StateType]):
         try:
             self._acquire_state_lock()
             if os.path.exists(self._state_path):
-                with open(self._state_path, mode='r') as file:
+                with open(self._state_path) as file:
                     self._state = json.loads(file.read())
             else:
                 self._state = self._get_default_state()
@@ -70,7 +70,7 @@ class CacheState(abc.ABC, Generic[StateType]):
     def _acquire_state_lock(self) -> None:
         for _ in range(10):
             try:
-                lock_file = open(self._state_lock_path, mode='x')
+                lock_file = open(self._state_lock_path, mode='x')  # noqa: SIM115
                 lock_file.close()
                 return
             except BaseException as error:  # pylint: disable=broad-except

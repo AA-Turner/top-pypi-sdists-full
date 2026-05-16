@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-pipes"
-version = "1.13.4"
+version = "1.13.5"
 description = "Toolkit for Dagster integrations with transform logic outside of Dagster"
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -29,3 +29,17 @@ Homepage = "https://github.com/dagster-io/dagster/tree/master/python_modules/dag
 stubs = [
     "google-cloud-storage",
 ]
+
+[dependency-groups]
+test = [
+    "dagster[test]",
+    "dagster-shared",
+]
+
+[tool.uv.sources.dagster]
+path = "../dagster"
+editable = true
+
+[tool.uv.sources.dagster-shared]
+path = "../libraries/dagster-shared"
+editable = true

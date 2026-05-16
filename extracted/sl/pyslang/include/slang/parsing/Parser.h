@@ -157,6 +157,7 @@ public:
     syntax::ClassDeclarationSyntax& parseClass();
     syntax::MemberSyntax* parseSingleMember(syntax::SyntaxKind parentKind);
     syntax::NameSyntax& parseName();
+    syntax::FunctionPrototypeSyntax& parseFunctionPrototype();
 
     /// Generalized node parse function that tries to figure out what we're
     /// looking at and parse that specifically. A normal batch compile won't call
@@ -175,7 +176,7 @@ private:
     using NameOptions = detail::NameOptions;
     using TypeOptions = detail::TypeOptions;
     using FunctionOptions = detail::FunctionOptions;
-    using AttrList = std::span<syntax::AttributeInstanceSyntax*>;
+    using AttrList = syntax::SyntaxList<syntax::AttributeInstanceSyntax>;
 
     // ---- Recursive-descent parsing routines, by syntax type ----
 
@@ -195,6 +196,7 @@ private:
     syntax::SelectorSyntax* parseElementSelector();
     syntax::NameSyntax& parseName(bitmask<NameOptions> options);
     syntax::NameSyntax& parseNamePart(bitmask<NameOptions> options);
+    syntax::ExpressionSyntax& parseForeachArrayExpression();
     syntax::ParameterValueAssignmentSyntax* parseParameterValueAssignment();
     syntax::ArgumentListSyntax& parseArgumentList();
     syntax::ParamAssignmentSyntax& parseParamValue();
@@ -202,6 +204,8 @@ private:
     syntax::PatternSyntax& parsePattern();
     syntax::StructurePatternMemberSyntax& parseMemberPattern();
     syntax::AssignmentPatternExpressionSyntax& parseAssignmentPatternExpression(syntax::DataTypeSyntax* type);
+    syntax::AssignmentPatternExpressionSyntax& parseAssignmentPatternFromBrace(
+        Token openBrace, syntax::ExpressionSyntax* firstExpr);
     syntax::AssignmentPatternItemSyntax& parseAssignmentPatternItem(syntax::ExpressionSyntax* key);
     syntax::EventExpressionSyntax& parseSignalEvent();
     syntax::EventExpressionSyntax& parseEventExpression();
@@ -232,14 +236,14 @@ private:
     syntax::ConcurrentAssertionStatementSyntax& parseConcurrentAssertion(syntax::NamedLabelSyntax* label, AttrList attributes);
     syntax::PropertySpecSyntax& parsePropertySpec();
     syntax::ActionBlockSyntax& parseActionBlock();
-    syntax::BlockStatementSyntax& parseBlock(syntax::SyntaxKind blockKind, TokenKind endKind, syntax::NamedLabelSyntax* label, AttrList attributes);
+    syntax::BlockStatementSyntax& parseBlock(syntax::SyntaxKind blockKind, TokenKind endKind, syntax::NamedLabelSyntax* label, AttrList attributes, bool inConstructor = false);
     syntax::StatementSyntax& parseWaitStatement(syntax::NamedLabelSyntax* label, AttrList attributes);
     syntax::WaitOrderStatementSyntax& parseWaitOrderStatement(syntax::NamedLabelSyntax* label, AttrList attributes);
     syntax::RandCaseStatementSyntax& parseRandCaseStatement(syntax::NamedLabelSyntax* label, AttrList attributes);
     syntax::EventTriggerStatementSyntax& parseEventTriggerStatement(syntax::NamedLabelSyntax* label, AttrList attributes);
     Token parseSigning();
     syntax::VariableDimensionSyntax* parseDimension();
-    std::span<syntax::VariableDimensionSyntax*> parseDimensionList();
+    syntax::SyntaxList<syntax::VariableDimensionSyntax> parseDimensionList();
     syntax::StructUnionTypeSyntax& parseStructUnion(syntax::SyntaxKind syntaxKind);
     syntax::EnumTypeSyntax& parseEnum();
     syntax::DataTypeSyntax& parseDataType(bitmask<TypeOptions> options = {});
@@ -247,6 +251,7 @@ private:
     AttrList parseAttributes();
     syntax::AttributeSpecSyntax& parseAttributeSpec();
     syntax::MemberSyntax* parseMember(syntax::SyntaxKind parentKind, bool& anyLocalModules);
+    syntax::MemberSyntax* parseMemberImpl(AttrList attributes, syntax::SyntaxKind parentKind, bool& anyLocalModules);
     syntax::ModuleHeaderSyntax& parseModuleHeader();
     syntax::ParameterPortListSyntax* parseParameterPortList();
     syntax::MemberSyntax& parseModule(AttrList attributes, syntax::SyntaxKind parentKind, bool& anyLocalModules);
@@ -263,7 +268,7 @@ private:
     syntax::PortHeaderSyntax& parsePortHeader(Token constKeyword, Token direction);
     syntax::PortDeclarationSyntax& parsePortDeclaration(AttrList attributes);
     syntax::TimeUnitsDeclarationSyntax& parseTimeUnitsDeclaration(AttrList attributes);
-    std::span<syntax::PackageImportDeclarationSyntax*> parsePackageImports();
+    syntax::SyntaxList<syntax::PackageImportDeclarationSyntax> parsePackageImports();
     syntax::PackageImportDeclarationSyntax& parseImportDeclaration(AttrList attributes);
     syntax::MemberSyntax& parseExportDeclaration(AttrList attributes);
     syntax::PackageImportItemSyntax& parsePackageImportItem();
@@ -300,9 +305,9 @@ private:
     syntax::FunctionPortListSyntax* parseFunctionPortList(bitmask<FunctionOptions> options);
     syntax::FunctionPrototypeSyntax& parseFunctionPrototype(syntax::SyntaxKind parentKind, bitmask<FunctionOptions> options, bool* isConstructor = nullptr);
     syntax::FunctionDeclarationSyntax& parseFunctionDeclaration(AttrList attributes, syntax::SyntaxKind functionKind, TokenKind endKind, syntax::SyntaxKind parentKind, bitmask<FunctionOptions> options = {});
-    std::span<syntax::ClassSpecifierSyntax*> parseClassSpecifierList(bool allowSpecifiers);
+    syntax::SyntaxList<syntax::ClassSpecifierSyntax> parseClassSpecifierList(bool allowSpecifiers);
     Token parseLifetime();
-    std::span<syntax::SyntaxNode*> parseBlockItems(TokenKind endKind, Token& end, bool inConstructor);
+    syntax::SyntaxList<syntax::SyntaxNode> parseBlockItems(TokenKind endKind, Token& end, bool inConstructor);
     syntax::GenvarDeclarationSyntax& parseGenvarDeclaration(AttrList attributes);
     syntax::LoopGenerateSyntax& parseLoopGenerateConstruct(AttrList attributes);
     syntax::IfGenerateSyntax& parseIfGenerateConstruct(AttrList attributes);
@@ -326,7 +331,7 @@ private:
     syntax::MemberSyntax* parseCoverCrossMember();
     syntax::BinsSelectExpressionSyntax& parseBinsSelectPrimary();
     syntax::BinsSelectExpressionSyntax& parseBinsSelectExpression();
-    syntax::MemberSyntax& parseConstraint(AttrList attributes, std::span<Token> qualifiers, bool hasBaseClass);
+    syntax::MemberSyntax& parseConstraint(AttrList attributes, const syntax::TokenList& qualifiers, bool hasBaseClass);
     syntax::ConstraintBlockSyntax& parseConstraintBlock(bool isTopLevel);
     syntax::ConstraintItemSyntax* parseConstraintItem(bool allowBlock, bool isTopLevel);
     syntax::DistConstraintListSyntax& parseDistConstraintList();
@@ -384,21 +389,22 @@ private:
     // clang-format on
 
     template<bool (*IsEnd)(TokenKind)>
-    std::span<syntax::TokenOrSyntax> parseDeclarators(TokenKind endKind, Token& end,
-                                                      bool allowMinTypMax = false,
-                                                      bool requireInitializers = false);
-    std::span<syntax::TokenOrSyntax> parseDeclarators(Token& semi, bool allowMinTypMax = false,
-                                                      bool requireInitializers = false);
+    syntax::SeparatedSyntaxList<syntax::DeclaratorSyntax> parseDeclarators(
+        TokenKind endKind, Token& end, bool allowMinTypMax = false,
+        bool requireInitializers = false);
+    syntax::SeparatedSyntaxList<syntax::DeclaratorSyntax> parseDeclarators(
+        Token& semi, bool allowMinTypMax = false, bool requireInitializers = false);
 
     template<typename TMember, typename TParseFunc>
-    std::span<TMember*> parseMemberList(TokenKind endKind, Token& endToken,
-                                        syntax::SyntaxKind parentKind, TParseFunc&& parseFunc);
+    syntax::SyntaxList<TMember> parseMemberList(TokenKind endKind, Token& endToken,
+                                                syntax::SyntaxKind parentKind,
+                                                TParseFunc&& parseFunc);
 
     template<typename IsItemFunc, typename ParseItemFunc>
     bool parseCaseItems(TokenKind caseKind, SmallVectorBase<syntax::CaseItemSyntax*>& itemBuffer,
                         IsItemFunc&& isItem, ParseItemFunc&& parseItem);
 
-    std::span<syntax::TokenOrSyntax> parsePathTerminals();
+    syntax::SeparatedSyntaxList<syntax::NameSyntax> parsePathTerminals();
 
     void checkClassQualifiers(std::span<const Token> qualifiers, bool isConstraint);
     Token parseDPISpecString();
@@ -465,6 +471,10 @@ private:
     // Report warnings for misleading empty loop / conditional bodies.
     void checkEmptyBody(const syntax::SyntaxNode& syntax, Token prevToken,
                         std::string_view syntaxName);
+
+    // Report warnings when a statement following a single-statement loop/conditional
+    // is indented at the same level as the body, making it look like it's part of the construct.
+    void checkMisleadingIndentation(const syntax::SyntaxNode& prevStmt, Token nextToken);
 
     // ---- Member variables ----
 

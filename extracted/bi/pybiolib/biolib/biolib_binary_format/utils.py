@@ -48,7 +48,7 @@ class IndexableBuffer(ABC):
 class LocalFileIndexableBuffer(IndexableBuffer):
     def __init__(self, filename: str):
         super().__init__()
-        self._filehandle = open(filename, 'rb')
+        self._filehandle = open(filename, 'rb')  # noqa: SIM115
 
     def get_data(self, start: int, length: int) -> bytes:
         if length < 0:

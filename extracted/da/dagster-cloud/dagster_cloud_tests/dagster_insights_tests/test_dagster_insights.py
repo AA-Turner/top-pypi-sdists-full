@@ -113,7 +113,7 @@ def test_retrieving_cost_data():
     start_hour = datetime(2023, 1, 1, 1)
     end_hour = datetime(2023, 1, 1, 2)
 
-    results = get_cost_data_for_hour(snowflake, start_hour, end_hour)  # pyright: ignore[reportArgumentType]
+    results = get_cost_data_for_hour(snowflake, start_hour, end_hour)  # ty: ignore[invalid-argument-type]
     assert set(results) == {
         ("model.jaffle_shop.customers:ed530106-5713-4dfe-8b34-e206cb9eed3e", 1.0, "queryid1"),
         ("model.jaffle_shop.orders:ed530106-5713-4dfe-8b34-e206cb9eed3e", 2.0, "queryid2"),

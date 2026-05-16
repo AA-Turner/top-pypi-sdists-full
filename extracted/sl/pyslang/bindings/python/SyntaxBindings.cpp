@@ -7,15 +7,17 @@
 #include "pyslang.h"
 
 #include "slang/parsing/Lexer.h"
+#include "slang/parsing/LexerFacts.h"
 #include "slang/parsing/Parser.h"
 #include "slang/parsing/Preprocessor.h"
 #include "slang/syntax/CSTSerializer.h"
 #include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxPrinter.h"
+#include "slang/syntax/SyntaxRewriter.h"
 #include "slang/syntax/SyntaxTree.h"
-#include "slang/syntax/SyntaxVisitor.h"
 #include "slang/text/Json.h"
 #include "slang/text/SourceManager.h"
+#include "slang/util/String.h"
 
 namespace fs = std::filesystem;
 
@@ -33,27 +35,57 @@ struct PySyntaxVisitor : public PyVisitorBase<PySyntaxVisitor, SyntaxVisitor> {
         // It means that the object Python sees is of type SyntaxNode,
         // forcing them to go through the polymorphic downcaster to get
         // at the actual type.
-        py::object result = this->f(static_cast<const SyntaxNode*>(&t));
-        if (result.equal(py::cast(VisitAction::Interrupt))) {
-            this->interrupted = true;
-            return;
+        auto node = static_cast<const SyntaxNode*>(&t);
+
+        py::object result = py::none();
+        if (this->lookupTable) {
+            auto pyKind = py::cast(t.kind);
+            if (this->lookupTable->contains(pyKind)) {
+                py::object handler{(*this->lookupTable)[pyKind]};
+                result = handler(node);
+            }
         }
-        if (result.not_equal(py::cast(VisitAction::Skip)))
+        else {
+            result = this->f(node);
+        }
+
+        if (result.equal(py::cast(VisitAction::Interrupt)))
+            this->interrupted = true;
+        else if (result.not_equal(py::cast(VisitAction::Skip)))
             this->visitDefault(t);
     }
 
     void visitToken(parsing::Token t) {
-        if (this->interrupted)
+        if (interrupted)
             return;
-        py::object result = this->f(t);
-        if (result.equal(py::cast(VisitAction::Interrupt))) {
-            this->interrupted = true;
+
+        py::object result = py::none();
+        if (lookupTable) {
+            auto pyKind = py::cast(t.kind);
+            if (lookupTable->contains(pyKind)) {
+                py::object handler{(*lookupTable)[pyKind]};
+                result = handler(t);
+            }
         }
+        else {
+            result = f(t);
+        }
+
+        if (result.equal(py::cast(VisitAction::Interrupt)))
+            interrupted = true;
     }
 };
 
-void pySyntaxVisit(const SyntaxNode& sn, py::object f) {
-    PySyntaxVisitor visitor{f};
+void pySyntaxVisit(const SyntaxNode& sn, py::object f = py::none(),
+                   py::object lookup_table = py::none()) {
+    if (f.is_none() && lookup_table.is_none())
+        throw py::type_error("visit() requires 'f' or 'lookup_table' (both are None)");
+
+    std::optional<py::dict> lt;
+    if (!lookup_table.is_none())
+        lt = py::cast<py::dict>(lookup_table);
+
+    PySyntaxVisitor visitor{f, std::move(lt)};
     sn.visit(visitor);
 }
 
@@ -86,22 +118,95 @@ public:
         this->insertAfter(node, cloneNode(newNode));
     }
 
-    void py_insertAtFront(const SyntaxListBase& list, SyntaxNode& newNode, Token separator = {}) {
+    template<typename TList>
+        requires is_syntax_list_v<TList>
+    void py_insertAtFront(const TList& list, SyntaxNode& newNode, Token separator = {}) {
         this->insertAtFront(list, cloneNode(newNode), separator);
     }
 
-    void py_insertAtBack(const SyntaxListBase& list, SyntaxNode& newNode, Token separator = {}) {
+    template<typename TList>
+        requires is_syntax_list_v<TList>
+    void py_insertAtBack(const TList& list, SyntaxNode& newNode, Token separator = {}) {
         this->insertAtBack(list, cloneNode(newNode), separator);
     }
 
     SyntaxFactory& getFactory() { return factory; }
 
+    BumpAllocator& getAllocator() { return alloc; }
+
+    Token py_makeToken(TokenKind kind, std::string_view text, std::span<const Trivia> trivia = {}) {
+        return this->makeToken(kind, toStringView(alloc.copyFrom(std::span(text))),
+                               alloc.copyFrom(trivia));
+    }
+
+    Token py_makeTokenFromKind(TokenKind kind, std::span<const Trivia> trivia = {}) {
+        auto text = LexerFacts::getTokenKindText(kind);
+        if (text.empty()) {
+            throw std::invalid_argument(
+                "TokenKind requires explicit text (use makeToken(kind, text) instead)");
+        }
+        auto persistentTrivia = alloc.copyFrom(trivia);
+        return this->makeToken(kind, text, persistentTrivia);
+    }
+
+    Token py_makeId(std::string_view text, std::span<const Trivia> trivia = {}) {
+        return this->makeId(toStringView(alloc.copyFrom(std::span(text))), alloc.copyFrom(trivia));
+    }
+
+    Token py_makeComma() { return this->makeComma(); }
+
+    Trivia py_makeTrivia(TriviaKind kind, std::string_view text) {
+        return Trivia(kind, toStringView(alloc.copyFrom(std::span(text))));
+    }
+
+    SyntaxNode* py_clone(const SyntaxNode& node) { return clone(node, this->alloc); }
+
+    SyntaxNode* py_deepClone(const SyntaxNode& node) { return deepClone(node, this->alloc); }
+
+    template<typename T>
+    SyntaxList<T>& py_makeSyntaxList(py::list items) {
+        SmallVector<T*> buffer;
+        for (auto item : items) {
+            buffer.push_back(&cloneNode(item.cast<T&>()));
+        }
+        return *alloc.emplace<SyntaxList<T>>(alloc, buffer);
+    }
+
+    SyntaxList<SyntaxNode>& py_makeSyntaxListGeneric(py::list items) {
+        return py_makeSyntaxList<SyntaxNode>(items);
+    }
+
+    template<typename T>
+    SeparatedSyntaxList<T>& py_makeSeparatedSyntaxList(py::list items) {
+        SmallVector<TokenOrSyntax> buffer;
+        for (size_t i = 0; i < py::len(items); i++) {
+            auto item = items[i];
+            if (py::isinstance<Token>(item)) {
+                buffer.push_back(item.cast<Token>());
+            }
+            else {
+                buffer.push_back(&cloneNode(item.cast<SyntaxNode&>()));
+            }
+        }
+        return *alloc.emplace<SeparatedSyntaxList<T>>(alloc, buffer);
+    }
+
+    SeparatedSyntaxList<SyntaxNode>& py_makeSeparatedSyntaxListGeneric(py::list items) {
+        return py_makeSeparatedSyntaxList<SyntaxNode>(items);
+    }
+
+    TokenList& py_makeTokenList(py::list items) {
+        SmallVector<Token> buffer;
+        for (auto item : items) {
+            buffer.push_back(item.cast<Token>());
+        }
+        return *alloc.emplace<TokenList>(alloc, buffer);
+    }
+
 private:
     pybind11::function handler;
 
-    SyntaxNode& cloneNode(const SyntaxNode& node) {
-        return *slang::syntax::deepClone(node, this->alloc);
-    }
+    SyntaxNode& cloneNode(const SyntaxNode& node) { return *deepClone(node, this->alloc); }
 };
 
 std::shared_ptr<SyntaxTree> pySyntaxRewrite(const std::shared_ptr<SyntaxTree>& tree,
@@ -112,14 +217,15 @@ std::shared_ptr<SyntaxTree> pySyntaxRewrite(const std::shared_ptr<SyntaxTree>& t
 
 } // end namespace
 
-void registerSyntax(py::module_& m) {
-    EXPOSE_ENUM(m, TriviaKind);
-    EXPOSE_ENUM(m, TokenKind);
+void registerSyntax(py::module_& syntax, py::module_& parsing) {
+    auto& m = syntax;
+    EXPOSE_ENUM(parsing, TriviaKind);
+    EXPOSE_ENUM(parsing, TokenKind);
     EXPOSE_ENUM(m, SyntaxKind);
-    EXPOSE_ENUM(m, KnownSystemName);
+    EXPOSE_ENUM(parsing, KnownSystemName);
     EXPOSE_ENUM(m, CSTJsonMode);
 
-    py::classh<Trivia>(m, "Trivia")
+    py::classh<Trivia>(parsing, "Trivia")
         .def(py::init<>())
         .def(py::init<TriviaKind, std::string_view>(), "kind"_a, "rawText"_a)
         .def_readonly("kind", &Trivia::kind)
@@ -131,7 +237,7 @@ void registerSyntax(py::module_& m) {
             return fmt::format("Trivia(TriviaKind.{})", toString(self.kind));
         });
 
-    py::classh<Token>(m, "Token")
+    py::classh<Token>(parsing, "Token")
         .def(py::init<>())
         .def(py::init([](BumpAllocator& alloc, TokenKind kind, std::span<Trivia const> trivia,
                          std::string_view rawText, SourceLocation location) {
@@ -184,7 +290,11 @@ void registerSyntax(py::module_& m) {
         .def_property_readonly("isMissing", &Token::isMissing)
         .def_property_readonly("range", &Token::range)
         .def_property_readonly("location", &Token::location)
-        .def_property_readonly("trivia", &Token::trivia)
+        .def_property_readonly("trivia",
+                               [](const Token& t) {
+                                   auto view = t.trivia();
+                                   return std::vector<Trivia>(view.begin(), view.end());
+                               })
         .def_property_readonly("valueText", &Token::valueText)
         .def_property_readonly("rawText", &Token::rawText)
         .def_property_readonly("isOnSameLine", &Token::isOnSameLine)
@@ -249,12 +359,14 @@ void registerSyntax(py::module_& m) {
     };
 
     py::classh<SyntaxNode>(m, "SyntaxNode")
-        .def_readonly("parent", &SyntaxNode::parent)
+        .def_property_readonly("parent",
+                               [](const SyntaxNode& n) -> const SyntaxNode* { return n.parent; })
         .def_readonly("kind", &SyntaxNode::kind)
         .def("getFirstToken", &SyntaxNode::getFirstToken)
         .def("getLastToken", &SyntaxNode::getLastToken)
         .def("isEquivalentTo", &SyntaxNode::isEquivalentTo, "other"_a)
-        .def("visit", &pySyntaxVisit, "f"_a, PySyntaxVisitor::doc)
+        .def("visit", &pySyntaxVisit, "f"_a = py::none(), "lookup_table"_a = py::none(),
+             PySyntaxVisitor::doc)
         .def_property_readonly("sourceRange", &SyntaxNode::sourceRange)
         .def("__getitem__",
              [](const SyntaxNode& self, size_t i) -> py::object {
@@ -291,7 +403,7 @@ void registerSyntax(py::module_& m) {
                 serializer.serialize(self);
                 return std::string(writer.view());
             },
-            py::arg("mode") = CSTJsonMode::Full,
+            "mode"_a = CSTJsonMode::Full,
             "Convert this syntax node to JSON string with optional formatting mode");
 
     py::classh<IncludeMetadata>(m, "IncludeMetadata")
@@ -383,7 +495,7 @@ void registerSyntax(py::module_& m) {
                 serializer.serialize(self);
                 return std::string(writer.view());
             },
-            py::arg("mode") = CSTJsonMode::Full,
+            "mode"_a = CSTJsonMode::Full,
             "Convert this syntax tree to JSON string with optional formatting mode");
 
     py::classh<CommentHandler> commentHandler(m, "CommentHandler");
@@ -402,22 +514,23 @@ void registerSyntax(py::module_& m) {
         .export_values()
         .finalize();
 
-    py::classh<LexerOptions>(m, "LexerOptions")
+    py::classh<LexerOptions>(parsing, "LexerOptions")
         .def(py::init<>())
         .def_readwrite("maxErrors", &LexerOptions::maxErrors)
         .def_readwrite("languageVersion", &LexerOptions::languageVersion)
         .def_readwrite("enableLegacyProtect", &LexerOptions::enableLegacyProtect)
         .def_readwrite("commentHandlers", &LexerOptions::commentHandlers);
 
-    py::classh<Lexer>(m, "Lexer")
+    py::classh<Lexer>(parsing, "Lexer")
         .def(py::init<SourceBuffer, BumpAllocator&, Diagnostics&, SourceManager&, LexerOptions>(),
              py::keep_alive<1, 3>(), py::keep_alive<1, 4>(), py::keep_alive<1, 5>(), "buffer"_a,
              "alloc"_a, "diagnostics"_a, "sourceManager"_a, "options"_a = LexerOptions())
         .def("lex", py::overload_cast<>(&Lexer::lex))
         .def("isNextTokenOnSameLine", &Lexer::isNextTokenOnSameLine)
-        .def_property_readonly("library", &Lexer::getLibrary);
+        .def_property_readonly("library", &Lexer::getLibrary)
+        .def_property_readonly("bufferId", &Lexer::getBufferId);
 
-    py::classh<PreprocessorOptions>(m, "PreprocessorOptions")
+    py::classh<PreprocessorOptions>(parsing, "PreprocessorOptions")
         .def(py::init<>())
         .def_readwrite("maxIncludeDepth", &PreprocessorOptions::maxIncludeDepth)
         .def_readwrite("languageVersion", &PreprocessorOptions::languageVersion)
@@ -425,9 +538,10 @@ void registerSyntax(py::module_& m) {
         .def_readwrite("predefines", &PreprocessorOptions::predefines)
         .def_readwrite("undefines", &PreprocessorOptions::undefines)
         .def_readwrite("additionalIncludePaths", &PreprocessorOptions::additionalIncludePaths)
-        .def_readwrite("ignoreDirectives", &PreprocessorOptions::ignoreDirectives);
+        .def_readwrite("ignoreDirectives", &PreprocessorOptions::ignoreDirectives)
+        .def_readwrite("keywordMapping", &PreprocessorOptions::keywordMapping);
 
-    py::classh<ParserOptions>(m, "ParserOptions")
+    py::classh<ParserOptions>(parsing, "ParserOptions")
         .def(py::init<>())
         .def_readwrite("maxRecursionDepth", &ParserOptions::maxRecursionDepth)
         .def_readwrite("languageVersion", &ParserOptions::languageVersion);
@@ -457,13 +571,53 @@ void registerSyntax(py::module_& m) {
         .def("remove", &PySyntaxRewriter::py_remove)
         .def("replace", &PySyntaxRewriter::py_replace, "oldNode"_a, "newNode"_a,
              "preserveTrivia"_a = false)
-        .def("insert_before", &PySyntaxRewriter::py_insertBefore)
-        .def("insert_after", &PySyntaxRewriter::py_insertAfter)
-        .def("insert_at_front", &PySyntaxRewriter::py_insertAtFront, py::arg("list"),
-             py::arg("newNode"), py::arg("separator") = Token())
-        .def("insert_at_back", &PySyntaxRewriter::py_insertAtBack, py::arg("list"),
-             py::arg("newNode"), py::arg("separator") = Token())
-        .def_property_readonly("factory", &PySyntaxRewriter::getFactory);
+        .def("insertBefore", &PySyntaxRewriter::py_insertBefore)
+        .def("insertAfter", &PySyntaxRewriter::py_insertAfter)
+        .def("insertAtFront", &PySyntaxRewriter::py_insertAtFront<SyntaxList<SyntaxNode>>, "list"_a,
+             "newNode"_a, "separator"_a = Token{})
+        .def("insertAtFront", &PySyntaxRewriter::py_insertAtFront<SeparatedSyntaxList<SyntaxNode>>,
+             "list"_a, "newNode"_a, "separator"_a = Token{})
+        .def("insertAtBack", &PySyntaxRewriter::py_insertAtBack<SyntaxList<SyntaxNode>>, "list"_a,
+             "newNode"_a, "separator"_a = Token{})
+        .def("insertAtBack", &PySyntaxRewriter::py_insertAtBack<SeparatedSyntaxList<SyntaxNode>>,
+             "list"_a, "newNode"_a, "separator"_a = Token{})
+        .def_property_readonly("factory", &PySyntaxRewriter::getFactory,
+                               "Get the SyntaxFactory for creating new syntax nodes")
+        .def_property_readonly("alloc", &PySyntaxRewriter::getAllocator,
+                               "Get the allocator for creating tokens and trivia")
+        .def("makeToken", &PySyntaxRewriter::py_makeToken, "kind"_a, "text"_a,
+             "trivia"_a = std::span<const Trivia>{},
+             "Create a new token with the given kind and text")
+        .def("makeToken", &PySyntaxRewriter::py_makeTokenFromKind, "kind"_a,
+             "trivia"_a = std::span<const Trivia>{},
+             "Create a token with text inferred from kind (for keywords/punctuation)")
+        .def("makeId", &PySyntaxRewriter::py_makeId, "text"_a,
+             "trivia"_a = std::span<const Trivia>{}, "Create an identifier token")
+        .def("makeComma", &PySyntaxRewriter::py_makeComma, "Create a comma token")
+        .def("makeTrivia", &PySyntaxRewriter::py_makeTrivia, "kind"_a, "text"_a,
+             "Create a trivia with text allocated in the rewriter's allocator")
+        .def("clone", &PySyntaxRewriter::py_clone, byrefint, "node"_a,
+             "Create a shallow clone of the given syntax node")
+        .def("deepClone", &PySyntaxRewriter::py_deepClone, byrefint, "node"_a,
+             "Create a deep clone of the given syntax node and all its children")
+        .def("makeList", &PySyntaxRewriter::py_makeSyntaxListGeneric, byrefint, "items"_a,
+             "Create a SyntaxList from a list of syntax nodes")
+        .def("makeSeparatedList", &PySyntaxRewriter::py_makeSeparatedSyntaxListGeneric, byrefint,
+             "items"_a,
+             "Create a SeparatedSyntaxList from a list of syntax nodes and separator tokens")
+        .def("makeTokenList", &PySyntaxRewriter::py_makeTokenList, byrefint, "items"_a,
+             "Create a TokenList from a list of tokens");
 
-    m.def("rewrite", &pySyntaxRewrite, py::arg("tree"), py::arg("handler"));
+    m.def("rewrite", &pySyntaxRewrite, "tree"_a, "handler"_a);
+
+    m.def(
+        "clone", [](const SyntaxNode& node, BumpAllocator& alloc) { return clone(node, alloc); },
+        byrefint, py::keep_alive<0, 2>(), "node"_a, "alloc"_a,
+        "Create a shallow clone of the given syntax node");
+
+    m.def(
+        "deepClone",
+        [](const SyntaxNode& node, BumpAllocator& alloc) { return deepClone(node, alloc); },
+        byrefint, py::keep_alive<0, 2>(), "node"_a, "alloc"_a,
+        "Create a deep clone of the given syntax node and all its children");
 }

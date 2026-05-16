@@ -58,20 +58,32 @@ class RateLimitStrategy(str, Enum):
 
 
 class RateLimitExtractorResponse(BaseModel):
-    """Response from a rate limit extractor."""
+    """Response from a rate limit extractor (3rd Party API information)."""
 
-    # Remaining requests in the current time window
     remaining: int
-    # Total requests allowed in the current time window
+    """
+    The remaining requests in the current time window.
+    """
     limit: int
-    # Reset time in seconds (from the API if available)
+    """
+    The total requests allowed in the current time window.
+    """
     reset: int | None = None
-    # Time window in seconds config (from the API if available)
+    """
+    The reset time in seconds (from the API if available).
+    """
     window_seconds: int | None = None
-    # Observed requests (from the API if available)
+    """
+    The time window in seconds config (from the API if available).
+    """
     observed: str | None = None
-    # Requests per window directly config (from the API if available)
+    """
+    The observed requests (from the API if available).
+    """
     requests_per_window: int | None = None
+    """
+    The requests per window directly configured (from the API if available).
+    """
 
 
 class RateLimitExtractor(ABC):
@@ -86,60 +98,80 @@ class RateLimitExtractor(ABC):
 class RateLimitConfigBase(BaseModel):
     """Base configuration for rate limiting."""
 
-    # Maximum number of requests per time window
     requests_per_window: int
-    # Time window in seconds
+    """
+    The maximum number of requests per time window.
+    """
     window_seconds: int
-    # Maximum retries
+    """
+    The time window in seconds for the rate limit.
+    """
     maximum_retries: int = MAXIMUM_RETRIES
-    # Strategy for rate limiting
+    """
+    The maximum number of retries for the rate limit.
+    """
     strategy: RateLimitStrategy = RateLimitStrategy.FIXED
-    # Maximum batch size for requests
+    """
+    The strategy for rate limiting.
+    """
     max_batch_size: int | None = None
-    # Initial delay between batches in seconds
+    """
+    The maximum batch size for requests.
+    """
     initial_delay: float = 0.0
-    # Maximum delay between batches in seconds
+    """
+    The initial delay between batches in seconds.
+    """
     max_delay: float = 60.0
-    # Backoff factor for exponential backoff
+    """
+    The maximum delay between batches in seconds.
+    """
     backoff_factor: float = 1.5
-    # Concurrency configuration (maximum number of concurrent requests)
+    """
+    Exponential backoff factor for the delay between batches.
+    """
     max_concurrent: int = 1
-    # Rate limit mode. None = SDK auto-selects (write → RETRY_ONLY, read → ENFORCE)
+    """
+    The maximum number of concurrent requests.
+    """
     mode: RateLimitMode | None = None
+    """
+    The rate limit mode determines the behavior of the rate limiter.
+    None = SDK auto-selects (write → RETRY_ONLY, read → ENFORCE)
+    """
 
 
 class RateLimitConfig(RateLimitConfigBase):
     """Configuration for rate limiting."""
 
-    # App ID of the current connector.
-    # Deprecated: prefer config_id for connectors with multiple rate limit tiers.
-    # app_id is kept for backwards compatibility and as the fallback when config_id is not set.
-    app_id: str
+    config_id: str
+    """
+    The config_id is used to identify the rate limit tier in the rate limit state.
+    It is typically the connector name (e.g. "github") or a descriptive suffix (e.g. "github-rest", "github-graphql").
+    """
 
-    # Optional per-tier identifier, e.g. "github-rest" or "github-graphql".
-    # When set, used in place of app_id for rate limit state keying so each tier's
-    # state survives independently across page calls.
-    config_id: str | None = None
-
-    @property
-    def effective_config_id(self) -> str:
-        """config_id if set, otherwise app_id. Use this as the key for state passthrough."""
-        return self.config_id if self.config_id is not None else self.app_id
-
-    # Function to extract rate limit info from response
     rate_limit_extractor: Callable[[httpx.Response], RateLimitExtractorResponse] | None = None
+    """
+    A function to extract rate limit information from the response.
+    """
 
-    # Function to check if an error is a rate limit error, overrides default is_rate_limit_error
     rate_limit_error_check: Callable[[Exception], bool] | None = None
+    """
+    A function to check if an error is a rate limit error.
+    If truthy, the error is retried up to `maximum_retries` times.
+    """
 
-    # Function to check if an error is a transient error, overrides default is_transient_error
     transient_error_check: Callable[[Exception], bool] | None = None
+    """
+    A function to check if an error is a transient error.
+    If truthy, the error is retried up to `maximum_retries` times.
+    """
 
     @classmethod
-    def default(cls, app_id: str) -> "RateLimitConfig":
+    def default(cls, config_id: str) -> "RateLimitConfig":
         """Get the default rate limit config."""
         return cls(
-            app_id=app_id,
+            config_id=config_id,
             requests_per_window=30,
             window_seconds=60,
             strategy=RateLimitStrategy.FIXED,

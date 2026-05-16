@@ -80,6 +80,122 @@ class SwarmTask:
         }
 
 
+# Explicit profiles for sage-hosted cloud:* models. The generic substring
+# heuristic in from_model_id() works for big-name models but misses our
+# specific deployment — this table fills the gap with production-tuned
+# strengths. Key uses substring matching (see _cloud_key) so a future
+# `cloud:qwen-coder-7b:v2` tag still resolves to this profile.
+_CLOUD_MODEL_PROFILES: dict[str, dict] = {
+    # The coding specialist — best for IMPLEMENTATION/DEBUGGING/REFACTORING.
+    "qwen-coder-7b": {
+        "strengths": (
+            "IMPLEMENTATION", "DEBUGGING", "REFACTORING", "TESTING",
+        ),
+        "cost_tier": "cheap",
+        "speed": "fast",
+        "context_size": 8192,
+    },
+    # General-purpose workhorse — solid all-around.
+    "llama-3-1-8b": {
+        "strengths": (
+            "DOCUMENTATION", "REVIEW", "ARCHITECTURE", "IMPLEMENTATION",
+        ),
+        "cost_tier": "cheap",
+        "speed": "fast",
+        "context_size": 8192,
+    },
+    # The reasoning specialist — chain-of-thought, architecture, review.
+    "deepseek-r1-7b": {
+        "strengths": (
+            "ARCHITECTURE", "REVIEW", "DEBUGGING", "SECURITY",
+        ),
+        "cost_tier": "cheap",
+        "speed": "fast",
+        "context_size": 16384,
+    },
+    # Alternative chat — strong general instruction following.
+    "gemma-2-9b": {
+        "strengths": (
+            "DOCUMENTATION", "REVIEW", "ARCHITECTURE",
+        ),
+        "cost_tier": "cheap",
+        "speed": "fast",
+        "context_size": 8192,
+    },
+    # Microsoft's compact powerhouse — strong all-rounder.
+    "phi-4-14b": {
+        "strengths": (
+            "ARCHITECTURE", "DOCUMENTATION", "REVIEW", "REFACTORING",
+        ),
+        "cost_tier": "cheap",
+        "speed": "fast",
+        "context_size": 8192,
+    },
+    # Reliable instruction-following workhorse.
+    "mistral-7b": {
+        "strengths": (
+            "DOCUMENTATION", "REVIEW", "IMPLEMENTATION",
+        ),
+        "cost_tier": "cheap",
+        "speed": "fast",
+        "context_size": 8192,
+    },
+    # Vision model — review tasks (look at screenshots, mockups, etc.).
+    # Deliberately NO IMPLEMENTATION here so the swarm doesn't route code
+    # tasks to a vision specialist.
+    "llava-next-7b": {
+        "strengths": (
+            "REVIEW", "DOCUMENTATION",
+        ),
+        "cost_tier": "cheap",
+        "speed": "fast",
+        "context_size": 4096,
+    },
+    # Long-context specialist — large-file analysis, architecture review
+    # across the whole codebase.
+    "yi-1-5-9b": {
+        "strengths": (
+            "ARCHITECTURE", "REVIEW", "DOCUMENTATION",
+        ),
+        "cost_tier": "cheap",
+        "speed": "medium",
+        "context_size": 32768,
+    },
+}
+
+
+def _cloud_key(model_id: str) -> str:
+    """Normalize a model_id to its cloud:* profile key.
+
+    `cloud:qwen-coder-7b` → `qwen-coder-7b`
+    `cloud:qwen-coder-7b:v2` → `qwen-coder-7b` (strips trailing tag)
+    Returns empty string for non-cloud IDs so they fall through to the
+    generic heuristic path.
+    """
+    lower = model_id.lower()
+    if not lower.startswith("cloud:"):
+        return ""
+    name = lower.split(":", 1)[1]
+    # Match the longest profile key that's a prefix of `name`
+    for key in sorted(_CLOUD_MODEL_PROFILES, key=len, reverse=True):
+        if name.startswith(key):
+            return key
+    return ""
+
+
+# Hydrate string-name strengths into TaskType enums up-front so the hot
+# path in from_model_id doesn't keep doing it. Mutating the dict at
+# import time is acceptable since this is module-level config.
+def _hydrate_cloud_profiles() -> None:
+    for key, profile in _CLOUD_MODEL_PROFILES.items():
+        strengths = profile["strengths"]
+        if strengths and isinstance(strengths[0], str):
+            profile["strengths"] = tuple(getattr(TaskType, name) for name in strengths)
+
+
+_hydrate_cloud_profiles()
+
+
 @dataclass
 class ModelProfile:
     """Profile for model routing decisions."""
@@ -92,7 +208,25 @@ class ModelProfile:
 
     @classmethod
     def from_model_id(cls, model_id: str, context_size: int = 8192) -> ModelProfile:
-        """Create a profile from a model ID using heuristics."""
+        """Create a profile from a model ID using heuristics.
+
+        Checks our explicit cloud:* model table first (production-tuned
+        strengths for sage-hosted models), then falls through to the
+        generic substring heuristics for everything else.
+        """
+        # Sage-hosted cloud:* models get explicit, hand-tuned profiles.
+        # Substring match so the same entry handles `:latest` etc. tags.
+        explicit = _CLOUD_MODEL_PROFILES.get(_cloud_key(model_id))
+        if explicit is not None:
+            return cls(
+                model_id=model_id,
+                strengths=list(explicit["strengths"]),
+                cost_tier=explicit["cost_tier"],
+                context_size=explicit.get("context_size", context_size),
+                speed=explicit["speed"],
+            )
+
+        # Fallback: generic substring-based heuristics for unknown models.
         name_lower = model_id.lower()
 
         # Determine cost tier
@@ -117,7 +251,7 @@ class ModelProfile:
             x in name_lower for x in ["coder", "code", "deepseek-coder", "starcoder", "codellama"]
         ):
             strengths.extend([TaskType.IMPLEMENTATION, TaskType.DEBUGGING, TaskType.REFACTORING])
-        if any(x in name_lower for x in ["opus", "o1", "reasoning"]):
+        if any(x in name_lower for x in ["opus", "o1", "reasoning", "deepseek-r1"]):
             strengths.extend([TaskType.ARCHITECTURE, TaskType.REVIEW])
         if any(x in name_lower for x in ["instruct", "chat"]):
             strengths.extend([TaskType.DOCUMENTATION, TaskType.REVIEW])

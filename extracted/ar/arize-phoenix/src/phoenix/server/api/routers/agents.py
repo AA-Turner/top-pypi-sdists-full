@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator, Iterable
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from openinference.instrumentation import using_session
+from openinference.instrumentation import using_metadata, using_session
 from openinference.semconv.trace import OpenInferenceSpanKindValues, SpanAttributes
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import Span as SDKSpan
@@ -31,17 +31,16 @@ from phoenix.config import get_env_phoenix_agents_assistant_project_name
 from phoenix.db import models
 from phoenix.db.helpers import SupportedSQLDialect
 from phoenix.db.insertion.helpers import OnConflict, insert_on_conflict
-from phoenix.server.agents.agent_factory import ChatOutput, build_agent
-from phoenix.server.agents.capabilities import AgentCapabilities
+from phoenix.server.agents.agent_factory import build_agent
 from phoenix.server.agents.context import (
     ChatContext,
     resolve_contexts,
 )
-from phoenix.server.agents.dependencies import ChatDependencies
 from phoenix.server.agents.exceptions import AgentError, SummarizationError
 from phoenix.server.agents.model_factory import build_model
 from phoenix.server.agents.model_selection import AgentModelSelection
 from phoenix.server.agents.summarization import summarize_messages
+from phoenix.server.agents.types import AgentDependencies, AgentOutput
 from phoenix.server.bearer_auth import is_authenticated
 from phoenix.server.types import DbSessionFactory
 from phoenix.tracers import Tracer
@@ -105,7 +104,6 @@ class _ChatMessageMixin(_ObservabilityMixin):
     )
 
     contexts: list[ChatContext] = Field(default_factory=list)
-    capabilities: AgentCapabilities = Field(default_factory=AgentCapabilities)
     messages: list[AssistantMetadataUIMessage]
     model: AgentModelSelection
 
@@ -196,7 +194,7 @@ class _AgentSpanContextRecorder(SpanProcessor):
             attrs.get(SpanAttributes.OPENINFERENCE_SPAN_KIND)
             == OpenInferenceSpanKindValues.AGENT.value
         ):
-            self.span_context = span.get_span_context()  # type: ignore[no-untyped-call]
+            self.span_context = span.get_span_context()
 
     def on_end(self, span: SDKSpan) -> None:  # type: ignore[override]
         pass
@@ -411,16 +409,18 @@ def create_agents_router(authentication_enabled: bool) -> APIRouter:
             getattr(model, "settings", None),
         )
 
-        agent = build_agent(model, tracer_provider=tracer_provider)
-        adapter: VercelAIAdapter[ChatDependencies, ChatOutput] = VercelAIAdapter(
+        agent = build_agent(
+            model=model,
+            docs_mcp_server=request.app.state.docs_mcp_server,
+            tracer_provider=tracer_provider,
+        )
+        adapter: VercelAIAdapter[AgentDependencies, AgentOutput] = VercelAIAdapter(
             agent=agent,
             run_input=body,
             accept=request.headers.get("accept"),
         )
-        deps = ChatDependencies(
+        deps = AgentDependencies(
             contexts=resolve_contexts(body.contexts),
-            capabilities=body.capabilities,
-            docs_mcp_toolset=request.app.state.docs_mcp_toolset,
         )
 
         async def _on_complete(result: AgentRunResult[Any]) -> AsyncIterator[BaseChunk]:
@@ -489,7 +489,7 @@ def create_agents_router(authentication_enabled: bool) -> APIRouter:
 
         history = VercelAIAdapter.load_messages(body.messages)
         try:
-            with using_session(session_id=session_id):
+            with using_metadata({"session_id": session_id}):
                 result = await summarize_messages(messages=history, model=model)
         except SummarizationError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc

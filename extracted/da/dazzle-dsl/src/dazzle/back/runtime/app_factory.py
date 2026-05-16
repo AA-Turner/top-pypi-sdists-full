@@ -475,7 +475,7 @@ def assemble_post_build_routes(
     3. App page routes (``/app/*``, always with ``app_prefix="/app"``)
     4. Experience routes (``/app/experiences/*``, if experiences exist)
     5. Bundled CSS route (``/static/css/dazzle-bundle.css``, if ``bundled_css``)
-    6. Island API routes (``/api/islands``, if islands exist)
+    6. Island API routes (``/_dazzle/islands``, if islands exist)
     7. Schedule sync to process adapter (if adapter + schedules)
     8. 404 handler (if sitespec)
     9. Route validation via ``validate_routes()``
@@ -507,7 +507,7 @@ def assemble_post_build_routes(
             )
 
             # Re-use the DSL/TOML-resolved defaults from the consent-router
-            # block (identical resolution keeps the site pages and /dz/consent
+            # block (identical resolution keeps the site pages and /_dazzle/consent
             # endpoints in sync).
             _site_consent = appspec.analytics.consent if appspec.analytics else None
             _site_jurisdiction = (
@@ -540,19 +540,19 @@ def assemble_post_build_routes(
     # ---- 3. App page routes (/app/*) ----
     try:
         from dazzle.back.converters.entity_converter import convert_entity
-        from dazzle.back.runtime.access_evaluator import evaluate_permission
-        from dazzle.back.runtime.workspace_card_data import _inject_display_names
         from dazzle.ui.runtime.page_routes import create_page_routes
 
+        # evaluate_permission / _inject_display_names used to be injected
+        # into the ui page_routes module via a callable-injection shim
+        # (#679 workaround); since #1094 they live in dazzle.render and
+        # ui imports them directly. No longer threaded through this call.
         page_router = create_page_routes(
             appspec,
             backend_url=backend_url,
             theme_css=theme_css,
             get_auth_context=get_auth_context,
             app_prefix="/app",
-            evaluate_permission_fn=evaluate_permission,
             convert_entity_fn=convert_entity,
-            inject_display_names_fn=_inject_display_names,
         )
         app.include_router(page_router, prefix="/app")
         logger.info("  App pages: %s workspaces mounted at /app", len(appspec.workspaces))
@@ -621,7 +621,7 @@ def assemble_post_build_routes(
                 optional_auth_dep=_island_opt_dep,
             )
             app.include_router(island_router)
-            logger.info("  Islands: %s mounted at /api/islands", len(appspec.islands))
+            logger.info("  Islands: %s mounted at /_dazzle/islands", len(appspec.islands))
         except ImportError as e:
             logger.warning("Island routes not available: %s", e)
 
@@ -675,7 +675,9 @@ def assemble_post_build_routes(
             cookie_policy_url=_cookie_url,
         )
         app.include_router(consent_router)
-        logger.info("  Consent banner: /dz/consent, /dz/consent/state, /dz/consent/banner")
+        logger.info(
+            "  Consent banner: /_dazzle/consent, /_dazzle/consent/state, /_dazzle/consent/banner"
+        )
     except ImportError as e:
         logger.warning("Consent routes not available: %s", e)
 
@@ -690,9 +692,9 @@ def assemble_post_build_routes(
     # ---- 8. 404 handler ----
     if sitespec_data:
         try:
-            from dazzle.back.runtime.exception_handlers import register_site_404_handler
+            from dazzle.back.runtime.exception_handlers import register_site_error_handlers
 
-            register_site_404_handler(
+            register_site_error_handlers(
                 app, sitespec_data, project_root=project_root, appspec=appspec
             )
         except ImportError:
@@ -810,8 +812,8 @@ def create_app_factory(
     # Parse DSL and build spec. Pass `known_renderers=` so the linker
     # rejects `render: <unknown>` clauses against the same default set
     # the runtime registry will install moments later — see
-    # `dazzle_back.runtime.renderers.init.default_renderer_names`.
-    from dazzle.back.runtime.renderers.init import default_renderer_names
+    # `dazzle.core.renderer_registry.default_renderer_names`.
+    from dazzle.core.renderer_registry import default_renderer_names
 
     try:
         dsl_files = discover_dsl_files(project_root, manifest)

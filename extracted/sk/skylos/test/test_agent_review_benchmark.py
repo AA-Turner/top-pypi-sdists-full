@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 
 import pytest
-import skylos.agent_review_benchmark as benchmark
-from skylos.agent_review_benchmark import (
+import skylos.benchmarks.agent_review as benchmark
+from skylos.benchmarks.agent_review import (
     ALLOWED_SCAN_ISSUE_TYPES,
     AGENT_REVIEW_TAXONOMY,
     SECURITY_BENCHMARK_CLASSES,
@@ -50,9 +50,7 @@ def test_checked_in_agent_review_manifest_validates():
     labels = {label for case in cases for label in case["taxonomy"]}
     assert labels <= set(AGENT_REVIEW_TAXONOMY)
     security_labels = {
-        label
-        for case in cases
-        for label in case.get("security_classes", [])
+        label for case in cases for label in case.get("security_classes", [])
     }
     assert security_labels <= set(SECURITY_BENCHMARK_CLASSES)
     assert security_labels >= {
@@ -349,6 +347,8 @@ def test_precision_guard_still_rejects_findings_for_clean_case(tmp_path, monkeyp
         "absent",
         "precision_guard",
     }
+
+
 def test_prepare_case_scan_directory_selects_repo_files(tmp_path):
     proj = tmp_path / "case"
     tests = proj / "tests"
@@ -414,7 +414,9 @@ def test_scan_case_passes_issue_types_into_analyzer(tmp_path, monkeypatch):
         def __init__(self, config):
             seen["config"] = config
 
-        def analyze_files(self, files, defs_map=None, static_findings=None, issue_types=None):
+        def analyze_files(
+            self, files, defs_map=None, static_findings=None, issue_types=None
+        ):
             seen["files"] = list(files)
             seen["issue_types"] = list(issue_types or [])
             return AnalysisResult(findings=[], summary="No issues found", tokens_used=0)
@@ -470,7 +472,9 @@ def test_validate_manifest_rejects_unknown_scan_issue_type(tmp_path):
 
 def test_validate_manifest_rejects_unknown_security_class(tmp_path):
     fixture = tmp_path / "fixture.py"
-    fixture.write_text("def demo(user_input):\n    return user_input\n", encoding="utf-8")
+    fixture.write_text(
+        "def demo(user_input):\n    return user_input\n", encoding="utf-8"
+    )
 
     manifest = {
         "version": 1,
@@ -503,7 +507,9 @@ def test_validate_manifest_rejects_unknown_security_class(tmp_path):
 
 def test_validate_manifest_requires_security_class_for_positive_security_case(tmp_path):
     fixture = tmp_path / "fixture.py"
-    fixture.write_text("def demo(user_input):\n    return user_input\n", encoding="utf-8")
+    fixture.write_text(
+        "def demo(user_input):\n    return user_input\n", encoding="utf-8"
+    )
 
     manifest = {
         "version": 1,

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import subprocess
 
+import requests
 from rich.console import Console
 
 from skylos.cicd.evidence import (
@@ -22,6 +24,7 @@ from skylos.cicd.risk_passport import (
 from skylos.rules.quality.regression import detect_security_regressions
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 def run_pr_review(
@@ -116,10 +119,11 @@ def _resolve_review_provenance(results: dict, *, diff_base: str) -> dict | None:
 
     project_root = results.get("project_root") or "."
     try:
-        from skylos.provenance import analyze_provenance
+        from skylos.reporting.provenance import analyze_provenance
 
         return analyze_provenance(project_root, base_ref=diff_base).to_dict()
-    except Exception:
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        logger.debug("Failed to resolve review provenance: %s", exc)
         return None
 
 
@@ -401,6 +405,40 @@ _RULE_SUGGESTIONS: dict[str, str] = {
     "SKY-D215": "Validate file paths against an allowed directory: `Path(path).resolve().relative_to(allowed_dir)`.",
     "SKY-D216": "Validate URLs against an allowlist of domains. Block internal IPs (`127.0.0.1`, `169.254.x.x`, `10.x.x.x`).",
     "SKY-D223": "Add the package to `requirements.txt` or `pyproject.toml`, or remove the import if unused.",
+    "SKY-D290": "Avoid `pull_request_target` for untrusted code, or keep checkout/build steps isolated from privileged tokens.",
+    "SKY-D291": "Declare `permissions: {}` at workflow scope, then grant minimal permissions per job.",
+    "SKY-D292": "Pin third-party actions and reusable workflows to full 40-character commit SHAs.",
+    "SKY-D293": "Set `persist-credentials: false` on `actions/checkout` unless the job needs to push commits.",
+    "SKY-D294": "Move GitHub context values into `env:` and reference the quoted environment variable inside `run:`.",
+    "SKY-D295": "Use GitHub-hosted runners, or require ephemeral isolated self-hosted runners for untrusted workflows.",
+    "SKY-D296": "Pin container images by digest, for example `image@sha256:...`, instead of mutable tags.",
+    "SKY-D297": "Replace `secrets: inherit` with an explicit `secrets:` map containing only required values.",
+    "SKY-D298": "Reference only a specific secret name; avoid `toJSON(secrets)` and dynamic `secrets[...]` lookups.",
+    "SKY-D299": "Add a job `environment:` and scope the secret to that GitHub environment.",
+    "SKY-D300": "Write only static key/value pairs to `$GITHUB_ENV` or `$GITHUB_PATH`; avoid command-derived writes.",
+    "SKY-D301": "Move the container registry password to a GitHub secret and reference it via `${{ secrets.NAME }}`.",
+    "SKY-D302": "Add repository scoping and explicit `permission-*` inputs for `actions/create-github-app-token`.",
+    "SKY-D303": "Use exact equality checks or `contains(fromJSON('[...]'), value)` instead of substring checks.",
+    "SKY-D304": "Use event-specific sender IDs instead of spoofable actor-name checks for bot logic.",
+    "SKY-D305": "Use an unfenced expression or a stripped block scalar such as `|-` for multiline `if:`.",
+    "SKY-D306": "Remove `ACTIONS_ALLOW_UNSECURE_COMMANDS` from workflow, job, or step environment.",
+    "SKY-D307": "Add a top-level `name:` to the workflow or action.",
+    "SKY-D308": "Remove cache-aware actions from release workflows or disable cache restore/save in publishing jobs.",
+    "SKY-D309": "Scope secrets to the individual step that needs them instead of workflow or job `env:`.",
+    "SKY-D310": "Separate OIDC token issuance from repository-controlled build scripts; publish from prebuilt artifacts.",
+    "SKY-D311": "Set `if-no-files-found: error` on `actions/upload-artifact` for required outputs.",
+    "SKY-D312": "Use `npm ci --ignore-scripts` or an equivalent package-manager flag unless lifecycle scripts are required.",
+    "SKY-D313": "Add `timeout-minutes` to privileged or release-like jobs.",
+    "SKY-D314": "Pin GitLab CI `image:` and `services:` entries by digest, especially `docker:dind` services.",
+    "SKY-D315": "Pin `include:project` entries to full commit SHAs and add `integrity:` to remote includes.",
+    "SKY-D316": "Move literal secrets out of `.gitlab-ci.yml` and into protected, masked GitLab CI/CD variables.",
+    "SKY-D317": "Do not pass merge request or ref metadata into `eval`, `sh -c`, `bash -c`, or interpreter `-c`/`-e` commands.",
+    "SKY-D318": "Use TLS-enabled Docker-in-Docker, or avoid privileged Docker socket access in this job.",
+    "SKY-D319": "Separate OIDC token issuance from repository-controlled scripts; publish from prebuilt artifacts.",
+    "SKY-D320": "Remove cache restore from release/deploy jobs or use isolated release-only cache keys.",
+    "SKY-D321": "Add `timeout:` to GitLab CI release, deploy, or OIDC jobs.",
+    "SKY-D322": "Use static GitLab runner tags so untrusted refs cannot select privileged runners.",
+    "SKY-D323": "Set an explicit `token:` for each GitLab CI secret when the job defines multiple `id_tokens`.",
     "SKY-S101": "Move secrets to environment variables: `os.getenv('SECRET_KEY')`. Never hardcode credentials.",
 }
 
@@ -518,8 +556,8 @@ def _to_relative_path(filepath: str) -> str:
             root = result.stdout.strip()
             if filepath.startswith(root):
                 return filepath[len(root) :].lstrip("/")
-    except Exception:
-        pass
+    except OSError as exc:
+        logger.debug("Failed to resolve git root for review path: %s", exc)
     return filepath
 
 
@@ -775,8 +813,7 @@ def _post_summary_comment(
 
 def _fetch_previous_grade(repo: str, base_branch: str = "origin/main") -> dict | None:
     try:
-        from skylos.api import get_project_token, BASE_URL
-        import requests
+        from skylos.api import BASE_URL, get_project_token
 
         token = get_project_token()
         if not token:
@@ -791,8 +828,13 @@ def _fetch_previous_grade(repo: str, base_branch: str = "origin/main") -> dict |
         )
         if resp.status_code == 200:
             return resp.json().get("grade")
-    except Exception:
-        pass
+    except (
+        ImportError,
+        OSError,
+        ValueError,
+        requests.exceptions.RequestException,
+    ) as exc:
+        logger.debug("Failed to fetch previous grade: %s", exc)
     return None
 
 

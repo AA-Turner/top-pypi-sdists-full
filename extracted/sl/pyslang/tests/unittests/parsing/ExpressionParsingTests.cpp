@@ -310,6 +310,17 @@ TEST_CASE("Element range") {
     testElementRange("(foo).bar[3-:4]", SyntaxKind::DescendingRangeSelect);
 }
 
+TEST_CASE("Colon-plus range warning") {
+    auto& text = "(foo).bar[3:+4]";
+    auto& expr = parseExpression(text);
+
+    REQUIRE(expr.kind == SyntaxKind::ElementSelectExpression);
+    CHECK(expr.as<ElementSelectExpressionSyntax>().select->selector->kind ==
+          SyntaxKind::SimpleRangeSelect);
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::ColonPlusRange);
+}
+
 TEST_CASE("Member Access") {
     auto& text = "(foo).bar";
     auto& expr = parseExpression(text);
@@ -335,6 +346,15 @@ TEST_CASE("Inside expression") {
     REQUIRE(expr.kind == SyntaxKind::InsideExpression);
     CHECK(expr.toString() == text);
     CHECK_DIAGNOSTICS_EMPTY;
+}
+
+TEST_CASE("Inside expression -- no braces") {
+    auto& text = "x inside arr";
+    auto& expr = parseExpression(text);
+
+    REQUIRE(expr.kind == SyntaxKind::InsideExpression);
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::NonstandardInside);
 }
 
 TEST_CASE("Tagged union expression") {

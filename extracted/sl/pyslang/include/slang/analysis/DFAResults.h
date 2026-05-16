@@ -7,6 +7,8 @@
 //------------------------------------------------------------------------------
 #pragma once
 
+#include <map>
+
 #include "slang/util/Function.h"
 #include "slang/util/IntervalMap.h"
 #include "slang/util/SmallMap.h"
@@ -20,6 +22,7 @@ class Expression;
 class Statement;
 class Symbol;
 class TimingControl;
+class ValuePath;
 class ValueSymbol;
 
 } // namespace slang::ast
@@ -69,10 +72,9 @@ public:
     }
 
     /// Determines whether the given subset of the symbol (via the provided
-    /// longest static prefix expression) is referenced anywhere in
-    /// the procedure, either as an lvalue or an rvalue.
-    bool isReferenced(ast::EvalContext& evalContext, const ast::ValueSymbol& symbol,
-                      const ast::Expression& lsp) const;
+    /// value path) is referenced anywhere in the procedure, either as an
+    /// lvalue or an rvalue.
+    bool isReferenced(const ast::ValuePath& path) const;
 
     /// Gets the inferred clock for the procedure, if one exists.
     const ast::TimingControl* inferClock(AnalysisContext& context, const ast::Symbol& symbol,
@@ -100,11 +102,32 @@ public:
         /// The assigned bit ranges of the symbol.
         SymbolLSPMap assigned;
 
+        /// Set to true if the symbol is declared locally to the procedure,
+        /// is static, and has assignments to it.
+        bool isLocallyDeclared = false;
+
         LValueSymbol(const ast::ValueSymbol& symbol) : symbol(&symbol) {}
     };
 
     /// Gets all of the lvalues used in the procedure.
     std::span<const LValueSymbol> getLValues() const { return lvalues; }
+
+    /// Gets lvalue state for the given symbol, or a nullptr if no state is tracked.
+    const LValueSymbol* getLValue(const ast::ValueSymbol& symbol) const;
+
+    using ReadSet = SmallMap<const ast::ValueSymbol*, SymbolBitMap, 2>;
+
+    /// Gets all of the nets and variables that were read in the procedure,
+    /// along with their accessed bit ranges.
+    const ReadSet& getRValues() const { return rvalues; }
+
+    /// Gets the per-region read sets for all @* timing controls in the procedure.
+    const std::map<const ast::Statement*, ReadSet>& getImplicitEventRValues() const {
+        return implicitEventRVals;
+    }
+
+    /// Gets the allocator used to create symbol bit maps.
+    SymbolBitMap::allocator_type& getBitMapAllocator() { return bitMapAllocator; }
 
 protected:
     DFAResults(AnalysisContext& context, const SmallVectorBase<SymbolBitMap>& stateRef);
@@ -123,7 +146,15 @@ protected:
     SmallVector<LValueSymbol> lvalues;
 
     /// All of the nets and variables that have been read in the procedure.
-    SmallMap<const ast::ValueSymbol*, SymbolBitMap, 4> rvalues;
+    ReadSet rvalues;
+
+    /// For locally declared static variables only, the assigned ranges at
+    /// end of their declaring scope.
+    ReadSet localLValStates;
+
+    /// Per-@*-region read sets, accumulated during DFA. This is a std::map because
+    /// the ReadSet is a SmallMap which is not relocatable.
+    std::map<const ast::Statement*, ReadSet> implicitEventRVals;
 
     /// All statements that have timing controls associated with them.
     SmallVector<const ast::Statement*> timedStatements;

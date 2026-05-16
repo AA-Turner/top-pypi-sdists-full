@@ -69,10 +69,6 @@ enum class VariableFlags : uint16_t;
 SLANG_ENUM(ExpressionKind, EXPRESSION)
 #undef EXPRESSION
 
-#define RANGE(x) x(Simple) x(IndexedUp) x(IndexedDown)
-SLANG_ENUM(RangeSelectionKind, RANGE)
-#undef RANGE
-
 // clang-format off
 #define CK(x) \
     x(Implicit) \
@@ -239,7 +235,7 @@ public:
     /// Builds a tree of select expressions to map down to the target flattened bit range.
     ///
     /// @note The expression must be of integral type and the flatRange must be in
-    ///       canonical (little-endian) format.
+    ///       canonical (descending) format.
     static Expression& buildPackedSelectTree(const TypeProvider& typeProvider, Expression& expr,
                                              ConstantRange flatRange, const ASTContext& context);
 
@@ -392,8 +388,8 @@ protected:
     static Expression& bindLookupResult(
         Compilation& compilation, LookupResult& result,
         const syntax::InvocationExpressionSyntax* invocation,
-        const syntax::ArrayOrRandomizeMethodExpressionSyntax* withClause,
-        const ASTContext& context);
+        const syntax::ArrayOrRandomizeMethodExpressionSyntax* withClause, const ASTContext& context,
+        Expression* accessViaExpr = nullptr);
 
     static Expression& bindSelectExpression(Compilation& compilation,
                                             const syntax::ElementSelectExpressionSyntax& syntax,

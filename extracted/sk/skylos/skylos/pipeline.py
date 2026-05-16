@@ -7,7 +7,7 @@ from pathlib import Path
 from concurrent.futures import as_completed
 
 from skylos.config import load_config
-from skylos.file_discovery import discover_source_files
+from skylos.core.file_discovery import discover_source_files
 from skylos.llm.repo_activation import build_repo_activation_index
 from skylos.llm.security_verifier import (
     SecurityVerifier,
@@ -105,7 +105,10 @@ def _enrich_with_llm_suggestions(
                 source = pathlib.Path(filepath).read_text(
                     encoding="utf-8", errors="ignore"
                 )
-            except Exception:
+            except OSError as exc:
+                logger.debug(
+                    "Skipping unreadable source for suggestions %s: %s", filepath, exc
+                )
                 continue
 
         findings_text = "\n".join(
@@ -285,13 +288,13 @@ def run_static_on_files(
         return _norm(item_path)
 
     try:
-        from skylos.sync import get_custom_rules
-
+        from skylos.cloud.sync import get_custom_rules
+    except ImportError as exc:
+        logger.debug("Custom rules sync unavailable: %s", exc)
+    else:
         custom_rules_data = get_custom_rules()
         if custom_rules_data:
             os.environ["SKYLOS_CUSTOM_RULES"] = json.dumps(custom_rules_data)
-    except Exception:
-        pass
 
     try:
         from skylos.constants import parse_exclude_folders
@@ -311,7 +314,8 @@ def run_static_on_files(
             changed_files=sorted(target_files),
         )
         full_result = json.loads(result_json)
-    except Exception:
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        logger.debug("Static analysis failed for changed files: %s", exc)
         return _empty_result()
 
     filtered = {
@@ -495,8 +499,8 @@ def run_pipeline(
             source_cache[_norm(f)] = pathlib.Path(f).read_text(
                 encoding="utf-8", errors="ignore"
             )
-        except Exception:
-            pass
+        except OSError as exc:
+            logger.debug("Skipping unreadable pipeline source file %s: %s", f, exc)
 
     dead_code_findings = static_findings.get("dead_code", [])
     review_index = build_repo_activation_index(
@@ -784,10 +788,7 @@ def run_pipeline(
         else:
             all_findings.append(llm_f)
             llm_only_count += 1
-            if (
-                llm_f.get("_source") == "llm"
-                and llm_f.get("_category") == "security"
-            ):
+            if llm_f.get("_source") == "llm" and llm_f.get("_category") == "security":
                 llm_security_only.append(llm_f)
 
     if llm_security_only:
@@ -810,7 +811,9 @@ def run_pipeline(
             refuted_ids = {id(finding) for finding in review["refuted_findings"]}
             if refuted_ids:
                 all_findings = [
-                    finding for finding in all_findings if id(finding) not in refuted_ids
+                    finding
+                    for finding in all_findings
+                    if id(finding) not in refuted_ids
                 ]
             console.print(
                 f"[good]✓ Security re-review:[/good] "

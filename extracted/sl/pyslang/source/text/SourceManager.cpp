@@ -193,6 +193,25 @@ const SourceLibrary* SourceManager::getLibraryFor(BufferID buffer) const {
     return info->library;
 }
 
+SourceManager::BufferKind SourceManager::getBufferKind(BufferID buffer) const {
+    std::shared_lock<std::shared_mutex> lock(mutex);
+    if (buffer && buffer.getId() < bufferEntries.size()) {
+        if (auto* exp = std::get_if<ExpansionInfo>(&bufferEntries[buffer.getId()]))
+            return exp->isMacroArg ? BufferKind::MacroArg : BufferKind::Macro;
+        else
+            return std::get<FileInfo>(bufferEntries[buffer.getId()]).bufferKind;
+    }
+
+    return BufferKind::Unknown;
+}
+
+void SourceManager::setBufferKind(BufferID buffer, BufferKind kind) {
+    std::unique_lock<std::shared_mutex> lock(mutex);
+    auto info = getFileInfo(buffer, lock);
+    if (info)
+        info->bufferKind = kind;
+}
+
 std::string_view SourceManager::getMacroName(SourceLocation location) const {
     std::shared_lock<std::shared_mutex> lock(mutex);
     while (isMacroArgLocImpl(location, lock))
@@ -435,7 +454,7 @@ SourceManager::BufferOrError SourceManager::readHeader(
         return nonstd::make_unexpected(make_error_code(std::errc::no_such_file_or_directory));
     }
 
-    // search relative to the current file
+    // Determine the local (relative-to-current-file) directory, used below.
     const fs::path* currFileDir = nullptr;
     if (!disableLocalIncludes) {
         auto fileLoc = getFullyExpandedLoc(includedFrom);
@@ -446,7 +465,10 @@ SourceManager::BufferOrError SourceManager::readHeader(
             currFileDir = info->data->directory;
     }
 
-    if (currFileDir) {
+    // When incDirFirst is set, user-specified directories (+incdir/-I) are searched
+    // before the local directory, matching the behavior of VCS and similar simulators.
+    // Otherwise (default), the local directory is searched first.
+    if (!incDirFirst && currFileDir) {
         auto result = openCached(*currFileDir / p, includedFrom, library);
         if (result)
             return result;
@@ -471,6 +493,12 @@ SourceManager::BufferOrError SourceManager::readHeader(
     std::shared_lock<std::shared_mutex> includeDirLock(includeDirMutex);
     for (auto& d : userDirectories) {
         auto result = openCached(d / p, includedFrom, library);
+        if (result)
+            return result;
+    }
+
+    if (incDirFirst && currFileDir) {
+        auto result = openCached(*currFileDir / p, includedFrom, library);
         if (result)
             return result;
     }
@@ -535,6 +563,18 @@ std::vector<BufferID> SourceManager::getAllBuffers() const {
         result.push_back(BufferID((uint32_t)i, ""sv));
 
     return result;
+}
+
+size_t SourceManager::getMemoryUsage() const {
+    std::shared_lock<std::shared_mutex> lock(mutex);
+    size_t total = 0;
+    for (auto& [path, entry] : lookupCache) {
+        if (entry.first) {
+            total += entry.first->mem.capacity();
+            total += entry.first->lineOffsets.capacity() * sizeof(size_t);
+        }
+    }
+    return total;
 }
 
 template<IsLock TLock>

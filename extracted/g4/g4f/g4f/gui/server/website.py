@@ -21,7 +21,10 @@ def render(filename = "home", download_url: str = GITHUB_URL):
     html = None
     is_temp = False
     if os.path.exists(DIST_DIR) and not request.args.get("debug"):
-        path = os.path.abspath(os.path.join(os.path.dirname(DIST_DIR), filename))
+        base_dir = os.path.abspath(os.path.dirname(DIST_DIR))
+        path = os.path.abspath(os.path.join(base_dir, filename))
+        if not path.startswith(base_dir + os.sep) and path != base_dir:
+            return redirect('/')
         if os.path.exists(path):
             if download_url == GITHUB_URL:
                 with open(path, 'r', encoding='utf-8') as f:
@@ -130,6 +133,14 @@ class Website:
                 'function': self._npm,
                 'methods': ['GET']
             },
+            '/playground/': {
+                'function': self._playground,
+                'methods': ['GET']
+            },
+            '/playground/<path:filename>': {
+                'function': self._playground,
+                'methods': ['GET']
+            },
         }
 
     def _index(self, filename = "home"):
@@ -160,3 +171,40 @@ class Website:
 
     def _npm(self, name):
         return render(f"npm/{name}", JSDELIVR_URL)
+
+    def _playground(self, filename: str = "index.html"):
+        PLAYGROUND_URL = "https://raw.githubusercontent.com/gpt4free/playground/refs/heads/main/"
+        if not filename or filename.endswith("/"):
+            filename = "index.html"
+        filename += ("" if "." in filename else ".html")
+        # Serve from local ./playground directory if present
+        local_dir = os.path.abspath("./playground")
+        local_path = os.path.normpath(os.path.join(local_dir, filename))
+        if local_path.startswith(local_dir + os.sep) and os.path.isfile(local_path):
+            return send_from_directory(os.path.dirname(local_path), os.path.basename(local_path))
+        # Use cache dir
+        cache_dir = os.path.join(get_cookies_dir(), ".playground_cache")
+        safe_path = os.path.normpath(os.path.join(cache_dir, filename))
+        if not safe_path.startswith(cache_dir + os.sep) and safe_path != cache_dir:
+            return redirect("/playground/")
+        # Serve from cache if present
+        if os.path.isfile(safe_path):
+            return send_from_directory(os.path.dirname(safe_path), os.path.basename(safe_path))
+        # Download and cache from GitHub
+        os.makedirs(os.path.dirname(safe_path), exist_ok=True)
+        try:
+            response = requests.get(f"{PLAYGROUND_URL}{filename}", timeout=10)
+            response.raise_for_status()
+            with open(safe_path, 'wb') as f:
+                f.write(response.content)
+            return send_from_directory(os.path.dirname(safe_path), os.path.basename(safe_path))
+        except requests.RequestException:
+            pass
+        # SPA fallback: serve index.html for unknown sub-paths
+        index_path = os.path.join(cache_dir, "index.html")
+        if os.path.isfile(index_path):
+            return send_from_directory(cache_dir, "index.html")
+        local_index = os.path.join(local_dir, "index.html")
+        if os.path.isfile(local_index):
+            return send_from_directory(local_dir, "index.html")
+        return redirect("https://gpt4free.github.io/playground")

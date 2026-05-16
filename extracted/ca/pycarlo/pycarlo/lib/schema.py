@@ -210,6 +210,45 @@ class AdfTaskRunModelStatus(pycarlo.lib.types.Enum):
     )
 
 
+class AgentGraphInsightCategory(pycarlo.lib.types.Enum):
+    """Categories of derived findings about a fused agent graph.
+
+    Enumeration Choices:
+
+    * `CHOKEPOINT`None
+    * `ERROR_CONCENTRATION`None
+    * `LOOP_SATURATION`None
+    * `MODEL_INCONSISTENCY`None
+    * `SEQUENTIAL_BOTTLENECK`None
+    * `TOOL_HOTSPOT`None
+    * `TOOL_TIMEOUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CHOKEPOINT",
+        "ERROR_CONCENTRATION",
+        "LOOP_SATURATION",
+        "MODEL_INCONSISTENCY",
+        "SEQUENTIAL_BOTTLENECK",
+        "TOOL_HOTSPOT",
+        "TOOL_TIMEOUT",
+    )
+
+
+class AgentGraphInsightSeverity(pycarlo.lib.types.Enum):
+    """Severity tiers for ordering insights — high first, then medium.
+
+    Enumeration Choices:
+
+    * `HIGH`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HIGH", "MEDIUM")
+
+
 class AgentGraphNodeKind(pycarlo.lib.types.Enum):
     """Kind of a fused agent-graph node — derived from the underlying
     span.  `is_llm_call=True` → LLM; `is_tool_call=True` → TOOL;
@@ -11579,7 +11618,14 @@ class MonitorSelectExpressionInput(sgqlc.types.Input):
 
 class MonitorTuningRecInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("title", "reasoning", "change_summary", "is_split")
+    __field_names__ = (
+        "title",
+        "reasoning",
+        "change_summary",
+        "is_split",
+        "target_mcon",
+        "target_metric",
+    )
     title = sgqlc.types.Field(String, graphql_name="title")
 
     reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
@@ -11587,6 +11633,10 @@ class MonitorTuningRecInput(sgqlc.types.Input):
     change_summary = sgqlc.types.Field(String, graphql_name="changeSummary")
 
     is_split = sgqlc.types.Field(Boolean, graphql_name="isSplit")
+
+    target_mcon = sgqlc.types.Field(String, graphql_name="targetMcon")
+
+    target_metric = sgqlc.types.Field(String, graphql_name="targetMetric")
 
 
 class MonitoredTableRuleInput(sgqlc.types.Input):
@@ -14593,8 +14643,13 @@ class ICustomRulesMonitor(sgqlc.types.Interface):
     """Whether the monitor is conditionally snoozed"""
 
     breach_rate = sgqlc.types.Field(String, graphql_name="breachRate")
-    """Percentage of last 10 runs in which the monitor's condition was
-    breached
+    """Fraction (0.0 – 1.0) of the most recent 10 qualifying runs in
+    which the monitor's condition was breached, rounded to two
+    decimals and returned as a decimal string (e.g. `"0.8"`). Null for
+    metric and table monitors, for custom-rule monitors with no
+    recorded breach history, and for custom-rule monitors with fewer
+    than 10 recorded runs (so the value only surfaces once the rule
+    has accumulated a full history window).
     """
 
     comments_count = sgqlc.types.Field(Int, graphql_name="commentsCount")
@@ -17294,6 +17349,115 @@ class AgentGraphEdge(sgqlc.types.Type):
     fan-OUT: the source diverges into that many parallel branches.
     Defaults to 1 for plain sequential edges. The largest cluster size
     observed across all fused traces is reported.
+    """
+
+
+class AgentGraphInsight(sgqlc.types.Type):
+    """One derived finding about the fused agent graph."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "category",
+        "severity",
+        "title",
+        "detail",
+        "evidence_node_ids",
+        "metrics_json",
+    )
+    category = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentGraphInsightCategory), graphql_name="category"
+    )
+
+    severity = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentGraphInsightSeverity), graphql_name="severity"
+    )
+
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+    """Short one-line headline suitable for a list view."""
+
+    detail = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="detail")
+    """1–2 sentence explanation referencing concrete numbers. Inline code
+    (backticks) wraps node / tool names so the UI can render verbatim.
+    """
+
+    evidence_node_ids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="evidenceNodeIds",
+    )
+    """Node ids on the underlying AgentGraph that motivated this insight.
+    Useful for highlighting them in a graph rendering.
+    """
+
+    metrics_json = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metricsJson")
+    """Category-specific numeric metrics encoded as a JSON object (e.g.
+    `savings_ms`, `wait_ms`, `share`). Schema-opaque on purpose —
+    adding a new metric to a detector does not require a GraphQL
+    schema change. Keys are documented per category in
+    `monolith.service.agent_observability.agent_graph_insights`.
+    """
+
+
+class AgentGraphInsights(sgqlc.types.Type):
+    """Derived insights about a fused agent graph plus an optional prose
+    summary.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "insights",
+        "headline_critical_path",
+        "summary",
+        "trace_count",
+        "span_count",
+        "window_start",
+        "window_end",
+    )
+    insights = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentGraphInsight))),
+        graphql_name="insights",
+    )
+    """Insights sorted by severity (high → low), then by a per-category
+    numeric salience tiebreaker.
+    """
+
+    headline_critical_path = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="headlineCriticalPath",
+    )
+    """Ordered list of node ids on the optimization spine, root → target.
+    When a `CHOKEPOINT` or `SEQUENTIAL_BOTTLENECK` insight fires, the
+    chain ends at that insight's target — so the headline always
+    agrees with the insight on which node to highlight. When neither
+    qualifies (purely sequential workflow with no dominant step, or
+    all clusters below the savings threshold), the chain falls back to
+    the longest end-time path root → leaf — filtered by trace coverage
+    so rare optional branches don't win — so a UI can still draw
+    something.
+    """
+
+    summary = sgqlc.types.Field(String, graphql_name="summary")
+    """Single-paragraph natural-language summary of the insights,
+    generated by an LLM at resolver time. Null when there are no
+    insights to summarize, or when the LLM call failed (the structured
+    `insights` field is still returned).
+    """
+
+    trace_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="traceCount")
+    """Number of traces fused — echoed from the underlying graph."""
+
+    span_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="spanCount")
+    """Total spans across all fused traces — echoed from the underlying
+    graph.
+    """
+
+    window_start = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="windowStart")
+    """Earliest start time across the fused traces — echoed from the
+    underlying graph.
+    """
+
+    window_end = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="windowEnd")
+    """Latest end time across the fused traces — echoed from the
+    underlying graph.
     """
 
 
@@ -34587,7 +34751,14 @@ class MonitorTuningRec(sgqlc.types.Type):
     """One recommendation produced by the monitor_tuning agent."""
 
     __schema__ = schema
-    __field_names__ = ("title", "reasoning", "change_summary", "is_split")
+    __field_names__ = (
+        "title",
+        "reasoning",
+        "change_summary",
+        "is_split",
+        "target_mcon",
+        "target_metric",
+    )
     title = sgqlc.types.Field(String, graphql_name="title")
 
     reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
@@ -34595,6 +34766,16 @@ class MonitorTuningRec(sgqlc.types.Type):
     change_summary = sgqlc.types.Field(String, graphql_name="changeSummary")
 
     is_split = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isSplit")
+
+    target_mcon = sgqlc.types.Field(String, graphql_name="targetMcon")
+    """Set on table-monitor recommendations only; MCON of the target
+    table to retune.
+    """
+
+    target_metric = sgqlc.types.Field(String, graphql_name="targetMetric")
+    """Set on table-monitor recommendations only; metric on the target
+    table the recommendation applies to.
+    """
 
 
 class MonitorTuningRunConnection(sgqlc.types.relay.Connection):
@@ -59092,6 +59273,7 @@ class Query(sgqlc.types.Type):
         "get_traces_filters_data",
         "get_traces",
         "get_agent_graph",
+        "get_agent_graph_insights",
         "get_trace_time_series",
         "get_trace_overview",
         "get_conversations_filters",
@@ -60351,6 +60533,34 @@ class Query(sgqlc.types.Type):
     sequence transitions within each trace. Returns per-node counts,
     error rates, duration/token statistics, and per-trace iteration
     stats so cycles are visible. Capped at 100 traces.
+
+    Arguments:
+
+    * `input` (`GetAgentGraphInput!`)None
+    """
+
+    get_agent_graph_insights = sgqlc.types.Field(
+        AgentGraphInsights,
+        graphql_name="getAgentGraphInsights",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetAgentGraphInput), graphql_name="input", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Derive developer-facing insights from a fused agent
+    graph. Computes parallel-cluster chokepoints, sequential
+    bottlenecks, loop saturation, tool hotspots, tool timeouts, model
+    inconsistencies, and error concentration from the same fusion that
+    powers `getAgentGraph`. Adds a single-paragraph natural-language
+    summary at resolver time. Trace-level rate insights require at
+    least 5 fused traces. Same input and access scope as
+    `getAgentGraph`.
 
     Arguments:
 
@@ -72604,7 +72814,8 @@ class Query(sgqlc.types.Type):
             (("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),)
         ),
     )
-    """Dashboard counts for monitors
+    """Dashboard counts for monitors. Always returns zeros — see
+    deprecation_reason.
 
     Arguments:
 

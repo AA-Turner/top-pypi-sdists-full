@@ -31,6 +31,7 @@ PATH_SANITIZERS = {
     "_resolve_analysis_target",
     "_resolve_policy_path",
     "_resolve_repo_link_path",
+    "_resolve_github_actions_scan_path",
     "_resolve_snippet_path",
     "_result_path",
 }
@@ -119,9 +120,11 @@ class TaintVisitor(ast.NodeVisitor):
             and isinstance(node.func, ast.Attribute)
             and node.func.attr == "format"
         ):
-            return self.is_tainted(node.func.value) or any(
-                self.is_tainted(arg) for arg in node.args
-            ) or any(self.is_tainted(k.value) for k in node.keywords)
+            return (
+                self.is_tainted(node.func.value)
+                or any(self.is_tainted(arg) for arg in node.args)
+                or any(self.is_tainted(k.value) for k in node.keywords)
+            )
 
         if (
             isinstance(node, ast.Call)

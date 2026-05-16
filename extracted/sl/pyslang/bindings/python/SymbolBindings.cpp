@@ -124,7 +124,8 @@ void registerSymbols(py::module_& m) {
              py::overload_cast<const Symbol&>(&Symbol::isDeclaredBefore, py::const_), "target"_a)
         .def("isDeclaredBefore",
              py::overload_cast<LookupLocation>(&Symbol::isDeclaredBefore, py::const_), "location"_a)
-        .def("visit", &pyASTVisit<Symbol>, "f"_a, PyASTVisitor::doc)
+        .def("visit", &pyASTVisit<Symbol>, "f"_a = py::none(), "lookup_table"_a = py::none(),
+             PyASTVisitor::doc)
         .def("__repr__", [](const Symbol& self) {
             return fmt::format("Symbol(SymbolKind.{}, \"{}\")", toString(self.kind), self.name);
         });
@@ -324,6 +325,8 @@ void registerSymbols(py::module_& m) {
         .def_readonly("subroutineKind", &SubroutineSymbol::subroutineKind)
         .def_readonly("visibility", &SubroutineSymbol::visibility)
         .def_readonly("flags", &SubroutineSymbol::flags)
+        .def_readonly("thisVar", &SubroutineSymbol::thisVar)
+        .def_readonly("returnValVar", &SubroutineSymbol::returnValVar)
         .def_property_readonly("arguments", &SubroutineSymbol::getArguments)
         .def_property_readonly("body", &SubroutineSymbol::getBody)
         .def_property_readonly("returnType", &SubroutineSymbol::getReturnType)
@@ -451,18 +454,28 @@ void registerSymbols(py::module_& m) {
     py::classh<ProceduralBlockSymbol, Symbol>(m, "ProceduralBlockSymbol")
         .def_readonly("procedureKind", &ProceduralBlockSymbol::procedureKind)
         .def_property_readonly("isSingleDriverBlock", &ProceduralBlockSymbol::isSingleDriverBlock)
-        .def_property_readonly("body", &ProceduralBlockSymbol::getBody);
+        .def_property_readonly("body", &ProceduralBlockSymbol::getBody)
+        .def_property_readonly("blocks", &ProceduralBlockSymbol::getBlocks);
+
+    EXPOSE_ENUM(m, GenerateBranchKind);
 
     py::classh<GenerateBlockSymbol, Symbol, Scope>(m, "GenerateBlockSymbol")
         .def_readonly("constructIndex", &GenerateBlockSymbol::constructIndex)
         .def_readonly("isUninstantiated", &GenerateBlockSymbol::isUninstantiated)
-        .def_readonly("arrayIndex", &GenerateBlockSymbol::arrayIndex)
+        .def_readonly("branchKind", &GenerateBlockSymbol::branchKind)
+        .def_readonly("caseItemExpressions", &GenerateBlockSymbol::caseItemExpressions)
+        .def_property_readonly("arrayIndex", &GenerateBlockSymbol::getArrayIndex)
+        .def_property_readonly("conditionExpression", &GenerateBlockSymbol::getConditionExpression)
         .def_property_readonly("externalName", &GenerateBlockSymbol::getExternalName);
 
     py::classh<GenerateBlockArraySymbol, Symbol, Scope>(m, "GenerateBlockArraySymbol")
         .def_readonly("constructIndex", &GenerateBlockArraySymbol::constructIndex)
         .def_readonly("entries", &GenerateBlockArraySymbol::entries)
         .def_readonly("valid", &GenerateBlockArraySymbol::valid)
+        .def_readonly("initialExpression", &GenerateBlockArraySymbol::initialExpression)
+        .def_readonly("stopExpression", &GenerateBlockArraySymbol::stopExpression)
+        .def_readonly("iterExpression", &GenerateBlockArraySymbol::iterExpression)
+        .def_readonly("loopVariable", &GenerateBlockArraySymbol::loopVariable)
         .def_property_readonly("externalName", &GenerateBlockArraySymbol::getExternalName);
 
     py::classh<EmptyMemberSymbol, Symbol>(m, "EmptyMemberSymbol");

@@ -52,6 +52,7 @@ def _format_vcov_label(
     cluster_name: Optional[str],
     n_clusters: Optional[int],
     n_obs: Optional[int],
+    conley_lag_cutoff: Optional[int] = None,
 ) -> Optional[str]:
     """Compose a human-readable variance-family label for summary output.
 
@@ -73,6 +74,18 @@ def _format_vcov_label(
             return f"CR2 Bell-McCaffrey cluster-robust at {cluster_name}{suffix}"
         suffix = f", n={n_obs}" if n_obs else ""
         return f"HC2 + Bell-McCaffrey DOF (one-way{suffix})"
+    if vcov_type == "conley":
+        # Cross-sectional Conley on direct LinearRegression / compute_robust_vcov,
+        # or panel block-decomposed Conley (within-period spatial + within-unit
+        # Bartlett serial) on DifferenceInDifferences / MultiPeriodDiD /
+        # TwoWayFixedEffects. With an explicit cluster_name, the combined
+        # spatial + cluster product kernel applies (Wave A #119).
+        lag_suffix = f", lag_cutoff={conley_lag_cutoff}" if conley_lag_cutoff is not None else ""
+        if cluster_name:
+            return (
+                f"Conley spatial HAC (1999) + cluster product kernel at {cluster_name}{lag_suffix}"
+            )
+        return f"Conley spatial HAC (1999){lag_suffix}"
     return None
 
 
@@ -125,11 +138,16 @@ class DiDResults:
     bootstrap_distribution: Optional[np.ndarray] = field(default=None, repr=False)
     # Survey design metadata (SurveyMetadata instance from diff_diff.survey)
     survey_metadata: Optional[Any] = field(default=None)
-    # Variance-covariance family: "classical" | "hc1" | "hc2" | "hc2_bm".
-    # Plus cluster_name when cluster-robust. Used by summary() to label the
-    # SE family in the output.
+    # Variance-covariance family: "classical" | "hc1" | "hc2" | "hc2_bm" |
+    # "conley". Plus cluster_name when cluster-robust. Used by summary() to
+    # label the SE family in the output. For vcov_type='conley' on the panel
+    # estimators (DifferenceInDifferences / MultiPeriodDiD / TwoWayFixedEffects),
+    # `conley_lag_cutoff` carries the within-unit Bartlett max lag (matches
+    # the constructor arg). DiD requires `unit=<col>` as a fit-time kwarg
+    # when vcov_type='conley' (Wave A #118).
     vcov_type: Optional[str] = field(default=None)
     cluster_name: Optional[str] = field(default=None)
+    conley_lag_cutoff: Optional[int] = field(default=None)
 
     def __repr__(self) -> str:
         """Concise string representation."""
@@ -141,7 +159,7 @@ class DiDResults:
 
     @property
     def coef_var(self) -> float:
-        """Coefficient of variation: SE / |ATT|. NaN when ATT is 0 or SE non-finite."""
+        """Coefficient of variation: SE / abs(ATT). NaN when ATT is 0 or SE non-finite."""
         if not (np.isfinite(self.se) and self.se >= 0):
             return np.nan
         if not np.isfinite(self.att) or self.att == 0:
@@ -211,6 +229,7 @@ class DiDResults:
                 cluster_name=self.cluster_name,
                 n_clusters=self.n_clusters,
                 n_obs=self.n_obs,
+                conley_lag_cutoff=self.conley_lag_cutoff,
             )
             if label is not None:
                 lines.append(f"{'Variance:':<25} {label:>40}")
@@ -230,7 +249,7 @@ class DiDResults:
 
         cv = self.coef_var
         if np.isfinite(cv):
-            lines.append(f"{'CV (SE/|ATT|):':<25} {cv:>10.4f}")
+            lines.append(f"{'CV (SE/abs(ATT)):':<25} {cv:>10.4f}")
 
         # Add significance codes
         lines.extend(
@@ -269,6 +288,14 @@ class DiDResults:
             "r_squared": self.r_squared,
             "inference_method": self.inference_method,
         }
+        # Variance-family metadata: included only when set, so existing
+        # dict consumers see no new keys for non-conley / non-cluster fits.
+        if self.vcov_type is not None:
+            result["vcov_type"] = self.vcov_type
+        if self.cluster_name is not None:
+            result["cluster_name"] = self.cluster_name
+        if self.conley_lag_cutoff is not None:
+            result["conley_lag_cutoff"] = self.conley_lag_cutoff
         if self.n_bootstrap is not None:
             result["n_bootstrap"] = self.n_bootstrap
         if self.n_clusters is not None:
@@ -444,8 +471,33 @@ class MultiPeriodDiDResults:
     n_bootstrap: Optional[int] = field(default=None)
     n_clusters: Optional[int] = field(default=None)
     # Variance-covariance family and cluster column for summary() labeling.
+    # vcov_type='conley' on MultiPeriodDiD uses the panel block-decomposed
+    # form; `conley_lag_cutoff` carries the within-unit Bartlett max lag
+    # (matches the constructor arg). See _format_vcov_label.
     vcov_type: Optional[str] = field(default=None)
     cluster_name: Optional[str] = field(default=None)
+    conley_lag_cutoff: Optional[int] = field(default=None)
+
+    # --- Inference-field aliases (balance/external-adapter compatibility) ---
+    @property
+    def att(self) -> float:
+        return self.avg_att
+
+    @property
+    def se(self) -> float:
+        return self.avg_se
+
+    @property
+    def conf_int(self) -> Tuple[float, float]:
+        return self.avg_conf_int
+
+    @property
+    def p_value(self) -> float:
+        return self.avg_p_value
+
+    @property
+    def t_stat(self) -> float:
+        return self.avg_t_stat
 
     def __repr__(self) -> str:
         """Concise string representation."""
@@ -468,7 +520,7 @@ class MultiPeriodDiDResults:
 
     @property
     def coef_var(self) -> float:
-        """Coefficient of variation: SE / |overall ATT|. NaN when ATT is 0 or SE non-finite."""
+        """Coefficient of variation: SE / abs(overall ATT). NaN when ATT is 0 or SE non-finite."""
         if not (np.isfinite(self.avg_se) and self.avg_se >= 0):
             return np.nan
         if not np.isfinite(self.avg_att) or self.avg_att == 0:
@@ -527,6 +579,7 @@ class MultiPeriodDiDResults:
                 cluster_name=self.cluster_name,
                 n_clusters=self.n_clusters,
                 n_obs=self.n_obs,
+                conley_lag_cutoff=self.conley_lag_cutoff,
             )
             if label is not None:
                 lines.append(f"{'Variance:':<25} {label:>50}")
@@ -603,7 +656,7 @@ class MultiPeriodDiDResults:
 
         cv = self.coef_var
         if np.isfinite(cv):
-            lines.append(f"{'CV (SE/|ATT|):':<25} {cv:>10.4f}")
+            lines.append(f"{'CV (SE/abs(ATT)):':<25} {cv:>10.4f}")
 
         # Add significance codes
         lines.extend(
@@ -676,6 +729,14 @@ class MultiPeriodDiDResults:
             "r_squared": self.r_squared,
             "reference_period": self.reference_period,
         }
+        # Variance-family metadata: included only when set, so existing
+        # dict consumers see no new keys for non-conley / non-cluster fits.
+        if self.vcov_type is not None:
+            result["vcov_type"] = self.vcov_type
+        if self.cluster_name is not None:
+            result["cluster_name"] = self.cluster_name
+        if self.conley_lag_cutoff is not None:
+            result["conley_lag_cutoff"] = self.conley_lag_cutoff
 
         # Add period-specific effects
         for period, pe in self.period_effects.items():
@@ -919,7 +980,7 @@ class SyntheticDiDResults:
 
     @property
     def coef_var(self) -> float:
-        """Coefficient of variation: SE / |ATT|. NaN when ATT is 0 or SE non-finite."""
+        """Coefficient of variation: SE / abs(ATT). NaN when ATT is 0 or SE non-finite."""
         if not (np.isfinite(self.se) and self.se >= 0):
             return np.nan
         if not np.isfinite(self.att) or self.att == 0:
@@ -991,7 +1052,7 @@ class SyntheticDiDResults:
 
         cv = self.coef_var
         if np.isfinite(cv):
-            lines.append(f"{'CV (SE/|ATT|):':<25} {cv:>10.4f}")
+            lines.append(f"{'CV (SE/abs(ATT)):':<25} {cv:>10.4f}")
 
         # Show top unit weights
         if self.unit_weights:
@@ -1114,14 +1175,16 @@ class SyntheticDiDResults:
         full-design survey jackknife path, which uses PSU-level LOO).
 
         Available on:
+
         * non-survey jackknife fits (classical Arkhangelsky Algorithm 3).
         * pweight-only survey jackknife fits (Algorithm 3 with post-hoc
           ω_eff composition; PSU labels in ``survey_metadata`` come from
           implicit-PSU metadata but the LOO remains unit-level).
 
         Blocked on:
+
         * full-design survey jackknife fits (strata / PSU / FPC set in
-          ``SurveyDesign``) — the underlying replicates are PSU-level
+          ``SurveyDesign``) - the underlying replicates are PSU-level
           ``τ̂_{(h,j)}`` (Rust & Rao 1996), not unit-level. See
           ``result.placebo_effects`` for the raw PSU-level replicate
           array and REGISTRY §SyntheticDiD "Note (survey + jackknife
@@ -1142,10 +1205,12 @@ class SyntheticDiDResults:
         -------
         pd.DataFrame
             Columns:
-                - ``unit`` — user's unit ID
-                - ``role`` — ``'control'`` or ``'treated'``
-                - ``att_loo`` — ATT with this unit dropped
-                - ``delta_from_full`` — ``att_loo - self.att``
+
+            - ``unit`` - user's unit ID
+            - ``role`` - ``'control'`` or ``'treated'``
+            - ``att_loo`` - ATT with this unit dropped
+            - ``delta_from_full`` - ``att_loo - self.att``
+
             Sorted by ``|delta_from_full|`` descending, NaN rows at the end.
         """
         if self.variance_method != "jackknife":
@@ -1176,7 +1241,7 @@ class SyntheticDiDResults:
                 "back to fit-time unit IDs is not well-defined. See "
                 "``result.placebo_effects`` for the raw PSU-level replicate "
                 "array and ``docs/methodology/REGISTRY.md`` §SyntheticDiD "
-                "\"Note (survey + jackknife composition)\" for the "
+                '"Note (survey + jackknife composition)" for the '
                 "aggregation formula."
             )
         if self._loo_unit_ids is None or self._loo_roles is None or self.placebo_effects is None:
@@ -1250,6 +1315,7 @@ class SyntheticDiDResults:
                 - ``pre_fit_rmse`` — RMSE on the fake pre-window
                 - ``n_pre_fake`` — periods before the fake date
                 - ``n_post_fake`` — periods from the fake date onward
+
             NaN is emitted only for dimensional infeasibility. Frank-Wolfe
             does not expose a mid-solver non-convergence signal; inspect
             ``pre_fit_rmse`` for poor refit quality.
@@ -1382,9 +1448,7 @@ class SyntheticDiDResults:
                 lambda_fake,
             )
             synthetic_pre_fake_n = Y_pre_c_n @ omega_eff_fake
-            pre_fit_n = float(
-                np.sqrt(np.mean((y_pre_t_mean_n - synthetic_pre_fake_n) ** 2))
-            )
+            pre_fit_n = float(np.sqrt(np.mean((y_pre_t_mean_n - synthetic_pre_fake_n) ** 2)))
             # ATT is scale-equivariant and shift-invariant in Y; RMSE is
             # scale-equivariant. Rescale back to original-Y units.
             row["att"] = float(att_fake_n * Y_scale)
@@ -1478,12 +1542,8 @@ class SyntheticDiDResults:
         Y_post_treated_n = (snap.Y_post_treated - Y_shift) / Y_scale
 
         if snap.w_treated is not None:
-            y_pre_t_mean_n = np.average(
-                Y_pre_treated_n, axis=1, weights=snap.w_treated
-            )
-            y_post_t_mean_n = np.average(
-                Y_post_treated_n, axis=1, weights=snap.w_treated
-            )
+            y_pre_t_mean_n = np.average(Y_pre_treated_n, axis=1, weights=snap.w_treated)
+            y_post_t_mean_n = np.average(Y_post_treated_n, axis=1, weights=snap.w_treated)
         else:
             y_pre_t_mean_n = np.mean(Y_pre_treated_n, axis=1)
             y_post_t_mean_n = np.mean(Y_post_treated_n, axis=1)

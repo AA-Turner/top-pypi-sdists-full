@@ -15,6 +15,7 @@
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/CheckerSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
+#include "slang/ast/symbols/MemberSymbols.h"
 #include "slang/ast/symbols/PortSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/Type.h"
@@ -407,6 +408,39 @@ const ExpressionSyntax* ASTContext::requireSimpleExpr(const PropertyExprSyntax& 
     return nullptr;
 }
 
+void ASTContext::noteReference(const ValueSymbol& symbol, bool isDottedAccess) const {
+    if (auto syntax = symbol.getSyntax(); syntax && !flags.has(ASTFlags::NoReference)) {
+        bool isLValue = flags.has(ASTFlags::LValue);
+        if (isDottedAccess) {
+            auto& type = symbol.getType();
+            if (type.isObjectHandleType())
+                isLValue = false;
+        }
+
+        auto& comp = getCompilation();
+        comp.noteReference(*syntax, isLValue);
+
+        if (isLValue && flags.has(ASTFlags::LAndRValue))
+            comp.noteReference(*syntax, /* isLValue */ false);
+
+        // Modport ports are aliases for interface members; references to the
+        // facade also count as references to the connected value(s).
+        if (auto mpp = symbol.as_if<ModportPortSymbol>()) {
+            if (auto internal = mpp->internalSymbol) {
+                if (auto value = internal->as_if<ValueSymbol>())
+                    noteReference(*value, /* isDottedAccess */ false);
+            }
+            else if (mpp->explicitConnection) {
+                mpp->explicitConnection->visitSymbolReferences(
+                    [&](const Expression&, const Symbol& s) {
+                        if (auto value = s.as_if<ValueSymbol>())
+                            noteReference(*value, /* isDottedAccess */ false);
+                    });
+            }
+        }
+    }
+}
+
 RandMode ASTContext::getRandMode(const Symbol& symbol) const {
     RandMode mode = symbol.getRandMode();
     if (mode != RandMode::None)
@@ -485,18 +519,23 @@ void ASTContext::evalRangeDimension(const SelectorSyntax& syntax, bool isPacked,
 
                 result.kind = DimensionKind::AbbreviatedRange;
                 result.range = {0, *value - 1};
+                result.leftExpr = &expr;
             }
             break;
         }
         case SyntaxKind::SimpleRangeSelect: {
             auto& rangeSyntax = syntax.as<RangeSelectSyntax>();
-            auto left = evalInteger(*rangeSyntax.left);
-            auto right = evalInteger(*rangeSyntax.right);
+            auto& leftExpr = Expression::bind(*rangeSyntax.left, *this);
+            auto& rightExpr = Expression::bind(*rangeSyntax.right, *this);
+            auto left = evalInteger(leftExpr);
+            auto right = evalInteger(rightExpr);
             if (!left || !right)
                 return;
 
             result.kind = DimensionKind::Range;
             result.range = {*left, *right};
+            result.leftExpr = &leftExpr;
+            result.rightExpr = &rightExpr;
             break;
         }
         default:

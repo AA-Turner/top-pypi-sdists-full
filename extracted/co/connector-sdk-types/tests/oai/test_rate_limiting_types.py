@@ -134,7 +134,7 @@ class TestRateLimitConfigBase:
 class TestRateLimitConfig:
     def test_default_factory(self):
         config = RateLimitConfig.default("myapp")
-        assert config.app_id == "myapp"
+        assert config.config_id == "myapp"
         assert config.requests_per_window == 30
         assert config.window_seconds == 60
         assert config.strategy == RateLimitStrategy.FIXED
@@ -142,8 +142,8 @@ class TestRateLimitConfig:
         assert config.max_concurrent == 1
 
     def test_explicit_construction(self):
-        config = RateLimitConfig(app_id="test", requests_per_window=10, window_seconds=60)
-        assert config.app_id == "test"
+        config = RateLimitConfig(config_id="test", requests_per_window=10, window_seconds=60)
+        assert config.config_id == "test"
         assert config.rate_limit_extractor is None
         assert config.rate_limit_error_check is None
 
@@ -171,7 +171,7 @@ class TestRateLimitConfig:
             return RateLimitExtractorResponse(remaining=1, limit=10)
 
         config = RateLimitConfig(
-            app_id="test",
+            config_id="test",
             requests_per_window=10,
             window_seconds=60,
             rate_limit_extractor=extractor,
@@ -183,36 +183,15 @@ class TestRateLimitConfig:
             return "rate" in str(e).lower()
 
         config = RateLimitConfig(
-            app_id="test",
+            config_id="test",
             requests_per_window=10,
             window_seconds=60,
             rate_limit_error_check=checker,
         )
         assert config.rate_limit_error_check is checker
 
-    def test_config_id_defaults_to_none(self):
-        config = RateLimitConfig.default("myapp")
-        assert config.config_id is None
+    def test_config_id_is_required(self):
+        from pydantic import ValidationError
 
-    def test_effective_config_id_falls_back_to_app_id(self):
-        config = RateLimitConfig.default("myapp")
-        assert config.effective_config_id == "myapp"
-
-    def test_effective_config_id_prefers_config_id_over_app_id(self):
-        config = RateLimitConfig(
-            app_id="github",
-            config_id="github-rest",
-            requests_per_window=10,
-            window_seconds=60,
-        )
-        assert config.effective_config_id == "github-rest"
-
-    def test_app_id_unchanged_when_config_id_set(self):
-        config = RateLimitConfig(
-            app_id="github",
-            config_id="github-graphql",
-            requests_per_window=10,
-            window_seconds=60,
-        )
-        assert config.app_id == "github"
-        assert config.config_id == "github-graphql"
+        with pytest.raises(ValidationError):
+            RateLimitConfig(requests_per_window=10, window_seconds=60)  # type: ignore[call-arg]

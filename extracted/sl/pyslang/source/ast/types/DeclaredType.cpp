@@ -296,7 +296,12 @@ void DeclaredType::checkType(const ASTContext& context) const {
                 context.addDiag(diag::InvalidDPIArgType, parent.location) << *type;
             break;
         case uint32_t(DeclaredTypeFlags::RequireSequenceType):
-            if (!type->isValidForSequence())
+            // LRM 16.10: the data type shall be one of the types allowed within assertions
+            // as defined in 16.6. LRM 16.6 requires types to be cast compatible with an
+            // integral type. Per LRM 6.22.4 + 6.24.3, bit-stream types (including unpacked
+            // arrays/structs of integral types) have defined explicit casting rules to/from
+            // integral types and therefore satisfy the cast-compatibility requirement.
+            if (!type->isValidForSequence() && !type->isBitstreamType())
                 context.addDiag(diag::AssertionExprType, parent.location) << *type;
             break;
         case uint32_t(DeclaredTypeFlags::CoverageType):
@@ -542,6 +547,54 @@ T DeclaredType::getASTContext() const {
     }
 
     return ASTContext(*scope, location, astFlags);
+}
+
+std::vector<EvaluatedDimension> DeclaredType::getResolvedDimensions() const {
+    // Ensure the type has been resolved so that any errors (cycles, invalid dims, etc.)
+    // are already diagnosed before we re-evaluate.
+    getType();
+
+    std::vector<EvaluatedDimension> result;
+    if (hasLink) {
+        // Follow the link; its packed dims are whatever the target has.
+        if (typeOrLink.link)
+            result = typeOrLink.link->getResolvedDimensions();
+
+        // Then append any additional unpacked dims applied on top of the link.
+        if (dimensions) {
+            auto ctx = getASTContext<false>();
+            for (auto dim : *dimensions)
+                result.push_back(ctx.evalUnpackedDimension(*dim));
+        }
+        return result;
+    }
+
+    auto syntax = typeOrLink.typeSyntax;
+    if (!syntax)
+        return result;
+
+    const SyntaxList<VariableDimensionSyntax>* packedDims = nullptr;
+    if (IntegerTypeSyntax::isKind(syntax->kind))
+        packedDims = &syntax->as<IntegerTypeSyntax>().dimensions;
+    else if (syntax->kind == SyntaxKind::StructType || syntax->kind == SyntaxKind::UnionType)
+        packedDims = &syntax->as<StructUnionTypeSyntax>().dimensions;
+    else if (syntax->kind == SyntaxKind::EnumType)
+        packedDims = &syntax->as<EnumTypeSyntax>().dimensions;
+    else if (syntax->kind == SyntaxKind::ImplicitType)
+        packedDims = &syntax->as<ImplicitTypeSyntax>().dimensions;
+
+    auto ctx = getASTContext<false>();
+    if (packedDims) {
+        for (auto dim : *packedDims)
+            result.push_back(ctx.evalPackedDimension(*dim));
+    }
+
+    if (dimensions) {
+        for (auto dim : *dimensions)
+            result.push_back(ctx.evalUnpackedDimension(*dim));
+    }
+
+    return result;
 }
 
 } // namespace slang::ast

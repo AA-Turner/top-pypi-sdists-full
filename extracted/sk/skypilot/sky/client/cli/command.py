@@ -133,7 +133,8 @@ _VERBOSE_REQUEST_FIELDS_TO_SHOW = _DEFAULT_REQUEST_FIELDS_TO_SHOW + [
 _DEFAULT_MANAGED_JOB_FIELDS_TO_GET = [
     'job_id', 'task_id', 'workspace', 'job_name', 'task_name', 'resources',
     'submitted_at', 'end_at', 'job_duration', 'recovery_count', 'status',
-    'pool', 'is_primary_in_job_group'
+    'pool', 'is_primary_in_job_group', 'batch_total_batches',
+    'batch_completed_batches'
 ]
 _VERBOSE_MANAGED_JOB_FIELDS_TO_GET = _DEFAULT_MANAGED_JOB_FIELDS_TO_GET + [
     'current_cluster_name', 'job_id_on_pool_cluster', 'start_at', 'infra',
@@ -732,7 +733,9 @@ def _check_yaml(entrypoint: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
     if not is_yaml:
         if yaml_file_provided:
             click.confirm(
-                f'{entrypoint!r} looks like a yaml path but {invalid_reason}\n'
+                f'{colorama.Fore.YELLOW}{entrypoint!r} looks like a yaml '
+                f'path but {invalid_reason}'
+                f'{colorama.Style.RESET_ALL}\n'
                 'It will be treated as a command to be run remotely. Continue?',
                 abort=True)
     return is_yaml, result
@@ -1037,6 +1040,21 @@ def cli():
     pass
 
 
+def _warn_if_name_looks_like_file_path(name: Optional[str], yes: bool,
+                                       name_label: str,
+                                       command_hint: str) -> None:
+    """Warns or prompts if a name looks like a file path."""
+    if not common_utils.cluster_name_looks_like_file_path(name):
+        return
+    warning = (f'{colorama.Fore.YELLOW}{name_label} {name!r} looks like a '
+               f'file path. Did you mean: {command_hint}'
+               f'{colorama.Style.RESET_ALL}')
+    if yes:
+        logger.warning(warning)
+    else:
+        click.confirm(f'{warning}\nProceed anyway?', abort=True)
+
+
 def _handle_infra_cloud_region_zone_options(infra: Optional[str],
                                             cloud: Optional[str],
                                             region: Optional[str],
@@ -1230,6 +1248,8 @@ def launch(
     # server, if the jobs are long running.
     env = _merge_cli_and_file_vars([env_file], env)
     secret = _merge_cli_and_file_vars([env_file, secret_file], secret)
+    _warn_if_name_looks_like_file_path(
+        cluster, yes, 'Cluster name', f'sky launch -c <cluster-name> {cluster}')
     controller_utils.check_cluster_name_not_controller(
         cluster, operation_str='Launching tasks on it')
     if backend_name is None:
@@ -5564,6 +5584,8 @@ def jobs_launch(
     dag_utils.fill_default_config_in_dag_for_job_launch(dag)
 
     common_utils.check_cluster_name_is_valid(name)
+    _warn_if_name_looks_like_file_path(name, yes, 'Job name',
+                                       f'sky jobs launch -n <job-name> {name}')
 
     if pool is not None:
         num_job_int = num_jobs if num_jobs is not None else 1
@@ -5939,11 +5961,18 @@ def jobs_cancel(
               is_flag=True,
               required=False,
               help='Download logs for all jobs shown in the queue.')
+@click.option(
+    '--tail',
+    default=0,
+    type=int,
+    help=('The number of lines to display from the end of the log file. '
+          'Default is 0, which means all lines. Useful for large logs '
+          '(e.g. multi-GB) where downloading the full file is slow.'))
 @click.argument('job_id', required=False, type=int)
 @click.argument('task', required=False, type=str, default=None)
 @usage_lib.entrypoint
 def jobs_logs(name: Optional[str], job_id: Optional[int], follow: bool,
-              controller: bool, refresh: bool, sync_down: bool,
+              controller: bool, refresh: bool, sync_down: bool, tail: int,
               task: Optional[str]):
     """Tail or sync down the log of a managed job.
 
@@ -5965,6 +5994,16 @@ def jobs_logs(name: Optional[str], job_id: Optional[int], follow: bool,
     # View logs for job named 'my-job', task 'eval'
     sky jobs logs -n my-job eval
     """
+    if tail < 0:
+        raise click.UsageError('--tail must be a non-negative integer.')
+    if sync_down and tail > 0:
+        raise click.UsageError(
+            '--tail is not supported with --sync-down. Use '
+            '`sky jobs logs --no-follow --tail N <id>` to view the tail, '
+            'or redirect stdout to save it to a file.')
+    # tail=0 means "all lines" at the CLI layer; the SDK/API represent
+    # "no limit" as None, so normalize here.
+    tail_lines: Optional[int] = tail if tail > 0 else None
     try:
         if sync_down:
             with rich_utils.client_status(
@@ -5991,6 +6030,7 @@ def jobs_logs(name: Optional[str], job_id: Optional[int], follow: bool,
                                                 follow=follow,
                                                 controller=controller,
                                                 refresh=refresh,
+                                                tail=tail_lines,
                                                 task=parsed_task)
             sys.exit(returncode)
     except exceptions.ClusterNotUpError:

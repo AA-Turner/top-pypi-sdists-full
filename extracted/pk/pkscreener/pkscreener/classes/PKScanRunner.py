@@ -29,7 +29,7 @@ import threading
 import pandas as pd
 import multiprocessing
 from time import sleep
-from halo import Halo
+from PKDevTools.classes.PKHalo import PKHalo
 
 from PKDevTools.classes import Archiver
 from PKDevTools.classes.ColorText import colorText
@@ -63,6 +63,29 @@ class PKScanRunner:
     scr = None
     consumers = None
 
+    # New static variables for reuse across scans
+    _cached_consumers = None
+    _cached_tasks_queue = None
+    _cached_results_queue = None
+    _cached_logging_queue = None
+    _cached_log_queue_reader = None
+
+    @staticmethod
+    def cleanup():
+        """Terminate all workers if they exist. Safe to call multiple times."""
+        if PKScanRunner._cached_consumers is not None:
+            # We don't have userPassedArgs here; we can pass None or use defaults.
+            # Modify terminateAllWorkers to handle None gracefully.
+            PKScanRunner.terminateAllWorkers(
+                userPassedArgs=None,
+                consumers=PKScanRunner._cached_consumers,
+                tasks_queue=PKScanRunner._cached_tasks_queue,
+                testing=False
+            )
+            PKScanRunner._cached_consumers = None
+            PKScanRunner._cached_tasks_queue = None
+            PKScanRunner._cached_results_queue = None
+            
     @staticmethod
     def initDataframes():
         """
@@ -561,17 +584,28 @@ class PKScanRunner:
                 )
 
         OutputControls().printOutput(colorText.END)
-        if userPassedArgs is not None and not userPassedArgs.testalloptions and (userPassedArgs.monitor is None and "|" not in userPassedArgs.options) and not userPassedArgs.options.upper().startswith("C"):
-            # Don't terminate the multiprocessing clients if we're 
-            # going to pipe the results from an earlier run
-            # or we're running in monitoring mode
-            PKScanRunner.terminateAllWorkers(userPassedArgs, consumers, tasks_queue, testing)
-        else:
-            for worker in consumers:
-                worker.paused = True
-                worker._clear()
+        PKScanRunner.resetWorkersForNextScan(consumers, tasks_queue, userPassedArgs, testing)
         return screenResults, saveResults, backtest_df, tasks_queue, results_queue, consumers, logging_queue
 
+    @staticmethod
+    def resetWorkersForNextScan(consumers, tasks_queue, userPassedArgs=None, testing=False):
+        """Pause and clear workers but keep them alive for next scan."""
+        # Don't terminate unless we are exiting the program
+        # Only pause and clear internal queues/state
+        for worker in consumers:
+            worker.paused = True
+            worker._clear()
+        
+        # Clear the task queue for next scan
+        while True:
+            try:
+                tasks_queue.get_nowait()
+            except:
+                break
+        
+        # Optionally, clear results queue as well (already done in prepareToRunScan)
+        # Keep the workers alive – they will be reused next time
+        
     @exit_after(180)  # Should not remain stuck starting the multiprocessing clients beyond this time
     @track_performance("PKScanRunner_prepareToRunScan")
     @track_event(
@@ -582,7 +616,7 @@ class PKScanRunner:
         capture_result=False,
         log_args=False  # Set to True for debugging, False in production
     )
-    @Halo(text='  [+] Creating multiple processes for faster processing...', spinner='dots')
+    @PKHalo(text='  [+] Creating multiple processes for faster processing...', spinner='dots')
     def prepareToRunScan(menuOption, keyboardInterruptEvent, screenCounter, screenResultsCounter,
                          stockDictPrimary, stockDictSecondary, items, executeOption, userPassedArgs):
         """
@@ -605,6 +639,32 @@ class PKScanRunner:
         Returns:
             tuple: (tasks_queue, results_queue, consumers, logging_queue)
         """
+        # If we already have living consumers, reuse them
+        if (PKScanRunner._cached_consumers is not None and 
+            all(worker.is_alive() for worker in PKScanRunner._cached_consumers if hasattr(worker, 'is_alive'))):
+            
+            tasks_queue = PKScanRunner._cached_tasks_queue
+            results_queue = PKScanRunner._cached_results_queue
+            consumers = PKScanRunner._cached_consumers
+            logging_queue = PKScanRunner._cached_logging_queue
+            
+            # Update worker internal data (stock dictionaries, refresh flag)
+            for worker in consumers:
+                worker.objectDictionaryPrimary = stockDictPrimary
+                worker.objectDictionarySecondary = stockDictSecondary
+                worker.refreshDatabase = True   # force refresh of internal data
+                worker.paused = False           # ensure they are not paused
+            
+            # Clear any leftover results from previous scan
+            while not results_queue.empty():
+                try:
+                    results_queue.get_nowait()
+                except:
+                    break
+            
+            return tasks_queue, results_queue, consumers, logging_queue
+        
+        # Otherwise, create new workers (first time only)
         tasks_queue, results_queue, totalConsumers, logging_queue = PKScanRunner.initQueues(len(items), userPassedArgs)
         scr = ScreeningStatistics.ScreeningStatistics(PKScanRunner.configManager, default_logger())
         exists, cache_file = AssetsManager.PKAssetsManager.afterMarketStockDataExists(intraday=PKScanRunner.configManager.isIntradayConfig())
@@ -647,6 +707,17 @@ class PKScanRunner:
         
         # Start workers in parallel for faster initialization
         PKScanRunner.startWorkersParallel(consumers)
+        # Cache them for future reuse
+        PKScanRunner._cached_consumers = consumers
+        PKScanRunner._cached_tasks_queue = tasks_queue
+        PKScanRunner._cached_results_queue = results_queue
+        PKScanRunner._cached_logging_queue = logging_queue
+        
+        # Start the log reader once
+        if logging_queue is not None and PKScanRunner._cached_log_queue_reader is None:
+            PKScanRunner._cached_log_queue_reader = LogQueueReader(logging_queue)
+            PKScanRunner._cached_log_queue_reader.daemon = True
+            PKScanRunner._cached_log_queue_reader.start()
         return tasks_queue, results_queue, consumers, logging_queue
 
     @staticmethod
@@ -735,7 +806,7 @@ class PKScanRunner:
             OutputControls().moveCursorUpLines(1)
 
     @exit_after(120)  # Should not remain stuck starting the multiprocessing clients beyond this time
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def startWorkers(consumers):
         """
         Start workers using the parallel method for faster startup.
@@ -752,7 +823,7 @@ class PKScanRunner:
             default_logger().debug(f"Parallel worker startup failed, falling back to sequential: {e}", exc_info=True)
             PKScanRunner.startWorkersSequential(consumers)
 
-    @Halo(text='', spinner='dots')
+    @PKHalo(text='', spinner='dots')
     def terminateAllWorkers(userPassedArgs, consumers, tasks_queue, testing=False):
         """
         Terminate all worker processes and clean up resources.

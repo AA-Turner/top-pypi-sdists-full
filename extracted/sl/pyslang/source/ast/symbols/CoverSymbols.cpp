@@ -19,6 +19,7 @@
 #include "slang/diagnostics/DeclarationsDiags.h"
 #include "slang/diagnostics/ExpressionsDiags.h"
 #include "slang/syntax/AllSyntax.h"
+#include "slang/util/String.h"
 
 namespace {
 
@@ -121,6 +122,7 @@ static void addProperty(Scope& scope, std::string_view name, VariableLifetime li
     auto& prop = *comp.emplace<ClassPropertySymbol>(name, SourceLocation::NoLocation, lifetime,
                                                     Visibility::Public);
     prop.setType(structBuilder.type);
+    prop.flags |= VariableFlags::CompilerGenerated;
     scope.addMember(prop);
 }
 
@@ -398,7 +400,7 @@ const TimingControl* CovergroupType::getCoverageEvent() const {
 }
 
 ConstantValue CovergroupType::getDefaultValueImpl() const {
-    return ConstantValue::NullPlaceholder{};
+    return NullConstant;
 }
 
 void CovergroupType::serializeTo(ASTSerializer& serializer) const {
@@ -823,12 +825,22 @@ CoverpointSymbol& CoverpointSymbol::fromSyntax(const Scope& scope, const Coverpo
     return *result;
 }
 
-CoverpointSymbol& CoverpointSymbol::fromImplicit(const Scope& scope,
-                                                 const IdentifierNameSyntax& syntax) {
-    auto loc = syntax.identifier.location();
+CoverpointSymbol& CoverpointSymbol::fromImplicit(const Scope& scope, const NameSyntax& syntax) {
+    auto loc = syntax.getFirstToken().location();
     auto& comp = scope.getCompilation();
-    auto result = comp.emplace<CoverpointSymbol>(comp, syntax.identifier.valueText(), loc);
 
+    std::string_view name;
+    if (syntax.kind == SyntaxKind::IdentifierName) {
+        name = syntax.as<IdentifierNameSyntax>().identifier.valueText();
+    }
+    else {
+        // '.' is replaced with '_' when naming the implicit coverpoint
+        auto str = syntax.toString();
+        std::ranges::replace(str, '.', '_');
+        name = toStringView(comp.copyFrom(std::span<const char>(str.data(), str.size())));
+    }
+
+    auto result = comp.emplace<CoverpointSymbol>(comp, name, loc);
     result->isImplicit = true;
     result->declaredType.setTypeSyntax(comp.createEmptyTypeSyntax(loc));
     result->declaredType.setInitializerSyntax(syntax, loc);
@@ -924,9 +936,19 @@ CoverCrossSymbol& CoverCrossSymbol::fromSyntax(const Scope& scope, const CoverCr
 
     SmallVector<const CoverpointSymbol*> targets;
     for (auto item : syntax.items) {
-        auto symbol = scope.find(item->identifier.valueText());
+        // For simple identifier names, try to look up an existing coverpoint or cross.
+        const Symbol* symbol = nullptr;
+        if (item->kind == SyntaxKind::IdentifierName)
+            symbol = scope.find(item->as<IdentifierNameSyntax>().identifier.valueText());
+
         if (symbol && symbol->kind == SymbolKind::Coverpoint) {
             targets.push_back(&symbol->as<CoverpointSymbol>());
+        }
+        else if (symbol && symbol->kind == SymbolKind::CoverCross) {
+            // If it's a cross, then we'll add all the targets of the cross.
+            auto& cross = symbol->as<CoverCrossSymbol>();
+            for (auto cp : cross.targets)
+                targets.push_back(cp);
         }
         else {
             // If we didn't find a coverpoint, create one implicitly
@@ -1065,6 +1087,12 @@ BinsSelectExpr& ConditionBinsSelectExpr::fromSyntax(const BinsSelectConditionExp
         return badExpr(comp, nullptr);
 
     auto sym = nameExpr.getSymbolReference();
+    if (sym && sym->kind == SymbolKind::CoverCross) {
+        auto& diag = context.addDiag(diag::CrossIdentInBinsof, syntax.name->sourceRange());
+        diag << sym->name;
+        diag.addNote(diag::NoteDeclarationHere, sym->location);
+        return *comp.emplace<ConditionBinsSelectExpr>(*sym);
+    }
     if (!sym || (sym->kind != SymbolKind::Coverpoint &&
                  (sym->kind != SymbolKind::CoverageBin ||
                   sym->getParentScope()->asSymbol().kind != SymbolKind::Coverpoint))) {

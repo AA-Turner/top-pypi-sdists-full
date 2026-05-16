@@ -790,8 +790,30 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
     parsed_filters: List[Filter] = []
     for filt in filters:
         op = filt._chalk__function_name
-        left = filt._chalk__args[0]
-        right = filt._chalk__args[1]
+
+        # Translate F.is_null(x) -> x == None and F.is_not_null(x) -> x != None so unary
+        # null-check functions can be used as filters.
+        if op == "is_null" and len(filt._chalk__args) == 1:
+            op = "=="
+            left = filt._chalk__args[0]
+            right = None
+        elif (
+            op == "~"
+            and len(filt._chalk__args) == 1
+            and isinstance(filt._chalk__args[0], UnderscoreFunction)
+            and filt._chalk__args[0]._chalk__function_name == "is_null"
+            and len(filt._chalk__args[0]._chalk__args) == 1
+        ):
+            op = "!="
+            left = filt._chalk__args[0]._chalk__args[0]
+            right = None
+        else:
+            if len(filt._chalk__args) < 2:
+                raise ChalkParseError(
+                    f"expected a boolean operation for the filter, like `_.amount > 0`, but found `{op}`"
+                )
+            left = filt._chalk__args[0]
+            right = filt._chalk__args[1]
 
         if op not in ("==", "!=", ">", "<", ">=", "<=", "in"):
             raise ChalkParseError(f"expected a boolean operation for the filter, like `_.amount > 0`, but found `{op}`")

@@ -1,5 +1,5 @@
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from typing import Optional
 
 from sqlalchemy import func, select
@@ -7,27 +7,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from dstack._internal.core.errors import (
+    ForbiddenError,
     ResourceExistsError,
     ResourceNotExistsError,
     ServerClientError,
 )
-from dstack._internal.core.models.exports import Export, ExportedFleet, ExportImport
+from dstack._internal.core.models.backends.base import BackendType
+from dstack._internal.core.models.exports import (
+    Export,
+    ExportedFleet,
+    ExportedGateway,
+    ExportImport,
+)
 from dstack._internal.core.models.users import GlobalRole
 from dstack._internal.core.services import validate_dstack_resource_name
+from dstack._internal.server.const import GLOBAL_EXPORTS_LOCK_NAMESPACE
 from dstack._internal.server.db import get_db, is_db_postgres, is_db_sqlite
 from dstack._internal.server.models import (
     ExportedFleetModel,
+    ExportedGatewayModel,
     ExportModel,
     FleetModel,
+    GatewayModel,
     ImportModel,
     ProjectModel,
     ProjectRole,
     UserModel,
 )
 from dstack._internal.server.services.fleets import get_fleet_spec, list_project_fleet_models
+from dstack._internal.server.services.gateways import list_project_gateway_models
 from dstack._internal.server.services.locking import get_locker, string_to_lock_id
 from dstack._internal.server.services.projects import (
     get_user_project_role,
+    list_project_models,
     list_user_project_models,
 )
 
@@ -73,6 +85,9 @@ async def get_export_model_by_name_for_update(
                     )
                     .joinedload(ExportedFleetModel.fleet)
                     .load_only(FleetModel.name),
+                    selectinload(ExportModel.exported_gateways)
+                    .joinedload(ExportedGatewayModel.gateway)
+                    .load_only(GatewayModel.name),
                 )
                 .with_for_update(key_share=True)
             )
@@ -93,22 +108,47 @@ async def create_export(
     project: ProjectModel,
     user: UserModel,
     name: str,
+    is_global: bool,
     importer_project_names: list[str],
     exported_fleet_names: list[str],
+    exported_gateway_names: list[str],
 ) -> Export:
     validate_dstack_resource_name(name)
+    if is_global and importer_project_names:
+        raise ServerClientError(
+            "Do not specify any importer projects when creating a global export."
+            " Global exports are automatically imported in all projects"
+        )
 
-    lock_namespace = f"export_names_{project.name}"
+    export_names_lock_namespace = f"export_names_{project.name}"
     if is_db_sqlite():
         # Start new transaction to see committed changes after lock
         await session.commit()
     elif is_db_postgres():
         await session.execute(
-            select(func.pg_advisory_xact_lock(string_to_lock_id(lock_namespace)))
+            select(func.pg_advisory_xact_lock(string_to_lock_id(export_names_lock_namespace)))
         )
-    lock, _ = get_locker(get_db().dialect_name).get_lockset(lock_namespace)
+    export_names_lock, _ = get_locker(get_db().dialect_name).get_lockset(
+        export_names_lock_namespace
+    )
 
-    async with lock:
+    if is_global:
+        if is_db_sqlite():
+            # Start new transaction to see committed changes after lock
+            await session.commit()
+        elif is_db_postgres():
+            await session.execute(
+                select(
+                    func.pg_advisory_xact_lock(string_to_lock_id(GLOBAL_EXPORTS_LOCK_NAMESPACE))
+                )
+            )
+        global_exports_lock, _ = get_locker(get_db().dialect_name).get_lockset(
+            GLOBAL_EXPORTS_LOCK_NAMESPACE
+        )
+    else:
+        global_exports_lock = nullcontext()
+
+    async with export_names_lock, global_exports_lock:
         if await export_exists(session, project, name):
             raise ResourceExistsError(
                 f"Export {name!r} already exists in project {project.name!r}"
@@ -116,11 +156,16 @@ async def create_export(
         export = ExportModel(
             name=name,
             project=project,
+            is_global=False,
             imports=[],
             exported_fleets=[],
+            exported_gateways=[],
         )
         await add_importer_projects(session, user, export, importer_project_names)
         await add_exported_fleets(session, export, exported_fleet_names)
+        await add_exported_gateways(session, export, exported_gateway_names)
+        if is_global:
+            await set_as_global(session, export, user)
         session.add(export)
         await session.commit()
     return export_model_to_export(export)
@@ -131,22 +176,57 @@ async def update_export(
     project: ProjectModel,
     user: UserModel,
     name: str,
+    set_global: bool,
+    unset_global: bool,
     add_importer_project_names: list[str],
     remove_importer_project_names: list[str],
     add_exported_fleet_names: list[str],
     remove_exported_fleet_names: list[str],
+    add_exported_gateway_names: list[str],
+    remove_exported_gateway_names: list[str],
 ) -> Export:
-    async with get_export_model_by_name_for_update(session, project, name) as export:
+    if set_global:
+        if is_db_sqlite():
+            # Start new transaction to see committed changes after lock
+            await session.commit()
+        elif is_db_postgres():
+            await session.execute(
+                select(
+                    func.pg_advisory_xact_lock(string_to_lock_id(GLOBAL_EXPORTS_LOCK_NAMESPACE))
+                )
+            )
+        global_exports_lock, _ = get_locker(get_db().dialect_name).get_lockset(
+            GLOBAL_EXPORTS_LOCK_NAMESPACE
+        )
+    else:
+        global_exports_lock = nullcontext()
+
+    async with (
+        global_exports_lock,
+        get_export_model_by_name_for_update(session, project, name) as export,
+    ):
         if export is None:
             raise ResourceNotExistsError(f"Export {name!r} not found in project {project.name!r}")
 
         if (
-            not add_importer_project_names
+            not set_global
+            and not unset_global
+            and not add_importer_project_names
             and not remove_importer_project_names
             and not add_exported_fleet_names
             and not remove_exported_fleet_names
+            and not add_exported_gateway_names
+            and not remove_exported_gateway_names
         ):
             raise ServerClientError("No changes specified")
+        if set_global and unset_global:
+            raise ServerClientError("Cannot set and unset global at the same time")
+        if (set_global or unset_global) and (
+            add_importer_project_names or remove_importer_project_names
+        ):
+            raise ServerClientError(
+                "Cannot change global status and add/remove importers at the same time"
+            )
 
         add_importer_project_names = list(map(str.lower, add_importer_project_names))
         remove_importer_project_names = list(map(str.lower, remove_importer_project_names))
@@ -167,14 +247,56 @@ async def update_export(
                 f"Fleets {add_remove_conflict_fleets} are listed for both addition and removal."
                 " Cannot add and remove at the same time"
             )
+        add_remove_conflict_gateways = set(add_exported_gateway_names) & set(
+            remove_exported_gateway_names
+        )
+        if add_remove_conflict_gateways:
+            raise ServerClientError(
+                f"Gateways {add_remove_conflict_gateways} are listed for both addition and removal."
+                " Cannot add and remove at the same time"
+            )
 
         await add_importer_projects(session, user, export, add_importer_project_names)
         await add_exported_fleets(session, export, add_exported_fleet_names)
+        await add_exported_gateways(session, export, add_exported_gateway_names)
         await remove_importer_projects(export, remove_importer_project_names)
         await remove_exported_fleets(export, remove_exported_fleet_names)
-
+        await remove_exported_gateways(export, remove_exported_gateway_names)
+        if unset_global:
+            await unset_as_global(export)
+        if set_global:
+            await set_as_global(session, export, user)
         await session.commit()
     return export_model_to_export(export)
+
+
+async def set_as_global(session: AsyncSession, export: ExportModel, user: UserModel) -> None:
+    """
+    **NOTE**:
+        Should be called with the `GLOBAL_EXPORTS_LOCK_NAMESPACE` lock acquired to prevent new
+        projects from being created while this export is being imported into existing ones.
+    """
+    if export.is_global:
+        raise ServerClientError("The export is already global")
+    if user.global_role != GlobalRole.ADMIN:
+        raise ForbiddenError("Only global admins can make the export global")
+    all_projects = await list_project_models(
+        session, load_only_attrs=[ProjectModel.id, ProjectModel.name]
+    )
+    already_importing = {imp.project_id for imp in export.imports}
+    for project in all_projects:
+        if project.id == export.project.id:
+            continue
+        if project.id in already_importing:
+            continue
+        export.imports.append(ImportModel(project=project))
+    export.is_global = True
+
+
+async def unset_as_global(export: ExportModel) -> None:
+    if not export.is_global:
+        raise ServerClientError("The export is already not global")
+    export.is_global = False
 
 
 async def add_importer_projects(
@@ -241,6 +363,10 @@ async def add_exported_fleets(
 
 
 async def remove_importer_projects(export: ExportModel, names: list[str]) -> None:
+    if not names:
+        return
+    if export.is_global:
+        raise ServerClientError("Cannot remove importers from a global export")
     names = list(map(str.lower, names))
     if len(names) != len(set(names)):
         raise ServerClientError("Some importer projects are listed for removal more than once")
@@ -257,6 +383,43 @@ async def remove_exported_fleets(export: ExportModel, names: list[str]) -> None:
     if missing := set(names) - existing:
         raise ServerClientError(f"Fleets {missing} are not exported by export {export.name!r}")
     export.exported_fleets = [ef for ef in export.exported_fleets if ef.fleet.name not in names]
+
+
+async def add_exported_gateways(
+    session: AsyncSession, export: ExportModel, names: list[str]
+) -> None:
+    if not names:
+        return
+    if len(names) != len(set(names)):
+        raise ServerClientError("Some gateways are listed for addition more than once")
+    already_exported = {eg.gateway.name for eg in export.exported_gateways} & set(names)
+    if already_exported:
+        raise ServerClientError(
+            f"Gateways {already_exported} are already exported by export {export.name!r}"
+        )
+    gateways = await list_project_gateway_models(
+        session=session, project=export.project, load_backend_type=True
+    )
+    gateways = [g for g in gateways if g.name in names]
+    if any(g.backend.type == BackendType.DSTACK for g in gateways):
+        raise ServerClientError("Exporting the built-in dstack Sky gateway is not allowed")
+    if missing := set(names) - {g.name for g in gateways}:
+        raise ResourceNotExistsError(
+            f"Gateways {missing} not found in project {export.project.name!r}"
+        )
+    for gateway in gateways:
+        export.exported_gateways.append(ExportedGatewayModel(gateway=gateway))
+
+
+async def remove_exported_gateways(export: ExportModel, names: list[str]) -> None:
+    if len(names) != len(set(names)):
+        raise ServerClientError("Some gateways are listed for removal more than once")
+    existing = {eg.gateway.name for eg in export.exported_gateways}
+    if missing := set(names) - existing:
+        raise ServerClientError(f"Gateways {missing} are not exported by export {export.name!r}")
+    export.exported_gateways = [
+        eg for eg in export.exported_gateways if eg.gateway.name not in names
+    ]
 
 
 async def delete_export(session: AsyncSession, project: ProjectModel, name: str) -> None:
@@ -284,6 +447,9 @@ async def list_exports(session: AsyncSession, project: ProjectModel) -> list[Exp
             )
             .joinedload(ExportedFleetModel.fleet)
             .load_only(FleetModel.name),
+            selectinload(ExportModel.exported_gateways)
+            .joinedload(ExportedGatewayModel.gateway)
+            .load_only(GatewayModel.name),
         )
         .order_by(ExportModel.created_at.desc())
     )
@@ -295,6 +461,7 @@ def export_model_to_export(export_model: ExportModel) -> Export:
     return Export(
         id=export_model.id,
         name=export_model.name,
+        is_global=export_model.is_global,
         imports=[
             ExportImport(
                 project_name=import_model.project.name,
@@ -307,5 +474,12 @@ def export_model_to_export(export_model: ExportModel) -> Export:
                 name=exported_fleet_model.fleet.name,
             )
             for exported_fleet_model in export_model.exported_fleets
+        ],
+        exported_gateways=[
+            ExportedGateway(
+                id=exported_gateway_model.gateway.id,
+                name=exported_gateway_model.gateway.name,
+            )
+            for exported_gateway_model in export_model.exported_gateways
         ],
     )

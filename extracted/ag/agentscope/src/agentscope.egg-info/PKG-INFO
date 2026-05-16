@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope
-Version: 1.0.19.post1
+Version: 1.0.20
 Summary: AgentScope: A Flexible yet Robust Multi-Agent Platform.
 Author-email: SysML team of Alibaba Tongyi Lab <gaodawei.gdw@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -98,6 +98,7 @@ Provides-Extra: qdrant
 Requires-Dist: qdrant-client==1.15.1; extra == "qdrant"
 Provides-Extra: milvus
 Requires-Dist: pymilvus[milvus_lite]==2.6.2; extra == "milvus"
+Requires-Dist: milvus-lite==2.5.1; sys_platform != "win32" and extra == "milvus"
 Provides-Extra: ali-mysql
 Requires-Dist: mysql-connector-python; extra == "ali-mysql"
 Provides-Extra: mongodb
