@@ -288,3 +288,9 @@ class AudioRequest(Request):
     sound: Sound
     loop: bool = False
     limit: int | None = None
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "SoundEmitter",
+    "AudioRequest",
+]

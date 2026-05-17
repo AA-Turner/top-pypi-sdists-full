@@ -258,6 +258,37 @@ def _resolve_permit_decision(
     return PolicyDecision.PERMIT
 
 
+def _no_scope_rule_message(entity_name: str, role: str, op: str) -> str:
+    """Format the `no_scope_rule` warning differentiated by operation (#1123).
+
+    Pre-v0.71.19 the same "will see 0 records" message fired for every
+    operation — which was misleading for write ops (no row is "seen";
+    the operation is rejected). v0.71.19 ships runtime enforcement for
+    `scope: update:` / `scope: delete:`, so the message now matches
+    each operation's actual behaviour. `scope: create:` is parsed but
+    enforcement is deferred to v0.72.x — see #1124.
+    """
+    common = f"Role '{role}' passes permit for {entity_name}.{op} but has no matching scope rule —"
+    if op in {"read", "list"}:
+        return f"{common} will see 0 records"
+    if op in {"update", "delete"}:
+        return (
+            f"{common} the request will 404 at runtime (scope predicate "
+            f"will reject every row for this role; add a `scope: {op}:` "
+            "rule or `scope: all as: <persona>`)"
+        )
+    if op == "create":
+        return (
+            f"{common} the inserted row will 403 at runtime (predicate "
+            f"is evaluated against the payload after framework defaulting; "
+            f"see docs/reference/rbac-scope.md for the v1 supported shapes "
+            f"— ColumnCheck / UserAttrCheck / BoolComposite — and #1124 "
+            f"for the FK-path / EXISTS roadmap)"
+        )
+    # Future-proof: unknown op falls through to the generic message.
+    return f"{common} this operation may default-deny at runtime"
+
+
 def _resolve_decision(
     access: AccessSpec,
     role: str,
@@ -464,10 +495,7 @@ def generate_access_matrix(appspec: AppSpec) -> AccessMatrix:
                             entity=entity_name,
                             role=role,
                             operation=op,
-                            message=(
-                                f"Role '{role}' passes permit for {entity_name}.{op} "
-                                "but has no matching scope rule — will see 0 records"
-                            ),
+                            message=_no_scope_rule_message(entity_name, role, op),
                         )
                     )
 

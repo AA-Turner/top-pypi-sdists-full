@@ -240,6 +240,8 @@ def Pipedream(
     project_id: Union[str, Secret] = "",
     environment: str = "",
     api_base_url: str = "",
+    oauth_app_id: str = "",
+    connect_scopes: list[str] | None = None,
 ) -> IntegrationConfig:
     """Declare a Pipedream-managed account connection.
 
@@ -254,6 +256,11 @@ def Pipedream(
     environment. To bring your own Pipedream project, pass ``client_id``,
     ``client_secret``, and ``project_id`` as workspace secrets; ``environment``
     and ``api_base_url`` are optional advanced overrides for that project.
+
+    To control the OAuth scopes shown by the underlying provider, configure a
+    custom OAuth client in Pipedream with the scopes you want and pass its
+    ``oauth_app_id``. ``connect_scopes`` restricts the short-lived Pipedream
+    Connect token itself, not the provider OAuth scopes.
     """
     if not app_slug or not str(app_slug).strip():
         raise ValueError("Pipedream app slug must not be empty")
@@ -270,6 +277,13 @@ def Pipedream(
         fields.append(f"environment:{environment}")
     if api_base_url:
         fields.append(f"api_base_url:{api_base_url}")
+    oauth_app = str(oauth_app_id).strip()
+    if oauth_app:
+        fields.append(f"oauth_app_id:{oauth_app}")
+    if connect_scopes:
+        scope = " ".join(str(scope).strip() for scope in connect_scopes if str(scope).strip())
+        if scope:
+            fields.append(f"connect_scope:{scope}")
     return IntegrationConfig(
         type=str(app_slug).strip(),
         client_id=client_id,

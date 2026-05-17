@@ -50,7 +50,7 @@ class VideoPlayer(RendererComponent):
         "_frames_ready", "_audio_ready", "_audio_start_time",
     )
 
-    requires: ClassVar[tuple[str]] = ("Transform",)
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("Transform",)
 
     def __init__(
             self,
@@ -421,3 +421,8 @@ class VideoPlayer(RendererComponent):
         self._prev_audio_feed = None
         self._loop_time_offset = 0.0
         self._initialized = False
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "VideoPlayer",
+]

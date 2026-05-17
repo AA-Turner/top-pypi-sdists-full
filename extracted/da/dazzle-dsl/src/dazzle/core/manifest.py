@@ -409,6 +409,31 @@ class I18nConfig:
 
 
 @dataclass
+class SpecConfig:
+    """Spec-drift guard configuration (#1106 Proposal 3).
+
+    Reads ``[spec]`` from ``dazzle.toml``:
+
+        [spec]
+        strict = true   # fail agent loops on undocumented entities
+
+    When ``strict`` is True, ``dazzle spec status --fail-on-strict``
+    refuses to pass unless every DSL entity appears as an entity name
+    in a row of the ``## Domain map`` table inside ``SPEC.md``. The
+    /ship and /improve agent loops invoke this check before commit,
+    so an agent that adds an entity without updating the spec index
+    can't ship.
+
+    The match is intentionally stricter than the loose substring
+    check in ``dazzle spec status`` (which accepts mentions anywhere
+    in prose) — table-row presence forces the index-maintenance
+    discipline that ``[spec.strict]`` is opting into.
+    """
+
+    strict: bool = False
+
+
+@dataclass
 class ExtensionsConfig:
     """Registration of project-supplied extensions (closes #786).
 
@@ -419,6 +444,32 @@ class ExtensionsConfig:
     """
 
     routers: list[str] = field(default_factory=list)
+
+
+@dataclass
+class RenderersConfig:
+    """Declaration of project-supplied renderer names (closes #1116).
+
+    The DSL's ``render:`` clause on a surface is link-time validated
+    against a known-renderer set. The framework ships exactly one
+    renderer (``fragment``); projects that register custom renderers
+    against the runtime ``RendererRegistry`` must also declare those
+    names here so the link-time validator accepts them.
+
+    Example ``dazzle.toml``::
+
+        [renderers]
+        extra = ["branch_compare", "cytoscape_graph"]
+
+    The names are merged with the framework defaults at validation
+    time via ``dazzle.core.renderer_registry.known_renderer_names``.
+    Runtime registration (handler attached to a name) is a separate
+    step — done in app code via
+    ``services.renderer_registry.register(name=…, handler=…)``.
+    See ``examples/custom_renderer/`` for a worked example.
+    """
+
+    extra: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -506,6 +557,7 @@ class ProjectManifest:
     tenant: TenantConfig = field(default_factory=TenantConfig)
     i18n: I18nConfig = field(default_factory=I18nConfig)  # #955
     notifications: NotificationsConfig = field(default_factory=NotificationsConfig)  # #952
+    spec: SpecConfig = field(default_factory=SpecConfig)  # #1106 Prop 3
     framework_version: str | None = None
     cdn: bool = False  # Local-first; opt-in via [ui] cdn = true in dazzle.toml
     # Asset bundling mode. Resolved at request time by `should_bundle_assets()`:
@@ -539,6 +591,9 @@ class ProjectManifest:
     # deprecation notice but does NOT toggle anything.
     environments: dict[str, EnvironmentProfile] = field(default_factory=dict)
     extensions: ExtensionsConfig = field(default_factory=ExtensionsConfig)
+    # v0.71.x #1116 — project-side renderer-name allowlist. Merged with
+    # framework defaults via known_renderer_names() for link-time validation.
+    renderers: RenderersConfig = field(default_factory=RenderersConfig)
     # v0.61.104 (#932): per-name `[storage.<name>]` blocks. Keyed by the
     # storage name. Empty when no storage blocks are declared.
     storage_defs: dict[str, StorageConfig] = field(default_factory=dict)
@@ -859,6 +914,16 @@ def load_manifest(path: Path) -> ProjectManifest:
         routers=[str(r) for r in raw_routers if isinstance(r, str)],
     )
 
+    # Parse [renderers] section (#1116) — project-side renderer-name
+    # allowlist for the DSL's `render:` clause.
+    renderers_data = data.get("renderers", {})
+    raw_renderer_extra = renderers_data.get("extra", []) if isinstance(renderers_data, dict) else []
+    if not isinstance(raw_renderer_extra, list):
+        raw_renderer_extra = []
+    renderers_config = RenderersConfig(
+        extra=[str(r) for r in raw_renderer_extra if isinstance(r, str)],
+    )
+
     # Parse environment profiles
     env_data = data.get("environments", {})
     environments: dict[str, EnvironmentProfile] = {}
@@ -872,6 +937,10 @@ def load_manifest(path: Path) -> ProjectManifest:
 
     # Parse [storage.<name>] blocks (v0.61.104, #932)
     storage_defs = _parse_storage_configs(data)
+
+    # Parse [spec] block (#1106 Prop 3)
+    spec_data = data.get("spec", {}) if isinstance(data.get("spec"), dict) else {}
+    spec_config = SpecConfig(strict=bool(spec_data.get("strict", False)))
 
     return ProjectManifest(
         name=project.get("name", "unnamed"),
@@ -890,6 +959,7 @@ def load_manifest(path: Path) -> ProjectManifest:
         tenant=tenant_config,
         i18n=i18n_config,
         notifications=notifications_config,
+        spec=spec_config,
         framework_version=project.get("framework_version"),
         cdn=cdn_enabled,
         assets=assets_mode,
@@ -899,6 +969,7 @@ def load_manifest(path: Path) -> ProjectManifest:
         haptic=haptic_enabled,
         environments=environments,
         extensions=extensions_config,
+        renderers=renderers_config,
         storage_defs=storage_defs,
     )
 

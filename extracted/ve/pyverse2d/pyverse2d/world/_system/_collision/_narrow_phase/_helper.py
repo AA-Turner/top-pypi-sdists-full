@@ -6,16 +6,42 @@ import numpy as np
 from numpy.typing import NDArray
 
 # ======================================== CAPSULE ========================================
-def closest_pt_on_seg(sx: float, sy: float, sdx: float, sdy: float, px: float, py: float) -> tuple[float, float]:
-    """Point le plus proche de ``(px,py)`` sur le segment *(sx,sy) -> (sx+sdx,sy+sdy)*"""
+def closest_pt_on_seg(
+    sx: float, sy: float, sdx: float, sdy: float,
+    px: float, py: float,
+) -> tuple[float, float]:
+    """Point le plus proche de ``(px, py)`` sur le segment ``(sx, sy)`` -> ``(sx + sdx, sy + sdy)``
+    
+    Args:
+        sx: origine horizontale du segment
+        sy: origine verticale du segment
+        sdx: longueur horizontale du segment
+        sdy: longueur verticale du segment
+        px: coordonnée horizontale du point
+        py: coordonnée verticale du point
+    """
     len_sq = sdx * sdx + sdy * sdy
     if len_sq < 1e-10:
         return sx, sy
     t = max(0.0, min(1.0, ((px - sx) * sdx + (py - sy) * sdy) / len_sq))
     return sx + t * sdx, sy + t * sdy
 
-def closest_pt_seg_to_seg(ax: float, ay: float, adx: float, ady: float, bx: float, by: float, bdx: float, bdy: float) -> tuple[float, float]:
-    """Point le plus proche sur le segment ``A`` du segment ``B``"""
+def closest_pt_seg_to_seg(
+    ax: float, ay: float, adx: float, ady: float,
+    bx: float, by: float, bdx: float, bdy: float
+) -> tuple[float, float]:
+    """Point le plus proche sur le segment ``A`` du segment ``B``
+    
+    Args:
+        ax: origine horizontale du segment ``A``
+        ay: origine verticale du segment ``A``
+        adx: longueur horizontale du segment ``A``
+        ady: longueur verticale du segment ``A``
+        bx: origine horizontale du segment ``B``
+        by: origine verticale du segment ``B``
+        bdx: longueur horizontale du segment ``B``
+        bdy: longueur verticale du segment ``B``
+    """
     a_len_sq = adx * adx + ady * ady
     b_len_sq = bdx * bdx + bdy * bdy
     rx, ry = ax - bx, ay - by
@@ -24,13 +50,16 @@ def closest_pt_seg_to_seg(ax: float, ay: float, adx: float, ady: float, bx: floa
 
     if a_len_sq < 1e-10 and b_len_sq < 1e-10:
         return ax, ay
+    
     if a_len_sq < 1e-10:
         s = max(0.0, min(1.0, e / b_len_sq))
         return bx + s * bdx, by + s * bdy
+    
     c = rx * adx + ry * ady
     if b_len_sq < 1e-10:
         t = max(0.0, min(1.0, -c / a_len_sq))
         return ax + t * adx, ay + t * ady
+    
     denom = a_len_sq * b_len_sq - f * f
     t = max(0.0, min(1.0, (f * e - c * b_len_sq) / denom)) if abs(denom) > 1e-10 else 0.0
     s = max(0.0, min(1.0, (f * t + e) / b_len_sq))
@@ -38,55 +67,116 @@ def closest_pt_seg_to_seg(ax: float, ay: float, adx: float, ady: float, bx: floa
     return ax + t * adx, ay + t * ady
 
 # ======================================== VERTEX ========================================
-def point_in_convex_poly(px: float, py: float, pts: NDArray[np.float32]) -> bool:
-    """Vérifie si ``(px,py)`` est à l'intérieur d'un polygone convexe"""
+def point_in_convex_poly(
+    px: float, py: float,
+    pts: NDArray[np.float32],
+) -> bool:
+    """Vérifie si ``(px,py)`` est à l'intérieur d'un polygone convexe
+    
+    Args:
+        px: coordonnée horizontale du point
+        py: coordonnée verticale du point
+        pts: points du polygone
+    """
     p = np.array([px, py], dtype=np.float32)
     v1 = pts
     v2 = np.roll(pts, -1, axis=0)
+
     cross = (v2[:, 0] - v1[:, 0]) * (p[1] - v1[:, 1]) - (v2[:, 1] - v1[:, 1]) * (p[0] - v1[:, 0])
     mask = np.abs(cross) >= 1e-6
     if not np.any(mask):
         return False
+    
     signs = cross[mask] > 0
     return np.all(signs) or not np.any(signs)
+
 # ======================================== ELLIPSE ========================================
-def to_ellipse_local(px: float, py: float, ex: float, ey: float, rot_rad: float) -> tuple[float, float]:
-    """Ramène ``(px,py)`` dans l'espace local de l'ellipse"""
+def to_ellipse_local(
+    px: float, py: float,
+    ex: float, ey: float, rot_rad: float,
+) -> tuple[float, float]:
+    """Ramène ``(px,py)`` dans l'espace local de l'ellipse
+    
+    Args:
+        px: coordonnée horizontale du point
+        py: coordonnée verticale du point
+        ex: position horizontale de l'ellipse
+        ey: position verticale de l'ellipse
+        rot_rad: angle de rotation de l'ellipse
+    """
     dx, dy = px - ex, py - ey
     cos_r, sin_r = cos(-rot_rad), sin(-rot_rad)
     return dx * cos_r - dy * sin_r, dx * sin_r + dy * cos_r
 
-def from_ellipse_local(lx: float, ly: float, ex: float, ey: float, rot_rad: float) -> tuple[float, float]:
-    """Repasse en world space"""
+def from_ellipse_local(
+    lx: float, ly: float,
+    ex: float, ey: float, rot_rad: float,
+) -> tuple[float, float]:
+    """Repasse ``(px,py)`` dans l'espace monde
+    
+    Args:
+        lx: coordonnée horizontale du point
+        ly: coordonnée verticale du point
+        ex: position horizontale de l'ellipse
+        ey: position verticale de l'ellipse
+        rot_rad: angle de rotation de l'ellipse
+    """
     cos_r, sin_r = cos(rot_rad), sin(rot_rad)
     return ex + lx * cos_r - ly * sin_r, ey + lx * sin_r + ly * cos_r
 
-def closest_pt_on_ellipse(cx: float, cy: float, rx: float, ry: float, px: float, py: float) -> tuple[float, float]:
-    """Point le plus proche sur l'ellipse ``(cx,cy,rx,ry)`` du point ``(px,py)``"""
+def closest_pt_on_ellipse(
+    cx: float, cy: float, rx: float, ry: float,
+    px: float, py: float,
+) -> tuple[float, float]:
+    """Point le plus proche sur l'ellipse ``(cx, cy, rx, ry)`` du point ``(px, py)``
+    
+    Args:
+        cx: centre horizontale de l'ellipse
+        cy: centre vertical de l'ellipse
+        rx: rayon horizontal de l'ellipse
+        ry: rayon vertical de l'ellipse
+        px: coordonnée horizontale du point
+        py: coordonnée verticale du point
+    """
     lx = px - cx
     ly = py - cy
     if abs(lx) < 1e-12 and abs(ly) < 1e-12:
         return cx + rx, cy
+    
     t = atan2(ly * rx, lx * ry)
     for _ in range(25):
         ct, st = cos(t), sin(t)
         ex2 = rx * ct
         ey2 = ry * st
         f = -rx * st * (ex2 - lx) + ry * ct * (ey2 - ly)
-        fp = (-rx * ct * (ex2 - lx) + rx * rx * st * st
-              - ry * st * (ey2 - ly) + ry * ry * ct * ct)
+        fp = (-rx * ct * (ex2 - lx) + rx * rx * st * st - ry * st * (ey2 - ly) + ry * ry * ct * ct)
         if abs(fp) < 1e-12:
             break
         delta = f / fp
         t -= delta
         if abs(delta) < 1e-9:
             break
+
     ct, st = cos(t), sin(t)
     return cx + rx * ct, cy + ry * st
 
 # ======================================== ROUNDED RECT ========================================
-def closest_pt_on_rr(px: float, py: float, cx: float, cy: float, hx: float, hy: float, r: float, rotation: float) -> tuple[float, float]:
-    """Point le plus proche sur le contour du ``RoundedRect``"""
+def closest_pt_on_rr(
+    px: float, py: float,
+    cx: float, cy: float, hx: float, hy: float, r: float, rotation: float,
+) -> tuple[float, float]:
+    """Point le plus proche sur le contour du ``RoundedRect``
+    
+    Args:
+        px: coordonnée horizontale du point
+        py: coordonnée verticale du point
+        cx: centre horizontal du rounded rect
+        cy: centre vertical du rounded rect
+        hx: demi largeur du rounded rect
+        hy: demi hauteur du rounded rect
+        r: rayon de l'arrondissement des coins du rounded rect
+        rotation: angle de rotation du rounded rect
+    """
     rad = radians(-rotation)
     cos_r, sin_r = cos(rad), sin(rad)
     dx, dy = px - cx, py - cy
@@ -117,8 +207,22 @@ def closest_pt_on_rr(px: float, py: float, cx: float, cy: float, hx: float, hy: 
     cos_w, sin_w = cos(rad_w), sin(rad_w)
     return (cx + local_sx * cos_w - local_sy * sin_w, cy + local_sx * sin_w + local_sy * cos_w,)
 
-def depth_and_normal_rr(px: float, py: float, cx: float, cy: float, hx: float, hy: float, r: float, rotation: float) -> tuple[float, float, float] | None:
-    """Penetration *depth* + *normale* pour un point ``(px,py)`` contre un ``RoundedRect``"""
+def depth_and_normal_rr(
+    px: float, py: float,
+    cx: float, cy: float, hx: float, hy: float, r: float, rotation: float,
+) -> tuple[float, float, float] | None:
+    """Penetration pour un point ``(px,py)`` contre un ``RoundedRect``
+    
+    Args:
+        px: coordonnée horizontale du point
+        py: coordonnée verticale du point
+        cx: centre horizontal du rounded rect
+        cy: centre vertical du rounded rect
+        hx: demi largeur du rounded rect
+        hy: demi hauteur du rounded rect
+        r: rayon de l'arrondissement des coins du rounded rect
+        rotation: angle de rotation du rounded rect
+    """
     rad = radians(-rotation)
     cos_r, sin_r = cos(rad), sin(rad)
     dx, dy = px - cx, py - cy
@@ -162,10 +266,13 @@ def depth_and_normal_rr(px: float, py: float, cx: float, cy: float, hx: float, h
 __all__ = [
     "closest_pt_on_seg",
     "closest_pt_seg_to_seg",
+    
     "point_in_convex_poly",
+
     "to_ellipse_local",
     "from_ellipse_local",
     "closest_pt_on_ellipse",
+
     "closest_pt_on_rr",
     "depth_and_normal_rr",
 ]

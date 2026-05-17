@@ -394,9 +394,19 @@ def create_site_page_routes(
     Returns:
         FastAPI router with HTML page routes
     """
+    from dazzle.back.runtime.renderers.site_section_override_loader import (
+        discover_section_overrides,
+    )
     from dazzle.ui.runtime.css_loader import get_bundled_css
     from dazzle.ui.runtime.site_context import build_site_page_context
     from dazzle.ui.runtime.site_renderer import get_site_js
+
+    # Discover project-local section overrides once at build time
+    # (#1110 Part A). Empty registry when the project doesn't have a
+    # `site_sections/` directory — falls through to framework defaults.
+    _section_overrides = (
+        discover_section_overrides(project_root) if project_root is not None else None
+    )
 
     def _render_site_inner_html(request: Request, ctx: Any) -> str:
         """Inline-render the marketing-page body (Phase 4, v0.67.69).
@@ -494,6 +504,23 @@ def create_site_page_routes(
             "</div></nav></header>"
         )
 
+        # --- Page <h1> (#1108) ---------------------------------------
+        # Pages without a `type: hero` section had no <h1> at all, since
+        # all other section types use _section_header() which emits <h2>.
+        # Auto-inject one from page.title when no hero is present so every
+        # page satisfies the single-<h1> WCAG rule.
+        has_hero = any(
+            isinstance(s, dict) and str(s.get("type", "") or "") == "hero" for s in sections
+        )
+        page_h1_html = ""
+        if not has_hero:
+            page_title_text = _html_mod.escape(
+                str(getattr(ctx, "page_title", "") or ""),
+                quote=False,
+            )
+            if page_title_text:
+                page_h1_html = f'<h1 class="dz-page-title">{page_title_text}</h1>'
+
         # --- Section dispatch (only typed sections survive) ---------
         section_parts: list[str] = []
         for section in sections:
@@ -502,8 +529,10 @@ def create_site_page_routes(
             stype = str(section.get("type", "") or "")
             if stype == "_typed":
                 section_html = str(section.get("_typed_html", "") or "")
-            elif stype in TYPED_SECTION_TYPES:
-                section_html = render_typed_section(section)
+            elif stype in TYPED_SECTION_TYPES or (
+                _section_overrides is not None and _section_overrides.get(stype) is not None
+            ):
+                section_html = render_typed_section(section, overrides=_section_overrides)
             else:
                 # Unknown / non-typed section: skip per v0.67.69 directive.
                 continue
@@ -526,7 +555,7 @@ def create_site_page_routes(
         main_class = ' class="dz-page-legal"' if page_type == "legal" else ""
         main_html = (
             f'<main id="dz-site-main"{main_class} data-route="{current_route}">'
-            f"{sections_html}{qa_html}"
+            f"{page_h1_html}{sections_html}{qa_html}"
             "</main>"
         )
 
@@ -581,11 +610,17 @@ def create_site_page_routes(
                     replaced.append(section)
                     continue
                 section_type = str(section.get("type", "") or "")
-                if section_type in TYPED_SECTION_TYPES:
+                has_override = (
+                    _section_overrides is not None
+                    and _section_overrides.get(section_type) is not None
+                )
+                if section_type in TYPED_SECTION_TYPES or has_override:
                     replaced.append(
                         {
                             "type": "_typed",
-                            "_typed_html": render_typed_section(section),
+                            "_typed_html": render_typed_section(
+                                section, overrides=_section_overrides
+                            ),
                         }
                     )
                 else:
@@ -597,7 +632,9 @@ def create_site_page_routes(
         inner_html = _render_site_inner_html(request, ctx)
         page_ctx = PageContext(
             page_title=getattr(ctx, "page_title", "") or "",
-            app_name=getattr(ctx, "app_name", None) or "Dazzle",
+            app_name=(
+                getattr(ctx, "product_name", None) or getattr(ctx, "app_name", None) or "Dazzle"
+            ),
             current_route=getattr(ctx, "current_route", "") or "/",
         )
         app_state = request.app.state

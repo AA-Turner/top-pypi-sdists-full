@@ -1,6 +1,7 @@
 # MCP stdio server - exposes graph query tools to Claude and other agents
 from __future__ import annotations
 import json
+import math
 import sys
 from pathlib import Path
 import networkx as nx
@@ -55,28 +56,74 @@ _SUBSTRING_MATCH_BONUS = 1.0
 _SOURCE_MATCH_BONUS = 0.5
 
 
+def _compute_idf(G: nx.Graph, terms: list[str]) -> dict[str, float]:
+    """IDF weights for query terms, cached in G.graph['_idf_cache'].
+
+    Common terms like 'error' or 'exception' that match hundreds of nodes get
+    low weights; rare identifiers like 'FooBarService' get high weights.
+    Cache is stored on the graph object itself so it auto-invalidates when
+    _maybe_reload() replaces G with a new object.
+    """
+    cache: dict[str, float] = G.graph.setdefault("_idf_cache", {})
+    N = G.number_of_nodes() or 1
+    uncached = [t for t in terms if t not in cache]
+    if uncached:
+        df: dict[str, int] = {t: 0 for t in uncached}
+        for _, data in G.nodes(data=True):
+            norm_label = (
+                data.get("norm_label") or _strip_diacritics(data.get("label") or "")
+            ).lower()
+            for t in uncached:
+                if t in norm_label:
+                    df[t] += 1
+        for t in uncached:
+            cache[t] = math.log(1 + N / (1 + df[t]))
+    return {t: cache.get(t, math.log(1 + N)) for t in terms}
+
+
 def _score_nodes(G: nx.Graph, terms: list[str]) -> list[tuple[float, str]]:
     scored = []
     norm_terms = [_strip_diacritics(t).lower() for t in terms]
+    idf = _compute_idf(G, norm_terms)
     for nid, data in G.nodes(data=True):
         norm_label = data.get("norm_label") or _strip_diacritics(data.get("label") or "").lower()
         bare_label = norm_label.rstrip("()")
         source = (data.get("source_file") or "").lower()
         score = 0.0
         for t in norm_terms:
+            w = idf.get(t, 1.0)
             # Three-tier precedence: exact > prefix > substring (take the
             # strongest tier per term so a single term cannot double-count).
             if t == norm_label or t == bare_label:
-                score += _EXACT_MATCH_BONUS
+                score += _EXACT_MATCH_BONUS * w
             elif norm_label.startswith(t) or bare_label.startswith(t):
-                score += _PREFIX_MATCH_BONUS
+                score += _PREFIX_MATCH_BONUS * w
             elif t in norm_label:
-                score += _SUBSTRING_MATCH_BONUS
+                score += _SUBSTRING_MATCH_BONUS * w
             if t in source:
-                score += _SOURCE_MATCH_BONUS
+                score += _SOURCE_MATCH_BONUS * w
         if score > 0:
             scored.append((score, nid))
     return sorted(scored, reverse=True)
+
+
+def _pick_seeds(scored: list[tuple[float, str]], max_k: int = 3, gap_ratio: float = 0.2) -> list[str]:
+    """Select BFS seed nodes, stopping when score drops too far below the top.
+
+    Prevents high-frequency noise terms (error, exception) from stealing seed
+    slots from a dominant identifier match. When FooBarService scores 1000 and
+    error nodes score 1.0, only FooBarService is seeded — the score gap is 99.9%
+    which is well above the 20% threshold that would allow additional seeds.
+    """
+    if not scored:
+        return []
+    top_score = scored[0][0]
+    seeds = []
+    for score, nid in scored[:max_k]:
+        if seeds and score < top_score * gap_ratio:
+            break
+        seeds.append(nid)
+    return seeds
 
 
 _CONTEXT_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -237,7 +284,16 @@ def _subgraph_to_text(G: nx.Graph, nodes: set[str], edges: list[tuple], token_bu
             lines.append(line)
     output = "\n".join(lines)
     if len(output) > char_budget:
-        output = output[:char_budget] + f"\n... (truncated to ~{token_budget} token budget)"
+        cut_at = output[:char_budget].rfind("\n")
+        cut_at = cut_at if cut_at > 0 else char_budget
+        total_nodes = sum(1 for l in lines if l.startswith("NODE "))
+        shown_nodes = output[:cut_at].count("\nNODE ") + (1 if output.startswith("NODE ") else 0)
+        cut_count = total_nodes - shown_nodes
+        output = (
+            output[:cut_at]
+            + f"\n... (truncated — {cut_count} more nodes cut by ~{token_budget}-token budget."
+            f" Narrow with context_filter=['call'] or use get_node for a specific symbol)"
+        )
     return output
 
 
@@ -252,7 +308,7 @@ def _query_graph_text(
 ) -> str:
     terms = [t.lower() for t in question.split() if len(t) > 2]
     scored = _score_nodes(G, terms)
-    start_nodes = [nid for _, nid in scored[:3]]
+    start_nodes = _pick_seeds(scored)
     if not start_nodes:
         return "No matching nodes found."
     resolved_filters, filter_source = _resolve_context_filters(question, context_filters)
@@ -450,6 +506,52 @@ def serve(graph_path: str = "graphify-out/graph.json") -> None:
                     "required": ["source", "target"],
                 },
             ),
+            types.Tool(
+                name="list_prs",
+                description=(
+                    "List open GitHub PRs with CI status, review state, and graph impact "
+                    "(which communities each PR touches, blast radius). Use this before starting "
+                    "work to check if a PR already covers the area you're about to change."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "base": {"type": "string", "description": "Base branch to filter PRs by (auto-detected if omitted)"},
+                        "repo": {"type": "string", "description": "GitHub repo (owner/repo). Defaults to current repo."},
+                    },
+                },
+            ),
+            types.Tool(
+                name="get_pr_impact",
+                description=(
+                    "Get detailed graph impact for a specific PR: which files it changes, "
+                    "which knowledge-graph communities are affected, and how many nodes are touched. "
+                    "Use this to assess merge risk or check for overlap with your current work."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "pr_number": {"type": "integer", "description": "PR number to analyse"},
+                        "repo": {"type": "string", "description": "GitHub repo (owner/repo). Defaults to current repo."},
+                    },
+                    "required": ["pr_number"],
+                },
+            ),
+            types.Tool(
+                name="triage_prs",
+                description=(
+                    "Return all actionable open PRs (correct base, not stale) with full graph impact data "
+                    "so you can reason about review priority, merge order, and conflict risk. "
+                    "Call this when the user asks 'what PRs should I review?' or 'what's ready to merge?'"
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "base": {"type": "string", "description": "Base branch to filter PRs by (auto-detected if omitted)"},
+                        "repo": {"type": "string", "description": "GitHub repo (owner/repo). Defaults to current repo."},
+                    },
+                },
+            ),
         ]
 
     def _tool_query_graph(arguments: dict) -> str:
@@ -601,6 +703,91 @@ def serve(graph_path: str = "graphify-out/graph.json") -> None:
         prefix = ("\n".join(warnings) + "\n") if warnings else ""
         return prefix + f"Shortest path ({hops} hops):\n  " + " ".join(segments)
 
+    def _tool_list_prs(arguments: dict) -> str:
+        from graphify.prs import fetch_prs, fetch_worktrees, format_prs_text, _detect_default_branch
+        repo = arguments.get("repo") or None
+        base = arguments.get("base") or _detect_default_branch(repo)
+        try:
+            prs = fetch_prs(repo=repo, base=base)
+        except RuntimeError as e:
+            return f"Error: {e}"
+        worktrees = fetch_worktrees()
+        for pr in prs:
+            pr.worktree_path = worktrees.get(pr.branch)
+        return format_prs_text(prs, base)
+
+    def _tool_get_pr_impact(arguments: dict) -> str:
+        from graphify.prs import fetch_pr_files, compute_pr_impact, _gh, _parse_ci
+        number = int(arguments["pr_number"])
+        repo = arguments.get("repo") or None
+        # Use gh pr view directly — works for any base branch, not just the default
+        view_args = ["pr", "view", str(number), "--json",
+                     "title,headRefName,baseRefName,author,isDraft,reviewDecision,statusCheckRollup,updatedAt"]
+        if repo:
+            view_args += ["--repo", repo]
+        pr_data = _gh(*view_args)
+        if pr_data is None:
+            return f"PR #{number} not found or gh not authenticated."
+        files = fetch_pr_files(number, repo)
+        if not files:
+            return f"PR #{number}: no changed files found (may require gh auth)."
+        comms, nodes = compute_pr_impact(files, G)
+        ci = _parse_ci(pr_data.get("statusCheckRollup") or [])
+        lines = [
+            f"PR #{number}: {pr_data['title']}",
+            f"CI: {ci}  Review: {pr_data.get('reviewDecision') or 'none'}",
+            f"Base: {pr_data['baseRefName']}  Author: {(pr_data.get('author') or {}).get('login', '?')}",
+            f"\nGraph impact: {nodes} nodes across {len(comms)} communities",
+            f"Communities touched: {comms}",
+            f"Files changed ({len(files)}):",
+        ]
+        lines += [f"  {f}" for f in files[:20]]
+        if len(files) > 20:
+            lines.append(f"  … and {len(files) - 20} more")
+        return "\n".join(lines)
+
+    def _tool_triage_prs(arguments: dict) -> str:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from graphify.prs import fetch_prs, fetch_worktrees, fetch_pr_files, compute_pr_impact, _STATUS_ORDER, _detect_default_branch
+        repo = arguments.get("repo") or None
+        base = arguments.get("base") or _detect_default_branch(repo)
+        try:
+            prs = fetch_prs(repo=repo, base=base)
+        except RuntimeError as e:
+            return f"Error: {e}"
+        worktrees = fetch_worktrees()
+        for pr in prs:
+            pr.worktree_path = worktrees.get(pr.branch)
+        actionable = [p for p in prs if p.base_branch == base and p.status not in ("WRONG-BASE", "STALE")]
+        if not actionable:
+            return f"No actionable PRs targeting {base}."
+        # Fetch diffs concurrently then compute graph impact using in-memory G
+        workers = min(8, len(actionable))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            future_to_pr = {pool.submit(fetch_pr_files, pr.number, repo): pr for pr in actionable}
+            for fut in as_completed(future_to_pr):
+                pr = future_to_pr[fut]
+                try:
+                    files = fut.result()
+                except Exception:
+                    files = []
+                if files:
+                    pr.files_changed = files
+                    pr.communities_touched, pr.nodes_affected = compute_pr_impact(files, G)
+        header = (
+            f"Actionable PRs targeting {base}: {len(actionable)}\n"
+            "Rank these by review priority. Higher blast_radius = more graph communities affected = higher merge risk.\n"
+        )
+        lines = [header]
+        for p in sorted(actionable, key=lambda x: (_STATUS_ORDER.index(x.status) if x.status in _STATUS_ORDER else 99)):
+            impact = f"  blast_radius={p.blast_radius}" if p.blast_radius else ""
+            wt = f"  worktree={p.worktree_path}" if p.worktree_path else ""
+            lines.append(
+                f"PR #{p.number} [{p.status}] CI={p.ci_status} review={p.review_decision or 'none'} "
+                f"age={p.days_old}d author={p.author}{impact}{wt}\n  title: {p.title}"
+            )
+        return "\n\n".join(lines)
+
     _handlers = {
         "query_graph": _tool_query_graph,
         "get_node": _tool_get_node,
@@ -609,6 +796,9 @@ def serve(graph_path: str = "graphify-out/graph.json") -> None:
         "god_nodes": _tool_god_nodes,
         "graph_stats": _tool_graph_stats,
         "shortest_path": _tool_shortest_path,
+        "list_prs": _tool_list_prs,
+        "get_pr_impact": _tool_get_pr_impact,
+        "triage_prs": _tool_triage_prs,
     }
 
     def _load_community_labels() -> dict[int, str]:

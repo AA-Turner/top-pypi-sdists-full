@@ -74,6 +74,23 @@ class IntegrationDXTests(unittest.TestCase):
             },
         )
 
+    def test_pipedream_constructor_serializes_oauth_app_and_connect_scopes(self):
+        self.assertEqual(
+            cpsl.Pipedream(
+                "github",
+                oauth_app_id="oa_123",
+                connect_scopes=["connect:accounts:read", "connect:accounts:write"],
+            ).to_dict(),
+            {
+                "type": "github",
+                "mode": "pipedream",
+                "fields": [
+                    "oauth_app_id:oa_123",
+                    "connect_scope:connect:accounts:read connect:accounts:write",
+                ],
+            },
+        )
+
     def test_app_add_integration_accepts_config_and_string(self):
         app = cpsl.App(name="integration-dx", image=cpsl.Image())
         app.add_integration(cpsl.AWS())

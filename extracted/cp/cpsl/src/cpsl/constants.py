@@ -102,6 +102,7 @@ ColumnType = Literal[
     "status",
     "tags",
     "boolean",
+    "score",
 ]
 
 

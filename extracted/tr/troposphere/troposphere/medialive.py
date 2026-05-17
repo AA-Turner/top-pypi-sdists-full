@@ -1617,6 +1617,14 @@ class Hdr10Settings(AWSProperty):
     }
 
 
+class Hlg2020Settings(AWSProperty):
+    """
+    `Hlg2020Settings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlg2020settings.html>`__
+    """
+
+    props: PropsDictType = {}
+
+
 class Rec601Settings(AWSProperty):
     """
     `Rec601Settings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-rec601settings.html>`__
@@ -1641,6 +1649,7 @@ class Av1ColorSpaceSettings(AWSProperty):
     props: PropsDictType = {
         "ColorSpacePassthroughSettings": (ColorSpacePassthroughSettings, False),
         "Hdr10Settings": (Hdr10Settings, False),
+        "Hlg2020Settings": (Hlg2020Settings, False),
         "Rec601Settings": (Rec601Settings, False),
         "Rec709Settings": (Rec709Settings, False),
     }
@@ -1665,6 +1674,7 @@ class Av1Settings(AWSProperty):
 
     props: PropsDictType = {
         "AfdSignaling": (str, False),
+        "BitDepth": (str, False),
         "Bitrate": (integer, False),
         "BufSize": (integer, False),
         "ColorSpaceSettings": (Av1ColorSpaceSettings, False),
@@ -1803,14 +1813,6 @@ class H264Settings(AWSProperty):
 class DolbyVision81Settings(AWSProperty):
     """
     `DolbyVision81Settings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-dolbyvision81settings.html>`__
-    """
-
-    props: PropsDictType = {}
-
-
-class Hlg2020Settings(AWSProperty):
-    """
-    `Hlg2020Settings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-hlg2020settings.html>`__
     """
 
     props: PropsDictType = {}
@@ -1979,6 +1981,16 @@ class EncoderSettings(AWSProperty):
         "ThumbnailConfiguration": (ThumbnailConfiguration, False),
         "TimecodeConfig": (TimecodeConfig, False),
         "VideoDescriptions": ([VideoDescription], False),
+    }
+
+
+class InferenceSettings(AWSProperty):
+    """
+    `InferenceSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inferencesettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "FeedArn": (str, False),
     }
 
 
@@ -2475,7 +2487,9 @@ class SrtOutputDestinationSettings(AWSProperty):
     """
 
     props: PropsDictType = {
+        "ConnectionMode": (str, False),
         "EncryptionPassphraseSecretArn": (str, False),
+        "ListenerPort": (integer, False),
         "StreamId": (str, False),
         "Url": (str, False),
     }
@@ -2520,9 +2534,11 @@ class Channel(AWSObject):
         "CdiInputSpecification": (CdiInputSpecification, False),
         "ChannelClass": (str, False),
         "ChannelEngineVersion": (ChannelEngineVersionRequest, False),
+        "ChannelSecurityGroups": ([str], False),
         "Destinations": ([OutputDestination], False),
         "DryRun": (boolean, False),
         "EncoderSettings": (EncoderSettings, False),
+        "InferenceSettings": (InferenceSettings, False),
         "InputAttachments": ([InputAttachment], False),
         "InputSpecification": (InputSpecification, False),
         "LinkedChannelSettings": (LinkedChannelSettings, False),
@@ -2845,6 +2861,29 @@ class SrtCallerSourceRequest(AWSProperty):
     }
 
 
+class SrtListenerDecryptionRequest(AWSProperty):
+    """
+    `SrtListenerDecryptionRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenerdecryptionrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Algorithm": (str, False),
+        "PassphraseSecretArn": (str, False),
+    }
+
+
+class SrtListenerSettingsRequest(AWSProperty):
+    """
+    `SrtListenerSettingsRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenersettingsrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "Decryption": (SrtListenerDecryptionRequest, False),
+        "MinimumLatency": (integer, False),
+        "StreamId": (str, False),
+    }
+
+
 class SrtSettingsRequest(AWSProperty):
     """
     `SrtSettingsRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtsettingsrequest.html>`__
@@ -2852,6 +2891,7 @@ class SrtSettingsRequest(AWSProperty):
 
     props: PropsDictType = {
         "SrtCallerSources": ([SrtCallerSourceRequest], False),
+        "SrtListenerSettings": (SrtListenerSettingsRequest, False),
     }
 
 

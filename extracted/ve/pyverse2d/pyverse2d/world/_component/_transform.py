@@ -44,3 +44,8 @@ class Transform(_Transform, Component):
     def copy(self) -> Transform:
         """Renvoie une copie du composant"""
         return Transform(self._position, self._anchor, self._rotation, self._scale)
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Transform",
+]

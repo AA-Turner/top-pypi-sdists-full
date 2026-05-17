@@ -221,12 +221,14 @@ class MenuOptionHandler:
         sleep(2)
         if sys.platform == "win32":
             # Windows PowerShell/CMD syntax
-            cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+            cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -l'
             os.system(cmd)
+            sys.exit(0)
         else:
             # Unix-like (Linux/macOS)
-            cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+            cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -l'
             os.system(cmd)
+            sys.exit(0)
         return None, None
     
     def handle_menu_f(self, options) -> Optional[List[str]]:
@@ -628,12 +630,14 @@ def _handle_log_menu(launcher: str):
         # Method 2: Using platform detection (Alternative)
         if sys.platform == "win32":
             # Windows PowerShell/CMD syntax
-            cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+            cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -l'
             os.system(cmd)
+            sys.exit(0)
         else:
             # Unix-like (Linux/macOS)
-            cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+            cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -l'
             os.system(cmd)
+            sys.exit(0)
     except Exception as e:
         OutputControls().printOutput(f"{colorText.FAIL}Failed to launch: {e}{colorText.END}")
     

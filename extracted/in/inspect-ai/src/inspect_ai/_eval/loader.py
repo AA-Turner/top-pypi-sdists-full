@@ -90,10 +90,16 @@ def resolve_tasks(
                 model=task.model or model,
                 model_roles=_merge_model_roles(task.model_roles, model_roles),
                 sandbox=resolve_task_sandbox(task, sandbox),
+                checkpoint=task.checkpoint,
                 sequence=sequence,
             )
             for sequence, task in enumerate(tasks)
         ]
+
+    # an empty list is equivalent to None (load tasks from cwd) — but it
+    # must short-circuit before any tasks[0] access below
+    if isinstance(tasks, list) and len(tasks) == 0:
+        return as_resolved_tasks(load_tasks(None, task_args))
 
     # reflect resolved tasks right back
     if isinstance(tasks, ResolvedTask):
@@ -108,10 +114,6 @@ def resolve_tasks(
         return resolve_previous_tasks(
             tasks, sample_shuffle=sample_shuffle, model=model, model_roles=model_roles
         )
-
-    # take empty lists out of play
-    if isinstance(tasks, list) and len(tasks) == 0:
-        return as_resolved_tasks(load_tasks(None, task_args))
 
     # simple cases of passing us Task objects
     if isinstance(tasks, Task):
@@ -208,6 +210,7 @@ def resolve_previous_task(
         sandbox=resolve_task_file_sandbox(
             previous_task.log.eval.task_file, previous_task.log.eval.sandbox
         ),
+        checkpoint=loaded_task.checkpoint,
         sequence=sequence,
         id=previous_task.id,
         sample_source=eval_log_sample_source(

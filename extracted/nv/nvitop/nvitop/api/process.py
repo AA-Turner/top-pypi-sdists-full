@@ -1,6 +1,6 @@
 # This file is part of nvitop, the interactive NVIDIA-GPU process viewer.
 #
-# Copyright 2021-2025 Xuehai Pan. All Rights Reserved.
+# Copyright 2021-2026 Xuehai Pan. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -644,7 +644,7 @@ class GpuProcess:  # pylint: disable=too-many-instance-attributes,too-many-publi
             and libnvml.nvmlCheckReturn(memory_total, int)
             and memory_total > 0
         ):
-            gpu_memory_percent = round(100.0 * memory_used / memory_total, 1)  # type: ignore[assignment]
+            gpu_memory_percent = round(100.0 * memory_used / memory_total, 1)
         self._gpu_memory_percent = gpu_memory_percent
 
     def set_gpu_utilization(

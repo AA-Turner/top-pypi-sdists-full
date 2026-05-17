@@ -40,6 +40,7 @@ class S3Destination(AWSProperty):
 
     props: PropsDictType = {
         "S3Bucket": (str, True),
+        "S3BucketOwner": (str, False),
         "S3OutputConfigurations": (S3OutputConfigurations, True),
         "S3Prefix": (str, True),
         "S3Region": (str, True),

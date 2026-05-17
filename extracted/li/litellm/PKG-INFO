@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.84.0
+Version: 1.85.0
 Summary: Library to easily interface with LLM API providers
 Author: BerriAI
 License-Expression: MIT
@@ -74,6 +74,10 @@ Requires-Dist: llm-sandbox==0.3.39 ; extra == 'proxy-runtime'
 Requires-Dist: detect-secrets==1.5.0 ; extra == 'proxy-runtime'
 Requires-Dist: semantic-router==0.1.12 ; python_full_version < '3.14' and extra == 'semantic-router'
 Requires-Dist: aurelio-sdk==0.0.19 ; python_full_version < '3.14' and extra == 'semantic-router'
+Requires-Dist: nvidia-riva-client>=2.15.0 ; extra == 'stt-nvidia-riva'
+Requires-Dist: soundfile>=0.12.1 ; extra == 'stt-nvidia-riva'
+Requires-Dist: audioread>=3.0.1 ; extra == 'stt-nvidia-riva'
+Requires-Dist: numpy>=1.26.0 ; extra == 'stt-nvidia-riva'
 Requires-Dist: numpydoc==1.8.0 ; extra == 'utils'
 Requires-Python: >=3.10, <3.14
 Project-URL: Homepage, https://litellm.ai
@@ -87,6 +91,7 @@ Provides-Extra: mlflow
 Provides-Extra: proxy
 Provides-Extra: proxy-runtime
 Provides-Extra: semantic-router
+Provides-Extra: stt-nvidia-riva
 Provides-Extra: utils
 Description-Content-Type: text/markdown
 

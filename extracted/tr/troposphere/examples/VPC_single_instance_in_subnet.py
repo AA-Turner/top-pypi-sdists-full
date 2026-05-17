@@ -46,14 +46,12 @@ t = Template()
 
 t.set_version("2010-09-09")
 
-t.set_description(
-    """\
+t.set_description("""\
 AWS CloudFormation Sample Template VPC_Single_Instance_In_Subnet: Sample \
 template showing how to create a VPC and add an EC2 instance with an Elastic \
 IP address and a security group. \
 **WARNING** This template creates an Amazon EC2 instance. You will be billed \
-for the AWS resources used if you create a stack from this template."""
-)
+for the AWS resources used if you create a stack from this template.""")
 
 keyname_param = t.add_parameter(
     Parameter(

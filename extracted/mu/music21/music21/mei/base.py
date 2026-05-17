@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # Name:         mei/base.py
 # Purpose:      Public interfaces for the MEI module
@@ -70,7 +69,7 @@ this snippet, ``<note pname="C"/>`` as an example:
 - the letter ``C`` is a *value*.
 
 Because Python also uses "attributes," an XML attribute is always preceded by an "at sign," as in
-@pname, whereas a Python attribute is set as :attr:`pname`.
+@pname, whereas a Python attribute is set as ``pname``.
 
 **Ignored Elements**
 
@@ -1220,7 +1219,8 @@ def addSlurs(elem, obj, slurBundle):
 
 def beamTogether(someThings):
     '''
-    Beam some things together. The function beams every object that has a :attr:`beams` attribute,
+    Beam some things together. The function beams every object that has a
+    :attr:`~music21.note.NotRest.beams` attribute,
     leaving the other objects unmodified.
 
     :param someThings: An iterable of things to beam together.
@@ -1405,12 +1405,14 @@ def scaleToTuplet(objs, elem):
     "search" for a tuplet near the end of the import process, which involves scaling the durations
     of all objects discovered between those with the "start" and "end" search values.
 
-    The @m21TupletType attribute is set directly as the :attr:`type` attribute of the music21
-    object's :class:`Tuplet` object. If @m21TupletType is not set, the @tuplet attribute will be
+    The @m21TupletType attribute is set directly as the :attr:`~music21.duration.Tuplet.type`
+    attribute of the music21 object's :class:`Tuplet` object.
+    If @m21TupletType is not set, the @tuplet attribute will be
     consulted. Note that this attribute is ignored if the @m21TupletSearch attribute is present,
     since the ``type`` will be set later by the tuplet-finding algorithm.
 
-    .. note:: Objects without a :attr:`duration` attribute will be skipped silently, unless they
+    .. note:: Objects without a :attr:`~music21.base.Music21Object.duration` attribute will be
+        skipped silently, unless they
         will be given the @m21TupletSearch attribute.
 
     :param objs: The object(s) whose durations will be scaled.
@@ -1561,9 +1563,9 @@ def scoreDefFromElement(elem, slurBundle=None):
     >>> len(result)
     5
     >>> result['1']
-    {'instrument': <music21.instrument.Clarinet '1: Clarinet: Clarinet'>}
+    {'instrument': <music21.instrument.Clarinet '1: Clarinet'>}
     >>> result['3']
-    {'instrument': <music21.instrument.Violin '3: Violin: Violin'>}
+    {'instrument': <music21.instrument.Violin '3: Violin'>}
     >>> result['all-part objects']
     [<music21.meter.TimeSignature 3/4>]
     >>> result['whole-score objects']
@@ -1727,7 +1729,7 @@ def staffDefFromElement(elem, slurBundle=None):
     >>> len(result)
     1
     >>> result
-    {'instrument': <music21.instrument.Clarinet '1: Clarinet: Clarinet'>}
+    {'instrument': <music21.instrument.Clarinet '1: Clarinet'>}
     >>> result['instrument'].partId
     '1'
     >>> result['instrument'].partName
@@ -1747,7 +1749,7 @@ def staffDefFromElement(elem, slurBundle=None):
     >>> len(result)
     3
     >>> result['instrument']
-    <music21.instrument.Tuba '2: Tuba: Tuba'>
+    <music21.instrument.Tuba '2: Tuba'>
     >>> result['clef']
     <music21.clef.BassClef>
     >>> result['key']

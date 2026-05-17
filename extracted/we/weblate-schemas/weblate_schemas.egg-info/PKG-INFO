@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate_schemas
-Version: 2026.1
+Version: 2026.2
 Summary: A collection of JSON schemas used by Weblate
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: MIT
@@ -34,7 +34,7 @@ Requires-Dist: jsonschema[format]>=4.24.0
 Provides-Extra: dev
 Requires-Dist: weblate_schemas[lint,test]; extra == "dev"
 Provides-Extra: lint
-Requires-Dist: prek==0.3.11; extra == "lint"
+Requires-Dist: prek==0.4.0; extra == "lint"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

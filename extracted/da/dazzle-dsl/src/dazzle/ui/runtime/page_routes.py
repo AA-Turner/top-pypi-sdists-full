@@ -20,7 +20,6 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Any
 
 from dazzle.core import ir
@@ -559,6 +558,171 @@ def _inject_auth_context(prc: _PageRequestContext) -> None:
         logger.warning("Failed to resolve auth context for page", exc_info=True)
 
 
+def _inject_onboarding_step(prc: _PageRequestContext) -> None:
+    """Resolve + render the active guide step for the current user/surface (v0.71.3).
+
+    No-op when any of 11 branches fail — see the ``onboarding.inject:``
+    tagged log lines below for the full list and what each one means
+    in production (#1118). Every skip path emits one INFO line tagged
+    ``onboarding.inject:<reason>`` so production-log grep can answer
+    "why isn't my guide rendering?" without source-level debugging.
+
+    On success, sets ``prc.ctx.active_guide_html`` to the rendered
+    fragment. ``template_renderer._render_typed_body`` prepends it
+    to the surface body.
+    """
+    appspec = prc.deps.appspec
+    surface_name = prc.ctx.view_name or ""
+
+    if not getattr(appspec, "guides", None):
+        # AppSpec has no guides — the most common skip path. INFO
+        # noise here would dominate logs on apps without guides; keep
+        # at DEBUG.
+        logger.debug("onboarding.inject:no-guides surface=%s", surface_name)
+        return
+
+    if prc.auth_ctx is None or not prc.auth_ctx.is_authenticated:
+        logger.info(
+            "onboarding.inject:not-authenticated surface=%s auth_ctx=%s",
+            surface_name,
+            "None" if prc.auth_ctx is None else "unauthenticated",
+        )
+        return
+    user = getattr(prc.auth_ctx, "user", None)
+    if user is None:
+        logger.info("onboarding.inject:no-user surface=%s", surface_name)
+        return
+    user_id = getattr(user, "id", None)
+    if user_id is None:
+        logger.info("onboarding.inject:no-user-id surface=%s", surface_name)
+        return
+
+    repo = getattr(prc.request.app.state, "onboarding_state", None)
+    if repo is None:
+        # The most likely "wired in dev, missing in prod" path —
+        # AuthSubsystem.startup only attaches the repo when
+        # ctx.appspec has guides AND ctx.database_url is set. INFO so
+        # an operator can grep for this exact tag to confirm.
+        logger.info(
+            "onboarding.inject:no-repo surface=%s user_id=%s "
+            "(app.state.onboarding_state is None — check that "
+            "AuthSubsystem.startup ran with guides + database_url)",
+            surface_name,
+            user_id,
+        )
+        return
+
+    # Pick the persona to match against the audience predicate. Roles
+    # are stored as ``role_<persona>`` strings (see _inject_auth_context
+    # above); strip the prefix and pick the first one — guides target
+    # one persona at a time and the user's primary role is the first
+    # entry by convention.
+    user_persona = ""
+    roles = list(getattr(user, "roles", None) or [])
+    if roles:
+        user_persona = roles[0].removeprefix("role_")
+
+    if not surface_name:
+        logger.info(
+            "onboarding.inject:no-surface-name user_id=%s persona=%s "
+            "(prc.ctx.view_name is empty — usually a route that "
+            "doesn't correspond to a DSL surface)",
+            user_id,
+            user_persona,
+        )
+        return
+
+    try:
+        from dazzle.render.onboarding import (
+            UnknownStepKindError,
+            has_builder,
+            render_step,
+            resolve_active_step,
+        )
+    except ImportError as exc:
+        # Onboarding package missing — defensive; shouldn't happen
+        # since it ships with the framework. Don't crash the page.
+        logger.warning(
+            "onboarding.inject:import-error surface=%s user_id=%s exc=%r",
+            surface_name,
+            user_id,
+            exc,
+        )
+        return
+
+    try:
+        result = resolve_active_step(
+            user_id=str(user_id),
+            user_persona=user_persona,
+            surface_name=surface_name,
+            app=appspec,
+            repo=repo,
+        )
+    except Exception as exc:
+        # Repository or resolver errors are non-fatal — log and skip
+        # the overlay. The user still sees their page. Bumped from
+        # DEBUG to INFO in #1118 so production can see when this
+        # silently catches.
+        logger.info(
+            "onboarding.inject:resolve-failed surface=%s user_id=%s persona=%s exc=%r",
+            surface_name,
+            user_id,
+            user_persona,
+            exc,
+            exc_info=True,
+        )
+        return
+
+    if result is None:
+        logger.info(
+            "onboarding.inject:no-active-step surface=%s user_id=%s persona=%s "
+            "(resolver returned None — audience predicate didn't match, "
+            "all steps already completed/dismissed, or no guide targets "
+            "this surface)",
+            surface_name,
+            user_id,
+            user_persona,
+        )
+        return
+    guide, step = result
+
+    kind = step.kind.value if hasattr(step.kind, "value") else str(step.kind)
+    if not has_builder(kind):
+        # Kind shipped in a future Dazzle release but the runtime
+        # doesn't have a builder for it yet. Skip silently — the
+        # user still sees their page.
+        logger.info(
+            "onboarding.inject:no-builder surface=%s guide=%s step=%s kind=%s",
+            surface_name,
+            guide.name,
+            step.name,
+            kind,
+        )
+        return
+    try:
+        prc.ctx.active_guide_html = render_step(step, guide_name=guide.name)
+    except UnknownStepKindError:
+        # Race: has_builder said yes but render_step raised. Defensive.
+        logger.warning(
+            "onboarding.inject:render-failed surface=%s guide=%s step=%s "
+            "kind=%s (has_builder=True but render_step raised)",
+            surface_name,
+            guide.name,
+            step.name,
+            kind,
+        )
+        return
+
+    logger.info(
+        "onboarding.inject:rendered surface=%s guide=%s step=%s kind=%s user_id=%s",
+        surface_name,
+        guide.name,
+        step.name,
+        kind,
+        user_id,
+    )
+
+
 def _dedupe_nav_items_against_groups(
     nav_items: list[Any], nav_groups: list[dict[str, Any]]
 ) -> list[Any]:
@@ -665,7 +829,7 @@ def _check_entity_cedar_access(prc: _PageRequestContext) -> Response | None:
         roles=[r.removeprefix("role_") for r in _raw_roles],
         is_superuser=getattr(_user, "is_superuser", False) if _user else False,
     )
-    _decision = prc.evaluate_permission(
+    _decision = evaluate_permission(
         _cedar_spec,
         _op,
         None,
@@ -1245,20 +1409,58 @@ def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str
 
     # Plans 3+8 wire LIST and VIEW through dispatch. If the surface
     # has render: set but neither table nor detail context (e.g. CREATE/
-    # EDIT/CUSTOM), the adapter would raise NotImplementedError — fall
-    # back to legacy. Plan 9 will extend this when form modes land.
+    # EDIT), the framework fragment adapter would raise
+    # NotImplementedError — fall back to legacy. Plan 9 will extend this
+    # when form modes land.
+    #
+    # `mode: custom` is the carve-out (#1119): the project-registered
+    # renderer is intentionally invoked with a sparse ctx — that's the
+    # whole point of custom mode. Pre-#1119, the guard below treated
+    # the empty ctx as "no dispatch needed" and silently fell back to
+    # legacy rendering, so a registered custom renderer for a
+    # mode: custom surface was never actually called. The early-return
+    # for CUSTOM mode below dispatches unconditionally and lets the
+    # renderer fetch its own data via `services`.
+    from dazzle.core.ir.surfaces import SurfaceMode
+    from dazzle.render.dispatch import dispatch_render
+    from dazzle.render.fragment.errors import FragmentError
+
+    # The legacy direct-template path composes overlay + body via
+    # `_render_typed_body`. The dispatch path bypasses that composer,
+    # so we have to apply the same overlay prepend here. Otherwise the
+    # guide overlay (set by `_inject_onboarding_step` onto
+    # `render_ctx.active_guide_html`) is rendered but never reaches
+    # `<body>` — #1118. The composition shape matches
+    # `template_renderer._render_typed_body` exactly so the overlay
+    # behaviour is identical across both paths.
+    overlay = getattr(render_ctx, "active_guide_html", "") or ""
+
+    def _compose(inner: str) -> str:
+        return overlay + inner if overlay else inner
+
+    if surface.mode == SurfaceMode.CUSTOM:
+        ctx_dict = _build_dispatch_ctx(render_ctx, surface)
+        try:
+            return _compose(dispatch_render(surface, ctx=ctx_dict, services=services))
+        except FragmentError as e:
+            logger.warning(
+                "dispatch_render failed for custom-mode surface %r (render=%r); "
+                "falling back to legacy path: %s",
+                surface.name,
+                surface.render,
+                e,
+            )
+            return None
+
     has_table = getattr(render_ctx, "table", None) is not None
     has_detail = getattr(render_ctx, "detail", None) is not None
     has_form = getattr(render_ctx, "form", None) is not None
     if not (has_table or has_detail or has_form):
         return None
 
-    from dazzle.render.dispatch import dispatch_render
-    from dazzle.render.fragment.errors import FragmentError
-
     ctx_dict = _build_dispatch_ctx(render_ctx, surface)
     try:
-        return dispatch_render(surface, ctx=ctx_dict, services=services)
+        return _compose(dispatch_render(surface, ctx=ctx_dict, services=services))
     except FragmentError as e:
         logger.warning(
             "dispatch_render failed for surface %r (render=%r); falling back to legacy path: %s",
@@ -1443,6 +1645,11 @@ async def _page_handler(
 
     # Phase 1: Auth + access control
     _inject_auth_context(prc)
+    # v0.71.3 — resolve any active onboarding step + render its HTML.
+    # No-op for anonymous users / projects without guides / unsupported
+    # step kinds. The rendered overlay is prepended to the body by
+    # template_renderer._render_typed_body.
+    _inject_onboarding_step(prc)
 
     denied = _check_surface_access(prc)
     if denied is not None:
@@ -1761,6 +1968,24 @@ async def _workspace_handler(
         favicon=favicon,
     )
     return HTMLResponse(content=html)  # nosemgrep
+
+
+def _make_root_redirect_handler(
+    deps: _PageRouterConfig,
+    persona_ws_routes: dict[str, str],
+    fallback_ws_route: str,
+) -> Any:
+    """Closure factory for `/` — same rationale as `_make_page_handler` /
+    `_make_workspace_handler` (issue #1034, follow-up #1112).
+    `partial(_root_redirect, deps, ...)` strips the `request: Request`
+    annotation, FastAPI sees an unannotated `request` parameter, pydantic
+    builds an invalid `TypeAdapter[Annotated[Request, Query(...)]]` and
+    poisons the shared adapter cache, cascading 422s to every other route."""
+
+    async def handler(request: Request) -> Response:
+        return await _root_redirect(deps, persona_ws_routes, fallback_ws_route, request)
+
+    return handler
 
 
 async def _root_redirect(
@@ -2194,7 +2419,7 @@ def create_page_routes(
             _fallback_ws_route = f"{app_prefix}/workspaces/{workspaces[0].name}"
 
             router.get("/", response_class=HTMLResponse)(
-                partial(_root_redirect, deps, _persona_ws_routes, _fallback_ws_route)
+                _make_root_redirect_handler(deps, _persona_ws_routes, _fallback_ws_route)
             )
 
     return router

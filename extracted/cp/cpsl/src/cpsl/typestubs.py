@@ -334,7 +334,7 @@ declare module "@capsule/page" {
 
   interface CollectionColumn {
     key: string;
-    type?: "text" | "number" | "currency" | "date" | "link" | "file" | "email" | "status" | "tags" | "boolean";
+    type?: "text" | "number" | "currency" | "date" | "link" | "file" | "email" | "status" | "tags" | "boolean" | "score";
     label?: string;
     format?: string;
   }

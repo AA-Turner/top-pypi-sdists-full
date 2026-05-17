@@ -49,6 +49,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Quality Assurance",
 ]
@@ -74,9 +75,9 @@ d = ["aiohttp>=3.10"]
 jupyter = ["ipython>=7.8.0", "tokenize-rt>=3.2.0"]
 
 [dependency-groups]
-build = ["hatch==1.15.1", "hatch-fancy-pypi-readme", "hatch-vcs>=0.3.0", "virtualenv<21.0.0"]
-wheels = ["cibuildwheel==3.3.1", "pypyp"]
-binary = ["pyinstaller", "wheel>=0.45.1"]
+hatch = ["hatch==1.15.1", "hatch-fancy-pypi-readme", "hatch-vcs", "virtualenv<21.0.0"]
+cibw = ["cibuildwheel==3.4.0", "pypyp"]
+pyinstaller = ["pyinstaller"]
 
 dev = [{ include-group = "cov-tests" }, { include-group = "tox" }, "pre-commit"]
 cov-tests = [
@@ -85,11 +86,11 @@ cov-tests = [
     "pytest-cov>=4.1.0",
 ]
 docs = [
-    "docutils==0.21.2",
+    "docutils==0.22.4",
     "furo==2025.12.19",
-    "myst-parser==4.0.1",
+    "myst-parser==5.0.0",
     "sphinx-copybutton==0.5.2",
-    "sphinx==8.2.3",
+    "sphinx==9.1.0",
     "sphinxcontrib-programoutput==0.19",
 ]
 
@@ -142,7 +143,7 @@ macos-max-compat = true
 
 [tool.hatch.build.targets.wheel.hooks.mypyc]
 enable-by-default = false
-dependencies = ["hatch-mypyc>=0.16.0", "mypy==1.19.1"]
+dependencies = ["hatch-mypyc>=0.16.0", "mypy==1.20.2"]
 require-runtime-dependencies = true
 exclude = [
     # There's no good reason for blackd to be compiled.

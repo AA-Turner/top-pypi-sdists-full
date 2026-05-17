@@ -13,11 +13,11 @@ on:
   schedule:
     - cron: "13 7 * * *"   # 07:13 UTC nightly
 
-# Prevent auto-cancellation of running workflows when new commits are pushed
-# This ensures test splits actually run to completion instead of being skipped
+# Prevent auto-cancellation for normal PR/push workflows, but cancel superseded
+# merge_group runs so stale merge-queue attempts do not accumulate.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'merge_group' }}
 
 env:
   UV_VERSION: "0.8.3"
@@ -586,6 +586,87 @@ jobs:
           echo "- ENUM_003: Detect duplicate enum values across files (warn-only)" >> $GITHUB_STEP_SUMMARY
 
   # Phase 1 validation job - runs in parallel with all other Phase 1 jobs
+  # Contract-config compliance validator (OMN-10688)
+  contract-config-compliance:
+    name: Contract-Config Compliance (OMN-10688)
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run contract-config compliance validator
+        run: uv run python -m omnibase_core.validators.contract_config_compliance src/omnibase_core/ scripts/
+        # CI runners don't have ambient PYTHONPATH; runs cleanly without env -u PYTHONPATH
+
+      - name: Contract-config compliance summary
+        if: always()
+        run: |
+          echo "## Contract-Config Compliance (OMN-10688)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Validates three anti-patterns in handler and script files:" >> $GITHUB_STEP_SUMMARY
+          echo "- bare_env_read: handler reads env vars not in INFRA_ALLOWLIST without contract declaration" >> $GITHUB_STEP_SUMMARY
+          echo "- bus_bypass_import: scripts import directly from nodes/*/handlers/ (bypasses event bus)" >> $GITHUB_STEP_SUMMARY
+          echo "- missing_contract_config: handler env reads with no matching contract.yaml entry" >> $GITHUB_STEP_SUMMARY
+
+  # Localhost/env fallback prevention (OMN-10658 / OMN-7227)
+  # Rejects os.getenv/os.environ.get with localhost fallback defaults in src/ and scripts/.
+  no-env-fallbacks:
+    name: Reject localhost/env fallbacks (OMN-7227)
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run no-env-fallbacks validator
+        run: uv run python scripts/validate_no_env_fallbacks.py
+
+  # Phase 1 validation job - runs in parallel with all other Phase 1 jobs
   # Baseline security scan using detect-secrets (OMN-2226)
   # Uses detect-secrets-hook for proper baseline comparison (handles type+hash equality)
   detect-secrets:
@@ -779,7 +860,7 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [lint, pyright, exports-validation, mypy-validation-scripts, core-infra-boundary, check-deterministic-skills, docs-validation, node-purity-check, enum-governance, detect-secrets, version-pin-check, sdk-boundary-check, contract-compliance]
+    needs: [lint, pyright, exports-validation, mypy-validation-scripts, core-infra-boundary, check-deterministic-skills, docs-validation, node-purity-check, enum-governance, detect-secrets, version-pin-check, sdk-boundary-check, contract-compliance, contract-config-compliance, no-env-fallbacks]
     if: always()
 
     steps:
@@ -799,6 +880,8 @@ jobs:
           enum_gov="${{ needs.enum-governance.result }}"
           secrets="${{ needs.detect-secrets.result }}"
           sdk_boundary="${{ needs.sdk-boundary-check.result }}"
+          contract_config="${{ needs.contract-config-compliance.result }}"
+          no_env_fallbacks="${{ needs.no-env-fallbacks.result }}"
 
           # Report each check
           echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
@@ -814,6 +897,8 @@ jobs:
           echo "| Enum Governance | $enum_gov |" >> $GITHUB_STEP_SUMMARY
           echo "| Detect Secrets | $secrets |" >> $GITHUB_STEP_SUMMARY
           echo "| SDK Boundary Guard | $sdk_boundary |" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract-Config Compliance | $contract_config |" >> $GITHUB_STEP_SUMMARY
+          echo "| No Env Fallbacks (OMN-7227) | $no_env_fallbacks |" >> $GITHUB_STEP_SUMMARY
 
           # Gate logic: all must pass
           # node-purity-check is NOT evaluated by this gate (continue-on-error until tech debt resolved)
@@ -826,7 +911,9 @@ jobs:
              [[ "$docs" == "success" ]] && \
              [[ "$enum_gov" == "success" ]] && \
              [[ "$secrets" == "success" ]] && \
-             [[ "$sdk_boundary" == "success" ]]; then
+             [[ "$sdk_boundary" == "success" ]] && \
+             [[ "$contract_config" == "success" ]] && \
+             [[ "$no_env_fallbacks" == "success" ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Quality Gate: PASSED**" >> $GITHUB_STEP_SUMMARY
             echo "All quality checks passed."
@@ -1231,8 +1318,8 @@ jobs:
           fi
 
   # CI Summary - final aggregator for all gates (OMN-2226)
-  # Cross-repo boundary validation (OMN-6576)
-  # Warn-only mode — does not block PRs, just surfaces boundary parity issues.
+  # Cross-repo boundary validation (OMN-6576, OMN-10978)
+  # Blocking mode: boundary parity is an architectural CI gate.
   boundary-validation:
     name: Cross-repo boundary validation
     runs-on: >-
@@ -1241,13 +1328,12 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    continue-on-error: true
     steps:
-      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@36865708ae7ecec2f8c5942a1db30a8b3420a879 # main 2026-03-25
-        continue-on-error: true
+      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@32a57e7b0797f4171891ed96047ea618e796f8db # main 2026-03-25
         with:
           checks: "boundary-parity"
-          warn-only: "true"
+          warn-only: "false"
+          repos: "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,onex_change_control"
 
   # API-STABLE check_name: "CI Summary"
   # Aggregates Quality Gate + Tests Gate into a single top-level status.
@@ -1291,7 +1377,7 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [quality-gate, tests-gate, contract-compliance]
+    needs: [quality-gate, tests-gate, contract-compliance, boundary-validation]
     if: always()
 
     steps:
@@ -1303,23 +1389,26 @@ jobs:
           quality="${{ needs.quality-gate.result }}"
           tests="${{ needs.tests-gate.result }}"
           compliance="${{ needs['contract-compliance'].result }}"
+          boundary="${{ needs['boundary-validation'].result }}"
 
           echo "| Gate | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Quality Gate | $quality |" >> $GITHUB_STEP_SUMMARY
           echo "| Tests Gate | $tests |" >> $GITHUB_STEP_SUMMARY
           echo "| Compliance | $compliance |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cross-repo Boundary Validation | $boundary |" >> $GITHUB_STEP_SUMMARY
 
-          # Accept "success" or "skipped" for both gates. Skipped is valid when
+          # Accept "success" or "skipped" for gates. Skipped is valid when
           # upstream jobs are correctly skipped (e.g. dependabot PRs).
           quality_ok=$([[ "$quality" == "success" || "$quality" == "skipped" ]] && echo true || echo false)
           tests_ok=$([[ "$tests" == "success" || "$tests" == "skipped" ]] && echo true || echo false)
           compliance_ok=$([[ "$compliance" == "success" || "$compliance" == "skipped" ]] && echo true || echo false)
+          boundary_ok=$([[ "$boundary" == "success" || "$boundary" == "skipped" ]] && echo true || echo false)
 
-          if [[ "$quality_ok" == "true" ]] && [[ "$tests_ok" == "true" ]] && [[ "$compliance_ok" == "true" ]]; then
+          if [[ "$quality_ok" == "true" ]] && [[ "$tests_ok" == "true" ]] && [[ "$compliance_ok" == "true" ]] && [[ "$boundary_ok" == "true" ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**CI Summary: ALL GATES PASSED**" >> $GITHUB_STEP_SUMMARY
-            echo "All CI gates passed (quality=$quality, tests=$tests, compliance=$compliance)."
+            echo "All CI gates passed (quality=$quality, tests=$tests, compliance=$compliance, boundary=$boundary)."
             exit 0
           else
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -1329,5 +1418,6 @@ jobs:
             echo "  Quality Gate: $quality"
             echo "  Tests Gate: $tests"
             echo "  Compliance: $compliance"
+            echo "  Cross-repo Boundary Validation: $boundary"
             exit 1
           fi

@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from numbers import Real
-from typing import Iterator
+from typing import Iterator, ClassVar
 
 # ======================================== SHAPE ========================================
 class Rect(Shape):
@@ -20,6 +20,8 @@ class Rect(Shape):
         height: hauteur
     """
     __slots__ = ("_width", "_height")
+
+    _ID: ClassVar[str] = "rect"
 
     def __init__(self, width: Real, height: Real):
         # Transtypage et vérifications

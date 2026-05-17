@@ -71,6 +71,42 @@ class AnnotationStore(AWSObject):
     }
 
 
+class VpcConfig(AWSProperty):
+    """
+    `VpcConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-vpcconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecurityGroupIds": ([str], False),
+        "SubnetIds": ([str], False),
+    }
+
+
+class RunConfigurations(AWSProperty):
+    """
+    `RunConfigurations <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-runconfigurations.html>`__
+    """
+
+    props: PropsDictType = {
+        "VpcConfig": (VpcConfig, False),
+    }
+
+
+class Configuration(AWSObject):
+    """
+    `Configuration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-configuration.html>`__
+    """
+
+    resource_type = "AWS::Omics::Configuration"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "Name": (str, True),
+        "RunConfigurations": (RunConfigurations, True),
+        "Tags": (dict, False),
+    }
+
+
 class ReferenceStore(AWSObject):
     """
     `ReferenceStore <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-referencestore.html>`__

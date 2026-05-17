@@ -116,6 +116,15 @@ class HandlerConfig:
     entity_name: str = "Item"
     cedar_access_spec: "EntityAccessSpec | None" = None
     audit_logger: "AuditLogger | None" = None
+    # v0.71.19 (#1123): inputs the scope-filter resolver needs at write
+    # time so UPDATE/DELETE handlers can enforce `scope: <op>:` rules
+    # the same way LIST does. `fk_graph` lets the predicate compiler
+    # follow FK-path predicates; `admin_personas` carries the
+    # tenancy-admin bypass list (#957 cycle 5). Both come from the
+    # active AppSpec at route-construction time — alongside
+    # `cedar_access_spec` which is the parsed scope/permit rules.
+    fk_graph: "FKGraph | None" = None
+    admin_personas: list[str] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1429,6 +1438,10 @@ def _wrap_with_auth(
     audit_logger: "AuditLogger | None",
     include_field_changes: bool = False,
     needs_pre_read: bool = False,
+    # v0.71.19 (#1123): write-op scope enforcement plumbing — see
+    # `_build_cedar_handler` for the per-op enforcement logic.
+    fk_graph: "FKGraph | None" = None,
+    admin_personas: list[str] | None = None,
 ) -> Callable[..., Any]:
     """Wrap a core handler with cedar / auth / noauth variant selection.
 
@@ -1461,6 +1474,8 @@ def _wrap_with_auth(
             include_field_changes=include_field_changes,
             needs_pre_read=needs_pre_read,
             is_create=_is_create,
+            fk_graph=fk_graph,
+            admin_personas=admin_personas,
         )
 
     if require_auth_by_default and auth_dep:
@@ -1491,6 +1506,11 @@ def _build_cedar_handler(
     include_field_changes: bool,
     needs_pre_read: bool,
     is_create: bool,
+    # v0.71.19 (#1123): inputs the scope-filter resolver needs for the
+    # UPDATE/DELETE enforcement path. None on legacy/test paths that
+    # don't pass them — falls through to the pre-#1123 behaviour.
+    fk_graph: "FKGraph | None" = None,
+    admin_personas: list[str] | None = None,
 ) -> Callable[..., Any]:
     """Build a Cedar-policy-checked handler (with or without id param)."""
     from dazzle.core.access import AccessOperationKind
@@ -1506,10 +1526,26 @@ def _build_cedar_handler(
         from dazzle.core.access import AccessDecision
         from dazzle.render.access_evaluator import evaluate_permission
 
-        # Pre-read for operations that need existing record for policy eval
+        # Pre-read for operations that need existing record for policy eval.
+        # v0.71.19 (#1123): for UPDATE/DELETE, the pre-read now applies the
+        # scope predicate via list(filters={"id": id, **scope_result}) when
+        # `scope: <op>:` rules exist for the operation. Default-deny
+        # (no matching scope rule) returns 404 — same shape as LIST default-
+        # deny, prevents row-existence leaks. The unscoped read path is
+        # preserved when no scope rules apply to this op (back-compat) or
+        # when fk_graph is missing (legacy callers / tests).
         existing = None
         if needs_pre_read and id is not None:
-            existing = await service.execute(operation="read", id=id)
+            existing = await _scoped_pre_read(
+                service=service,
+                operation=operation,
+                id=id,
+                cedar_access_spec=cedar_access_spec,
+                auth_context=auth_context,
+                entity_name=entity_name,
+                fk_graph=fk_graph,
+                admin_personas=admin_personas,
+            )
             if existing is None:
                 raise HTTPException(status_code=404, detail="Not found")
 
@@ -2013,6 +2049,245 @@ def _resolve_scope_filters(
                 return None
 
     return {}  # Matched but no resolvable condition — treat as no filter
+
+
+async def _scoped_pre_read(
+    *,
+    service: "BaseService[Any]",
+    operation: str,
+    id: Any,
+    cedar_access_spec: "EntityAccessSpec",
+    auth_context: "AuthContext",
+    entity_name: str,
+    fk_graph: "FKGraph | None",
+    admin_personas: list[str] | None,
+) -> Any:
+    """Pre-read with `scope: <operation>:` enforcement applied (#1123).
+
+    For UPDATE/DELETE, this replaces the bare ``service.execute(operation=
+    "read", id=id)`` with a scope-validated lookup. Three outcomes match
+    the LIST handler's default-deny shape:
+
+    - **No `scope:` rules for this operation** → unscoped read (back-
+      compat with pre-#1123 behaviour and tests that don't construct
+      scope rules).
+    - **`scope:` matched with `all`** → unscoped read (no filter).
+    - **`scope:` matched with field condition / predicate** → scoped
+      read via ``service.list(filters={"id": id, **scope_result})``;
+      if no row comes back, returns ``None`` (handler raises 404).
+    - **`scope:` exists but no rule matches this role/op** → returns
+      ``None`` (handler raises 404 — same default-deny shape as LIST).
+
+    The 404 shape is deliberate: it makes scope-denied rows
+    indistinguishable from non-existent rows, preventing row-existence
+    leaks via IDOR-style probing.
+
+    `fk_graph` may be None on legacy/test paths — in that case we
+    fall through to the unscoped read (the predicate compiler path
+    requires fk_graph; without it we cannot compile a scope predicate
+    so we treat it as "no enforcement available here").
+    """
+    if not getattr(cedar_access_spec, "scopes", None):
+        return await service.execute(operation="read", id=id)
+
+    if fk_graph is None:
+        # Predicate compiler needs fk_graph; without it we can't compile
+        # the scope predicate. Fall back to unscoped pre-read so we don't
+        # silently default-deny on test fixtures lacking the FK graph.
+        return await service.execute(operation="read", id=id)
+
+    user_roles: set[str] = set()
+    user_id: str | None = None
+    if auth_context is not None and getattr(auth_context, "is_authenticated", False):
+        user = getattr(auth_context, "user", None)
+        if user is not None:
+            user_id = str(user.id) if getattr(user, "id", None) is not None else None
+            for r in getattr(user, "roles", []) or []:
+                r_name = r if isinstance(r, str) else getattr(r, "name", str(r))
+                user_roles.add(_normalize_role(r_name))
+
+    if user_id is None:
+        # Unauthenticated path — fall back to unscoped (the permit gate
+        # has already rejected unauth users with cedar_access_spec set;
+        # this branch is defensive).
+        return await service.execute(operation="read", id=id)
+
+    scope_result = _resolve_scope_filters(
+        cedar_access_spec,
+        operation,
+        user_roles,
+        user_id,
+        auth_context,
+        entity_name=entity_name,
+        fk_graph=fk_graph,
+        admin_personas=admin_personas,
+    )
+
+    if scope_result is None:
+        # No matching scope rule for this role/op — default-deny.
+        return None
+
+    if not scope_result:
+        # `scope: all` for this op — no filter, unscoped read.
+        return await service.execute(operation="read", id=id)
+
+    # Scope predicate compiled to a filter dict. Fold {"id": id} on top
+    # and use the list path's existing filter handling (which already
+    # understands the `__scope_predicate` special key emitted by the
+    # predicate compiler). page_size=1 short-circuits at the DB.
+    list_result = await service.execute(
+        operation="list",
+        page=1,
+        page_size=1,
+        filters={"id": id, **scope_result},
+    )
+    items = list_result.get("items") if isinstance(list_result, dict) else []
+    return items[0] if items else None
+
+
+def _enforce_create_scope(
+    *,
+    cedar_access_spec: "EntityAccessSpec | None",
+    payload: dict[str, Any],
+    user_id: str | None,
+    user_roles: list[str],
+    entity_name: str,
+    request: "Request",
+) -> None:
+    """`scope: create:` enforcement (#1124, v0.71.22).
+
+    Walks any matching ``scope: create:`` rules against the post-default
+    payload and raises HTTPException(403) if any matching rule rejects
+    it. Three outcomes:
+
+    - **No `scope:` rules** → no check (back-compat with apps that
+      don't declare scope).
+    - **No matching scope-create rule for the user's role** → if other
+      `scope:` rules exist for this entity, default-deny (403); this
+      matches the LIST handler's default-deny semantic. If the
+      `scope:` block has no `create` rules at all, fall through (the
+      RBAC lint surfaces this as a `no_scope_rule` warning).
+    - **Matching rule with predicate** → walk the predicate; 403 if
+      it rejects.
+
+    The 403 carries a ``detail`` body naming the entity + operation so
+    debug surfaces can grep on it. We don't leak the exact field that
+    failed (avoids handing attackers a payload-tuning oracle).
+    """
+    if cedar_access_spec is None:
+        return
+    scopes = getattr(cedar_access_spec, "scopes", None)
+    if not scopes:
+        return
+
+    # Look for any `scope: create:` rules; bail out if none declared
+    # for this entity at all (RBAC lint warns about this separately;
+    # default-deny only applies when create rules exist but none match
+    # the user's role).
+    create_rules: list[Any] = []
+    for r in scopes:
+        rule_op = getattr(r, "operation", None)
+        if rule_op is None:
+            continue
+        rule_op_val = rule_op.value if hasattr(rule_op, "value") else str(rule_op)
+        if rule_op_val == "create":
+            create_rules.append(r)
+    if not create_rules:
+        return
+
+    normalised_roles = {_normalize_role(r) for r in (user_roles or [])}
+    matched: list[Any] = []
+    for r in create_rules:
+        rule_personas = list(getattr(r, "personas", []) or [])
+        if "*" in rule_personas or (normalised_roles & set(rule_personas)):
+            matched.append(r)
+
+    if not matched:
+        # Create rules exist but none matches this role — default-deny.
+        # Same shape as `_resolve_scope_filters` returning None on
+        # list/read/update/delete.
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "scope_create_denied",
+                "entity": entity_name,
+                "reason": (
+                    "No matching scope: create: rule for this role. "
+                    "See docs/reference/rbac-scope.md."
+                ),
+            },
+        )
+
+    # Any matched rule with `all` (no predicate) → unrestricted.
+    for r in matched:
+        if getattr(r, "predicate", None) is None and getattr(r, "condition", None) is None:
+            return
+
+    # Build the user-attr resolver from the auth context. The auth
+    # context carries `current_user.school` / etc. on the User entity;
+    # we pull them off `request.state.auth_context.user` (set by the
+    # _build_cedar_handler upstream).
+    user_attrs: dict[str, Any] = {}
+    auth_ctx = getattr(request.state, "auth_context", None) if hasattr(request, "state") else None
+    auth_user = getattr(auth_ctx, "user", None) if auth_ctx is not None else None
+    if auth_user is not None:
+        # Common cross-tenant attribute names; the framework's auth
+        # user model doesn't expose a generic .attrs dict so we copy
+        # known shapes. Any missing key resolves to None and the
+        # predicate naturally rejects.
+        for attr_name in ("school", "school_id", "org_id", "tenant_id", "team_id"):
+            val = getattr(auth_user, attr_name, None)
+            if val is not None:
+                user_attrs[attr_name] = val
+
+    # Run the v1-supported walker against the predicate. Any matched
+    # rule passing the walker is enough to allow the insert (OR of
+    # matched rules). If none pass → 403.
+    from dazzle.back.runtime.scope_create_eval import (
+        ScopeCreateUnsupportedError,
+        check_create_predicate,
+    )
+
+    for r in matched:
+        predicate = getattr(r, "predicate", None)
+        if predicate is None:
+            # Condition-tree fallback (legacy path). Not supported on
+            # create v1 — the linker rejects this case too. Defensive:
+            # default-deny if we hit it at runtime.
+            continue
+        try:
+            if check_create_predicate(
+                predicate,
+                payload,
+                user_id=str(user_id) if user_id else "",
+                user_attrs=user_attrs,
+            ):
+                return  # at least one matched rule passes — allow
+        except ScopeCreateUnsupportedError:
+            # Should have been caught at link time. Log + default-deny.
+            logger.warning(
+                "scope: create: predicate has an unsupported shape at "
+                "runtime — link-time validation should have caught this. "
+                "entity=%s",
+                entity_name,
+            )
+            continue
+
+    from fastapi import HTTPException
+
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "error": "scope_create_denied",
+            "entity": entity_name,
+            "reason": (
+                "The inserted row does not satisfy the scope: create: "
+                "predicate for this role. See docs/reference/rbac-scope.md."
+            ),
+        },
+    )
 
 
 def _should_bypass_tenant_filter(
@@ -2946,6 +3221,25 @@ def create_create_handler(
 
         data = input_schema.model_validate(body)
 
+        # v0.71.22 (#1124): scope: create: enforcement. Predicate is
+        # evaluated AFTER current_user / persona-backed-ref injection
+        # (so `created_by = current_user as: member` evaluates against
+        # the resolved payload) but BEFORE service.execute, so a
+        # predicate rejection 403s without ever touching the DB. v1
+        # supports simple predicates only (ColumnCheck, UserAttrCheck,
+        # PathCheck depth 1, BoolComposite); FK-path and EXISTS are
+        # rejected at link time by the linker. See
+        # docs/reference/rbac-scope.md.
+        _scope_user_roles = list(_extra.get("user_roles") or [])
+        _enforce_create_scope(
+            cedar_access_spec=cedar_access_spec,
+            payload=data.model_dump(),
+            user_id=current_user,
+            user_roles=_scope_user_roles,
+            entity_name=entity_name,
+            request=request,
+        )
+
         # Handle idempotent duplicate: unique constraint on idempotency_key
         # returns a 200 instead of the normal 422 constraint error.
         try:
@@ -3054,6 +3348,9 @@ def create_update_handler(spec: RouteSpec) -> Callable[..., Any]:
         audit_logger=audit_logger,
         include_field_changes=include_field_changes,
         needs_pre_read=True,
+        # #1123 — scope: update: enforcement at request time.
+        fk_graph=spec.handler.fk_graph,
+        admin_personas=spec.handler.admin_personas,
     )
 
 
@@ -3102,6 +3399,9 @@ def create_delete_handler(spec: RouteSpec) -> Callable[..., Any]:
         audit_logger=audit_logger,
         include_field_changes=include_field_changes,
         needs_pre_read=True,
+        # #1123 — scope: delete: enforcement at request time.
+        fk_graph=spec.handler.fk_graph,
+        admin_personas=spec.handler.admin_personas,
     )
 
 
@@ -3751,6 +4051,8 @@ class RouteGenerator:
             require_auth_by_default=self.require_auth_by_default,
             entity_name=entity_name or "Item",
             cedar_access_spec=_cedar_spec,
+            fk_graph=self.fk_graph,
+            admin_personas=self.admin_personas,
         )
 
         # POST -> CREATE
@@ -4019,6 +4321,7 @@ class RouteGenerator:
         self,
         endpoints: list[EndpointSpec],
         service_specs: dict[str, ServiceSpec] | None = None,
+        claimed_routes: set[tuple[str, str]] | None = None,
     ) -> APIRouter:
         """
         Generate routes for all endpoints.
@@ -4031,11 +4334,17 @@ class RouteGenerator:
         Args:
             endpoints: List of endpoint specifications
             service_specs: Optional dictionary mapping service names to specs
+            claimed_routes: ``(method, path)`` pairs already mounted by a
+                project override or extension router. Endpoints matching one
+                of these are skipped — the override is the intended handler
+                and the generic CRUD mount would only trip the conflict
+                warning on every boot (#1101).
 
         Returns:
             FastAPI router with all routes
         """
         service_specs = service_specs or {}
+        claimed_routes = claimed_routes or set()
 
         # Register /{plural}/create guard routes BEFORE main routes so
         # FastAPI doesn't match "create" as a UUID {id} parameter (#598).
@@ -4066,6 +4375,16 @@ class RouteGenerator:
             return (-ep.path.count("/"), 0 if "{" not in ep.path else 1)
 
         for endpoint in sorted(endpoints, key=_route_sort_key):
+            method = (
+                endpoint.method.value if hasattr(endpoint.method, "value") else str(endpoint.method)
+            )
+            if (method, endpoint.path) in claimed_routes:
+                logger.info(
+                    "Skipping generic CRUD %s %s — already provided by a project override",
+                    method,
+                    endpoint.path,
+                )
+                continue
             service_spec = service_specs.get(endpoint.service)
             self.generate_route(endpoint, service_spec)
 

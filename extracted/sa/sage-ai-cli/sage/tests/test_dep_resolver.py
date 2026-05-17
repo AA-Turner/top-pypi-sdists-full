@@ -24,6 +24,8 @@ from sage.core.dep_resolver import (
     emit_python_dep_files,
     parse_deps_json,
     resolve_dependencies,
+    sanitize_dep_files_in_place,
+    sanitize_python_deps,
 )
 from sage.core.spec_decomposer import Feature, ProjectPlan, StackProfile
 
@@ -154,6 +156,20 @@ class TestEmitFiles:
         assert lines.count("b==1.0") == 1
         assert lines.index("a==1.0") < lines.index("b==1.0")
 
+    def test_emits_expo_jest_config(self, tmp_path: Path) -> None:
+        """Without jest-expo preset + transformIgnorePatterns, every Expo
+        test fails with `Cannot use import statement outside a module` —
+        observed in the 2026-05-15 advertisement_platform build."""
+        frontend = tmp_path / "frontend"
+        frontend.mkdir()
+        emit_node_package_json(
+            DepSet(), frontend,
+            framework="react-native-web", project_name="x",
+        )
+        jest_cfg = (frontend / "jest.config.js").read_text()
+        assert "jest-expo" in jest_cfg
+        assert "expo-modules-core" in jest_cfg
+
     def test_emits_package_json_with_scripts(self, tmp_path: Path) -> None:
         frontend_root = tmp_path / "frontend"
         frontend_root.mkdir()
@@ -175,3 +191,51 @@ class TestEmitFiles:
         # Deps included
         assert "expo" in pkg["dependencies"]
         assert "jest" in pkg["devDependencies"]
+
+
+class TestSanitizeDeprecatedDeps:
+    """Regression: confirmed-broken PyPI names must never reach disk.
+
+    Each name below was found in a real failing build's requirements.txt.
+    pip install ERROR: Could not find a version that satisfies the
+    requirement <name>. Filtering at emit time is the only durable fix.
+    """
+
+    def test_drops_paypalcheckoutsdk(self) -> None:
+        out = sanitize_python_deps(["fastapi==0.115", "paypalcheckoutsdk==3.0.2"])
+        assert out == ["fastapi==0.115"]
+
+    def test_drops_unmaintained_social_sdks(self) -> None:
+        bad = [
+            "instagram-private-api", "tiktok-api",
+            "facebook-sdk", "linkedin-api",
+        ]
+        assert sanitize_python_deps(bad) == []
+
+    def test_renames_misnamed_openai(self) -> None:
+        # The real package is `openai`, not `openai-python` — but the LLM
+        # keeps emitting the wrong name. Replace, don't drop.
+        out = sanitize_python_deps(["openai-python==1.5.0"])
+        assert out == ["openai==1.5.0"]
+
+    def test_sanitize_dep_files_strips_from_disk(self, tmp_path: Path) -> None:
+        backend = tmp_path / "backend"
+        backend.mkdir()
+        (backend / "requirements.txt").write_text(
+            "fastapi==0.115\npaypalcheckoutsdk==3.0.2\nhttpx==0.28\n"
+        )
+        (backend / "pyproject.toml").write_text(
+            "[project]\nname = \"x\"\nversion = \"0.1.0\"\n"
+            "dependencies = [\n"
+            '    "fastapi==0.115",\n'
+            '    "paypalcheckoutsdk==3.0.2",\n'
+            '    "httpx==0.28",\n'
+            "]\n"
+        )
+        dropped = sanitize_dep_files_in_place(backend)
+        assert dropped >= 2  # one in requirements.txt + one in pyproject.toml
+        reqs = (backend / "requirements.txt").read_text()
+        assert "paypalcheckoutsdk" not in reqs
+        assert "fastapi" in reqs
+        pyp = (backend / "pyproject.toml").read_text()
+        assert "paypalcheckoutsdk" not in pyp

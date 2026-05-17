@@ -289,7 +289,11 @@ class cid_runner(base.BaseGeo):
 
         num_cpu = max(1, int(cpu_count() * self.fraction_cpus)) if self.do_parallel else 0
         combinations = self.process_combinations(df_files, self.method)
-        years = list(range(2001, ar.utcnow().year + 1))
+        # Earliest harvest year to include. Configurable via [DEFAULT]
+        # start_year (fallback 2001 to preserve the historical floor for
+        # configs that don't set it).
+        start_year = self.parser.getint("DEFAULT", "start_year", fallback=2001)
+        years = list(range(start_year, ar.utcnow().year + 1))
 
         # ── Phase 1: Discover regions per file ──
         file_regions = {}
@@ -350,16 +354,26 @@ class cid_runner(base.BaseGeo):
             logger.info(f"Skipped {skipped_years} file-year combos (output already exists)")
 
         total_regions = sum(len(r) for r in file_regions.values())
+        avg_per_worker = (
+            f"~{len(flat_tasks) // max(num_cpu, 1)}"
+            if self.do_parallel and num_cpu else "n/a (serial)"
+        )
         ut.display_run_summary("Producing Climatic Impact-Drivers", [
             ("Countries", self.countries),
             ("Crops", crops_found if crops_found else ["(from filenames)"]),
             ("Files", str(len(combinations))),
-            ("Years", str(len(years))),
+            ("Year range",
+                f"{years[0]}-{years[-1]} ({len(years)} years)" if years else "(empty)"),
+            ("start_year (config)",
+                str(self.parser.getint("DEFAULT", "start_year", fallback=2001))),
             ("Regions", str(total_regions)),
             ("Total tasks", str(len(flat_tasks))),
+            ("Skipped (output exists)", str(skipped_years)),
+            ("Tasks per worker (avg)", avg_per_worker),
             ("Data source", self.data_source),
             ("Method", self.method),
             ("Stage mode", self.stage_mode),
+            ("Output dir", str(self.dir_output)),
             ("Parallel", str(self.do_parallel)),
             ("CPUs", str(num_cpu) if self.do_parallel else "0"),
         ], wait=20)

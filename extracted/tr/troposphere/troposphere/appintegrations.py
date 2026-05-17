@@ -72,7 +72,8 @@ class Application(AWSObject):
     props: PropsDictType = {
         "ApplicationConfig": (ApplicationConfig, False),
         "ApplicationSourceConfig": (ApplicationSourceConfig, True),
-        "Description": (str, True),
+        "ApplicationType": (str, False),
+        "Description": (str, False),
         "IframeConfig": (IframeConfig, False),
         "InitializationTimeout": (integer, False),
         "IsService": (boolean, False),

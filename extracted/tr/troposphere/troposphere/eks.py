@@ -343,7 +343,7 @@ class RemoteNetworkConfig(AWSProperty):
     """
 
     props: PropsDictType = {
-        "RemoteNodeNetworks": ([RemoteNodeNetwork], True),
+        "RemoteNodeNetworks": ([RemoteNodeNetwork], False),
         "RemotePodNetworks": ([RemotePodNetwork], False),
     }
 
@@ -601,6 +601,20 @@ class UpdateConfig(AWSProperty):
     }
 
 
+class WarmPoolConfig(AWSProperty):
+    """
+    `WarmPoolConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-nodegroup-warmpoolconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, False),
+        "MaxGroupPreparedCapacity": (integer, False),
+        "MinSize": (integer, False),
+        "PoolState": (str, False),
+        "ReuseOnScaleIn": (boolean, False),
+    }
+
+
 class Nodegroup(AWSObject):
     """
     `Nodegroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-nodegroup.html>`__
@@ -628,6 +642,7 @@ class Nodegroup(AWSObject):
         "Taints": ([Taint], False),
         "UpdateConfig": (UpdateConfig, False),
         "Version": (str, False),
+        "WarmPoolConfig": (WarmPoolConfig, False),
     }
 
 

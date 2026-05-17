@@ -10,33 +10,6 @@ from .._component import Transform, Follow
 
 import math
 
-# ======================================== HELPERS ========================================
-def _angle_diff(a: float, b: float) -> float:
-    """Différence signée entre deux angles en degrés dans [-180, 180]"""
-    return (a - b + 180.0) % 360.0 - 180.0
-
-def _in_sector(current: float, angle: float, cone: float, cone_gap: float) -> bool:
-    """Vérifie si current est dans le secteur angulaire valide"""
-    if cone >= 180.0:
-        return True
-    abs_diff = abs(_angle_diff(current, angle))
-    return cone_gap <= abs_diff <= cone
-
-def _closest_sector_angle(current, angle, cone, cone_gap):
-    if cone >= 180.0:
-        return current
-    if _in_sector(current, angle, cone, cone_gap):
-        return current
-    diff = _angle_diff(current, angle)
-    abs_diff = abs(diff)
-    sign = 1.0 if diff >= 0 else -1.0
-    if abs_diff < cone_gap:
-        return angle + sign * cone_gap
-    else:
-        diff_pos = abs(_angle_diff(current, angle + cone))
-        diff_neg = abs(_angle_diff(current, angle - cone))
-        return angle + cone if diff_pos <= diff_neg else angle - cone
-
 # ======================================== SYSTEM ========================================
 class SteeringSystem(System):
     """Système gérant le pilotage positionnel"""
@@ -153,3 +126,30 @@ class SteeringSystem(System):
                     continue
 
                 rb.apply_force(Vector._make(fx, fy))
+
+# ======================================== HELPERS ========================================
+def _angle_diff(a: float, b: float) -> float:
+    """Différence signée entre deux angles en degrés dans [-180, 180]"""
+    return (a - b + 180.0) % 360.0 - 180.0
+
+def _in_sector(current: float, angle: float, cone: float, cone_gap: float) -> bool:
+    """Vérifie si current est dans le secteur angulaire valide"""
+    if cone >= 180.0:
+        return True
+    abs_diff = abs(_angle_diff(current, angle))
+    return cone_gap <= abs_diff <= cone
+
+def _closest_sector_angle(current, angle, cone, cone_gap):
+    if cone >= 180.0:
+        return current
+    if _in_sector(current, angle, cone, cone_gap):
+        return current
+    diff = _angle_diff(current, angle)
+    abs_diff = abs(diff)
+    sign = 1.0 if diff >= 0 else -1.0
+    if abs_diff < cone_gap:
+        return angle + sign * cone_gap
+    else:
+        diff_pos = abs(_angle_diff(current, angle + cone))
+        diff_neg = abs(_angle_diff(current, angle - cone))
+        return angle + cone if diff_pos <= diff_neg else angle - cone

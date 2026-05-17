@@ -237,9 +237,11 @@ class SubQueryLineageHolder(ColumnLineageMixin):
         wildcard_in_union: bool = False,
     ) -> None:
         target_columns = self.get_table_columns(tgt_table)
+        use_positional = wildcard_in_union or (
+            len(target_columns) == len(src_table_columns)
+        )
         for idx, src_col in enumerate(src_table_columns):
-            # Prefer positional mapping only when enabled (e.g., subsequent UNION arms)
-            if wildcard_in_union and idx < len(target_columns):
+            if use_positional and idx < len(target_columns):
                 target_col = target_columns[idx]
             else:
                 # otherwise, if target column with same name exists (union scenario), reuse it; or create a new one
@@ -514,7 +516,10 @@ class SQLLineageHolder(ColumnLineageMixin):
                 ngo.drop_edge(unresolved_col, tgt_col)
 
         # when unresolved column got resolved, it will be orphan node, and we can remove it
-        for unresolved_col, _ in unresolved_column_lineages:
+        # convert unresolved_column_lineages to a set of cols, otherwise if an unresolved appears multiple times,
+        # calling retrieve_edges_by_vertex using a deleted node would cause inconsistent behavior for different graph
+        # operator, e.g. NetworkX 3.x would throw exception while NetworkX 2.x and Rustworkx would succeed silently
+        for unresolved_col in {col for col, _ in unresolved_column_lineages}:
             if (
                 len(ngo.retrieve_edges_by_vertex(unresolved_col, EdgeDirection.OUT))
                 == 0

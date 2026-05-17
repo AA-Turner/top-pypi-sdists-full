@@ -171,6 +171,29 @@ class ClusterEbsVolumeConfig(AWSProperty):
     }
 
 
+class ClusterFsxLustreConfig(AWSProperty):
+    """
+    `ClusterFsxLustreConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxlustreconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "DnsName": (str, True),
+        "MountName": (str, True),
+        "MountPath": (str, False),
+    }
+
+
+class ClusterFsxOpenZfsConfig(AWSProperty):
+    """
+    `ClusterFsxOpenZfsConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxopenzfsconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "DnsName": (str, True),
+        "MountPath": (str, False),
+    }
+
+
 class ClusterInstanceStorageConfig(AWSProperty):
     """
     `ClusterInstanceStorageConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancestorageconfig.html>`__
@@ -178,6 +201,8 @@ class ClusterInstanceStorageConfig(AWSProperty):
 
     props: PropsDictType = {
         "EbsVolumeConfig": (ClusterEbsVolumeConfig, False),
+        "FsxLustreConfig": (ClusterFsxLustreConfig, False),
+        "FsxOpenZfsConfig": (ClusterFsxOpenZfsConfig, False),
     }
 
 
@@ -210,8 +235,20 @@ class ClusterLifeCycleConfig(AWSProperty):
     """
 
     props: PropsDictType = {
-        "OnCreate": (str, True),
-        "SourceS3Uri": (str, True),
+        "OnCreate": (str, False),
+        "OnInitComplete": (str, False),
+        "SourceS3Uri": (str, False),
+    }
+
+
+class ClusterSlurmConfig(AWSProperty):
+    """
+    `ClusterSlurmConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterslurmconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "NodeType": (str, True),
+        "PartitionNames": ([str], False),
     }
 
 
@@ -333,11 +370,12 @@ class ClusterInstanceGroup(AWSProperty):
         "InstanceStorageConfigs": ([ClusterInstanceStorageConfig], False),
         "InstanceType": (str, True),
         "KubernetesConfig": (ClusterKubernetesConfig, False),
-        "LifeCycleConfig": (ClusterLifeCycleConfig, True),
+        "LifeCycleConfig": (ClusterLifeCycleConfig, False),
         "MinInstanceCount": (integer, False),
         "OnStartDeepHealthChecks": ([str], False),
         "OverrideVpcConfig": (VpcConfig, False),
         "ScheduledUpdateConfig": (ScheduledUpdateConfig, False),
+        "SlurmConfig": (ClusterSlurmConfig, False),
         "ThreadsPerCore": (integer, False),
         "TrainingPlanArn": (str, False),
     }
@@ -394,13 +432,24 @@ class ClusterOrchestratorEksConfig(AWSProperty):
     }
 
 
+class ClusterOrchestratorSlurmConfig(AWSProperty):
+    """
+    `ClusterOrchestratorSlurmConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterorchestratorslurmconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "SlurmConfigStrategy": (str, False),
+    }
+
+
 class Orchestrator(AWSProperty):
     """
     `Orchestrator <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-orchestrator.html>`__
     """
 
     props: PropsDictType = {
-        "Eks": (ClusterOrchestratorEksConfig, True),
+        "Eks": (ClusterOrchestratorEksConfig, False),
+        "Slurm": (ClusterOrchestratorSlurmConfig, False),
     }
 
 
@@ -1772,7 +1821,7 @@ class MlflowTrackingServer(AWSObject):
 
 class RepositoryAuthConfig(AWSProperty):
     """
-    `RepositoryAuthConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-containerdefinition-imageconfig-repositoryauthconfig.html>`__
+    `RepositoryAuthConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-repositoryauthconfig.html>`__
     """
 
     props: PropsDictType = {
@@ -1782,7 +1831,7 @@ class RepositoryAuthConfig(AWSProperty):
 
 class ImageConfig(AWSProperty):
     """
-    `ImageConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-containerdefinition-imageconfig.html>`__
+    `ImageConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-imageconfig.html>`__
     """
 
     props: PropsDictType = {
@@ -1826,7 +1875,7 @@ class ModelDataSource(AWSProperty):
 
 class MultiModelConfig(AWSProperty):
     """
-    `MultiModelConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-containerdefinition-multimodelconfig.html>`__
+    `MultiModelConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-multimodelconfig.html>`__
     """
 
     props: PropsDictType = {
@@ -2708,7 +2757,6 @@ class ModelPackage(AWSObject):
         "Domain": (str, False),
         "DriftCheckBaselines": (DriftCheckBaselines, False),
         "InferenceSpecification": (InferenceSpecification, False),
-        "LastModifiedTime": (str, False),
         "MetadataProperties": (MetadataProperties, False),
         "ModelApprovalStatus": (str, False),
         "ModelCard": (ModelCardProperty, False),
@@ -3607,17 +3655,6 @@ class Workteam(AWSObject):
     }
 
 
-class AdditionalModelDataSource(AWSProperty):
-    """
-    `AdditionalModelDataSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-additionalmodeldatasource.html>`__
-    """
-
-    props: PropsDictType = {
-        "ChannelName": (str, True),
-        "S3DataSource": (S3DataSource, True),
-    }
-
-
 class AlarmDetails(AWSProperty):
     """
     `AlarmDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-alarmdetails.html>`__
@@ -3665,7 +3702,7 @@ class EndpointMetadata(AWSProperty):
 
 class HubAccessConfig(AWSProperty):
     """
-    `HubAccessConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-s3datasource-hubaccessconfig.html>`__
+    `HubAccessConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-hubaccessconfig.html>`__
     """
 
     props: PropsDictType = {

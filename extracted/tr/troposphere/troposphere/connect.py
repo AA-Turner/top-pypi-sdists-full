@@ -89,6 +89,34 @@ class ContactFlowModule(AWSObject):
     }
 
 
+class ContactFlowModuleAlias(AWSObject):
+    """
+    `ContactFlowModuleAlias <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodulealias.html>`__
+    """
+
+    resource_type = "AWS::Connect::ContactFlowModuleAlias"
+
+    props: PropsDictType = {
+        "ContactFlowModuleId": (str, True),
+        "ContactFlowModuleVersion": (integer, True),
+        "Description": (str, False),
+        "Name": (str, True),
+    }
+
+
+class ContactFlowModuleVersion(AWSObject):
+    """
+    `ContactFlowModuleVersion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmoduleversion.html>`__
+    """
+
+    resource_type = "AWS::Connect::ContactFlowModuleVersion"
+
+    props: PropsDictType = {
+        "ContactFlowModuleId": (str, True),
+        "Description": (str, False),
+    }
+
+
 class ContactFlowVersion(AWSObject):
     """
     `ContactFlowVersion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowversion.html>`__
@@ -906,6 +934,43 @@ class IntegrationAssociation(AWSObject):
     }
 
 
+class NotificationContent(AWSProperty):
+    """
+    `NotificationContent <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeDE": (str, False),
+        "EnUS": (str, False),
+        "EsES": (str, False),
+        "FrFR": (str, False),
+        "IdID": (str, False),
+        "ItIT": (str, False),
+        "JaJP": (str, False),
+        "KoKR": (str, False),
+        "PtBR": (str, False),
+        "ZhCN": (str, False),
+        "ZhTW": (str, False),
+    }
+
+
+class Notification(AWSObject):
+    """
+    `Notification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html>`__
+    """
+
+    resource_type = "AWS::Connect::Notification"
+
+    props: PropsDictType = {
+        "Content": (NotificationContent, True),
+        "ExpiresAt": (str, False),
+        "InstanceArn": (str, True),
+        "Priority": (str, False),
+        "Recipients": ([str], False),
+        "Tags": (Tags, False),
+    }
+
+
 class PhoneNumber(AWSObject):
     """
     `PhoneNumber <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-phonenumber.html>`__
@@ -977,6 +1042,16 @@ class Prompt(AWSObject):
     }
 
 
+class EmailAddressProperty(AWSProperty):
+    """
+    `EmailAddressProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-queue-emailaddress.html>`__
+    """
+
+    props: PropsDictType = {
+        "EmailAddressArn": (str, True),
+    }
+
+
 class OutboundCallerConfig(AWSProperty):
     """
     `OutboundCallerConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-queue-outboundcallerconfig.html>`__
@@ -1007,6 +1082,7 @@ class Queue(AWSObject):
     resource_type = "AWS::Connect::Queue"
 
     props: PropsDictType = {
+        "AdditionalEmailAddresses": ([EmailAddressProperty], False),
         "Description": (str, False),
         "HoursOfOperationArn": (str, True),
         "InstanceArn": (str, True),
@@ -1339,6 +1415,18 @@ class Application(AWSProperty):
     props: PropsDictType = {
         "ApplicationPermissions": ([str], True),
         "Namespace": (str, True),
+        "Type": (str, False),
+    }
+
+
+class FlowModule(AWSProperty):
+    """
+    `FlowModule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-flowmodule.html>`__
+    """
+
+    props: PropsDictType = {
+        "FlowModuleId": (str, True),
+        "Type": (str, True),
     }
 
 
@@ -1400,6 +1488,7 @@ class SecurityProfile(AWSObject):
     props: PropsDictType = {
         "AllowedAccessControlHierarchyGroupId": (str, False),
         "AllowedAccessControlTags": (Tags, False),
+        "AllowedFlowModules": ([FlowModule], False),
         "Applications": ([Application], False),
         "Description": (str, False),
         "GranularAccessControlConfiguration": (

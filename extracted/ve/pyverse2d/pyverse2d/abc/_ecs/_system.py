@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, ClassVar, Tuple, Type
+from typing import TYPE_CHECKING, ClassVar, Tuple
 
 if TYPE_CHECKING:
     from ...world import World
@@ -12,12 +12,13 @@ class System(ABC):
     """Classe abstraite des systèmes"""
     __slots__ = tuple()
 
-    order: ClassVar[int] = 0
-    exclusive: ClassVar[bool] = False
-    renderable: ClassVar[bool] = False
+    _ORDER: ClassVar[int] = 0
+    
+    _IS_EXCLUSIVE: ClassVar[bool] = False
+    _IS_RENDERABLE: ClassVar[bool] = False
 
-    requires: ClassVar[Tuple[str, ...]] = tuple()
-    conflicts: ClassVar[Tuple[str, ...]] = tuple()
+    _REQUIRES: ClassVar[Tuple[str, ...]] = tuple()
+    _CONFLICTS: ClassVar[Tuple[str, ...]] = tuple()
 
     # ======================================== CONTRACT ========================================
     @abstractmethod

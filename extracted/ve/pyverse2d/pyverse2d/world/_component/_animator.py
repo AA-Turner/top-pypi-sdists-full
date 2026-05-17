@@ -46,7 +46,7 @@ class Animator(Component):
         "_current_request", "_current_animation", "_frame", "_elapsed",  "_requests",
     )
 
-    requires: ClassVar[tuple[str, ...]] = ("SpriteRenderer",)
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("SpriteRenderer",)
 
     AnimationRequest: ClassVar[type[AnimationRequest]] = AnimationRequest
 

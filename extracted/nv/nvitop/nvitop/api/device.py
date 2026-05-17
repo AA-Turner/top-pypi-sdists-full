@@ -1,6 +1,6 @@
 # This file is part of nvitop, the interactive NVIDIA-GPU process viewer.
 #
-# Copyright 2021-2025 Xuehai Pan. All Rights Reserved.
+# Copyright 2021-2026 Xuehai Pan. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -940,7 +940,7 @@ class Device:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         """
         if self._handle is not None and self._bus_id is NA:
             self._bus_id = libnvml.nvmlQuery(
-                lambda handle: libnvml.nvmlDeviceGetPciInfo(handle).busId,
+                lambda handle: libnvml.nvmlDeviceGetPciInfo(handle).busId,  # type: ignore[attr-defined]
                 self._handle,
             )
         return self._bus_id
@@ -984,6 +984,7 @@ class Device:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             except libnvml.NVMLError:
                 memory_info = NA
             if libnvml.nvmlCheckReturn(memory_info):
+                assert not isinstance(memory_info, NaType)
                 if memory_info.total > 0:
                     return MemoryInfo(
                         total=memory_info.total,
@@ -1520,9 +1521,9 @@ class Device:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         power_usage = self.power_usage()
         power_limit = self.power_limit()
         if libnvml.nvmlCheckReturn(power_usage, int):
-            power_usage = f'{round(power_usage / 1000)}W'  # type: ignore[assignment]
+            power_usage = f'{round(power_usage / 1000)}W'
         if libnvml.nvmlCheckReturn(power_limit, int):
-            power_limit = f'{round(power_limit / 1000)}W'  # type: ignore[assignment]
+            power_limit = f'{round(power_limit / 1000)}W'
         return f'{power_usage} / {power_limit}'
 
     def pcie_throughput(self) -> ThroughputInfo:  # in KiB/s
@@ -2107,6 +2108,7 @@ class Device:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             return {
                 libnvml.NVML_DRIVER_WDDM: 'WDDM',
                 libnvml.NVML_DRIVER_WDM: 'WDM',
+                libnvml.NVML_DRIVER_MCDM: 'MCDM',
             }.get(libnvml.nvmlQuery('nvmlDeviceGetCurrentDriverModel', self._handle), NA)
         return NA
 
@@ -2327,7 +2329,7 @@ class Device:  # pylint: disable=too-many-instance-attributes,too-many-public-me
                 else:
                     # Used GPU memory is `N/A` on Windows Display Driver Model (WDDM)
                     # or on MIG-enabled GPUs
-                    gpu_memory = NA  # type: ignore[assignment]
+                    gpu_memory = NA
                     found_na = True
                 proc = processes[p.pid] = self.GPU_PROCESS_CLASS(
                     pid=p.pid,
@@ -3241,12 +3243,15 @@ def _parse_cuda_visible_devices(  # pylint: disable=too-many-branches,too-many-s
                         """,
                     ),
                 ],
+                stderr=subprocess.DEVNULL,
+                text=True,
+                encoding='utf-8',
+                timeout=120.0,
             )
-            .decode('utf-8', errors='replace')
             .strip()
             .split(',')
         )
-    except subprocess.CalledProcessError:
+    except subprocess.SubprocessError:
         pass
     else:
         uuids = [

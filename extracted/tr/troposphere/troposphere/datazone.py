@@ -319,6 +319,16 @@ class SparkGluePropertiesInput(AWSProperty):
     }
 
 
+class WorkflowsMwaaPropertiesInput(AWSProperty):
+    """
+    `WorkflowsMwaaPropertiesInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-workflowsmwaapropertiesinput.html>`__
+    """
+
+    props: PropsDictType = {
+        "MwaaEnvironmentName": (str, False),
+    }
+
+
 class ConnectionPropertiesInput(AWSProperty):
     """
     `ConnectionPropertiesInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionpropertiesinput.html>`__
@@ -335,6 +345,8 @@ class ConnectionPropertiesInput(AWSProperty):
         "S3Properties": (S3PropertiesInput, False),
         "SparkEmrProperties": (SparkEmrPropertiesInput, False),
         "SparkGlueProperties": (SparkGluePropertiesInput, False),
+        "WorkflowsMwaaProperties": (WorkflowsMwaaPropertiesInput, False),
+        "WorkflowsServerlessProperties": (dict, False),
     }
 
 
@@ -1038,6 +1050,17 @@ class EnvironmentConfigurationUserParameter(AWSProperty):
     }
 
 
+class ResourceTag(AWSProperty):
+    """
+    `ResourceTag <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-resourcetag.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
 class Project(AWSObject):
     """
     `Project <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html>`__
@@ -1053,6 +1076,7 @@ class Project(AWSObject):
         "Name": (str, True),
         "ProjectProfileId": (str, False),
         "ProjectProfileVersion": (str, False),
+        "ResourceTags": ([ResourceTag], False),
         "UserParameters": ([EnvironmentConfigurationUserParameter], False),
     }
 
@@ -1145,6 +1169,18 @@ class EnvironmentConfiguration(AWSProperty):
     }
 
 
+class ResourceTagParameter(AWSProperty):
+    """
+    `ResourceTagParameter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-resourcetagparameter.html>`__
+    """
+
+    props: PropsDictType = {
+        "IsValueEditable": (boolean, True),
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
 class ProjectProfile(AWSObject):
     """
     `ProjectProfile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html>`__
@@ -1153,11 +1189,14 @@ class ProjectProfile(AWSObject):
     resource_type = "AWS::DataZone::ProjectProfile"
 
     props: PropsDictType = {
+        "AllowCustomProjectResourceTags": (boolean, False),
         "Description": (str, False),
         "DomainIdentifier": (str, False),
         "DomainUnitIdentifier": (str, False),
         "EnvironmentConfigurations": ([EnvironmentConfiguration], False),
         "Name": (str, True),
+        "ProjectResourceTags": ([ResourceTagParameter], False),
+        "ProjectResourceTagsDescription": (str, False),
         "Status": (str, False),
         "UseDefaultConfigurations": (boolean, False),
     }

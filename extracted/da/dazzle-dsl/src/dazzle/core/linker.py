@@ -6,6 +6,7 @@ from .ir.feedback_widget import FEEDBACK_REPORT_FIELDS
 from .ir.fields import FieldModifier, FieldSpec, FieldType, FieldTypeKind
 from .ir.jobs import JOB_RUN_FIELDS
 from .ir.llm import AI_JOB_FIELDS
+from .ir.onboarding_state import ONBOARDING_STATE_FIELDS
 from .ir.security import SecurityConfig, SecurityProfile
 from .linker_impl import (
     build_symbol_table,
@@ -158,6 +159,12 @@ def build_appspec(
             _build_feedback_edit_surface(),
         ]
 
+    # 9b.1 Auto-generate OnboardingState entity when any `guide` block is
+    # declared (v0.71.1). Per-(user, guide, version) progression rows.
+    # Apps with no guides don't pay the table cost.
+    if merged_fragment.guides and not any(e.name == "OnboardingState" for e in entities):
+        entities = [*entities, _build_onboarding_state_entity()]
+
     # 9c. Auto-generate admin platform entities, surfaces, and workspaces (#686)
     from .admin_builder import build_admin_infrastructure
 
@@ -189,6 +196,22 @@ def build_appspec(
     workspaces = [*merged_fragment.workspaces, *admin_workspaces]
     if known_renderers is not None:
         _validate_render_references(surfaces, workspaces, known_renderers)
+
+    # 10d. Guide concordance — every guide step's target / completion /
+    # cta must resolve against the actual DSL state (#1106 follow-up,
+    # v0.71.0). Drift becomes a compile error, not a runtime surprise.
+    from .guide_concordance import check_guide_concordance
+
+    guide_errors, _guide_warnings = check_guide_concordance(
+        merged_fragment.guides,
+        surfaces=surfaces,
+        entities=entities,
+        personas=merged_fragment.personas,
+        streams=merged_fragment.streams,
+    )
+    if guide_errors:
+        error_msg = "Guide concordance failed:\n" + "\n".join(f"  - {e}" for e in guide_errors)
+        raise LinkError(error_msg)
 
     # 11. Build final AppSpec
     return ir.AppSpec(
@@ -252,6 +275,7 @@ def build_appspec(
         grant_schemas=merged_fragment.grant_schemas,  # v0.42.0 Runtime RBAC
         params=merged_fragment.params,  # v0.44.0 Runtime Parameters
         feedback_widget=merged_fragment.feedback_widget,  # Feedback Widget
+        guides=merged_fragment.guides,  # Guided onboarding (v0.71.0)
         subprocessors=merged_fragment.subprocessors,  # v0.61.0 Analytics / Privacy
         analytics=merged_fragment.analytics,  # v0.61.0 Phase 3
         audit_trail=root_module.app_config.audit_trail if root_module.app_config else False,
@@ -276,17 +300,42 @@ def _validate_render_references(
     for s in surfaces:
         if s.render is not None and s.render not in known:
             raise RenderValidationError(
-                f"surface {s.name!r}: unknown renderer {s.render!r}; "
-                f"registered renderers: {sorted(known)}"
+                _unknown_renderer_message(s.render, known, f"surface {s.name!r}")
             )
     for ws in workspaces:
         for r in ws.regions:
             if r.render is not None and r.render not in known:
                 raise RenderValidationError(
-                    f"workspace {ws.name!r} region {r.name!r}: "
-                    f"unknown renderer {r.render!r}; "
-                    f"registered renderers: {sorted(known)}"
+                    _unknown_renderer_message(
+                        r.render, known, f"workspace {ws.name!r} region {r.name!r}"
+                    )
                 )
+
+
+def _unknown_renderer_message(name: str, known: set[str], location: str) -> str:
+    """Format the agent-actionable error for an unknown renderer name (#1117).
+
+    Pre-#1117 this was a one-line "unknown renderer X; registered: [...]"
+    that said what was wrong but not how to fix it. Project authors saw
+    the wall but not the door. The new shape names both halves of the
+    extension contract — manifest allowlist + runtime registration — so
+    an LLM agent reading the error knows exactly which two places need
+    edits.
+    """
+    return (
+        f"{location} declares render: {name!r}, but that name isn't in the "
+        f"known-renderers set (currently: {sorted(known)}).\n\n"
+        "To register a project-side renderer, two steps are required:\n"
+        f"  1. Declare the name in dazzle.toml so the link-time validator accepts it:\n"
+        "       [renderers]\n"
+        f"       extra = [{name!r}]\n"
+        "  2. Register the runtime handler in app code (typically in your\n"
+        "     app factory or a startup hook):\n"
+        "       services.renderer_registry.register(\n"
+        f"           name={name!r}, handler=MyRendererClass()\n"
+        "       )\n\n"
+        "See examples/custom_renderer/ for a worked end-to-end example."
+    )
 
 
 def _compile_scope_predicates(
@@ -303,6 +352,12 @@ def _compile_scope_predicates(
     Because Pydantic models are frozen, this reconstructs the ScopeRule,
     AccessSpec, and EntitySpec using model_copy(update={...}).
 
+    Also (v0.71.22, #1124) walks every ``scope: create:`` predicate to
+    reject shapes the v1 runtime evaluator can't handle (FK-path
+    depth > 1, ExistsCheck / NotExistsCheck). Surfacing the rejection
+    at link time gives users the error during ``dazzle validate``
+    rather than at request time.
+
     Args:
         entities:             List of entity specifications.
         fk_graph:             FKGraph built from the entities.
@@ -311,6 +366,8 @@ def _compile_scope_predicates(
     Returns:
         Updated list of entity specifications with predicates attached.
     """
+    from dazzle.core.ir.domain import PermissionKind
+
     result: list[ir.EntitySpec] = []
     for entity in entities:
         if entity.access is None or not entity.access.scopes:
@@ -320,12 +377,72 @@ def _compile_scope_predicates(
         compiled_scopes: list[ir.ScopeRule] = []
         for rule in entity.access.scopes:
             predicate = build_scope_predicate(rule.condition, entity.name, fk_graph)  # type: ignore[operator]
+            # #1124 v1: reject unsupported predicate shapes on `scope: create:`
+            # at link time. The runtime evaluator only handles
+            # ColumnCheck / UserAttrCheck / PathCheck depth 1 /
+            # BoolComposite / Tautology / Contradiction — FK-path and
+            # EXISTS need a payload-time SQL probe that v1 doesn't
+            # implement yet.
+            if predicate is not None and rule.operation == PermissionKind.CREATE:
+                _assert_scope_create_predicate_is_v1_supported(predicate, entity.name, rule)
             compiled_scopes.append(rule.model_copy(update={"predicate": predicate}))
 
         new_access = entity.access.model_copy(update={"scopes": compiled_scopes})
         result.append(entity.model_copy(update={"access": new_access}))
 
     return result
+
+
+def _assert_scope_create_predicate_is_v1_supported(
+    predicate: object,
+    entity_name: str,
+    rule: ir.ScopeRule,
+) -> None:
+    """Walk a scope:create: predicate and raise on shapes v1 can't handle.
+
+    The v1 runtime evaluator (``dazzle.back.runtime.scope_create_eval``)
+    supports the simple-predicate subset: ColumnCheck, UserAttrCheck,
+    PathCheck depth 1, Tautology / Contradiction, and BoolComposite
+    over those. FK-path predicates (depth > 1) and junction-table
+    predicates (ExistsCheck / NotExistsCheck) need a payload-time SQL
+    probe that v1 doesn't implement.
+
+    Raised as RenderValidationError so it propagates through the same
+    error path as the other link-time DSL validation issues — users
+    see it at ``dazzle validate`` time, not at request time.
+    """
+    from dazzle.core.ir.predicates import (
+        BoolComposite,
+        ExistsCheck,
+        PathCheck,
+    )
+
+    personas = ", ".join(getattr(rule, "personas", []) or []) or "(no personas)"
+    location = f"entity {entity_name!r} scope: create: as: {personas}"
+
+    if isinstance(predicate, ExistsCheck):
+        raise RenderValidationError(
+            f"{location}: `scope: create:` does not yet support "
+            f"`via <junction>(...)` (ExistsCheck) predicates in v1. "
+            f"Express the constraint as an `invariant:` block or a "
+            f"service-layer pre-create hook for now. See "
+            f"docs/reference/rbac-scope.md and #1124 for the design "
+            f"conversation."
+        )
+    if isinstance(predicate, PathCheck) and len(predicate.path) > 1:
+        raise RenderValidationError(
+            f"{location}: `scope: create:` does not yet support FK-path "
+            f"predicates (depth > 1) in v1 (got path={predicate.path!r}). "
+            f"The framework would need a SELECT to resolve the FK chain "
+            f"at payload time; deferred until adoption signal indicates "
+            f"the per-create roundtrip is worth it. Express the "
+            f"constraint as an `invariant:` block or a service-layer "
+            f"pre-create hook for now. See docs/reference/rbac-scope.md "
+            f"and #1124."
+        )
+    if isinstance(predicate, BoolComposite):
+        for child in predicate.children:
+            _assert_scope_create_predicate_is_v1_supported(child, entity_name, rule)
 
 
 def _build_security_config(app_config: ir.AppConfigSpec | None) -> SecurityConfig:
@@ -618,6 +735,70 @@ def _build_job_run_admin_surface() -> ir.SurfaceSpec:
         sections=[ir.SurfaceSection(name="main", title="Jobs", elements=elements)],
         access=ir.SurfaceAccessSpec(require_auth=True),
         ux=ux,
+    )
+
+
+def _build_onboarding_state_entity() -> ir.EntitySpec:
+    """Build the auto-generated ``OnboardingState`` entity (v0.71.1).
+
+    Auto-injected when the project declares any ``guide`` block. Stores
+    one row per ``(user_id, guide_name, guide_version)`` — the
+    repository layer (``dazzle.back.runtime.onboarding``) owns the
+    UPSERT logic that enforces the composite uniqueness.
+
+    Access policy: a user reads / writes only their own rows; admins
+    see everything (mirrors the FeedbackReport scope split). The entity
+    is excluded by default from ``dazzle spec status`` since it's
+    framework-injected — same treatment as AIJob, FeedbackReport, etc.
+    """
+    fields: list[FieldSpec] = []
+    for name, type_str, modifiers, default in ONBOARDING_STATE_FIELDS:
+        field_type = _parse_field_type(type_str)
+        mods = [_MODIFIER_MAP[m] for m in modifiers]
+        fields.append(FieldSpec(name=name, type=field_type, modifiers=mods, default=default))
+
+    _ops = (
+        ir.PermissionKind.CREATE,
+        ir.PermissionKind.READ,
+        ir.PermissionKind.LIST,
+        ir.PermissionKind.UPDATE,
+        ir.PermissionKind.DELETE,
+    )
+    # Self-only scope: user_id = current_user.id (string column).
+    _self_cond = ir.ConditionExpr(
+        comparison=ir.Comparison(
+            field="user_id",
+            operator=ir.ComparisonOperator.EQUALS,
+            value=ir.ConditionValue(literal="current_user.id"),
+        )
+    )
+    _scope_rules: list[ir.ScopeRule] = []
+    for op in _ops:
+        _scope_rules.append(ir.ScopeRule(operation=op, condition=_self_cond, personas=["*"]))
+        _scope_rules.append(
+            ir.ScopeRule(
+                operation=op,
+                condition=None,
+                personas=["admin", "super_admin"],
+            )
+        )
+
+    access = ir.AccessSpec(
+        permissions=[
+            ir.PermissionRule(operation=op, require_auth=True, effect=ir.PolicyEffect.PERMIT)
+            for op in _ops
+        ],
+        scopes=_scope_rules,
+    )
+
+    return ir.EntitySpec(
+        name="OnboardingState",
+        title="Onboarding State",
+        intent="Per-user progression state for guided onboarding flows",
+        domain="platform",
+        patterns=["lifecycle", "audit"],
+        fields=fields,
+        access=access,
     )
 
 

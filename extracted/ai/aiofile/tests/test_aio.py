@@ -6,13 +6,14 @@ from base64 import b64encode
 from io import BytesIO
 from pathlib import Path
 from random import shuffle
+from typing import cast
 from unittest.mock import Mock, call
 from uuid import uuid4
 
-import caio  # type: ignore
-import pytest  # type: ignore
+import caio
+import pytest
 
-from aiofile import AIOFile
+from aiofile import AIOFile, clone
 from aiofile.utils import (
     BinaryFileWrapper, LineReader, Reader, TextFileWrapper, Writer,
 )
@@ -193,7 +194,7 @@ async def test_parallel_writer_ordering(
     result: bytes = b""
 
     async for chunk in Reader(r_file, chunk_size=chunk_size):
-        result += chunk  # type: ignore[operator]
+        result += cast(bytes, chunk)
 
     assert data == result
 
@@ -628,3 +629,50 @@ async def test_open_non_existent_file_with_append(
             numbers.append(int(line.strip()))
 
     assert numbers == list(range(20))
+
+
+async def test_clone(
+    async_open, tmp_path: Path,
+):
+    tmp_fpath = tmp_path / "test.txt"
+
+    async with async_open(tmp_fpath, "w") as afp:
+        for i in range(1000, 1003):
+            await afp.write(str(i))
+            await afp.write("\n")
+
+    async with async_open(tmp_fpath, "r") as afp:
+        assert await afp.read(5) == "1000\n"
+
+        async with clone(afp) as cloned:
+            assert await cloned.read(5) == "1000\n"
+
+            async with clone(afp) as cloned2:
+                assert await cloned2.read(5) == "1000\n"
+
+                assert await cloned.read(5) == await afp.read(5) == "1001\n"
+
+
+async def test_clone_close(
+    async_open, tmp_path: Path,
+):
+    tmp_fpath = tmp_path / "test.txt"
+
+    async with async_open(tmp_fpath, "w") as afp:
+        for i in range(10):
+            await afp.write(str(i))
+            await afp.write("\n")
+
+    async with async_open(tmp_fpath, "r") as afp:
+        await afp.read(10)
+
+        afp_clone = await clone(afp)
+        await afp_clone.close()
+
+        assert await afp.read()
+
+    async with async_open(tmp_fpath, "r") as afp:
+        await afp.read(10)
+
+        async with clone(afp):
+            assert await afp.read()

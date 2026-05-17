@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, call, create_autospec, patch
 from google.protobuf import message
 import pytest
 
+from aioesphomeapi._frame_helper.base import MAX_NAME_LEN
 from aioesphomeapi._frame_helper.plain_text import APIPlaintextFrameHelper
 from aioesphomeapi.api_pb2 import (
     AlarmControlPanelCommandRequest,
@@ -109,7 +110,11 @@ from aioesphomeapi.api_pb2 import (
     WaterHeaterCommandRequest,
     ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
-from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
+from aioesphomeapi.client import (
+    APIClient,
+    BluetoothConnectionDroppedError,
+    _validate_connection_params,
+)
 from aioesphomeapi.client_base import MAX_CAMERA_FRAME_BYTES, MAX_INFLIGHT_CAMERA_KEYS
 from aioesphomeapi.connection import APIConnection
 from aioesphomeapi.core import (
@@ -1834,6 +1839,55 @@ async def test_bluetooth_set_connection_params_error(
         await set_params_task
 
 
+@pytest.mark.parametrize(
+    ("args", "match"),
+    [
+        ((5, 800, 0, 300), "min_interval must be between 6 and 3200"),
+        ((3201, 3201, 0, 300), "min_interval must be between 6 and 3200"),
+        ((6, 5, 0, 300), "max_interval must be between 6 and 3200"),
+        ((6, 3201, 0, 300), "max_interval must be between 6 and 3200"),
+        ((100, 50, 0, 300), "must be >= min_interval"),
+        ((6, 800, -1, 300), "latency must be between 0 and 499"),
+        ((6, 800, 500, 3200), "latency must be between 0 and 499"),
+        ((6, 800, 0, 9), "timeout must be between 10 and 3200"),
+        ((6, 800, 0, 3201), "timeout must be between 10 and 3200"),
+        # timeout * 4 must exceed (1 + latency) * max_interval.
+        # With latency=0, max_interval=800 → boundary is timeout=200; 200 fails.
+        ((6, 800, 0, 200), "Supervision timeout must satisfy"),
+    ],
+)
+def test_validate_connection_params_rejects_out_of_spec(
+    args: tuple[int, int, int, int], match: str
+) -> None:
+    """Out-of-spec values raise ValueError naming the offending parameter."""
+    with pytest.raises(ValueError, match=match):
+        _validate_connection_params(*args)
+
+
+def test_validate_connection_params_accepts_boundary_values() -> None:
+    """Smallest and largest in-spec values are accepted."""
+    # Smallest valid: timeout * 4 > (1 + 0) * 6 → timeout >= 2, but spec
+    # minimum supervision timeout is 10.
+    _validate_connection_params(6, 6, 0, 10)
+    # Largest valid: needs timeout * 4 > (1 + 0) * 3200 → timeout > 800.
+    _validate_connection_params(6, 3200, 0, 801)
+    # Max latency with headroom on timeout.
+    _validate_connection_params(6, 6, 499, 3200)
+
+
+async def test_bluetooth_set_connection_params_validation(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Bad params raise ValueError before any frame is sent."""
+    client, _connection, transport, _protocol = api_client
+    transport.reset_mock()
+    with pytest.raises(ValueError, match="min_interval must be between"):
+        await client.bluetooth_device_set_connection_params(1234, 0, 0, 0, 0)
+    transport.write.assert_not_called()
+
+
 async def test_device_info(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -1866,6 +1920,43 @@ async def test_device_info(
     await disconnect_task
     with pytest.raises(APIConnectionError, match="Not connected"):
         await client.device_info()
+
+
+async def test_device_info_sanitizes_name(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """CRLF/ANSI bytes in DeviceInfo.name must be stripped from cached_name/log_name."""
+    client, _connection, _transport, protocol = api_client
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceInfoResponse(
+        name="evil\r\nLOGGER WARNING forged\x1b[31m",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    device_info = await device_info_task
+    assert device_info.name == "evil\r\nLOGGER WARNING forged\x1b[31m"
+    assert client.cached_name == "evilLOGGER WARNING forged[31m"
+    assert "\r" not in client.log_name
+    assert "\n" not in client.log_name
+    assert "\x1b" not in client.log_name
+
+
+async def test_device_info_caps_oversize_name(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """An oversize DeviceInfo.name must be length-capped before storage."""
+    client, _connection, _transport, protocol = api_client
+    device_info_task = asyncio.create_task(client.device_info())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceInfoResponse(name="a" * 4096)
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    await device_info_task
+    assert client.cached_name == "a" * MAX_NAME_LEN
 
 
 async def test_bluetooth_gatt_read(

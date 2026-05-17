@@ -20,7 +20,7 @@ include = [
   "**/troposphere",
 ]
 pythonPlatform = "All"
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 reportDuplicateImport = "none"
 reportImportCycles = "none"
 reportIncompatibleMethodOverride = "warning"

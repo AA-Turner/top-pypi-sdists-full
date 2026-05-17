@@ -1,5 +1,4 @@
-﻿# -*- coding: utf-8 -*-
-# ------------------------------------------------------------------------------
+﻿# ------------------------------------------------------------------------------
 # Name:         testFiles.py
 # Purpose:      MusicXML test files
 #
@@ -9,8 +8,6 @@
 from __future__ import annotations
 
 import unittest
-
-from music21 import common
 
 _DOC_IGNORE_MODULE_OR_PACKAGE = True
 
@@ -16069,8 +16066,7 @@ tabTest = '''<?xml version="1.0" encoding="UTF-8" ?>
 '''
 
 
-pianoRepeatEndings = r'''
-<?xml version="1.0" encoding="UTF-8"?>
+pianoRepeatEndings = r'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="4.0">
   <work>
@@ -16215,15 +16211,6 @@ ALL = [
     binchoisMagnificat, edgefield82b, tabTest,
     pianoRepeatEndings,
 ]
-
-
-@common.deprecated('v10', 'This has never been developed beyond one file')
-def get(contentRequest):
-    '''
-    Get test material by type of content -- Deprecated - to be removed in v10
-    '''
-    if contentRequest in ['lyrics']:
-        return chantQuemQueritis
 
 
 # ------------------------------------------------------------------------------

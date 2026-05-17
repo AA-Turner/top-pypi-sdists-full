@@ -143,8 +143,7 @@ repos:
         name: Block planning docs (belong in omni_home/docs/plans/)
         entry: bash -c 'PLAN_FILES=$(git diff --cached --name-only -- "docs/plans/"); if [ -n "$PLAN_FILES"
           ]; then echo "ERROR - Planning docs must live in omni_home/docs/plans/, not in this repo"; echo
-          "$PLAN_FILES"; echo ""; echo "Move your file to /Volumes/PRO-G40/Code/omni_home/docs/plans/";
-          exit 1; fi'
+          "$PLAN_FILES"; echo ""; echo "Move your file to \$OMNI_HOME/docs/plans/"; exit 1; fi'
         language: system
         pass_filenames: false
         always_run: true
@@ -172,6 +171,90 @@ repos:
         language: system
         pass_filenames: false
         files: ^(src/omnibase_core/enums/enum_hook_bit\.py|scripts/gen_hook_bits\.py|scripts/check_hook_bits_drift\.py)$
+        stages: [pre-commit]
+
+      # Substrate Gate: silent except-pass (OMN-wire-validators)
+      # Baseline: 102 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Annotate justified cases with: # substrate-allow: <reason>
+      - id: substrate-silent-except-pass
+        name: No silent except-pass (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.silent_except_pass
+          --max-violations 102
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # Substrate Gate: env silent fallback (OMN-wire-validators)
+      # Baseline: 38 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Annotate justified bootstrap cases with: # substrate-allow: bootstrap-fallback
+      - id: substrate-env-silent-fallback
+        name: No env silent fallback (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.env_silent_fallback
+          --max-violations 38
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # Substrate Gate: identity field optionality (OMN-wire-validators)
+      # Baseline: 122 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Annotate justified cases with: # substrate-allow: <reason>
+      - id: substrate-identity-field-optionality
+        name: No optional identity fields (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.identity_field_optionality
+          --max-violations 122
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # Substrate Gate: loose typing in internal (OMN-wire-validators)
+      # Baseline: 345 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Annotate justified cases with: # substrate-allow: <reason>
+      - id: substrate-loose-typing-internal
+        name: No loose typing in internal (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.loose_typing_in_internal
+          --max-violations 345
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # Substrate Gate: protocol kwargs object (OMN-wire-validators)
+      # Baseline: 6 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Protocol methods must use explicit typed parameters, not *args/**kwargs: object/Any.
+      # Annotate justified cases with: # substrate-allow: <reason>
+      - id: substrate-protocol-kwargs-object
+        name: No protocol *args/**kwargs loose typing (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.protocol_kwargs_object
+          --max-violations 6
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # validate-stubbed-functionality (OMN-wire-validators)
+      # Baseline: 124 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Detects NotImplementedError stubs, pass-only methods, TODO/FIXME in prod code.
+      - id: validate-stubbed-functionality
+        name: ONEX Stubbed Functionality Detection
+        entry: env -u PYTHONPATH uv run python scripts/validation/validate-stubbed-functionality.py --max-violations
+          124
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|examples/prototypes/).*\.py$
         stages: [pre-commit]
 
   # ONEX Framework Validation (from shared templates)
@@ -300,7 +383,7 @@ repos:
         language: system
         pass_filenames: true
         files: ^.*\.py$
-        exclude: ^(scripts/validation/validate-contracts\.py|scripts/validation/validate-string-versions\.py|scripts/validation/check_stub_implementations\.py|scripts/validation/validate-no-manual-yaml\.py|scripts/validation/validate_pr_deploy_required\.py|scripts/compute_contract_fingerprint\.py|scripts/lint_contract\.py|src/omnibase_core/utils/safe_yaml_loader\.py|src/omnibase_core/utils/util_safe_yaml_loader\.py|src/omnibase_core/validation/contracts\.py|src/omnibase_core/validation/contract_validator\.py|src/omnibase_core/validation/validator_base\.py|src/omnibase_core/validation/validator_any_type\.py|src/omnibase_core/validation/validator_contract_linter\.py|src/omnibase_core/validation/validator_requirements_consumer\.py|src/omnibase_core/validation/validator_runtime_profiles\.py|src/omnibase_core/discovery/mixin_discovery\.py|src/omnibase_core/cli/cli_demo\.py|tests/fixtures/validation/|src/omnibase_core/validation/scripts/validate_string_versions\.py)
+        exclude: ^(scripts/validation/validate-contracts\.py|scripts/validation/validate-string-versions\.py|scripts/validation/check_stub_implementations\.py|scripts/validation/validate-no-manual-yaml\.py|scripts/validation/validate_pr_deploy_required\.py|scripts/compute_contract_fingerprint\.py|scripts/lint_contract\.py|src/omnibase_core/utils/safe_yaml_loader\.py|src/omnibase_core/utils/util_safe_yaml_loader\.py|src/omnibase_core/validation/contracts\.py|src/omnibase_core/validation/contract_validator\.py|src/omnibase_core/validation/validator_base\.py|src/omnibase_core/validation/validator_any_type\.py|src/omnibase_core/validation/validator_contract_linter\.py|src/omnibase_core/validation/validator_requirements_consumer\.py|src/omnibase_core/validation/validator_runtime_profiles\.py|src/omnibase_core/discovery/mixin_discovery\.py|src/omnibase_core/cli/cli_demo\.py|tests/fixtures/validation/|src/omnibase_core/validation/scripts/validate_string_versions\.py|src/omnibase_core/validators/contract_config_compliance\.py)
         stages: [pre-commit]
         # validate_string_versions.py: validation script that must load YAML to validate it (OMN-4402)
 
@@ -428,6 +511,64 @@ repos:
         pass_filenames: true
         files: ^src/.*\.py$
         exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # Contract-config compliance (OMN-10688)
+      # Blocks bare env reads, bus-bypass imports, and undeclared env vars in handlers.
+      # Suppress a line with: # contract-config-ok: <reason>
+      - id: contract-config-compliance
+        name: Contract-Config Compliance (OMN-10688)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.validators.contract_config_compliance
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # OMN-10741: Unified localhost/hardcoded-endpoint fallback validator
+      # Covers all 6 pattern types from OMN-10658 enforcement sweep.
+      # Annotation: add  # fallback-ok: <reason>  to exempt a justified line.
+      - id: no-env-fallbacks
+        name: No localhost/hardcoded-endpoint fallbacks (OMN-10741)
+        entry: uv run python scripts/validate_no_env_fallbacks.py
+        language: system
+        pass_filenames: true
+        types_or: [python, shell]
+        stages: [pre-commit]
+
+      # OMN-10817: Except-log-no-reraise (silent swallow) detector
+      # Rejects broad except+log blocks that don't re-raise.
+      # Annotation: add  # reraise-ok: <reason>  on the except line.
+      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      - id: no-except-swallow
+        name: No except-log-no-reraise (OMN-10817)
+        entry: uv run python scripts/validation/validate_no_except_swallow.py --report
+        language: system
+        pass_filenames: true
+        types: [python]
+        stages: [pre-commit]
+
+      # OMN-10818: Event-bus none-guard-before-publish detector
+      # Rejects if-bus-is-not-None guards wrapping publish/emit/send calls.
+      # Annotation: add  # none-guard-ok: <reason>  on the if line.
+      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      - id: no-none-guard-publish
+        name: No event-bus none-guard-before-publish (OMN-10818)
+        entry: uv run python scripts/validation/validate_no_none_guard_publish.py --report
+        language: system
+        pass_filenames: true
+        types: [python]
+        stages: [pre-commit]
+
+      # OMN-10819: ImportError-assigned-to-None fallback detector
+      # Rejects `except ImportError: Symbol = None` patterns.
+      # Annotation: add  # import-fallback-ok: <reason>  on the assignment line.
+      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      - id: no-import-none-fallback
+        name: No ImportError-assigned-to-None fallback (OMN-10819)
+        entry: uv run python scripts/validation/validate_no_import_none_fallback.py --report
+        language: system
+        pass_filenames: true
+        types: [python]
         stages: [pre-commit]
 
       # SPDX Header Requirement
@@ -586,6 +727,31 @@ repos:
         pass_filenames: true
         files: ^src/.*\.py$
         exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # Portability: No machine-specific absolute paths (OMN-9043)
+      # Catches /Volumes/..., /Users/..., /home/..., C:\... hardcoded paths. # local-path-ok
+      # Fails loud if validator_local_paths is not importable (not a silent skip).
+      # Suppress legitimate lines with: # local-path-ok
+      - id: check-local-paths
+        name: No hardcoded local/machine-specific paths (OMN-9043)
+        entry: uv run python -m omnibase_core.validation.validator_local_paths
+        language: system
+        types: [text]
+        exclude: >-
+          (?x)^(
+            \.secrets\.baseline$|
+            archived/|
+            archive/|
+            tests/fixtures/|
+            tests/unit/validation/test_validator_local_paths\.py$|
+            tests/unit/validation/test_checker_enum_member_casing\.py$|
+            tests/unit/validation/test_checker_literal_duplication\.py$|
+            tests/unit/validation/test_checker_naming_convention\.py$|
+            tests/unit/validation/test_validation_utils\.py$|
+            tests/unit/validation/test_validation_utils_edge_cases\.py$
+          )
+        pass_filenames: true
         stages: [pre-commit]
 
       - id: validate-exception-handling

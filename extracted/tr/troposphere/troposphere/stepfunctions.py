@@ -149,6 +149,7 @@ class StateMachineAlias(AWSObject):
         "Description": (str, False),
         "Name": (str, False),
         "RoutingConfiguration": ([RoutingConfigurationVersion], False),
+        "StateMachineArn": (str, False),
     }
 
 

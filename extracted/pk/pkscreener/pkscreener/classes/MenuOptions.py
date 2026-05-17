@@ -57,7 +57,7 @@ userDemoMenuDict = {
 
 level0MenuDict = {
     "F": "Find a stock in scanners",
-    # "M": "Monitor Intraday",
+    "M": "Monitor (Dashboard)",
     # "S": "Strategies",
     # "B": "Backtests",
     # "G": "Growth of 10k",
@@ -67,7 +67,7 @@ level0MenuDict = {
     "X": "Scanners",
     # "T": "~",
     # "E": "Edit user configuration",
-    # "Y": "View your user configuration",
+    "Y": "View your user configuration",
     "U": "Check for software update",
     "L": "Collect Logs for Debugging",
     "H": "About PKScreener",
@@ -483,7 +483,7 @@ Pin_MenuDict = {
     "1": "Pin this scan category or piped scan {0}",
     "2": "Pin these {0} stocks in the scan results (Just keep tracking only these {0} stocks)",
     "3": "Use Sliding-Window-Timeframe to run this scan category or piped scan {0}",
-    "4": "Add {0} to my monitoring options",
+    "4": "Add {0} to my monitoring dashboard",
     "5": "Pipe outputs of {0} into another scanner",
 
     "M": "Back to the Top/Main menu",
@@ -928,7 +928,7 @@ class menus:
             # Top level Application Main menu
             def load_level0():
                 return self.renderMenuFromDictionary(dict=level0MenuDict,
-                                                 exceptionKeys=["X", "U", "Z", "L", "D", "P"], # "T", "E"
+                                                 exceptionKeys=["X", "U", "Z", "L", "D", "P", "T", "E"],
                                                  coloredValues=(["P","X"] if not asList else []),
                                                  defaultMenu="P",
                                                  skip=skip, 
@@ -936,7 +936,7 @@ class menus:
                                                  renderStyle=renderStyle, 
                                                  parent=selectedMenu,
                                                  checkUpdate=True,
-                                                 subOnly=["S", "B", "G", "P", "D", "F"]) # "M", "C"
+                                                 subOnly=["S", "B", "G", "P", "D", "F", "M", "C"]) 
             return self._get_cached_menu(cache_key, load_level0)
         
         elif selectedMenu is not None:
@@ -998,8 +998,8 @@ class menus:
                     # sub-menu of the top level main selected menu
                     def load_level1():
                         return self.renderMenuFromDictionary(dict=level1_X_MenuDict,
-                                                         exceptionKeys= ["N"], #["E", "M", "S", "15"],
-                                                         coloredValues= [], #(["15",str(configManager.defaultIndex)] if not asList else []),
+                                                         exceptionKeys= ["N", "E", "M", "S"], # "15"
+                                                         coloredValues= ([str(configManager.defaultIndex)] if not asList else []), #(["15",str(configManager.defaultIndex)] if not asList else []),
                                                          defaultMenu=str(configManager.defaultIndex),
                                                          skip=skip, 
                                                          asList=asList, 

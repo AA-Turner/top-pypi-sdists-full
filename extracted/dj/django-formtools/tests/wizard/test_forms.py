@@ -1,4 +1,5 @@
 import sys
+from collections import OrderedDict
 from importlib import import_module
 
 from django import forms, http
@@ -178,6 +179,64 @@ class FormTests(TestCase):
             self.fail("RecursionError happened during wizard test.")
         finally:
             sys.setrecursionlimit(old_limit)
+
+    def test_form_initial_multiple_calls_regression(self):
+        def step2_condition(wizard):
+            wizard.get_cleaned_data_for_step('start')
+            return True
+
+        class TestWizardWithTracking(TestWizard):
+            condition_dict = {'step2': step2_condition}
+            initial_call_count = 0
+
+            def get_form_initial(self, step):
+                self.initial_call_count += 1
+                return super().get_form_initial(step)
+
+        testform = TestWizardWithTracking.as_view(
+            [('start', Step1), ('step2', Step2)]
+        )
+        request = get_request(
+            {
+                'test_wizard_with_tracking-current_step': 'start',
+                'start-name': 'test'
+            }
+        )
+        response, instance = testform(request)
+        calls_during_submission = instance.initial_call_count
+        self.assertLessEqual(calls_during_submission, 4)
+
+    def test_form_list_pop_regression(self):
+        request = get_request()
+        testform = TestWizard.as_view([('start', Step1)])
+        response, instance = testform(request)
+        form_list = instance.get_form_list()
+        self.assertEqual(form_list, OrderedDict([('start', Step1)]))
+        form_list.pop('start')
+        # This will raise IndexError with an empty cached form_list.
+        instance.steps.first
+        self.assertEqual(instance.get_form_list(), OrderedDict([('start', Step1)]))
+
+    def test_cleaned_data_caching(self):
+        class TrackedStep1(Step1):
+            instantiation_count = 0
+
+            def __init__(self, *args, **kwargs):
+                TrackedStep1.instantiation_count += 1
+                super().__init__(*args, **kwargs)
+
+        testform = TestWizard.as_view([('start', TrackedStep1), ('step2', Step2)])
+        request = get_request({
+            'test_wizard-current_step': 'start',
+            'start-name': 'test'
+        })
+        response, instance = testform(request)
+        TrackedStep1.instantiation_count = 0
+        cleaned_data_1 = instance.get_cleaned_data_for_step('start')
+        cleaned_data_2 = instance.get_cleaned_data_for_step('start')
+        self.assertEqual(TrackedStep1.instantiation_count, 1)
+        self.assertEqual(cleaned_data_1, cleaned_data_2)
+        self.assertTrue(hasattr(instance, '_cleaned_data_cache_start'))
 
     def test_form_condition_unstable(self):
         request = get_request()

@@ -51,6 +51,25 @@ def test_range_fail(type, value, expect):
     assert expect in exc_info.value.message
 
 
+@pytest.mark.parametrize(
+    ("error_message", "expected"),
+    [
+        ("bad value: nope", "bad value: nope"),
+        ("", "nope"),
+    ],
+)
+def test_func_param_type_uses_value_error_message(error_message, expected):
+    def parse(value):
+        raise ValueError(error_message if error_message else "")
+
+    func_type = click.types.FuncParamType(parse)
+
+    with pytest.raises(click.BadParameter) as exc_info:
+        func_type.convert("nope", None, None)
+
+    assert expected in exc_info.value.message
+
+
 def test_float_range_no_clamp_open():
     with pytest.raises(TypeError):
         click.FloatRange(0, 1, max_open=True, clamp=True)
@@ -228,7 +247,7 @@ def test_file_surrogates(type, tmp_path):
 
     # - common case: �': No such file or directory
     # - special case: Illegal byte sequence
-    # The spacial case is seen with rootless Podman. The root cause is most
+    # The special case is seen with rootless Podman. The root cause is most
     # likely that the path is handled by a user-space program (FUSE).
     match = r"(�': No such file or directory|Illegal byte sequence)"
     with pytest.raises(click.BadParameter, match=match):

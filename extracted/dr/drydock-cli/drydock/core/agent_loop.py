@@ -729,6 +729,23 @@ class AgentLoop:
         if user_message.message_id is None:
             raise AgentLoopError("User message must have a message_id")
 
+        # Reset sticky error counters on every fresh user turn. Without
+        # this, once `_total_error_rounds` hits the 3-round stop ceiling
+        # (~45 API errors), it stays at 3 forever — every subsequent
+        # user message immediately re-trips the ceiling on its first
+        # API error and aborts. Users were stuck typing /clear (which
+        # wipes the whole session) just to recover. The user has
+        # manually intervened by typing again; they earn a fresh
+        # error budget. The bad messages may also have been
+        # dropped/compacted by the previous round's recovery path, so
+        # the new turn often succeeds where the prior round couldn't.
+        if getattr(self, "_total_error_rounds", 0) > 0:
+            logger.warning(
+                "[recovery] resetting _total_error_rounds=%d → 0 on new user turn",
+                self._total_error_rounds,
+            )
+            self._total_error_rounds = 0
+
         # Flush the user message to disk RIGHT NOW, before the LLM call.
         # Without this, messages.jsonl only updates after the model yields
         # — for silent/slow prompts the user message is invisible to any
@@ -967,6 +984,12 @@ class AgentLoop:
                         "write your best answer right now."
                         + (f" {_stop_suffix}" if _stop_suffix else "")
                     )
+                elif (TOOL_STOP_AFTER > 0
+                        and _tool_stop_injected
+                        and tool_turns > TOOL_STOP_AFTER):
+                    # Model called another tool after the stop note — force
+                    # text-only on the next LLM call so it must emit an answer.
+                    self._hle_force_text_only = True
                 if tool_turns == WRAP_UP_WARN_AT:
                     self._inject_system_note(
                         f"You have used {tool_turns} tool calls on this "
@@ -1044,8 +1067,44 @@ class AgentLoop:
                             self._total_error_rounds = 0
                         self._total_error_rounds += 1
                         if self._total_error_rounds >= 3:
+                            # Hard-stop after 3 rounds of recovery attempts.
+                            # Drop the LAST user→assistant block so the next
+                            # user message doesn't immediately re-trigger the
+                            # same broken state. Counter resets on the next
+                            # _conversation_loop entry, so the user can just
+                            # type the next message and continue without
+                            # losing their entire context.
+                            try:
+                                # Find the last user message; truncate to it.
+                                # Keep everything up to AND INCLUDING that
+                                # message; drop the assistant garbage after.
+                                last_user_idx = -1
+                                for i in range(len(self.messages) - 1, -1, -1):
+                                    if self.messages[i].role == Role.user:
+                                        last_user_idx = i
+                                        break
+                                if last_user_idx >= 0 and last_user_idx < len(self.messages) - 1:
+                                    kept = list(self.messages[: last_user_idx + 1])
+                                    self.messages.reset(kept)
+                                    logger.warning(
+                                        "[recovery] hard-stop: dropped %d messages "
+                                        "after last user turn (idx=%d)",
+                                        len(self.messages) - last_user_idx - 1,
+                                        last_user_idx,
+                                    )
+                            except Exception as _drop_err:  # noqa: BLE001
+                                logger.warning(
+                                    "[recovery] hard-stop drop failed: %s",
+                                    _drop_err,
+                                )
                             yield AssistantEvent(
-                                content=f"\n\n[Stopping: {self._total_error_rounds * MAX_API_ERRORS}+ API errors. The model cannot process this request. Try /compact or /clear to free context.]\n",
+                                content=(
+                                    f"\n\n[Stopping after {self._total_error_rounds * MAX_API_ERRORS}+ "
+                                    f"API errors. Conversation rolled back to your "
+                                    f"last message — just type your next request "
+                                    f"to continue. (Use /compact if context is "
+                                    f"genuinely too long, /clear only to fully reset.)]\n"
+                                ),
                             )
                             return
 
@@ -1454,7 +1513,17 @@ class AgentLoop:
                         "your plan in text."
                     )
             elif _stall_attempt == 1:
-                if prev_tool_name == "ralph_repo_index":
+                if _tool_stop_injected:
+                    _fa_suffix = os.environ.get(
+                        "DRYDOCK_STOP_NOW_SUFFIX",
+                        "End with 'FINAL ANSWER: <answer>'.",
+                    )
+                    note = (
+                        "STOP. Do NOT call any tools. "
+                        "Write your answer as plain text RIGHT NOW. "
+                        + _fa_suffix
+                    )
+                elif prev_tool_name == "ralph_repo_index":
                     note = (
                         "You sent an empty response after indexing the repository. "
                         "Respond in TEXT now — answer the user's question directly, "
@@ -1497,7 +1566,17 @@ class AgentLoop:
                         "OR explicitly say you are done with this task."
                     )
             else:
-                if prev_tool_name == "ralph_repo_index":
+                if _tool_stop_injected:
+                    _fa_suffix = os.environ.get(
+                        "DRYDOCK_STOP_NOW_SUFFIX",
+                        "End with 'FINAL ANSWER: <answer>'.",
+                    )
+                    note = (
+                        "FINAL WARNING. You have sent multiple empty responses. "
+                        "Do NOT use any tools. Write your answer NOW. "
+                        + _fa_suffix
+                    )
+                elif prev_tool_name == "ralph_repo_index":
                     note = (
                         "THIRD empty response after ralph_repo_index. "
                         "Stop — write a text reply to the user RIGHT NOW. "
@@ -1546,6 +1625,13 @@ class AgentLoop:
                 "Empty-response stall (inline retry %d/%d, prev=%s)",
                 _stall_attempt + 1, MAX_STALL_RETRIES, prev_role,
             )
+            # When tool-stop is active, force text-only again on the
+            # stall-retry LLM call.  _hle_force_text_only was consumed
+            # (cleared) at the previous LLM call boundary, so without
+            # this the stall-retry call gets tool_choice="auto" and the
+            # model loops back to calling tools instead of answering.
+            if _tool_stop_injected:
+                self._hle_force_text_only = True
             # Loop back to re-call the LLM.
             continue
 
@@ -2605,7 +2691,11 @@ class AgentLoop:
         # The hot-path flag is consumed (cleared) here so it's a one-turn
         # mute. If the model goes back to looping next turn, we'll re-detect
         # and re-mute.
-        if getattr(self, "_loop_detected", False) and getattr(self, "_loop_signal", "") == "FORCE_STOP":
+        if getattr(self, "_hle_force_text_only", False):
+            tool_choice = "none"
+            self._hle_force_text_only = False
+            logger.info("[TOOL-STOP] model ignored stop note — forcing tool_choice=none for 1 turn")
+        elif getattr(self, "_loop_detected", False) and getattr(self, "_loop_signal", "") == "FORCE_STOP":
             hot = getattr(self, "_hot_tool_path", None)
             if hot and hot[0] and available_tools:
                 hot_tool_name, hot_path = hot
@@ -4310,6 +4400,150 @@ or replace freely; future sessions will respect your edits._
     def set_user_input_callback(self, callback: UserInputCallback) -> None:
         self.user_input_callback = callback
 
+    # ------------------------------------------------------------------
+    # Goal pursuit (Claude Code /goal feature) — see drydock/core/goal.py
+    # ------------------------------------------------------------------
+
+    def set_goal(self, condition: str, max_iterations: int = 20) -> None:
+        """Activate goal-pursuit mode. The TUI calls this when the user
+        types `/goal <condition>`. The agent loop itself doesn't act on
+        the goal — the TUI's post-turn hook checks `self.goal` and
+        decides whether to inject a continuation prompt."""
+        from drydock.core.goal import GoalState
+        self.goal = GoalState(
+            condition=condition.strip(),
+            max_iterations=max_iterations,
+        )
+        logger.warning(
+            "[goal] activated: %r (cap=%d turns)",
+            condition[:80], max_iterations,
+        )
+
+    def clear_goal(self) -> None:
+        """Cancel goal-pursuit. Idempotent."""
+        if getattr(self, "goal", None) is not None:
+            logger.warning("[goal] cleared")
+        self.goal = None
+
+    async def evaluate_goal(self) -> tuple[str, str]:
+        """Ask the model whether the active goal has been met.
+
+        Returns (verdict, reasoning) where verdict ∈ {"YES", "NO", "ERROR"}.
+        ERROR means the call itself failed or the response couldn't be
+        parsed — caller should treat as NO and continue (or, after a
+        threshold of ERRORs in a row, clear the goal as a safety hatch).
+        """
+        from drydock.core.goal import (
+            EVALUATOR_SYSTEM_PROMPT,
+            build_evaluator_prompt,
+            collect_recent_message_snippets,
+            parse_verdict,
+        )
+        goal = getattr(self, "goal", None)
+        if goal is None or not goal.active:
+            return ("ERROR", "no active goal")
+
+        snippets = collect_recent_message_snippets(self.messages, n=8)
+        user_prompt = build_evaluator_prompt(goal, snippets)
+
+        eval_messages = [
+            LLMMessage(role=Role.system, content=EVALUATOR_SYSTEM_PROMPT),
+            LLMMessage(role=Role.user, content=user_prompt),
+        ]
+        active_model = self.config.get_active_model()
+        try:
+            # Tight budget — evaluator returns ~30 tokens at most.
+            # Temperature low for determinism. No tools.
+            result = await self.backend.complete(
+                model=active_model,
+                messages=eval_messages,
+                temperature=0.0,
+                tools=[],
+                tool_choice=None,
+                extra_headers=self._get_extra_headers(
+                    self.config.get_active_provider()
+                ),
+                max_tokens=120,
+                metadata=None,
+            )
+        except Exception as e:  # noqa: BLE001 — never crash the TUI on eval error
+            logger.warning("[goal] evaluator call failed: %s", e)
+            return ("ERROR", f"evaluator backend error: {e!s}"[:200])
+
+        raw = (result.message.content or "").strip()
+        verdict, reasoning = parse_verdict(raw)
+        goal.last_verdict = verdict
+        goal.last_evaluator_reasoning = reasoning
+        logger.warning(
+            "[goal] verdict=%s iter=%d/%d reason=%r",
+            verdict, goal.iterations, goal.max_iterations, reasoning[:120],
+        )
+        return (verdict, reasoning)
+
+    async def undo_last_turn(self) -> tuple[bool, str]:
+        """Rewind history past the LAST user message, dropping the
+        assistant turn (and any tool results) it triggered AND the
+        user message itself. Use case: the last user prompt set off
+        a chain that wedged the conversation; the user wants to back
+        out and try a different prompt.
+
+        Returns (success, info_message).
+
+        Why this is safer than `/clear`:
+          - Preserves the system message (index 0)
+          - Preserves all prior good user+assistant exchanges
+          - Resets the sticky error counters so the new prompt
+            won't immediately re-trip the lockout
+
+        Why drop the user message too (not just the assistant turn):
+          - If the user repeats the same prompt, they'll re-trigger
+            the same bad assistant response. The point of /undo is
+            to escape; the user can always re-type the prompt if
+            they really want it.
+        """
+        # Find the last user message — walk backward
+        last_user_idx = -1
+        for i in range(len(self.messages) - 1, -1, -1):
+            if self.messages[i].role == Role.user:
+                last_user_idx = i
+                break
+
+        if last_user_idx <= 0:
+            # No user message to rewind past (only the system message
+            # is present), or the user message is at idx 0 which we
+            # never drop. Nothing to undo.
+            return (False, "Nothing to undo — no prior user turn in history.")
+
+        dropped = len(self.messages) - last_user_idx
+        kept = list(self.messages[:last_user_idx])
+        try:
+            await self.session_logger.save_interaction(
+                self.messages,
+                self.stats,
+                self._base_config,
+                self.tool_manager,
+                self.agent_profile,
+            )
+        except Exception as e:  # noqa: BLE001 — never block /undo on a save failure
+            logger.warning("[undo] session save failed (continuing): %s", e)
+        self.messages.reset(kept)
+        # Clear the sticky error counters so the next prompt starts fresh.
+        if hasattr(self, "_total_error_rounds"):
+            self._total_error_rounds = 0
+        if hasattr(self, "_consecutive_circuit_breaker_fires"):
+            self._consecutive_circuit_breaker_fires = 0
+        if hasattr(self, "_consecutive_empty_turns"):
+            self._consecutive_empty_turns = 0
+        logger.warning(
+            "[undo] rolled back: kept %d messages (dropped %d after last user idx=%d)",
+            len(kept), dropped, last_user_idx,
+        )
+        return (
+            True,
+            f"Rolled back the last turn — dropped {dropped} message(s). "
+            f"Type your next prompt to continue from the prior state.",
+        )
+
     async def clear_history(self) -> None:
         await self.session_logger.save_interaction(
             self.messages,
@@ -4352,6 +4586,10 @@ or replace freely; future sessions will respect your edits._
         self._empty_nudge_last_user_idx = -1
         self._total_error_rounds = 0
         self._read_file_state = {}
+        # /goal state: None means no active goal. Cleared by /clear and
+        # /compact since the goal is session-scoped and a fresh session
+        # shouldn't inherit the prior pursuit.
+        self.goal = None
 
     async def compact(self) -> str:
         try:

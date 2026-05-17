@@ -11,24 +11,21 @@ from troposphere.template_generator import (
 
 class TestTemplateGenerator(unittest.TestCase):
     def test_resource_type_not_defined(self):
-        template_json = json.loads(
-            """
+        template_json = json.loads("""
         {
           "Resources": {
             "Foo": {
             }
           }
         }
-        """
-        )
+        """)
         with self.assertRaises(ResourceTypeNotDefined) as context:
             TemplateGenerator(template_json)
         self.assertEqual("ResourceType not defined for Foo", str(context.exception))
         self.assertEqual("Foo", context.exception.resource)
 
     def test_unknown_resource_type(self):
-        template_json = json.loads(
-            """
+        template_json = json.loads("""
         {
           "Resources": {
             "Foo": {
@@ -36,8 +33,7 @@ class TestTemplateGenerator(unittest.TestCase):
             }
           }
         }
-        """
-        )
+        """)
         with self.assertRaises(ResourceTypeNotFound) as context:
             TemplateGenerator(template_json)
         self.assertEqual(
@@ -95,8 +91,7 @@ class TestTemplateGenerator(unittest.TestCase):
         """
         Prevent regression for  ensuring no nested Name (Issue #977)
         """
-        template_json = json.loads(
-            """
+        template_json = json.loads("""
         {
           "AWSTemplateFormatVersion": "2010-09-09",
           "Description": "Description",
@@ -110,8 +105,7 @@ class TestTemplateGenerator(unittest.TestCase):
             }
           }
         }
-        """
-        )
+        """)
 
         d = TemplateGenerator(template_json).to_dict()
         name = d["Outputs"]["TestOutput"]["Export"]["Name"]

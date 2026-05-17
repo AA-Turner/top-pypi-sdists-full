@@ -116,6 +116,14 @@ allowed_files:
     added: "2024-10-15"
     review: "2026-06-13"
 
+  - file: "src/omnibase_core/normalization/contract_validator.py"
+    reason: >-
+      Corpus validation entry point that must parse raw YAML to inspect bucket classification before selecting
+      and validating against the appropriate Pydantic model — same architectural pattern as validation/contract_validator.py
+      (excluded in hook config). Pre-existing allowlist gap.
+    added: "2026-05-12"
+    review: "2026-12-13"
+
   - file: "scripts/regenerate_fingerprints.py"
     reason: >-
       Must parse YAML to detect node_type before selecting appropriate Pydantic model class - contract
@@ -324,6 +332,17 @@ allowed_files:
       aws). Raw yaml.safe_load() is required to support dotted-key access (e.g. kafka.bootstrap_servers)
       before any Pydantic model applies. Parallels cli_refresh_credentials.py pattern (OMN-9011).
     added: "2026-04-24"
+    review: "2026-06-13"
+
+  - file: "src/omnibase_core/validation/validator_skill_backing_node.py"
+    reason: >-
+      Skill backing-node liveness validator allowlist loader (OMN-10171, SEAM-2). Reads a flat skill_backing_node_allowlist.yaml
+      config file — a list of {skill, reason} entries with no typed Pydantic model in omnibase_core. The
+      function validates required fields (non-empty skill/reason) manually after parsing, then returns
+      a plain dict. The allowlist schema is deliberately minimal (two string fields) and lives inside
+      the omniclaude repo, making a shared Pydantic model impractical. Raw yaml.safe_load() is immediately
+      followed by isinstance checks and field validation.
+    added: "2026-05-12"
     review: "2026-06-13"
 
 # Specific filenames that are allowed (matched by basename)

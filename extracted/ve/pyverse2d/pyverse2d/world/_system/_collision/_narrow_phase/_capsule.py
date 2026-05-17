@@ -14,17 +14,40 @@ from math import sqrt
 
 # ======================================== Capsule × Capsule ========================================
 @register(Capsule, Capsule)
-def capsule_capsule(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float, sb: Shape, bx: float, by: float, scale_b: float, rot_b: float):
-    """Vérifie la collision entre ``Capsule`` et ``Capsule``"""
+def capsule_capsule(
+    sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float,
+    sb: Shape, bx: float, by: float, scale_b: float, rot_b: float,
+) -> Contact | None:
+    """Vérifie la collision entre ``Capsule`` et ``Capsule``
+    
+    Args:
+        sa: forme ``A``
+        ax: centre horizontal ``A``
+        ay: centre vertical ``A``
+        scale_a: facteur de redimensionnement ``A``
+        rot_a: angle de rotation ``A``
+        sb: forme ``B``
+        bx: centre horizontal ``B``
+        by: centre vertical ``B``
+        scale_b: facteur de redimensionnement ``B``
+        rot_b: angle de rotation `B``
+    """
+    # Récupération des paramètres
     a_ax, a_ay, a_bx, a_by, ra = capsule_params(sa, ax, ay, scale_a, rot_a)
     b_ax, b_ay, b_bx, b_by, rb = capsule_params(sb, bx, by, scale_b, rot_b)
+
+    # Calcul des spines
     a_dx, a_dy = a_bx - a_ax, a_by - a_ay
     b_dx, b_dy = b_bx - b_ax, b_by - b_ay
+
+    # Calcul des distances
     px, py = closest_pt_seg_to_seg(a_ax, a_ay, a_dx, a_dy, b_ax, b_ay, b_dx, b_dy)
     qx, qy = closest_pt_on_seg(b_ax, b_ay, b_dx, b_dy, px, py)
     dx = px - qx
     dy = py - qy
     dist_sq = dx * dx + dy * dy
+
+    # Vérification de la collision
     radii = ra + rb
     if dist_sq >= radii * radii:
         return None

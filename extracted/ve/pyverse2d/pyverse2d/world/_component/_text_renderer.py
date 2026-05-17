@@ -35,7 +35,7 @@ class TextRenderer(RendererComponent):
         "_multiline", "_align", "_width",
     )
     
-    requires: ClassVar[tuple[str]] = ("Transform",)
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("Transform",)
 
     def __init__(
         self,
@@ -176,3 +176,8 @@ class TextRenderer(RendererComponent):
             if __debug__:
                 over(value, 0, include=False)
         self._width = value
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "TextRenderer",
+]

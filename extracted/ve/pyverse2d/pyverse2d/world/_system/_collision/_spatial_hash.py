@@ -110,3 +110,8 @@ class SpatialHash:
                 if key not in cells:
                     cells[key] = []
                 cells[key].append(entity)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "SpatialHash",
+]

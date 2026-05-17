@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     else:
         from typing import Final
 
-__version__ = "4.10.1"
+__version__ = "4.10.2"
 
 # constants for DeletionPolicy and UpdateReplacePolicy
 Delete: Final[str] = "Delete"
@@ -81,7 +81,7 @@ def is_aws_object_subclass(cls: Any) -> bool:
 
 @overload
 def encode_to_dict(
-    obj: Union[Dict[str, Any], JSONreprProtocol, ToDictProtocol]
+    obj: Union[Dict[str, Any], JSONreprProtocol, ToDictProtocol],
 ) -> Dict[str, Any]: ...
 
 
@@ -96,7 +96,7 @@ def encode_to_dict(obj: Optional[str]) -> Optional[str]: ...
 def encode_to_dict(
     obj: Union[
         Dict[str, Any], List[Any], JSONreprProtocol, ToDictProtocol, Tuple[Any], Any
-    ]
+    ],
 ) -> Union[Dict[str, Any], List[Any], Any]:
     if hasattr(obj, "to_dict"):
         # Calling encode_to_dict to ensure object is
@@ -126,7 +126,7 @@ def encode_to_dict(
 
 
 def depends_on_helper(
-    obj: Optional[Union[List[object], object]]
+    obj: Optional[Union[List[object], object]],
 ) -> Union[Optional[str], List[Optional[str]], List[Any], Any]:
     """Handles using .title if the given object is a troposphere resource.
 

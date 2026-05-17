@@ -104,6 +104,14 @@ class Plugin:
             ),
         )
         parser.add_option(
+            '-scpf',
+            '--skip-checking-private-functions',
+            action='store',
+            default='False',
+            parse_from_config=True,
+            help='If True, skip checking docstrings of private functions.',
+        )
+        parser.add_option(
             '-aid',
             '--allow-init-docstring',
             action='store',
@@ -249,6 +257,18 @@ class Plugin:
             ),
         )
         parser.add_option(
+            '-ricvd',
+            '--require-inline-class-var-docs',
+            action='store',
+            default='False',
+            parse_from_config=True,
+            help=(
+                'If True, require inline documentation for class'
+                ' attributes. If False, require them to be documented'
+                ' in the class docstring instead.'
+            ),
+        )
+        parser.add_option(
             '-sdsa',
             '--should-document-star-arguments',
             action='store',
@@ -323,6 +343,9 @@ class Plugin:
             options.skip_checking_short_docstrings
         )
         cls.skip_checking_raises = options.skip_checking_raises
+        cls.skip_checking_private_functions = (
+            options.skip_checking_private_functions
+        )
         cls.allow_init_docstring = options.allow_init_docstring
         cls.require_return_section_when_returning_none = (
             options.require_return_section_when_returning_none
@@ -346,6 +369,9 @@ class Plugin:
         )
         cls.only_attrs_with_ClassVar_are_treated_as_class_attrs = (
             options.only_attrs_with_ClassVar_are_treated_as_class_attrs
+        )
+        cls.require_inline_class_var_docs = (
+            options.require_inline_class_var_docs
         )
         cls.should_document_star_arguments = (
             options.should_document_star_arguments
@@ -396,6 +422,10 @@ class Plugin:
             '--skip-checking-raises',
             self.skip_checking_raises,
         )
+        skipCheckingPrivateFunctions = self._bool(
+            '--skip-checking-private-functions',
+            self.skip_checking_private_functions,
+        )
         allowInitDocstring = self._bool(
             '--allow-init-docstring',
             self.allow_init_docstring,
@@ -440,6 +470,10 @@ class Plugin:
             '--only-attrs-with-ClassVar-are-treated-as-class-attrs',
             self.only_attrs_with_ClassVar_are_treated_as_class_attrs,
         )
+        requireInlineClassVarDocs = self._bool(
+            '--require-inline-class-var-docs',
+            self.require_inline_class_var_docs,
+        )
         shouldDocumentStarArguments = self._bool(
             '--should-document-star-arguments',
             self.should_document_star_arguments,
@@ -469,6 +503,7 @@ class Plugin:
             checkArgOrder=checkArgOrder,
             skipCheckingShortDocstrings=skipCheckingShortDocstrings,
             skipCheckingRaises=skipCheckingRaises,
+            skipCheckingPrivateFunctions=skipCheckingPrivateFunctions,
             allowInitDocstring=allowInitDocstring,
             requireReturnSectionWhenReturningNothing=(
                 requireReturnSectionWhenReturningNothing
@@ -490,6 +525,7 @@ class Plugin:
             onlyAttrsWithClassVarAreTreatedAsClassAttrs=(
                 onlyAttrsWithClassVarAreTreatedAsClassAttrs
             ),
+            requireInlineClassVarDocs=requireInlineClassVarDocs,
             shouldDocumentStarArguments=shouldDocumentStarArguments,
             omitStarsWhenDocumentingVarargs=omitStarsWhenDocumentingVarargs,
             checkStyleMismatch=checkStyleMismatch,

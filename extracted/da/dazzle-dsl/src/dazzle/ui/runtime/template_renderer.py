@@ -24,11 +24,40 @@ def _render_typed_body(context: PageContext) -> str:
     Post-#1044: every framework surface lands here. The dispatch order
     matters — ``pdf_viewer`` is set in addition to ``detail`` on
     ``display: pdf_viewer`` surfaces, so it must branch first.
+
+    v0.71.3: a non-empty ``active_guide_html`` (set by
+    ``page_routes._inject_onboarding_step``) is prepended to whatever
+    body the typed dispatch produces. The overlay sits before the
+    surface body so it's the first thing the user lands on; the
+    actual surface content stays below.
     """
+    overlay = context.active_guide_html or ""
+    body = _render_body_inner(context)
+    return overlay + body
+
+
+def _render_body_inner(context: PageContext) -> str:
+    """Typed-body dispatch (no guide overlay)."""
     if context.form is not None:
+        from html import escape
+
         from dazzle.ui.runtime.form_renderer import render_form_field
 
-        return "".join(render_form_field(f) for f in context.form.fields)
+        form = context.form
+        fields_html = "".join(render_form_field(f) for f in form.fields)
+        # Wrap in a real <form> matching the Fragment FormStack shape so
+        # downstream consumers (notably the fidelity scorer, #1103) see
+        # the same structural markers users do at runtime.
+        method = "put" if form.mode == "edit" else "post"
+        action = escape(form.action_url, quote=True)
+        entity = escape(form.entity_name, quote=True)
+        return (
+            f'<form class="dz-form-stack" hx-{method}="{action}" '
+            f'hx-target="body" hx-swap="innerHTML" hx-ext="json-enc" '
+            f'data-dazzle-form="{entity}" data-dazzle-form-mode="{escape(form.mode, quote=True)}">'
+            f"{fields_html}"
+            f"</form>"
+        )
     if context.pdf_viewer is not None:
         from dazzle.ui.runtime.pdf_viewer_renderer import render_pdf_viewer
 

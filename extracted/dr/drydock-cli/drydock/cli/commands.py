@@ -36,6 +36,31 @@ class CommandRegistry:
                 description="Clear conversation history",
                 handler="_clear_history",
             ),
+            "undo": Command(
+                aliases=frozenset(["/undo", "/back"]),
+                description=(
+                    "Roll back the last turn — drop the most recent user "
+                    "prompt and the assistant turn it triggered. Use when "
+                    "an API error or bad tool call wedged the conversation "
+                    "and you want to retry from the previous good state "
+                    "without losing the rest of the history (unlike /clear)."
+                ),
+                handler="_undo_last_turn",
+            ),
+            "goal": Command(
+                aliases=frozenset(["/goal"]),
+                description=(
+                    "Set a completion condition and auto-continue across "
+                    "turns until met. Usage:\n"
+                    "  /goal <condition>   — set a goal\n"
+                    "  /goal               — show current goal status\n"
+                    "  /goal clear         — cancel the active goal\n"
+                    "After each turn, a small evaluator checks the "
+                    "condition. If not met, drydock injects a continuation "
+                    "prompt and runs another turn (capped at 20 iterations)."
+                ),
+                handler="_goal_command",
+            ),
             "log": Command(
                 aliases=frozenset(["/log"]),
                 description="Show path to current interaction log file",

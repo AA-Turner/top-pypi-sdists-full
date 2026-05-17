@@ -33,7 +33,7 @@ class ShapeRenderer(RendererComponent):
         "_border_width", "_border_align", "_border_color",
     )
 
-    requires: ClassVar[tuple[str]] = ("Transform",)
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("Transform",)
 
     def __init__(
             self,
@@ -172,3 +172,8 @@ class ShapeRenderer(RendererComponent):
     def border_color(self, value: Color):
         value = Color(value)
         self._border_color = value
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "ShapeRenderer",
+]

@@ -23,6 +23,8 @@ class RoundedRect(Shape):
     """
     __slots__ = ("_width", "_height", "_radius")
 
+    _ID: ClassVar[str] = "rounded_rect"
+
     CIRCLE_SEGMENTS: ClassVar[int] = 64
 
     def __init__(self, width: Real, height: Real, radius: Real):

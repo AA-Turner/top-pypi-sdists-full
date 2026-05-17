@@ -13,6 +13,7 @@ from ._update import UpdateContext, update_processor
 from ._constants import ConstantsDataset
 
 from numbers import Real, Integral
+from typing import ClassVar
 
 # ======================================== SYSTEM ========================================
 class CollisionSystem(System):
@@ -38,9 +39,12 @@ class CollisionSystem(System):
         "_cache", "_geometry_cache", "_geometry_keys",
         "_C",
     )
-    order = 70
-    exclusive = True
-    requires = ("PhysicsSystem",)
+
+    _ORDER: ClassVar[int] = 70
+
+    _IS_EXCLUSIVE: ClassVar[bool] = True
+
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("PhysicsSystem",)
 
     def __init__(
             self,
@@ -54,7 +58,7 @@ class CollisionSystem(System):
             restitution_max_velocity: Real = 10.0,
             vel_along_wake_treshold: Real = 0.1,
         ):
-        # Transtypage
+        # Transtypage et vérifications
         slop = float(slop)
         max_position_correction = float(max_position_correction)
         iterations = int(iterations)
@@ -163,3 +167,8 @@ class CollisionSystem(System):
         """Nettoie le cache géométrique"""
         self._geometry_cache.clear()
         self._geometry_keys.clear()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "CollisionSystem",
+]

@@ -12,8 +12,16 @@ import numpy as np
 from numpy.typing import NDArray
 
 # ======================================== SAT ========================================
-def sat(pts_a: NDArray[np.float32], pts_b: NDArray[np.float32]) -> Contact | None:
-    """SAT vectorisé pour deux polygones convexes"""
+def sat(
+    pts_a: NDArray[np.float32],
+    pts_b: NDArray[np.float32]
+) -> Contact | None:
+    """SAT vectorisé pour deux polygones convexes
+    
+    Args:
+        pts_a: points du polygone ``A``
+        pts_b: points du polygone ``B``
+    """
     min_depth = float("inf")
     best_nx, best_ny = 0.0, 1.0
 
@@ -46,35 +54,59 @@ def sat(pts_a: NDArray[np.float32], pts_b: NDArray[np.float32]) -> Contact | Non
     return Contact(Vector._make(best_nx, best_ny), min_depth)
 
 # ======================================== CIRCLE VS POLYGONE ========================================
-def circle_vs_pts(cx: float, cy: float, cr: float, pts: NDArray[np.float32]) -> Contact | None:
-    """Cercle vs polygone convexe"""
+def circle_vs_pts(
+    cx: float, cy: float, cr: float,
+    pts: NDArray[np.float32],
+) -> Contact | None:
+    """Vérifie la collision entre ``Circle`` et un polygone convexe
+    
+    Args:
+        cx: centre horizontal du cercle
+        cy: centre vertical du cercle
+        pts: points du polygone
+    """
+    # Initialisation
     n = len(pts)
     min_depth = float("inf")
     best_nx, best_ny = 0.0, 1.0
 
+    # Centre moyen du polygone
     mean = pts.mean(axis=0)
     pg_cx, pg_cy = float(mean[0]), float(mean[1])
 
+    # Arrêtes du polygone
     edges = np.roll(pts, -1, axis=0) - pts
     lengths = np.linalg.norm(edges, axis=1)
 
+    # Test SAT sur les normales des arrêtes
     for i in range(n):
         le = float(lengths[i])
         if le < 1e-10:
             continue
+
+        # Normale de l'arrête
         nx = float(-edges[i, 1]) / le
         ny = float( edges[i, 0]) / le
         nv = np.array([nx, ny], dtype=np.float32)
+
+        # Projection polygone sur axe
         proj = pts @ nv
         min_p, max_p = float(proj.min()), float(proj.max())
+
+        # Projection cercle sur axe
         pc = cx * nx + cy * ny
         ov = min(pc + cr, max_p) - max(pc - cr, min_p)
+
+        # Séparation
         if ov <= 0:
             return None
+        
+        # Conservation de la pénétration minimale
         if ov < min_depth:
             min_depth = ov
             best_nx, best_ny = nx, ny
 
+    # Test supplémentaire sur le sommet le plus proche
     diffs = pts - np.array([cx, cy], dtype=np.float32)
     dists_sq = (diffs ** 2).sum(axis=1)
     nearest = int(dists_sq.argmin())
@@ -93,14 +125,29 @@ def circle_vs_pts(cx: float, cy: float, cr: float, pts: NDArray[np.float32]) -> 
         min_depth = ov
         best_nx, best_ny = nx, ny
 
+    # Orientation de la normale vers l'extérieur du polygone
     if best_nx * (cx - pg_cx) + best_ny * (cy - pg_cy) < 0:
         best_nx, best_ny = -best_nx, -best_ny
 
+    # Construction du contact
     return Contact(Vector._make(best_nx, best_ny), min_depth)
 
 # ======================================== ELLIPSE VS POLYGONE ========================================
-def ellipse_vs_pts(ex: float, ey: float, rx: float, ry: float, rot_rad: float, pts: NDArray[np.float32]) -> Contact | None:
-    """Ellipse vs polygone convexe"""
+def ellipse_vs_pts(
+    ex: float, ey: float, rx: float, ry: float, rot_rad: float,
+    pts: NDArray[np.float32],
+) -> Contact | None:
+    """Vérifie la collision entre ``Ellipse`` et un polygone convexe
+    
+    Args:
+        ex: centre horizontal de l'ellipse
+        ey: centre vertical de l'ellipse
+        rx: rayon horizontal de l'ellipse
+        ry: rayon vertical de l'ellipse
+        rot_rad: angle de rotation de l'ellipse
+        pts: points du polygone
+    """
+    # Passage des points dans le repère local de l'ellipse
     cos_r, sin_r = cos(-rot_rad), sin(-rot_rad)
     shifted = pts - np.array([ex, ey], dtype=np.float32)
     local_pts = np.stack([
@@ -108,26 +155,38 @@ def ellipse_vs_pts(ex: float, ey: float, rx: float, ry: float, rot_rad: float, p
         shifted[:, 0] * sin_r + shifted[:, 1] * cos_r,
     ], axis=1)
 
+    
+    # Initialisation SAT
     n = len(local_pts)
     center = local_pts.mean(axis=0)
     pg_cx, pg_cy = float(center[0]), float(center[1])
     min_ov = float("inf")
     best_nlx, best_nly = 0.0, 1.0 
 
+    # Vérification d'un axe SAT
     def _test_axis(nx: float, ny: float) -> bool:
         nonlocal min_ov, best_nlx, best_nly
+
         le = sqrt(nx * nx + ny * ny)
         if le < 1e-10:
             return True
         nx /= le
         ny /= le
+
+        # Demi-largeurs ellipse sur l'axe
         h = sqrt(rx * rx * nx * nx + ry * ry * ny * ny)
         nv = np.array([nx, ny], dtype=np.float32)
+
+        # Projections du polygone
         projs = local_pts @ nv
         min_p, max_p = float(projs.min()), float(projs.max())
+
+        # Overlap SAT
         ov = min(h, max_p) - max(-h, min_p)
         if ov <= 0:
             return False
+        
+        # Conservation de la pénétration minimale
         if ov < min_ov:
             min_ov = ov
             mid = (min_p + max_p) * 0.5
@@ -137,11 +196,13 @@ def ellipse_vs_pts(ex: float, ey: float, rx: float, ry: float, rot_rad: float, p
                 best_nlx, best_nly = (nx, ny) if -pg_cx * nx - pg_cy * ny > 0 else (-nx, -ny)
         return True
 
+    # SAT sur les normales des arrêtes du polygone
     edges = np.roll(local_pts, -1, axis=0) - local_pts
     for i in range(n):
         if not _test_axis(float(-edges[i, 1]), float(edges[i, 0])):
             return None
 
+    # Axe supplémentaire basé sur le point le plus proche du segment
     min_d2 = float("inf")
     cpx, cpy = float(local_pts[0, 0]), float(local_pts[0, 1])
     for i in range(n):
@@ -155,22 +216,39 @@ def ellipse_vs_pts(ex: float, ey: float, rx: float, ry: float, rot_rad: float, p
     if not _test_axis(cpx, cpy):
         return None
 
+    # Passage local vers monde
     cos_w, sin_w = cos(rot_rad), sin(rot_rad)
     best_nx = best_nlx * cos_w - best_nly * sin_w
     best_ny = best_nlx * sin_w + best_nly * cos_w
     return Contact(Vector._make(best_nx, best_ny), min_ov)
 
 # ======================================== CAPSULE VS POLYGONE ========================================
-def capsule_vs_pts(ax: float, ay: float, bx: float, by: float, r: float, pts: NDArray[np.float32]) -> Contact | None:
-    """Capsule vs polygone convexe"""
+def capsule_vs_pts(
+    ax: float, ay: float, bx: float, by: float, r: float,
+    pts: NDArray[np.float32],
+) -> Contact | None:
+    """Vérifie la collision entre ``Capsule`` et un polygone convexe
+    
+    Args:
+        ax: coordonnée horizontale du point A de la capsule
+        ax: coordonée verticale du point A de la capsule
+        bx: coordonnée horizontale du point B de la capsule
+        by: coordonnée verticale du point B de la capsule
+        r: rayon de la capsule
+        pts: points du polygone
+    """
+    # Géométrie de la capsule
     n = len(pts)
     spine_dx = bx - ax
     spine_dy = by - ay
+
     mid_x = ax + spine_dx * 0.5
     mid_y = ay + spine_dy * 0.5
+
     min_dist = float("inf")
     best_nx, best_ny = 0.0, 1.0
 
+    # Calcul des distances
     for i in range(n):
         px1, py1 = float(pts[i, 0]), float(pts[i, 1])
         px2, py2 = float(pts[(i + 1) % n, 0]), float(pts[(i + 1) % n, 1])
@@ -179,12 +257,18 @@ def capsule_vs_pts(ax: float, ay: float, bx: float, by: float, r: float, pts: ND
         le = sqrt(edx * edx + edy * edy)
         if le < 1e-10:
             continue
+
+        # Normale de l'arrête polygonale
         enx, eny = -edy / le, edx / le
+
+        # Distance entre les arrêtes
         sp_x, sp_y = closest_pt_seg_to_seg(ax, ay, spine_dx, spine_dy, px1, py1, edx, edy)
         ep_x, ep_y = closest_pt_on_seg(px1, py1, edx, edy, sp_x, sp_y)
         ddx = sp_x - ep_x
         ddy = sp_y - ep_y
         dist = sqrt(ddx * ddx + ddy * ddy)
+
+        # Conservation de la distance minimale
         if dist < min_dist:
             min_dist = dist
             if dist > 1e-8:
@@ -192,20 +276,25 @@ def capsule_vs_pts(ax: float, ay: float, bx: float, by: float, r: float, pts: ND
             else:
                 best_nx, best_ny = enx, eny
 
+    # Capsule dans le polygone
     if min_dist > 1e-6 and point_in_convex_poly(mid_x, mid_y, pts):
         near_dist = float("inf")
         near_nx, near_ny = 0.0, 1.0
+
         for i in range(n):
             px1, py1 = float(pts[i, 0]), float(pts[i, 1])
             px2, py2 = float(pts[(i + 1) % n, 0]), float(pts[(i + 1) % n, 1])
             edx = px2 - px1
             edy = py2 - py1
+
             le = sqrt(edx * edx + edy * edy)
             if le < 1e-10:
                 continue
+    
             ep_x, ep_y = closest_pt_on_seg(px1, py1, edx, edy, mid_x, mid_y)
             ddx = mid_x - ep_x
             ddy = mid_y - ep_y
+
             d = sqrt(ddx * ddx + ddy * ddy)
             if d < near_dist:
                 near_dist = d
@@ -213,14 +302,18 @@ def capsule_vs_pts(ax: float, ay: float, bx: float, by: float, r: float, pts: ND
                     near_nx, near_ny = ddx / d, ddy / d
                 else:
                     near_nx, near_ny = -edy / le, edx / le
-        return Contact(Vector._make(near_nx, near_ny), r + near_dist)
 
+        return Contact(Vector._make(near_nx, near_ny), r + near_dist)
+    
+    # Vérification de la collision
     if min_dist >= r:
         return None
 
+    # Orientation de la normale vers l'extérieur du polygone
     poly_cx = float(pts.mean(axis=0)[0])
     poly_cy = float(pts.mean(axis=0)[1])
     if best_nx * (mid_x - poly_cx) + best_ny * (mid_y - poly_cy) < 0:
         best_nx, best_ny = -best_nx, -best_ny
 
+    # Construction du contact
     return Contact(Vector._make(best_nx, best_ny), r - min_dist)

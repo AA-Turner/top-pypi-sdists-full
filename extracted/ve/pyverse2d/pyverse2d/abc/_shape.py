@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any, Self
+from ..math import Point
+from ..math.vertices import triangulate_ear_clipping, triangulate_triangle_fan
+
 import numpy as np
 from numpy.typing import NDArray
 
-from ..math import Point
-from ..math.vertices import triangulate_ear_clipping, triangulate_triangle_fan
+from abc import ABC, abstractmethod
+from typing import Any, Self, ClassVar
 
 # ======================================== ABSTRACT CLASS ========================================
 class Shape(ABC):
     """Classe abstraite de base pour toutes les formes géométriques"""
     __slots__ = ("_vertices", "_indexes")
+
+    _ID: ClassVar[str] = "shape"
+    _IS_PRIMITIVE: ClassVar[bool] = False
 
     def __init__(self) -> None:
         # Attributs internes
@@ -51,6 +55,16 @@ class Shape(ABC):
 
     @abstractmethod
     def copy(self) -> Self: ...
+
+    # ======================================== PREDICATES ========================================
+    def is_primitive(self) -> bool:
+        """Vérifie que la forme soit une ``PrimitiveShape``"""
+        return self._IS_PRIMITIVE
+    
+    # ======================================== INTERFACE ========================================
+    def id(self) -> str:
+        """Renvoie l'identifiant de la forme"""
+        return self._ID
 
     # ======================================== GPU SIDE ========================================
     def get_vertices(self) -> NDArray[np.float32]:

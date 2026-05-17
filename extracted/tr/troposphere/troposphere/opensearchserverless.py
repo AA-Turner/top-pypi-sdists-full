@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import boolean, integer
+from .validators import boolean, double, integer
 
 
 class AccessPolicy(AWSObject):
@@ -36,6 +36,16 @@ class EncryptionConfig(AWSProperty):
     }
 
 
+class VectorOptions(AWSProperty):
+    """
+    `VectorOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-vectoroptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "ServerlessVectorAcceleration": (str, False),
+    }
+
+
 class Collection(AWSObject):
     """
     `Collection <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html>`__
@@ -51,6 +61,36 @@ class Collection(AWSObject):
         "StandbyReplicas": (str, False),
         "Tags": (Tags, False),
         "Type": (str, False),
+        "VectorOptions": (VectorOptions, False),
+    }
+
+
+class CapacityLimits(AWSProperty):
+    """
+    `CapacityLimits <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collectiongroup-capacitylimits.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxIndexingCapacityInOcu": (double, False),
+        "MaxSearchCapacityInOcu": (double, False),
+        "MinIndexingCapacityInOcu": (double, False),
+        "MinSearchCapacityInOcu": (double, False),
+    }
+
+
+class CollectionGroup(AWSObject):
+    """
+    `CollectionGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html>`__
+    """
+
+    resource_type = "AWS::OpenSearchServerless::CollectionGroup"
+
+    props: PropsDictType = {
+        "CapacityLimits": (CapacityLimits, False),
+        "Description": (str, False),
+        "Name": (str, True),
+        "StandbyReplicas": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -239,4 +279,15 @@ class VpcEndpoint(AWSObject):
         "SecurityGroupIds": ([str], False),
         "SubnetIds": ([str], True),
         "VpcId": (str, True),
+    }
+
+
+class FipsEndpoints(AWSProperty):
+    """
+    `FipsEndpoints <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-fipsendpoints.html>`__
+    """
+
+    props: PropsDictType = {
+        "CollectionEndpoint": (str, False),
+        "DashboardEndpoint": (str, False),
     }

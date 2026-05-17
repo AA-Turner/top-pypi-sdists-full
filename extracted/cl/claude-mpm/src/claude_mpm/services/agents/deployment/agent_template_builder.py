@@ -44,6 +44,38 @@ INITIAL_PROMPT_BY_TYPE: dict[str, str] = {
     "security": "Begin security analysis. Read the task context and start scanning immediately.",
 }
 
+# Default `model` and `effort` values derived from an agent's `resource_tier`.
+# External agent source files (e.g. from bobmatnyc/claude-mpm-agents) typically
+# declare `resource_tier` but omit `model`/`effort`. During deployment we inject
+# sensible defaults from this table so deployed agents get correct assignments
+# without requiring manual edits to each external source file.
+RESOURCE_TIER_DEFAULTS: dict[str, dict[str, str]] = {
+    "intensive": {"model": "opus", "effort": "thorough"},
+    "high": {"model": "sonnet", "effort": "thorough"},
+    "standard": {"model": "sonnet", "effort": "balanced"},
+    "lightweight": {"model": "haiku", "effort": "balanced"},
+}
+
+# Fallback used when `resource_tier` is missing or unrecognized.
+_DEFAULT_TIER_FALLBACK: dict[str, str] = {"model": "sonnet", "effort": "balanced"}
+
+
+def get_resource_tier_defaults(resource_tier: str | None) -> dict[str, str]:
+    """Resolve default `model`/`effort` values for a given resource tier.
+
+    Args:
+        resource_tier: The agent's resource tier (e.g. ``intensive``, ``high``,
+            ``standard``, ``lightweight``). May be None or unrecognized.
+
+    Returns:
+        A dict with ``model`` and ``effort`` keys. Unknown/missing tiers fall
+        back to ``sonnet``/``balanced``.
+    """
+    if resource_tier and resource_tier in RESOURCE_TIER_DEFAULTS:
+        return RESOURCE_TIER_DEFAULTS[resource_tier]
+    return _DEFAULT_TIER_FALLBACK
+
+
 # Agents that should NOT get initialPrompt (interactive/special purpose)
 INITIAL_PROMPT_EXCLUDED_NAMES: set[str] = {
     "prompt-engineer",
@@ -399,7 +431,7 @@ class AgentTemplateBuilder:
         agent_name: str,
         template_path: Path,
         base_agent_data: dict,
-        source_info: str = "unknown",
+        _source_info: str = "unknown",
     ) -> str:
         """
         Build a complete agent markdown file with YAML frontmatter.
@@ -408,7 +440,7 @@ class AgentTemplateBuilder:
             agent_name: Name of the agent
             template_path: Path to the agent template (JSON or Markdown file)
             base_agent_data: Base agent configuration data
-            source_info: Source of the agent (system/project/user)
+            _source_info: Source of the agent (system/project/user, unused)
 
         Returns:
             Complete markdown content with YAML frontmatter
@@ -520,6 +552,33 @@ class AgentTemplateBuilder:
                 model = model_map[model]
             # If model is specified but not in map, keep as-is (no default)
 
+        # Extract effort from template (may be absent in external source files)
+        capabilities_effort = (
+            capabilities.get("effort") if isinstance(capabilities, dict) else None
+        )
+        effort = (
+            template_data.get("effort")
+            or capabilities_effort
+            or template_data.get("configuration_fields", {}).get("effort")
+        )
+
+        # Inject `model`/`effort` defaults from `resource_tier` when not already
+        # explicitly set in the source frontmatter. External agent sources declare
+        # `resource_tier` but commonly omit `model`/`effort`; explicit values are
+        # always preserved (see RESOURCE_TIER_DEFAULTS).
+        if model is None or effort is None:
+            capabilities_tier = (
+                capabilities.get("resource_tier")
+                if isinstance(capabilities, dict)
+                else None
+            )
+            resource_tier = template_data.get("resource_tier") or capabilities_tier
+            tier_defaults = get_resource_tier_defaults(resource_tier)
+            if model is None:
+                model = tier_defaults["model"]
+            if effort is None:
+                effort = tier_defaults["effort"]
+
         # Get response format from template or use base agent default
         template_data.get("response", {}).get("format", "structured")
 
@@ -589,17 +648,6 @@ class AgentTemplateBuilder:
         # Check if we should include tools field (only if significantly restricting)
         # Claude Code approach: omit tools field unless specifically restricting
 
-        # Convert tools to set for comparison
-        agent_tools = set(tools) if isinstance(tools, list) else set(tools.split(","))
-
-        # Only include tools field if agent is missing several important tools
-        # This matches Claude Code's approach of omitting tools for general-purpose agents
-        core_tools = {"Read", "Write", "Edit", "Bash", "Grep", "Glob"}
-        has_core_tools = len(agent_tools.intersection(core_tools)) >= 5
-
-        # Include tools field only if agent is clearly restricted (missing core tools or very few tools)
-        _include_tools = not has_core_tools or len(agent_tools) < 6
-
         # Build YAML frontmatter with all relevant metadata from JSON template
         # Include all fields that are useful for agent management and functionality
         #
@@ -625,9 +673,14 @@ class AgentTemplateBuilder:
             f"description: {self._format_description_for_yaml(description)}"
         )
 
-        # Add model field only if explicitly set (not required for Claude Code)
+        # Add model field only if explicitly set (not required for Claude Code).
+        # After resource_tier injection above, model is always set.
         if model is not None:
             frontmatter_lines.append(f"model: {model}")
+
+        # Add effort field (injected from resource_tier when not explicitly set)
+        if effort is not None:
+            frontmatter_lines.append(f"effort: {effort}")
 
         # Add type field (important for agent categorization)
         if agent_type and agent_type != "general":
@@ -1028,7 +1081,7 @@ Only include memories that are:
         raw_description: str,
         agent_name: str,
         agent_type: str,
-        template_data: dict,
+        _template_data: dict,
     ) -> str:
         """
         Create an enhanced description based on agent type that follows Claude's format.

@@ -1,22 +1,20 @@
 Metadata-Version: 2.4
 Name: troposphere
-Version: 4.10.1
+Version: 4.10.2
 Summary: AWS CloudFormation creation library
 Home-page: https://github.com/cloudtools/troposphere
 Author: Mark Peek
 Author-email: mark@peek.org
-License: New BSD license
+License: BSD-2-Clause
 Project-URL: Changelog, https://github.com/cloudtools/troposphere/blob/master/CHANGELOG.md
 Project-URL: Source, https://github.com/cloudtools/troposphere
 Project-URL: Tracker, https://github.com/cloudtools/troposphere/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluetooth-data-tools
-Version: 1.29.2
+Version: 1.29.6
 Summary: Tools for converting bluetooth data and packets
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: docs
 Requires-Dist: Sphinx (>=5,<9) ; extra == "docs"
-Requires-Dist: cryptography (>=48.0.0)
+Requires-Dist: cryptography (>=47.0.0)
 Requires-Dist: myst-parser (>=0.18,<4.1) ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme (>=1,<4) ; extra == "docs"
 Project-URL: Bug Tracker, https://github.com/bdraco/bluetooth-data-tools/issues

@@ -415,6 +415,32 @@ class Blueprint(AWSObject):
     }
 
 
+class EncryptionConfiguration(AWSProperty):
+    """
+    `EncryptionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-encryptionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "KmsEncryptionContext": (dict, False),
+        "KmsKeyId": (str, True),
+    }
+
+
+class DataAutomationLibrary(AWSObject):
+    """
+    `DataAutomationLibrary <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-dataautomationlibrary.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::DataAutomationLibrary"
+
+    props: PropsDictType = {
+        "EncryptionConfiguration": (EncryptionConfiguration, False),
+        "LibraryDescription": (str, False),
+        "LibraryName": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class BlueprintItem(AWSProperty):
     """
     `BlueprintItem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-blueprintitem.html>`__
@@ -1347,6 +1373,43 @@ class DataSource(AWSObject):
         "Name": (str, True),
         "ServerSideEncryptionConfiguration": (ServerSideEncryptionConfiguration, False),
         "VectorIngestionConfiguration": (VectorIngestionConfiguration, False),
+    }
+
+
+class ModelEnforcement(AWSProperty):
+    """
+    `ModelEnforcement <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-modelenforcement.html>`__
+    """
+
+    props: PropsDictType = {
+        "ExcludedModels": ([str], True),
+        "IncludedModels": ([str], True),
+    }
+
+
+class SelectiveContentGuarding(AWSProperty):
+    """
+    `SelectiveContentGuarding <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-selectivecontentguarding.html>`__
+    """
+
+    props: PropsDictType = {
+        "Messages": (str, False),
+        "System": (str, False),
+    }
+
+
+class EnforcedGuardrailConfiguration(AWSObject):
+    """
+    `EnforcedGuardrailConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-enforcedguardrailconfiguration.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::EnforcedGuardrailConfiguration"
+
+    props: PropsDictType = {
+        "GuardrailIdentifier": (str, True),
+        "GuardrailVersion": (str, True),
+        "ModelEnforcement": (ModelEnforcement, False),
+        "SelectiveContentGuarding": (SelectiveContentGuarding, False),
     }
 
 
@@ -2924,6 +2987,19 @@ class PromptVersion(AWSObject):
     }
 
 
+class ResourcePolicy(AWSObject):
+    """
+    `ResourcePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-resourcepolicy.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::ResourcePolicy"
+
+    props: PropsDictType = {
+        "PolicyDocument": (dict, True),
+        "ResourceArn": (str, True),
+    }
+
+
 class AgentAliasHistoryEvent(AWSProperty):
     """
     `AgentAliasHistoryEvent <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-agentalias-agentaliashistoryevent.html>`__
@@ -2933,6 +3009,17 @@ class AgentAliasHistoryEvent(AWSProperty):
         "EndDate": (str, False),
         "RoutingConfiguration": ([AgentAliasRoutingConfigurationListItem], False),
         "StartDate": (str, False),
+    }
+
+
+class EntityTypeInfo(AWSProperty):
+    """
+    `EntityTypeInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-entitytypeinfo.html>`__
+    """
+
+    props: PropsDictType = {
+        "EntityMetadata": (str, False),
+        "EntityType": (str, True),
     }
 
 

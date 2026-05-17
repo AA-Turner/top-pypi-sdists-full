@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: iterable-io
-Version: 1.0.2
+Version: 1.0.4
 Summary: Adapt generators and other iterables to a file-like interface
-Project-URL: repository, https://github.com/pR0Ps/iterable-io
-Project-URL: changelog, https://github.com/pR0Ps/iterable-io/blob/master/CHANGELOG.md
+Project-URL: Repository, https://github.com/pR0Ps/iterable-io
+Project-URL: Changelog, https://github.com/pR0Ps/iterable-io/blob/master/CHANGELOG.md
 License-Expression: LGPL-3.0-only
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Classifier: Operating System :: OS Independent

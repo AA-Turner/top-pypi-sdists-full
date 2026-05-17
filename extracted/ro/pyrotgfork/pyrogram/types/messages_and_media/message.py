@@ -3111,7 +3111,7 @@ class Message(Object, Update):
 
     async def reply_photo(
         self,
-        photo: Union[str, "io.BytesIO"],
+        photo: "types.InputMediaPhoto",
         quote: bool = None,
         caption: str = "",
         parse_mode: Optional["enums.ParseMode"] = None,
@@ -3154,15 +3154,8 @@ class Message(Object, Update):
                 await message.reply_photo(photo)
 
         Parameters:
-            photo (``str`` | :obj:`io.BytesIO`):
+            photo (:obj:`~pyrogram.types.InputMediaPhoto`):
                 Photo to send.
-                Pass a file_id as string to send a photo that exists on the Telegram servers,
-                pass an HTTP URL as a string for Telegram to get a photo from the Internet,
-                pass a file path as string to upload a new photo that exists on your local machine, or
-                pass a binary file-like object with its attribute ".name" set for in-memory uploads.
-                The photo must be at most 10 MB in size.
-                The photo's width and height must not exceed 10000 in total.
-                The photo's width and height ratio must be at most 20.
 
             quote (``bool``, *optional*):
                 If ``True``, the message will be sent as a reply to this message.
@@ -3303,10 +3296,28 @@ class Message(Object, Update):
         hide_results_until_closes: bool = None,
         correct_option_ids: list[int] = None,
         explanation: "types.FormattedText" = None,
+        explanation_media: Optional[Union[
+            "types.InputMediaAnimation",
+            "types.InputMediaDocument",
+            "types.InputMediaAudio",
+            "types.InputMediaPhoto",
+            "types.InputMediaSticker",
+            "types.InputMediaVideo",
+            "types.Location",
+        ]] = None,
         open_period: int = None,
         close_date: datetime = None,
         is_closed: bool = None,
         description: "types.FormattedText" = None,
+        description_media: Optional[Union[
+            "types.InputMediaAnimation",
+            "types.InputMediaDocument",
+            "types.InputMediaAudio",
+            "types.InputMediaPhoto",
+            "types.InputMediaSticker",
+            "types.InputMediaVideo",
+            "types.Location",
+        ]] = None,
         disable_notification: bool = None,
         protect_content: bool = None,
         allow_paid_broadcast: bool = None,
@@ -3322,26 +3333,6 @@ class Message(Object, Update):
             "types.ReplyKeyboardRemove",
             "types.ForceReply"
         ] = None,
-        attached_media_animation: str = None,
-        attached_media_audio: str = None,
-        attached_media_document: str = None,
-        # messageLocation
-        attached_media_photo: str = None,
-        attached_media_sticker: str = None,
-        # messageVenue
-        attached_media_video: str = None,
-        attached_media_video_note: str = None,
-        attached_media_voice: str = None,
-        solution_media_animation: str = None,
-        solution_media_audio: str = None,
-        solution_media_document: str = None,
-        # messageLocation
-        solution_media_photo: str = None,
-        solution_media_sticker: str = None,
-        # messageVenue
-        solution_media_video: str = None,
-        solution_media_video_note: str = None,
-        solution_media_voice: str = None,
         reply_to_message_id: int = None
     ) -> "Message":
         """Bound method *reply_poll* of :obj:`~pyrogram.types.Message`.
@@ -3380,7 +3371,7 @@ class Message(Object, Update):
                 **Bots**: 1-300 characters.
 
             options (List of :obj:`~pyrogram.types.InputPollOption`):
-                List of 2-12 poll answer options.
+                List of 1-12 poll answer options.
 
             quote (``bool``, *optional*):
                 If ``True``, the message will be sent as a reply to this message.
@@ -3418,6 +3409,9 @@ class Message(Object, Update):
                 Text that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style
                 poll, 0-200 characters with at most 2 line feeds after entities parsing.
 
+            explanation_media (:obj:`~pyrogram.types.InputMediaAnimation` | :obj:`~pyrogram.types.InputMediaDocument` | :obj:`~pyrogram.types.InputMediaAudio` | :obj:`~pyrogram.types.InputMediaPhoto` | :obj:`~pyrogram.types.InputMediaSticker` | :obj:`~pyrogram.types.InputMediaVideo` | :obj:`~pyrogram.types.Location`, *optional*):
+                Media attached to the poll explanation that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style poll.
+
             open_period (``int``, *optional*):
                 Amount of time in seconds the poll will be active after creation, 5-2628000.
                 Can't be used together with *close_date*.
@@ -3433,6 +3427,9 @@ class Message(Object, Update):
 
             description (:obj:`~pyrogram.types.FormattedText`, *optional*):
                 Description of the poll to be sent, 0-1024 characters after entities parsing.
+
+            description_media (:obj:`~pyrogram.types.InputMediaAnimation` | :obj:`~pyrogram.types.InputMediaDocument` | :obj:`~pyrogram.types.InputMediaAudio` | :obj:`~pyrogram.types.InputMediaPhoto` | :obj:`~pyrogram.types.InputMediaSticker` | :obj:`~pyrogram.types.InputMediaVideo` | :obj:`~pyrogram.types.Location`, *optional*):
+                Media attached to the poll.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
@@ -3527,23 +3524,8 @@ class Message(Object, Update):
             schedule_date=schedule_date,
             message_effect_id=message_effect_id,
             reply_markup=reply_markup,
-            attached_media_animation=attached_media_animation,
-            attached_media_audio=attached_media_audio,
-            attached_media_document=attached_media_document,
-            attached_media_photo=attached_media_photo,
-            attached_media_sticker=attached_media_sticker,
-            attached_media_video=attached_media_video,
-            attached_media_video_note=attached_media_video_note,
-            # TODO: https://t.me/c/1279877202/191075
-            attached_media_voice=attached_media_voice,
-            solution_media_animation=solution_media_animation,
-            solution_media_audio=solution_media_audio,
-            solution_media_document=solution_media_document,
-            solution_media_photo=solution_media_photo,
-            solution_media_sticker=solution_media_sticker,
-            solution_media_video=solution_media_video,
-            solution_media_video_note=solution_media_video_note,
-            solution_media_voice=solution_media_voice,
+            description_media=description_media,
+            explanation_media=explanation_media,
         )
 
     async def reply_sticker(
@@ -4762,7 +4744,6 @@ class Message(Object, Update):
         self,
         media: "types.InputMedia",
         reply_markup: "types.InlineKeyboardMarkup" = None,
-        file_name: str = None
     ) -> "Message":
         """Bound method *edit_media* of :obj:`~pyrogram.types.Message`.
 
@@ -4788,10 +4769,6 @@ class Message(Object, Update):
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
 
-            file_name (``str``, *optional*):
-                File name of the media to be sent. Not applicable to photos.
-                Defaults to file's path basename.
-
         Returns:
             On success, the edited :obj:`~pyrogram.types.Message` is returned.
 
@@ -4804,7 +4781,6 @@ class Message(Object, Update):
             message_id=self.id,
             media=media,
             reply_markup=reply_markup,
-            file_name=file_name,
             schedule_date=self.date if self.scheduled else None,
             business_connection_id=self.business_connection_id
         )
@@ -5276,36 +5252,47 @@ class Message(Object, Update):
                     reply_markup=self.reply_markup if reply_markup is object else reply_markup
                 )
             elif self.poll:
+                if self.poll.type == enums.PollType.QUIZ and not self.poll.correct_option_ids:
+                    log.warning(
+                        "You can copy quiz polls "
+                        "which are closed or were sent (not forwarded) by the bot or "
+                        "to the private chat with the bot. "
+                        "In next major version, ValueError would be raised instead of this warning message."
+                    )
+                    self.poll.type = enums.PollType.REGULAR
+                if reply_to_message_id and reply_parameters:
+                    raise ValueError(
+                        "Parameters `reply_to_message_id` and `reply_parameters` are mutually "
+                        "exclusive."
+                    )
+                if reply_to_message_id is not None:
+                    log.warning(
+                        "This property is deprecated. "
+                        "Please use reply_parameters instead"
+                    )
+                    reply_parameters = types.ReplyParameters(message_id=reply_to_message_id)
                 return await self._client.send_poll(
                     chat_id,
                     question=self.poll.question,
-                    question_entities=self.poll.question_entities,
-                    options=[
-                        types.InputPollOption(
-                            text=opt.text,
-                            text_entities=opt.text_entities
-                        ) for opt in self.poll.options
-                    ],
+                    options=[types.InputPollOption(text=opt.text) for opt in self.poll.options],
+                    message_thread_id=self.message_thread_id if message_thread_id is None else message_thread_id,
+                    business_connection_id=self.business_connection_id if business_connection_id is None else business_connection_id,
                     is_anonymous=self.poll.is_anonymous,
                     type=self.poll.type,
                     allows_multiple_answers=self.poll.allows_multiple_answers,
-                    correct_option_id=self.poll.correct_option_id,
+                    allows_revoting=self.poll.allows_revoting,
+                    correct_option_ids=self.poll.correct_option_ids,
                     explanation=self.poll.explanation,
-                    explanation_entities=self.poll.explanation_entities,
                     open_period=self.poll.open_period,
-                    close_date=self.poll.close_date,
+                    description=self.poll.description,
                     disable_notification=disable_notification,
-                    protect_content=self.has_protected_content if protect_content is None else protect_content,
+                    reply_parameters=reply_parameters,
+                    schedule_date=schedule_date,
                     allow_paid_broadcast=allow_paid_broadcast,
                     paid_message_star_count=paid_message_star_count,
-                    message_effect_id=self.effect_id,
-                    reply_parameters=reply_parameters,
-                    message_thread_id=self.message_thread_id if message_thread_id is None else message_thread_id,
-                    business_connection_id=self.business_connection_id if business_connection_id is None else business_connection_id,
-                    schedule_date=schedule_date,
-                    reply_to_message_id=reply_to_message_id,
+                    protect_content=self.has_protected_content if protect_content is None else protect_content,
                     send_as=send_as,
-                    reply_markup=self.reply_markup if reply_markup is object else reply_markup
+                    message_effect_id=self.effect_id,
                 )
             elif self.game:
                 return await self._client.send_game(

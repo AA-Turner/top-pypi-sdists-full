@@ -1895,6 +1895,13 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("FDW export", str(fdw_export)),
             ("DB", parser.get("DEFAULT", "db")),
             ("Total combinations", str(len(inputs))),
+            ("Feature selection",
+                parser.get("ML", "feature_selection", fallback="gOMP_high")),
+            ("force_include FLDAS/S2S",
+                str(parser.getboolean("ML", "force_include_forecast_cids", fallback=True))),
+            ("save_model_blobs",
+                str(parser.getboolean("ML", "save_model_blobs", fallback=False))),
+            ("Pre-ML observed-yield plots", "Yes (always since 0.4.586)"),
         ]
         for c, yf in yield_files.items():
             params.append((f"  {c} yield file", yf))

@@ -4,8 +4,6 @@ Convenience functions for creating and running Dazzle backend applications,
 including the production ASGI factory for deployment.
 """
 
-from __future__ import annotations
-
 import logging
 import os
 from pathlib import Path
@@ -34,7 +32,7 @@ def create_app(
     enable_dev_mode: bool = False,
     personas: list[dict[str, Any]] | None = None,
     scenarios: list[dict[str, Any]] | None = None,
-) -> FastAPI:
+) -> "FastAPI":
     """
     Create a FastAPI application from an AppSpec.
 
@@ -61,6 +59,16 @@ def create_app(
         >>> app = create_app(appspec, database_url="postgresql://...")
         >>> # Run with uvicorn: uvicorn mymodule:app
     """
+    # #1122 — attach a default StreamHandler to `dazzle.*` loggers if
+    # the project hasn't configured logging itself. Otherwise the
+    # framework's INFO-level diagnostic tags (onboarding.inject:*,
+    # onboarding.startup:*, etc.) silently drop on bare uvicorn boots.
+    # Idempotent + conservative — does nothing if root or dazzle.*
+    # already has a handler attached. See `dazzle.log_setup`.
+    from dazzle.log_setup import ensure_dazzle_logging_configured
+
+    ensure_dazzle_logging_configured()
+
     from dazzle.back.runtime.server import DazzleBackendApp
 
     builder = DazzleBackendApp(
@@ -142,9 +150,9 @@ def _expand_money_field(fname: str) -> list[str]:
 
 
 def build_entity_list_projections(
-    entities: list[EntitySpec],
-    surfaces: list[SurfaceSpec],
-    views: list[ViewSpec],
+    entities: "list[EntitySpec]",
+    surfaces: "list[SurfaceSpec]",
+    views: "list[ViewSpec]",
 ) -> dict[str, list[str]]:
     """Pre-plan column projections for list surfaces (query pre-planning).
 
@@ -224,7 +232,7 @@ def build_entity_list_projections(
 
 
 def build_entity_search_fields(
-    surfaces: list[SurfaceSpec],
+    surfaces: "list[SurfaceSpec]",
     entities: list[Any] | None = None,
 ) -> dict[str, list[str]]:
     """Pre-plan search fields for each entity.
@@ -264,7 +272,7 @@ def build_entity_search_fields(
 
 
 def build_entity_filter_fields(
-    surfaces: list[SurfaceSpec],
+    surfaces: "list[SurfaceSpec]",
 ) -> dict[str, list[str]]:
     """Pre-plan filter fields for each entity from surface UX declarations.
 
@@ -340,7 +348,7 @@ def build_server_config(
     project_root: Path | None = None,
     fragment_sources: dict[str, dict[str, Any]] | None = None,
     storage_defs: Any = None,  # dict[str, StorageConfig] from manifest (#932)
-) -> ServerConfig:
+) -> "ServerConfig":
     """Build a fully-populated ``ServerConfig`` from an AppSpec.
 
     Computes derived config (projections, search fields, auto-includes,
@@ -454,9 +462,9 @@ def build_server_config(
 
 
 def assemble_post_build_routes(
-    app: FastAPI,
+    app: "FastAPI",
     appspec: AppSpec,
-    builder: DazzleBackendApp,
+    builder: "DazzleBackendApp",
     *,
     project_root: Path | None = None,
     sitespec_data: dict[str, Any] | None = None,
@@ -716,7 +724,7 @@ def assemble_post_build_routes(
 
 def create_app_factory(
     process_adapter_class: type | None = None,
-) -> FastAPI:
+) -> "FastAPI":
     """
     ASGI factory for production deployment.
 
@@ -810,10 +818,11 @@ def create_app_factory(
     enable_processes = os.environ.get("DAZZLE_ENABLE_PROCESSES", "true").lower() == "true"
 
     # Parse DSL and build spec. Pass `known_renderers=` so the linker
-    # rejects `render: <unknown>` clauses against the same default set
-    # the runtime registry will install moments later — see
-    # `dazzle.core.renderer_registry.default_renderer_names`.
-    from dazzle.core.renderer_registry import default_renderer_names
+    # rejects `render: <unknown>` clauses against the framework defaults
+    # PLUS any project-declared extras (`[renderers] extra` in
+    # dazzle.toml) — see `dazzle.core.renderer_registry.known_renderer_names`
+    # (#1116).
+    from dazzle.core.renderer_registry import known_renderer_names
 
     try:
         dsl_files = discover_dsl_files(project_root, manifest)
@@ -821,7 +830,7 @@ def create_app_factory(
         appspec = build_appspec(
             modules,
             manifest.project_root,
-            known_renderers=default_renderer_names(),
+            known_renderers=known_renderer_names(manifest),
         )
     except (ParseError, DazzleError) as e:
         raise RuntimeError(f"Failed to parse DSL: {e}")

@@ -1,6 +1,6 @@
 [project]
 name = "litellm"
-version = "1.84.0"
+version = "1.85.0"
 description = "Library to easily interface with LLM API providers"
 readme = "README.md"
 requires-python = ">=3.10, <3.14"
@@ -89,6 +89,14 @@ mlflow = ["mlflow==3.11.1"]
 grpc = [
     # Newest non-yanked release older than the 30-day cutoff.
     "grpcio==1.78.0",
+]
+stt-nvidia-riva = [
+    # NVIDIA Riva STT provider (gRPC). These are imported lazily inside the
+    # provider handler so litellm core remains usable without them.
+    "nvidia-riva-client>=2.15.0",
+    "soundfile>=0.12.1",
+    "audioread>=3.0.1",
+    "numpy>=1.26.0",
 ]
 google = ["google-cloud-aiplatform==1.133.0"]
 proxy-runtime = [
@@ -242,7 +250,7 @@ source-exclude = [
 profile = "black"
 
 [tool.commitizen]
-version = "1.84.0"
+version = "1.85.0"
 version_files = [
     "pyproject.toml:^version",
 ]
@@ -265,6 +273,33 @@ filterwarnings = [
     "ignore::UserWarning:pydantic.main",
     # Suppress pytest-asyncio event loop deprecation warning (handled automatically by pytest-asyncio)
     "ignore::DeprecationWarning:pytest_asyncio.plugin",
+]
+
+[tool.mutmut]
+# Mutation-testing scope. Driven by the manually-triggered workflow at
+# .github/workflows/mutation-test.yml. mutmut is not part of the project's
+# default install; it is pulled in via `uv run --with mutmut==<version>` in CI.
+# `also_copy = ["litellm/"]` is required because mutmut runs in a `mutants/`
+# sandbox and the test conftest imports from across the litellm package.
+paths_to_mutate = [
+    "litellm/proxy/management_endpoints/",
+]
+tests_dir = [
+    "tests/test_litellm/proxy/management_endpoints/",
+]
+also_copy = [
+    "litellm/",
+]
+# Disable rerun/parallel plugins for mutation runs:
+# - pytest-retry triggers an `INTERNALERROR: no option named 'filtered_exceptions'`
+#   when invoked via mutmut's in-process `pytest.main()` call.
+# - rerunning a "failed" test on a mutant would mask which mutants are killed
+#   vs. survive, so reruns are wrong for mutation testing regardless.
+# - xdist is unnecessary inside mutmut (mutmut handles its own parallelism).
+pytest_add_cli_args = [
+    "-p", "no:retry",
+    "-p", "no:rerunfailures",
+    "-p", "no:xdist",
 ]
 
 [tool.coverage.run]

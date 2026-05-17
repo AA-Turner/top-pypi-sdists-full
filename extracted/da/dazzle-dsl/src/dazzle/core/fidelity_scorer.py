@@ -311,6 +311,15 @@ def _check_form_structure(
     """Check CREATE/EDIT surface: form, inputs, method, types."""
     gaps: list[FidelityGap] = []
     forms = root.find_all("form")
+    # #1103: also accept Fragment FormStack markers — any element carrying
+    # ``data-dazzle-form`` or class containing ``dz-form-stack`` counts as a
+    # form container even if the literal ``<form>`` tag is wrapped inside a
+    # custom element.
+    if not forms:
+        for el in root.find_all("div") + root.find_all("dz-region"):
+            if el.has_attr("data-dazzle-form") or "dz-form-stack" in (el.get_attr("class") or ""):
+                forms = [el]
+                break
     if not forms:
         gaps.append(
             FidelityGap(
@@ -884,8 +893,8 @@ def _check_interaction_fidelity(
         )
 
     # Check for error handling elements. Accept any of:
-    #   - DaisyUI legacy class `text-error`
-    #   - Design-token destructive class (post-DaisyUI migration)
+    #   - Legacy class `text-error` (still emitted on site pages)
+    #   - Design-token `destructive` class (Dazzle-native, used by workspace)
     #   - ARIA invalid wiring (the canonical a11y signal for input errors)
     if "text-error" not in html and "destructive" not in html and "aria-invalid" not in html:
         gaps.append(

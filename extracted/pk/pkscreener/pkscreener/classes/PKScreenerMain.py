@@ -559,12 +559,14 @@ class PKScreenerMain:
             sleep(2)
             if sys.platform == "win32":
                 # Windows PowerShell/CMD syntax
-                cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+                cmd = f'set PK_DEBUG_ALL=1 && set PK_LOG_LEVEL=10 && {launcher} -l'
                 os.system(cmd)
+                sys.exit(0)
             else:
                 # Unix-like (Linux/macOS)
-                cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -a Y -l'
+                cmd = f'export PK_DEBUG_ALL=1 && export PK_LOG_LEVEL=10 && {launcher} -l'
                 os.system(cmd)
+                sys.exit(0)
         elif menu_option == "F":
             PKAnalyticsService().send_event(f"{menu_option}")
             indexOption = 0

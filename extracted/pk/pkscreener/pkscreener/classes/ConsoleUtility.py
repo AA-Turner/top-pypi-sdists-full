@@ -171,6 +171,7 @@ class PKConsoleTools:
                 "or subscribe to premium.\n[💸] Please donate whatever you can: PKScreener@APL using "
                 "UPI(India) or https://github.com/sponsors/pkjmesra 🙏🏻"
             )
+        documentation = "[📖] Documentation: https://pkjmesra.github.io/PKScreener/help/"
         
         # Fetch download statistics
         totalDownloads = PKConsoleTools._fetchDownloadStats()
@@ -180,6 +181,7 @@ class PKConsoleTools:
         OutputControls().printOutput(colorText.WARN + devInfo + colorText.END)
         OutputControls().printOutput(colorText.WARN + versionInfo + colorText.END)
         OutputControls().printOutput(colorText.GREEN + downloadsInfo + colorText.END)
+        OutputControls().printOutput(documentation + colorText.END)
         OutputControls().printOutput(homePage + colorText.END)
         OutputControls().printOutput(colorText.FAIL + issuesInfo + colorText.END)
         OutputControls().printOutput(colorText.GREEN + communityInfo + colorText.END)
@@ -196,7 +198,7 @@ class PKConsoleTools:
             
         return (
             f"\n{Changelog.changelog()}\n\n{devInfo}\n{versionInfo}\n\n"
-            f"{downloadsInfo}\n{homePage}\n{issuesInfo}\n{communityInfo}\n"
+            f"{downloadsInfo}\n{documentation}\n{homePage}\n{issuesInfo}\n{communityInfo}\n"
             f"{latestInfo}\n{freeInfo}{donationInfo}"
         )
     

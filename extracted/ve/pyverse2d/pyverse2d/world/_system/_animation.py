@@ -7,18 +7,19 @@ from ...abc import System
 from .._world import World
 from .._component import Animator, SpriteRenderer
 
-from typing import TypeAlias
-from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
 
-# ======================================== Alias ========================================
-AnimationRequest: TypeAlias = dataclass
+if TYPE_CHECKING:
+    from .._component._animator import AnimationRequest
 
 # ======================================== SYSTEM ========================================
 class AnimationSystem(System):
     """Met à jour les animations de toutes les entités"""
-    __slots__ = ()
-    order = 90
-    exclusive = True
+    __slots__ = tuple()
+
+    _ORDER: ClassVar[int] = 90
+
+    _IS_EXCLUSIVE: ClassVar[bool] = True
 
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
@@ -31,8 +32,8 @@ class AnimationSystem(System):
         """Mise à jour des animations
 
         Args:
-            world(World): monde à mettre à jour
-            dt(float): delta time
+            world: monde à mettre à jour
+            dt: delta-time
         """
         for entity in world.query(Animator):
             animator: Animator = entity.get(Animator)
@@ -41,7 +42,13 @@ class AnimationSystem(System):
 
     # ======================================== INTERNALS ========================================
     def _update_animator(self, animator: Animator, sr: SpriteRenderer, dt: float) -> None:
-        """Mise à jour d'un composant animateur"""
+        """Mise à jour d'un composant animateur
+        
+        Args:
+            animator: composant ``Animator``
+            sr: composant ``SpriteRenderer``
+            dt: delta-time
+        """
         target_req = self._resolve(animator)
         target_anim = target_req.animation if target_req else animator.idle
 
@@ -56,11 +63,11 @@ class AnimationSystem(System):
 
         # Aucune animation à jouer
         if animator._current_animation is None:
-            sr.set_to_default()
+            sr.back_to_default()
             return
 
         # Pousse la frame courante dans le SpriteRenderer
-        sr.image = animator.current_frame
+        sr.set_temporary(animator.current_frame)
 
         # Avance la frame
         animator._elapsed += dt
@@ -85,7 +92,11 @@ class AnimationSystem(System):
                     animator._elapsed = 0.0
 
     def _resolve(self, animator: Animator) -> AnimationRequest | None:
-        """Résout la requête active selon les priorités et conditions"""
+        """Résout la requête active selon les priorités et conditions
+        
+        Args:
+            animator: composant ``Animator``
+        """
         best: AnimationRequest | None = None
         for req in animator._requests:
             if req.condition is None or req.condition():

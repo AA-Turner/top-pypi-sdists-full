@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mpi4py
-Version: 4.1.1
+Version: 4.1.2
 Summary: Python bindings for MPI
 Author: Lisandro Dalcin
 Author-email: dalcinl@gmail.com

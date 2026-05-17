@@ -91,6 +91,34 @@ _HOSTED_MODELS: tuple[ModelInfo, ...] = (
 )
 
 
+def _deployed_model_tags() -> set[str] | None:
+    """Return the set of model tags with a non-null Cloud Run URL.
+
+    Returns None if the registry can't be read — caller should fall back
+    to the full hardcoded catalog so dev builds without model_servers/
+    still surface every model.
+    """
+    # Resolve path relative to this file: sage/providers/sage_hosted.py
+    # → ../../model_servers/model_registry.json
+    from pathlib import Path as _Path
+    registry_path = (
+        _Path(__file__).resolve().parent.parent.parent
+        / "model_servers" / "model_registry.json"
+    )
+    if not registry_path.exists():
+        return None
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {
+        k for k, v in data.items()
+        if not k.startswith("_") and isinstance(v, str) and v.startswith("http")
+    }
+
+
 class UpgradeRequired(RuntimeError):
     """403 from the backend — the user's tier is too low for this model.
 
@@ -137,9 +165,21 @@ class SageHostedProvider(ProviderBase):
     # ── Capability discovery ──────────────────────────────────────────────────
 
     def list_models(self) -> list[ModelInfo]:
-        """Return the catalog. Always returns the full list — the UI is
-        responsible for showing/hiding based on the user's tier."""
-        return list(_HOSTED_MODELS)
+        """Return only models with a deployed Cloud Run URL.
+
+        Source of truth: `model_servers/model_registry.json`. Entries with
+        `null` URLs are not yet deployed — showing them as bookable would
+        produce a 500 RUNTIME_ERROR every time a user picks one, which is
+        what the 2026-05-16 probe surfaced. Hiding them is the honest UX:
+        users only see what actually works.
+
+        Falls back to the full hardcoded catalog if the registry can't be
+        read (e.g. when the CLI is shipped without model_servers/).
+        """
+        deployed = _deployed_model_tags()
+        if deployed is None:
+            return list(_HOSTED_MODELS)  # registry not available — fail open
+        return [m for m in _HOSTED_MODELS if m.id.removeprefix("cloud:") in deployed]
 
     def is_available(self) -> bool:
         """sage-hosted is "available" if the user is logged in. Free users
@@ -221,7 +261,17 @@ class SageHostedProvider(ProviderBase):
             except Exception:
                 detail = {"error": f"HTTP {response.status_code}"}
 
-        msg = detail.get("error") or f"HTTP {response.status_code}"
+        # APIError emits `detail = {"error": "<CODE>", "message": "...", "details": {}}`.
+        # `error` is the taxonomy code (RUNTIME_ERROR, NOT_FOUND, ...) — useful
+        # to programmatic callers; `message` is the human reason. The user-
+        # facing string MUST be the message; surfacing only the code leaves
+        # the user with "sage backend error (500): RUNTIME_ERROR", which
+        # tells them nothing about what to do.
+        msg = (
+            detail.get("message")
+            or detail.get("error")
+            or f"HTTP {response.status_code}"
+        )
 
         if response.status_code == 403 and detail.get("upgrade_required"):
             raise UpgradeRequired(

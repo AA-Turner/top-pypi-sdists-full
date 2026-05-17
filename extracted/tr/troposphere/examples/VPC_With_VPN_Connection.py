@@ -23,16 +23,14 @@ t = Template()
 
 t.set_version("2010-09-09")
 
-t.set_description(
-    """\
+t.set_description("""\
 AWS CloudFormation Sample Template VPC_With_VPN_Connection.template: \
 Sample template showing how to create a private subnet with a VPN connection \
 using static routing to an existing VPN endpoint. NOTE: The VPNConnection \
 created will define the configuration you need yonk the tunnels to your VPN \
 endpoint - you can get the VPN Gateway configuration from the AWS Management \
 console. You will be billed for the AWS resources used if you create a stack \
-from this template."""
-)
+from this template.""")
 VPNAddress = t.add_parameter(
     Parameter(
         "VPNAddress",

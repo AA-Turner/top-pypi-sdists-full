@@ -152,6 +152,14 @@ def validateNativeModeNoqaLocation(
     ),
 )
 @click.option(
+    '-scpf',
+    '--skip-checking-private-functions',
+    type=bool,
+    show_default=True,
+    default=False,
+    help='If True, skip checking docstrings of private functions.',
+)
+@click.option(
     '-aid',
     '--allow-init-docstring',
     type=bool,
@@ -287,6 +295,18 @@ def validateNativeModeNoqaLocation(
         ' within `ClassVar` (where `ClassVar` is imported from `typing`)'
         ' are treated as class attributes, and all other attributes are'
         ' treated as instance attributes.'
+    ),
+)
+@click.option(
+    '-ricvd',
+    '--require-inline-class-var-docs',
+    type=bool,
+    show_default=True,
+    default=False,
+    help=(
+        'If True, require inline documentation of class attributes.'
+        ' If False, require them to be documented in the class docstring'
+        ' instead.'
     ),
 )
 @click.option(
@@ -457,6 +477,7 @@ def main(  # noqa: C901, PLR0915
         check_arg_order: bool,
         skip_checking_short_docstrings: bool,
         skip_checking_raises: bool,
+        skip_checking_private_functions: bool,
         allow_init_docstring: bool,
         check_return_types: bool,
         check_yield_types: bool,
@@ -469,6 +490,7 @@ def main(  # noqa: C901, PLR0915
         require_return_section_when_returning_nothing: bool,
         require_yield_section_when_yielding_nothing: bool,
         only_attrs_with_classvar_are_treated_as_class_attrs: bool,
+        require_inline_class_var_docs: bool,
         should_document_star_arguments: bool,
         omit_stars_when_documenting_varargs: bool,
         should_declare_assert_error_if_assert_statement_exists: bool,
@@ -565,6 +587,7 @@ def main(  # noqa: C901, PLR0915
         checkArgOrder=check_arg_order,
         skipCheckingShortDocstrings=skip_checking_short_docstrings,
         skipCheckingRaises=skip_checking_raises,
+        skipCheckingPrivateFunctions=skip_checking_private_functions,
         allowInitDocstring=allow_init_docstring,
         checkReturnTypes=check_return_types,
         checkYieldTypes=check_yield_types,
@@ -580,6 +603,7 @@ def main(  # noqa: C901, PLR0915
         onlyAttrsWithClassVarAreTreatedAsClassAttrs=(
             only_attrs_with_classvar_are_treated_as_class_attrs
         ),
+        requireInlineClassVarDocs=require_inline_class_var_docs,
         requireReturnSectionWhenReturningNothing=(
             require_return_section_when_returning_nothing
         ),
@@ -727,6 +751,7 @@ def _checkPaths(
         checkArgOrder: bool = True,
         skipCheckingShortDocstrings: bool = True,
         skipCheckingRaises: bool = False,
+        skipCheckingPrivateFunctions: bool = False,
         allowInitDocstring: bool = False,
         checkReturnTypes: bool = True,
         checkYieldTypes: bool = True,
@@ -736,6 +761,7 @@ def _checkPaths(
         shouldDocumentPrivateClassAttributes: bool = False,
         treatPropertyMethodsAsClassAttributes: bool = False,
         onlyAttrsWithClassVarAreTreatedAsClassAttrs: bool = False,
+        requireInlineClassVarDocs: bool = False,
         requireReturnSectionWhenReturningNothing: bool = False,
         requireYieldSectionWhenYieldingNothing: bool = False,
         shouldDocumentStarArguments: bool = True,
@@ -783,6 +809,7 @@ def _checkPaths(
             checkArgOrder=checkArgOrder,
             skipCheckingShortDocstrings=skipCheckingShortDocstrings,
             skipCheckingRaises=skipCheckingRaises,
+            skipCheckingPrivateFunctions=skipCheckingPrivateFunctions,
             allowInitDocstring=allowInitDocstring,
             checkReturnTypes=checkReturnTypes,
             checkYieldTypes=checkYieldTypes,
@@ -798,6 +825,7 @@ def _checkPaths(
             onlyAttrsWithClassVarAreTreatedAsClassAttrs=(
                 onlyAttrsWithClassVarAreTreatedAsClassAttrs
             ),
+            requireInlineClassVarDocs=requireInlineClassVarDocs,
             requireReturnSectionWhenReturningNothing=(
                 requireReturnSectionWhenReturningNothing
             ),
@@ -827,6 +855,7 @@ def _checkFile(
         checkArgOrder: bool = True,
         skipCheckingShortDocstrings: bool = True,
         skipCheckingRaises: bool = False,
+        skipCheckingPrivateFunctions: bool = False,
         allowInitDocstring: bool = False,
         checkReturnTypes: bool = True,
         checkYieldTypes: bool = True,
@@ -836,6 +865,7 @@ def _checkFile(
         shouldDocumentPrivateClassAttributes: bool = False,
         treatPropertyMethodsAsClassAttributes: bool = False,
         onlyAttrsWithClassVarAreTreatedAsClassAttrs: bool = False,
+        requireInlineClassVarDocs: bool = False,
         requireReturnSectionWhenReturningNothing: bool = False,
         requireYieldSectionWhenYieldingNothing: bool = False,
         shouldDocumentStarArguments: bool = True,
@@ -878,6 +908,7 @@ def _checkFile(
         checkArgOrder=checkArgOrder,
         skipCheckingShortDocstrings=skipCheckingShortDocstrings,
         skipCheckingRaises=skipCheckingRaises,
+        skipCheckingPrivateFunctions=skipCheckingPrivateFunctions,
         allowInitDocstring=allowInitDocstring,
         checkReturnTypes=checkReturnTypes,
         checkYieldTypes=checkYieldTypes,
@@ -893,6 +924,7 @@ def _checkFile(
         onlyAttrsWithClassVarAreTreatedAsClassAttrs=(
             onlyAttrsWithClassVarAreTreatedAsClassAttrs
         ),
+        requireInlineClassVarDocs=requireInlineClassVarDocs,
         requireReturnSectionWhenReturningNothing=(
             requireReturnSectionWhenReturningNothing
         ),

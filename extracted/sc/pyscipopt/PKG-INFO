@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PySCIPOpt
-Version: 6.2.0
+Version: 6.2.1
 Summary: Python interface and modeling environment for SCIP
 Home-page: https://github.com/SCIP-Interfaces/PySCIPOpt
 Author: Zuse Institute Berlin

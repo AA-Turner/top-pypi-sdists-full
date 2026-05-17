@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase_core"
-version = "0.40.1"
+version = "0.41.0"
 description = "ONEX Core Framework - Base classes and essential implementations"
 authors = [
     {name = "OmniNode.ai", email = "contact@omninode.ai"}
@@ -41,7 +41,7 @@ dependencies = [
     "dependency-injector>=4.48.3,<5.0.0",
     "deepdiff>=8.0.0,<10.0.0",
     "click>=8.3.1,<9.0.0",
-    "cryptography>=46.0.3,<48.0.0",
+    "cryptography>=46.0.3,<49.0.0",
     "jsonschema>=4.25.1,<5.0.0",
     "httpx>=0.27.0,<1.0.0",
     "blake3>=1.0.8,<2.0.0",
@@ -297,8 +297,14 @@ ignore = [
 "scripts/analysis/co_change_dark_matter.py" = ["T201"]
 "scripts/validation/validate_pr_receipts.py" = ["T201"]
 "scripts/validation/validate_pr_deploy_required.py" = ["T201"]
+"scripts/validation/validate_no_except_swallow.py" = ["T201"]
+"scripts/validation/validate_no_none_guard_publish.py" = ["T201"]
+"scripts/validation/validate_no_import_none_fallback.py" = ["T201"]
+"scripts/validation/validate-stubbed-functionality.py" = ["T201", "BLE001"]
+"scripts/validation/validate-exception-handling.py" = ["T201", "BLE001"]
 "src/omnibase_core/validation/validator_contracts.py" = ["T201"]
 "src/omnibase_core/validation/validator_local_paths.py" = ["T201"]
+"src/omnibase_core/validation/validator_skill_backing_node.py" = ["T201"]
 "src/omnibase_core/validation/validator_patterns.py" = ["T201"]
 "src/omnibase_core/validation/validator_types.py" = ["T201"]
 "src/omnibase_core/validation/cross_repo/cli.py" = ["T201"]

@@ -40,7 +40,7 @@ class Follow(Component):
         "_arrived"
     )
 
-    requires: ClassVar[tuple[str, ...]] = ("Transform",)
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("Transform",)
 
     _ENTITY_CLS: Type[Entity] = None
 

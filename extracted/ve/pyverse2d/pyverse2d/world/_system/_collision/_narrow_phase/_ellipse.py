@@ -14,7 +14,25 @@ from math import sqrt, cos, sin, atan2, pi as _PI
 
 # ======================================== Ellipse × Ellipse ========================================
 @register(Ellipse, Ellipse)
-def ellipse_ellipse(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float, sb: Shape, bx: float, by: float, scale_b: float, rot_b: float):
+def ellipse_ellipse(
+    sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float,
+    sb: Shape, bx: float, by: float, scale_b: float, rot_b: float,
+) -> Contact | None:
+    """Vérifie la collision entre ``Ellipse`` et ``Ellipse``
+    
+    Args:
+        sa: forme ``A``
+        ax: centre horizontal ``A``
+        ay: centre vertical ``A``
+        scale_a: facteur de redimensionnement ``A``
+        rot_a: angle de rotation ``A``
+        sb: forme ``B``
+        bx: centre horizontal ``B``
+        by: centre vertical ``B``
+        scale_b: facteur de redimensionnement ``B``
+        rot_b: angle de rotation `B``
+    """
+    # Récupération des paramètres
     ex_a, ey_a, rx_a, ry_a, rot_a_rad = ellipse_params(sa, ax, ay, scale_a, rot_a)
     ex_b, ey_b, rx_b, ry_b, rot_b_rad = ellipse_params(sb, bx, by, scale_b, rot_b)
 
@@ -96,7 +114,8 @@ def ellipse_ellipse(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: floa
         theta -= delta
         if abs(delta) < 1e-8:
             break
-
+    
+    # Vérification de la collision
     ct, st = cos(theta), sin(theta)
     h_a = sqrt(rx_a * rx_a * ct * ct + ry_a * ry_a * st * st)
     bt = ct * cos_rel + st * sin_rel
@@ -108,34 +127,60 @@ def ellipse_ellipse(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: floa
     if overlap <= 0:
         return None
 
-    # Normale en local A → world
+    # Normale en local A vers world
     sign_c = 1.0 if c_proj >= 0.0 else -1.0
     nlx, nly = -ct * sign_c, -st * sign_c
     cos_w, sin_w = cos(rot_a_rad), sin(rot_a_rad)
-    return Contact(Vector._make(
-        nlx * cos_w - nly * sin_w,
-        nlx * sin_w + nly * cos_w,
-    ), overlap)
+    return Contact(Vector._make(nlx * cos_w - nly * sin_w, nlx * sin_w + nly * cos_w), overlap)
 
 # ======================================== Ellipse × Capsule ========================================
 @register(Ellipse, Capsule)
-def ellipse_capsule(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float, sb: Shape, bx: float, by: float, scale_b: float, rot_b: float):
-    """Vérifie la collision entre ``Ellipse`` et ``Capsule``"""
+def ellipse_capsule(
+    sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float,
+    sb: Shape, bx: float, by: float, scale_b: float, rot_b: float,
+) -> Contact | None:
+    """Vérifie la collision entre ``Ellipse`` et ``Capsule``
+    
+    Args:
+        sa: forme ``A``
+        ax: centre horizontal ``A``
+        ay: centre vertical ``A``
+        scale_a: facteur de redimensionnement ``A``
+        rot_a: angle de rotation ``A``
+        sb: forme ``B``
+        bx: centre horizontal ``B``
+        by: centre vertical ``B``
+        scale_b: facteur de redimensionnement ``B``
+        rot_b: angle de rotation `B``
+    """
+    # Récupération des paramètres
     ex, ey, rx, ry, rot_rad = ellipse_params(sa, ax, ay, scale_a, rot_a)
     cap_ax, cap_ay, cap_bx, cap_by, cap_r = capsule_params(sb, bx, by, scale_b, rot_b)
+
+    # Calcul des distances
     spine_dx, spine_dy = cap_bx - cap_ax, cap_by - cap_ay
     qx, qy = closest_pt_on_seg(cap_ax, cap_ay, spine_dx, spine_dy, ex, ey)
+
+    # Passage dans le repère local de l'ellipse
     cos_r, sin_r = cos(-rot_rad), sin(-rot_rad)
     dx, dy = qx - ex, qy - ey
     qlx = dx * cos_r - dy * sin_r
     qly = dx * sin_r + dy * cos_r
+
+    # Vérification de la collision
     inside = (qlx / rx) ** 2 + (qly / ry) ** 2 <= 1.0
+
+    # Calcul du point le plus proche
     cpx_l, cpy_l = closest_pt_on_ellipse(0.0, 0.0, rx, ry, qlx, qly)
+
+    # Calcul de la distance et de la normale monde
     ddx, ddy = qlx - cpx_l, qly - cpy_l
     dist = sqrt(ddx * ddx + ddy * ddy) or 1e-8
     cos_w, sin_w = cos(rot_rad), sin(rot_rad)
     nx = -(ddx / dist) * cos_w + (ddy / dist) * sin_w
     ny = -(ddx / dist) * sin_w - (ddy / dist) * cos_w
+
+    # Construction du contact
     if inside:
         return Contact(Vector._make(nx, ny), cap_r + dist)
     if dist >= cap_r:

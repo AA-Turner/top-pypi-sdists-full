@@ -7,6 +7,8 @@ from ...abc import System
 from .._world import World
 from .._component import SoundEmitter, Transform
 
+from typing import ClassVar
+
 # ======================================== SYSTEM ========================================
 class SoundSystem(System):
     """Système gérant les composants ``SoundEmitter``
@@ -16,16 +18,19 @@ class SoundSystem(System):
     Args:
         origin: référentiel de position pour les sons (généralement la caméra)
     """
-    __slots__ = ("_origin")
+    __slots__ = ("_origin",)
 
-    order = 110
-    exclusive = False
+    _ORDER: ClassVar[int] = 110
+
+    _IS_EXCLUSIVE: ClassVar[bool] = False
 
     def __init__(self, origin: HasPosition):
-        self._origin: HasPosition = origin
-
+        # Vérifications
         if __debug__:
             expect(origin, HasPosition)
+
+        # Attributs publiques
+        self._origin: HasPosition = origin
 
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
@@ -50,7 +55,12 @@ class SoundSystem(System):
     # ======================================== LIFE CYCLE ========================================
     @profile_section("world.sound.update")
     def update(self, world: World, dt: float) -> None:
-        """Met à jour les sons émis"""
+        """Met à jour les sons émis
+        
+        Args:
+            world: monde à actualiser
+            dt: delta-time
+        """
         for entity in world.query(SoundEmitter):
             se: SoundEmitter = entity.sound_emitter
             tr: Transform | None = entity.transform

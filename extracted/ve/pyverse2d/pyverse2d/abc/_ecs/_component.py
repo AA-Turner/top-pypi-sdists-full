@@ -9,8 +9,8 @@ class Component(ABC):
     """Classe abstraite des composants"""
     __slots__ = tuple()
 
-    requires: ClassVar[Tuple[str, ...]] = tuple()
-    conflicts: ClassVar[Tuple[str, ...]] = tuple()
+    _REQUIRES: ClassVar[Tuple[str, ...]] = tuple()
+    _CONFLICTS: ClassVar[Tuple[str, ...]] = tuple()
 
     # ======================================== CONTRACT ========================================
     @abstractmethod

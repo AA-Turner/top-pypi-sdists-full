@@ -61,6 +61,7 @@ class TestPrincipalBuilderSmoke:
                 _stub_gen(),
                 progress=lambda _: None,
                 enable_review=False,  # skip review in smoke test
+                enable_heal=False,    # stub-generated code can't pass real install
             )
 
         # Layout invariants

@@ -499,7 +499,6 @@ class Stage(AWSObject):
 
     props: PropsDictType = {
         "AccessLogSettings": (AccessLogSettings, False),
-        "AccessPolicyId": (str, False),
         "ApiId": (str, True),
         "AutoDeploy": (boolean, False),
         "ClientCertificateId": (str, False),

@@ -57,6 +57,16 @@ class AutoScalingGroupProvider(AWSProperty):
     }
 
 
+class AutoRepairConfiguration(AWSProperty):
+    """
+    `AutoRepairConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-autorepairconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ActionsStatus": (str, False),
+    }
+
+
 class InfrastructureOptimization(AWSProperty):
     """
     `InfrastructureOptimization <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-infrastructureoptimization.html>`__
@@ -64,6 +74,17 @@ class InfrastructureOptimization(AWSProperty):
 
     props: PropsDictType = {
         "ScaleInAfter": (integer, False),
+    }
+
+
+class CapacityReservationRequest(AWSProperty):
+    """
+    `CapacityReservationRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-capacityreservationrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "ReservationGroupArn": (str, False),
+        "ReservationPreference": (str, False),
     }
 
 
@@ -199,6 +220,16 @@ class InstanceRequirementsRequest(AWSProperty):
     }
 
 
+class ManagedInstancesLocalStorageConfiguration(AWSProperty):
+    """
+    `ManagedInstancesLocalStorageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedinstanceslocalstorageconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "UseLocalStorage": (boolean, False),
+    }
+
+
 class ManagedInstancesNetworkConfiguration(AWSProperty):
     """
     `ManagedInstancesNetworkConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedinstancesnetworkconfiguration.html>`__
@@ -227,9 +258,12 @@ class InstanceLaunchTemplate(AWSProperty):
 
     props: PropsDictType = {
         "CapacityOptionType": (str, False),
+        "CapacityReservations": (CapacityReservationRequest, False),
         "Ec2InstanceProfileArn": (str, True),
         "FipsEnabled": (boolean, False),
+        "InstanceMetadataTagsPropagation": (boolean, False),
         "InstanceRequirements": (InstanceRequirementsRequest, False),
+        "LocalStorageConfiguration": (ManagedInstancesLocalStorageConfiguration, False),
         "Monitoring": (str, False),
         "NetworkConfiguration": (ManagedInstancesNetworkConfiguration, True),
         "StorageConfiguration": (ManagedInstancesStorageConfiguration, False),
@@ -242,6 +276,7 @@ class ManagedInstancesProvider(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AutoRepairConfiguration": (AutoRepairConfiguration, False),
         "InfrastructureOptimization": (InfrastructureOptimization, False),
         "InfrastructureRoleArn": (str, True),
         "InstanceLaunchTemplate": (InstanceLaunchTemplate, True),
@@ -390,6 +425,399 @@ class ClusterCapacityProviderAssociations(AWSObject):
     }
 
 
+class DaemonAlarmConfiguration(AWSProperty):
+    """
+    `DaemonAlarmConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemonalarmconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlarmNames": ([str], False),
+        "Enable": (boolean, False),
+    }
+
+
+class DaemonDeploymentConfiguration(AWSProperty):
+    """
+    `DaemonDeploymentConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Alarms": (DaemonAlarmConfiguration, False),
+        "BakeTimeInMinutes": (integer, False),
+        "DrainPercent": (double, False),
+    }
+
+
+class Daemon(AWSObject):
+    """
+    `Daemon <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html>`__
+    """
+
+    resource_type = "AWS::ECS::Daemon"
+
+    props: PropsDictType = {
+        "CapacityProviderArns": ([str], False),
+        "ClusterArn": (str, False),
+        "DaemonName": (str, False),
+        "DaemonTaskDefinitionArn": (str, False),
+        "DeploymentConfiguration": (DaemonDeploymentConfiguration, False),
+        "EnableECSManagedTags": (boolean, False),
+        "EnableExecuteCommand": (boolean, False),
+        "PropagateTags": (str, False),
+        "Tags": (Tags, False),
+    }
+
+
+class ContainerDependency(AWSProperty):
+    """
+    `ContainerDependency <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdependency.html>`__
+    """
+
+    props: PropsDictType = {
+        "Condition": (str, False),
+        "ContainerName": (str, False),
+    }
+
+
+class EnvironmentFile(AWSProperty):
+    """
+    `EnvironmentFile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-environmentfile.html>`__
+    """
+
+    props: PropsDictType = {
+        "Type": (str, False),
+        "Value": (str, False),
+    }
+
+
+class FirelensConfiguration(AWSProperty):
+    """
+    `FirelensConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-firelensconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Options": (dict, False),
+        "Type": (str, False),
+    }
+
+
+class HealthCheck(AWSProperty):
+    """
+    `HealthCheck <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-healthcheck.html>`__
+    """
+
+    props: PropsDictType = {
+        "Command": ([str], False),
+        "Interval": (integer, False),
+        "Retries": (integer, False),
+        "StartPeriod": (integer, False),
+        "Timeout": (integer, False),
+    }
+
+
+class KeyValuePair(AWSProperty):
+    """
+    `KeyValuePair <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-keyvaluepair.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Value": (str, True),
+    }
+
+
+class Device(AWSProperty):
+    """
+    `Device <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-device.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContainerPath": (str, False),
+        "HostPath": (str, False),
+        "Permissions": ([str], False),
+    }
+
+
+class KernelCapabilities(AWSProperty):
+    """
+    `KernelCapabilities <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-kernelcapabilities.html>`__
+    """
+
+    props: PropsDictType = {
+        "Add": ([str], False),
+        "Drop": ([str], False),
+    }
+
+
+class Tmpfs(AWSProperty):
+    """
+    `Tmpfs <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-tmpfs.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContainerPath": (str, False),
+        "MountOptions": ([str], False),
+        "Size": (integer, True),
+    }
+
+
+class LinuxParameters(AWSProperty):
+    """
+    `LinuxParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-linuxparameters.html>`__
+    """
+
+    props: PropsDictType = {
+        "Capabilities": (KernelCapabilities, False),
+        "Devices": ([Device], False),
+        "InitProcessEnabled": (boolean, False),
+        "MaxSwap": (integer, False),
+        "SharedMemorySize": (integer, False),
+        "Swappiness": (integer, False),
+        "Tmpfs": ([Tmpfs], False),
+    }
+
+
+class Secret(AWSProperty):
+    """
+    `Secret <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-secret.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "ValueFrom": (str, True),
+    }
+
+
+class LogConfiguration(AWSProperty):
+    """
+    `LogConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-logconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogDriver": (str, True),
+        "Options": (dict, False),
+        "SecretOptions": ([Secret], False),
+    }
+
+
+class MountPoint(AWSProperty):
+    """
+    `MountPoint <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-mountpoint.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContainerPath": (str, False),
+        "ReadOnly": (boolean, False),
+        "SourceVolume": (str, False),
+    }
+
+
+class RepositoryCredentials(AWSProperty):
+    """
+    `RepositoryCredentials <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-repositorycredentials.html>`__
+    """
+
+    props: PropsDictType = {
+        "CredentialsParameter": (str, False),
+    }
+
+
+class RestartPolicy(AWSProperty):
+    """
+    `RestartPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-restartpolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, False),
+        "IgnoredExitCodes": ([integer], False),
+        "RestartAttemptPeriod": (integer, False),
+    }
+
+
+class SystemControl(AWSProperty):
+    """
+    `SystemControl <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-systemcontrol.html>`__
+    """
+
+    props: PropsDictType = {
+        "Namespace": (str, False),
+        "Value": (str, False),
+    }
+
+
+class Ulimit(AWSProperty):
+    """
+    `Ulimit <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-ulimit.html>`__
+    """
+
+    props: PropsDictType = {
+        "HardLimit": (integer, True),
+        "Name": (str, True),
+        "SoftLimit": (integer, True),
+    }
+
+
+class DaemonContainerDefinition(AWSProperty):
+    """
+    `DaemonContainerDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Command": ([str], False),
+        "Cpu": (integer, False),
+        "DependsOn": ([ContainerDependency], False),
+        "EntryPoint": ([str], False),
+        "Environment": ([KeyValuePair], False),
+        "EnvironmentFiles": ([EnvironmentFile], False),
+        "Essential": (boolean, False),
+        "FirelensConfiguration": (FirelensConfiguration, False),
+        "HealthCheck": (HealthCheck, False),
+        "Image": (str, True),
+        "Interactive": (boolean, False),
+        "LinuxParameters": (LinuxParameters, False),
+        "LogConfiguration": (LogConfiguration, False),
+        "Memory": (integer, False),
+        "MemoryReservation": (integer, False),
+        "MountPoints": ([MountPoint], False),
+        "Name": (str, True),
+        "Privileged": (boolean, False),
+        "PseudoTerminal": (boolean, False),
+        "ReadonlyRootFilesystem": (boolean, False),
+        "RepositoryCredentials": (RepositoryCredentials, False),
+        "RestartPolicy": (RestartPolicy, False),
+        "Secrets": ([Secret], False),
+        "StartTimeout": (integer, False),
+        "StopTimeout": (integer, False),
+        "SystemControls": ([SystemControl], False),
+        "Ulimits": ([Ulimit], False),
+        "User": (str, False),
+        "WorkingDirectory": (str, False),
+    }
+
+
+class DockerVolumeConfiguration(AWSProperty):
+    """
+    `DockerVolumeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-dockervolumeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Autoprovision": (boolean, False),
+        "Driver": (str, False),
+        "DriverOpts": (dict, False),
+        "Labels": (dict, False),
+        "Scope": (scope_validator, False),
+    }
+
+
+class AuthorizationConfig(AWSProperty):
+    """
+    `AuthorizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-authorizationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AccessPointId": (str, False),
+        "IAM": (str, False),
+    }
+
+
+class EFSVolumeConfiguration(AWSProperty):
+    """
+    `EFSVolumeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-efsvolumeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationConfig": (AuthorizationConfig, False),
+        "FilesystemId": (str, True),
+        "RootDirectory": (str, False),
+        "TransitEncryption": (ecs_efs_encryption_status, False),
+        "TransitEncryptionPort": (validate_transit_encryption_port, False),
+    }
+
+
+class FSxAuthorizationConfig(AWSProperty):
+    """
+    `FSxAuthorizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-fsxauthorizationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CredentialsParameter": (str, True),
+        "Domain": (str, True),
+    }
+
+
+class FSxWindowsFileServerVolumeConfiguration(AWSProperty):
+    """
+    `FSxWindowsFileServerVolumeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-fsxwindowsfileservervolumeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationConfig": (FSxAuthorizationConfig, False),
+        "FileSystemId": (str, True),
+        "RootDirectory": (str, True),
+    }
+
+
+class Host(AWSProperty):
+    """
+    `Host <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-hostvolumeproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "SourcePath": (str, False),
+    }
+
+
+class S3FilesVolumeConfiguration(AWSProperty):
+    """
+    `S3FilesVolumeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AccessPointArn": (str, False),
+        "FileSystemArn": (str, True),
+        "RootDirectory": (str, False),
+        "TransitEncryptionPort": (integer, False),
+    }
+
+
+class Volume(AWSProperty):
+    """
+    `Volume <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-volume.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConfiguredAtLaunch": (boolean, False),
+        "DockerVolumeConfiguration": (DockerVolumeConfiguration, False),
+        "EFSVolumeConfiguration": (EFSVolumeConfiguration, False),
+        "FSxWindowsFileServerVolumeConfiguration": (
+            FSxWindowsFileServerVolumeConfiguration,
+            False,
+        ),
+        "Host": (Host, False),
+        "Name": (str, False),
+        "S3FilesVolumeConfiguration": (S3FilesVolumeConfiguration, False),
+    }
+
+
+class DaemonTaskDefinition(AWSObject):
+    """
+    `DaemonTaskDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html>`__
+    """
+
+    resource_type = "AWS::ECS::DaemonTaskDefinition"
+
+    props: PropsDictType = {
+        "ContainerDefinitions": ([DaemonContainerDefinition], False),
+        "Cpu": (str, False),
+        "ExecutionRoleArn": (str, False),
+        "Family": (str, False),
+        "Memory": (str, False),
+        "Tags": (Tags, False),
+        "TaskRoleArn": (str, False),
+        "Volumes": ([Volume], False),
+    }
+
+
 class ExpressGatewayRepositoryCredentials(AWSProperty):
     """
     `ExpressGatewayRepositoryCredentials <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-expressgatewayrepositorycredentials.html>`__
@@ -408,28 +836,6 @@ class ExpressGatewayServiceAwsLogsConfiguration(AWSProperty):
     props: PropsDictType = {
         "LogGroup": (str, True),
         "LogStreamPrefix": (str, True),
-    }
-
-
-class KeyValuePair(AWSProperty):
-    """
-    `KeyValuePair <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-expressgatewayservice-keyvaluepair.html>`__
-    """
-
-    props: PropsDictType = {
-        "Name": (str, True),
-        "Value": (str, True),
-    }
-
-
-class Secret(AWSProperty):
-    """
-    `Secret <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-secret.html>`__
-    """
-
-    props: PropsDictType = {
-        "Name": (str, True),
-        "ValueFrom": (str, True),
     }
 
 
@@ -678,18 +1084,6 @@ class PlacementStrategy(AWSProperty):
     }
 
 
-class LogConfiguration(AWSProperty):
-    """
-    `LogConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-logconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "LogDriver": (str, True),
-        "Options": (dict, False),
-        "SecretOptions": ([Secret], False),
-    }
-
-
 class ServiceConnectAccessLogConfiguration(AWSProperty):
     """
     `ServiceConnectAccessLogConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectaccesslogconfiguration.html>`__
@@ -911,17 +1305,6 @@ class Service(AWSObject):
     }
 
 
-class ContainerDependency(AWSProperty):
-    """
-    `ContainerDependency <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdependency.html>`__
-    """
-
-    props: PropsDictType = {
-        "Condition": (str, False),
-        "ContainerName": (str, False),
-    }
-
-
 class Environment(AWSProperty):
     """
     `Environment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-keyvaluepair.html>`__
@@ -933,42 +1316,6 @@ class Environment(AWSProperty):
     }
 
 
-class EnvironmentFile(AWSProperty):
-    """
-    `EnvironmentFile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-environmentfile.html>`__
-    """
-
-    props: PropsDictType = {
-        "Type": (str, False),
-        "Value": (str, False),
-    }
-
-
-class FirelensConfiguration(AWSProperty):
-    """
-    `FirelensConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-firelensconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "Options": (dict, False),
-        "Type": (str, False),
-    }
-
-
-class HealthCheck(AWSProperty):
-    """
-    `HealthCheck <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-healthcheck.html>`__
-    """
-
-    props: PropsDictType = {
-        "Command": ([str], False),
-        "Interval": (integer, False),
-        "Retries": (integer, False),
-        "StartPeriod": (integer, False),
-        "Timeout": (integer, False),
-    }
-
-
 class HostEntry(AWSProperty):
     """
     `HostEntry <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-hostentry.html>`__
@@ -977,69 +1324,6 @@ class HostEntry(AWSProperty):
     props: PropsDictType = {
         "Hostname": (str, False),
         "IpAddress": (str, False),
-    }
-
-
-class Device(AWSProperty):
-    """
-    `Device <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-device.html>`__
-    """
-
-    props: PropsDictType = {
-        "ContainerPath": (str, False),
-        "HostPath": (str, False),
-        "Permissions": ([str], False),
-    }
-
-
-class KernelCapabilities(AWSProperty):
-    """
-    `KernelCapabilities <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-kernelcapabilities.html>`__
-    """
-
-    props: PropsDictType = {
-        "Add": ([str], False),
-        "Drop": ([str], False),
-    }
-
-
-class Tmpfs(AWSProperty):
-    """
-    `Tmpfs <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-tmpfs.html>`__
-    """
-
-    props: PropsDictType = {
-        "ContainerPath": (str, False),
-        "MountOptions": ([str], False),
-        "Size": (integer, True),
-    }
-
-
-class LinuxParameters(AWSProperty):
-    """
-    `LinuxParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-linuxparameters.html>`__
-    """
-
-    props: PropsDictType = {
-        "Capabilities": (KernelCapabilities, False),
-        "Devices": ([Device], False),
-        "InitProcessEnabled": (boolean, False),
-        "MaxSwap": (integer, False),
-        "SharedMemorySize": (integer, False),
-        "Swappiness": (integer, False),
-        "Tmpfs": ([Tmpfs], False),
-    }
-
-
-class MountPoint(AWSProperty):
-    """
-    `MountPoint <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-mountpoint.html>`__
-    """
-
-    props: PropsDictType = {
-        "ContainerPath": (str, False),
-        "ReadOnly": (boolean, False),
-        "SourceVolume": (str, False),
     }
 
 
@@ -1058,16 +1342,6 @@ class PortMapping(AWSProperty):
     }
 
 
-class RepositoryCredentials(AWSProperty):
-    """
-    `RepositoryCredentials <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-repositorycredentials.html>`__
-    """
-
-    props: PropsDictType = {
-        "CredentialsParameter": (str, False),
-    }
-
-
 class ResourceRequirement(AWSProperty):
     """
     `ResourceRequirement <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-resourcerequirement.html>`__
@@ -1076,41 +1350,6 @@ class ResourceRequirement(AWSProperty):
     props: PropsDictType = {
         "Type": (str, True),
         "Value": (str, True),
-    }
-
-
-class RestartPolicy(AWSProperty):
-    """
-    `RestartPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-restartpolicy.html>`__
-    """
-
-    props: PropsDictType = {
-        "Enabled": (boolean, False),
-        "IgnoredExitCodes": ([integer], False),
-        "RestartAttemptPeriod": (integer, False),
-    }
-
-
-class SystemControl(AWSProperty):
-    """
-    `SystemControl <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-systemcontrol.html>`__
-    """
-
-    props: PropsDictType = {
-        "Namespace": (str, False),
-        "Value": (str, False),
-    }
-
-
-class Ulimit(AWSProperty):
-    """
-    `Ulimit <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-ulimit.html>`__
-    """
-
-    props: PropsDictType = {
-        "HardLimit": (integer, True),
-        "Name": (str, True),
-        "SoftLimit": (integer, True),
     }
 
 
@@ -1212,96 +1451,6 @@ class RuntimePlatform(AWSProperty):
         validate_runtime_platform(self)
 
 
-class DockerVolumeConfiguration(AWSProperty):
-    """
-    `DockerVolumeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-dockervolumeconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "Autoprovision": (boolean, False),
-        "Driver": (str, False),
-        "DriverOpts": (dict, False),
-        "Labels": (dict, False),
-        "Scope": (scope_validator, False),
-    }
-
-
-class AuthorizationConfig(AWSProperty):
-    """
-    `AuthorizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-authorizationconfig.html>`__
-    """
-
-    props: PropsDictType = {
-        "AccessPointId": (str, False),
-        "IAM": (str, False),
-    }
-
-
-class EFSVolumeConfiguration(AWSProperty):
-    """
-    `EFSVolumeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-efsvolumeconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "AuthorizationConfig": (AuthorizationConfig, False),
-        "FilesystemId": (str, True),
-        "RootDirectory": (str, False),
-        "TransitEncryption": (ecs_efs_encryption_status, False),
-        "TransitEncryptionPort": (validate_transit_encryption_port, False),
-    }
-
-
-class FSxAuthorizationConfig(AWSProperty):
-    """
-    `FSxAuthorizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-fsxauthorizationconfig.html>`__
-    """
-
-    props: PropsDictType = {
-        "CredentialsParameter": (str, True),
-        "Domain": (str, True),
-    }
-
-
-class FSxWindowsFileServerVolumeConfiguration(AWSProperty):
-    """
-    `FSxWindowsFileServerVolumeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-fsxwindowsfileservervolumeconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "AuthorizationConfig": (FSxAuthorizationConfig, False),
-        "FileSystemId": (str, True),
-        "RootDirectory": (str, True),
-    }
-
-
-class Host(AWSProperty):
-    """
-    `Host <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-hostvolumeproperties.html>`__
-    """
-
-    props: PropsDictType = {
-        "SourcePath": (str, False),
-    }
-
-
-class Volume(AWSProperty):
-    """
-    `Volume <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-volume.html>`__
-    """
-
-    props: PropsDictType = {
-        "ConfiguredAtLaunch": (boolean, False),
-        "DockerVolumeConfiguration": (DockerVolumeConfiguration, False),
-        "EFSVolumeConfiguration": (EFSVolumeConfiguration, False),
-        "FSxWindowsFileServerVolumeConfiguration": (
-            FSxWindowsFileServerVolumeConfiguration,
-            False,
-        ),
-        "Host": (Host, False),
-        "Name": (str, False),
-    }
-
-
 class TaskDefinition(AWSObject):
     """
     `TaskDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html>`__
@@ -1382,6 +1531,16 @@ class ExpressGatewayServiceStatus(AWSProperty):
 
     props: PropsDictType = {
         "StatusCode": (str, False),
+    }
+
+
+class HostVolumeProperties(AWSProperty):
+    """
+    `HostVolumeProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-hostvolumeproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "SourcePath": (str, False),
     }
 
 

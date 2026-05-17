@@ -34,17 +34,17 @@ def get_alert(id: str) -> Dict[str, Any]:
 
 
 @data_request()
-def get_alerts(override_find_all: Optional[bool] = False) -> List[Dict[str, Any]]:
+def get_alerts(dataset_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Get all alerts.
 
     Args:
-        override_find_all (Optional[bool]): If True, overrides the default limitation to fetch all results. This parameter is restricted to admin use only. Non-admin users will receive a 'Forbidden' exception if they attempt to use it. Defaults to False.
+        dataset_id (Optional[str]): If provided, filter alerts by dataset id.
 
     Returns:
         List[Dict[str, Any]]: List of alert responses
     """
-    request_info = _get_alerts_request_info(override_find_all)
+    request_info = _get_alerts_request_info(dataset_id)
     return __get_request(**request_info)
 
 
@@ -76,7 +76,7 @@ def create_alert(request: AlertRequest) -> Dict[str, Any]:
         Dict[str, Any]: Alert response
     """
     request_info = _create_alert_request_info(request)
-    return __put_request(**request_info)
+    return __post_request(**request_info)
 
 
 @data_request()
@@ -92,7 +92,7 @@ def update_alert(id: str, request: AlertRequest) -> Dict[str, Any]:
         Dict[str, Any]: Alert response
     """
     request_info = _update_alert_request_info(id, request)
-    return __post_request(**request_info)
+    return __put_request(**request_info)
 
 
 @data_request(processor=lambda response: None)

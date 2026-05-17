@@ -10,6 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from numbers import Real, Integral
+from typing import ClassVar
 import math
 
 # ======================================== SHAPE ========================================
@@ -21,6 +22,8 @@ class RegularPolygon(Shape):
         radius: rayon du cercle circonscrit
     """
     __slots__ = ("_sides", "_radius")
+
+    _ID: ClassVar[str] = "capsule"
 
     def __init__(self, sides: Integral, radius: Real):
         # Transtypage et vérifications

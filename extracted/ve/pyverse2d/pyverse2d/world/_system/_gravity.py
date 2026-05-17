@@ -8,21 +8,29 @@ from ...math import Vector
 from .._world import World
 from .._component import Transform, RigidBody
 
+from typing import ClassVar
+
 # ======================================== SYSTEM ========================================
 class GravitySystem(System):
     """Système appliquant une force gravitationnelle sur les corps dynamiques
 
     Args:
-        gravity(Real): force gravitationnelle en N/kg
+        gravity: force gravitationnelle en N/kg
     """
-    __slots__ = ("_gravity")
+    __slots__ = ("_gravity",)
 
-    order = 0
-    exclusive = False
-    requires = ("PhysicsSystem",)
+    _ORDER: ClassVar[int] = 0
+
+    _IS_EXCLUSIVE: ClassVar[bool] = False
+
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("PhysicsSystem",)
 
     def __init__(self, gravity: Vector = (0.0, -9.8)):
-        self._gravity: Vector = Vector(gravity)
+        # Transtypage et vérifications
+        gravity = Vector(gravity)
+
+        # Attributs publiques
+        self._gravity: Vector = gravity
 
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
@@ -40,7 +48,8 @@ class GravitySystem(System):
 
     @gravity.setter
     def gravity(self, value: Vector):
-        self._gravity = Vector(value)
+        value = Vector(value)
+        self._gravity = value
 
     # ======================================== LIFE CYCLE ========================================
     @profile_section("world.gravity.update")
@@ -48,8 +57,8 @@ class GravitySystem(System):
         """Applique la force gravitationnelle sur tous les corps dynamiques
 
         Args:
-            world(World): monde à mettre à jour
-            dt(float): delta time
+            world: monde à mettre à jour
+            dt: delta-time
         """
         for entity in world.query(RigidBody, Transform):
             rb: RigidBody = entity.get(RigidBody)

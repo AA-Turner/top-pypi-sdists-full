@@ -729,11 +729,27 @@ impl PdfDocument {
         // The xref offsets are relative to the original PDF start, but file positions are
         // shifted by header_offset bytes.
         if header_offset > 0 {
-            if let Some(root_ref) = get_root_ref_from_trailer(&trailer) {
-                if !validate_object_at_offset(&mut reader, &xref, root_ref) {
+            // Probe an object to decide whether xref offsets are off by
+            // header_offset. Prefer /Root (common case), but the probe MUST
+            // be seek-validatable: `validate_object_at_offset` returns true
+            // for *compressed* entries without seeking, so a /Root that
+            // lives in an object stream would falsely report "no shift
+            // needed" and leave every uncompressed offset wrong. Use /Root
+            // only when its entry is in-use + uncompressed; otherwise (no
+            // /Root — issue #509 — or a compressed /Root) fall back to the
+            // first in-use uncompressed object.
+            let probe = get_root_ref_from_trailer(&trailer)
+                .filter(|r| {
+                    xref.get(r.id).is_some_and(|e| {
+                        e.in_use && e.entry_type == crate::xref::XRefEntryType::Uncompressed
+                    })
+                })
+                .or_else(|| first_in_use_uncompressed(&xref));
+            if let Some(probe_ref) = probe {
+                if !validate_object_at_offset(&mut reader, &xref, probe_ref) {
                     log::info!(
-                        "Root object not loadable at xref offset, adjusting all offsets by header_offset={}",
-                        header_offset
+                        "Probe object {} not loadable at xref offset, adjusting all offsets by header_offset={}",
+                        probe_ref.id, header_offset
                     );
                     xref.shift_offsets(header_offset);
                 }
@@ -2900,9 +2916,12 @@ impl PdfDocument {
     /// # Errors
     ///
     /// Returns an error if:
-    /// - The trailer does not contain a /Root entry
-    /// - The /Root entry is not a reference
+    /// - The /Root entry is present but is not a reference
     /// - Loading the catalog object fails
+    /// - The trailer omits /Root **and** no `/Type /Catalog` object can be
+    ///   found by scanning (the issue #509 recovery path: a missing /Root is
+    ///   not itself fatal — the Catalog is discovered by object scan, as
+    ///   Poppler / PDFium do — but it does error if that scan also fails)
     ///
     /// # Example
     ///
@@ -2918,13 +2937,64 @@ impl PdfDocument {
             .as_dict()
             .ok_or_else(|| Error::InvalidPdf("Trailer is not a dictionary".to_string()))?;
 
-        let root_ref = trailer_dict
-            .get("Root")
-            .ok_or_else(|| Error::InvalidPdf("Trailer missing /Root entry".to_string()))?
-            .as_reference()
-            .ok_or_else(|| Error::InvalidPdf("/Root is not a reference".to_string()))?;
+        if let Some(root_obj) = trailer_dict.get("Root") {
+            let root_ref = root_obj
+                .as_reference()
+                .ok_or_else(|| Error::InvalidPdf("/Root is not a reference".to_string()))?;
+            return self.load_object(root_ref);
+        }
 
-        self.load_object(root_ref)
+        // The trailer omits /Root. A Linearized file's sparse end-of-file
+        // trailer legitimately does this (issue #509); discover the Catalog
+        // by scanning indirect objects for /Type /Catalog, as Poppler /
+        // PDFium do.
+        self.find_catalog_by_scan().ok_or_else(|| {
+            Error::InvalidPdf(
+                "Trailer omits /Root and no /Type /Catalog object could be found by scanning"
+                    .to_string(),
+            )
+        })
+    }
+
+    /// Scan indirect objects for the document Catalog (`/Type /Catalog`).
+    ///
+    /// Used only as a fallback when the trailer omits `/Root` (issue #509).
+    /// Bounded so a pathological xref can't turn this into an unbounded
+    /// scan; the Catalog is virtually always one of the first objects.
+    ///
+    /// The smallest `MAX_SCAN` object numbers are scanned, ascending.
+    /// `all_object_numbers()` is `HashMap`-backed, so iterating it directly
+    /// would be nondeterministic — a bounded scan over an arbitrary subset
+    /// can miss the Catalog on different runs. `smallest_object_numbers`
+    /// makes discovery deterministic, scans low-numbered objects first
+    /// (where the Catalog conventionally lives), and bounds the candidate
+    /// set *before* sorting so a pathological xref stays O(n log MAX_SCAN).
+    fn find_catalog_by_scan(&self) -> Option<Object> {
+        const MAX_SCAN: usize = 4096;
+        let nums = self.xref.smallest_object_numbers(MAX_SCAN);
+        let mut checked = 0usize;
+        for num in nums {
+            if checked >= MAX_SCAN {
+                break;
+            }
+            let generation = match self.xref.get(num) {
+                Some(e) if e.in_use => e.generation,
+                _ => continue,
+            };
+            checked += 1;
+            if let Ok(obj) = self.load_object(ObjectRef::new(num, generation)) {
+                if obj
+                    .as_dict()
+                    .and_then(|d| d.get("Type"))
+                    .and_then(|t| t.as_name())
+                    == Some("Catalog")
+                {
+                    log::info!("Catalog discovered by object scan: {} {} obj", num, generation);
+                    return Some(obj);
+                }
+            }
+        }
+        None
     }
 
     /// Get the structure tree (logical structure) of the document.
@@ -13233,6 +13303,16 @@ fn get_root_ref_from_trailer(trailer: &Object) -> Option<ObjectRef> {
     trailer.as_dict()?.get("Root")?.as_reference()
 }
 
+/// First in-use *uncompressed* object in the xref, used as a /Root-independent
+/// probe for the garbage-prefix offset-shift decision (issue #509). Compressed
+/// entries can't be seek-validated, so they're skipped.
+fn first_in_use_uncompressed(xref: &crate::xref::CrossRefTable) -> Option<ObjectRef> {
+    xref.all_object_numbers()
+        .filter_map(|n| xref.get(n).map(|e| (n, e)))
+        .find(|(_, e)| e.in_use && e.entry_type == crate::xref::XRefEntryType::Uncompressed)
+        .map(|(n, e)| ObjectRef::new(n, e.generation))
+}
+
 /// Heuristic: does this candidate table actually look like wrapped prose
 /// clustered into x-columns rather than a real grid?
 ///
@@ -14000,6 +14080,41 @@ mod tests {
         let doc = PdfDocument::from_bytes(pdf).unwrap();
         assert_eq!(doc.version(), (1, 4));
         assert!(doc.trailer().as_dict().is_some());
+    }
+
+    // Issue #509: catalog() must fall back to scanning indirect objects for
+    // `/Type /Catalog` when the trailer omits /Root. The public open path
+    // can't reach this — a /Root-less parsed trailer fails root validation
+    // and xref reconstruction synthesizes a /Root-bearing trailer before
+    // catalog() ever runs — so cover find_catalog_by_scan() directly: open a
+    // valid PDF, then strip /Root from the in-memory trailer and confirm
+    // catalog() still resolves the Catalog by object scan.
+    #[test]
+    fn test_catalog_recovers_when_trailer_omits_root() {
+        let mut doc = PdfDocument::from_bytes(build_minimal_pdf(b"")).unwrap();
+        // Sanity: the normal /Root path resolves the Catalog.
+        assert!(doc.catalog().is_ok());
+
+        // Drop /Root so only the indirect-object scan can find the Catalog.
+        match doc.trailer {
+            Object::Dictionary(ref mut d) => {
+                d.remove("Root");
+                assert!(d.get("Root").is_none());
+            },
+            _ => panic!("trailer is not a dictionary"),
+        }
+
+        let catalog = doc.catalog().expect(
+            "catalog() must recover the /Type /Catalog object by scan when /Root is absent",
+        );
+        assert_eq!(
+            catalog
+                .as_dict()
+                .and_then(|d| d.get("Type"))
+                .and_then(|t| t.as_name()),
+            Some("Catalog"),
+            "find_catalog_by_scan must return the actual Catalog object"
+        );
     }
 
     #[test]

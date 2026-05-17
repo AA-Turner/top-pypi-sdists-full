@@ -1442,6 +1442,58 @@ class Session:
             runner.set_preview_port(None)
         await self.show(Block(type="browser_preview", payload={"close": True}))
 
+    async def show_table(
+        self,
+        table: Any = None,
+        *,
+        collection: Any = None,
+        rows: list[dict[str, Any]] | None = None,
+        data: str | None = None,
+        columns: list[Any] | None = None,
+        title: str = "",
+        label: str | None = None,
+        scope: str | None = None,
+        sortable: bool = False,
+        filterable: bool = False,
+        paginate: int = 0,
+        mode: str = "split",
+    ) -> None:
+        """Display tabular data inline or in a side pane.
+
+        ``table`` may be a ``cpsl.ui.Table``/``TableBrowser``, a collection
+        name/ref/dynamic collection, or a list of row dictionaries. Use
+        ``mode="inline"`` to render directly in the chat. The ``"split"``,
+        ``"copilot"``, and ``"preview"`` modes open the table on the right
+        using the same layout ratios as :meth:`show_browser`.
+        """
+        if mode not in ("inline", "split", "copilot", "preview"):
+            raise ValueError(
+                f"mode must be 'inline', 'split', 'copilot', or 'preview', got {mode!r}"
+            )
+
+        widget = _table_widget_from_source(
+            table,
+            collection=collection,
+            rows=rows,
+            data=data,
+            columns=columns,
+            label=label,
+            scope=scope,
+            sortable=sortable,
+            filterable=filterable,
+            paginate=paginate,
+        )
+        payload: dict[str, Any] = {
+            "title": title or _table_widget_title(widget),
+            "mode": mode,
+            "table": widget,
+        }
+        await self.show(Block(type="table_preview", payload=payload))
+
+    async def hide_table(self) -> None:
+        """Close the table preview pane."""
+        await self.show(Block(type="table_preview", payload={"close": True}))
+
     async def set_title(self, title: str) -> None:
         """Set the session title displayed in the sidebar.
 
@@ -1823,6 +1875,126 @@ class IntegrationDeclined(RuntimeError):
     """Raised when the user explicitly declines an integration prompt."""
 
 
+def _table_widget_from_source(
+    table: Any = None,
+    *,
+    collection: Any = None,
+    rows: list[dict[str, Any]] | None = None,
+    data: str | None = None,
+    columns: list[Any] | None = None,
+    label: str | None = None,
+    scope: str | None = None,
+    sortable: bool = False,
+    filterable: bool = False,
+    paginate: int = 0,
+) -> dict[str, Any]:
+    from . import ui as _ui
+
+    collection_source = collection
+    row_source = rows
+
+    if table is not None:
+        to_dict = getattr(table, "to_dict", None)
+        if callable(to_dict):
+            widget = to_dict()
+            if not isinstance(widget, dict) or widget.get("type") not in {
+                "table",
+                "table_browser",
+            }:
+                raise TypeError(
+                    "show_table accepts cpsl.ui.Table or cpsl.ui.TableBrowser widgets"
+                )
+            return _json_safe_value(widget)
+        if isinstance(table, (list, tuple)):
+            if rows is not None:
+                raise ValueError("pass rows either positionally or with rows=, not both")
+            row_source = list(table)
+        else:
+            if collection is not None:
+                raise ValueError(
+                    "pass a collection either positionally or with collection=, not both"
+                )
+            collection_source = table
+
+    if collection_source is not None and (row_source is not None or data is not None):
+        raise ValueError("show_table accepts one data source: collection, rows, or data")
+    if row_source is not None and data is not None:
+        raise ValueError("show_table accepts one data source: rows or data")
+
+    if collection_source is not None:
+        collection_arg, inferred_scope = _table_collection_arg(collection_source)
+        widget = _ui.Table(
+            collection_arg,
+            columns=columns,
+            label=label,
+            scope=scope or inferred_scope,
+            sortable=sortable,
+            filterable=filterable,
+            paginate=paginate,
+        ).to_dict()
+        return _json_safe_value(widget)
+
+    if row_source is not None or data is not None:
+        widget = _ui.Table(
+            data=data,
+            rows=list(row_source) if row_source is not None else None,
+            columns=columns,
+            label=label,
+            sortable=sortable,
+            filterable=filterable,
+            paginate=paginate,
+        ).to_dict()
+        return _json_safe_value(widget)
+
+    raise ValueError("show_table requires a table widget, collection, data source, or rows")
+
+
+def _table_collection_arg(source: Any) -> tuple[Any, str | None]:
+    from .db import CollectionRef
+
+    if isinstance(source, (str, CollectionRef)):
+        return source, None
+
+    name = getattr(source, "name", None)
+    if isinstance(name, str) and name:
+        scope = getattr(source, "scope", None)
+        return name, scope if isinstance(scope, str) else None
+
+    raw_name = getattr(source, "_name", None)
+    if isinstance(raw_name, str) and raw_name:
+        return raw_name, None
+
+    inner = getattr(source, "_inner", None)
+    inner_name = getattr(inner, "_name", None)
+    if isinstance(inner_name, str) and inner_name:
+        scope_filter = getattr(source, "_scope_filter", None)
+        inferred_scope = None
+        if isinstance(scope_filter, dict):
+            if SCOPE_FIELD_SESSION in scope_filter:
+                inferred_scope = "session"
+            elif SCOPE_FIELD_OWNER in scope_filter:
+                inferred_scope = "owner"
+            elif SCOPE_FIELD_USER in scope_filter:
+                inferred_scope = "user"
+        return inner_name, inferred_scope
+
+    raise TypeError(
+        "collection must be a name, CollectionRef, DynamicCollection, or collection handle"
+    )
+
+
+def _table_widget_title(widget: dict[str, Any]) -> str:
+    explicit = widget.get("title") or widget.get("label")
+    if explicit:
+        return str(explicit)
+    if widget.get("type") == "table_browser":
+        return "Tables"
+    source = widget.get("collection") or widget.get("collection_ref") or widget.get("data")
+    if isinstance(source, str) and source:
+        return source.replace("_", " ").replace("-", " ").title()
+    return "Table"
+
+
 class FileUploadTimeout(TimeoutError):
     """Raised when ``session.prompt_file`` times out."""
 
@@ -1875,6 +2047,10 @@ def _external_block_fallback(block: Block) -> str:
         return str(message)
     if typ == "terminal":
         return str(payload.get("title") or "Terminal output is available in the web app.")
+    if typ == "table_preview":
+        if payload.get("close"):
+            return "Table preview closed."
+        return str(payload.get("title") or "Table is available in the web app.")
 
     return ""
 

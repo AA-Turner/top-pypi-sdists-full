@@ -145,14 +145,29 @@ def main():
         if enum_name and enum_name in enum_lookup:
             entity_entry["state"] = dict(enum_lookup[enum_name])
 
-        # Add to original entity type
-        if entity_type not in entity:
-            entity[entity_type] = {}
-        entity[entity_type][translation_key] = entity_entry
+        # DYNAMIC resolves at runtime to different platforms depending on
+        # device configuration, so add the entry under every possible platform.
+        # For DYNAMIC: strip state from number (no state concept) and select
+        # (options come from runtime labels, not the static enum).
+        if entity_type == "dynamic":
+            target_types = ["switch", "select", "number", "sensor", "binary_sensor"]
+            no_state_platforms = {"number", "select"}
+        else:
+            target_types = [entity_type]
+            no_state_platforms: set[str] = set()
+
+        for t in target_types:
+            if t not in entity:
+                entity[t] = {}
+            if t in no_state_platforms and "state" in entity_entry:
+                entity[t][translation_key] = {k: v for k, v in entity_entry.items() if k != "state"}
+            else:
+                entity[t][translation_key] = entity_entry
         count += 1
 
         # If is_adjustable_suffix is set, also add to sensor entity type
-        if is_adjustable_suffix is not None and entity_type != "sensor":
+        # (skip if already added via DYNAMIC expansion which includes sensor)
+        if is_adjustable_suffix is not None and "sensor" not in target_types:
             if "sensor" not in entity:
                 entity["sensor"] = {}
             entity["sensor"][translation_key] = entity_entry

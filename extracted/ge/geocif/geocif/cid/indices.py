@@ -176,8 +176,9 @@ def standardize_dataframe(df: pd.DataFrame, vi_var: str) -> pd.DataFrame:
         if df[vi_var].max() > 1:
             df[vi_var] = (df[vi_var] - 50) / 200
 
-    # Exclude seasons before 2001 (keep pre-season rows where Season is NaN)
-    df = df[(df["Season"] >= 2001) | df["Season"].isna()]
+    # Year range is controlled by the primary loop in indices_runner.py
+    # (`[DEFAULT] start_year`). No belt-and-suspenders Season filter
+    # here — it would silently block legitimate widened ranges.
 
     return df
 

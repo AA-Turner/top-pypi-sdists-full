@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqllineage
-Version: 1.5.7
+Version: 1.5.8
 Summary: SQL Lineage Analysis Tool powered by Python
 Project-URL: Homepage, https://reata.github.io/sqllineage/
 Project-URL: Documentation, https://sqllineage.readthedocs.io/en/latest/
@@ -28,7 +28,7 @@ Requires-Dist: sqlalchemy>=1.4.0
 Requires-Dist: sqlfluff>=3.2.0
 Requires-Dist: sqlparse>=0.5.4
 Provides-Extra: ci
-Requires-Dist: black>=25.1.0; extra == 'ci'
+Requires-Dist: black>=26.1.0; extra == 'ci'
 Requires-Dist: mypy>=1.19.0; extra == 'ci'
 Requires-Dist: pytest-cov>=6.2.1; extra == 'ci'
 Requires-Dist: pytest>=8.4.1; extra == 'ci'

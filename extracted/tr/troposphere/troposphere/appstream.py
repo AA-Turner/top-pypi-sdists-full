@@ -234,6 +234,16 @@ class DomainJoinInfo(AWSProperty):
     }
 
 
+class VolumeConfig(AWSProperty):
+    """
+    `VolumeConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-imagebuilder-volumeconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "VolumeSizeInGb": (integer, False),
+    }
+
+
 class Fleet(AWSObject):
     """
     `Fleet <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-fleet.html>`__
@@ -244,6 +254,7 @@ class Fleet(AWSObject):
     props: PropsDictType = {
         "ComputeCapacity": (ComputeCapacity, False),
         "Description": (str, False),
+        "DisableIMDSV1": (boolean, False),
         "DisconnectTimeoutInSeconds": (integer, False),
         "DisplayName": (str, False),
         "DomainJoinInfo": (DomainJoinInfo, False),
@@ -259,6 +270,7 @@ class Fleet(AWSObject):
         "MaxUserDurationInSeconds": (integer, False),
         "Name": (str, True),
         "Platform": (str, False),
+        "RootVolumeConfig": (VolumeConfig, False),
         "SessionScriptS3Location": (S3Location, False),
         "StreamView": (str, False),
         "Tags": (validate_tags_or_list, False),
@@ -286,6 +298,9 @@ class ImageBuilder(AWSObject):
         "ImageName": (str, False),
         "InstanceType": (str, True),
         "Name": (str, True),
+        "RootVolumeConfig": (VolumeConfig, False),
+        "SoftwaresToInstall": ([str], False),
+        "SoftwaresToUninstall": ([str], False),
         "Tags": (validate_tags_or_list, False),
         "VpcConfig": (VpcConfig, False),
     }

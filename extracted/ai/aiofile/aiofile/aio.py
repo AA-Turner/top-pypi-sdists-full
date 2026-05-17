@@ -7,7 +7,7 @@ from os import strerror
 from pathlib import Path
 from typing import (
     Any, Awaitable, BinaryIO, Callable, Dict, Generator, Optional, TextIO,
-    TypeVar, Union,
+    TypeVar, Union, cast,
 )
 from weakref import finalize
 
@@ -139,6 +139,8 @@ class AIOFile:
         self._file_obj_owner = True
         self._encoding = encoding
         self._executor = executor
+        self._clone_lock = asyncio.Lock()
+        self._clones = 0
 
     @classmethod
     def from_fp(cls, fp: FileIOType, **kwargs: Any) -> "AIOFile":
@@ -174,10 +176,9 @@ class AIOFile:
             return None
 
         if self.__open_result is None:
-            self.__open_result = self._run_in_thread(
-                open,
-                self._fname,
-                self._open_mode,
+            self.__open_result = cast(
+                "asyncio.Future[FileIOType]",
+                self._run_in_thread(open, self._fname, self._open_mode),
             )
             self._file_obj = await self.__open_result
             self.__open_result = None
@@ -189,9 +190,21 @@ class AIOFile:
     def __repr__(self) -> str:
         return "<AIOFile: %r>" % self._fname
 
+    async def clone(self) -> "AIOFile":
+        """Returns self with a ref-count bump; close() is deferred until all
+        clones are released."""
+        async with self._clone_lock:
+            self._clones += 1
+            return self
+
     async def close(self) -> None:
         if self._file_obj is None or not self._file_obj_owner:
             return
+
+        async with self._clone_lock:
+            if self._clones > 0:
+                self._clones -= 1
+                return
 
         if self.mode.writable:
             await self.fdsync()
@@ -312,7 +325,7 @@ def create_context(
 
     def finalizer() -> None:
         context.close()
-        DEFAULT_CONTEXT_STORE.pop(context, None)
+        DEFAULT_CONTEXT_STORE.pop(loop, None)
 
     finalize(loop, finalizer)
     DEFAULT_CONTEXT_STORE[loop] = context

@@ -18,52 +18,98 @@
 #ifndef OMPI_HAVE_FORTRAN_LOGICAL16
 #define OMPI_HAVE_FORTRAN_LOGICAL16 0
 #endif
+#ifndef OMPI_HAVE_FORTRAN_INTEGER1
+#define OMPI_HAVE_FORTRAN_INTEGER1 0
+#endif
+#ifndef OMPI_HAVE_FORTRAN_INTEGER2
+#define OMPI_HAVE_FORTRAN_INTEGER2 0
+#endif
+#ifndef OMPI_HAVE_FORTRAN_INTEGER4
+#define OMPI_HAVE_FORTRAN_INTEGER4 0
+#endif
+#ifndef OMPI_HAVE_FORTRAN_INTEGER8
+#define OMPI_HAVE_FORTRAN_INTEGER8 0
+#endif
+#ifndef OMPI_HAVE_FORTRAN_INTEGER16
+#define OMPI_HAVE_FORTRAN_INTEGER16 0
+#endif
+#ifndef OMPI_HAVE_FORTRAN_REAL2
+#define OMPI_HAVE_FORTRAN_REAL2 0
+#endif
+#ifndef OMPI_HAVE_FORTRAN_REAL4
+#define OMPI_HAVE_FORTRAN_REAL4 0
+#endif
+#ifndef OMPI_HAVE_FORTRAN_REAL8
+#define OMPI_HAVE_FORTRAN_REAL8 0
+#endif
+#ifndef OMPI_HAVE_FORTRAN_REAL16
+#define OMPI_HAVE_FORTRAN_REAL16 0
+#endif
 
-#if !OMPI_HAVE_FORTRAN_LOGICAL1
 #undef PyMPI_HAVE_MPI_LOGICAL1
-#endif
-#if !OMPI_HAVE_FORTRAN_LOGICAL2
 #undef PyMPI_HAVE_MPI_LOGICAL2
-#endif
-#if !OMPI_HAVE_FORTRAN_LOGICAL4
 #undef PyMPI_HAVE_MPI_LOGICAL4
-#endif
-#if !OMPI_HAVE_FORTRAN_LOGICAL8
 #undef PyMPI_HAVE_MPI_LOGICAL8
-#endif
-#if !OMPI_HAVE_FORTRAN_LOGICAL16
 #undef PyMPI_HAVE_MPI_LOGICAL16
-#endif
-#if !OMPI_HAVE_FORTRAN_INTEGER1
 #undef PyMPI_HAVE_MPI_INTEGER1
-#endif
-#if !OMPI_HAVE_FORTRAN_INTEGER2
 #undef PyMPI_HAVE_MPI_INTEGER2
-#endif
-#if !OMPI_HAVE_FORTRAN_INTEGER4
 #undef PyMPI_HAVE_MPI_INTEGER4
-#endif
-#if !OMPI_HAVE_FORTRAN_INTEGER8
 #undef PyMPI_HAVE_MPI_INTEGER8
-#endif
-#if !OMPI_HAVE_FORTRAN_INTEGER16
 #undef PyMPI_HAVE_MPI_INTEGER16
-#endif
-#if !OMPI_HAVE_FORTRAN_REAL2
 #undef PyMPI_HAVE_MPI_REAL2
-#undef PyMPI_HAVE_MPI_COMPLEX4
-#endif
-#if !OMPI_HAVE_FORTRAN_REAL4
 #undef PyMPI_HAVE_MPI_REAL4
-#undef PyMPI_HAVE_MPI_COMPLEX8
-#endif
-#if !OMPI_HAVE_FORTRAN_REAL8
 #undef PyMPI_HAVE_MPI_REAL8
-#undef PyMPI_HAVE_MPI_COMPLEX16
-#endif
-#if !OMPI_HAVE_FORTRAN_REAL16
 #undef PyMPI_HAVE_MPI_REAL16
+#undef PyMPI_HAVE_MPI_COMPLEX4
+#undef PyMPI_HAVE_MPI_COMPLEX8
+#undef PyMPI_HAVE_MPI_COMPLEX16
 #undef PyMPI_HAVE_MPI_COMPLEX32
+
+#if OMPI_HAVE_FORTRAN_LOGICAL1
+#define PyMPI_HAVE_MPI_LOGICAL1 1
+#endif
+#if OMPI_HAVE_FORTRAN_LOGICAL2
+#define PyMPI_HAVE_MPI_LOGICAL2 1
+#endif
+#if OMPI_HAVE_FORTRAN_LOGICAL4
+#define PyMPI_HAVE_MPI_LOGICAL4 1
+#endif
+#if OMPI_HAVE_FORTRAN_LOGICAL8
+#define PyMPI_HAVE_MPI_LOGICAL8 1
+#endif
+#if OMPI_HAVE_FORTRAN_LOGICAL16
+#define PyMPI_HAVE_MPI_LOGICAL16 1
+#endif
+#if OMPI_HAVE_FORTRAN_INTEGER1
+#define PyMPI_HAVE_MPI_INTEGER1 1
+#endif
+#if OMPI_HAVE_FORTRAN_INTEGER2
+#define PyMPI_HAVE_MPI_INTEGER2 1
+#endif
+#if OMPI_HAVE_FORTRAN_INTEGER4
+#define PyMPI_HAVE_MPI_INTEGER4 1
+#endif
+#if OMPI_HAVE_FORTRAN_INTEGER8
+#define PyMPI_HAVE_MPI_INTEGER8 1
+#endif
+#if OMPI_HAVE_FORTRAN_INTEGER16
+#define PyMPI_HAVE_MPI_INTEGER16 1
+#endif
+#if OMPI_HAVE_FORTRAN_REAL2
+#define PyMPI_HAVE_MPI_REAL2 1
+#define PyMPI_HAVE_MPI_COMPLEX4 1
+#endif
+#if OMPI_HAVE_FORTRAN_REAL4
+#define PyMPI_HAVE_MPI_REAL4 1
+#define PyMPI_HAVE_MPI_COMPLEX8 1
+#endif
+#if OMPI_HAVE_FORTRAN_REAL8
+#define PyMPI_HAVE_MPI_REAL8 1
+#define PyMPI_HAVE_MPI_COMPLEX16 1
+#endif
+#if OMPI_HAVE_FORTRAN_REAL16
+#define PyMPI_HAVE_MPI_REAL16 1
+#define PyMPI_HAVE_MPI_COMPLEX32 1
 #endif
 
 #ifdef OMPI_PROVIDE_MPI_FILE_INTERFACE
@@ -209,12 +255,71 @@
 #define PyMPI_HAVE_MPI_F_STATUS_SIZE 1
 #endif
 
-#if OMPI_NUMVERSION >= 50100
+#if OMPI_NUMVERSION >= 60000
 #define PyMPI_HAVE_MPI_ERR_ERRHANDLER 1
+#define PyMPI_HAVE_MPI_Remove_error_class 1
+#define PyMPI_HAVE_MPI_Remove_error_code 1
+#define PyMPI_HAVE_MPI_Remove_error_string 1
+#define PyMPI_HAVE_MPI_Status_get_source 1
+#define PyMPI_HAVE_MPI_Status_set_source 1
+#define PyMPI_HAVE_MPI_Status_get_tag 1
+#define PyMPI_HAVE_MPI_Status_set_tag 1
+#define PyMPI_HAVE_MPI_Status_get_error 1
+#define PyMPI_HAVE_MPI_Status_set_error 1
+#define PyMPI_HAVE_MPI_COMBINER_VALUE_INDEX 1
+#define PyMPI_HAVE_MPI_Type_get_value_index 1
+#define PyMPI_HAVE_MPI_Request_get_status_any 1
+#define PyMPI_HAVE_MPI_Request_get_status_all 1
+#define PyMPI_HAVE_MPI_Request_get_status_some 1
+#define PyMPI_HAVE_MPI_BUFFER_AUTOMATIC 1
+#define PyMPI_HAVE_MPI_Buffer_flush 1
+#define PyMPI_HAVE_MPI_Buffer_iflush 1
+#define PyMPI_HAVE_MPI_Comm_attach_buffer 1
+#define PyMPI_HAVE_MPI_Comm_detach_buffer 1
+#define PyMPI_HAVE_MPI_Comm_flush_buffer 1
+#define PyMPI_HAVE_MPI_Comm_iflush_buffer 1
+#define PyMPI_HAVE_MPI_Session_attach_buffer 1
+#define PyMPI_HAVE_MPI_Session_detach_buffer 1
+#define PyMPI_HAVE_MPI_Session_flush_buffer  1
+#define PyMPI_HAVE_MPI_Session_iflush_buffer 1
+#define PyMPI_HAVE_MPI_Comm_attach_buffer_c 1
+#define PyMPI_HAVE_MPI_Comm_detach_buffer_c 1
+#define PyMPI_HAVE_MPI_Session_attach_buffer_c 1
+#define PyMPI_HAVE_MPI_Session_detach_buffer_c 1
+#define PyMPI_HAVE_MPI_COMM_TYPE_RESOURCE_GUIDED 1
+#define PyMPI_HAVE_MPI_Get_hw_resource_info 1
+#endif
+
+#if OMPI_NUMVERSION >= 60100 && defined(MPI_ERR_ABI)
+#define PyMPI_HAVE_MPI_Comm_toint 1
+#define PyMPI_HAVE_MPI_Errhandler_toint 1
+#define PyMPI_HAVE_MPI_File_toint 1
+#define PyMPI_HAVE_MPI_Group_toint 1
+#define PyMPI_HAVE_MPI_Info_toint 1
+#define PyMPI_HAVE_MPI_Message_toint 1
+#define PyMPI_HAVE_MPI_Op_toint 1
+#define PyMPI_HAVE_MPI_Request_toint 1
+#define PyMPI_HAVE_MPI_Session_toint 1
+#define PyMPI_HAVE_MPI_Type_toint 1
+#define PyMPI_HAVE_MPI_Win_toint 1
+#define PyMPI_HAVE_MPI_Comm_fromint 1
+#define PyMPI_HAVE_MPI_Errhandler_fromint 1
+#define PyMPI_HAVE_MPI_File_fromint 1
+#define PyMPI_HAVE_MPI_Group_fromint 1
+#define PyMPI_HAVE_MPI_Info_fromint 1
+#define PyMPI_HAVE_MPI_Message_fromint 1
+#define PyMPI_HAVE_MPI_Op_fromint 1
+#define PyMPI_HAVE_MPI_Request_fromint 1
+#define PyMPI_HAVE_MPI_Session_fromint 1
+#define PyMPI_HAVE_MPI_Type_fromint 1
+#define PyMPI_HAVE_MPI_Win_fromint 1
+#define PyMPI_HAVE_MPI_ERR_ABI 1
+#define PyMPI_HAVE_MPI_Abi_get_version 1
+#define PyMPI_HAVE_MPI_Abi_get_info 1
+#define PyMPI_HAVE_MPI_Abi_get_fortran_info 1
 #endif
 
 #endif
-
 
 #if MPI_VERSION < 6
 

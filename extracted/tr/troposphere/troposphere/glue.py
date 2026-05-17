@@ -18,6 +18,98 @@ from .validators.glue import (
 )
 
 
+class DataLakeAccessProperties(AWSProperty):
+    """
+    `DataLakeAccessProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "AllowFullTableExternalDataAccess": (str, False),
+        "CatalogType": (str, False),
+        "DataLakeAccess": (boolean, False),
+        "DataTransferRole": (str, False),
+        "KmsKey": (str, False),
+        "ManagedWorkgroupName": (str, False),
+        "ManagedWorkgroupStatus": (str, False),
+        "RedshiftDatabaseName": (str, False),
+    }
+
+
+class CatalogProperties(AWSProperty):
+    """
+    `CatalogProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-catalogproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomProperties": (dict, False),
+        "DataLakeAccessProperties": (DataLakeAccessProperties, False),
+    }
+
+
+class FederatedCatalog(AWSProperty):
+    """
+    `FederatedCatalog <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-federatedcatalog.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConnectionName": (str, False),
+        "Identifier": (str, False),
+    }
+
+
+class DataLakePrincipal(AWSProperty):
+    """
+    `DataLakePrincipal <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-database-datalakeprincipal.html>`__
+    """
+
+    props: PropsDictType = {
+        "DataLakePrincipalIdentifier": (str, False),
+    }
+
+
+class PrincipalPermissions(AWSProperty):
+    """
+    `PrincipalPermissions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-principalpermissions.html>`__
+    """
+
+    props: PropsDictType = {
+        "Permissions": ([str], False),
+        "Principal": (DataLakePrincipal, False),
+    }
+
+
+class TargetRedshiftCatalog(AWSProperty):
+    """
+    `TargetRedshiftCatalog <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-targetredshiftcatalog.html>`__
+    """
+
+    props: PropsDictType = {
+        "CatalogArn": (str, True),
+    }
+
+
+class Catalog(AWSObject):
+    """
+    `Catalog <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html>`__
+    """
+
+    resource_type = "AWS::Glue::Catalog"
+
+    props: PropsDictType = {
+        "AllowFullTableExternalDataAccess": (str, False),
+        "CatalogProperties": (CatalogProperties, False),
+        "CreateDatabaseDefaultPermissions": ([PrincipalPermissions], False),
+        "CreateTableDefaultPermissions": ([PrincipalPermissions], False),
+        "Description": (str, False),
+        "FederatedCatalog": (FederatedCatalog, False),
+        "Name": (str, True),
+        "OverwriteChildResourcePermissionsWithDefault": (str, False),
+        "Parameters": (dict, False),
+        "Tags": (Tags, False),
+        "TargetRedshiftCatalog": (TargetRedshiftCatalog, False),
+    }
+
+
 class CsvClassifier(AWSProperty):
     """
     `CsvClassifier <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-classifier-csvclassifier.html>`__
@@ -507,16 +599,6 @@ class FederatedDatabase(AWSProperty):
     props: PropsDictType = {
         "ConnectionName": (str, False),
         "Identifier": (str, False),
-    }
-
-
-class DataLakePrincipal(AWSProperty):
-    """
-    `DataLakePrincipal <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-database-datalakeprincipal.html>`__
-    """
-
-    props: PropsDictType = {
-        "DataLakePrincipalIdentifier": (str, False),
     }
 
 
@@ -1113,12 +1195,102 @@ class SecurityConfiguration(AWSObject):
     }
 
 
+class IcebergPartitionField(AWSProperty):
+    """
+    `IcebergPartitionField <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html>`__
+    """
+
+    props: PropsDictType = {
+        "FieldId": (integer, False),
+        "Name": (str, True),
+        "SourceId": (integer, True),
+        "Transform": (str, True),
+    }
+
+
+class IcebergPartitionSpec(AWSProperty):
+    """
+    `IcebergPartitionSpec <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionspec.html>`__
+    """
+
+    props: PropsDictType = {
+        "Fields": ([IcebergPartitionField], True),
+        "SpecId": (integer, False),
+    }
+
+
+class IcebergStructField(AWSProperty):
+    """
+    `IcebergStructField <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergstructfield.html>`__
+    """
+
+    props: PropsDictType = {
+        "Doc": (str, False),
+        "Id": (integer, True),
+        "Name": (str, True),
+        "Required": (boolean, True),
+        "Type": (str, True),
+    }
+
+
+class IcebergSchema(AWSProperty):
+    """
+    `IcebergSchema <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergschema.html>`__
+    """
+
+    props: PropsDictType = {
+        "Fields": ([IcebergStructField], True),
+        "IdentifierFieldIds": ([integer], False),
+        "SchemaId": (integer, False),
+        "Type": (str, False),
+    }
+
+
+class IcebergSortField(AWSProperty):
+    """
+    `IcebergSortField <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortfield.html>`__
+    """
+
+    props: PropsDictType = {
+        "Direction": (str, True),
+        "NullOrder": (str, True),
+        "SourceId": (integer, True),
+        "Transform": (str, True),
+    }
+
+
+class IcebergSortOrder(AWSProperty):
+    """
+    `IcebergSortOrder <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergsortorder.html>`__
+    """
+
+    props: PropsDictType = {
+        "Fields": ([IcebergSortField], True),
+        "OrderId": (integer, True),
+    }
+
+
+class IcebergTableInput(AWSProperty):
+    """
+    `IcebergTableInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html>`__
+    """
+
+    props: PropsDictType = {
+        "Location": (str, True),
+        "PartitionSpec": (IcebergPartitionSpec, False),
+        "Properties": (dict, False),
+        "Schema": (IcebergSchema, True),
+        "WriteOrder": (IcebergSortOrder, False),
+    }
+
+
 class IcebergInput(AWSProperty):
     """
     `IcebergInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-iceberginput.html>`__
     """
 
     props: PropsDictType = {
+        "IcebergTableInput": (IcebergTableInput, False),
         "MetadataOperation": (str, False),
         "Version": (str, False),
     }
@@ -1147,6 +1319,33 @@ class TableIdentifier(AWSProperty):
     }
 
 
+class ViewRepresentation(AWSProperty):
+    """
+    `ViewRepresentation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewrepresentation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Dialect": (str, False),
+        "DialectVersion": (str, False),
+        "ValidationConnection": (str, False),
+        "ViewExpandedText": (str, False),
+        "ViewOriginalText": (str, False),
+    }
+
+
+class ViewDefinition(AWSProperty):
+    """
+    `ViewDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-viewdefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Definer": (str, False),
+        "IsProtected": (boolean, False),
+        "Representations": ([ViewRepresentation], False),
+        "SubObjects": ([str], False),
+    }
+
+
 class TableInput(AWSProperty):
     """
     `TableInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html>`__
@@ -1162,6 +1361,7 @@ class TableInput(AWSProperty):
         "StorageDescriptor": (StorageDescriptor, False),
         "TableType": (table_type_validator, False),
         "TargetTable": (TableIdentifier, False),
+        "ViewDefinition": (ViewDefinition, False),
         "ViewExpandedText": (str, False),
         "ViewOriginalText": (str, False),
     }
@@ -1177,8 +1377,9 @@ class Table(AWSObject):
     props: PropsDictType = {
         "CatalogId": (str, True),
         "DatabaseName": (str, True),
+        "Name": (str, False),
         "OpenTableFormatInput": (OpenTableFormatInput, False),
-        "TableInput": (TableInput, True),
+        "TableInput": (TableInput, False),
     }
 
 

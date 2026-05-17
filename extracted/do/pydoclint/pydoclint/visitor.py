@@ -22,6 +22,7 @@ from pydoclint.utils.generic import (
     generateFuncMsgPrefix,
     getDocstring,
     isLastConstructor,
+    isPrivateName,
 )
 from pydoclint.utils.method_type import MethodType
 from pydoclint.utils.parse_docstring import (
@@ -73,6 +74,7 @@ class Visitor(ast.NodeVisitor):
             checkArgOrder: bool = True,
             skipCheckingShortDocstrings: bool = True,
             skipCheckingRaises: bool = False,
+            skipCheckingPrivateFunctions: bool = False,
             allowInitDocstring: bool = False,
             checkReturnTypes: bool = True,
             checkYieldTypes: bool = True,
@@ -82,6 +84,7 @@ class Visitor(ast.NodeVisitor):
             shouldDocumentPrivateClassAttributes: bool = False,
             treatPropertyMethodsAsClassAttributes: bool = False,
             onlyAttrsWithClassVarAreTreatedAsClassAttrs: bool = False,
+            requireInlineClassVarDocs: bool = False,
             requireReturnSectionWhenReturningNothing: bool = False,
             requireYieldSectionWhenYieldingNothing: bool = False,
             shouldDocumentStarArguments: bool = True,
@@ -96,6 +99,7 @@ class Visitor(ast.NodeVisitor):
         self.checkArgOrder: bool = checkArgOrder
         self.skipCheckingShortDocstrings: bool = skipCheckingShortDocstrings
         self.skipCheckingRaises: bool = skipCheckingRaises
+        self.skipCheckingPrivateFunctions: bool = skipCheckingPrivateFunctions
         self.allowInitDocstring: bool = allowInitDocstring
         self.checkReturnTypes: bool = checkReturnTypes
         self.checkYieldTypes: bool = checkYieldTypes
@@ -111,6 +115,7 @@ class Visitor(ast.NodeVisitor):
         self.onlyAttrsWithClassVarAreTreatedAsClassAttrs: bool = (
             onlyAttrsWithClassVarAreTreatedAsClassAttrs
         )
+        self.requireInlineClassVarDocs: bool = requireInlineClassVarDocs
         self.requireReturnSectionWhenReturningNothing: bool = (
             requireReturnSectionWhenReturningNothing
         )
@@ -163,6 +168,7 @@ class Visitor(ast.NodeVisitor):
                 onlyAttrsWithClassVarAreTreatedAsClassAttrs=(
                     self.onlyAttrsWithClassVarAreTreatedAsClassAttrs
                 ),
+                requireInlineClassVarDocs=self.requireInlineClassVarDocs,
                 checkArgDefaults=self.checkArgDefaults,
             )
 
@@ -188,6 +194,11 @@ class Visitor(ast.NodeVisitor):
             # body, so earlier ones are skipped to avoid reporting bogus
             # violations.
             self.parent = parent_  # restore
+            return
+
+        if self.skipCheckingPrivateFunctions and isPrivateName(node.name):
+            # Restore enclosing parent before skipping this private function
+            self.parent = parent_
             return
 
         docstring: str = getDocstring(node)
@@ -631,6 +642,7 @@ class Visitor(ast.NodeVisitor):
             shouldCheckArgOrder=self.checkArgOrder,
             argTypeHintsInSignature=considerArgTypeHintsInSignature,
             argTypeHintsInDocstring=considerArgTypeHintsInDocstring,
+            requireInlineClassVarDocs=self.requireInlineClassVarDocs,
             lineNum=lineNum,
             msgPrefix=msgPrefix,
         )

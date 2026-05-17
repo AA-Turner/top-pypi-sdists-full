@@ -563,3 +563,35 @@ class TestInputParsing:
         """Test emoji in input."""
         user_input = "🚀 Deploy the app"
         assert "🚀" in user_input
+
+
+class TestNoTokensShadowingInRepl:
+    """Regression: /models REPL handler must NOT shadow the outer `tokens` int.
+
+    The 2026-05-16 bug: typing `/models --all` reassigned `tokens` to the
+    list `['--all']`, and the next chat call sent `max_tokens=['--all']` to
+    the backend, yielding a 422 from FastAPI's Pydantic validator and a
+    matching `'<=' not supported between instances of 'list' and 'int'`
+    crash inside llama_cpp's generate. Same root cause for both clients
+    (CLI + website) because both went through the same REPL function.
+
+    This test scans main.py's REPL block for the dangerous re-binding
+    pattern. We assert at the source-code level because building a full
+    REPL fixture would be heavier than the bug warrants — variable
+    shadowing is a static property.
+    """
+
+    def test_no_argv_split_into_tokens_in_main_py(self):
+        from pathlib import Path
+        main_py = (
+            Path(__file__).resolve().parent.parent / "main.py"
+        ).read_text(encoding="utf-8")
+        # The exact pattern that caused the regression — any future
+        # contributor who reintroduces it gets a loud failing test.
+        bad = 'tokens = (arg or "").split()'
+        assert bad not in main_py, (
+            "REPL handler is re-binding the outer `tokens` int parameter "
+            "to a list of argv strings. That value then flows into the "
+            "next chat call as max_tokens=['--all'...] and triggers a "
+            "422 from the backend. Use a different name (e.g. `argv`)."
+        )

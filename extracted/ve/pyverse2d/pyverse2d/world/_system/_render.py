@@ -9,12 +9,12 @@ from .._component import Transform, SpriteRenderer, ShapeRenderer, TextRenderer
 from ..._rendering import Pipeline, PygletShapeRenderer, PygletSpriteRenderer, PygletLabelRenderer
 from ..._core import Geometry
 
-from typing import Callable
+from typing import Callable, ClassVar
 
-# ======================================== RENDER ORDER ========================================
-_ORDER_SHAPE = 0
-_ORDER_SPRITE = 1
-_ORDER_LABEL = 2
+# ======================================== CONSTANTS ========================================
+_ORDER_SHAPE: int = 0
+_ORDER_SPRITE: int = 1
+_ORDER_LABEL: int = 2
 
 # ======================================== SYSTEM ========================================
 class RenderSystem(System):
@@ -24,9 +24,14 @@ class RenderSystem(System):
         "_geometries_cache", "_geometries_keys",
     )
     
-    order = 100
-    exclusive = True
-    renderable = True
+    _ORDER: ClassVar[int] = 100
+
+    _IS_EXCLUSIVE: ClassVar[bool] = True
+    _IS_RENDERABLE: ClassVar[bool] = True
+
+    _ACTIVE_SPRITES_SET: ClassVar[set[int]] = set()
+    _ACTIVE_SHAPES_SET: ClassVar[set[int]] = set()
+    _ACTIVE_LABELS_SET: ClassVar[set[int]] = set()
 
     def __init__(self):
         # Caches des renderers
@@ -50,7 +55,7 @@ class RenderSystem(System):
 
         Args:
             world: monde courant
-            dt: delta temps
+            dt: delta-time
         """
         pass
 
@@ -59,13 +64,20 @@ class RenderSystem(System):
         """Synchronise toutes les entités renderables avec le Batch de rendu
 
         Args:
-            world(World): monde à rendre
-            pipeline(Pipeline): pipeline active
+            world: monde à rendre
+            pipeline: ``Pipeline`` de rendu courant
         """
-        active_sprites = set()
-        active_shapes = set()
-        active_labels = set()
+        # Récupération des sets pré-alloués
+        active_sprites = RenderSystem._ACTIVE_SPRITES_SET
+        active_shapes = RenderSystem._ACTIVE_SHAPES_SET
+        active_labels = RenderSystem._ACTIVE_LABELS_SET
 
+        # Nettoyage
+        active_sprites.clear()
+        active_shapes.clear()
+        active_labels.clear()
+
+        # Affichage des renderers
         for entity in world.query(Transform):
             eid = entity.id
             tr: Transform = entity.get(Transform)
@@ -97,7 +109,13 @@ class RenderSystem(System):
 
     # ======================================== SYNC SHAPE ========================================
     def _sync_shape(self, entity: Entity, tr: Transform, pipeline: Pipeline):
-        """Crée ou met à jour le renderer de shape de l'entité"""
+        """Crée ou met à jour le renderer de shape de l'entité
+        
+        Args:
+            entity: ``Entity`` possédant le renderer
+            tr: ``Transform``de l'entité
+            pipeline: ``Pipeline``de rendu courant
+        """
         # Raccourcis
         sr: ShapeRenderer = entity.get(ShapeRenderer)
         eid = entity.id
@@ -154,7 +172,13 @@ class RenderSystem(System):
 
     # ======================================== SYNC SPRITE ========================================
     def _sync_sprite(self, entity: Entity, tr: Transform, pipeline: Pipeline):
-        """Crée ou met à jour le renderer de sprite de l'entité"""
+        """Crée ou met à jour le renderer de sprite de l'entité
+
+        Args:
+            entity: ``Entity`` possédant le renderer
+            tr: ``Transform``de l'entité
+            pipeline: ``Pipeline``de rendu courant
+        """
         # Raccourcis
         sr: SpriteRenderer = entity.get(SpriteRenderer)
         eid = entity.id
@@ -198,7 +222,13 @@ class RenderSystem(System):
 
     # ======================================== SYNC TEXT ========================================
     def _sync_text(self, entity: Entity, tr: Transform, pipeline: Pipeline):
-        """Crée ou met à jour le renderer de label de l'entité"""
+        """Crée ou met à jour le renderer de label de l'entité
+        
+        Args:
+            entity: ``Entity`` possédant le renderer
+            tr: ``Transform``de l'entité
+            pipeline: ``Pipeline``de rendu courant
+        """
         # Raccourcis
         tc: TextRenderer = entity.get(TextRenderer)
         eid = entity.id
@@ -248,7 +278,11 @@ class RenderSystem(System):
 
     # ======================================== INTERNALS ========================================
     def _make_clear_geometry_func(self, eid: int) -> Callable[[], None]:
-        """Construit un token de suppresion d'une géométrie"""
+        """Construit un token de suppresion d'une géométrie
+        
+        Args:
+            eid: identifiant de l'entité
+        """
 
         def clear_geometry() -> None:
             self._geometries_cache.pop(eid, None)

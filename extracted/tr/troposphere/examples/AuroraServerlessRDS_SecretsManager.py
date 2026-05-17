@@ -9,11 +9,9 @@ from troposphere.secretsmanager import (
 
 t = Template()
 t.set_version("2010-09-09")
-t.set_description(
-    """\
+t.set_description("""\
 AWS CloudFormation Template to launch an Aurora Serverless Relational \
-Database (RDS) Cluster."""
-)
+Database (RDS) Cluster.""")
 
 vpcid = t.add_parameter(
     Parameter(

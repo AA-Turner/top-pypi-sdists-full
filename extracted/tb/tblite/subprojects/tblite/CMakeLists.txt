@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.14)
 project(
   "tblite"
   LANGUAGES "Fortran" "C"
-  VERSION "0.5.0"
+  VERSION "0.6.0"
   DESCRIPTION "Light-weight tight-binding framework"
 )
 
@@ -43,14 +43,17 @@ if(NOT TARGET "LAPACK::LAPACK")
 endif()
 
 # Collect subprojects
+if(NOT TARGET "toml-f::toml-f")
+  find_package("toml-f" REQUIRED)
+endif()
 if(NOT TARGET "mctc-lib::mctc-lib")
   find_package("mctc-lib" REQUIRED)
 endif()
 if(NOT TARGET "mstore::mstore" AND WITH_TESTS)
   find_package("mstore" REQUIRED)
 endif()
-if(NOT TARGET "toml-f::toml-f")
-  find_package("toml-f" REQUIRED)
+if(NOT TARGET "multicharge::multicharge")
+  find_package("multicharge" REQUIRED)
 endif()
 if(NOT TARGET "dftd4::dftd4")
   find_package("dftd4" REQUIRED)

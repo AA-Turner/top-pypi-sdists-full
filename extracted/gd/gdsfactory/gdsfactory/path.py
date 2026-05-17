@@ -20,6 +20,7 @@ import numpy as np
 import numpy.typing as npt
 from kfactory.geometry import UMGeometricObject
 from numpy import mod
+from scipy import optimize
 
 import gdsfactory as gf
 from gdsfactory.component import Component, ComponentAllAngle
@@ -325,7 +326,7 @@ class Path(UMGeometricObject):
         else:
             points = self.centerpoint_offset_curve(
                 self.points,
-                offset_distance=offset,
+                offset_distance=cast(float, offset),  # type: ignore[redundant-cast]
                 start_angle=self.start_angle,
                 end_angle=self.end_angle,
             )
@@ -673,7 +674,12 @@ def _sinusoidal_transition(y1: float, y2: float) -> Callable[[T], T]:
     dy = y2 - y1
 
     def sine(t: T) -> T:
-        return cast("T", y1 + (1 - np.cos(np.pi * t)) / 2 * dy)
+        return cast(
+            T,
+            np.add(
+                y1, np.multiply(np.subtract(1, np.cos(np.multiply(np.pi, t))), dy / 2)
+            ),
+        )
 
     return sine
 
@@ -682,7 +688,7 @@ def _parabolic_transition(y1: float, y2: float) -> Callable[[T], T]:
     dy = y2 - y1
 
     def parabolic(t: T) -> T:
-        return cast("T", y1 + np.sqrt(t) * dy)
+        return cast(T, np.add(y1, np.multiply(np.sqrt(t), dy)))
 
     return parabolic
 
@@ -691,7 +697,7 @@ def _linear_transition(y1: float, y2: float) -> Callable[[T], T]:
     dy = y2 - y1
 
     def linear(t: T) -> T:
-        return y1 + t * dy
+        return cast(T, np.add(y1, np.multiply(t, dy)))
 
     return linear
 
@@ -1497,7 +1503,7 @@ def extrude_transition(
             assert not isinstance(offset_value1, float)
             center = p.centerpoint_offset_curve(
                 points[:2],
-                offset_distance=offset_value1[:2],
+                offset_distance=cast(Sequence[float], offset_value1)[:2],
                 start_angle=start_angle,
                 end_angle=None,
             )[0]
@@ -1517,7 +1523,7 @@ def extrude_transition(
             assert not isinstance(offset_value1, float)
             center = p.centerpoint_offset_curve(
                 points[-2:],
-                offset_distance=offset_value1[-2:],
+                offset_distance=cast(Sequence[float], offset_value1)[-2:],
                 start_angle=None,
                 end_angle=end_angle,
             )[-1]
@@ -1799,9 +1805,11 @@ def euler(
         npoints = math.ceil(abs(angle / angular_step)) + 1
         # For angular discretization, distribute points based on angle proportion
         euler_angle = p * angle / 2  # Angle covered by each Euler section
-        arc_angle = (1 - p) * angle  # Angle covered by arc section
-        num_pts_euler = max(1, int(euler_angle / angular_step))
-        num_pts_arc = max(1, int(arc_angle / angular_step)) + 1
+        arc_angle = (
+            (1 - p) * angle / 2
+        )  # Angle covered by arc section (half, then mirrored)
+        num_pts_euler = max(2, math.ceil(euler_angle / angular_step))
+        num_pts_arc = max(2, math.ceil(arc_angle / angular_step) + 1)
         npoints = (
             2 * num_pts_euler + num_pts_arc - 2
         )  # Total points (avoiding duplicates)
@@ -1843,7 +1851,7 @@ def euler(
     if not is_small_angle:
         if angular_step is not None:
             # Original angular_step behavior (different from npoints mode)
-            arc_angle_section = alpha * (1 - p)
+            arc_angle_section = alpha * (1 - p) / 2
             theta = np.linspace(0, arc_angle_section, num_pts_arc)
             arc_angles = theta + p * alpha / 2
         else:
@@ -1899,6 +1907,217 @@ def euler(
     if mirror:
         path.mirror((1, 0))
     return path
+
+
+def _find_root_in_range(
+    equation: Callable[[float], float],
+    variable_range: tuple[float, float],
+) -> tuple[float, float]:
+    """Find a root of `equation` within the given range using Brent's method.
+
+    Falls back to a coarse scan if the initial bracket has no sign change.
+
+    Args:
+        equation: a scalar function f(x) whose zero is sought.
+        variable_range: (lower, upper) bounds for the search.
+
+    Returns:
+        (root, residual): the found root and the constraint value at it.
+
+    Raises:
+        RuntimeError: if no sign change is found within the range.
+    """
+    var_lo, var_hi = variable_range
+
+    try:
+        root = float(optimize.brentq(equation, var_lo, var_hi, xtol=1e-9, maxiter=500))
+    except ValueError:
+        x_vals = np.linspace(var_lo, var_hi, 1000)
+        residuals = [equation(x) for x in x_vals]
+        sign_changes = np.where(np.diff(np.sign(residuals)))[0]
+        if len(sign_changes) == 0:
+            raise RuntimeError(
+                f"No root found in [{var_lo}, {var_hi}]. "
+                "Verify that the constraint changes sign within the bracket."
+            )
+        root = float(
+            optimize.brentq(
+                equation, x_vals[sign_changes[0]], x_vals[sign_changes[0] + 1]
+            )
+        )
+
+    return root, float(equation(root))
+
+
+def _topic_theta_of_s(s: float, Rc: float, theta_p: float) -> float:
+    """Accumulated angle along the TOP spiral section."""
+    return float((4 * Rc * theta_p * s**3 - s**4) / (16 * Rc**4 * theta_p**3))
+
+
+def _topic_compute_x0_y0(Rc: float, theta_p: float) -> tuple[float, float]:
+    """Numerically integrate the Fresnel-like integrals for a given Rc.
+
+    Args:
+        Rc: minimum radius of curvature.
+        theta_p: transition angle in radians (= p * theta_t).
+
+    Returns:
+        (x0, y0): center of the circular arc segment.
+    """
+    from scipy import integrate
+
+    s_max = 2 * Rc * theta_p
+
+    x0_int, _ = integrate.quad(
+        lambda s: np.cos(_topic_theta_of_s(s, Rc, theta_p)), 0, s_max
+    )
+    y0_int, _ = integrate.quad(
+        lambda s: np.sin(_topic_theta_of_s(s, Rc, theta_p)), 0, s_max
+    )
+
+    x0 = x0_int - Rc * np.sin(theta_p)
+    y0 = y0_int + Rc * np.cos(theta_p)
+    return x0, y0
+
+
+def _topic_compute_top_coordinates(
+    Rc: float, theta_p: float, n_points: int = 300
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Compute (x, y) along the TOP spiral section via Eq. 6 of the paper.
+
+    Integrates:
+        x(l) = integral_0^l cos(theta(s)) ds
+        y(l) = integral_0^l sin(theta(s)) ds
+
+    where theta(s) = (4*Rc*theta_p*s^3 - s^4) / (16 * Rc^4 * theta_p^3)
+    and l ranges from 0 to 2*Rc*theta_p.
+
+    Args:
+        Rc: minimum radius of curvature (from solver).
+        theta_p: transition angle in radians (= p * theta_t).
+        n_points: number of sample points along the curve.
+
+    Returns:
+        x_top: x coordinates.
+        y_top: y coordinates.
+    """
+    from scipy import integrate
+
+    l_max = 2 * Rc * theta_p
+
+    l_vals = np.linspace(0, l_max, n_points)
+    theta_vals = np.array([_topic_theta_of_s(s, Rc, theta_p) for s in l_vals])
+
+    x_top = integrate.cumulative_trapezoid(np.cos(theta_vals), l_vals, initial=0)
+    y_top = integrate.cumulative_trapezoid(np.sin(theta_vals), l_vals, initial=0)
+
+    return x_top, y_top
+
+
+def topic(
+    radius: float = 10.0, angle: float = 90.0, p: float = 0.1, npoints: int = 100
+) -> Path:
+    """Returns a Third Order Polynomial Interconnected Circular (TOPIC) bend, as described in this publication https://arxiv.org/html/2411.15025v1.
+
+    The bend consists of three parts:
+    a. Initial transition from straight to bend, known as TOP segment.
+    b. Circular part whose center and radius are calculated analytically.
+    c. Mirroring of TOP segment with respect to the bisection of the angle.
+
+    The implementation consists of 5 parts.
+    1. Define transition angle as p*angle.
+    2. Calculate the center, (x0, y0), radius (Rc) and angle (angle*(1-2*p)) of the circular path.
+    3. Generate TOP segment.
+    4. Generate circular segment, starting from the end of TOP with center (x0, y0), radius Rc, and angle = angle(1-2*p)
+    5. Generate TOP' segment by mirroring TOP with respect to the bisector of the angle.
+
+    Args:
+        radius: radius at the start and end of bend.
+        angle: total angle of the curve in degrees.
+        p: used to calculate the angle of the bend at the end of TOP / start of circular arc, as p*angle. It should be within [0, 0.5).
+        npoints: Number of points used per 360 degrees.
+
+    .. plot::
+        :include-source:
+
+        import gdsfactory as gf
+
+        p = gf.path.topic(radius=10, angle=110, p=0.1, npoints=720)
+        p.plot()
+    """
+    if p < 0.0 or p >= 0.5:
+        raise ValueError(
+            "The angle of bend during the transition from the TOP segment to the circular is p*angle . "
+            "topic() requires the transition angle to be between 0 (circular bend) and 0.5*angle . "
+        )
+    if abs(angle) <= 1e-6:
+        raise ValueError("The bend's total angle should be larger than 1e-6.")
+    if p < 1e-4:
+        topic_path = arc(radius=radius, angle=angle, npoints=npoints)
+        topic_path.end_angle = angle
+        topic_path.info["Rmin"] = radius
+        return topic_path
+
+    # 1. Define transition angle as p*angle.
+    theta_t = np.radians(angle)
+    theta_p = p * theta_t
+
+    def constraint(Rc: float) -> float:
+        """Residual of the first equation of the paper: should equal zero."""
+        if Rc <= 0:
+            return 1e9
+        x0, y0 = _topic_compute_x0_y0(Rc, theta_p)
+        return float(x0 * np.cos(theta_t / 2) + (y0 - radius) * np.sin(theta_t / 2))
+
+    Rc, _ = _find_root_in_range(constraint, (1e-3 * radius, radius))
+
+    x0, y0 = _topic_compute_x0_y0(Rc, theta_p)
+
+    # Split number of points between TOP, circular and TOP' sections.
+    # Circular gets the percentage of total points corresponding to its arc length / the arc length if the whole bend was circular
+    n_points_circ = int(npoints * (Rc * (theta_t - 2 * theta_p)) / (radius * theta_t))
+    n_points_top = max(2, (npoints - n_points_circ) // 2)
+
+    # Add another point to circular arc if there is one left
+    if 2 * n_points_top + n_points_circ == npoints - 1:
+        n_points_circ += 1
+
+    # 3. Generate TOP segment.
+    x_top, y_top = _topic_compute_top_coordinates(Rc, theta_p, n_points=n_points_top)
+
+    # 4. Generate circular segment, starting from the end of TOP with center (x0, y0), radius Rc, and angle = angle(1-2*p)
+    # In order to avoid overlap between TOP's last point and circ first point, ignore the first and last points of the arc.
+    theta_list = np.linspace(
+        start=theta_p,
+        stop=theta_t - theta_p,
+        num=n_points_circ + 2,
+        endpoint=True,  # n_points_circ+2 to avoid the first and last one
+    )
+
+    x_arc = np.array([x0 + Rc * np.sin(theta) for theta in theta_list[1:-1]])
+    y_arc = np.array([y0 - Rc * np.cos(theta) for theta in theta_list[1:-1]])
+
+    # 5. Generate TOP' segment by mirroring TOP with respect to the bisector of the angle.
+    # The goal is to do a rotation of each point of TOP, centered to (0,radius).
+    dist = np.sqrt(x_top**2 + (radius - y_top) ** 2)
+    thetas = np.asin(np.clip(x_top / dist, -1, 1))
+    # The first point of TOP corresponds to the last point of TOP', this is why we reverse the vectors
+    x_top_prime = dist * np.sin(theta_t - thetas)
+    x_top_prime = x_top_prime[::-1]
+    y_top_prime = radius - dist * np.cos(theta_t - thetas)
+    y_top_prime = y_top_prime[::-1]
+
+    x_all = np.concatenate([x_top, x_arc, x_top_prime])
+    y_all = np.concatenate([y_top, y_arc, y_top_prime])
+
+    points = np.column_stack((x_all, y_all))
+
+    topic_path = Path()
+    topic_path.points = points
+    topic_path.end_angle = angle
+    topic_path.info["Rmin"] = Rc
+
+    return topic_path
 
 
 def straight(length: float = 10.0, npoints: int = 2) -> Path:

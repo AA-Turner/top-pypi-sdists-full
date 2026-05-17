@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ----------------------------------------------------------------------------
 # Name:         tree/verticality.py
 # Purpose:      Object for dealing with vertical simultaneities in a
@@ -581,7 +580,7 @@ class Verticality(prebase.ProtoM21Object):
         r'''
         Makes a Chord or Rest from this verticality and quarterLength.
 
-        >>> score = tree.makeExampleScore()
+        >>> score = tree.examples.makeExampleScore()
         >>> scoreTree = tree.fromStream.asTimespans(score, flatten=True,
         ...            classList=(note.Note, chord.Chord))
         >>> verticality = scoreTree.getVerticalityAt(4.0)

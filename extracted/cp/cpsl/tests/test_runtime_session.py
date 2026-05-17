@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+import cpsl
 from cpsl.app import App
 from cpsl.clients.capsule import (
     GetSessionResponse,
@@ -951,6 +952,116 @@ class ShowStepTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sid, "custom-id")
         self.assertEqual(blocks[0]["id"], "step_custom-id")
         self.assertEqual(blocks[0]["payload"]["step_id"], "custom-id")
+
+
+class ShowTableTests(unittest.IsolatedAsyncioTestCase):
+    def new_session(self) -> Session:
+        return Session(
+            id="sess-table",
+            user=UserInfo(id="u-1"),
+            channel=SessionChannel(type="chat"),
+            history=[],
+            data={},
+        )
+
+    async def capture_blocks(self, session: Session) -> list[dict]:
+        blocks: list[dict] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(json.loads(block_json))
+
+        session._block_callback = block_cb
+        return blocks
+
+    async def test_show_table_emits_collection_ref_side_preview(self):
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+        app = App(name="show-table-test", image=Image())
+        contacts = app.collection(
+            "contacts",
+            columns=["name", "email"],
+            scope="owner",
+            sortable=True,
+            filterable=True,
+            paginate=25,
+        )
+
+        await session.show_table(contacts, title="Contacts", mode="preview")
+
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0]["type"], "table_preview")
+        self.assertEqual(blocks[0]["payload"]["title"], "Contacts")
+        self.assertEqual(blocks[0]["payload"]["mode"], "preview")
+        table = blocks[0]["payload"]["table"]
+        self.assertEqual(table["type"], "table")
+        self.assertEqual(table["collection"], "contacts")
+        self.assertEqual(table["scope"], "owner")
+        self.assertEqual(table["columns"], ["name", "email"])
+        self.assertTrue(table["sortable"])
+        self.assertTrue(table["filterable"])
+        self.assertEqual(table["paginate"], 25)
+
+    async def test_show_table_accepts_rows_inline(self):
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+        created = datetime(2026, 5, 16, tzinfo=timezone.utc)
+
+        await session.show_table(
+            [{"name": "Ada", "created": created}],
+            columns=["name", "created"],
+            title="Inline Rows",
+            mode="inline",
+        )
+
+        payload = blocks[0]["payload"]
+        self.assertEqual(payload["mode"], "inline")
+        self.assertEqual(payload["title"], "Inline Rows")
+        self.assertEqual(payload["table"]["rows"][0]["name"], "Ada")
+        self.assertEqual(payload["table"]["rows"][0]["created"], created.isoformat())
+
+    async def test_show_table_accepts_dynamic_collection_handle(self):
+        class DynamicCollectionHandle:
+            name = "leads"
+            scope = "owner"
+
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+
+        await session.show_table(
+            DynamicCollectionHandle(),
+            columns=["company", "score"],
+            filterable=True,
+        )
+
+        table = blocks[0]["payload"]["table"]
+        self.assertEqual(table["collection"], "leads")
+        self.assertEqual(table["scope"], "owner")
+        self.assertEqual(table["columns"], ["company", "score"])
+        self.assertTrue(table["filterable"])
+
+    async def test_show_table_accepts_table_browser_widget(self):
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+        browser = cpsl.ui.TableBrowser(
+            title="CRM",
+            items=[cpsl.ui.Table("accounts", label="Accounts")],
+        )
+
+        await session.show_table(browser, mode="split")
+
+        payload = blocks[0]["payload"]
+        self.assertEqual(payload["title"], "CRM")
+        self.assertEqual(payload["table"]["type"], "table_browser")
+        self.assertEqual(payload["table"]["items"][0]["collection_ref"], "accounts")
+
+    async def test_hide_table_emits_close_block(self):
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+
+        await session.hide_table()
+
+        self.assertEqual(blocks[0]["type"], "table_preview")
+        self.assertTrue(blocks[0]["payload"]["close"])
 
 
 class NotifyTests(unittest.IsolatedAsyncioTestCase):

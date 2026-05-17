@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 '''
 This file contains Music21's version number information.
 
@@ -50,7 +50,7 @@ so change it if a bug or new feature creates a problem with using old pickles.
 '''
 from __future__ import annotations
 
-__version__ = '9.9.2'
+__version__ = '10.1.0'
 
 def get_version_tuple(vv):
     v = vv.split('.')

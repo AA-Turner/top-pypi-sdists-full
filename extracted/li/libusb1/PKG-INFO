@@ -1,15 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: libusb1
-Version: 3.3.1
+Version: 3.4.0
 Summary: Pure-python wrapper for libusb-1.0
 Home-page: https://github.com/vpelletier/python-libusb1
 Author: Vincent Pelletier
 Author-email: plr.vincent@gmail.com
-License: LGPLv2.1+
+License-Expression: LGPL-2.1-or-later
 Keywords: usb,libusb
 Platform: any
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -19,6 +18,8 @@ Classifier: Topic :: System :: Hardware :: Hardware Drivers
 Description-Content-Type: text/x-rst
 License-File: COPYING
 License-File: COPYING.LESSER
+Dynamic: license-file
+Dynamic: license-expression
 
 .. contents::
 
@@ -615,6 +616,15 @@ Check in-dll version when creating Windows wheels. Should hopefully version mixu
 -----
 
 Fix ``AttributeError`` in ``USBContext.setPollFDNotifiers`` introduced in 3.3.0 .
+
+3.4.0
+-----
+
+Resolve a python 3.14 deprecation warning about packed ctypes structs.
+
+Bundle libusb1 dll 1.0.29 in Windows wheels.
+
+Fix a licence inconsistency: the old pypi classifier was refering to the LGPL2+ instead of the LGPL2.1+ .
 
 .. _CPython: http://www.python.org/
 

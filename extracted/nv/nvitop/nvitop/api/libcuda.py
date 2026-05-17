@@ -1,6 +1,6 @@
 # This file is part of nvitop, the interactive NVIDIA-GPU process viewer.
 #
-# Copyright 2021-2025 Xuehai Pan. All Rights Reserved.
+# Copyright 2021-2026 Xuehai Pan. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -244,10 +244,10 @@ class CUDAError(Exception):
         """Map value to a proper subclass of :class:`CUDAError`."""
         if cls is CUDAError:
             # pylint: disable-next=self-cls-assignment
-            cls = CUDAError._value_class_mapping.get(value, cls)  # type: ignore[assignment]
+            cls = CUDAError._value_class_mapping.get(value, cls)
         obj = Exception.__new__(cls)
         obj.value = value
-        return obj
+        return obj  # type: ignore[return-value]
 
     def __repr__(self) -> str:
         """Return a string representation of the error."""

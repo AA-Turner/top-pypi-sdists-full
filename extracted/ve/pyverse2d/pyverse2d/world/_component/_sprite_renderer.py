@@ -30,7 +30,7 @@ class SpriteRenderer(RendererComponent):
         "_tint", "_flip_x", "_flip_y",
     )
 
-    requires: ClassVar[tuple[str]] = ("Transform",)
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("Transform",)
 
     def __init__(
             self,
@@ -156,3 +156,8 @@ class SpriteRenderer(RendererComponent):
         """
         self._flip_x ^= horizontal
         self._flip_y ^= vertical
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "SpriteRenderer",
+]

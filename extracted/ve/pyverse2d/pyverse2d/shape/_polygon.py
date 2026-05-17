@@ -8,6 +8,8 @@ from ..math.vertices import is_convex, center_bbox, order_ccw
 import numpy as np
 from numpy.typing import NDArray
 
+from typing import ClassVar
+
 # ======================================== SHAPE ========================================
 class Polygon(Shape):
     """Forme géométrique 2D immuable : Polygone quelconque
@@ -16,6 +18,8 @@ class Polygon(Shape):
         points: sommets du polygone *(minimum 3, sans doublons)*
     """
     __slots__ = ("_source_vertices", "_convex")
+
+    _ID: ClassVar[str] = "polygon"
 
     def __init__(self, *points: Point):
         # Transtypage et vérifications

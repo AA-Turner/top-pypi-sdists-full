@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tblite
-Version: 0.5.0
+Version: 0.6.0
 Summary: Light-weight tight-binding framework
 License: LGPL-3.0-or-later
 Classifier: Intended Audience :: Science/Research
@@ -22,6 +22,9 @@ Requires-Dist: cffi
 Requires-Dist: numpy
 Provides-Extra: ase
 Requires-Dist: ase; extra == "ase"
+Provides-Extra: qcschema
+Requires-Dist: qcelemental; python_version < "3.14" and extra == "qcschema"
+Requires-Dist: qcelemental>=0.50.0rc3; python_version >= "3.14" and extra == "qcschema"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

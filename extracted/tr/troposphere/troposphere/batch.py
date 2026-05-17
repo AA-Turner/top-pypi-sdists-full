@@ -16,12 +16,23 @@ from .validators.batch import (
 )
 
 
+class ComputeScalingPolicy(AWSProperty):
+    """
+    `ComputeScalingPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computescalingpolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "MinScaleDownDelayMinutes": (integer, False),
+    }
+
+
 class Ec2ConfigurationObject(AWSProperty):
     """
     `Ec2ConfigurationObject <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-ec2configurationobject.html>`__
     """
 
     props: PropsDictType = {
+        "BatchImageStatus": (str, False),
         "ImageIdOverride": (str, False),
         "ImageKubernetesVersion": (str, False),
         "ImageType": (str, True),
@@ -77,6 +88,7 @@ class ComputeResources(AWSProperty):
         "MaxvCpus": (integer, True),
         "MinvCpus": (integer, False),
         "PlacementGroup": (str, False),
+        "ScalingPolicy": (ComputeScalingPolicy, False),
         "SecurityGroupIds": ([str], False),
         "SpotIamFleetRole": (str, False),
         "Subnets": ([str], True),
@@ -866,6 +878,56 @@ class JobQueue(AWSObject):
     }
 
 
+class QuotaShareCapacityLimit(AWSProperty):
+    """
+    `QuotaShareCapacityLimit <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotasharecapacitylimit.html>`__
+    """
+
+    props: PropsDictType = {
+        "CapacityUnit": (str, True),
+        "MaxCapacity": (integer, True),
+    }
+
+
+class QuotaSharePreemptionConfiguration(AWSProperty):
+    """
+    `QuotaSharePreemptionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotasharepreemptionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "InSharePreemption": (str, True),
+    }
+
+
+class QuotaShareResourceSharingConfiguration(AWSProperty):
+    """
+    `QuotaShareResourceSharingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-quotashare-quotashareresourcesharingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "BorrowLimit": (integer, False),
+        "Strategy": (str, True),
+    }
+
+
+class QuotaShare(AWSObject):
+    """
+    `QuotaShare <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-quotashare.html>`__
+    """
+
+    resource_type = "AWS::Batch::QuotaShare"
+
+    props: PropsDictType = {
+        "CapacityLimits": ([QuotaShareCapacityLimit], True),
+        "JobQueue": (str, True),
+        "PreemptionConfiguration": (QuotaSharePreemptionConfiguration, True),
+        "QuotaShareName": (str, True),
+        "ResourceSharingConfiguration": (QuotaShareResourceSharingConfiguration, True),
+        "State": (str, False),
+        "Tags": (dict, False),
+    }
+
+
 class ShareAttributes(AWSProperty):
     """
     `ShareAttributes <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-schedulingpolicy-shareattributes.html>`__
@@ -889,6 +951,16 @@ class FairsharePolicy(AWSProperty):
     }
 
 
+class QuotaSharePolicy(AWSProperty):
+    """
+    `QuotaSharePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-schedulingpolicy-quotasharepolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "IdleResourceAssignmentStrategy": (str, False),
+    }
+
+
 class SchedulingPolicy(AWSObject):
     """
     `SchedulingPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-schedulingpolicy.html>`__
@@ -899,6 +971,7 @@ class SchedulingPolicy(AWSObject):
     props: PropsDictType = {
         "FairsharePolicy": (FairsharePolicy, False),
         "Name": (str, False),
+        "QuotaSharePolicy": (QuotaSharePolicy, False),
         "Tags": (dict, False),
     }
 

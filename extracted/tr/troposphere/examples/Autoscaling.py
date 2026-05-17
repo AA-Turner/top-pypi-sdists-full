@@ -24,10 +24,8 @@ from troposphere.policies import (
 
 t = Template()
 
-t.set_description(
-    """\
-Configures autoscaling group for api app"""
-)
+t.set_description("""\
+Configures autoscaling group for api app""")
 
 SecurityGroup = t.add_parameter(
     Parameter(
@@ -67,7 +65,7 @@ KeyName = t.add_parameter(
         Type="String",
         Description="Name of an existing EC2 KeyPair to enable SSH access",
         MinLength="1",
-        AllowedPattern="[\x20-\x7E]*",
+        AllowedPattern="[\x20-\x7e]*",
         MaxLength="255",
         ConstraintDescription="can contain only ASCII characters.",
     )

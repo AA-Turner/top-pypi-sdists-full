@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ...._internal import Processor
+from ...._internal import Processor, profile_section
 from ....math import Vector
 from ...._core import Geometry
 
@@ -58,11 +58,13 @@ class UpdateContext:
 # ======================================== processor ========================================
 update_processor = Processor("update")
 
+@profile_section("world.collision.query")
 @update_processor.step
 def _query_entities(ctx: UpdateContext):
     """Récupération des entités"""
     ctx.entities = ctx.world.query(Collider, Transform)
-    
+
+@profile_section("world.collision.update_geometries")
 @update_processor.step
 def _update_geometries(ctx: UpdateContext):
     """Actualisation des géométries monde"""
@@ -81,6 +83,7 @@ def _update_geometries(ctx: UpdateContext):
             if geom_key is None:
                 entity.on_kill(_make_clear_geometry_func(entity.id, ctx.geometry_cache, ctx.geometry_keys))
 
+@profile_section("world.collision.reset_sensors")
 @update_processor.step
 def _reset_sensors(ctx: UpdateContext):
     """Reset du GroundSensor avant détection"""
@@ -92,6 +95,7 @@ def _reset_sensors(ctx: UpdateContext):
                 gs._grounded = False
                 gs._ground_normal = None
 
+@profile_section("world.collision.broadphase")
 @update_processor.step
 def _broadphase(ctx: UpdateContext):
     """Génération des paires candidates"""
@@ -104,12 +108,14 @@ def _broadphase(ctx: UpdateContext):
         n = len(ctx.entities)
         ctx.pairs = [(ctx.entities[i], ctx.entities[j]) for i in range(n) for j in range(i + 1, n)]
 
+@profile_section("world.collision.reset_colliders")
 @update_processor.step
 def _reset_colliders(ctx: UpdateContext):
     """Reset des listes de contacts des colliders"""
     for entity in ctx.entities:
         entity.collider._contacts.clear()
 
+@profile_section("world.collision.narrowphase")
 @update_processor.step
 def _narrowphase(ctx: UpdateContext):
     """Narrowphase : détection, lissage des normales, warm start"""
@@ -178,6 +184,7 @@ def _narrowphase(ctx: UpdateContext):
         # Application du warm start
         warm_start(a, b, contact, cached, ctx.C)
 
+@profile_section("world.collision.cleanup_cache")
 @update_processor.step
 def _cleanup_cache(ctx: UpdateContext):
     """Nettoyage des contacts inactifs"""
@@ -185,6 +192,7 @@ def _cleanup_cache(ctx: UpdateContext):
         if key not in ctx.active_keys:
             del ctx.cache[key]
 
+@profile_section("world.collision.wake_lost_supports")
 @update_processor.step
 def _wake_lost_supports(ctx: UpdateContext):
     """Réveille les RigidBody dont les contacts ont disparu"""
@@ -202,6 +210,7 @@ def _wake_lost_supports(ctx: UpdateContext):
         else:
             col._coyote_elapsed = 0.0
 
+@profile_section("world.collision.solve")
 @update_processor.step
 def _solve(ctx: UpdateContext):
     """Résolution itérative des contacts"""

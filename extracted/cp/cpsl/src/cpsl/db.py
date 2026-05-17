@@ -45,6 +45,7 @@ VALID_COLUMN_TYPES = {
     "status",
     "tags",
     "boolean",
+    "score",
 }
 
 

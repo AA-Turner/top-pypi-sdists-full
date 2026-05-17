@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ------------------------------------------------------------------------------
 # Name:         ipython21/__init__.py
 # Purpose:      music21 Jupyter Notebook support
@@ -21,8 +20,13 @@ now just calls matplotlib inline)
 '''
 from __future__ import annotations
 
-__all__ = ['converters', 'ipExtension', 'objects',
-           'loadNoMagic', 'load_ipython_extension']
+__all__ = [
+    'converters',
+    'ipExtension',
+    'objects',
+    'load_ipython_extension',
+    'loadNoMagic',
+]
 
 from music21 import common
 
@@ -33,8 +37,10 @@ from music21.ipython21.ipExtension import load_ipython_extension
 
 def loadNoMagic():
     '''
-    Load the magic functions of load_ipython_extension when running IPython
+    Load the magic functions of load_ipython_extension when running Jupyter (was IPython)
     without needing to call a %magic function
+
+    Safest is always ot call %load_ext music21.ipython21 anyhow.
     '''
     if common.runningInNotebook():
         # noinspection PyPackageRequirements

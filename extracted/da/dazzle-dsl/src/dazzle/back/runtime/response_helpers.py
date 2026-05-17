@@ -27,13 +27,16 @@ def with_toast(
     Args:
         response: The original HTMLResponse to augment.
         message: Toast message text (HTML-escaped automatically).
-        level: DaisyUI alert level — ``success``, ``error``, ``warning``, ``info``.
+        level: Toast severity — ``success``, ``error``, ``warning``, ``info``.
+            Set on the rendered toast as ``data-dz-toast-level``; the
+            ``site-sections.css`` rules tone-tint per level.
         duration: Auto-dismiss delay (e.g., ``"5s"``).
     """
     safe_message = escape(message)
+    safe_level = escape(level, quote=True)
     toast_html = (
         f'<div id="dz-toast-container" hx-swap-oob="afterbegin:#dz-toast-container">'
-        f'<div class="alert alert-{level}" remove-me="{duration}">'
+        f'<div class="dz-toast" data-dz-toast-level="{safe_level}" remove-me="{duration}">'
         f"<span>{safe_message}</span>"
         f"</div>"
         f"</div>"

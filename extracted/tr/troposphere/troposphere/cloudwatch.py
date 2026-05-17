@@ -17,6 +17,28 @@ from .validators.cloudwatch import (
 )
 
 
+class AlarmPromQLCriteria(AWSProperty):
+    """
+    `AlarmPromQLCriteria <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html>`__
+    """
+
+    props: PropsDictType = {
+        "PendingPeriod": (integer, False),
+        "Query": (str, False),
+        "RecoveryPeriod": (integer, False),
+    }
+
+
+class EvaluationCriteria(AWSProperty):
+    """
+    `EvaluationCriteria <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationcriteria.html>`__
+    """
+
+    props: PropsDictType = {
+        "PromQLCriteria": (AlarmPromQLCriteria, False),
+    }
+
+
 class MetricDimension(AWSProperty):
     """
     `MetricDimension <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-dimension.html>`__
@@ -81,11 +103,13 @@ class Alarm(AWSObject):
         "AlarmActions": ([str], False),
         "AlarmDescription": (str, False),
         "AlarmName": (str, False),
-        "ComparisonOperator": (str, True),
+        "ComparisonOperator": (str, False),
         "DatapointsToAlarm": (integer, False),
         "Dimensions": ([MetricDimension], False),
         "EvaluateLowSampleCountPercentile": (str, False),
-        "EvaluationPeriods": (integer, True),
+        "EvaluationCriteria": (EvaluationCriteria, False),
+        "EvaluationInterval": (integer, False),
+        "EvaluationPeriods": (integer, False),
         "ExtendedStatistic": (str, False),
         "InsufficientDataActions": ([str], False),
         "MetricName": (str, False),
@@ -103,6 +127,56 @@ class Alarm(AWSObject):
 
     def validate(self):
         validate_alarm(self)
+
+
+class MuteTargets(AWSProperty):
+    """
+    `MuteTargets <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-mutetargets.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlarmNames": ([str], True),
+    }
+
+
+class Schedule(AWSProperty):
+    """
+    `Schedule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-schedule.html>`__
+    """
+
+    props: PropsDictType = {
+        "Duration": (str, True),
+        "Expression": (str, True),
+        "Timezone": (str, False),
+    }
+
+
+class Rule(AWSProperty):
+    """
+    `Rule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-rule.html>`__
+    """
+
+    props: PropsDictType = {
+        "Schedule": (Schedule, True),
+    }
+
+
+class AlarmMuteRule(AWSObject):
+    """
+    `AlarmMuteRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html>`__
+    """
+
+    resource_type = "AWS::CloudWatch::AlarmMuteRule"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "ExpireDate": (str, False),
+        "MuteTargets": (MuteTargets, False),
+        "Name": (str, False),
+        "Rule": (Rule, True),
+        "StartDate": (str, False),
+        "Tags": (Tags, False),
+    }
 
 
 class Range(AWSProperty):

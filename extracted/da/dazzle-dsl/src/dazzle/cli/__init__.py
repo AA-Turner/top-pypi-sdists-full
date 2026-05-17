@@ -282,6 +282,7 @@ from dazzle.cli.e2e import e2e_app  # noqa: E402
 from dazzle.cli.events import dlq_app, events_app, outbox_app  # noqa: E402
 from dazzle.cli.feedback import feedback_app  # noqa: E402
 from dazzle.cli.fitness import fitness_app  # noqa: E402
+from dazzle.cli.guide import guide_app  # noqa: E402
 from dazzle.cli.kg import kg_app  # noqa: E402
 from dazzle.cli.lsp import lsp_app  # noqa: E402
 from dazzle.cli.mcp import mcp_app  # noqa: E402
@@ -298,6 +299,7 @@ from dazzle.cli.quality import quality_app  # noqa: E402
 from dazzle.cli.rbac import rbac_app  # noqa: E402
 from dazzle.cli.rhythm import rhythm_app  # noqa: E402
 from dazzle.cli.sentinel import sentinel_app  # noqa: E402
+from dazzle.cli.spec import spec_app  # noqa: E402
 from dazzle.cli.specs import specs_app  # noqa: E402
 from dazzle.cli.story import story_app  # noqa: E402
 from dazzle.cli.stubs import stubs_app  # noqa: E402
@@ -332,6 +334,8 @@ app.add_typer(tenant_app, name="tenant")
 app.add_typer(theme_app, name="theme")
 app.add_typer(test_app, name="test")
 app.add_typer(e2e_app, name="e2e")
+app.add_typer(guide_app, name="guide")
+app.add_typer(spec_app, name="spec")
 app.add_typer(specs_app, name="specs")
 app.add_typer(deploy_app, name="deploy")
 app.add_typer(events_app, name="events")
@@ -357,9 +361,14 @@ app.add_typer(test_design_app, name="test-design")
 app.add_typer(param_app, name="param")
 
 from dazzle.cli.i18n import i18n_app  # noqa: E402
-from dazzle.cli.inspect_api import inspect_api_app  # noqa: E402
+from dazzle.cli.inspect import inspect_app  # noqa: E402
 
-app.add_typer(inspect_api_app, name="inspect-api")
+# v0.71.23 (#1120): the old `dazzle inspect-api` is renamed to
+# `dazzle inspect api` under the new top-level inspect group. The
+# inspect group also adds renderers / primitives / routes / oauth-
+# providers subcommands. Clean break — no alias is kept for the old
+# top-level name per the project's clean-break policy.
+app.add_typer(inspect_app, name="inspect")
 app.add_typer(i18n_app, name="i18n")
 
 

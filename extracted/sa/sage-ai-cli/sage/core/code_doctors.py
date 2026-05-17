@@ -51,6 +51,8 @@ class DoctorReport:
     prettier_ran: bool = False
     ruff_fixes_ran: bool = False
     files_touched: int = 0
+    init_stubs_written: int = 0
+    indent_fixes_applied: int = 0
 
 
 # ──────────────────────── add_missing_imports ──────────────────────────
@@ -293,6 +295,83 @@ def fix_framework_collision_rn(path: Path) -> int:
 # ──────────────────────── detect_truncations ───────────────────────────
 
 
+def stub_truncated_init(path: Path) -> bool:
+    """If this `__init__.py` doesn't parse, overwrite it with an empty stub.
+
+    The overnight build kept landing with truncated __init__.py files (LLM
+    ran out of tokens mid-import-block). An empty __init__.py is always
+    valid Python, makes the package importable, and is the right thing for
+    a barrel-style package — explicit re-exports live in the leaf modules.
+    Only applied to `__init__.py` so we never silently empty real code.
+
+    Returns True if the file was rewritten.
+    """
+    if path.name != "__init__.py":
+        return False
+    try:
+        src = path.read_text("utf-8", errors="replace")
+    except OSError:
+        return False
+    try:
+        ast.parse(src)
+        return False  # parses fine, leave alone
+    except SyntaxError:
+        pass
+    path.write_text('"""Package init."""\n', encoding="utf-8")
+    return True
+
+
+def attempt_indent_fix(path: Path) -> bool:
+    """Best-effort dedent for "unexpected indent" at the top of the module.
+
+    The qwen3 / llama models frequently emit a Python file where the first
+    real statement after the imports has a stray leading space. `ast.parse`
+    rejects with "unexpected indent". The deterministic fix is to strip
+    leading whitespace from that single line — no LLM needed.
+
+    Returns True if a fix was written.
+    """
+    try:
+        src = path.read_text("utf-8", errors="replace")
+    except OSError:
+        return False
+    try:
+        ast.parse(src)
+        return False  # nothing to fix
+    except SyntaxError as exc:
+        if exc.lineno is None or "unexpected indent" not in (exc.msg or ""):
+            return False
+        bad_lineno = exc.lineno
+
+    lines = src.split("\n")
+    idx = bad_lineno - 1  # 0-indexed
+    if not 0 <= idx < len(lines):
+        return False
+
+    # Only dedent if the prior non-blank line is NOT itself indented — i.e.
+    # we're at module scope. Don't touch indented bodies of real blocks.
+    j = idx - 1
+    while j >= 0 and not lines[j].strip():
+        j -= 1
+    if j >= 0 and lines[j] and lines[j][0] in " \t":
+        return False  # this looks like a real indented context
+
+    fixed_line = lines[idx].lstrip()
+    if fixed_line == lines[idx]:
+        return False  # nothing to strip
+    lines[idx] = fixed_line
+    new_src = "\n".join(lines)
+
+    # Only commit the change if it parses now — otherwise we made things worse.
+    try:
+        ast.parse(new_src)
+    except SyntaxError:
+        return False
+
+    path.write_text(new_src, encoding="utf-8")
+    return True
+
+
 def detect_truncated_python(path: Path) -> bool:
     """True if the file ends in a way that suggests the LLM ran out of tokens."""
     try:
@@ -424,6 +503,23 @@ def run_code_doctors(
 
     log("[doctor] starting deterministic code repair pass...")
 
+    # ── 0. Deterministic repairs run FIRST, so later detectors don't
+    #       waste a row reporting things we're about to fix anyway.
+    if backend.is_dir():
+        for p in _python_files(backend):
+            if stub_truncated_init(p):
+                report.init_stubs_written += 1
+                report.files_touched += 1
+        for p in _python_files(backend):
+            if attempt_indent_fix(p):
+                report.indent_fixes_applied += 1
+                report.files_touched += 1
+        if report.init_stubs_written or report.indent_fixes_applied:
+            log(
+                f"  [doctor] repaired {report.init_stubs_written} truncated "
+                f"__init__.py + {report.indent_fixes_applied} indent errors"
+            )
+
     # ── 1. Python: add missing imports ──
     if fix_imports and backend.is_dir():
         for p in _python_files(backend):
@@ -492,11 +588,13 @@ def run_code_doctors(
 __all__ = [
     "DoctorReport",
     "add_missing_imports",
+    "attempt_indent_fix",
     "detect_truncated_python",
     "detect_truncated_tsx",
     "fix_framework_collision_rn",
     "run_code_doctors",
     "run_eslint_fix",
+    "stub_truncated_init",
     "run_prettier_format",
     "run_ruff_fix",
 ]

@@ -42,6 +42,7 @@ class IntegrationReport:
     dangling_imports: list[dict] = field(default_factory=list)
     fixed_files: int = 0
     skipped_no_module: int = 0
+    case_fixes: int = 0
 
 
 # ──────────────────────── discovery ────────────────────────────────────
@@ -209,6 +210,42 @@ def _attempt_integration_fix(
     return path, content
 
 
+def _attempt_case_fix(
+    importer_path: Path,
+    missing_names: list[str],
+    target_module_symbols: set[str],
+) -> int:
+    """Deterministic rename for case-mismatched imports.
+
+    The LLM often emits `AIAdvertisement` in one file and `AiAdvertisement`
+    in another. When the importer's missing name has a case-insensitive
+    match in the target module, rewrite the importer's import to use the
+    real name — no LLM round-trip needed. Returns count of names renamed.
+    """
+    if not target_module_symbols or not importer_path.exists():
+        return 0
+    by_lower = {s.lower(): s for s in target_module_symbols}
+    renames: dict[str, str] = {}
+    for name in missing_names:
+        actual = by_lower.get(name.lower())
+        if actual and actual != name:
+            renames[name] = actual
+    if not renames:
+        return 0
+    try:
+        src = importer_path.read_text("utf-8", errors="replace")
+    except OSError:
+        return 0
+    new_src = src
+    for old, new in renames.items():
+        # Word-boundary replace — don't touch substrings.
+        new_src = re.sub(rf"\b{re.escape(old)}\b", new, new_src)
+    if new_src == src:
+        return 0
+    importer_path.write_text(new_src, encoding="utf-8")
+    return len(renames)
+
+
 # ──────────────────────── public entry ─────────────────────────────────
 
 
@@ -252,11 +289,44 @@ def run_integration_check(
         ]
     )
 
+    # Build a per-module symbol set once so case-fix can consult it quickly.
+    import ast as _ast
+    module_symbols: dict[str, set[str]] = {}
+    for path, content in py_files.items():
+        if path.endswith("/__init__.py"):
+            mod = path[: -len("/__init__.py")].replace("/", ".")
+        else:
+            mod = path[: -3].replace("/", ".")
+        try:
+            _ast.parse(content)
+        except SyntaxError:
+            continue
+        module_symbols[mod] = _collect_module_symbols(content)
+
     for (importer, target_module), missing in list(grouped.items())[:max_fixes]:
         target_path = _module_to_relpath(target_module)
         if target_path not in py_files:
             report.skipped_no_module += 1
             continue
+
+        # First try the deterministic case-fold fix — fast, zero LLM cost.
+        # Most dangling-import failures we've seen are PascalCase vs
+        # mixedCase divergence (AIAdvertisement vs AiAdvertisement), not
+        # genuinely missing symbols.
+        case_renames = _attempt_case_fix(
+            backend / importer, missing, module_symbols.get(target_module, set()),
+        )
+        if case_renames:
+            report.case_fixes += case_renames
+            py_files[importer] = (backend / importer).read_text("utf-8", errors="replace")
+            log(f"  [integration] case-fix {importer} ({case_renames} renamed)")
+            # Re-check whether ALL names were resolved by case-fix.
+            remaining = [n for n in missing
+                         if n.lower() not in {s.lower() for s in module_symbols.get(target_module, set())}]
+            if not remaining:
+                continue
+            missing = remaining
+
         fix = _attempt_integration_fix(
             importer, target_module, target_path, missing,
             py_files, generate=generate, log=log,

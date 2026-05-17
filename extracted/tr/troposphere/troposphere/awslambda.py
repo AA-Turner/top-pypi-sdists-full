@@ -463,6 +463,7 @@ class Code(AWSProperty):
         "ImageUri": (str, False),
         "S3Bucket": (str, False),
         "S3Key": (str, False),
+        "S3ObjectStorageMode": (str, False),
         "S3ObjectVersion": (str, False),
         "SourceKMSKeyArn": (str, False),
         "ZipFile": (str, False),

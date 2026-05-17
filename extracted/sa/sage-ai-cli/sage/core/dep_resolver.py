@@ -122,6 +122,119 @@ _KEYWORD_NODE_DEPS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
 )
 
 
+# Packages the LLM keeps emitting that DO NOT install from PyPI / npm and
+# poison every downstream stage. Value is the replacement, or None to drop
+# the dep entirely. Drop = caller must reach the API via httpx / fetch.
+#
+# Why these specifically: confirmed via real builds (the advertisement
+# platform run on 2026-05-15 failed pip install on paypalcheckoutsdk; the
+# vendor-private packages below are either unpublished, abandoned, or
+# illegal-to-distribute names that pip can't resolve).
+_REPLACE_PYTHON: dict[str, str | None] = {
+    "paypalcheckoutsdk": None,        # deprecated, gone from PyPI
+    "instagram-private-api": None,    # unmaintained + ToS-violating
+    "tiktok-api": None,               # the name on PyPI is not a real SDK
+    "facebook-sdk": None,             # last release 2018, broken on py3.11+
+    "linkedin-api": None,             # private / ToS-violating
+    "twitter-api": None,              # ambiguous name, doesn't install
+    "snapchat-api": None,
+    "youtube-api": None,
+    "google-ads": None,               # real pkg is `google-ads`, but most
+                                      # specs mean `google-api-python-client`
+    "openai-python": "openai",        # the real package is `openai`
+    "anthropic-python": "anthropic",
+    "stripe-python": "stripe",
+}
+
+_REPLACE_NODE: dict[str, str | None] = {
+    "react-native-zustand": "zustand",  # zustand has no RN-specific package
+}
+
+
+def _filter_replaced(specs: list[str], table: dict[str, str | None]) -> list[str]:
+    """Drop or replace specs using the deny/replace table.
+
+    Matches on the *bare name* (case-insensitive). Keeps version pins
+    on replacements when only the name changed.
+    """
+    out: list[str] = []
+    for spec in specs:
+        name = _bare_name(spec)
+        if name not in table:
+            out.append(spec)
+            continue
+        replacement = table[name]
+        if replacement is None:
+            continue  # drop entirely
+        # Swap name, preserve any pin
+        rest = spec[len(name):] if spec.lower().startswith(name) else ""
+        out.append(replacement + rest)
+    return out
+
+
+def sanitize_python_deps(specs: list[str]) -> list[str]:
+    """Public: drop/replace deprecated Python deps. Used by repair routing."""
+    return _filter_replaced(specs, _REPLACE_PYTHON)
+
+
+def sanitize_node_deps(specs: list[str]) -> list[str]:
+    """Public: drop/replace deprecated Node deps."""
+    return _filter_replaced(specs, _REPLACE_NODE)
+
+
+def sanitize_dep_files_in_place(backend_root: Path) -> int:
+    """Re-read requirements.txt + pyproject.toml and strip deprecated packages.
+
+    Called by the heal loop after a failed pip install. Returns the number
+    of dropped lines so the loop knows whether anything actually changed.
+    """
+    if not backend_root.is_dir():
+        return 0
+    changes = 0
+
+    req = backend_root / "requirements.txt"
+    if req.exists():
+        original = req.read_text("utf-8", errors="replace").splitlines()
+        cleaned = sanitize_python_deps([ln for ln in original if ln.strip()])
+        if cleaned != [ln for ln in original if ln.strip()]:
+            req.write_text("\n".join(sorted(set(cleaned))) + "\n", encoding="utf-8")
+            changes += len(original) - len(cleaned)
+
+    pyproject = backend_root / "pyproject.toml"
+    if pyproject.exists():
+        text = pyproject.read_text("utf-8", errors="replace")
+        # Surgical: only touch the `dependencies = [...]` array. The strings
+        # are one-per-line in our emitter, so we filter line-by-line.
+        new_lines: list[str] = []
+        in_deps = False
+        for line in text.split("\n"):
+            stripped = line.strip()
+            if stripped.startswith("dependencies = ["):
+                in_deps = True
+                new_lines.append(line)
+                continue
+            if in_deps and stripped == "]":
+                in_deps = False
+                new_lines.append(line)
+                continue
+            if in_deps:
+                # Parse `    "name==1.2",` → bare name
+                m = re.match(r'^\s*"([^"]+)"\s*,?\s*$', line)
+                if m:
+                    bare = _bare_name(m.group(1))
+                    if bare in _REPLACE_PYTHON and _REPLACE_PYTHON[bare] is None:
+                        changes += 1
+                        continue  # drop this line
+                    if bare in _REPLACE_PYTHON and _REPLACE_PYTHON[bare]:
+                        line = line.replace(m.group(1), _REPLACE_PYTHON[bare])
+                        changes += 1
+            new_lines.append(line)
+        if changes:
+            pyproject.write_text("\n".join(new_lines), encoding="utf-8")
+
+    return changes
+
+
 # ──────────────────────── parse LLM output ──────────────────────────────
 
 
@@ -313,11 +426,16 @@ def resolve_dependencies(plan: ProjectPlan, generate: GenerateFn) -> DepSet:
     # 2. Per-feature gathering (keywords + LLM)
     feat_py, feat_node = _gather_feature_deps(plan.features, backend, frontend, generate)
 
-    # 3. Pin every entry
-    py_runtime = _dedupe_keep_order([_pin_python(p) for p in baseline_py + feat_py])
+    # 3. Drop/replace deprecated packages BEFORE pinning, so pip/npm
+    #    don't choke on names that can't be resolved.
+    py_raw = sanitize_python_deps(list(baseline_py + feat_py))
+    node_raw = sanitize_node_deps(list(baseline_node + feat_node))
+
+    # 4. Pin every entry
+    py_runtime = _dedupe_keep_order([_pin_python(p) for p in py_raw])
     py_dev = _dedupe_keep_order([_pin_python(p) for p in _BASELINE_PYTHON_DEV])
 
-    node_runtime = _dedupe_keep_order([_pin_node(p) for p in baseline_node + feat_node])
+    node_runtime = _dedupe_keep_order([_pin_node(p) for p in node_raw])
     node_dev = _dedupe_keep_order(
         [_pin_node(p) for p in _BASELINE_NODE_DEV.get(frontend or "", ())]
     )
@@ -469,6 +587,27 @@ def emit_node_package_json(
         json.dumps(pkg, indent=2) + "\n", encoding="utf-8"
     )
 
+    # Expo + Jest: without `preset: 'jest-expo'` and a proper
+    # `transformIgnorePatterns`, every test fails with "Cannot use import
+    # statement outside a module" the first time it hits expo-modules-core.
+    # We always overwrite — the LLM has no business shaping this file.
+    if framework == "react-native-web":
+        jest_config = (
+            "module.exports = {\n"
+            "  preset: 'jest-expo',\n"
+            "  setupFilesAfterEach: [],\n"
+            "  transformIgnorePatterns: [\n"
+            "    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|"
+            "expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|"
+            "@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|"
+            "react-native-svg|expo-modules-core))',\n"
+            "  ],\n"
+            "  testEnvironment: 'jsdom',\n"
+            "  moduleFileExtensions: ['ts','tsx','js','jsx','json'],\n"
+            "};\n"
+        )
+        (frontend_root / "jest.config.js").write_text(jest_config, encoding="utf-8")
+
 
 __all__ = [
     "DepSet",
@@ -477,4 +616,7 @@ __all__ = [
     "emit_python_dep_files",
     "parse_deps_json",
     "resolve_dependencies",
+    "sanitize_dep_files_in_place",
+    "sanitize_node_deps",
+    "sanitize_python_deps",
 ]

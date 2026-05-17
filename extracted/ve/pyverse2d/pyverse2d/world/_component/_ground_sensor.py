@@ -27,7 +27,7 @@ class GroundSensor(Component):
         "_coyote_elapsed", "_grounded", "_stability_ny_min", "_ground_normal",
     )
 
-    requires: ClassVar[tuple[str, ...]] = ("Transform", "Collider")
+    _REQUIRES: ClassVar[tuple[str, ...]] = ("Transform", "Collider")
 
     def __init__(
             self,

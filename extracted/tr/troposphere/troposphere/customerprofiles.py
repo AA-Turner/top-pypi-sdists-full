@@ -556,6 +556,7 @@ class Integration(AWSObject):
         "FlowDefinition": (FlowDefinition, False),
         "ObjectTypeName": (str, False),
         "ObjectTypeNames": ([ObjectTypeMapping], False),
+        "Scope": (str, False),
         "Tags": (Tags, False),
         "Uri": (str, False),
     }
@@ -624,8 +625,57 @@ class ObjectType(AWSObject):
         "MaxProfileObjectCount": (integer, False),
         "ObjectTypeName": (str, True),
         "SourceLastUpdatedTimestampFormat": (str, False),
+        "SourcePriority": (integer, False),
         "Tags": (Tags, False),
         "TemplateId": (str, False),
+    }
+
+
+class EventParameters(AWSProperty):
+    """
+    `EventParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-eventparameters.html>`__
+    """
+
+    props: PropsDictType = {
+        "EventType": (str, True),
+        "EventValueThreshold": (double, False),
+    }
+
+
+class EventsConfig(AWSProperty):
+    """
+    `EventsConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-eventsconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "EventParametersList": ([EventParameters], True),
+    }
+
+
+class RecommenderConfig(AWSProperty):
+    """
+    `RecommenderConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "EventsConfig": (EventsConfig, False),
+    }
+
+
+class Recommender(AWSObject):
+    """
+    `Recommender <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html>`__
+    """
+
+    resource_type = "AWS::CustomerProfiles::Recommender"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "DomainName": (str, True),
+        "RecommenderConfig": (RecommenderConfig, False),
+        "RecommenderName": (str, True),
+        "RecommenderRecipeName": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -809,6 +859,29 @@ class SegmentGroup(AWSProperty):
     }
 
 
+class SortAttribute(AWSProperty):
+    """
+    `SortAttribute <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-sortattribute.html>`__
+    """
+
+    props: PropsDictType = {
+        "DataType": (str, False),
+        "Name": (str, True),
+        "Order": (str, True),
+        "Type": (str, False),
+    }
+
+
+class SegmentSort(AWSProperty):
+    """
+    `SegmentSort <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-segmentsort.html>`__
+    """
+
+    props: PropsDictType = {
+        "Attributes": ([SortAttribute], True),
+    }
+
+
 class SegmentDefinition(AWSObject):
     """
     `SegmentDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html>`__
@@ -822,6 +895,7 @@ class SegmentDefinition(AWSObject):
         "DomainName": (str, True),
         "SegmentDefinitionName": (str, True),
         "SegmentGroups": (SegmentGroup, False),
+        "SegmentSort": (SegmentSort, False),
         "SegmentSqlQuery": (str, False),
         "Tags": (Tags, False),
     }
@@ -848,4 +922,44 @@ class DomainStats(AWSProperty):
         "ObjectCount": (double, False),
         "ProfileCount": (double, False),
         "TotalSize": (double, False),
+    }
+
+
+class Metrics(AWSProperty):
+    """
+    `Metrics <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-metrics.html>`__
+    """
+
+    props: PropsDictType = {
+        "coverage": (double, False),
+        "freshness": (double, False),
+        "hit": (double, False),
+        "popularity": (double, False),
+        "recall": (double, False),
+        "similarity": (double, False),
+    }
+
+
+class RecommenderUpdate(AWSProperty):
+    """
+    `RecommenderUpdate <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderupdate.html>`__
+    """
+
+    props: PropsDictType = {
+        "CreationDateTime": (str, False),
+        "FailureReason": (str, False),
+        "LastUpdatedDateTime": (str, False),
+        "RecommenderConfig": (RecommenderConfig, False),
+        "Status": (str, False),
+    }
+
+
+class TrainingMetrics(AWSProperty):
+    """
+    `TrainingMetrics <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-trainingmetrics.html>`__
+    """
+
+    props: PropsDictType = {
+        "Metrics": (Metrics, False),
+        "Time": (str, False),
     }

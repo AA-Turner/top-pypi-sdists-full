@@ -7451,7 +7451,7 @@ def _route_to_principal_pipeline(
     request at all.
     """
     from sage.core.dynamic_builder import build_project_dynamic
-    from sage.core.principal_builder import build_project_principal
+    from sage.core.principal_builder import BuildIncomplete, build_project_principal
     from sage.core.principal_engineer import (
         build_project,
         decompose_multi_build_request,
@@ -7510,10 +7510,21 @@ def _route_to_principal_pipeline(
         # Default: principal builder (bootstrap + architecture + multi-file
         # features + review pass + verify loop). Replaces the older
         # build_project_dynamic which is retained for its test surface.
-        report = build_project_principal(
-            task, out_dir, _generate, progress=renderer.info,
-            enable_review=not no_review,
-        )
+        try:
+            report = build_project_principal(
+                task, out_dir, _generate, progress=renderer.info,
+                enable_review=not no_review,
+            )
+        except BuildIncomplete as exc:
+            # The heal loop exhausted its retries with install or tests
+            # still failing. Surface a clear failure to the user — DO NOT
+            # report this as a successful build.
+            renderer.console.print(
+                f"[red]✗ Build failed after heal loop: {exc}[/red]\n"
+                f"[yellow]See {out_dir}/.sage/BUILD_REPORT.json for details. "
+                f"Sage refused to declare success on a non-installing project.[/yellow]"
+            )
+            report = exc.report
         return {
             "stack": (
                 f"{report.stack.get('frontend') or 'none'} + "
@@ -13344,24 +13355,29 @@ def run(
                 continue
             elif command == "/models":
                 # Parse REPL flags: /models [--all] [--details] [-p PROVIDER] [-f KEYWORD]
-                tokens = (arg or "").split()
-                show_all = "--all" in tokens
-                show_details = "--details" in tokens or "-d" in tokens
+                # NOTE: do NOT name this `tokens` — the outer scope has a
+                # `tokens: int` (max_tokens count) parameter that this would
+                # shadow, and the shadowed list value then leaks into the next
+                # chat call as max_tokens=['--all'], producing 422 from the
+                # backend. Confirmed via real CLI session on 2026-05-16.
+                argv = (arg or "").split()
+                show_all = "--all" in argv
+                show_details = "--details" in argv or "-d" in argv
                 slash_provider = None
                 slash_filter = None
                 i = 0
-                while i < len(tokens):
-                    if tokens[i] in {"--provider", "-p"} and i + 1 < len(tokens):
-                        slash_provider = tokens[i + 1]
+                while i < len(argv):
+                    if argv[i] in {"--provider", "-p"} and i + 1 < len(argv):
+                        slash_provider = argv[i + 1]
                         i += 2
                         continue
-                    if tokens[i] in {"--filter", "-f"} and i + 1 < len(tokens):
-                        slash_filter = tokens[i + 1]
+                    if argv[i] in {"--filter", "-f"} and i + 1 < len(argv):
+                        slash_filter = argv[i + 1]
                         i += 2
                         continue
                     # Bare keyword = filter (e.g. `/models coder`)
-                    if not tokens[i].startswith("-") and slash_filter is None:
-                        slash_filter = tokens[i]
+                    if not argv[i].startswith("-") and slash_filter is None:
+                        slash_filter = argv[i]
                     i += 1
 
                 all_models = router.list_all_models()
@@ -13771,23 +13787,24 @@ def chat(
                 continue
             elif command == "/models":
                 # Parse REPL flags: /models [--all] [--details] [-p PROVIDER] [-f KW]
-                tokens = (arg or "").split()
-                show_all = "--all" in tokens
-                show_details = "--details" in tokens or "-d" in tokens
+                # See twin handler above for why this is `argv`, not `tokens`.
+                argv = (arg or "").split()
+                show_all = "--all" in argv
+                show_details = "--details" in argv or "-d" in argv
                 slash_provider = None
                 slash_filter = None
                 i = 0
-                while i < len(tokens):
-                    if tokens[i] in {"--provider", "-p"} and i + 1 < len(tokens):
-                        slash_provider = tokens[i + 1]
+                while i < len(argv):
+                    if argv[i] in {"--provider", "-p"} and i + 1 < len(argv):
+                        slash_provider = argv[i + 1]
                         i += 2
                         continue
-                    if tokens[i] in {"--filter", "-f"} and i + 1 < len(tokens):
-                        slash_filter = tokens[i + 1]
+                    if argv[i] in {"--filter", "-f"} and i + 1 < len(argv):
+                        slash_filter = argv[i + 1]
                         i += 2
                         continue
-                    if not tokens[i].startswith("-") and slash_filter is None:
-                        slash_filter = tokens[i]
+                    if not argv[i].startswith("-") and slash_filter is None:
+                        slash_filter = argv[i]
                     i += 1
 
                 all_models = router.list_all_models()

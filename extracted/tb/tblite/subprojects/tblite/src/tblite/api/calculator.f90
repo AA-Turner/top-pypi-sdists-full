@@ -28,10 +28,10 @@ module tblite_api_calculator
    use tblite_api_structure, only : vp_structure
    use tblite_api_version, only : namespace
    use tblite_results, only : results_type
-   use tblite_wavefunction_mulliken, only : get_molecular_dipole_moment, &
+   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
+      & sad_guess, eeq_guess, eeqbc_guess, get_molecular_dipole_moment, &
       & get_molecular_quadrupole_moment
-   use tblite_wavefunction, only : wavefunction_type, new_wavefunction, sad_guess, eeq_guess
-   use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
+   use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator, xtb_config
    use tblite_xtb_gfn2, only : new_gfn2_calculator
    use tblite_xtb_gfn1, only : new_gfn1_calculator
    use tblite_xtb_ipea1, only : new_ipea1_calculator
@@ -54,8 +54,14 @@ module tblite_api_calculator
    enum, bind(c)
       enumerator :: &
          tblite_guess_sad = 0_c_int, &
-         tblite_guess_eeq = 1_c_int
+         tblite_guess_eeq = 1_c_int, &
+         tblite_guess_eeqbc = 2_c_int
    end enum
+
+
+   type, bind(c) :: xtb_config_struct
+      real(wp) :: smooth_cutoff
+   end type
 
 
    !> Void pointer to calculator type
@@ -70,6 +76,7 @@ module tblite_api_calculator
       integer :: guess = tblite_guess_sad
       !> Numbers of spin channels for calculator
       integer :: nspin = 1
+      !> List of post-processing applied methods
       type(post_processing_list) :: post_proc
    end type vp_calculator
 
@@ -80,7 +87,7 @@ module tblite_api_calculator
 contains
 
 
-function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
+function new_gfn2_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_gfn2_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -88,6 +95,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_gfn2_calculator"
@@ -100,7 +108,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_gfn2_calculator(calc%ptr, mol%ptr, error)
+   call new_gfn2_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -112,7 +120,7 @@ function new_gfn2_calculator_api(vctx, vmol) result(vcalc) &
 end function new_gfn2_calculator_api
 
 
-function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
+function new_ipea1_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_ipea1_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -120,6 +128,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_ipea1_calculator"
@@ -132,7 +141,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_ipea1_calculator(calc%ptr, mol%ptr, error)
+   call new_ipea1_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -144,7 +153,7 @@ function new_ipea1_calculator_api(vctx, vmol) result(vcalc) &
 end function new_ipea1_calculator_api
 
 
-function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
+function new_gfn1_calculator_api(vctx, vmol, config) result(vcalc) &
       & bind(C, name=namespace//"new_gfn1_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -152,6 +161,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    type(vp_structure), pointer :: mol
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
    type(error_type), allocatable :: error
 
    if (debug) print '("[Info]", 1x, a)', "new_gfn1_calculator"
@@ -164,7 +174,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
    call c_f_pointer(vmol, mol)
 
    allocate(calc)
-   call new_gfn1_calculator(calc%ptr, mol%ptr, error)
+   call new_gfn1_calculator(calc%ptr, mol%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -176,7 +186,7 @@ function new_gfn1_calculator_api(vctx, vmol) result(vcalc) &
 end function new_gfn1_calculator_api
 
 
-function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
+function new_xtb_calculator_api(vctx, vmol, vparam, config) result(vcalc) &
       & bind(C, name=namespace//"new_xtb_calculator")
    type(c_ptr), value :: vctx
    type(vp_context), pointer :: ctx
@@ -186,6 +196,7 @@ function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
    type(vp_param), pointer :: param
    type(c_ptr) :: vcalc
    type(vp_calculator), pointer :: calc
+   type(xtb_config_struct), intent(in), optional :: config
 
    type(error_type), allocatable :: error
 
@@ -202,7 +213,7 @@ function new_xtb_calculator_api(vctx, vmol, vparam) result(vcalc) &
    call c_f_pointer(vparam, param)
 
    allocate(calc)
-   call new_xtb_calculator(calc%ptr, mol%ptr, param%ptr, error)
+   call new_xtb_calculator(calc%ptr, mol%ptr, param%ptr, error, convert_config(config))
    if (allocated(error)) then
       deallocate(calc)
       call ctx%ptr%set_error(error)
@@ -560,17 +571,19 @@ subroutine get_singlepoint_api(vctx, vmol, vcalc, vres) &
 
    call check_results(res%results)
    
-   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, calc%nspin, calc%guess)
-   if (calc%post_proc%n == 0) then 
+   call check_wavefunction(res%wfn, mol%ptr, calc%ptr, calc%etemp, &
+      & calc%nspin, calc%guess, error)
+   if (calc%post_proc%npp == 0) then 
       f_char = "bond-orders"
-      call add_post_processing(calc%post_proc, f_char, error)
+      call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       f_char = "molmom"
-      call add_post_processing(calc%post_proc, f_char, error)
+      call add_post_processing(calc%post_proc, mol%ptr, f_char, error)
       if (allocated(error)) call ctx%ptr%set_error(error)
    end if
 
-   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, res%energy, &
-   & gradient=res%gradient, sigma=res%sigma, results=res%results, post_process=calc%post_proc)
+   call xtb_singlepoint(ctx%ptr, mol%ptr, calc%ptr, res%wfn, calc%accuracy, &
+      & res%energy, gradient=res%gradient, sigma=res%sigma, results=res%results, &
+      & post_process=calc%post_proc)
 
 end subroutine get_singlepoint_api
 
@@ -585,19 +598,20 @@ subroutine check_results(res)
    end if
 end subroutine
 
-subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
+subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess, error)
    type(wavefunction_type), allocatable, intent(inout) :: wfn
    type(structure_type), intent(in) :: mol
    type(xtb_calculator), intent(in) :: calc
    real(wp), intent(in) :: etemp
    integer, intent(in) :: nspin
    integer, intent(in) :: guess
+   type(error_type), intent(out), allocatable :: error
 
    if (allocated(wfn)) then
       wfn%kt = etemp
 
-      if (size(wfn%qat) /= mol%nat .or. size(wfn%emo) /= calc%bas%nao &
-         & .or. size(wfn%qsh) /= calc%bas%nsh .or. wfn%nspin /= nspin) then
+      if (size(wfn%qat, 1) /= mol%nat .or. size(wfn%emo, 1) /= calc%bas%nao &
+         & .or. size(wfn%qsh, 1) /= calc%bas%nsh .or. wfn%nspin /= nspin) then
          deallocate(wfn)
       end if
    end if
@@ -610,18 +624,22 @@ subroutine check_wavefunction(wfn, mol, calc, etemp, nspin, guess)
       case default
          call sad_guess(mol, calc, wfn)
       case(tblite_guess_eeq)
-         call eeq_guess(mol, calc, wfn)
+         call eeq_guess(mol, calc, wfn, error)
+      case(tblite_guess_eeqbc)
+         call eeqbc_guess(mol, calc, wfn, error)
       end select
    end if
 end subroutine check_wavefunction
 
-subroutine push_back_post_processing_str_api(vctx, vcalc, charptr) &
+subroutine push_back_post_processing_str_api(vctx, vcalc, vmol, charptr) &
    & bind(C, name=namespace//"push_back_post_processing_str")
 character(kind=c_char), intent(in) :: charptr(*)
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
 type(c_ptr), value :: vctx
 type(vp_context), pointer :: ctx
+type(c_ptr), value :: vcalc
+type(vp_calculator), pointer :: calc
+type(c_ptr), value :: vmol
+type(vp_structure), pointer :: mol
 character(len=:), allocatable :: config_str
 type(error_type), allocatable :: error
 
@@ -639,17 +657,26 @@ if (.not.c_associated(vcalc)) then
 end if
 call c_f_pointer(vcalc, calc)
 
-call add_post_processing(calc%post_proc, config_str, error)
+if (.not.c_associated(vmol)) then
+   call fatal_error(error, "Molecular structure data is missing")
+   call ctx%ptr%set_error(error)
+   return
+end if
+call c_f_pointer(vmol, mol)
+
+call add_post_processing(calc%post_proc, mol%ptr, config_str, error)
 if (allocated(error)) call ctx%ptr%set_error(error)
 
 end subroutine
 
-subroutine push_back_post_processing_param_api(vctx, vcalc, vparam) &
+subroutine push_back_post_processing_param_api(vctx, vcalc, vmol, vparam) &
    & bind(C, name=namespace//"push_back_post_processing_param")
-type(c_ptr), value :: vcalc
-type(vp_calculator), pointer :: calc
 type(c_ptr), value :: vctx
 type(vp_context), pointer :: ctx
+type(c_ptr), value :: vcalc
+type(vp_calculator), pointer :: calc
+type(c_ptr), value :: vmol
+type(vp_structure), pointer :: mol
 type(c_ptr), value :: vparam
 type(vp_param), pointer :: param
 type(error_type), allocatable :: error
@@ -672,9 +699,27 @@ if (.not.c_associated(vcalc)) then
    return
 end if
 call c_f_pointer(vcalc, calc)
-call add_post_processing(calc%post_proc, param%ptr%post_proc)
+
+if (.not.c_associated(vmol)) then
+   call fatal_error(error, "Molecular structure data is missing")
+   call ctx%ptr%set_error(error)
+   return
+end if
+call c_f_pointer(vmol, mol)
+
+call add_post_processing(calc%post_proc, mol%ptr, param%ptr%post_proc, error)
 if (allocated(error)) call ctx%ptr%set_error(error)
 
 end subroutine
+
+pure function convert_config(config) result(cfg)
+   type(xtb_config_struct), intent(in), optional :: config
+   type(xtb_config) :: cfg
+
+   cfg = xtb_config()
+   if (present(config)) then
+      cfg%smooth_cutoff = config%smooth_cutoff
+   end if
+end function convert_config
 
 end module tblite_api_calculator

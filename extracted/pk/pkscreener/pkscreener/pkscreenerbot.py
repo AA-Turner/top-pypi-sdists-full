@@ -1459,7 +1459,7 @@ def scheduled_workflow_trigger(triggers: List[Tuple[int, int, str, str]]):
                     logger.info(f"✅ Triggered {wf_name} successfully")
                 else:
                     logger.warning(f"⚠️ Failed to trigger {wf_name}, will retry next minute")
-                    time.sleep(60)
+                    sleep(60)
                     continue   # re-check after retry
         
         # Determine sleep interval based on next pending trigger (if any)
@@ -1487,9 +1487,9 @@ def scheduled_workflow_trigger(triggers: List[Tuple[int, int, str, str]]):
         for _ in range(sleep_interval // chunk):
             if _trigger_stop_event.is_set():
                 break
-            time.sleep(chunk)
+            sleep(chunk)
         if sleep_interval % chunk and not _trigger_stop_event.is_set():
-            time.sleep(sleep_interval % chunk)
+            sleep(sleep_interval % chunk)
     
     logger.info("🛑 Scheduled workflow thread stopped")
 

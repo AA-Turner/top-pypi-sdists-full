@@ -35,18 +35,18 @@ async def async_get_alert(id: str) -> Dict[str, Any]:
 
 @async_data_request()
 async def async_get_alerts(
-    override_find_all: Optional[bool] = False,
+    dataset_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Asynchronously get all alerts.
 
     Args:
-        override_find_all (Optional[bool]): If True, overrides the default limitation to fetch all results. This parameter is restricted to admin use only. Non-admin users will receive a 'Forbidden' exception if they attempt to use it. Defaults to False.
+        dataset_id (Optional[str]): If provided, filter alerts by dataset id.
 
     Returns:
         List[Dict[str, Any]]: List of alert responses
     """
-    request_info = _get_alerts_request_info(override_find_all)
+    request_info = _get_alerts_request_info(dataset_id)
     return await __async_get_request(**request_info)
 
 
@@ -78,7 +78,7 @@ async def async_create_alert(request: AlertRequest) -> Dict[str, Any]:
         Dict[str, Any]: Alert response
     """
     request_info = _create_alert_request_info(request)
-    return await __async_put_request(**request_info)
+    return await __async_post_request(**request_info)
 
 
 @async_data_request()
@@ -94,7 +94,7 @@ async def async_update_alert(id: str, request: AlertRequest) -> Dict[str, Any]:
         Dict[str, Any]: Alert response
     """
     request_info = _update_alert_request_info(id, request)
-    return await __async_post_request(**request_info)
+    return await __async_put_request(**request_info)
 
 
 @async_data_request(processor=lambda response: None)

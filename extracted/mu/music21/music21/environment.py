@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # Name:         environment.py
 # Purpose:      Storage for user environment settings and defaults
@@ -614,9 +613,9 @@ class _EnvironmentCore:
 
         if not refDir.exists():
             raise EnvironmentException(
-                'user-specified scratch directory ({!s}) does not exist; '
-                'remove preference file or reset Environment'.format(
-                    refDir))
+                f'user-specified scratch directory ({refDir!s}) does not exist; '
+                f'remove preference file or reset Environment'
+            )
         return refDir
 
     def getSettingsPath(self):

@@ -32,43 +32,51 @@ jobs:
           - {compiler: gcc, version: '12', build: cmake}
 
         include:
-        - os: ubuntu-latest
-          build-type: coverage
-          toolchain: {compiler: gcc, version: '10', build: meson}
+          - os: ubuntu-latest
+            build-type: coverage
+            toolchain: {compiler: gcc, version: '10', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '11', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '11', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '13', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '13', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '14', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '14', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel-classic, version: '2021.2', mkl_version: '2021.2.0', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel-classic, version: '2023.0', mkl_version: '2023.0.0', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel, version: '2024.1', mkl_version: '2024.1', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel, version: '2024.1', mkl_version: '2024.1', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: intel, version: '2025.1', mkl_version: '2025.1', build: meson}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: intel, version: '2025.1', mkl_version: '2025.1', build: meson}
 
-        - os: ubuntu-latest
-          build-type: debug
-          toolchain: {compiler: gcc, version: '12', build: fpm}
+          - os: ubuntu-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: fpm}
 
-        # - os: windows-latest
-        #   build: meson
-        #   build-type: debug
-        #   compiler: gcc
-        #   shell: msys2 {0}
+          - os: macos-15-intel
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: meson}
+
+          - os: macos-latest
+            build-type: debug
+            toolchain: {compiler: gcc, version: '12', build: meson}
+
+          # - os: windows-latest
+          #   build: meson
+          #   build-type: debug
+          #   compiler: gcc
+          #   shell: msys2 {0}
 
     defaults:
       run:
@@ -89,9 +97,9 @@ jobs:
       if: ${{ contains(matrix.os, 'macos') && matrix.toolchain.compiler == 'gcc' }}
       run: |
         brew install openblas
-        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
-        echo "LDFLAGS=-L/opt/homebrew/opt/openblas/lib" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I/opt/homebrew/opt/openblas/include" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$(brew --prefix openblas)/lib/pkgconfig" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix openblas)/lib" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I$(brew --prefix openblas)/include" >> $GITHUB_ENV
 
     - name: Install LAPACK (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') && matrix.toolchain.compiler == 'gcc' }}
@@ -146,20 +154,28 @@ jobs:
 
     - name: Setup environment for Fortran and C compilers
       run: |
-        if [ ! -n "$FC" ]; then
-          if [ "${{ matrix.toolchain.compiler }}" = "gcc" ]; then
-            FC="gfortran"
-            CC="gcc"
-          elif [ "${{ matrix.toolchain.compiler }}" = "intel" ]; then
-            FC="ifx"
-            CC="icx"
-          elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
-            FC="ifort"
-            CC="icc"
-          fi
-          echo "FC=$FC" >> $GITHUB_ENV
-          echo "CC=$CC" >> $GITHUB_ENV
+        if [ "${{ matrix.toolchain.compiler }}" = "gcc" ] && [ "${{ matrix.os }}" = "macos-latest" ]; then
+          FC="gfortran-${{ matrix.toolchain.version }}"
+          CC="gcc-${{ matrix.toolchain.version }}"
+          CXX="g++-${{ matrix.toolchain.version }}"
+        elif [ "${{ matrix.toolchain.compiler }}" = "gcc" ]; then
+          FC="gfortran"
+          CC="gcc"
+          CXX="g++"
+        elif [ "${{ matrix.toolchain.compiler }}" = "intel" ]; then
+          FC="ifx"
+          CC="icx"
+          CXX="icpx"
+        elif [ "${{ matrix.toolchain.compiler }}" = "intel-classic" ]; then
+          sudo apt-get install -y gcc-10 gfortran-10 g++-10
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10 --slave /usr/bin/g++ g++ /usr/bin/g++-10
+          FC="ifort"
+          CC="icc"
+          CXX="icpc"
         fi
+        echo "FC=$FC" >> $GITHUB_ENV
+        echo "CC=$CC" >> $GITHUB_ENV
+        echo "CXX=$CXX" >> $GITHUB_ENV
 
     - name: Install build and test dependencies
       if: ${{ ! contains(matrix.os, 'windows') }}
@@ -179,7 +195,7 @@ jobs:
         COVERAGE: ${{ matrix.build-type == 'coverage' }}
         MESON_ARGS: >-
           ${{ contains(matrix.toolchain.compiler, 'intel') && '-Dfortran_link_args=-qopenmp -Dapi=false' || '' }}
-          ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas' || '' }}
+          ${{ contains(matrix.os, 'macos') && '-Dlapack=openblas -Dapi=false' || '' }}
           ${{ contains(matrix.os, 'windows') && '-Dfortran_link_args=-Wl,--allow-multiple-definition' || '' }}
 
     - name: Configure build (CMake)
@@ -194,6 +210,8 @@ jobs:
     - name: Build library (fpm)
       if: ${{ matrix.toolchain.build == 'fpm' }}
       run: |
+        export FPM_CXXFLAGS="-DNETLIB_HEADER -std=c++17"
+        echo "FPM_CXXFLAGS=$FPM_CXXFLAGS" >> $GITHUB_ENV
         fpm --version
         fpm build
 
@@ -281,12 +299,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         gcc_v: ['12']
-        python_v: ['3.9', '3.10', '3.11', '3.12', '3.13']
-
-        include:
-        - os: macos-latest
-          gcc_v: '12'
-          python_v: '3.12'
+        python_v: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
     env:
       FC: gfortran
@@ -308,9 +321,9 @@ jobs:
       if: ${{ contains(matrix.os, 'macos')}}
       run: |
         brew install openblas
-        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
-        echo "LDFLAGS=-L/opt/homebrew/opt/openblas/lib" >> $GITHUB_ENV
-        echo "CPPFLAGS=-I/opt/homebrew/opt/openblas/include" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$(brew --prefix openblas)/lib/pkgconfig" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix openblas)/lib" >> $GITHUB_ENV
+        echo "CPPFLAGS=-I$(brew --prefix openblas)/include" >> $GITHUB_ENV
 
     - name: Install LAPACK (Linux)
       if: ${{ contains(matrix.os, 'ubuntu') }}
@@ -323,6 +336,10 @@ jobs:
       with:
         compiler: gcc
         version: ${{ matrix.gcc_v }}
+
+    - name: Install QCSchema v2 for Py 313+
+      if: ((matrix.python_v == '3.14') || (matrix.python_v == '3.13'))
+      run: pip3 install "qcelemental>=0.50.0rc3"
 
     - name: Install meson and test dependencies
       run: pip3 install ${{ env.PIP_EXTRAS }}
@@ -350,6 +367,6 @@ jobs:
         DYLD_LIBRARY_PATH: ${{ env.DYLD_LIBRARY_PATH }}:${{ env.TBLITE_PREFIX }}/lib
 
     - name: Upload coverage report
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
+        token: ${{ secrets.CODECOV_TOKEN }}g

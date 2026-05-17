@@ -211,6 +211,7 @@ from litellm import Router
 from litellm._logging import verbose_proxy_logger, verbose_router_logger
 from litellm.caching.caching import DualCache, RedisCache
 from litellm.caching.redis_cluster_cache import RedisClusterCache
+from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
 from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 from litellm.constants import (
     _REALTIME_BODY_CACHE_SIZE,
@@ -316,7 +317,10 @@ from litellm.proxy.guardrails.init_guardrails import (
     init_guardrails_v2,
     initialize_guardrails,
 )
-from litellm.proxy.health_check import perform_health_check
+from litellm.proxy.health_check import (
+    health_check_filter_kwargs_from_general_settings,
+    perform_health_check,
+)
 from litellm.proxy.health_endpoints._health_endpoints import router as health_router
 from litellm.proxy.hooks.model_max_budget_limiter import (
     _PROXY_VirtualKeyModelMaxBudgetLimiter,
@@ -406,6 +410,9 @@ from litellm.proxy.middleware.in_flight_requests_middleware import (
     InFlightRequestsMiddleware,
 )
 from litellm.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
+from litellm.proxy.middleware.request_size_limit_middleware import (
+    RequestSizeLimitMiddleware,
+)
 from litellm.proxy.ocr_endpoints.endpoints import router as ocr_router
 from litellm.proxy.openai_files_endpoints.files_endpoints import (
     router as openai_files_router,
@@ -1060,6 +1067,52 @@ vertex_live_passthrough_vertex_base = VertexBase()
 from fastapi.routing import APIWebSocketRoute
 
 
+def _inject_websocket_stubs_into_openapi_schema(
+    openapi_schema: dict, websocket_routes: list
+) -> dict:
+    """
+    Add a synthetic GET stub for each WebSocket route so it appears in Swagger UI.
+
+    Merges into any existing path entry rather than replacing it — a WebSocket route
+    that shares its path with an HTTP route must not erase the HTTP operation. If
+    a "get" operation is already documented on the path, the WebSocket stub is
+    skipped to preserve the real GET.
+    """
+    for route in websocket_routes:
+        base_path = route.path.split("{")[0].rstrip("?")
+
+        parameters = []
+        try:
+            if hasattr(route, "dependant") and route.dependant is not None:
+                # Handle both FastAPI <0.120 and >=0.120
+                query_params = getattr(route.dependant, "query_params", [])
+                if query_params:
+                    for param in query_params:
+                        parameters.append(
+                            {
+                                "name": param.name,
+                                "in": "query",
+                                "required": param.required,
+                                "schema": {"type": "string"},
+                            }
+                        )
+        except (AttributeError, TypeError):
+            pass
+
+        path_entry = openapi_schema["paths"].setdefault(base_path, {})
+        if "get" not in path_entry:
+            path_entry["get"] = {
+                "summary": f"WebSocket: {route.name or base_path}",
+                "description": "WebSocket connection endpoint",
+                "operationId": f"websocket_{route.name or base_path.replace('/', '_')}",
+                "parameters": parameters,
+                "responses": {"101": {"description": "WebSocket Protocol Switched"}},
+                "tags": ["WebSocket"],
+            }
+
+    return openapi_schema
+
+
 def get_openapi_schema():
     if app.openapi_schema:
         return app.openapi_schema
@@ -1082,43 +1135,11 @@ def get_openapi_schema():
         route for route in app.routes if isinstance(route, APIWebSocketRoute)
     ]
 
-    # Add each WebSocket route to the schema
-    for route in websocket_routes:
-        # Get the base path without query parameters
-        base_path = route.path.split("{")[0].rstrip("?")
-
-        # Extract parameters from the route
-        parameters = []
-        try:
-            if hasattr(route, "dependant") and route.dependant is not None:
-                # Handle both FastAPI <0.120 and >=0.120
-                query_params = getattr(route.dependant, "query_params", [])
-                if query_params:
-                    for param in query_params:
-                        parameters.append(
-                            {
-                                "name": param.name,
-                                "in": "query",
-                                "required": param.required,
-                                "schema": {
-                                    "type": "string"
-                                },  # You can make this more specific if needed
-                            }
-                        )
-        except (AttributeError, TypeError):
-            # If we can't access query_params, continue without them
-            pass
-
-        openapi_schema["paths"][base_path] = {
-            "get": {
-                "summary": f"WebSocket: {route.name or base_path}",
-                "description": "WebSocket connection endpoint",
-                "operationId": f"websocket_{route.name or base_path.replace('/', '_')}",
-                "parameters": parameters,
-                "responses": {"101": {"description": "WebSocket Protocol Switched"}},
-                "tags": ["WebSocket"],
-            }
-        }
+    # Add a synthetic GET stub for each so they render in Swagger UI,
+    # without clobbering existing HTTP operations on the same path.
+    openapi_schema = _inject_websocket_stubs_into_openapi_schema(
+        openapi_schema, websocket_routes
+    )
 
     # Add LLM API request schema bodies for documentation
     from litellm.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec
@@ -2718,29 +2739,44 @@ def _rss_mb_for_log() -> str:
     return f"{rss_mb:.2f}"
 
 
+def _is_unexpected_keyword_argument_type_error(exc: BaseException) -> bool:
+    """True when ``exc`` is a TypeError from passing a kwarg the callee does not accept."""
+    return isinstance(exc, TypeError) and (
+        "unexpected keyword argument" in str(exc).lower()
+    )
+
+
 async def _run_direct_health_check_with_instrumentation(
     model_list: list,
     details: Optional[bool],
     max_concurrency: Optional[int],
     instrumentation_context: dict,
 ):
-    try:
-        return await perform_health_check(
-            model_list=model_list,
-            details=details,
-            max_concurrency=max_concurrency,
-            instrumentation_context=instrumentation_context,
-        )
-    except TypeError as e:
-        if "instrumentation_context" not in str(e):
-            raise
-        # Backward compatibility for monkeypatched or wrapped callables
-        # that do not accept instrumentation_context.
-        return await perform_health_check(
-            model_list=model_list,
-            details=details,
-            max_concurrency=max_concurrency,
-        )
+    """Call ``perform_health_check``, retrying with fewer kwargs on unexpected-kw TypeErrors."""
+    _hc_filter = health_check_filter_kwargs_from_general_settings(general_settings)
+    last_type_error: Optional[TypeError] = None
+    for extra_kwargs in (
+        {
+            "instrumentation_context": instrumentation_context,
+            **_hc_filter,
+        },
+        {"instrumentation_context": instrumentation_context},
+        dict(_hc_filter),
+        {},
+    ):
+        try:
+            return await perform_health_check(
+                model_list=model_list,
+                details=details,
+                max_concurrency=max_concurrency,
+                **extra_kwargs,
+            )
+        except TypeError as e:
+            if not _is_unexpected_keyword_argument_type_error(e):
+                raise
+            last_type_error = e
+    assert last_type_error is not None
+    raise last_type_error
 
 
 def _schedule_background_health_check_db_save(
@@ -3005,6 +3041,7 @@ async def _run_background_health_check():
         details_bool = (
             health_check_details if health_check_details is not None else True
         )
+        _hc_filter = health_check_filter_kwargs_from_general_settings(general_settings)
 
         if shared_health_manager is not None:
             try:
@@ -3016,6 +3053,7 @@ async def _run_background_health_check():
                     model_list=_llm_model_list,
                     details=details_bool,
                     max_concurrency=health_check_concurrency,
+                    **_hc_filter,
                 )
             except Exception as e:
                 verbose_proxy_logger.error(
@@ -3028,7 +3066,7 @@ async def _run_background_health_check():
                     _exceptions_by_model_id,
                 ) = await _run_direct_health_check_with_instrumentation(
                     _llm_model_list,
-                    health_check_details,
+                    details_bool,
                     health_check_concurrency,
                     instrumentation_context,
                 )
@@ -3039,7 +3077,7 @@ async def _run_background_health_check():
                 _exceptions_by_model_id,
             ) = await _run_direct_health_check_with_instrumentation(
                 _llm_model_list,
-                health_check_details,
+                details_bool,
                 health_check_concurrency,
                 instrumentation_context,
             )
@@ -3991,6 +4029,11 @@ class ProxyConfig:
                         f"{blue_color_code} Initialized Failure Callbacks - {litellm.failure_callback} {reset_color_code}"
                     )  # noqa
                 elif key == "audit_log_callbacks":
+                    from litellm.proxy.management_helpers.audit_logs import (
+                        reset_audit_log_callback_cache,
+                    )
+
+                    reset_audit_log_callback_cache()
                     litellm.audit_log_callbacks = []
 
                     for callback in value:
@@ -4075,6 +4118,21 @@ class ProxyConfig:
                         f"{blue_color_code} setting litellm.{key}={value}{reset_color_code}"
                     )
                     setattr(litellm, key, value)
+                    if key in {"s3_audit_callback_params", "s3_callback_params"}:
+                        from litellm.proxy.management_helpers.audit_logs import (
+                            reset_audit_log_callback_cache,
+                        )
+                        from litellm.litellm_core_utils.litellm_logging import (
+                            _in_memory_loggers,
+                        )
+                        from litellm.integrations.s3_v2 import S3Logger as S3V2Logger
+
+                        reset_audit_log_callback_cache()
+                        _in_memory_loggers[:] = [
+                            cb
+                            for cb in _in_memory_loggers
+                            if not isinstance(cb, S3V2Logger)
+                        ]
 
         ## GENERAL SERVER SETTINGS (e.g. master key,..) # do this after initializing litellm, to ensure sentry logging works for proxylogging
         general_settings = config.get("general_settings", {})
@@ -6103,10 +6161,20 @@ class ProxyConfig:
             verbose_proxy_logger.debug(
                 "guardrails from the DB %s", str(guardrails_in_db)
             )
+            db_guardrail_ids: set = set()
             for guardrail in guardrails_in_db:
+                guardrail_id = guardrail.get("guardrail_id")
+                if guardrail_id:
+                    db_guardrail_ids.add(guardrail_id)
                 IN_MEMORY_GUARDRAIL_HANDLER.sync_guardrail_from_db(
                     guardrail=cast(Guardrail, guardrail),
                 )
+
+            # Drop in-memory DB-backed entries whose row was deleted on another
+            # pod. Config-loaded entries are never touched.
+            IN_MEMORY_GUARDRAIL_HANDLER.reconcile_db_guardrails(
+                db_guardrail_ids=db_guardrail_ids
+            )
         except Exception as e:
             verbose_proxy_logger.exception(
                 "litellm.proxy.proxy_server.py::ProxyConfig:_init_guardrails_in_db - {}".format(
@@ -6925,26 +6993,63 @@ class ProxyStartupEvent:
                 "budget_duration not set on Proxy. budget_duration is required to use max_budget."
             )
 
-        # add proxy budget to db in the user table
         asyncio.create_task(
-            generate_key_helper_fn(  # type: ignore
-                request_type="user",
-                table_name="user",
-                user_id=litellm_proxy_budget_name,
-                duration=None,
-                models=[],
-                aliases={},
-                config={},
-                spend=0,
-                max_budget=litellm.max_budget,
-                budget_duration=litellm.budget_duration,
-                query_type="update_data",
-                update_key_values={
-                    "max_budget": litellm.max_budget,
-                    "budget_duration": litellm.budget_duration,
-                },
-            )
+            cls._upsert_proxy_budget_with_reset_at_backfill(litellm_proxy_budget_name)
         )
+
+    @classmethod
+    async def _upsert_proxy_budget_with_reset_at_backfill(
+        cls, litellm_proxy_budget_name: str
+    ) -> None:
+        """
+        Upsert the proxy admin user row with the configured max_budget /
+        budget_duration, then backfill budget_reset_at if currently NULL.
+
+        The backfill uses `WHERE budget_reset_at IS NULL` so it only fires
+        when the row pre-existed without a reset schedule (e.g. row created
+        via a different path before the proxy budget was configured). On
+        subsequent restarts it no-ops, so an active reset window is never
+        slid forward.
+        """
+        await generate_key_helper_fn(  # type: ignore
+            request_type="user",
+            table_name="user",
+            user_id=litellm_proxy_budget_name,
+            duration=None,
+            models=[],
+            aliases={},
+            config={},
+            spend=0,
+            max_budget=litellm.max_budget,
+            budget_duration=litellm.budget_duration,
+            query_type="update_data",
+            update_key_values={
+                "max_budget": litellm.max_budget,
+                "budget_duration": litellm.budget_duration,
+            },
+        )
+
+        # Without this, the upsert leaves budget_reset_at=NULL on rows that
+        # took the UPDATE path, and reset_budget_for_litellm_users never
+        # matches them (NULL < now() is unknown in SQL) — so the proxy-wide
+        # spend cap blocks forever once it's hit.
+        if prisma_client is not None and litellm.budget_duration is not None:
+            try:
+                await prisma_client.db.litellm_usertable.update_many(
+                    where={
+                        "user_id": litellm_proxy_budget_name,
+                        "budget_reset_at": None,
+                    },
+                    data={
+                        "budget_reset_at": get_budget_reset_time(
+                            budget_duration=litellm.budget_duration
+                        )
+                    },
+                )
+            except Exception as e:
+                verbose_proxy_logger.warning(
+                    "Failed to backfill budget_reset_at on proxy admin row: %s", e
+                )
 
     @classmethod
     async def _warm_global_spend_cache(
@@ -9003,6 +9108,7 @@ def _realtime_query_params_template(
     return tuple(params)
 
 
+@app.websocket("/openai/v1/realtime")
 @app.websocket("/v1/realtime")
 @app.websocket("/realtime")
 async def realtime_websocket_endpoint(
@@ -15089,6 +15195,11 @@ app.include_router(ui_discovery_endpoints_router)
 app.include_router(google_router)
 
 attach_lazy_features(app)
+app.add_middleware(
+    RequestSizeLimitMiddleware,
+    get_max_request_size_mb=lambda: general_settings.get("max_request_size_mb"),
+    is_request_size_limit_enabled=lambda: premium_user is True,
+)
 
 
 async def _stream_mcp_asgi_response(
@@ -15123,8 +15234,17 @@ async def _stream_mcp_asgi_response(
     # If the handler task dies (exception or cancellation) without sending the EOF
     # sentinel, body_iter() would block forever on body_queue.get().  The callback
     # below guarantees the queue gets unblocked regardless of how the task ends.
+    # When this happens before response headers, propagate the original exception
+    # instead of waiting for the header timeout.
     def _ensure_eof(task: asyncio.Task) -> None:
-        if task.cancelled() or task.exception() is not None:
+        if task.cancelled():
+            body_queue.put_nowait(None)
+            return
+
+        task_exception = task.exception()
+        if task_exception is not None:
+            if not headers_ready.done():
+                headers_ready.set_exception(task_exception)
             body_queue.put_nowait(None)
 
     handler_task.add_done_callback(_ensure_eof)
@@ -15223,95 +15343,176 @@ async def toolset_mcp_route(toolset_name: str, request: Request):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+async def _mcp_forward_as_path(path_segment: str, request: Request):
+    """Rewrite path to /mcp/{path_segment} and stream the response."""
+    from litellm.proxy._experimental.mcp_server.server import (
+        handle_streamable_http_mcp,
+    )
+
+    scope = dict(request.scope)
+    scope["path"] = f"/mcp/{path_segment}"
+    return await _stream_mcp_asgi_response(
+        handle_streamable_http_mcp, scope, request.receive
+    )
+
+
+async def _resolve_mcp_csv_tokens(
+    csv_segment: str, client_ip: Optional[str]
+) -> List[str]:
+    """Validate a comma-separated ``/{name1,name2,...}/mcp`` segment.
+
+    For each token, check (in order) whether it is a registered MCP server
+    alias / name or an MCP access group tag (cached). Tokens are stripped,
+    deduped (exact-match, keeping first occurrence in original order), and
+    capped at ``DEFAULT_MCP_NAMESPACE_CSV_MAX_TOKENS`` to bound the
+    per-request DB / cache fan-out an authenticated caller can trigger by
+    stuffing the path with tokens. Dedup is case-sensitive on purpose:
+    downstream resolvers may treat names case-sensitively, so collapsing
+    ``MyGroup`` and ``mygroup`` would risk dropping a valid distinct token.
+
+    Toolset names are intentionally NOT resolved here — toolsets bind a single
+    toolset id into request scope and have no defined semantics inside a
+    comma-separated server list.
+
+    Returns the subset of resolved tokens in original order. An empty list
+    means the segment did not resolve to any known server / group; the caller
+    should treat that as a 404 instead of forwarding it downstream (where an
+    all-unmatched server filter falls back to the full ``allowed_mcp_servers``
+    list and silently broadens the request scope).
+    """
+    from litellm.constants import DEFAULT_MCP_NAMESPACE_CSV_MAX_TOKENS
+    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        global_mcp_server_manager,
+    )
+
+    seen: set = set()
+    deduped: List[str] = []
+    for raw in csv_segment.split(","):
+        token = raw.strip()
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        deduped.append(token)
+        if len(deduped) >= DEFAULT_MCP_NAMESPACE_CSV_MAX_TOKENS:
+            break
+
+    resolved: List[str] = []
+    for token in deduped:
+        if global_mcp_server_manager.get_mcp_server_by_name(token, client_ip=client_ip):
+            resolved.append(token)
+            continue
+        if await _is_mcp_access_group_cached(token):
+            resolved.append(token)
+    return resolved
+
+
+async def _is_mcp_access_group_cached(name: str) -> bool:
+    """Return True if *name* is a known MCP access group tag.
+
+    Positive results are cached for ``DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL``
+    seconds. Negative results are cached for a short
+    ``DEFAULT_MCP_ACCESS_GROUP_NEGATIVE_CACHE_TTL`` window so unauthenticated
+    callers cannot force a fresh DB lookup per request for unknown names, while
+    bounding staleness so a transient DB error (which surfaces as an empty
+    list) cannot hide a real group for long.
+    """
+    from litellm.constants import (
+        DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL,
+        DEFAULT_MCP_ACCESS_GROUP_NEGATIVE_CACHE_TTL,
+    )
+    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+        MCPRequestHandler,
+    )
+
+    cache_key = f"mcp_access_group_exists:{name}"
+    cached = await user_api_key_cache.async_get_cache(key=cache_key)
+    if cached is not None:
+        return bool(cached)
+    result = bool(await MCPRequestHandler._get_mcp_servers_from_access_groups([name]))
+    await user_api_key_cache.async_set_cache(
+        key=cache_key,
+        value=result,
+        ttl=(
+            DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL
+            if result
+            else DEFAULT_MCP_ACCESS_GROUP_NEGATIVE_CACHE_TTL
+        ),
+    )
+    return result
+
+
 # Dynamic MCP server routes - handle /{mcp_server_name}/mcp
 @app.api_route(
     "/{mcp_server_name}/mcp",
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
 )
 async def dynamic_mcp_route(mcp_server_name: str, request: Request):
-    """Handle dynamic MCP server routes like /github_mcp/mcp and toolset routes like /devtooling-prod/mcp"""
+    """Handle /{name}/mcp for MCP server aliases, toolsets, MCP access group tags, and comma-separated lists.
+
+    Resolution order:
+    1. Registered MCP server alias / name
+    2. Comma-separated list (short-circuits before any DB call)
+    3. Toolset name (DB lookup, cached)
+    4. MCP access group tag (DB lookup, cached)
+    """
     try:
-        # Validate that the MCP server exists
         from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
         from litellm.proxy.auth.ip_address_utils import IPAddressUtils
-        from litellm.types.mcp import MCPAuth
 
         client_ip = IPAddressUtils.get_mcp_client_ip(request)
-        mcp_server = global_mcp_server_manager.get_mcp_server_by_name(
+
+        # 1. Registered MCP server alias
+        if global_mcp_server_manager.get_mcp_server_by_name(
             mcp_server_name, client_ip=client_ip
-        )
-        if mcp_server is None:
-            # Check if this is a toolset name — toolsets are accessible at /{name}/mcp
-            # the same way individual servers are, no separate /toolset/ prefix needed.
-            if prisma_client is not None:
-                from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
-                    global_mcp_server_manager,
-                )
-                from litellm.proxy._experimental.mcp_server.server import (
-                    _mcp_active_toolset_id,
-                    handle_streamable_http_mcp,
-                )
+        ):
+            return await _mcp_forward_as_path(mcp_server_name, request)
 
-                toolset = await global_mcp_server_manager.get_toolset_by_name_cached(
-                    prisma_client, mcp_server_name
+        # 2. Comma-separated list — validate every token resolves to a known
+        # server alias or access group before forwarding. Bounds DB / cache
+        # fan-out and prevents the downstream filter from silently falling back
+        # to the full allowed_mcp_servers list when no token matches.
+        if "," in mcp_server_name:
+            resolved_tokens = await _resolve_mcp_csv_tokens(mcp_server_name, client_ip)
+            if not resolved_tokens:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"No MCP server, toolset, or access group in "
+                        f"'{mcp_server_name}' resolved to a known target"
+                    ),
                 )
-                if toolset is not None:
-                    scope = dict(request.scope)
-                    scope["path"] = "/mcp"
+            return await _mcp_forward_as_path(",".join(resolved_tokens), request)
 
-                    token = _mcp_active_toolset_id.set(toolset.toolset_id)
-                    try:
-                        return await _stream_mcp_asgi_response(
-                            handle_streamable_http_mcp, scope, request.receive
-                        )
-                    finally:
-                        _mcp_active_toolset_id.reset(token)
-
-            raise HTTPException(
-                status_code=404, detail=f"MCP server '{mcp_server_name}' not found"
+        # 3. Toolset name (cached)
+        if prisma_client is not None:
+            from litellm.proxy._experimental.mcp_server.server import (
+                _mcp_active_toolset_id,
+                handle_streamable_http_mcp,
             )
 
-        # Create a new scope with the correct path format that the MCP handler expects
-        # Transform /{mcp_server_name}/mcp to /mcp/{mcp_server_name}
-        scope = dict(request.scope)
-        scope["path"] = f"/mcp/{mcp_server_name}"
+            toolset = await global_mcp_server_manager.get_toolset_by_name_cached(
+                prisma_client, mcp_server_name
+            )
+            if toolset is not None:
+                scope = dict(request.scope)
+                scope["path"] = "/mcp"
+                token = _mcp_active_toolset_id.set(toolset.toolset_id)
+                try:
+                    return await _stream_mcp_asgi_response(
+                        handle_streamable_http_mcp, scope, request.receive
+                    )
+                finally:
+                    _mcp_active_toolset_id.reset(token)
 
-        # Import the MCP handler
-        from litellm.proxy._experimental.mcp_server.server import (
-            handle_streamable_http_mcp,
-        )
+        # 4. MCP access group tag (cached)
+        if await _is_mcp_access_group_cached(mcp_server_name):
+            return await _mcp_forward_as_path(mcp_server_name, request)
 
-        # Create a custom send function to capture the response
-        response_started = False
-        response_body = b""
-        response_status = 200
-        response_headers = []
-
-        async def custom_send(message):
-            nonlocal response_started, response_body, response_status, response_headers
-            if message["type"] == "http.response.start":
-                response_started = True
-                response_status = message["status"]
-                response_headers = message.get("headers", [])
-            elif message["type"] == "http.response.body":
-                response_body += message.get("body", b"")
-
-        # Call the existing MCP handler
-        await handle_streamable_http_mcp(
-            scope, receive=request.receive, send=custom_send
-        )
-
-        # Return the response
-        from starlette.responses import Response
-
-        headers_dict = {k.decode(): v.decode() for k, v in response_headers}
-        return Response(
-            content=response_body,
-            status_code=response_status,
-            headers=headers_dict,
-            media_type=headers_dict.get("content-type", "application/json"),
+        raise HTTPException(
+            status_code=404,
+            detail=f"MCP server, toolset, or access group '{mcp_server_name}' not found",
         )
 
     except HTTPException as e:

@@ -18,10 +18,23 @@ class Farm(AWSObject):
     resource_type = "AWS::Deadline::Farm"
 
     props: PropsDictType = {
+        "CostScaleFactor": (double, False),
         "Description": (str, False),
         "DisplayName": (str, True),
         "KmsKeyArn": (str, False),
         "Tags": (Tags, False),
+    }
+
+
+class CustomerManagedAutoScalingConfiguration(AWSProperty):
+    """
+    `CustomerManagedAutoScalingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedautoscalingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ScaleOutWorkersPerMinute": (integer, False),
+        "StandbyWorkerCount": (integer, False),
+        "WorkerIdleDurationSeconds": (integer, False),
     }
 
 
@@ -116,10 +129,23 @@ class CustomerManagedFleetConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AutoScalingConfiguration": (CustomerManagedAutoScalingConfiguration, False),
         "Mode": (str, True),
         "StorageProfileId": (str, False),
         "TagPropagationMode": (str, False),
         "WorkerCapabilities": (CustomerManagedWorkerCapabilities, True),
+    }
+
+
+class ServiceManagedEc2AutoScalingConfiguration(AWSProperty):
+    """
+    `ServiceManagedEc2AutoScalingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2autoscalingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ScaleOutWorkersPerMinute": (integer, False),
+        "StandbyWorkerCount": (integer, False),
+        "WorkerIdleDurationSeconds": (integer, False),
     }
 
 
@@ -202,6 +228,7 @@ class ServiceManagedEc2FleetConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AutoScalingConfiguration": (ServiceManagedEc2AutoScalingConfiguration, False),
         "InstanceCapabilities": (ServiceManagedEc2InstanceCapabilities, True),
         "InstanceMarketOptions": (ServiceManagedEc2InstanceMarketOptions, True),
         "StorageProfileId": (str, False),
@@ -305,6 +332,7 @@ class Monitor(AWSObject):
     props: PropsDictType = {
         "DisplayName": (str, True),
         "IdentityCenterInstanceArn": (str, True),
+        "IdentityCenterRegion": (str, False),
         "RoleArn": (str, True),
         "Subdomain": (str, True),
         "Tags": (Tags, False),
@@ -356,6 +384,64 @@ class JobRunAsUser(AWSProperty):
     }
 
 
+class PriorityBalancedSchedulingConfiguration(AWSProperty):
+    """
+    `PriorityBalancedSchedulingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-prioritybalancedschedulingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "RenderingTaskBuffer": (integer, False),
+    }
+
+
+class SchedulingMaxPriorityOverride(AWSProperty):
+    """
+    `SchedulingMaxPriorityOverride <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingmaxpriorityoverride.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlwaysScheduleFirst": (dict, True),
+    }
+
+
+class SchedulingMinPriorityOverride(AWSProperty):
+    """
+    `SchedulingMinPriorityOverride <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingminpriorityoverride.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlwaysScheduleLast": (dict, True),
+    }
+
+
+class WeightedBalancedSchedulingConfiguration(AWSProperty):
+    """
+    `WeightedBalancedSchedulingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ErrorWeight": (double, False),
+        "MaxPriorityOverride": (SchedulingMaxPriorityOverride, False),
+        "MinPriorityOverride": (SchedulingMinPriorityOverride, False),
+        "PriorityWeight": (double, False),
+        "RenderingTaskBuffer": (integer, False),
+        "RenderingTaskWeight": (double, False),
+        "SubmissionTimeWeight": (double, False),
+    }
+
+
+class SchedulingConfiguration(AWSProperty):
+    """
+    `SchedulingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "PriorityBalanced": (PriorityBalancedSchedulingConfiguration, False),
+        "PriorityFifo": (dict, False),
+        "WeightedBalanced": (WeightedBalancedSchedulingConfiguration, False),
+    }
+
+
 class Queue(AWSObject):
     """
     `Queue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-queue.html>`__
@@ -373,6 +459,7 @@ class Queue(AWSObject):
         "JobRunAsUser": (JobRunAsUser, False),
         "RequiredFileSystemLocationNames": ([str], False),
         "RoleArn": (str, False),
+        "SchedulingConfiguration": (SchedulingConfiguration, False),
         "Tags": (Tags, False),
     }
 

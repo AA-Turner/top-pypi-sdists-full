@@ -181,6 +181,17 @@ class BridgeSource(AWSObject):
     }
 
 
+class EncodingConfig(AWSProperty):
+    """
+    `EncodingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-encodingconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "EncodingProfile": (str, False),
+        "VideoMaxBitrate": (integer, False),
+    }
+
+
 class Maintenance(AWSProperty):
     """
     `Maintenance <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-maintenance.html>`__
@@ -232,6 +243,7 @@ class MediaStream(AWSProperty):
         "MediaStreamId": (integer, True),
         "MediaStreamName": (str, True),
         "MediaStreamType": (str, True),
+        "Tags": (Tags, False),
         "VideoFormat": (str, False),
     }
 
@@ -267,14 +279,9 @@ class Encryption(AWSProperty):
 
     props: PropsDictType = {
         "Algorithm": (str, False),
-        "ConstantInitializationVector": (str, False),
-        "DeviceId": (str, False),
         "KeyType": (str, False),
-        "Region": (str, False),
-        "ResourceId": (str, False),
         "RoleArn": (str, True),
         "SecretArn": (str, False),
-        "Url": (str, False),
     }
 
 
@@ -355,6 +362,16 @@ class MediaStreamSourceConfiguration(AWSProperty):
     }
 
 
+class NdiSourceSettings(AWSProperty):
+    """
+    `NdiSourceSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-ndisourcesettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "SourceName": (str, False),
+    }
+
+
 class Source(AWSProperty):
     """
     `Source <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html>`__
@@ -373,16 +390,16 @@ class Source(AWSProperty):
         "MediaStreamSourceConfigurations": ([MediaStreamSourceConfiguration], False),
         "MinLatency": (integer, False),
         "Name": (str, False),
+        "NdiSourceSettings": (NdiSourceSettings, False),
         "Protocol": (str, False),
         "RouterIntegrationState": (str, False),
         "RouterIntegrationTransitDecryption": (FlowTransitEncryption, False),
-        "SenderControlPort": (integer, False),
-        "SenderIpAddress": (str, False),
         "SourceArn": (str, False),
         "SourceIngestPort": (str, False),
         "SourceListenerAddress": (str, False),
         "SourceListenerPort": (integer, False),
         "StreamId": (str, False),
+        "Tags": (Tags, False),
         "VpcInterfaceName": (str, False),
         "WhitelistCidr": (str, False),
     }
@@ -467,6 +484,7 @@ class VpcInterface(AWSProperty):
         "RoleArn": (str, True),
         "SecurityGroupIds": ([str], True),
         "SubnetId": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -479,6 +497,7 @@ class Flow(AWSObject):
 
     props: PropsDictType = {
         "AvailabilityZone": (str, False),
+        "EncodingConfig": (EncodingConfig, False),
         "FlowSize": (str, False),
         "Maintenance": (Maintenance, False),
         "MediaStreams": ([MediaStream], False),
@@ -487,6 +506,7 @@ class Flow(AWSObject):
         "Source": (Source, True),
         "SourceFailoverConfig": (FailoverConfig, False),
         "SourceMonitoringConfig": (SourceMonitoringConfig, False),
+        "Tags": (Tags, False),
         "VpcInterfaces": ([VpcInterface], False),
     }
 
@@ -506,6 +526,7 @@ class FlowEntitlement(AWSObject):
         "FlowArn": (str, True),
         "Name": (str, True),
         "Subscribers": ([str], True),
+        "Tags": (Tags, False),
     }
 
 
@@ -585,6 +606,7 @@ class FlowOutput(AWSObject):
         "RouterIntegrationTransitEncryption": (FlowTransitEncryption, False),
         "SmoothingLatency": (integer, False),
         "StreamId": (str, False),
+        "Tags": (Tags, False),
         "VpcInterfaceAttachment": (VpcInterfaceAttachment, False),
     }
 
@@ -599,8 +621,7 @@ class FlowSource(AWSObject):
     props: PropsDictType = {
         "Decryption": (Encryption, False),
         "Description": (str, True),
-        "EntitlementArn": (str, False),
-        "FlowArn": (str, False),
+        "FlowArn": (str, True),
         "GatewayBridgeSource": (GatewayBridgeSource, False),
         "IngestPort": (integer, False),
         "MaxBitrate": (integer, False),
@@ -608,11 +629,10 @@ class FlowSource(AWSObject):
         "MinLatency": (integer, False),
         "Name": (str, True),
         "Protocol": (str, False),
-        "SenderControlPort": (integer, False),
-        "SenderIpAddress": (str, False),
         "SourceListenerAddress": (str, False),
         "SourceListenerPort": (integer, False),
         "StreamId": (str, False),
+        "Tags": (Tags, False),
         "VpcInterfaceName": (str, False),
         "WhitelistCidr": (str, False),
     }
@@ -777,6 +797,44 @@ class MediaConnectFlowRouterInputConfiguration(AWSProperty):
     }
 
 
+class MediaLiveTransitEncryptionKeyConfiguration(AWSProperty):
+    """
+    `MediaLiveTransitEncryptionKeyConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialivetransitencryptionkeyconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Automatic": (dict, False),
+        "SecretsManager": (SecretsManagerEncryptionKeyConfiguration, False),
+    }
+
+
+class MediaLiveTransitEncryption(AWSProperty):
+    """
+    `MediaLiveTransitEncryption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialivetransitencryption.html>`__
+    """
+
+    props: PropsDictType = {
+        "EncryptionKeyConfiguration": (
+            MediaLiveTransitEncryptionKeyConfiguration,
+            True,
+        ),
+        "EncryptionKeyType": (str, False),
+    }
+
+
+class MediaLiveChannelRouterInputConfiguration(AWSProperty):
+    """
+    `MediaLiveChannelRouterInputConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-medialivechannelrouterinputconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "MediaLiveChannelArn": (str, False),
+        "MediaLiveChannelOutputName": (str, False),
+        "MediaLivePipelineId": (str, False),
+        "SourceTransitDecryption": (MediaLiveTransitEncryption, True),
+    }
+
+
 class MergeRouterInputProtocolConfiguration(AWSProperty):
     """
     `MergeRouterInputProtocolConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-mergerouterinputprotocolconfiguration.html>`__
@@ -833,6 +891,7 @@ class RouterInputConfiguration(AWSProperty):
     props: PropsDictType = {
         "Failover": (FailoverRouterInputConfiguration, False),
         "MediaConnectFlow": (MediaConnectFlowRouterInputConfiguration, False),
+        "MediaLiveChannel": (MediaLiveChannelRouterInputConfiguration, False),
         "Merge": (MergeRouterInputConfiguration, False),
         "Standard": (StandardRouterInputConfiguration, False),
     }
@@ -950,31 +1009,6 @@ class MediaConnectFlowRouterOutputConfiguration(AWSProperty):
         "DestinationTransitEncryption": (FlowTransitEncryption, True),
         "FlowArn": (str, False),
         "FlowSourceArn": (str, False),
-    }
-
-
-class MediaLiveTransitEncryptionKeyConfiguration(AWSProperty):
-    """
-    `MediaLiveTransitEncryptionKeyConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialivetransitencryptionkeyconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "Automatic": (dict, False),
-        "SecretsManager": (SecretsManagerEncryptionKeyConfiguration, False),
-    }
-
-
-class MediaLiveTransitEncryption(AWSProperty):
-    """
-    `MediaLiveTransitEncryption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-medialivetransitencryption.html>`__
-    """
-
-    props: PropsDictType = {
-        "EncryptionKeyConfiguration": (
-            MediaLiveTransitEncryptionKeyConfiguration,
-            True,
-        ),
-        "EncryptionKeyType": (str, False),
     }
 
 

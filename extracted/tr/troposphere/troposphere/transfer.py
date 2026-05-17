@@ -142,6 +142,7 @@ class Connector(AWSObject):
         "As2Config": (As2Config, False),
         "EgressConfig": (ConnectorEgressConfig, False),
         "EgressType": (str, False),
+        "IpAddressType": (str, False),
         "LoggingRole": (str, False),
         "SecurityPolicyName": (str, False),
         "SftpConfig": (SftpConfig, False),

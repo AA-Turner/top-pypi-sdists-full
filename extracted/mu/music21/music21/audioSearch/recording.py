@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # ------------------------------------------------------------------------------
 # Name:         audioSearch.recording.py
 # Purpose:      routines for making recordings from microphone input
@@ -12,7 +11,7 @@
 '''
 modules for audio searching that directly record from the microphone.
 
-Requires PyAudio and portaudio to be installed (https://www.portaudio.com/download.html)
+Requires PyAudio and portaudio to be installed (https://portaudio.com/download.html)
 
 Windows users will get pyaudio and portaudio with `pip install pyaudio`
 
@@ -75,7 +74,6 @@ def samplesFromRecording(seconds=10.0, storeFile=True,
     for i in range(recordingLength):
         data = st.read(recordChunkLength)
         storedWaveSampleList.append(data)
-    # print('Time elapsed: %.3f s\n' % (time.time() - time_start))
     st.close()
     p_audio.terminate()
 

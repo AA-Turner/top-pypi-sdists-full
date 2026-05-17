@@ -1985,10 +1985,14 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             # --- End on_mount hooks ---
 
             # --- State restoration (skip mount when pre-rendered state exists) ---
+            # Loosened from `if has_prerendered:` — also fire on plain WS
+            # reconnect when saved state exists in the session. Pairs with
+            # the WS-event-handler save in handle_event so state survives
+            # reconnects (page refresh, network blip, snapshot/restore).
             mounted = False
-            if has_prerendered:
-                view_key = f"liveview_{page_url}"
-                saved_state = await request.session.aget(view_key, {})
+            view_key = f"liveview_{page_url}"
+            saved_state = await request.session.aget(view_key, {}) if request.session else {}
+            if has_prerendered or saved_state:
                 if saved_state:
                     from .security import safe_setattr
 
@@ -2308,14 +2312,29 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 sanitize_for_log(view_path),
             )
 
-        # Only include HTML if it was generated (not skipped due to pre-rendering)
-        if html is not None:
+        # Only include HTML if it was generated (not skipped due to pre-rendering).
+        #
+        # Resume optimization: when state was restored from the Django session
+        # (mounted=True, my WS-event-save-companion patch fires) AND the client
+        # carries pre-rendered HTML (has_prerendered=True), the client's DOM
+        # already reflects the saved state. Sending the freshly-rendered HTML
+        # would trigger a redundant DOM swap on the client. Skip the html
+        # field; client.js's `e.html && (n.innerHTML=e.html)` short-circuits
+        # cleanly, leaving the existing DOM in place. The `version` field
+        # below still flows so subsequent patches stay in sync.
+        skip_html_for_resume = mounted and has_prerendered
+        if html is not None and not skip_html_for_resume:
             response["html"] = html
             # Flag indicating HTML has dj-id attributes for ID-based patching.
             # Must match the attribute name emitted by the Rust renderer ("dj-id",
             # not "data-dj-id"). Mirrors the equivalent check in sse.py.
             has_ids = "dj-id=" in html
             response["has_ids"] = has_ids
+        elif skip_html_for_resume:
+            logger.info(
+                "Skipping mount HTML for resume of %s — client already has DOM",
+                sanitize_for_log(view_path),
+            )
 
         # Include cache configuration for handlers with @cache decorator
         cache_config = self._extract_cache_config()
@@ -3081,6 +3100,146 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                                     "Waiter notification for %r failed: %s",
                                     event_name,
                                     exc,
+                                )
+
+                        # Persist updated LiveView state to the Django session.
+                        # Mirrors the save in mixins/request.py:603-609 for the
+                        # HTTP path. Without this, WS-driven state changes are
+                        # only kept in the consumer's in-memory view instance —
+                        # if the WS reconnects (page refresh, network blip,
+                        # snapshot/restore in the djustlive proxy), state is
+                        # lost. With it, mount() on reconnect restores from
+                        # the saved snapshot via the existing aget() at
+                        # ~line 1990, and views opting into
+                        # `enable_state_snapshot` actually get true reconnect
+                        # state continuity.
+                        # Gate (Stage 11 PR #1466): only run for top-level
+                        # view identity — child LiveComponent views never
+                        # get ``_djust_mount_request`` stashed (see
+                        # line ~2143), so the save would fall back to
+                        # scope_session with save_path="/" → write to
+                        # "liveview_/" (wrong key, no read-side ever finds
+                        # it). Child-view coverage tracked at #1467 / #1471.
+                        # Gate (#1475 / 0.9.7rc3): only run when the view
+                        # opts in via ``enable_state_snapshot = True``.
+                        # PR #1466 omitted this gate, citing HTTP-path
+                        # symmetry (HTTP also saves on every POST). That
+                        # symmetry argument doesn't survive contact with
+                        # snapshot-on-idle infrastructure: WS events leave
+                        # async session-backend I/O in flight beyond
+                        # ``send_json``; when the host snapshots the VM
+                        # mid-flight, the asyncio state is captured
+                        # unrecoverably. Default views ship 0.9.6 close-
+                        # path semantics (no async session writes per
+                        # event), opt-in views get the feature they asked
+                        # for. Wraps the body in a 150ms timeout so even
+                        # opt-in views can't extend close-time tail
+                        # latency under DB/Redis backpressure — saves
+                        # must never break event handling.
+                        if target_view is self.view_instance and getattr(
+                            self.view_instance, "enable_state_snapshot", False
+                        ):
+
+                            async def _persist_state_after_event() -> None:
+                                """Inner helper so the entire save body can
+                                be bounded by ``asyncio.wait_for``. Closes
+                                over outer locals (target_view, event_name,
+                                etc.) by reference.
+                                """
+                                mount_request = getattr(target_view, "_djust_mount_request", None)
+                                scope_session = (
+                                    self.scope.get("session") if mount_request is None else None
+                                )
+                                save_session = (
+                                    getattr(mount_request, "session", None)
+                                    if mount_request is not None
+                                    else scope_session
+                                )
+                                if save_session is None:
+                                    return
+
+                                from .components.base import LiveComponent as _LC
+                                from .serialization import (
+                                    normalize_django_value as _normalize,
+                                )
+
+                                save_path = mount_request.path if mount_request is not None else "/"
+                                save_view_key = f"liveview_{save_path}"
+
+                                # Save order mirrors HTTP path
+                                # (mixins/request.py:593-609):
+                                # private attrs FIRST, then public via
+                                # get_context_data(). The HTTP-path
+                                # comment explains the ordering: private
+                                # is captured BEFORE get_context_data()
+                                # because get_context_data() sets
+                                # render-cycle internals that we don't
+                                # want to accidentally capture.
+                                if hasattr(target_view, "_get_private_state"):
+                                    _priv = await sync_to_async(target_view._get_private_state)()
+                                    if _priv:
+                                        await save_session.aset(
+                                            f"{save_view_key}__private",
+                                            _normalize(_priv),
+                                        )
+                                    else:
+                                        # Clean up if no private attrs remain
+                                        try:
+                                            await save_session.apop(
+                                                f"{save_view_key}__private", None
+                                            )
+                                        except AttributeError:
+                                            # Older Django: no apop, fall back
+                                            await sync_to_async(save_session.pop)(
+                                                f"{save_view_key}__private", None
+                                            )
+
+                                # Pull a fresh public-state snapshot.
+                                # Mirrors the get_context_data() call
+                                # in HTTP path so the saved keys match
+                                # the LOAD path's reads.
+                                _gcd_save = target_view.get_context_data
+                                if inspect.iscoroutinefunction(_gcd_save):
+                                    save_context = await _gcd_save()
+                                else:
+                                    save_context = await sync_to_async(_gcd_save)()
+
+                                save_state = {
+                                    k: v for k, v in save_context.items() if not isinstance(v, _LC)
+                                }
+                                await save_session.aset(save_view_key, _normalize(save_state))
+
+                                # Components — sync helper, wrap with sync_to_async.
+                                if mount_request is not None and hasattr(
+                                    target_view, "_save_components_to_session"
+                                ):
+                                    await sync_to_async(target_view._save_components_to_session)(
+                                        mount_request, save_context
+                                    )
+
+                                await save_session.asave()
+
+                            try:
+                                # 150ms bound on the entire save body. If a
+                                # session backend stalls (DB pressure,
+                                # Redis hiccup), the WS close path can't
+                                # be extended past this window — which is
+                                # what bricked djustlive snapshots in
+                                # 0.9.7rc2 (#1475). Saves must never
+                                # break event handling, so timeout +
+                                # exception are both caught & logged.
+                                await asyncio.wait_for(_persist_state_after_event(), timeout=0.150)
+                            except asyncio.TimeoutError:
+                                logger.warning(
+                                    "WS-event state save exceeded 150ms for %r — "
+                                    "session backend backpressure; skipping this event's save. "
+                                    "Subsequent events will retry.",
+                                    sanitize_for_log(event_name or ""),
+                                )
+                            except Exception:  # noqa: BLE001 — saves must never break event handling
+                                logger.exception(
+                                    "Failed to save LiveView state after WS event %r",
+                                    sanitize_for_log(event_name or ""),
                                 )
 
                         # Auto-detect unchanged state: if no public assigns were

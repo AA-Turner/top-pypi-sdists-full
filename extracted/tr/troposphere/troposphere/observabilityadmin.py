@@ -10,6 +10,16 @@ from . import AWSObject, AWSProperty, PropsDictType, Tags
 from .validators import double, integer
 
 
+class LogGroupNameConfiguration(AWSProperty):
+    """
+    `LogGroupNameConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-loggroupnameconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroupNamePattern": (str, True),
+    }
+
+
 class LogsBackupConfiguration(AWSProperty):
     """
     `LogsBackupConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-logsbackupconfiguration.html>`__
@@ -40,6 +50,7 @@ class DestinationLogsConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "BackupConfiguration": (LogsBackupConfiguration, False),
+        "LogGroupNameConfiguration": (LogGroupNameConfiguration, False),
         "LogsEncryptionConfiguration": (LogsEncryptionConfiguration, False),
     }
 
@@ -62,8 +73,9 @@ class SourceLogsConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "DataSourceSelectionCriteria": (str, False),
         "EncryptedLogGroupStrategy": (str, True),
-        "LogGroupSelectionCriteria": (str, True),
+        "LogGroupSelectionCriteria": (str, False),
     }
 
 
@@ -343,6 +355,18 @@ class S3TableIntegration(AWSObject):
         "LogSources": ([LogSource], False),
         "RoleArn": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class TelemetryEnrichment(AWSObject):
+    """
+    `TelemetryEnrichment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetryenrichment.html>`__
+    """
+
+    resource_type = "AWS::ObservabilityAdmin::TelemetryEnrichment"
+
+    props: PropsDictType = {
+        "Scope": (str, False),
     }
 
 

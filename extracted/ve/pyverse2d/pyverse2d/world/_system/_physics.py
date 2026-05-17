@@ -7,14 +7,16 @@ from .._world import World
 from .._component import Transform, RigidBody, GroundSensor
 
 from math import exp
+from typing import ClassVar
 
 # ======================================== SYSTEM ========================================
 class PhysicsSystem(System):
     """Système intégrant la physique des corps dynamiques"""
-    __slots__ = ()
+    __slots__ = tuple()
 
-    order = 50
-    exclusive = True
+    _ORDER: ClassVar[int] = 50
+
+    _IS_EXCLUSIVE: ClassVar[bool] = True
 
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
@@ -27,8 +29,8 @@ class PhysicsSystem(System):
         """Intègre la physique de tous les corps dynamiques actifs
 
         Args:
-            world(World): monde à mettre à jour
-            dt(float): delta time
+            world: monde à mettre à jour
+            dt: delta-time
         """
         for entity in world.query(RigidBody, Transform):
             rb: RigidBody = entity.get(RigidBody)

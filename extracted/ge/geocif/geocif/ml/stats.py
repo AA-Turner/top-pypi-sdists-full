@@ -306,6 +306,7 @@ def add_statistics(
                         "none",
                         "Small-scale (PS)",
                         "Commercial (PS)",
+                        "Communal (PS)",
                         "All (PS)",
                         "irrigated",
                         "rainfed",

@@ -34,7 +34,8 @@ module tblite_driver_run
    use tblite_spin, only : spin_polarization, new_spin_polarization
    use tblite_solvation, only : new_solvation, new_solvation_cds, new_solvation_shift, solvation_type
    use tblite_wavefunction, only : wavefunction_type, new_wavefunction, &
-      & sad_guess, eeq_guess, shell_partition, load_wavefunction, save_wavefunction
+      & sad_guess, eeq_guess, eeqbc_guess, shell_partition, &
+      & load_wavefunction, save_wavefunction
    use tblite_xtb_calculator, only : xtb_calculator, new_xtb_calculator
    use tblite_xtb_gfn2, only : new_gfn2_calculator, export_gfn2_param
    use tblite_xtb_gfn1, only : new_gfn1_calculator, export_gfn1_param
@@ -42,7 +43,7 @@ module tblite_driver_run
    use tblite_xtb_singlepoint, only : xtb_singlepoint
    use tblite_ceh_singlepoint, only : ceh_singlepoint
    use tblite_ceh_ceh, only : new_ceh_calculator
-   use tblite_post_processing_list, only : add_post_processing, post_processing_type, post_processing_list
+   use tblite_post_processing_list, only : add_post_processing, post_processing_list
 
    implicit none
    private
@@ -133,7 +134,7 @@ subroutine run_main(config, error)
    if (allocated(config%param)) then
       call param%load(config%param, error)
       if (.not. allocated(error)) then
-         call new_xtb_calculator(calc, mol, param, error)
+         call new_xtb_calculator(calc, mol, param, error, config%cfg)
       end if
    else
       method = "gfn2"
@@ -142,11 +143,11 @@ subroutine run_main(config, error)
       case default
          call fatal_error(error, "Unknown method '"//method//"' requested")
       case("gfn2")
-         call new_gfn2_calculator(calc, mol, error)
+         call new_gfn2_calculator(calc, mol, error, config%cfg)
       case("gfn1")
-         call new_gfn1_calculator(calc, mol, error)
+         call new_gfn1_calculator(calc, mol, error, config%cfg)
       case("ipea1")
-         call new_ipea1_calculator(calc, mol, error)
+         call new_ipea1_calculator(calc, mol, error, config%cfg)
       end select
    end if
    if (allocated(error)) return
@@ -200,7 +201,9 @@ subroutine run_main(config, error)
       case("sad")
          call sad_guess(mol, calc, wfn)
       case("eeq")
-         call eeq_guess(mol, calc, wfn)
+         call eeq_guess(mol, calc, wfn, error)
+      case("eeqbc")
+         call eeqbc_guess(mol, calc, wfn, error)
       case("ceh")
          call ceh_singlepoint(ctx, calc_ceh, mol, wfn_ceh, config%accuracy, config%verbosity)
          if (ctx%failed()) then
@@ -265,22 +268,22 @@ subroutine run_main(config, error)
 
    wbo_label = "bond-orders"
    allocate(post_proc)
-   call add_post_processing(post_proc, wbo_label, error)
+   call add_post_processing(post_proc, mol, wbo_label, error)
    if (allocated(error)) return
 
    if (config%verbosity > 2) then
       molmom_label = "molmom"
-      call add_post_processing(post_proc, molmom_label, error)
+      call add_post_processing(post_proc, mol, molmom_label, error)
       if (allocated(error)) return
    end if
 
    if (allocated(config%post_processing)) then
-      call add_post_processing(post_proc, config%post_processing, error)
+      call add_post_processing(post_proc, mol, config%post_processing, error)
       if (allocated(error)) return
    end if
 
    if (allocated(param%post_proc)) then
-      call add_post_processing(post_proc, param%post_proc)
+      call add_post_processing(post_proc, mol, param%post_proc, error)
       if (allocated(error)) return
    end if
 
@@ -313,8 +316,8 @@ subroutine run_main(config, error)
 
    if (config%verbosity > 2) then
       call ascii_levels(ctx%unit, config%verbosity, wfn%emo, wfn%focc, 7)
-      call post_proc%dict%get_entry("molecular-dipole", dpmom)
-      call post_proc%dict%get_entry("molecular-quadrupole", qpmom)
+      call results%dict%get_entry("molecular-dipole", dpmom)
+      call results%dict%get_entry("molecular-quadrupole", qpmom)
       
       call ascii_dipole_moments(ctx%unit, 1, mol, wfn%dpat(:, :, 1), dpmom)
       call ascii_quadrupole_moments(ctx%unit, 1, mol, wfn%qpat(:, :, 1), qpmom)

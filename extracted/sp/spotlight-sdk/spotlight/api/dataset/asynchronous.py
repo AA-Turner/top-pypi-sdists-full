@@ -3,13 +3,13 @@ from typing import Dict, Any, List
 from spotlight.api.dataset.__util import (
     _get_dataset_request_info,
     _get_datasets_request_info,
-    _search_datasets_request_info,
+    _get_default_dataset_request_info,
     _create_dataset_request_info,
     _update_dataset_request_info,
     _delete_dataset_request_info,
 )
 from spotlight.api.dataset.model import DatasetRequest
-from spotlight.api.dataset.model import SearchRequest
+from spotlight.api.dataset.model import DatasetUpdateRequest
 from spotlight.core.common.decorators import async_data_request
 from spotlight.core.common.requests import (
     __async_get_request,
@@ -47,18 +47,15 @@ async def async_get_datasets() -> List[Dict[str, Any]]:
 
 
 @async_data_request()
-async def async_search_datasets(request: SearchRequest) -> List[Dict[str, Any]]:
+async def async_get_default_dataset() -> Dict[str, Any]:
     """
-    Asynchronously search all datasets.
-
-    Args:
-        request (SearchRequest): Dataset search request
+    Asynchronously get default dataset.
 
     Returns:
-        List[Dict[str, Any]]: List of dataset response
+        Dict[str, Any]: Dataset response
     """
-    request_info = _search_datasets_request_info(request)
-    return await __async_post_request(**request_info)
+    request_info = _get_default_dataset_request_info()
+    return await __async_get_request(**request_info)
 
 
 @async_data_request()
@@ -73,23 +70,25 @@ async def async_create_dataset(request: DatasetRequest) -> Dict[str, Any]:
         Dict[str, Any]: Dataset response
     """
     request_info = _create_dataset_request_info(request)
-    return await __async_put_request(**request_info)
+    return await __async_post_request(**request_info)
 
 
 @async_data_request()
-async def async_update_dataset(id: str, request: DatasetRequest) -> Dict[str, Any]:
+async def async_update_dataset(
+    id: str, request: DatasetUpdateRequest
+) -> Dict[str, Any]:
     """
     Asynchronously update dataset.
 
     Args:
         id (str): Dataset ID
-        request (DatasetRequest): Dataset request
+        request (DatasetUpdateRequest): Dataset update request
 
     Returns:
         Dict[str, Any]: Dataset response
     """
     request_info = _update_dataset_request_info(id, request)
-    return await __async_post_request(**request_info)
+    return await __async_put_request(**request_info)
 
 
 @async_data_request(processor=lambda response: None)

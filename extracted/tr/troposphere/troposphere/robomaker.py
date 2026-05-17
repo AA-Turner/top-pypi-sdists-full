@@ -45,7 +45,7 @@ class RobotSoftwareSuite(AWSProperty):
 
     props: PropsDictType = {
         "Name": (str, True),
-        "Version": (str, True),
+        "Version": (str, False),
     }
 
 
@@ -70,9 +70,10 @@ class RobotApplication(AWSObject):
 
     props: PropsDictType = {
         "CurrentRevisionId": (str, False),
+        "Environment": (str, False),
         "Name": (str, False),
         "RobotSoftwareSuite": (RobotSoftwareSuite, True),
-        "Sources": ([SourceConfig], True),
+        "Sources": ([SourceConfig], False),
         "Tags": (dict, False),
     }
 
@@ -108,7 +109,7 @@ class SimulationSoftwareSuite(AWSProperty):
 
     props: PropsDictType = {
         "Name": (str, True),
-        "Version": (str, True),
+        "Version": (str, False),
     }
 
 
@@ -121,11 +122,12 @@ class SimulationApplication(AWSObject):
 
     props: PropsDictType = {
         "CurrentRevisionId": (str, False),
+        "Environment": (str, False),
         "Name": (str, False),
-        "RenderingEngine": (RenderingEngine, True),
+        "RenderingEngine": (RenderingEngine, False),
         "RobotSoftwareSuite": (RobotSoftwareSuite, True),
         "SimulationSoftwareSuite": (SimulationSoftwareSuite, True),
-        "Sources": ([SourceConfig], True),
+        "Sources": ([SourceConfig], False),
         "Tags": (dict, False),
     }
 

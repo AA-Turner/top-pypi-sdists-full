@@ -7,7 +7,21 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import boolean, integer
+from .validators import boolean, double, integer
+
+
+class ApiKeyCredentialProvider(AWSObject):
+    """
+    `ApiKeyCredentialProvider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html>`__
+    """
+
+    resource_type = "AWS::BedrockAgentCore::ApiKeyCredentialProvider"
+
+    props: PropsDictType = {
+        "ApiKey": (str, False),
+        "Name": (str, True),
+        "Tags": (Tags, False),
+    }
 
 
 class VpcConfig(AWSProperty):
@@ -83,6 +97,20 @@ class BrowserCustom(AWSObject):
     }
 
 
+class BrowserProfile(AWSObject):
+    """
+    `BrowserProfile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browserprofile.html>`__
+    """
+
+    resource_type = "AWS::BedrockAgentCore::BrowserProfile"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "Name": (str, True),
+        "Tags": (dict, False),
+    }
+
+
 class CodeInterpreterNetworkConfiguration(AWSProperty):
     """
     `CodeInterpreterNetworkConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-codeinterpretercustom-codeinterpreternetworkconfiguration.html>`__
@@ -107,6 +135,134 @@ class CodeInterpreterCustom(AWSObject):
         "Name": (str, True),
         "NetworkConfiguration": (CodeInterpreterNetworkConfiguration, True),
         "Tags": (dict, False),
+    }
+
+
+class LambdaEvaluatorConfig(AWSProperty):
+    """
+    `LambdaEvaluatorConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-lambdaevaluatorconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "LambdaArn": (str, True),
+        "LambdaTimeoutInSeconds": (integer, False),
+    }
+
+
+class CodeBasedEvaluatorConfig(AWSProperty):
+    """
+    `CodeBasedEvaluatorConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-codebasedevaluatorconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "LambdaConfig": (LambdaEvaluatorConfig, True),
+    }
+
+
+class InferenceConfiguration(AWSProperty):
+    """
+    `InferenceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-inferenceconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxTokens": (integer, False),
+        "Temperature": (double, False),
+        "TopP": (double, False),
+    }
+
+
+class BedrockEvaluatorModelConfig(AWSProperty):
+    """
+    `BedrockEvaluatorModelConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-bedrockevaluatormodelconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdditionalModelRequestFields": (dict, False),
+        "InferenceConfig": (InferenceConfiguration, False),
+        "ModelId": (str, True),
+    }
+
+
+class EvaluatorModelConfig(AWSProperty):
+    """
+    `EvaluatorModelConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatormodelconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "BedrockEvaluatorModelConfig": (BedrockEvaluatorModelConfig, True),
+    }
+
+
+class CategoricalScaleDefinition(AWSProperty):
+    """
+    `CategoricalScaleDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-categoricalscaledefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Definition": (str, True),
+        "Label": (str, True),
+    }
+
+
+class NumericalScaleDefinition(AWSProperty):
+    """
+    `NumericalScaleDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-numericalscaledefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Definition": (str, True),
+        "Label": (str, True),
+        "Value": (double, True),
+    }
+
+
+class RatingScale(AWSProperty):
+    """
+    `RatingScale <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-ratingscale.html>`__
+    """
+
+    props: PropsDictType = {
+        "Categorical": ([CategoricalScaleDefinition], False),
+        "Numerical": ([NumericalScaleDefinition], False),
+    }
+
+
+class LlmAsAJudgeEvaluatorConfig(AWSProperty):
+    """
+    `LlmAsAJudgeEvaluatorConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-llmasajudgeevaluatorconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Instructions": (str, True),
+        "ModelConfig": (EvaluatorModelConfig, True),
+        "RatingScale": (RatingScale, True),
+    }
+
+
+class EvaluatorConfig(AWSProperty):
+    """
+    `EvaluatorConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatorconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CodeBased": (CodeBasedEvaluatorConfig, False),
+        "LlmAsAJudge": (LlmAsAJudgeEvaluatorConfig, False),
+    }
+
+
+class Evaluator(AWSObject):
+    """
+    `Evaluator <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html>`__
+    """
+
+    resource_type = "AWS::BedrockAgentCore::Evaluator"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "EvaluatorConfig": (EvaluatorConfig, True),
+        "EvaluatorName": (str, True),
+        "Level": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -210,6 +366,17 @@ class GatewayInterceptorConfiguration(AWSProperty):
     }
 
 
+class GatewayPolicyEngineConfiguration(AWSProperty):
+    """
+    `GatewayPolicyEngineConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-gatewaypolicyengineconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Arn": (str, True),
+        "Mode": (str, True),
+    }
+
+
 class MCPGatewayConfiguration(AWSProperty):
     """
     `MCPGatewayConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-mcpgatewayconfiguration.html>`__
@@ -247,6 +414,7 @@ class Gateway(AWSObject):
         "InterceptorConfigurations": ([GatewayInterceptorConfiguration], False),
         "KmsKeyArn": (str, False),
         "Name": (str, True),
+        "PolicyEngineConfiguration": (GatewayPolicyEngineConfiguration, False),
         "ProtocolConfiguration": (GatewayProtocolConfiguration, False),
         "ProtocolType": (str, True),
         "RoleArn": (str, True),
@@ -254,9 +422,9 @@ class Gateway(AWSObject):
     }
 
 
-class ApiKeyCredentialProvider(AWSProperty):
+class ApiKeyCredentialProviderProperty(AWSProperty):
     """
-    `ApiKeyCredentialProvider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-apikeycredentialprovider.html>`__
+    `ApiKeyCredentialProviderProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-apikeycredentialprovider.html>`__
     """
 
     props: PropsDictType = {
@@ -264,6 +432,17 @@ class ApiKeyCredentialProvider(AWSProperty):
         "CredentialParameterName": (str, False),
         "CredentialPrefix": (str, False),
         "ProviderArn": (str, True),
+    }
+
+
+class IamCredentialProvider(AWSProperty):
+    """
+    `IamCredentialProvider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-iamcredentialprovider.html>`__
+    """
+
+    props: PropsDictType = {
+        "Region": (str, False),
+        "Service": (str, True),
     }
 
 
@@ -287,7 +466,8 @@ class CredentialProvider(AWSProperty):
     """
 
     props: PropsDictType = {
-        "ApiKeyCredentialProvider": (ApiKeyCredentialProvider, False),
+        "ApiKeyCredentialProvider": (ApiKeyCredentialProviderProperty, False),
+        "IamCredentialProvider": (IamCredentialProvider, False),
         "OauthCredentialProvider": (OAuthCredentialProvider, False),
     }
 
@@ -514,6 +694,7 @@ class EpisodicOverrideReflectionConfigurationInput(AWSProperty):
     props: PropsDictType = {
         "AppendToPrompt": (str, True),
         "ModelId": (str, True),
+        "NamespaceTemplates": ([str], False),
         "Namespaces": ([str], False),
     }
 
@@ -706,6 +887,7 @@ class CustomMemoryStrategy(AWSProperty):
         "CreatedAt": (str, False),
         "Description": (str, False),
         "Name": (str, True),
+        "NamespaceTemplates": ([str], False),
         "Namespaces": ([str], False),
         "Status": (str, False),
         "StrategyId": (str, False),
@@ -720,7 +902,8 @@ class EpisodicReflectionConfigurationInput(AWSProperty):
     """
 
     props: PropsDictType = {
-        "Namespaces": ([str], True),
+        "NamespaceTemplates": ([str], False),
+        "Namespaces": ([str], False),
     }
 
 
@@ -733,6 +916,7 @@ class EpisodicMemoryStrategy(AWSProperty):
         "CreatedAt": (str, False),
         "Description": (str, False),
         "Name": (str, True),
+        "NamespaceTemplates": ([str], False),
         "Namespaces": ([str], False),
         "ReflectionConfiguration": (EpisodicReflectionConfigurationInput, False),
         "Status": (str, False),
@@ -751,6 +935,7 @@ class SemanticMemoryStrategy(AWSProperty):
         "CreatedAt": (str, False),
         "Description": (str, False),
         "Name": (str, True),
+        "NamespaceTemplates": ([str], False),
         "Namespaces": ([str], False),
         "Status": (str, False),
         "StrategyId": (str, False),
@@ -768,6 +953,7 @@ class SummaryMemoryStrategy(AWSProperty):
         "CreatedAt": (str, False),
         "Description": (str, False),
         "Name": (str, True),
+        "NamespaceTemplates": ([str], False),
         "Namespaces": ([str], False),
         "Status": (str, False),
         "StrategyId": (str, False),
@@ -785,6 +971,7 @@ class UserPreferenceMemoryStrategy(AWSProperty):
         "CreatedAt": (str, False),
         "Description": (str, False),
         "Name": (str, True),
+        "NamespaceTemplates": ([str], False),
         "Namespaces": ([str], False),
         "Status": (str, False),
         "StrategyId": (str, False),
@@ -807,6 +994,48 @@ class MemoryStrategy(AWSProperty):
     }
 
 
+class ContentConfiguration(AWSProperty):
+    """
+    `ContentConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-contentconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Level": (str, False),
+        "Type": (str, True),
+    }
+
+
+class KinesisResource(AWSProperty):
+    """
+    `KinesisResource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-kinesisresource.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContentConfigurations": ([ContentConfiguration], True),
+        "DataStreamArn": (str, True),
+    }
+
+
+class StreamDeliveryResource(AWSProperty):
+    """
+    `StreamDeliveryResource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-streamdeliveryresource.html>`__
+    """
+
+    props: PropsDictType = {
+        "Kinesis": (KinesisResource, False),
+    }
+
+
+class StreamDeliveryResources(AWSProperty):
+    """
+    `StreamDeliveryResources <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-streamdeliveryresources.html>`__
+    """
+
+    props: PropsDictType = {
+        "Resources": ([StreamDeliveryResource], True),
+    }
+
+
 class Memory(AWSObject):
     """
     `Memory <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-memory.html>`__
@@ -821,7 +1050,326 @@ class Memory(AWSObject):
         "MemoryExecutionRoleArn": (str, False),
         "MemoryStrategies": ([MemoryStrategy], False),
         "Name": (str, True),
+        "StreamDeliveryResources": (StreamDeliveryResources, False),
         "Tags": (dict, False),
+    }
+
+
+class AtlassianOauth2ProviderConfigInput(AWSProperty):
+    """
+    `AtlassianOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+    }
+
+
+class Oauth2AuthorizationServerMetadata(AWSProperty):
+    """
+    `Oauth2AuthorizationServerMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2authorizationservermetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationEndpoint": (str, True),
+        "Issuer": (str, True),
+        "ResponseTypes": ([str], False),
+        "TokenEndpoint": (str, True),
+    }
+
+
+class Oauth2Discovery(AWSProperty):
+    """
+    `Oauth2Discovery <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2discovery.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationServerMetadata": (Oauth2AuthorizationServerMetadata, False),
+        "DiscoveryUrl": (str, False),
+    }
+
+
+class CustomOauth2ProviderConfigInput(AWSProperty):
+    """
+    `CustomOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+        "OauthDiscovery": (Oauth2Discovery, True),
+    }
+
+
+class GithubOauth2ProviderConfigInput(AWSProperty):
+    """
+    `GithubOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+    }
+
+
+class GoogleOauth2ProviderConfigInput(AWSProperty):
+    """
+    `GoogleOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+    }
+
+
+class IncludedOauth2ProviderConfigInput(AWSProperty):
+    """
+    `IncludedOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationEndpoint": (str, False),
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+        "Issuer": (str, False),
+        "TokenEndpoint": (str, False),
+    }
+
+
+class LinkedinOauth2ProviderConfigInput(AWSProperty):
+    """
+    `LinkedinOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+    }
+
+
+class MicrosoftOauth2ProviderConfigInput(AWSProperty):
+    """
+    `MicrosoftOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+        "TenantId": (str, False),
+    }
+
+
+class SalesforceOauth2ProviderConfigInput(AWSProperty):
+    """
+    `SalesforceOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+    }
+
+
+class SlackOauth2ProviderConfigInput(AWSProperty):
+    """
+    `SlackOauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "ClientSecret": (str, True),
+    }
+
+
+class Oauth2ProviderConfigInput(AWSProperty):
+    """
+    `Oauth2ProviderConfigInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfiginput.html>`__
+    """
+
+    props: PropsDictType = {
+        "AtlassianOauth2ProviderConfig": (AtlassianOauth2ProviderConfigInput, False),
+        "CustomOauth2ProviderConfig": (CustomOauth2ProviderConfigInput, False),
+        "GithubOauth2ProviderConfig": (GithubOauth2ProviderConfigInput, False),
+        "GoogleOauth2ProviderConfig": (GoogleOauth2ProviderConfigInput, False),
+        "IncludedOauth2ProviderConfig": (IncludedOauth2ProviderConfigInput, False),
+        "LinkedinOauth2ProviderConfig": (LinkedinOauth2ProviderConfigInput, False),
+        "MicrosoftOauth2ProviderConfig": (MicrosoftOauth2ProviderConfigInput, False),
+        "SalesforceOauth2ProviderConfig": (SalesforceOauth2ProviderConfigInput, False),
+        "SlackOauth2ProviderConfig": (SlackOauth2ProviderConfigInput, False),
+    }
+
+
+class OAuth2CredentialProvider(AWSObject):
+    """
+    `OAuth2CredentialProvider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-oauth2credentialprovider.html>`__
+    """
+
+    resource_type = "AWS::BedrockAgentCore::OAuth2CredentialProvider"
+
+    props: PropsDictType = {
+        "CredentialProviderVendor": (str, True),
+        "Name": (str, True),
+        "Oauth2ProviderConfigInput": (Oauth2ProviderConfigInput, False),
+        "Tags": (Tags, False),
+    }
+
+
+class CloudWatchLogsInputConfig(AWSProperty):
+    """
+    `CloudWatchLogsInputConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchlogsinputconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroupNames": ([str], True),
+        "ServiceNames": ([str], True),
+    }
+
+
+class DataSourceConfig(AWSProperty):
+    """
+    `DataSourceConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-datasourceconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatchLogs": (CloudWatchLogsInputConfig, True),
+    }
+
+
+class EvaluatorReference(AWSProperty):
+    """
+    `EvaluatorReference <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-evaluatorreference.html>`__
+    """
+
+    props: PropsDictType = {
+        "EvaluatorId": (str, True),
+    }
+
+
+class FilterValue(AWSProperty):
+    """
+    `FilterValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filtervalue.html>`__
+    """
+
+    props: PropsDictType = {
+        "BooleanValue": (boolean, False),
+        "DoubleValue": (double, False),
+        "StringValue": (str, False),
+    }
+
+
+class Filter(AWSProperty):
+    """
+    `Filter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filter.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Operator": (str, True),
+        "Value": (FilterValue, True),
+    }
+
+
+class SamplingConfig(AWSProperty):
+    """
+    `SamplingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-samplingconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "SamplingPercentage": (double, True),
+    }
+
+
+class SessionConfig(AWSProperty):
+    """
+    `SessionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-sessionconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "SessionTimeoutMinutes": (integer, True),
+    }
+
+
+class Rule(AWSProperty):
+    """
+    `Rule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-rule.html>`__
+    """
+
+    props: PropsDictType = {
+        "Filters": ([Filter], False),
+        "SamplingConfig": (SamplingConfig, True),
+        "SessionConfig": (SessionConfig, False),
+    }
+
+
+class OnlineEvaluationConfig(AWSObject):
+    """
+    `OnlineEvaluationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html>`__
+    """
+
+    resource_type = "AWS::BedrockAgentCore::OnlineEvaluationConfig"
+
+    props: PropsDictType = {
+        "DataSourceConfig": (DataSourceConfig, True),
+        "Description": (str, False),
+        "EvaluationExecutionRoleArn": (str, True),
+        "Evaluators": ([EvaluatorReference], True),
+        "ExecutionStatus": (str, False),
+        "OnlineEvaluationConfigName": (str, True),
+        "Rule": (Rule, True),
+        "Tags": (Tags, False),
+    }
+
+
+class CedarPolicy(AWSProperty):
+    """
+    `CedarPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-cedarpolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "Statement": (str, True),
+    }
+
+
+class PolicyDefinition(AWSProperty):
+    """
+    `PolicyDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-policydefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Cedar": (CedarPolicy, True),
+    }
+
+
+class Policy(AWSObject):
+    """
+    `Policy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html>`__
+    """
+
+    resource_type = "AWS::BedrockAgentCore::Policy"
+
+    props: PropsDictType = {
+        "Definition": (PolicyDefinition, True),
+        "Description": (str, False),
+        "Name": (str, True),
+        "PolicyEngineId": (str, True),
+        "ValidationMode": (str, False),
+    }
+
+
+class PolicyEngine(AWSObject):
+    """
+    `PolicyEngine <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policyengine.html>`__
+    """
+
+    resource_type = "AWS::BedrockAgentCore::PolicyEngine"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "EncryptionKeyArn": (str, False),
+        "Name": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -865,6 +1413,26 @@ class AgentRuntimeArtifact(AWSProperty):
     props: PropsDictType = {
         "CodeConfiguration": (CodeConfiguration, False),
         "ContainerConfiguration": (ContainerConfiguration, False),
+    }
+
+
+class SessionStorageConfiguration(AWSProperty):
+    """
+    `SessionStorageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-sessionstorageconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "MountPath": (str, True),
+    }
+
+
+class FilesystemConfiguration(AWSProperty):
+    """
+    `FilesystemConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-runtime-filesystemconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SessionStorage": (SessionStorageConfiguration, False),
     }
 
 
@@ -913,6 +1481,7 @@ class Runtime(AWSObject):
         "AuthorizerConfiguration": (AuthorizerConfiguration, False),
         "Description": (str, False),
         "EnvironmentVariables": (dict, False),
+        "FilesystemConfigurations": ([FilesystemConfiguration], False),
         "LifecycleConfiguration": (LifecycleConfiguration, False),
         "NetworkConfiguration": (NetworkConfiguration, True),
         "ProtocolConfiguration": (str, False),
@@ -949,6 +1518,57 @@ class WorkloadIdentity(AWSObject):
         "AllowedResourceOauth2ReturnUrls": ([str], False),
         "Name": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class ApiKeySecretArn(AWSProperty):
+    """
+    `ApiKeySecretArn <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-apikeycredentialprovider-apikeysecretarn.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecretArn": (str, True),
+    }
+
+
+class ClientSecretArn(AWSProperty):
+    """
+    `ClientSecretArn <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-clientsecretarn.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecretArn": (str, True),
+    }
+
+
+class CloudWatchOutputConfig(AWSProperty):
+    """
+    `CloudWatchOutputConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchoutputconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroupName": (str, False),
+    }
+
+
+class Oauth2ProviderConfigOutput(AWSProperty):
+    """
+    `Oauth2ProviderConfigOutput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, False),
+        "OauthDiscovery": (Oauth2Discovery, False),
+    }
+
+
+class OutputConfig(AWSProperty):
+    """
+    `OutputConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-outputconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatchConfig": (CloudWatchOutputConfig, False),
     }
 
 

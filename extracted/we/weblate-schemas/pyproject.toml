@@ -36,7 +36,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate_schemas"
 requires-python = ">=3.10"
-version = "2026.1"
+version = "2026.2"
 
 [[project.authors]]
 email = "michal@weblate.org"
@@ -50,7 +50,7 @@ dev = [
   "weblate_schemas[lint,test]"
 ]
 lint = [
-  "prek==0.3.11"
+  "prek==0.4.0"
 ]
 test = [
   "pytest",

@@ -338,6 +338,17 @@ class CommunicationTimeConfig(AWSProperty):
     }
 
 
+class EntryLimitsConfig(AWSProperty):
+    """
+    `EntryLimitsConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-entrylimitsconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxEntryCount": (integer, True),
+        "MinEntryInterval": (str, True),
+    }
+
+
 class Schedule(AWSProperty):
     """
     `Schedule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-schedule.html>`__
@@ -384,6 +395,7 @@ class Campaign(AWSObject):
         "CommunicationTimeConfig": (CommunicationTimeConfig, False),
         "ConnectCampaignFlowArn": (str, False),
         "ConnectInstanceId": (str, True),
+        "EntryLimitsConfig": (EntryLimitsConfig, False),
         "Name": (str, True),
         "Schedule": (Schedule, False),
         "Source": (Source, False),

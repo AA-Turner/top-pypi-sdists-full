@@ -22,6 +22,9 @@ class Ellipse(Shape):
     """
     __slots__ = ("_rx", "_ry")
 
+    _ID: ClassVar[str] = "ellipse"
+    _IS_PRIMITIVE: ClassVar[bool] = True
+
     CIRCLE_SEGMENTS: ClassVar[int] = 64
 
     def __init__(self, rx: Real, ry: Real):

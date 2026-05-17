@@ -14,24 +14,64 @@ from math import sqrt, cos, sin
 
 # ======================================== Circle × Circle ========================================
 @register(Circle, Circle)
-def circle_circle(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float, sb: Shape, bx: float, by: float, scale_b: float, rot_b: float):
-    """Vérifie la collision entre ``Circle`` et ``Circle``"""
+def circle_circle(
+    sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float,
+    sb: Shape, bx: float, by: float, scale_b: float, rot_b: float,
+) -> Contact | None:
+    """Vérifie la collision entre ``Circle`` et ``Circle``
+    
+    Args:
+        sa: forme ``A``
+        ax: centre horizontal ``A``
+        ay: centre vertical ``A``
+        scale_a: facteur de redimensionnement ``A``
+        rot_a: angle de rotation ``A``
+        sb: forme ``B``
+        bx: centre horizontal ``B``
+        by: centre vertical ``B``
+        scale_b: facteur de redimensionnement ``B``
+        rot_b: angle de rotation `B``
+    """
+    # Récupération des paramètres
     _, _, ra = circle_params(sa, ax, ay, scale_a)
     _, _, rb = circle_params(sb, bx, by, scale_b)
+
+    # Calcul des distances
     dx, dy = ax - bx, ay - by
     dist_sq = dx*dx + dy*dy
     radii = ra + rb
+
+    # Vérification de la collision
     if dist_sq >= radii * radii:
         return None
     dist = sqrt(dist_sq) or 1e-8
-    return Contact(Vector._make(dx/dist, dy/dist), radii - dist)
+    return Contact(Vector._make(dx / dist, dy / dist), radii - dist)
 
 # ======================================== Circle × Ellipse ========================================
 @register(Circle, Ellipse)
-def circle_ellipse(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float, sb: Shape, bx: float, by: float, scale_b: float, rot_b: float):
-    """Vérifie la collision entre ``Circle`` et ``Ellipse``"""
+def circle_ellipse(
+    sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float,
+    sb: Shape, bx: float, by: float, scale_b: float, rot_b: float,
+) -> Contact | None:
+    """Vérifie la collision entre ``Circle`` et ``Ellipse``
+    
+    Args:
+        sa: forme ``A``
+        ax: centre horizontal ``A``
+        ay: centre vertical ``A``
+        scale_a: facteur de redimensionnement ``A``
+        rot_a: angle de rotation ``A``
+        sb: forme ``B``
+        bx: centre horizontal ``B``
+        by: centre vertical ``B``
+        scale_b: facteur de redimensionnement ``B``
+        rot_b: angle de rotation `B``
+    """
+    # Récupération des parmètres
     _, _, r = circle_params(sa, ax, ay, scale_a)
     ex, ey, rx, ry, rot_rad = ellipse_params(sb, bx, by, scale_b, rot_b)
+
+    # Calcul des distances
     cos_r, sin_r = cos(-rot_rad), sin(-rot_rad)
     dx, dy = ax - ex, ay - ey
     clx =  dx * cos_r - dy * sin_r
@@ -43,6 +83,8 @@ def circle_ellipse(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float
     cos_w, sin_w = cos(rot_rad), sin(rot_rad)
     nx = (ddx / dist) * cos_w - (ddy / dist) * sin_w
     ny = (ddx / dist) * sin_w + (ddy / dist) * cos_w
+
+    # Vérification de la collision
     if inside:
         return Contact(Vector._make(nx, ny), r + dist)
     if dist >= r:
@@ -51,15 +93,36 @@ def circle_ellipse(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float
 
 # ======================================== Circle × Capsule ========================================
 @register(Circle, Capsule)
-def circle_capsule(sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float, sb: Shape, bx: float, by: float, scale_b: float, rot_b: float):
-    """Vérifie la collision entre ``Circle`` et ``Capsule``"""
+def circle_capsule(
+    sa: Shape, ax: float, ay: float, scale_a: float, rot_a: float,
+    sb: Shape, bx: float, by: float, scale_b: float, rot_b: float,
+) -> Contact | None:
+    """Vérifie la collision entre ``Circle`` et ``Capsule``
+    
+    Args:
+        sa: forme ``A``
+        ax: centre horizontal ``A``
+        ay: centre vertical ``A``
+        scale_a: facteur de redimensionnement ``A``
+        rot_a: angle de rotation ``A``
+        sb: forme ``B``
+        bx: centre horizontal ``B``
+        by: centre vertical ``B``
+        scale_b: facteur de redimensionnement ``B``
+        rot_b: angle de rotation `B``
+    """
+    # Récupération des paramètres
     _, _, r = circle_params(sa, ax, ay, scale_a)
     cap_ax, cap_ay, cap_bx, cap_by, cap_r = capsule_params(sb, bx, by, scale_b, rot_b)
+
+    # Calcul des distances
     spine_dx, spine_dy = cap_bx - cap_ax, cap_by - cap_ay
     qx, qy = closest_pt_on_seg(cap_ax, cap_ay, spine_dx, spine_dy, ax, ay)
     dx, dy = ax - qx, ay - qy
-    dist_sq = dx*dx + dy*dy
+    dist_sq = dx * dx + dy * dy
     radii = r + cap_r
+
+    # Vérification de la collision
     if dist_sq >= radii * radii:
         return None
     dist = sqrt(dist_sq) or 1e-8

@@ -214,3 +214,46 @@ class TestRunCodeDoctors:
         content = (screens / "login.tsx").read_text()
         assert "react-router-dom" not in content
         assert "<div" not in content
+
+
+class TestStubsAndIndentFixes:
+    """Regression: doctor must actually FIX detected problems, not just count them.
+
+    Before this regression test existed, the doctor reported syntax errors
+    in BUILD_REPORT.json and exited — the install/test stage then failed
+    because those files still contained malformed code.
+    """
+
+    def test_rewrites_truncated_init_py(self, tmp_path: Path) -> None:
+        backend = tmp_path / "backend"
+        pkg = backend / "app"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text(
+            '"""App package.""\n'
+            "    indented_orphan = 1\n"  # truncation produces invalid Python
+        )
+        report = run_code_doctors(
+            tmp_path, log=lambda _: None,
+            run_ruff=False, run_eslint=False, fix_imports=False,
+        )
+        assert report.init_stubs_written == 1
+        assert report.python_syntax_errors == []
+        import ast as _ast
+        _ast.parse((pkg / "__init__.py").read_text())  # must parse now
+
+    def test_dedents_unexpected_indent_at_top_level(self, tmp_path: Path) -> None:
+        backend = tmp_path / "backend"
+        backend.mkdir()
+        (backend / "broken.py").write_text(
+            "from typing import Any\n"
+            "\n"
+            "    Index('foo')\n"  # stray indent — common LLM bug
+            "result: Any = None\n"
+        )
+        report = run_code_doctors(
+            tmp_path, log=lambda _: None,
+            run_ruff=False, run_eslint=False, fix_imports=False,
+        )
+        assert report.indent_fixes_applied == 1
+        import ast as _ast
+        _ast.parse((backend / "broken.py").read_text())  # must parse now

@@ -252,7 +252,14 @@ def _uncached_parse_advertisement_bytes(
         }:
             if service_uuids is _EMPTY_SERVICE_UUIDS:
                 service_uuids = []
-            service_uuids.append(_cached_uint128_bytes_as_uuid(gap_data[start:end]))
+            # Parse multiple 128-bit UUIDs (each is 16 bytes). The AD length
+            # may not be a clean multiple of 16 for malformed input — skip
+            # any trailing remainder rather than emitting a truncated UUID.
+            for i in range(start, end, 16):
+                if i + 16 <= end:
+                    service_uuids.append(
+                        _cached_uint128_bytes_as_uuid(gap_data[i : i + 16])
+                    )
         elif gap_type_num == TYPE_SERVICE_DATA:
             splice_pos = start + 2
             if splice_pos > total_length or splice_pos > end:
@@ -281,7 +288,11 @@ def _uncached_parse_advertisement_bytes(
                 gap_data[splice_pos:end]
             )
         elif gap_type_num == TYPE_TX_POWER_LEVEL:
-            tx_power = _cached_from_bytes_signed(gap_data[start:end])
+            # BLE Core Spec Vol 3 Part C §11: TX Power Level is exactly one
+            # signed octet. Anything else is malformed — skip instead of
+            # decoding the bytes as a wider little-endian signed integer.
+            if end - start == 1:
+                tx_power = _cached_from_bytes_signed(gap_data[start:end])
 
     return (local_name, service_uuids, service_data, manufacturer_data, tx_power)
 

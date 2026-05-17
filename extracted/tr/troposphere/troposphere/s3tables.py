@@ -81,6 +81,33 @@ class IcebergSchema(AWSProperty):
     }
 
 
+class SchemaV2Field(AWSProperty):
+    """
+    `SchemaV2Field <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemav2field.html>`__
+    """
+
+    props: PropsDictType = {
+        "Doc": (str, False),
+        "Id": (integer, True),
+        "Name": (str, True),
+        "Required": (boolean, True),
+        "Type": (dict, True),
+    }
+
+
+class IcebergSchemaV2(AWSProperty):
+    """
+    `IcebergSchemaV2 <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschemav2.html>`__
+    """
+
+    props: PropsDictType = {
+        "IdentifierFieldIds": ([integer], False),
+        "SchemaId": (integer, False),
+        "SchemaV2FieldList": ([SchemaV2Field], True),
+        "SchemaV2FieldType": (str, True),
+    }
+
+
 class IcebergSortField(AWSProperty):
     """
     `IcebergSortField <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortfield.html>`__
@@ -112,7 +139,8 @@ class IcebergMetadata(AWSProperty):
 
     props: PropsDictType = {
         "IcebergPartitionSpec": (IcebergPartitionSpec, False),
-        "IcebergSchema": (IcebergSchema, True),
+        "IcebergSchema": (IcebergSchema, False),
+        "IcebergSchemaV2": (IcebergSchemaV2, False),
         "IcebergSortOrder": (IcebergSortOrder, False),
         "TableProperties": (dict, False),
     }
@@ -182,6 +210,37 @@ class MetricsConfiguration(AWSProperty):
     }
 
 
+class ReplicationDestination(AWSProperty):
+    """
+    `ReplicationDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "DestinationTableBucketARN": (str, True),
+    }
+
+
+class ReplicationRule(AWSProperty):
+    """
+    `ReplicationRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationrule.html>`__
+    """
+
+    props: PropsDictType = {
+        "Destinations": ([ReplicationDestination], True),
+    }
+
+
+class ReplicationConfiguration(AWSProperty):
+    """
+    `ReplicationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Role": (str, True),
+        "Rules": ([ReplicationRule], True),
+    }
+
+
 class UnreferencedFileRemoval(AWSProperty):
     """
     `UnreferencedFileRemoval <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-unreferencedfileremoval.html>`__
@@ -204,6 +263,7 @@ class TableBucket(AWSObject):
     props: PropsDictType = {
         "EncryptionConfiguration": (EncryptionConfiguration, False),
         "MetricsConfiguration": (MetricsConfiguration, False),
+        "ReplicationConfiguration": (ReplicationConfiguration, False),
         "StorageClassConfiguration": (StorageClassConfiguration, False),
         "TableBucketName": (str, True),
         "Tags": (Tags, False),

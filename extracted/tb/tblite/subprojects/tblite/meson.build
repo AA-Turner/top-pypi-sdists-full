@@ -17,7 +17,7 @@
 project(
   'tblite',
   'fortran',
-  version: '0.5.0',
+  version: '0.6.0',
   license: 'LGPL-3.0-or-later',
   meson_version: '>=0.57.2,!=1.8.0',
   default_options: [
@@ -90,6 +90,7 @@ if install
     find_program(files('config'/'install-mod.py')),
     get_option('includedir') / module_id,
   )
+  meson.add_dist_script('config/dist_symlinks.sh')
 
   pkg = import('pkgconfig')
   pkg.generate(

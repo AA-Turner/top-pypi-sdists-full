@@ -3,13 +3,13 @@ from typing import Dict, Any, List
 from spotlight.api.dataset.__util import (
     _get_dataset_request_info,
     _get_datasets_request_info,
-    _search_datasets_request_info,
+    _get_default_dataset_request_info,
     _create_dataset_request_info,
     _update_dataset_request_info,
     _delete_dataset_request_info,
 )
 from spotlight.api.dataset.model import DatasetRequest
-from spotlight.api.dataset.model import SearchRequest
+from spotlight.api.dataset.model import DatasetUpdateRequest
 from spotlight.core.common.decorators import data_request
 from spotlight.core.common.requests import (
     __get_request,
@@ -47,18 +47,15 @@ def get_datasets() -> List[Dict[str, Any]]:
 
 
 @data_request()
-def search_datasets(request: SearchRequest) -> List[Dict[str, Any]]:
+def get_default_dataset() -> Dict[str, Any]:
     """
-    Search all dataset.
-
-    Args:
-        request (SearchRequest): Dataset search request
+    Get default dataset.
 
     Returns:
-        List[Dict[str, Any]]: List of dataset response
+        Dict[str, Any]: Dataset response
     """
-    request_info = _search_datasets_request_info(request)
-    return __post_request(**request_info)
+    request_info = _get_default_dataset_request_info()
+    return __get_request(**request_info)
 
 
 @data_request()
@@ -73,23 +70,23 @@ def create_dataset(request: DatasetRequest) -> Dict[str, Any]:
         Dict[str, Any]: Dataset response
     """
     request_info = _create_dataset_request_info(request)
-    return __put_request(**request_info)
+    return __post_request(**request_info)
 
 
 @data_request()
-def update_dataset(id: str, request: DatasetRequest) -> Dict[str, Any]:
+def update_dataset(id: str, request: DatasetUpdateRequest) -> Dict[str, Any]:
     """
     Update dataset.
 
     Args:
         id (str): Dataset ID
-        request (DatasetRequest): Dataset request
+        request (DatasetUpdateRequest): Dataset update request
 
     Returns:
         Dict[str, Any]: Dataset response
     """
     request_info = _update_dataset_request_info(id, request)
-    return __post_request(**request_info)
+    return __put_request(**request_info)
 
 
 @data_request(processor=lambda response: None)

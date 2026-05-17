@@ -1162,7 +1162,7 @@ int test_calc_restart(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -1184,7 +1184,7 @@ int test_calc_restart(void)
 
     // reset calculator
     tblite_delete(calc);
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
 
     tblite_get_singlepoint(ctx, mol, calc, res1);
     if (tblite_check(ctx))
@@ -1278,7 +1278,7 @@ int test_callback(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
 
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check(ctx))
@@ -1395,7 +1395,7 @@ int test_gfn2_si5h12(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_xtb_calculator(ctx, mol, param);
+    calc = tblite_new_xtb_calculator(ctx, mol, param, NULL);
     if (!calc)
         goto err;
 
@@ -1600,7 +1600,7 @@ int test_ipea1_ch4(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_ipea1_calculator(ctx, mol);
+    calc = tblite_new_ipea1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -1724,7 +1724,8 @@ int test_gfn1_co2(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    tblite_xtb_config cfg = { 0.0 };
+    calc = tblite_new_gfn1_calculator(ctx, mol, &cfg);
     if (!calc)
         goto err;
 
@@ -1829,7 +1830,7 @@ int test_gfn2_convergence(void)
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_xtb_calculator(ctx, mol, param);
+    calc = tblite_new_xtb_calculator(ctx, mol, param, NULL);
     if (!calc)
         goto err;
 
@@ -1900,7 +1901,7 @@ int test_spgfn1()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -2031,7 +2032,7 @@ int test_dict_api()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -2123,7 +2124,7 @@ int test_dict_api()
     if (!check_int(ndim2, 21, "Check dimension of wbo tensor")) {
         goto err;
     }
-    if (!check_int(ndim3, 0, "Check dimension of wbo tensor")) {
+    if (!check_int(ndim3, 1, "Check dimension of wbo tensor")) {
         goto err;
     }
     tblite_get_label_entry_index(error, dict, &n_dict_entries, label, NULL);
@@ -2337,7 +2338,7 @@ int test_uninitialized_dict()
     if (tblite_check(error))
         goto unexpected;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto unexpected;
 
@@ -2490,13 +2491,13 @@ int test_h2plus_wbo()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (tblite_check(ctx))
         goto err;
 
     res = tblite_new_result();
 
-    tblite_push_back_post_processing_str(ctx, calc, "molmom");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "molmom");
     if (tblite_check(ctx))
         goto err;
 
@@ -2570,13 +2571,13 @@ int test_h2plus_wbo()
 
     calc = NULL;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (tblite_check(ctx))
         goto err;
 
     res = tblite_new_result();
 
-    tblite_push_back_post_processing_str(ctx, calc, "bond-orders");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
     if (tblite_check(ctx))
         goto err;
 
@@ -2667,17 +2668,26 @@ int test_post_processing_api()
     if (tblite_check(error))
         goto err;
 
-    tblite_push_back_post_processing_str(ctx, calc, "bond-orders");
+    // Test without allocated calculator
+    tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
     if (!tblite_check(ctx))
         goto err;
 
     show(ctx);
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
-    tblite_push_back_post_processing_str(ctx, calc, "bond-orders");
+    // Test without allocated molecular structure
+    tblite_push_back_post_processing_str(ctx, calc, NULL, "bond-orders");
+    if (!tblite_check(ctx))
+        goto err;
+
+    show(ctx);
+
+    // Test with molecular structure and calculator
+    tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
 
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check(ctx))
@@ -2727,9 +2737,9 @@ int test_post_processing_api()
 
     dict = NULL;
 
-    tblite_push_back_post_processing_str(ctx, calc, "molmom");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "molmom");
     // Test that adding another wbo container will lead to nothing, i.e. there will be 3 entries in the dictionary
-    tblite_push_back_post_processing_str(ctx, calc, "bond-orders");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "bond-orders");
 
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check(ctx))
@@ -2793,7 +2803,7 @@ int test_post_processing_api()
     if (!check_int(ndim2, 21, "Check dimension of wbo tensor")) {
         goto err;
     }
-    if (!check_int(ndim3, 0, "Check dimension of wbo tensor")) {
+    if (!check_int(ndim3, 1, "Check dimension of wbo tensor")) {
         goto err;
     }
 
@@ -2848,7 +2858,7 @@ int test_post_processing_api()
     if (tblite_check(error))
         goto err;
     tblite_delete(param);
-    tblite_push_back_post_processing_param(ctx, calc, param);
+    tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (!tblite_check(ctx))
         goto err;
     show(ctx);
@@ -2862,16 +2872,24 @@ int test_post_processing_api()
     tblite_delete(calc);
     calc = NULL;
 
-    tblite_push_back_post_processing_param(ctx, calc, param);
+    // Test without allocated calculator
+    tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (!tblite_check(ctx))
         goto err;
     show(ctx);
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
-    tblite_push_back_post_processing_param(ctx, calc, param);
+    // Test without allocated molecular structure
+    tblite_push_back_post_processing_param(ctx, calc, NULL, param);
+    if (!tblite_check(ctx))
+        goto err;
+    show(ctx);
+
+    // Test with molecular structure and calculator
+    tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (tblite_check(ctx))
         goto err;
 
@@ -2894,7 +2912,7 @@ int test_post_processing_api()
     if (!check_int(n_dict_entries, 1, "Check number of entries in dict, using param for push_back")) {
         goto err;
     }
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     cont = tblite_new_spin_polarization(ctx, mol, calc, 1.0);
     if (tblite_check(ctx))
         goto err;
@@ -2990,11 +3008,11 @@ int test_xtbml_api()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
-    tblite_push_back_post_processing_str(ctx, calc, "xtbml");
+    tblite_push_back_post_processing_str(ctx, calc, mol, "xtbml");
 
     tblite_get_singlepoint(ctx, mol, calc, res);
     if (tblite_check(ctx))
@@ -3006,7 +3024,7 @@ int test_xtbml_api()
 
     int n_dict_entries = 0;
     n_dict_entries = tblite_get_n_entries_dict(error, dict);
-    if (!check_int(n_dict_entries, 38, "Check number of entries in dict, double addition of wbo")) {
+    if (!check_int(n_dict_entries, 39, "Check number of entries in dict, double addition of wbo")) {
         goto err;
     }
 
@@ -3046,11 +3064,11 @@ int test_xtbml_api()
     tblite_delete(calc);
     tblite_delete(dict);
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
-    tblite_push_back_post_processing_param(ctx, calc, param);
+    tblite_push_back_post_processing_param(ctx, calc, mol, param);
     if (tblite_check(ctx))
         goto err;
 
@@ -3066,7 +3084,7 @@ int test_xtbml_api()
 
     n_dict_entries = 0;
     n_dict_entries = tblite_get_n_entries_dict(error, dict);
-    if (!check_int(n_dict_entries, 101, "Check number of entries in dict, double addition of wbo")) {
+    if (!check_int(n_dict_entries, 102, "Check number of entries in dict, double addition of wbo")) {
         goto err;
     }
     
@@ -3164,7 +3182,7 @@ int test_solvation_cpcm_eps()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3236,7 +3254,7 @@ int test_solvation_alpb_eps()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3308,7 +3326,7 @@ int test_solvation_alpb_gfn2()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3380,7 +3398,7 @@ int test_solvation_gbsa_gfn2()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3452,7 +3470,7 @@ int test_solvation_gb_eps()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn2_calculator(ctx, mol);
+    calc = tblite_new_gfn2_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3524,7 +3542,7 @@ int test_solvation_alpb_gfn1()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 
@@ -3596,7 +3614,7 @@ int test_solvation_gbsa_gfn1()
     if (tblite_check(error))
         goto err;
 
-    calc = tblite_new_gfn1_calculator(ctx, mol);
+    calc = tblite_new_gfn1_calculator(ctx, mol, NULL);
     if (!calc)
         goto err;
 

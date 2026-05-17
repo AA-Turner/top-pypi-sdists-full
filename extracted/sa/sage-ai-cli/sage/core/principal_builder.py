@@ -36,6 +36,7 @@ from sage.core.dep_resolver import (
     emit_node_package_json,
     emit_python_dep_files,
     resolve_dependencies,
+    sanitize_dep_files_in_place,
 )
 from sage.core.dynamic_builder import (
     _make_test_runner,
@@ -71,6 +72,17 @@ from sage.core.spec_decomposer import (
 
 GenerateFn = Callable[[str], str]
 ProgressFn = Callable[[str], None]
+
+
+class BuildIncomplete(Exception):
+    """Raised when the heal loop runs out of retries with install or tests
+    still failing. The caller (CLI) is expected to catch this and surface a
+    clear failure message to the user — sage MUST NOT report success when
+    the generated code can't even install."""
+
+    def __init__(self, message: str, report: "PrincipalBuildReport"):
+        super().__init__(message)
+        self.report = report
 
 
 @dataclass
@@ -207,6 +219,86 @@ def _generate_one_file(
     )
 
 
+def _heal_until_green(
+    out_dir: Path,
+    *,
+    generate: GenerateFn,
+    log: ProgressFn,
+    max_rounds: int = 6,
+    stuck_threshold: int = 3,
+) -> tuple[bool, bool, list[VerifyReport]]:
+    """Loop deterministic-then-LLM repairs until install + tests both pass.
+
+    Called only when the post-polish state is `install_ok=False` or
+    `tests_ok=False`. Each round:
+      1. Drop deprecated deps from requirements/pyproject (handles the
+         class of bug where the LLM keeps re-emitting paypalcheckoutsdk).
+      2. Re-run code doctors (truncated __init__, indent fixes, missing
+         imports, ruff --fix).
+      3. Re-run integrity pass + integration check using the latest verify
+         logs as context.
+      4. Run a verify pass; if green, return.
+
+    Returns (install_ok, tests_ok, latest_verify_reports).
+    """
+    log(f"[heal] entering heal loop (cap={max_rounds} rounds)")
+
+    last_reports: list[VerifyReport] = []
+    install_ok = tests_ok = False
+
+    for round_idx in range(1, max_rounds + 1):
+        log(f"[heal] round {round_idx}/{max_rounds}")
+
+        # 1. Deterministic dep cleanup — only the heal stage runs this on
+        #    EXISTING files, since the build loop is upstream of any
+        #    LLM-driven regen that might have reintroduced bad names.
+        dropped = sanitize_dep_files_in_place(out_dir / "backend")
+        if dropped:
+            log(f"[heal] dropped {dropped} deprecated dep entries")
+
+        # 2. Doctors again — they're idempotent and cheap (no LLM tokens).
+        run_code_doctors(
+            out_dir,
+            log=log,
+            fix_imports=True,
+            fix_framework=True,
+            detect_truncations_flag=True,
+            run_ruff=True,
+            run_eslint=True,
+            run_prettier=False,
+        )
+
+        # 3. LLM-driven integrity + integration with fresh context.
+        run_integrity_pass(
+            out_dir,
+            generate=generate,
+            log=log,
+            enable_ruff_fix=True,
+            enable_lint_pass=True,
+        )
+        run_integration_check(out_dir, generate=generate, log=log)
+
+        # 4. The main repair loop — pick up where verify last left off.
+        last_reports = _verify_iterate_until_green(
+            out_dir, generate=generate, log=log, stuck_threshold=stuck_threshold,
+        )
+
+        install_ok = all(r.install_ok in (True, None) for r in last_reports)
+        # We're stricter than the caller here: a build with no test step
+        # detected is NOT considered green. We always scaffold tests, so a
+        # missing test step means the verify discovery missed something.
+        tests_ok = bool(last_reports) and all(
+            r.tests_ok is True for r in last_reports
+        )
+        if install_ok and tests_ok:
+            log(f"[heal] round {round_idx}: GREEN")
+            return install_ok, tests_ok, last_reports
+
+        log(f"[heal] round {round_idx}: install_ok={install_ok} tests_ok={tests_ok}")
+
+    return install_ok, tests_ok, last_reports
+
+
 # ──────────────────────── public entry ─────────────────────────────────
 
 
@@ -220,6 +312,8 @@ def build_project_principal(
     max_review_rounds: int = 2,
     enable_review: bool = True,
     stuck_threshold: int = 3,
+    enable_heal: bool = True,
+    heal_rounds: int = 6,
 ) -> PrincipalBuildReport:
     """End-to-end principal-grade project build."""
     log = progress or (lambda _m: None)
@@ -477,6 +571,20 @@ def build_project_principal(
     if polish.final_tests_ok is not None:
         tests_ok = polish.final_tests_ok
 
+    # ── 10. Heal-until-green ── sage MUST NOT report success when the
+    # generated code can't install or its tests don't pass. This loop is
+    # the user's "do not allow sage to complete early" guarantee.
+    if enable_heal and (install_ok is False or tests_ok is False):
+        install_ok, tests_ok, heal_reports = _heal_until_green(
+            out_dir,
+            generate=generate,
+            log=log,
+            max_rounds=heal_rounds,
+            stuck_threshold=stuck_threshold,
+        )
+        if heal_reports:
+            verify_reports = heal_reports  # use latest in the persisted report
+
     log(f"complete. install_ok={install_ok} tests_ok={tests_ok}")
 
     report = PrincipalBuildReport(
@@ -519,7 +627,16 @@ def build_project_principal(
         encoding="utf-8",
     )
 
+    # Surface a hard failure if the heal loop couldn't make the build
+    # green. Caller (CLI) is expected to catch BuildIncomplete and present
+    # a clear message — sage MUST NOT silently return a broken project.
+    if enable_heal and (install_ok is False or tests_ok is False):
+        raise BuildIncomplete(
+            f"build did not converge: install_ok={install_ok} tests_ok={tests_ok}",
+            report,
+        )
+
     return report
 
 
-__all__ = ["PrincipalBuildReport", "build_project_principal"]
+__all__ = ["BuildIncomplete", "PrincipalBuildReport", "build_project_principal"]

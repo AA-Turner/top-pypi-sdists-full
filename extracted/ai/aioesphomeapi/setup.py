@@ -41,7 +41,7 @@ with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "45.0.2"
+VERSION = "45.0.3"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -92,6 +92,8 @@ setup_kwargs = {
 
 class OptionalBuildExt(build_ext):
     def build_extensions(self) -> None:
+        if self.parallel is None:
+            self.parallel = os.cpu_count() or 1
         with contextlib.suppress(Exception):
             super().build_extensions()
 

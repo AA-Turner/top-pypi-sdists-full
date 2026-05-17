@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from music21 import common
@@ -52,7 +51,4 @@ def notebookVersion():
         return notebook._version.version_info
     except (ImportError, AttributeError):
         return (0, 0, 0)
-
-def needsToLoadRequireJS():
-    return inGoogleColabNotebook() or notebookVersion() >= (7, 0, 0)
 

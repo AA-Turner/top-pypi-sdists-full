@@ -30,11 +30,26 @@ class Graph(AWSObject):
     props: PropsDictType = {
         "DeletionProtection": (boolean, False),
         "GraphName": (str, False),
+        "KmsKeyIdentifier": (str, False),
         "ProvisionedMemory": (integer, True),
         "PublicConnectivity": (boolean, False),
         "ReplicaCount": (integer, False),
         "Tags": (Tags, False),
         "VectorSearchConfiguration": (VectorSearchConfiguration, False),
+    }
+
+
+class GraphSnapshot(AWSObject):
+    """
+    `GraphSnapshot <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptunegraph-graphsnapshot.html>`__
+    """
+
+    resource_type = "AWS::NeptuneGraph::GraphSnapshot"
+
+    props: PropsDictType = {
+        "GraphIdentifier": (str, False),
+        "SnapshotName": (str, True),
+        "Tags": (Tags, False),
     }
 
 

@@ -188,21 +188,21 @@ def test_gfn1_xtb_3d():
     )
     stress = np.array(
         [
-            +4.49045792e-02,
-            +4.49168887e-02,
-            +4.49566951e-02,
-            +3.38245641e-05,
-            +1.52117499e-05,
-            +1.13328271e-04,
+            4.47716753e-02,
+            4.47839826e-02,
+            4.48238175e-02,
+            3.38469910e-05,
+            1.52219839e-05,
+            1.13327019e-04,
         ]
     )
 
-    atoms.calc = TBLite(method="GFN1-xTB")
+    atoms.calc = TBLite(method="GFN1-xTB", xtb_config={"smooth_cutoff": 0.0})
     assert atoms.pbc.all()
 
     assert approx(atoms.get_potential_energy(), abs=thr) == -1257.0801067985549
     assert approx(atoms.get_forces(), abs=thr) == forces
-    assert approx(atoms.get_stress(), abs=thr) == stress
+    assert approx(atoms.get_stress(), abs=thr) == stress, atoms.get_stress()
 
 
 def get_crcp2():
@@ -261,7 +261,7 @@ def test_spgfn1_xtb():
 @pytest.mark.skipif(ase is None, reason="requires ase")
 def test_solvation_gfn2_xtb_cpcm():
     """Test CPCM solvation with GFN2-xTB"""
-    thr = 5.0e-5 # currently loose testing due to non-variational CPCM
+    thr = 5.0e-5  # currently loose testing due to non-variational CPCM
 
     atoms = get_crcp2()
 
@@ -270,7 +270,7 @@ def test_solvation_gfn2_xtb_cpcm():
 
     atoms.calc.set(cpcm_solvation=7.0)
     assert approx(atoms.get_potential_energy(), abs=thr) == -773.6978494954839
-                                                            
+
 
 @pytest.mark.skipif(ase is None, reason="requires ase")
 def test_solvation_gfn2_xtb_alpb():

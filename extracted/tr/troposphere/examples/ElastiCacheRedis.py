@@ -7,7 +7,6 @@ In addition to troposphere, this script requires awacs (Amazon Web Access
 Control Subsystem)
 """
 
-
 import awacs
 from awacs.aws import Allow, PolicyDocument, Principal, Statement
 from awacs.sts import AssumeRole

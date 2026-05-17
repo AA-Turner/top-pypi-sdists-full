@@ -561,9 +561,11 @@ class Geocif:
                 return
         else:
             self.df_inputs = pd.read_csv(file_path)
-        
+
         if self.rename_target:
             self._rename_target_column()
+
+        self._drop_earliest_year()
 
     def _get_statistics_file_path(self, country: str, crop: str) -> Path:
         """Get path to statistics file."""
@@ -664,6 +666,8 @@ class Geocif:
         if self.rename_target:
             self._rename_target_column()
 
+        self._drop_earliest_year()
+
     def _rename_target_column(self):
         """Rename target column if configured."""
         self.df_inputs.rename(
@@ -672,6 +676,33 @@ class Geocif:
         )
         self.target = self.new_name_target
         self.target_column = self.new_name_target
+
+    def _drop_earliest_year(self):
+        """Drop rows belonging to the earliest Harvest Year in df_inputs.
+
+        The boundary year of any configured range often has partial CID
+        coverage (e.g. when start_year predates an EO source's start
+        date, that year's missing values are NaN->0 filled in
+        _update_column_names, which injects misleading zeros into the
+        feature signal).  Year is derived from the data, never hardcoded,
+        so the rule survives future widenings of start_year.
+        """
+        if self.df_inputs is None or self.df_inputs.empty:
+            return
+        if "Harvest Year" not in self.df_inputs.columns:
+            return
+
+        first_year = int(self.df_inputs["Harvest Year"].min())
+        before = len(self.df_inputs)
+        self.df_inputs = self.df_inputs[
+            self.df_inputs["Harvest Year"] > first_year
+        ].reset_index(drop=True)
+        dropped = before - len(self.df_inputs)
+        if dropped:
+            self.logger.info(
+                f"  Dropped earliest year {first_year} from df_inputs "
+                f"({dropped} rows) - boundary CID coverage often partial."
+            )
 
     # ============================================================================
     # MAIN EXECUTION PIPELINE

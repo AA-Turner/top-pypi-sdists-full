@@ -21,6 +21,9 @@ class Circle(Shape):
     """
     __slots__ = ("_radius",)
 
+    _ID: ClassVar[str] = "circle"
+    _IS_PRIMITIVE: ClassVar[bool] = True
+
     CIRCLE_SEGMENTS: ClassVar[int] = 64
 
     def __init__(self, radius: Real):

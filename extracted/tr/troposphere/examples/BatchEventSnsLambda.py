@@ -292,8 +292,7 @@ LambdaCronFailNotify = t.add_resource(
     Function(
         "LambdaCronFailNotify",
         Handler="index.lambda_handler",
-        Code=Code(
-            ZipFile="""
+        Code=Code(ZipFile="""
 import boto3
 import json
 
@@ -306,8 +305,7 @@ def lambda_handler(event, context):
             "message": "ok",
         })
     }
-"""
-        ),
+"""),
         FunctionName="lambda_cron_fail_notify",
         Role=GetAtt(LambdaExecutionRole, "Arn"),
         Runtime="python3.9",

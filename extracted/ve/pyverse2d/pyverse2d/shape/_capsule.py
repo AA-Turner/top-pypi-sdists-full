@@ -22,6 +22,9 @@ class Capsule(Shape):
     """
     __slots__ = ("_radius", "_height")
 
+    _ID: ClassVar[str] = "capsule"
+    _IS_PRIMITIVE: ClassVar[bool] = True
+
     CIRCLE_SEGMENTS: ClassVar[int] = 64
 
     def __init__(self, radius: Real, height: Real):

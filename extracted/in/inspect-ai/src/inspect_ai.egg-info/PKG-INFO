@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.220
+Version: 0.3.222
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -68,12 +68,12 @@ Requires-Dist: google-genai>=1.69.0; extra == "dev"
 Requires-Dist: griffe>=2; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
 Requires-Dist: huggingface_hub>=1.0.0; extra == "dev"
-Requires-Dist: inspect_scout; extra == "dev"
+Requires-Dist: inspect-scout>=0.4.34; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
 Requires-Dist: jsonpath-ng; extra == "dev"
 Requires-Dist: markdown; extra == "dev"
 Requires-Dist: mcp>=1.10.0; extra == "dev"
-Requires-Dist: mistralai>=2.0.0; extra == "dev"
+Requires-Dist: mistralai>=2.4.5; extra == "dev"
 Requires-Dist: moto[server]>=5.1.5; extra == "dev"
 Requires-Dist: mypy>=1.17.0; extra == "dev"
 Requires-Dist: nbformat; extra == "dev"
@@ -146,6 +146,14 @@ cd inspect_ai
 pip install -e ".[dev]"
 ```
 
+Alternatively, if you use [uv](https://docs.astral.sh/uv/), sync the development environment from the checked-in lockfile:
+
+```bash
+uv sync --extra dev
+```
+
+The uv workflow is supported but not required. The `uv.lock` file records a reproducible development resolution; project dependencies are still declared in `requirements*.txt` and exposed through `pyproject.toml`. When changing dependencies, update the appropriate requirements file and refresh the lockfile rather than relying on `uv add`.
+
 Optionally install pre-commit hooks via
 
 ```bash
@@ -159,13 +167,15 @@ make check
 make test
 ```
 
+When working in a uv-managed environment, prefix those commands with `uv run` (for example, `uv run make check`).
+
 If you use VS Code, you should be sure to have installed the recommended extensions (Python, Ruff, and MyPy). Note that you'll be prompted to install these when you open the project in VS Code.
 
 ### Frontend development (TypeScript)
 
 The web UI lives in a git submodule at `src/inspect_ai/_view/ts-mono/`. **These steps are only needed if you plan to work on the TypeScript/React frontend** — Python-only contributors can skip this entirely.
 
-Initialize the submodule and install dependencies — see the [one-time setup guide](src/inspect_ai/_view/ts-mono/docs/submodule-guide.md#one-time-setup).
+Initialize the submodule and install dependencies — see the [one-time setup guide](https://github.com/meridianlabs-ai/ts-mono/blob/main/docs/submodule-guide.md#one-time-setup).
 
 ### Documentation
 
