@@ -56,6 +56,14 @@ class ProjectPlan:
     title: str
     features: list[Feature]
     stack: StackProfile
+    # task_type routes the rest of the pipeline. "webapp" = existing
+    # behavior (frontend/backend scaffold). "game" = sage/games pipeline
+    # (engine adapter + asset generators). Default preserves backwards
+    # compatibility for every existing caller.
+    task_type: str = "webapp"
+    # When `task_type == "game"`, this holds the parsed GameRequest so the
+    # caller doesn't need to re-parse the prompt. None for non-game tasks.
+    game_request: "object | None" = None  # forward ref, optional
 
 
 # ──────────────────────── parsing helpers ───────────────────────────────
@@ -248,11 +256,32 @@ def extract_stack(spec: str, generate: GenerateFn, *, max_retries: int = 3) -> S
 
 
 def decompose_spec(spec: str, generate: GenerateFn) -> ProjectPlan:
-    """Top-level entry: spec text → ProjectPlan."""
+    """Top-level entry: spec text → ProjectPlan.
+
+    Classifies task_type up front. Game prompts skip the webapp-style
+    feature/stack decomposition because the game pipeline does its own
+    decomposition keyed on engine + genre.
+    """
+    # Game-prompt detection runs before feature extraction. We pass the
+    # `generate` callable so the detector's LLM fallback can fire on
+    # ambiguous prompts. Regex-first inside, so the common path is cheap.
+    from sage.games.detector import classify_prompt
+    task_type, game_request = classify_prompt(spec, generate=generate)
+    if task_type == "game":
+        return ProjectPlan(
+            title=_derive_title(spec) or "Sage Game",
+            features=[],
+            stack=StackProfile(),
+            task_type="game",
+            game_request=game_request,
+        )
+
     features = extract_features(spec, generate)
     stack = extract_stack(spec, generate)
     title = _derive_title(spec)
-    return ProjectPlan(title=title, features=features, stack=stack)
+    return ProjectPlan(
+        title=title, features=features, stack=stack, task_type="webapp",
+    )
 
 
 # ──────────────────────── heuristic fallbacks ───────────────────────────

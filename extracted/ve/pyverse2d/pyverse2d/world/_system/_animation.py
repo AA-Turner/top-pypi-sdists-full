@@ -117,3 +117,8 @@ class AnimationSystem(System):
             animator._requests.remove(req)
 
         return best
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "AnimationSystem",
+]

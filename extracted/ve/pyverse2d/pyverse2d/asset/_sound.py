@@ -59,7 +59,7 @@ class Sound(Asset):
         if __debug__:
             positive(volume)
             positive(cooldown)
-            expect(group, (SoundGroup, None))
+            expect(group, (self._get_group_class(), None))
 
         # Attributs publiques
         self._path: str = path
@@ -165,7 +165,7 @@ class Sound(Asset):
     @group.setter
     def group(self, value: SoundGroup | None) -> None:
         if __debug__:
-            expect(value, (SoundGroup, None))
+            expect(value, (self._get_group_class(), None))
         self._group = value
 
     # ======================================== PREDICATES ========================================

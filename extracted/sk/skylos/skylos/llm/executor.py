@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import re
+import shlex
 import subprocess
 import sys
 import shutil
@@ -23,15 +25,43 @@ class VerifyResult:
     remaining_rule_ids: list[str] = field(default_factory=list)
 
 
+_SHELL_METACHAR_RE = re.compile(r"[;&|<>`$]")
+
+
 class RemediationExecutor:
-    def __init__(self, *, test_cmd: str | None = None, project_root: str | Path = "."):
+    def __init__(
+        self,
+        *,
+        test_cmd: str | None = None,
+        project_root: str | Path = ".",
+        allow_test_execution: bool = False,
+        auto_detect_tests: bool = False,
+    ):
         self.test_cmd = test_cmd
         self.project_root = Path(project_root).resolve()
+        self.allow_test_execution = allow_test_execution
+        self.auto_detect_tests = auto_detect_tests
         self._backups: dict[str, str] = {}
 
-    def apply_fix(self, file_path: str, fixed_code: str) -> bool:
+    def _safe_file_path(self, file_path: str) -> Path | None:
         p = Path(file_path)
-        if not p.exists():
+        if p.is_symlink():
+            return None
+        try:
+            resolved = p.resolve(strict=True)
+            resolved.relative_to(self.project_root)
+        except (OSError, ValueError):
+            return None
+        if not resolved.is_file():
+            return None
+        return resolved
+
+    def is_safe_file_path(self, file_path: str) -> bool:
+        return self._safe_file_path(file_path) is not None
+
+    def apply_fix(self, file_path: str, fixed_code: str) -> bool:
+        p = self._safe_file_path(file_path)
+        if p is None:
             return False
         try:
             original = p.read_text(encoding="utf-8")
@@ -42,12 +72,15 @@ class RemediationExecutor:
             return False
 
     def revert_fix(self, file_path: str) -> bool:
-        key = str(Path(file_path))
+        p = self._safe_file_path(file_path)
+        if p is None:
+            return False
+        key = str(p)
         original = self._backups.pop(key, None)
         if original is None:
             return False
         try:
-            Path(file_path).write_text(original, encoding="utf-8")
+            p.write_text(original, encoding="utf-8")
             return True
         except OSError:
             return False
@@ -57,17 +90,34 @@ class RemediationExecutor:
             self.revert_fix(fp)
 
     def run_tests(self, timeout: int = 300) -> TestResult:
-        cmd = self.test_cmd or self._detect_test_command()
+        if not self.allow_test_execution:
+            return TestResult(
+                passed=True,
+                output="Test execution disabled.",
+                command="",
+            )
+
+        cmd = self.test_cmd
+        if not cmd and self.auto_detect_tests:
+            cmd = self._detect_test_command()
         if not cmd:
             return TestResult(passed=True, output="No test suite detected.", command="")
+
+        argv = self._safe_test_argv(cmd)
+        if argv is None:
+            return TestResult(
+                passed=False,
+                output="Rejected test command containing shell syntax.",
+                command=cmd,
+            )
 
         import time
 
         start = time.monotonic()
         try:
             result = subprocess.run(
-                cmd,
-                shell=True,
+                argv,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -90,6 +140,15 @@ class RemediationExecutor:
             )
         except OSError as e:
             return TestResult(passed=False, output=str(e), command=cmd)
+
+    def _safe_test_argv(self, cmd: str) -> list[str] | None:
+        if _SHELL_METACHAR_RE.search(cmd):
+            return None
+        try:
+            argv = shlex.split(cmd)
+        except ValueError:
+            return None
+        return argv or None
 
     def _detect_test_command(self) -> str | None:
         root = self.project_root

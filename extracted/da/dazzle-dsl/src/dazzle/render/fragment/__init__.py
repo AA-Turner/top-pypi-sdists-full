@@ -7,7 +7,7 @@ from dazzle.render.fragment.errors import (
     HtmxBindingError,
     PrimitiveRegistrationError,
 )
-from dazzle.render.fragment.escape import RawHTML, Slot
+from dazzle.render.fragment.escape import RawHTML, Script, Slot, Stylesheet
 from dazzle.render.fragment.htmx import URL, HxTrigger, TargetSelector
 from dazzle.render.fragment.primitives import (
     KPI,
@@ -140,7 +140,9 @@ from dazzle.render.fragment.registry import (
     DEFAULT_REGISTRY,
     PrimitiveRegistry,
     Renderer,
+    RendererAsset,
     RendererRegistry,
+    asset_url,
     primitive,
 )
 from dazzle.render.fragment.renderer import FragmentRenderer
@@ -166,6 +168,9 @@ __all__ = [
     # escape hatches
     "RawHTML",
     "Slot",
+    # assets (#1130)
+    "Script",
+    "Stylesheet",
     # htmx wrappers
     "URL",
     "TargetSelector",
@@ -173,6 +178,8 @@ __all__ = [
     # registry
     "primitive",
     "PrimitiveRegistry",
+    "RendererAsset",
+    "asset_url",
     "Renderer",
     "RendererRegistry",
     "DEFAULT_REGISTRY",

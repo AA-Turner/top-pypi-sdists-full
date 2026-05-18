@@ -409,9 +409,9 @@ def mape_bar_chart(
             ax.text(val + 0.3, bar.get_y() + bar.get_height() / 2,
                     f"{val:.1f}%", va="center", fontsize=8)
 
-        ax.set_xlabel("MAPE (%)")
+        ax.set_xlabel("Mean Absolute Percentage Error (%)")
         ax.set_title(title_with_avg, fontsize=10, fontweight="bold")
-        ax.tick_params(axis='y', length=0)
+        ax.tick_params(axis='y', which='minor', length=0)
         plt.tight_layout()
         Path(dir_out).mkdir(parents=True, exist_ok=True)
         fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
@@ -430,50 +430,90 @@ def mape_by_year(
     *,
     year_col: str = "Harvest Year",
     mape_col: str = "MAPE",
+    obs_col: str | None = None,
+    pred_col: str | None = None,
+    area_col: str = "Area (ha)",
     threshold: float | None = 20.0,
 ):
-    """Bar chart of mean MAPE per year with optional dashed reference line.
+    """Bar chart of MAPE per year with optional dashed reference line.
 
-    Args:
-        df: DataFrame with ``year_col`` and ``mape_col``.
-        title: Plot title (pass empty string to suppress).
-        dir_out: output directory.
-        fname: output filename.
-        year_col: name of the year column.
-        mape_col: name of the MAPE column (e.g. ``"MAPE"`` or
-            ``"Mean Absolute Percentage Error"``).
-        threshold: y-value for horizontal reference line (default 20.0).
-            Set to None to omit.
+    When ``obs_col``, ``pred_col``, and ``area_col`` are all present in
+    ``df``, the bars show the **area-weighted national MAPE** per year
+    (sum of yield*area per year aggregated to a national observed and
+    predicted, then |err|/obs * 100).  Matches the National line in
+    `_plot_metric_progression` so the two diagnostic plots reconcile.
+
+    Otherwise falls back to the legacy unweighted mean of ``mape_col``.
     """
-    if df.empty or year_col not in df.columns or mape_col not in df.columns:
+    if df.empty or year_col not in df.columns:
         return
 
     import scienceplots  # noqa: F401
 
-    mape_series = df.groupby(year_col)[mape_col].mean().sort_index()
+    use_national = (
+        obs_col is not None and pred_col is not None
+        and obs_col in df.columns and pred_col in df.columns
+        and area_col in df.columns and df[area_col].notna().any()
+    )
+
+    if use_national:
+        d = df.dropna(subset=[obs_col, pred_col, area_col]).copy()
+        d = d[d[obs_col] != 0]
+        d["_prod_obs"] = d[obs_col] * d[area_col]
+        d["_prod_pred"] = d[pred_col] * d[area_col]
+        nat = d.groupby(year_col).agg(
+            _prod_obs=("_prod_obs", "sum"),
+            _prod_pred=("_prod_pred", "sum"),
+            _area=(area_col, "sum"),
+        )
+        nat = nat[nat["_area"] > 0]
+        if nat.empty:
+            return
+        nat["_obs_nat"] = nat["_prod_obs"] / nat["_area"]
+        nat["_pred_nat"] = nat["_prod_pred"] / nat["_area"]
+        mape_series = (
+            (nat["_pred_nat"] - nat["_obs_nat"]).abs()
+            / nat["_obs_nat"] * 100
+        ).sort_index()
+    else:
+        if mape_col not in df.columns:
+            return
+        mape_series = df.groupby(year_col)[mape_col].mean().sort_index()
+
     if mape_series.empty:
         return
 
-    avg_mape = float(np.nanmean(mape_series.values))
+    # 5-year moving-window mean.  Require a full window (min_periods=
+    # rolling_window) so the leading years don't show misleading averages
+    # of 1-4 years.  Matplotlib skips NaN points; the line starts at the
+    # first year where 5 prior years are available.
+    rolling_window = 5
+    mape_rolling = mape_series.rolling(
+        window=rolling_window, min_periods=rolling_window
+    ).mean()
 
     with plt.style.context(["science", "no-latex"]):
         fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(
-            [str(int(y)) for y in mape_series.index],
-            mape_series.values,
-            color="steelblue",
-        )
+        x_labels = [str(int(y)) for y in mape_series.index]
+        ax.bar(x_labels, mape_series.values, color="steelblue")
         if threshold is not None:
             ax.axhline(y=threshold, color="gray", linestyle="--")
+        ax.plot(
+            x_labels,
+            mape_rolling.values,
+            color="darkorange",
+            linewidth=2,
+            marker="o",
+            markersize=4,
+            label=f"{rolling_window}-yr moving avg",
+            zorder=3,
+        )
+        ax.legend(loc="upper right", fontsize=8, frameon=False)
         ax.set_xlabel("")
-        ax.set_ylabel(f"{mape_col} (%)" if mape_col != "MAPE" else "MAPE (%)")
+        ax.set_ylabel(f"{mape_col} (%)" if mape_col != "MAPE" else "Mean Absolute Percentage Error (%)")
         if title:
-            ax.set_title(f"{title}    [avg: {avg_mape:.1f}%]",
-                        fontsize=10, fontweight="bold")
-        else:
-            ax.set_title(f"avg: {avg_mape:.1f}%",
-                        fontsize=10, fontweight="bold")
-        ax.tick_params(axis='x', length=0)
+            ax.set_title(title, fontsize=10, fontweight="bold")
+        ax.tick_params(axis='x', which='minor', length=0)
         plt.xticks(rotation=0)
         plt.tight_layout()
         Path(dir_out).mkdir(parents=True, exist_ok=True)
@@ -518,7 +558,7 @@ def mape_choropleth(dg, df, countries, annotate_regions, dir_out, fname):
         name_col=col,
         dir_out=dir_out,
         fname=fname,
-        label="MAPE (%)",
+        label="Mean Absolute Percentage Error (%)",
         vmin=0,
         vmax=df[col].quantile(0.95) if df[col].dropna().shape[0] > 1 else df[col].max(),
         cmap=pal.scientific.sequential.Bamako_20_r,

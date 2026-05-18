@@ -229,6 +229,21 @@ STACK_KEYWORDS: dict[str, list[str]] = {
     "cpp": ["c++", "cpp microservice"],
     "graphql": ["graphql", "apollo"],
     "kubernetes": ["kubernetes", "k8s", "helm"],
+    # Game engines route through sage/games/, but the build-request
+    # detector still needs to recognize them so `sage ask "Build me a
+    # Godot platformer"` routes through the principal pipeline at all.
+    # Without these, game prompts silently fall through to simple-QA
+    # and the games pipeline never runs.
+    "game-engine": [
+        "godot", "unity", "unreal", "ue5", "ue4", "bevy", "phaser",
+        "love2d", "love 2d", "pygame", "gamemaker", "construct 3",
+        "rpg maker", "rpgmaker",
+        # Genre nouns that almost only show up in game prompts
+        "platformer", "metroidvania", "roguelike", "roguelite",
+        "soulslike", "shmup", "bullet hell", "tower defense",
+        # Generic game indicators paired with build verbs
+        "video game", "2d game", "3d game", "indie game",
+    ],
 }
 
 
@@ -346,6 +361,10 @@ def looks_like_build_request(task: str, min_chars: int = 60) -> bool:
     project_nouns = (
         "backend", "frontend", "microservice", "microservices",
         "mobile app", "web app", "rest api", "graphql api",
+        # Game-project nouns — needed so "Make me a 3D game with..." routes
+        # through the principal pipeline instead of simple-QA. The games
+        # pipeline owns engine selection from here.
+        "game", "video game", "2d game", "3d game", "indie game",
     )
     if has_verb and len(task) >= min_chars:
         if any(n in lower for n in project_nouns):

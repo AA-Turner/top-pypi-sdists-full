@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import tarfile
 import zipfile
 
@@ -61,6 +62,7 @@ class FileManager(object):
     def __extract_zip(self, archive_file, to_directory):
         zip_class = (LinuxZipFileWithPermissions if self._os_system_manager.get_os_name() == "linux" else zipfile.ZipFile)
         archive = zip_class(archive_file.file_path)
+        self.__remove_file_dir_conflicts(archive.namelist(), to_directory)
         try:
             archive.extractall(to_directory)
         except Exception as e:
@@ -74,14 +76,31 @@ class FileManager(object):
                 if "/" not in n:
                     file_names.append(n)
                 else:
-                    file_path, file_name = n.split("/")
+                    file_path, file_name = n.rsplit("/", 1)
+                    if not file_name:
+                        continue
                     full_file_path = os.path.join(to_directory, file_path)
                     source = os.path.join(full_file_path, file_name)
                     destination = os.path.join(to_directory, file_name)
+                    if not os.path.exists(source):
+                        continue
                     os.replace(source, destination)
                     file_names.append(file_name)
             return sorted(file_names, key=lambda x: x.lower())
         return archive.namelist()
+
+    def __remove_file_dir_conflicts(self, names, to_directory):
+        """Remove stale files that conflict with directory entries in archive.
+
+        Example: if cache contains `<to_directory>/operadriver` as a file, and
+        archive now contains `operadriver/<binary>`, extraction would fail with
+        NotADirectoryError.
+        """
+        top_level_dirs = {name.split("/", 1)[0] for name in names if "/" in name}
+        for dir_name in top_level_dirs:
+            path = os.path.join(to_directory, dir_name)
+            if os.path.isfile(path):
+                os.remove(path)
 
     def __extract_tar_file(self, archive_file, to_directory):
         try:
@@ -89,6 +108,10 @@ class FileManager(object):
         except tarfile.ReadError:
             tar = tarfile.open(archive_file.file_path, mode="r:bz2")
         members = tar.getmembers()
-        tar.extractall(to_directory)
+        # Python 3.13+ requires 'filter' to avoid deprecation warning
+        if sys.version_info >= (3, 13):
+            tar.extractall(to_directory, filter="fully_trusted")
+        else:
+            tar.extractall(to_directory)
         tar.close()
         return [x.name for x in members]

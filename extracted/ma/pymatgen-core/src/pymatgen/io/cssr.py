@@ -31,7 +31,8 @@ class Cssr:
     """
 
     def __init__(self, structure: Structure | IStructure):
-        """
+        """Initialize a Cssr.
+
         Args:
             structure (Structure | IStructure): A structure to create the Cssr object.
         """

@@ -11,7 +11,7 @@ with open("README.md") as f:
     readme = f.read()
 
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 
 setup(
@@ -24,6 +24,7 @@ setup(
     author_email="eyeseast@gmail.com",
     url="https://github.com/eyeseast/python-frontmatter",
     packages=["frontmatter"],
+    package_data={"frontmatter": ["py.typed"]},
     include_package_data=True,
     install_requires=["PyYAML"],
     extras_require={
@@ -40,11 +41,11 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
     ],
     test_suite="test",
 )

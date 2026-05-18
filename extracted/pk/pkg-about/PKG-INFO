@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 2.4.0
+Version: 2.4.2
 Summary: Unified access to Python package metadata at runtime.
 Author-email: Adam Karpierz <adam@karpierz.net>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>

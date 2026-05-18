@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.2.0
+Version: 11.3.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -275,21 +275,28 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.2
+Release 11.3
 ============
 
-* Require Pillow 12.2.0 or above due to security vulnerability
-* Remove UTM tracking parameters in proofreadpage.ProofreadPage.url_image(T419943)
-* Enable *total* parameter in Page.iterlanglinks()
-  if links were cached (T422390)
+* Add *until* parameter to Site.allpages()
+  and add ``-until`` option to
+  Generator Optionsas a stop title for enumeration (T425882)
+* Update family.WikimediaFamily.known_codes(T426319)
+* Move all families.wikinews_familysite codes to Family.closed_wikis
+  (T425953, T426022)
+* Enable CosmeticChangesToolkit.commonsfiledesc()
+  for FILE namespace on
+  on all commons wikis (T425306, T425349)
+* Add Devanagari numerals for ne-wiki to NON_ASCII_DIGITS
+  and fix textlib.TimeStripper
+  regex for textlib.TimeStripperPatterns.timezone(T424467)
+* Ignore ``UnicodeDecodeError`` in cosmetic_changes.CosmeticChangesToolkit.cleanUpLinks
+  and skip the link in such case (T423062)
 * Update translations (i18n)
-* Implement *deletetalk* option in APISite.delete()
-  for older MediaWiki versions (T420636)
-* Add support for abstract_family
-  (T420636, T422369)
-* Do not follow interwiki redirects in APISite.pagebacklinks()
-  (T121833)
-* Remove UTM tracking parameter in pywikibot.FilePage.get_file_url(T420827)
+* If *preload* option is set in pagegenerators.GeneratorFactory.getCombinedGenerator,
+  the preloading generators pagegenerators.PreloadingGeneratoror
+  pagegenerators.DequePreloadingGeneratorare called with the *quiet* option.
+
 
 Deprecations
 ============
@@ -301,7 +308,7 @@ Deprecated items may still work in the current release but are no longer recomme
 Users should update their code according to the recommended alternatives.
 
 Pywikibot follows a clear deprecation policy: features are typically deprecated in one release and
-removed in in the third subsequent major release, remaining available for the two releases in between.
+removed in the third subsequent major release, remaining available for the two releases in between.
 
 
 Pending removal in Pywikibot 12
@@ -333,8 +340,8 @@ Pending removal in Pywikibot 12
   was renamed to ``all_ns``
 * 9.0.0: ``filter`` parameter of date.dhwas renamed to ``filter_func``
 * 9.0.0: ``dict`` parameter of data.api.OptionSetwas renamed to ``data``
-* 9.0.0: pywikibot.version.get_toolforge_hostnameis deprecated with no replacement
-* 9.0.0: ``allrevisions`` parameter of xmlreader.XmpDumpis deprecated, use ``revisions`` instead
+* 9.0.0: version.get_toolforge_hostnameis deprecated with no replacement
+* 9.0.0: ``allrevisions`` parameter of xmlreader.XmlDumpis deprecated, use ``revisions`` instead
   (T340804)
 * 9.0.0: ``iteritems`` method of data.api.Requestwill be removed in favour of ``items``
 * 9.0.0: ``SequenceOutputter.output()`` is deprecated in favour of the
@@ -344,7 +351,7 @@ Pending removal in Pywikibot 12
 Pending removal in Pywikibot 13
 -------------------------------
 
-* 10.6.0: The old ``(type, value, traceback)`` signature in
+* 10.7.0: The old ``(type, value, traceback)`` signature in
   tools.collections.GeneratorWrapper.throwwill be removed in Pywikibot 13, or earlier if it
   is dropped from a future Python release. (T340641)
 * 10.6.0: Family.isPublic()will be removed (T407049)
@@ -391,6 +398,10 @@ Pending removal in Pywikibot 13
 Pending removal in Pywikibot 14
 -------------------------------
 
+* 11.0.0: The User-Agent variable *script_product* is deprecated; use *script* instead.
+  The User-Agent variable *version* is deprecated; use *revision* instead.
+  The User-Agent variables *lang*, *code* and *family* are deprecated; use *site* instead.
+* 11.0.0: Positional argument for *block* parameter is deprecated; use a keyword argument instead.
 * 11.0.0: Keyword parameters for *text_a* and *text_b* of diff.PatchManagerare deprecated.
   Positional parameters for *by_letter* and *replace_invisible* are deprecated.
 

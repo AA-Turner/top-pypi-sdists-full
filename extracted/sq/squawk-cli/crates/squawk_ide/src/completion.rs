@@ -7,6 +7,7 @@ use crate::ast_nav;
 use crate::binder;
 use crate::collect;
 use crate::db::{File, bind, parse};
+use crate::file::InFile;
 use crate::name::{self, Name, Schema};
 use crate::resolve;
 use crate::symbols::SymbolKind;
@@ -14,7 +15,9 @@ use crate::tokens::is_string_or_comment;
 
 const COMPLETION_MARKER: &str = "squawkCompletionMarker";
 
-pub fn completion(db: &dyn Db, file: File, offset: TextSize) -> Vec<CompletionItem> {
+pub fn completion(db: &dyn Db, position: InFile<TextSize>) -> Vec<CompletionItem> {
+    let file = position.file_id;
+    let offset = position.value;
     let parse = parse(db, file);
     let source_file = parse.tree();
 
@@ -343,7 +346,7 @@ fn column_completions_from_clause(
 ) -> Vec<CompletionItem> {
     let mut completions = vec![];
     let syntax_root = from_clause.syntax().ancestors().last().unwrap();
-    for table_ptr in resolve::table_ptrs_from_clause(db, file, from_clause) {
+    for table_ptr in resolve::table_ptrs_from_clause(db, InFile::new(file, from_clause)) {
         let table_node = table_ptr.to_node(&syntax_root);
         match ast_nav::parent_source(&table_node) {
             Some(ast_nav::ParentSouce::CreateTable(create_table)) => {
@@ -460,7 +463,8 @@ fn alias_base_columns_with_types(
     let Some(from_item) = alias.syntax().ancestors().find_map(ast::FromItem::cast) else {
         return vec![];
     };
-    let Some(table_ptr) = resolve::table_ptr_from_from_item(db, file, &from_item) else {
+    let Some(table_ptr) = resolve::table_ptr_from_from_item(db, InFile::new(file, &from_item))
+    else {
         return vec![];
     };
 
@@ -670,15 +674,12 @@ fn delete_expr_completions(
     }
 
     let schema = name::schema_name(&path);
-    if let Some(table_ptr) = binder.lookup_with(
-        &delete_table_name,
-        SymbolKind::Table,
-        position,
-        schema.as_ref(),
-    ) && let Some(create_table) = table_ptr
-        .to_node(source_file.syntax())
-        .ancestors()
-        .find_map(ast::CreateTableLike::cast)
+    let schemas = binder.resolved_schemas(position, schema.as_ref());
+    if let Some(table_ptr) = binder.lookup_with(&delete_table_name, SymbolKind::Table, &schemas)
+        && let Some(create_table) = table_ptr
+            .to_node(source_file.syntax())
+            .ancestors()
+            .find_map(ast::CreateTableLike::cast)
     {
         let columns = collect::table_columns(db, file, &create_table);
         completions.extend(columns.into_iter().map(|(name, ty)| CompletionItem {
@@ -845,13 +846,14 @@ fn function_detail(
 ) -> Option<String> {
     let binder = bind(db, file);
     let source_file = parse(db, file).tree();
+    let schemas = binder.resolved_schemas(position, schema);
     let create_function = binder
-        .lookup_with(function_name, SymbolKind::Function, position, schema)?
+        .lookup_with(function_name, SymbolKind::Function, &schemas)?
         .to_node(source_file.syntax())
         .ancestors()
         .find_map(ast::CreateFunction::cast)?;
     let path = create_function.path()?;
-    let (schema, function_name) = resolve::resolve_function_info(db, file, &path)?;
+    let (schema, function_name) = resolve::resolve_function_info(db, InFile::new(file, &path))?;
 
     let param_list = create_function.param_list()?;
     let params = param_list.syntax().text().to_string();
@@ -859,10 +861,7 @@ fn function_detail(
     let ret_type = create_function.ret_type()?;
     let return_type = ret_type.syntax().text().to_string();
 
-    Some(format!(
-        "{}.{}{} {}",
-        schema, function_name, params, return_type
-    ))
+    Some(format!("{schema}.{function_name}{params} {return_type}"))
 }
 
 fn default_completions() -> Vec<CompletionItem> {
@@ -935,7 +934,7 @@ pub struct CompletionItem {
 #[cfg(test)]
 mod tests {
     use super::completion;
-    use crate::db::{Database, File};
+
     use crate::test_utils::Fixture;
     use insta::assert_snapshot;
     use tabled::builder::Builder;
@@ -943,12 +942,9 @@ mod tests {
 
     #[must_use]
     fn completions(sql: &str) -> String {
-        let fixture = Fixture::new(sql);
+        let fixture = Fixture::new_allow_errors(sql);
         let offset = fixture.marker().offset();
-        let sql = fixture.sql();
-        let db = Database::default();
-        let file = File::new(&db, sql.into());
-        let items = completion(&db, file, offset);
+        let items = completion(fixture.db(), offset);
         assert!(
             !items.is_empty(),
             "No completions found. If this was intended, use `completions_not_found` instead."
@@ -957,12 +953,9 @@ mod tests {
     }
 
     fn completions_not_found(sql: &str) {
-        let fixture = Fixture::new(sql);
+        let fixture = Fixture::new_allow_errors(sql);
         let offset = fixture.marker().offset();
-        let sql = fixture.sql();
-        let db = Database::default();
-        let file = File::new(&db, sql.into());
-        let items = completion(&db, file, offset);
+        let items = completion(fixture.db(), offset);
         assert_eq!(
             items,
             vec![],
@@ -1145,6 +1138,7 @@ select $0 from t;
     #[test]
     fn completion_after_select_create_table_inherits_builtin() {
         assert_snapshot!(completions("
+-- include-builtins
 create table t ()
 inherits (information_schema.sql_features);
 select $0 from t;

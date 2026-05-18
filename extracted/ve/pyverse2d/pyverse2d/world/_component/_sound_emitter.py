@@ -263,17 +263,20 @@ class SoundEmitter(Component):
     def _add_handle(self, handle: SoundHandle) -> None:
         """Ajoute un ``SoundHandle`` à la liste des sons en cours de lecture"""
         self._playing.add(handle)
-        self._on_start.trigger()
+        if self._on_start:
+            self._on_start.trigger()
 
     def _remove_handle(self, handle: SoundHandle) -> None:
         """Retire un ``SoundHandle`` de la liste des sons en cours de lecture"""
         self._playing.discard(handle)
-        self._on_end.trigger()
+        if self._on_end:
+            self._on_end.trigger()
     
     def _clear_handles(self) -> None:
         """Vide la liste des sons en cours de lecture"""
         self._playing.clear()
-        self._on_end.trigger()
+        if self._on_end:
+            self._on_end.trigger()
 
 # ======================================== REQUESTS ========================================
 @dataclass(slots=True, frozen=True)

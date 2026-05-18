@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: benchmark-runner
-Version: 1.0.996
+Version: 1.0.998
 Summary: Benchmark Runner Tool
 Author-email: Red Hat <ebattat@redhat.com>
 License-Expression: Apache-2.0
@@ -16,8 +16,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: attrs==21.4.0
 Requires-Dist: azure==4.0.0
-Requires-Dist: boto3==1.33.13
-Requires-Dist: botocore==1.33.13
+Requires-Dist: boto3==1.41.0
+Requires-Dist: botocore==1.41.0
 Requires-Dist: cryptography==46.0.7
 Requires-Dist: elasticsearch==7.16.1
 Requires-Dist: elasticsearch-dsl==7.4.0

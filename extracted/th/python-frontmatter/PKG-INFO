@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-frontmatter
-Version: 1.1.0
+Version: 1.2.0
 Summary: Parse and manage posts with YAML (or other) frontmatter
 Home-page: https://github.com/eyeseast/python-frontmatter
 Author: Chris Amico
@@ -12,15 +12,35 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/markdown
-Provides-Extra: test
-Provides-Extra: docs
 License-File: LICENSE
+Requires-Dist: PyYAML
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: toml; extra == "test"
+Requires-Dist: pyaml; extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: types-PyYAML; extra == "test"
+Requires-Dist: types-toml; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 # Python Frontmatter
 
@@ -134,10 +154,10 @@ Well, hello there, world.
 Or write to a file (or file-like object):
 
 ```python
->>> from io import BytesIO
->>> f = BytesIO()
+>>> from io import StringIO
+>>> f = StringIO()
 >>> frontmatter.dump(post, f)
->>> print(f.getvalue().decode('utf-8')) # doctest: +NORMALIZE_WHITESPACE
+>>> print(f.getvalue()) # doctest: +NORMALIZE_WHITESPACE
 ---
 excerpt: tl;dr
 layout: post

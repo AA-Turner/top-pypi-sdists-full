@@ -24,7 +24,8 @@ class InputVariable:
     """An Abinit input variable."""
 
     def __init__(self, name: str, value, units: str = "", valperline: int = 3) -> None:
-        """
+        """Initialize an InputVariable.
+
         Args:
             name: Name of the variable.
             value: Value of the variable.

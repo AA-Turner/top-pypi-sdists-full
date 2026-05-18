@@ -1133,7 +1133,8 @@ def _handle_backtest_period(configManager, userPassedArgs, resultsContentsEncode
     stocklist_param = f" --stocklist {userPassedArgs.stocklist}" if userPassedArgs.stocklist else ""
     slicewindow_param = f" --slicewindow {userPassedArgs.slicewindow}" if userPassedArgs.slicewindow else ""
     fname_param = f" --fname {resultsContentsEncoded}" if resultsContentsEncoded else ""
-    
+    exit_param = " -e" if userPassedArgs.exit else ''
+    ans_param = " -a Y" if userPassedArgs.answerdefault else ''
     OutputControls().printOutput(
         f"{colorText.GREEN}Launching PKScreener in quick backtest mode.{colorText.END}\n"
         f"{colorText.FAIL}{launcher} --backtestdaysago {int(backtest_days_ago)}"
@@ -1142,7 +1143,7 @@ def _handle_backtest_period(configManager, userPassedArgs, resultsContentsEncode
     )
     sleep(2)
     os.system(
-        f"{launcher} --systemlaunched -a Y -e --backtestdaysago {int(backtest_days_ago)}"
+        f"{launcher} --systemlaunched{exit_param}{ans_param} --backtestdaysago {int(backtest_days_ago)}"
         f"{requesting_user}{enable_log}{enable_telegram}{stocklist_param}{slicewindow_param}{fname_param}"
     )
     ConsoleUtility.PKConsoleTools.clearScreen(clearAlways=True, forceTop=True)

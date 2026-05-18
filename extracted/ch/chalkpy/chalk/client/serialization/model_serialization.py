@@ -20,6 +20,7 @@ class ModelSerializationConfig(NamedTuple):
     serialize_fn: Callable[[str, Any], None]
     schema_fn: Optional[Callable[[Any], Tuple[Optional[ModelSchemaType], Optional[ModelSchemaType]]]] = None
     dependency_fn: Optional[Callable[[], Optional[List[str]]]] = None
+    load_fn: Optional[Callable[[str], Any]] = None
 
 
 MODEL_SERIALIZERS = {
@@ -35,6 +36,11 @@ MODEL_SERIALIZERS = {
         dependency_fn=lambda: ModelSerializer.with_import(
             "torch", lambda torch: [f"torch=={torch.__version__}"], "Please install PyTorch to save PyTorch models."
         ),
+        load_fn=lambda path: ModelSerializer.with_import(
+            "torch",
+            lambda torch: torch.jit.load(path),
+            "Please install PyTorch to load PyTorch models.",
+        ),
     ),
     ModelType.SKLEARN: ModelSerializationConfig(
         filename="model.pkl",
@@ -48,9 +54,19 @@ MODEL_SERIALIZERS = {
             lambda sklearn: [f"scikit-learn=={sklearn.__version__}"],
             "Please install sklearn to save sklearn models.",
         ),
+        load_fn=lambda path: ModelSerializer.with_import(
+            "joblib", lambda joblib: joblib.load(path), "Please install joblib to load sklearn models."
+        ),
     ),
     ModelType.TENSORFLOW: ModelSerializationConfig(
-        filename="model.h5", encoding=ModelEncoding.HDF5, serialize_fn=lambda model, path: model.save(path)
+        filename="model.h5",
+        encoding=ModelEncoding.HDF5,
+        serialize_fn=lambda model, path: model.save(path),
+        load_fn=lambda path: ModelSerializer.with_import(
+            "tensorflow",
+            lambda tf: tf.keras.models.load_model(path),
+            "Please install tensorflow to load Keras/TensorFlow models.",
+        ),
     ),
     ModelType.XGBOOST: ModelSerializationConfig(
         filename="model.json",
@@ -62,17 +78,32 @@ MODEL_SERIALIZERS = {
             lambda xgboost: [f"xgboost=={xgboost.__version__}"],
             "Please install xgboost to save xgboost models.",
         ),
+        load_fn=lambda path: ModelSerializer.with_import(
+            "xgboost",
+            lambda xgb: xgb.Booster(model_file=path),
+            "Please install xgboost to load xgboost models.",
+        ),
     ),
     ModelType.LIGHTGBM: ModelSerializationConfig(
         filename="model.txt",
         encoding=ModelEncoding.TEXT,
         serialize_fn=lambda model, path: model.save_model(path),
+        load_fn=lambda path: ModelSerializer.with_import(
+            "lightgbm",
+            lambda lgb: lgb.Booster(model_file=path),
+            "Please install lightgbm to load lightgbm models.",
+        ),
     ),
     ModelType.CATBOOST: ModelSerializationConfig(
         filename="model.cbm",
         encoding=ModelEncoding.CBM,
         serialize_fn=lambda model, path: model.save_model(path),
         schema_fn=lambda model: ModelAttributeExtractor.infer_catboost_schemas(model),
+        load_fn=lambda path: ModelSerializer.with_import(
+            "catboost",
+            lambda catboost: catboost.CatBoost().load_model(path),
+            "Please install catboost to load catboost models.",
+        ),
     ),
     ModelType.ONNX: ModelSerializationConfig(
         filename="model.onnx",
@@ -85,6 +116,14 @@ MODEL_SERIALIZERS = {
                 path,
             ),
             "Please install onnx to save ONNX models.",
+        ),
+        # ONNX is special: the "loaded model" useful for inference is an
+        # onnxruntime InferenceSession, not the raw onnx proto. User code in
+        # handler() calls self.model.run(...) instead of .predict(...).
+        load_fn=lambda path: ModelSerializer.with_import(
+            "onnxruntime",
+            lambda ort: ort.InferenceSession(path),
+            "Please install onnxruntime to load ONNX models.",
         ),
     ),
 }

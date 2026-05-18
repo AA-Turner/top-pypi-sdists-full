@@ -118,8 +118,7 @@ def _flip(c: Contact | None) -> Contact | None:
     """
     if c is None:
         return None
-    c.normal = -c.normal
-    return c
+    return Contact(-c.normal, c.depth)
 
 # ======================================== EXPORTS ========================================
 __all__ = [

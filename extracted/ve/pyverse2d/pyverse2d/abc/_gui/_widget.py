@@ -1,7 +1,7 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ..._internal import expect, clamped, over, CallbackList, profile_section
+from ..._internal import expect, clamped, different_from, CallbackList, profile_section
 from ...math import Point
 from ..._core import Transformable, Transform, Geometry
 
@@ -14,19 +14,13 @@ from pyglet.graphics import Group
 
 from abc import ABC, abstractmethod
 from bisect import insort
-from numbers import Real
-from typing import Type, TYPE_CHECKING, ClassVar
+from numbers import Real, Integral
+from typing import Type, TYPE_CHECKING, ClassVar, overload
 
 if TYPE_CHECKING:
     from ..._rendering import Pipeline
     from ...scene import GuiLayer
-    from ...gui import (
-        RenderContext,
-        ClickBehavior,
-        HoverBehavior,
-        SelectBehavior,
-        FocusBehavior,
-    )
+    from ...gui import RenderContext, ClickBehavior, HoverBehavior, SelectBehavior, FocusBehavior
 
 # ======================================== GROUP ========================================
 class WidgetGroup(Group):
@@ -100,6 +94,7 @@ class Widget(ABC, Transformable):
         scale: facteur de redimensionnement
         rotation: angle de rotation
         opacity: opacité
+        clipping: limitation du rendu au AABB du widget
     """
     __slots__ = (
         "_layer", "_parent", "_children",
@@ -423,7 +418,13 @@ class Widget(ABC, Transformable):
 
         Le facteur de redimensionnement doit être un ``Réel`` positif non nul.
         """
-        self._scale *= over(float(factor), 0.0, include=False)
+        # Transtypage et vérifications
+        factor = float(factor)
+        if __debug__:
+            different_from(factor, 0)
+
+        # Application
+        self._scale *= factor
         self._invalidate_scissor()
 
     def rotate(self, angle: Real) -> None:
@@ -431,7 +432,11 @@ class Widget(ABC, Transformable):
 
         La rotation est *en degrés* et se fait dans le sens trigonométrique *(CCW)*.
         """
-        self._rotation += float(angle)
+        # Transtypage et vérifications
+        angle = float(angle)
+
+        # Application
+        self._rotation += angle
         self._invalidate_scissor()
 
     # ========================================  STATE ========================================
@@ -561,6 +566,15 @@ class Widget(ABC, Transformable):
                 return
         self._behaviors.append(behavior._ID)
 
+    @overload
+    def remove_behavior(self, behavior: Behavior) -> None: ...
+
+    @overload
+    def remove_behavior(self, behavior_type: Type[Behavior]) -> None: ...
+
+    @overload
+    def remove_behavior(self, behavior_id: str) -> None: ...
+
     def remove_behavior(self, behavior: Behavior | Type[Behavior] | str) -> None:
         """Retire un comportement
 
@@ -580,6 +594,12 @@ class Widget(ABC, Transformable):
         self._behaviors.remove(id_)
         setattr(self, f"_{id_}", None)
 
+    @overload
+    def get_behavior(self, behavior_type: Type[Behavior]) -> Behavior | None: ...
+
+    @overload
+    def get_behavior(self, behavior_id: str) -> Behavior | None: ...
+
     def get_behavior(self, behavior: type[Behavior] | str) -> Behavior | None:
         """Renvoie un comportement
 
@@ -592,6 +612,12 @@ class Widget(ABC, Transformable):
     def get_behaviors(self) -> tuple[Behavior]:
         """Renvoie les comportements attachés"""
         return tuple(behavior for id_ in self._behaviors if (behavior := getattr(self, f"_{id_}", None)) is not None)
+    
+    @overload
+    def has_behavior(self, behavior_type: Type[Behavior]) -> bool: ...
+
+    @overload
+    def has_behavior(self, behavior_id: str) -> bool: ...
 
     def has_behavior(self, behavior: type[Behavior] | str) -> bool:
         """Vérfie la possession d'un comportement
@@ -652,7 +678,14 @@ class Widget(ABC, Transformable):
             del self._attr_locks[attr]
 
     # ======================================== CHILDREN ========================================
-    def add_child(self, child: Widget, name: str = None, z: int = 1, share_scale: bool = True, share_rotation: bool = True) -> Widget:
+    def add_child(
+        self,
+        child: Widget,
+        name: str = None,
+        z: Integral = 1,
+        share_scale: bool = True,
+        share_rotation: bool = True,
+    ) -> Widget:
         """Ajoute un composant enfant
 
         Args:
@@ -665,14 +698,22 @@ class Widget(ABC, Transformable):
         Returns:
             child: widget enfant associé
         """
-        # Vérifications
+        # Transtypage et vérifications
+        name = str(name)
+        z = int(z)
+        share_scale = bool(share_scale)
+        share_rotation = bool(share_rotation)
+
+        if __debug__:
+            expect(child, Widget)
+
         if child._layer is not None and child._layer != self._layer:
             raise ValueError(f"{child} is in another layer")
         if child.parent is not None:
             raise ValueError(f"{child} has already a parent")
     
         # Ajout
-        wrapper = WidgetWrapper(expect(child, Widget), expect(name, (str, None)), expect(z, int), share_scale, share_rotation)
+        wrapper = WidgetWrapper(child, name, z, share_scale, share_rotation)
         child._layer = self._layer
         child._parent = self
         insort(self._children, wrapper)
@@ -687,8 +728,12 @@ class Widget(ABC, Transformable):
         Returns:
             child: widget enfant dissocié
         """
+        # Vérifications
+        if __debug__:
+            expect(child, Widget)
+
         # Dissociation
-        if expect(child, Widget) in self._children:
+        if child in self._children:
             child._layer = None
             child._parent = None
             child.sleep()
@@ -722,14 +767,18 @@ class Widget(ABC, Transformable):
             child.widget.sleep()
         self._children.clear()
     
-    def reorder(self, child: Widget, z: int) -> None:
+    def reorder(self, child: Widget, z: Integral) -> None:
         """Modifie le z-order d'un composant enfant
 
         Args:
             child: composant enfant
             z: ordre de rendu
         """
-        wrapper = self._get_wrapper(expect(child, Widget))
+        # Transtypage et vérfications
+        z = int(z)
+
+        # Application
+        wrapper = self._get_wrapper(child)
         if wrapper.z != z:
             wrapper.z = z
             self._children.remove(child)
@@ -898,7 +947,11 @@ class Widget(ABC, Transformable):
         return self_context
     
     def _update_world_transform(self, context: RenderContext) -> None:
-        """Actualisation de la transformation monde"""
+        """Actualisation de la transformation monde
+        
+        Args:
+            context: ``RenderContext`` du parent
+        """
         tr = self._world_transform
         tr.x = context.x
         tr.y = context.y
@@ -966,7 +1019,11 @@ class WidgetWrapper:
         return self._widget
 
     def __eq__(self, other: Widget | WidgetWrapper) -> bool:
-        """Vérifie la correspondance des composants"""
+        """Vérifie la correspondance des composants
+        
+        Args:
+            other: widget ou wrapper à vérifier
+        """
         if isinstance(other, Widget):
             return self._widget == other
         elif isinstance(other, WidgetWrapper):
@@ -974,7 +1031,11 @@ class WidgetWrapper:
         return NotImplemented
 
     def __lt__(self, other: WidgetWrapper) -> bool:
-        """Comparaison inférieure"""
+        """Comparaison inférieure
+        
+        Args:
+            other: wrapper à vérifier
+        """
         return self.z < other.z
     
     def copy(self) -> WidgetWrapper:

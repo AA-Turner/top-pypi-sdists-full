@@ -10,13 +10,21 @@ __all__ = [
     "set_log_level",
     "get_log_level",
     "disable_logging",
-    "py_sign_pdf_bytes",
+    "sign_pdf_bytes",
+    "sign_pdf_bytes_pades",
+    "has_document_timestamp",
     "generate_barcode_svg",
     "generate_qr_svg",
     "VERSION",
     "crypto_active_provider",
     "crypto_available_providers",
     "crypto_use_fips",
+    "crypto_set_policy",
+    "crypto_policy",
+    "crypto_inventory",
+    "crypto_cbom",
+    "plan_split_by_bookmarks",
+    "split_by_bookmarks",
     "PdfDocument",
     "Pdf",
     "PdfPage",
@@ -62,6 +70,9 @@ __all__ = [
     "Certificate",
     "Timestamp",
     "TsaClient",
+    "PadesLevel",
+    "RevocationMaterial",
+    "Dss",
 ]
 
 def setup_logging() -> None:
@@ -102,7 +113,7 @@ def disable_logging() -> None:
     `set_log_level("off")`.
     """
 
-def py_sign_pdf_bytes(
+def sign_pdf_bytes(
     pdf_data: bytes, cert: Certificate, reason: str | None = None, location: str | None = None
 ) -> bytes:
     """
@@ -122,6 +133,50 @@ def py_sign_pdf_bytes(
     signed = sign_pdf_bytes(f.read(), cert, reason="Approved", location="HQ")
     with open("signed.pdf", "wb") as f:
     f.write(signed)
+    ```
+    """
+
+def sign_pdf_bytes_pades(
+    pdf_data: bytes,
+    cert: Certificate,
+    level: PadesLevel,
+    tsa_url: str | None = None,
+    reason: str | None = None,
+    location: str | None = None,
+    revocation: RevocationMaterial | None = None,
+) -> bytes:
+    """
+    Sign raw PDF bytes at a PAdES baseline level and return the signed
+    PDF as `bytes`.
+
+    `level` is a :class:`PadesLevel` (``B_LTA`` is reserved →
+    ``NotImplementedError``). For ``B_T``/``B_LT`` a `tsa_url` is
+    required (RFC 3161 source; needs the ``tsa-client`` build feature).
+    `revocation` supplies the B-LT DSS material.
+
+    ```python
+    from pdf_oxide import Certificate, PadesLevel, RevocationMaterial, sign_pdf_bytes_pades
+
+    cert = Certificate.load_pkcs12(open("id.p12","rb").read(), "pw")
+    signed = sign_pdf_bytes_pades(
+    open("in.pdf","rb").read(), cert, PadesLevel.B_LT,
+    tsa_url="https://freetsa.org/tsr",
+    revocation=RevocationMaterial(certs=[cert_der]),
+    )
+    ```
+    """
+
+def has_document_timestamp(pdf_data: bytes) -> bool:
+    """
+    Whether `pdf_data` carries a document-scoped RFC 3161
+    `/DocTimeStamp` archival timestamp (PAdES-B-LTA). This is the
+    document-level reader signal; `Signature.pades_level` is
+    signature-scoped and tops out at B-LT by design.
+
+    ```python
+    from pdf_oxide import has_document_timestamp
+    with open("ltv.pdf", "rb") as f:
+    is_lta = has_document_timestamp(f.read())
     ```
     """
 
@@ -192,6 +247,73 @@ def crypto_use_fips() -> None:
     wheel was built without ``--features fips``.
     """
 
+def crypto_set_policy(spec: str) -> None:
+    """
+    Install the process-wide runtime crypto-governance policy (#230).
+
+    ``spec`` grammar: ``mode[;clause]*`` where
+    ``mode ∈ {compat, strict, fips-strict}`` and
+    ``clause = (allow|deny):<alg>@<read|write>`` — e.g.
+    ``"compat;deny:rc4@write;deny:md5@write"`` or ``"fips-strict"``.
+
+    Set-once (a runtime policy downgrade is an attack vector). Raises
+    ``RuntimeError`` on an unparseable spec (**fail-closed** — treat
+    this as fatal; the policy is *not* installed) or if a policy is
+    already set. Default (never set) behaviour is ``compat`` —
+    byte-for-byte identical to pre-#230.
+    """
+
+def crypto_policy() -> str:
+    """
+    Return the active crypto policy as its canonical grammar string
+    (e.g. ``"strict"`` or ``"compat;deny:rc4@write"``). Non-mutating
+    beyond the lazy ``compat`` default that every crypto path shares.
+    """
+
+def crypto_inventory() -> list[str]:
+    """
+    The cryptographic algorithms exercised so far this process, as
+    stable lowercase tokens (e.g. ``["md5", "aes256"]``) — the minimal
+    crypto-inventory / CBOM-adjacent governance report.
+    """
+
+def crypto_cbom() -> str:
+    """
+    A CycloneDX 1.6 Cryptographic Bill of Materials (JSON string) of the
+    algorithms exercised so far this process (#230 Phase F).
+    """
+
+def plan_split_by_bookmarks(
+    src_bytes: bytes,
+    title_prefix: str | None = None,
+    ignore_case: bool = False,
+    level: int = 1,
+    include_front_matter: bool = True,
+) -> list:
+    """
+    Plan a bookmark split for `src_bytes` without producing PDFs.
+
+    Returns ``list[dict]`` (keys: index, start_page, end_page, title,
+    file_stem, page_label). ``level``: 0 = all depths, 1 = top-level
+    (default), n = up to depth n. Raises ``RuntimeError`` if the
+    document has no outline or nothing resolves.
+    """
+
+def split_by_bookmarks(
+    src_bytes: bytes,
+    title_prefix: str | None = None,
+    ignore_case: bool = False,
+    level: int = 1,
+    include_front_matter: bool = True,
+) -> list:
+    """
+    Split `src_bytes` at bookmark boundaries.
+
+    Returns ``list[tuple[dict, bytes]]`` — each segment's metadata
+    (see :func:`plan_split_by_bookmarks`) paired with its PDF bytes.
+    The source is not modified. Raises ``RuntimeError`` on failure.
+    """
+
 @t.final
 class PdfDocument:
     """
@@ -243,6 +365,13 @@ class PdfDocument:
 
     def signature_count(self) -> int:
         """Count existing PDF signatures without materialising them."""
+
+    def dss(self) -> Dss | None:
+        """
+        The document's Document Security Store (`/DSS`) as a :class:`Dss`,
+        or ``None`` if the PDF has no DSS. Mirrors Rust
+        `signatures::read_dss`.
+        """
 
     def extract_text(
         self, page: int, region: tuple[float, float, float, float] | None = None
@@ -651,6 +780,56 @@ class PdfDocument:
 
     def unmark_page_for_redaction(self, page: int) -> None:
         """Unmark page for redaction."""
+
+    def add_redaction(
+        self,
+        page: int,
+        rect: tuple[float, float, float, float],
+        fill: tuple[float, float, float] | None = None,
+    ) -> None:
+        """
+        Queue an explicit destructive redaction rectangle on a page.
+
+        Args:
+        page (int): zero-based page index.
+        rect (tuple[float,float,float,float]): ``(x0, y0, x1, y1)`` in
+        page user space.
+        fill (tuple[float,float,float] | None): overlay DeviceRGB
+        colour; ``None`` uses the default.
+        """
+
+    def redaction_count(self, page: int) -> int:
+        """
+        Number of redaction regions queued for ``page`` (annotations +
+        programmatic rectangles).
+        """
+
+    def apply_redactions_destructive(
+        self,
+        scrub_metadata: bool = True,
+        remove_javascript: bool = True,
+        remove_embedded_files: bool = True,
+        fill: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    ) -> dict:
+        """
+        Destructively apply all queued redactions (true content removal,
+        ISO 32000-1:2008 §12.5.6.23) and return a report dict.
+
+        Raises ``RuntimeError`` if content uses a composite/Type0 font
+        (refused rather than risk a silent under-redaction).
+        """
+
+    def sanitize_document(
+        self,
+        scrub_metadata: bool = True,
+        remove_javascript: bool = True,
+        remove_embedded_files: bool = True,
+    ) -> dict:
+        """
+        Standalone document sanitization (#231 T10): strip `/Info`,
+        catalog XMP `/Metadata`, document JavaScript and embedded files
+        without geometric redaction. Returns a report dict.
+        """
 
     def page_images(self, page: int) -> t.Any:
         """Get page images info."""
@@ -2061,6 +2240,14 @@ class Signature:
     def covers_whole_document(self) -> bool:
         """True iff `/ByteRange` covers the whole document (4-element array)."""
 
+    @property
+    def pades_level(self) -> PadesLevel:
+        """
+        PAdES baseline level from this signature's CMS attributes alone
+        (`B_B` vs `B_T`). `B_LT` additionally needs the document `/DSS`
+        — combine with :meth:`PdfDocument.dss` and re-classify there.
+        """
+
     def verify(self) -> bool:
         """
         Run the RFC 5652 §5.4 signer-attributes crypto check against the
@@ -2244,3 +2431,35 @@ class TsaClient:
 
     def request_timestamp_hash(self, hash: bytes, hash_algorithm: int) -> Timestamp:
         """Request a timestamp for a pre-computed digest."""
+
+@t.final
+class PadesLevel:
+    """
+    PAdES baseline level. Frozen integer mapping (B_B=0, B_T=1, B_LT=2,
+    B_LTA=3) shared with the C ABI and every binding — never renumber.
+    """
+    def __int__(self) -> int: ...
+    def __repr__(self) -> str: ...
+
+@t.final
+class RevocationMaterial:
+    """
+    Offline validation material for B-LT (DER certificates / CRLs /
+    OCSP responses). Mirrors Rust `signatures::RevocationMaterial`.
+    """
+    def __init__(
+        self,
+        certs: list[bytes] | None = None,
+        crls: list[bytes] | None = None,
+        ocsps: list[bytes] | None = None,
+    ) -> None: ...
+
+@t.final
+class Dss:
+    """
+    A parsed Document Security Store (`/DSS`, ISO 32000-2 §12.8.4.3).
+    `certs`/`crls`/`ocsps` are document-level DER blobs; `vri` is the
+    list of per-signature VRI keys (uppercase-hex SHA-1 of `/Contents`).
+    """
+
+    ...

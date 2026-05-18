@@ -49,15 +49,15 @@ class Border(Widget):
         width = int(width)
 
         if __debug__:
-            expect(self._shape, Shape)
+            expect(shape, Shape)
             over(width, 0, include=False)
-            expect(self._align, BorderAlign)
+            expect(align, BorderAlign)
 
         # Attributs publiques
         self._shape: Shape = shape
         self._width: int = width
         self._align: BorderAlign = align
-        self._color: Color = Color(color)
+        self._color: Color = color
 
         # Attributs internes
         self._shape_renderer: PygletShapeRenderer = None

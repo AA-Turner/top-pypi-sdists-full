@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-jwcrypto
-Version: 1.5.7.20260513
+Version: 1.5.7.20260518
 Summary: Typing stubs for jwcrypto
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -36,4 +36,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.409
 
 It was generated from typeshed commit
-[`4f63ff20e1fe9a7928358cfd3693af194380af15`](https://github.com/python/typeshed/commit/4f63ff20e1fe9a7928358cfd3693af194380af15).
+[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).

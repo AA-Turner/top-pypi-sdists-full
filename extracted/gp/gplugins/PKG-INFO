@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gplugins
-Version: 2.0.1
+Version: 2.1.0
 Summary: gdsfactory plugins
 Keywords: python
 Author-email: gdsfactory <contact@gdsfactory.com>
@@ -11,11 +11,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 License-File: LICENSE
-Requires-Dist: gdsfactory>=9.15.1
+Requires-Dist: gdsfactory>=9.29.1
 Requires-Dist: pint
 Requires-Dist: tqdm
-Requires-Dist: numpy==2.2
-Requires-Dist: xarray==2025.7.1
+Requires-Dist: numpy>=2.0,<3
+Requires-Dist: xarray==2026.4.0
 Requires-Dist: hypothesis ; extra == "dev"
 Requires-Dist: numba ; extra == "dev"
 Requires-Dist: pre-commit ; extra == "dev"
@@ -24,12 +24,12 @@ Requires-Dist: pytest ; extra == "dev"
 Requires-Dist: pytest-cov ; extra == "dev"
 Requires-Dist: pytest_regressions ; extra == "dev"
 Requires-Dist: devsim ; extra == "devsim"
-Requires-Dist: pyvista<=0.46.0 ; extra == "devsim"
-Requires-Dist: tidy3d>=2.8.2,<2.9 ; extra == "devsim"
+Requires-Dist: pyvista<=0.48.2 ; extra == "devsim"
+Requires-Dist: tidy3d~=2.11.1 ; extra == "devsim"
 Requires-Dist: jupytext ; extra == "docs"
 Requires-Dist: matplotlib ; extra == "docs"
-Requires-Dist: jupyter-book~=1.0 ; extra == "docs"
-Requires-Dist: pyvista[all]<=0.46.0 ; extra == "docs"
+Requires-Dist: jupyter-book>=1,<3 ; extra == "docs"
+Requires-Dist: pyvista[all]<=0.48.2 ; extra == "docs"
 Requires-Dist: bokeh ; extra == "docs"
 Requires-Dist: scikit-learn ; extra == "docs"
 Requires-Dist: femwell~=0.1.11 ; extra == "femwell"
@@ -39,29 +39,30 @@ Requires-Dist: fastapi ; extra == "gfviz"
 Requires-Dist: shapely ; extra == "gfviz"
 Requires-Dist: natsort ; extra == "gfviz"
 Requires-Dist: klayout ; extra == "klayout"
-Requires-Dist: pyvis<=0.3.1 ; extra == "klayout"
+Requires-Dist: pyvis<=0.3.2 ; extra == "klayout"
 Requires-Dist: vlsir ; extra == "klayout"
 Requires-Dist: vlsirtools ; extra == "klayout"
 Requires-Dist: gitpython ; extra == "klayout"
-Requires-Dist: luminescent>=0.2.12,<0.4.0 ; extra == "luminescent"
+Requires-Dist: luminescent>=0.2.12,<4.1.0 ; extra == "luminescent"
 Requires-Dist: sortedcontainers ; extra == "luminescent"
 Requires-Dist: mypy ; extra == "maintainer"
 Requires-Dist: tbump ; extra == "maintainer"
 Requires-Dist: towncrier ; extra == "maintainer"
-Requires-Dist: meow-sim>=0.14.1,<0.15 ; extra == "meow"
-Requires-Dist: sax~=0.16.3 ; extra == "meow"
-Requires-Dist: tidy3d>=2.8.2,<2.9 ; extra == "meow"
+Requires-Dist: meow-sim>=0.15 ; extra == "meow"
+Requires-Dist: sax~=0.17.0 ; extra == "meow"
+Requires-Dist: tidy3d~=2.11.1 ; extra == "meow"
 Requires-Dist: shapely ; extra == "meshwell"
 Requires-Dist: meshwell~=2.1.1 ; extra == "meshwell"
 Requires-Dist: bokeh ; extra == "path-length-analysis"
 Requires-Dist: numba ; extra == "path-length-analysis"
 Requires-Dist: shapely ; extra == "path-length-analysis"
-Requires-Dist: sax~=0.16.3 ; extra == "sax"
+Requires-Dist: sax~=0.17.0 ; extra == "sax"
 Requires-Dist: bokeh ; extra == "schematic"
 Requires-Dist: ipywidgets ; extra == "schematic"
 Requires-Dist: natsort ; extra == "schematic"
-Requires-Dist: tidy3d>=2.8.2,<2.9 ; extra == "tidy3d"
+Requires-Dist: tidy3d~=2.11.1 ; extra == "tidy3d"
 Requires-Dist: gdstk ; extra == "tidy3d"
+Requires-Dist: pytz ; extra == "tidy3d"
 Requires-Dist: vlsir ; extra == "vlsir"
 Requires-Dist: vlsirtools ; extra == "vlsir"
 Provides-Extra: dev
@@ -80,7 +81,7 @@ Provides-Extra: schematic
 Provides-Extra: tidy3d
 Provides-Extra: vlsir
 
-# gplugins 2.0.1
+# gplugins 2.1.0
 
 [![docs](https://github.com/gdsfactory/gplugins/actions/workflows/pages.yml/badge.svg)](https://gdsfactory.github.io/gplugins/)
 [![PyPI](https://img.shields.io/pypi/v/gplugins)](https://pypi.org/project/gplugins/)
@@ -160,12 +161,13 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
--Then you can install GDSFactory with:
+-Then you can install gplugins and its dependency groups with:
 
 ```bash
 uv venv --python 3.12
-uv sync --extra docs --extra dev
+uv sync --extra docs --extra dev # --extra tidy3d --extra femwell ...
 ```
+
 
 ## Getting started
 

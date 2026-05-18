@@ -352,6 +352,58 @@ class TestSkylosApi(unittest.TestCase):
                 extract_snippet(str(outside), 1, context=0, repo_root=str(repo))
             )
 
+    def test_extract_snippet_rejects_symlink_path(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = api.Path(td) / "repo"
+            outside = api.Path(td) / "outside.txt"
+            link = repo / "link.txt"
+            repo.mkdir()
+            outside.write_text("outside-secret\n", encoding="utf-8")
+            try:
+                link.symlink_to(outside)
+            except OSError:
+                self.skipTest("symlinks are not supported on this filesystem")
+
+            self.assertIsNone(extract_snippet(str(link), 1, context=0))
+            self.assertIsNone(
+                extract_snippet(str(link), 1, context=0, repo_root=str(repo))
+            )
+
+    def test_secret_findings_do_not_upload_snippets(self):
+        raw_secret = 'token = "ghp_FULL_SECRET_TOKEN_ABCD"'
+        findings = api._normalize_result_sections(
+            {
+                "secrets": [
+                    {
+                        "file": "secret.py",
+                        "line": 1,
+                        "message": "masked preview ghp_...ABCD",
+                        "snippet": raw_secret,
+                    }
+                ]
+            },
+            api.UPLOAD_FINDING_SPECS,
+            None,
+            extract_metadata=True,
+        )
+
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["category"], "SECRET")
+        self.assertNotIn("snippet", findings[0])
+
+        sarif = api.SarifExporter(findings).generate()
+        region = sarif["runs"][0]["results"][0]["locations"][0][
+            "physicalLocation"
+        ]["region"]
+        self.assertNotIn("snippet", region)
+
+        compatibility_payload = api._build_compatibility_inline_payload(
+            findings,
+            {"secrets": []},
+            {"commit_hash": "c", "branch": "b", "actor": "a"},
+        )
+        self.assertNotIn("snippet", compatibility_payload["findings"][0])
+
     @patch("skylos.api.get_project_token")
     @patch("skylos.api.get_git_info", return_value=("c", "b", "actor", {}))
     @patch("skylos.api.get_git_root", return_value=None)
@@ -746,7 +798,7 @@ class TestSkylosApi(unittest.TestCase):
                     "key": "scan-key",
                     "upload": {
                         "method": "PUT",
-                        "url": "https://upload.example.com/report",
+                        "url": "https://uploads.skylos.dev/report",
                         "headers": {"x-test": "1"},
                     },
                 },
@@ -755,7 +807,7 @@ class TestSkylosApi(unittest.TestCase):
                     "key": "definitions-key",
                     "upload": {
                         "method": "PUT",
-                        "url": "https://upload.example.com/definitions",
+                        "url": "https://uploads.skylos.dev/definitions",
                     },
                 },
             },
@@ -799,6 +851,8 @@ class TestSkylosApi(unittest.TestCase):
         self.assertEqual(
             mock_post.call_args_list[1].kwargs["timeout"], api.UPLOAD_TIMEOUT
         )
+        for call in mock_put.call_args_list:
+            self.assertIs(call.kwargs["allow_redirects"], False)
 
         init_payload = mock_post.call_args_list[0].kwargs["json"]
         self.assertEqual(init_payload["upload_protocol_version"], 1)
@@ -863,7 +917,7 @@ class TestSkylosApi(unittest.TestCase):
                     "artifact_id": "artifact-defs",
                     "upload": {
                         "method": "PUT",
-                        "url": "https://upload.example.com/definitions",
+                        "url": "https://uploads.skylos.dev/definitions",
                     },
                 }
             },
@@ -915,14 +969,14 @@ class TestSkylosApi(unittest.TestCase):
                     "artifact_id": "artifact-scan",
                     "upload": {
                         "method": "PUT",
-                        "url": "https://upload.example.com/report",
+                        "url": "https://uploads.skylos.dev/report",
                     },
                 },
                 "definitions": {
                     "artifact_id": "artifact-defs",
                     "upload": {
                         "method": "PUT",
-                        "url": "https://upload.example.com/definitions",
+                        "url": "https://uploads.skylos.dev/definitions",
                     },
                 },
             },
@@ -988,7 +1042,7 @@ class TestSkylosApi(unittest.TestCase):
                     "artifact_id": "artifact-scan",
                     "upload": {
                         "method": "PUT",
-                        "url": "https://upload.example.com/report",
+                        "url": "https://uploads.skylos.dev/report",
                     },
                 }
             },
@@ -1166,7 +1220,7 @@ class TestSkylosApi(unittest.TestCase):
                 artifact,
                 {
                     "method": "POST",
-                    "url": "https://uploads.example.com/definitions",
+                    "url": "https://uploads.skylos.dev/definitions",
                     "fields": {"key": "artifact-key", "policy": "abc123"},
                     "file_field": "file",
                     "headers": {"x-extra": "1"},
@@ -1179,6 +1233,7 @@ class TestSkylosApi(unittest.TestCase):
         kwargs = mock_post.call_args.kwargs
         self.assertEqual(kwargs["data"]["key"], "artifact-key")
         self.assertEqual(kwargs["files"]["file"][0], "definitions.json.gz")
+        self.assertIs(kwargs["allow_redirects"], False)
 
     @patch("requests.put")
     def test_upload_artifact_rejects_private_upload_url(self, mock_put):
@@ -1207,6 +1262,75 @@ class TestSkylosApi(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertIn("Unsafe upload URL", result["error"])
         mock_put.assert_not_called()
+
+    @patch("requests.put")
+    def test_upload_artifact_rejects_unapproved_public_upload_url(self, mock_put):
+        with tempfile.NamedTemporaryFile(delete=False) as handle:
+            handle.write(b"abc")
+            artifact_path = handle.name
+
+        artifact = api.UploadArtifact(
+            name="scan_report",
+            file_path=api.Path(artifact_path),
+            filename="scan-report.json.gz",
+            required=True,
+            content_type="application/json",
+            content_encoding="gzip",
+            size_bytes=3,
+            sha256="abc123",
+        )
+        try:
+            result = api.upload_artifact(
+                artifact,
+                {"method": "PUT", "url": "https://attacker.example/upload"},
+            )
+        finally:
+            artifact.cleanup()
+
+        self.assertFalse(result["success"])
+        self.assertIn("artifact upload allowlist", result["error"])
+        mock_put.assert_not_called()
+
+    @patch("requests.put")
+    def test_upload_artifact_accepts_configured_upload_host(self, mock_put):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.headers = {}
+        resp.text = "OK"
+        mock_put.return_value = resp
+
+        with tempfile.NamedTemporaryFile(delete=False) as handle:
+            handle.write(b"abc")
+            artifact_path = handle.name
+
+        artifact = api.UploadArtifact(
+            name="scan_report",
+            file_path=api.Path(artifact_path),
+            filename="scan-report.json.gz",
+            required=True,
+            content_type="application/json",
+            content_encoding="gzip",
+            size_bytes=3,
+            sha256="abc123",
+        )
+        try:
+            with patch.dict(
+                os.environ,
+                {"SKYLOS_ARTIFACT_UPLOAD_HOST_ALLOWLIST": "uploads.example.com"},
+                clear=False,
+            ):
+                result = api.upload_artifact(
+                    artifact,
+                    {"method": "PUT", "url": "https://uploads.example.com/report"},
+                )
+        finally:
+            artifact.cleanup()
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            mock_put.call_args.args[0],
+            "https://uploads.example.com/report",
+        )
 
     @patch("requests.post")
     def test_post_json_with_retries_rejects_non_http_url(self, mock_post):

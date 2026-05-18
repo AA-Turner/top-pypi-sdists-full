@@ -83,8 +83,8 @@ class Button(Widget):
         super().__init__(position, anchor, scale, rotation, opacity, clipping=clipping)
 
         # Comportements prédéfinis
-        self.add_behavior(self._get_hover_cls())
-        self.add_behavior(self._get_click_cls())
+        self.add_behavior(self._get_hover_cls()())
+        self.add_behavior(self._get_click_cls()())
 
         # Application du callback
         self._apply_callback()

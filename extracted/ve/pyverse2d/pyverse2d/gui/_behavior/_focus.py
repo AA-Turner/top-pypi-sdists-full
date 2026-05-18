@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from ..._internal import CallbackList
-from ..._managers import InputsManager
 from ..._managers._inputs import Listener
 from ...abc import Behavior
 from ...math import Point
+from ...typing import Input
 
 from pyverse2d import key, mouse, inputs
 
@@ -47,8 +47,8 @@ class FocusBehavior(Behavior):
         self._unfocus_on_outside_click: bool = unfocus_on_outside_click
 
         # Attributs internes
-        self._unfocus_keys: set[InputsManager.Input] = {key.K_ESCAPE}
-        self._ghost_keys: set[InputsManager.Input] = set()
+        self._unfocus_keys: set[Input] = {key.K_ESCAPE}
+        self._ghost_keys: set[Input] = set()
 
         # Etat
         self._focused: bool = False
@@ -114,7 +114,7 @@ class FocusBehavior(Behavior):
         return self._focused
 
     # ======================================== UNFOCUS KEYS ========================================
-    def add_unfocus_key(self, k: InputsManager.Input) -> None:
+    def add_unfocus_key(self, k: Input) -> None:
         """Ajoute une clé de fin de concentration
 
         Args:
@@ -122,7 +122,7 @@ class FocusBehavior(Behavior):
         """
         self._unfocus_keys.add(k)
     
-    def remove_unfocus_key(self, k: InputsManager.Input) -> None:
+    def remove_unfocus_key(self, k: Input) -> None:
         """Retire une clé de fin de concentration
         
         Args:
@@ -135,7 +135,7 @@ class FocusBehavior(Behavior):
         self._unfocus_keys.clear()
 
     # ======================================== GHOST KEYS ========================================
-    def add_ghost_key(self, k: InputsManager.Input) -> None:
+    def add_ghost_key(self, k: Input) -> None:
         """Ajoute une touche fantôme *(ne déclenche pas once)*
         
         Args:
@@ -143,7 +143,7 @@ class FocusBehavior(Behavior):
         """
         self._ghost_keys.add(k)
 
-    def remove_ghost_key(self, k: InputsManager.Input) -> None:
+    def remove_ghost_key(self, k: Input) -> None:
         """Retire une touche fantôme
         
         Args:
@@ -232,7 +232,7 @@ class FocusBehavior(Behavior):
         if self._focused:
             self.unfocus()
 
-    def _handle_keydown(self, key: InputsManager.Input) -> None:
+    def _handle_keydown(self, key: Input) -> None:
         """Gère l'appui d'une touche
 
         Args:

@@ -23,7 +23,8 @@ class IEDriverManager(DriverManager):
     ):
         super().__init__(
             download_manager=download_manager,
-            cache_manager=cache_manager
+            cache_manager=cache_manager,
+            os_system_manager=os_system_manager
         )
 
         self.driver = IEDriver(
@@ -48,8 +49,8 @@ class EdgeChromiumDriverManager(DriverManager):
             self,
             version: Optional[str] = None,
             name: str = "edgedriver",
-            url: str = "https://msedgedriver.azureedge.net",
-            latest_release_url: str = "https://msedgedriver.azureedge.net/LATEST_RELEASE",
+            url: str = "https://msedgedriver.microsoft.com",
+            latest_release_url: str = "https://msedgedriver.microsoft.com/LATEST_RELEASE",
             download_manager: Optional[DownloadManager] = None,
             cache_manager: Optional[DriverCacheManager] = None,
             os_system_manager: Optional[OperationSystemManager] = None
@@ -73,3 +74,13 @@ class EdgeChromiumDriverManager(DriverManager):
         driver_path = self._get_driver_binary_path(self.driver)
         os.chmod(driver_path, 0o755)
         return driver_path
+
+    def get_os_type(self):
+        os_type = super().get_os_type()
+        if "win" in os_type:
+            return "win64" if "64" in os_type else "win32"
+        if "linux" in os_type:
+            return "linux64"
+        if self._os_system_manager.is_mac_os(os_type):
+            return "mac64_m1" if self._os_system_manager.is_arch() else "mac64"
+        return os_type

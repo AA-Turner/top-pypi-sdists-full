@@ -887,6 +887,48 @@ std::optional<SerializationError> DeserializeJSONValue(
   return std::nullopt;
 }
 
+struct CompactFSMWithStartEndWithSizeSerializeHelper {
+  CompactFSMWithStartEnd fsm;
+  size_t edge_num;
+  size_t node_num;
+
+  CompactFSMWithStartEndWithSizeSerializeHelper(
+      const CompactFSMWithStartEndWithSize& compact_fsm_with_size
+  )
+      : fsm(compact_fsm_with_size.fsm_),
+        edge_num(compact_fsm_with_size.edge_num_),
+        node_num(compact_fsm_with_size.node_num_) {}
+
+  CompactFSMWithStartEndWithSizeSerializeHelper() = default;
+};
+
+XGRAMMAR_MEMBER_ARRAY(
+    CompactFSMWithStartEndWithSizeSerializeHelper,
+    &CompactFSMWithStartEndWithSizeSerializeHelper::fsm,
+    &CompactFSMWithStartEndWithSizeSerializeHelper::edge_num,
+    &CompactFSMWithStartEndWithSizeSerializeHelper::node_num
+);
+
+picojson::value SerializeJSONValue(const CompactFSMWithStartEndWithSize& value) {
+  return AutoSerializeJSONValue(CompactFSMWithStartEndWithSizeSerializeHelper(value));
+}
+
+std::optional<SerializationError> DeserializeJSONValue(
+    CompactFSMWithStartEndWithSize* result,
+    const picojson::value& value,
+    const std::string& type_name
+) {
+  CompactFSMWithStartEndWithSizeSerializeHelper tmp;
+  auto err = AutoDeserializeJSONValue(&tmp, value, type_name);
+  if (err.has_value()) {
+    return err;
+  }
+  result->fsm_ = std::move(tmp.fsm);
+  result->edge_num_ = tmp.edge_num;
+  result->node_num_ = tmp.node_num;
+  return std::nullopt;
+}
+
 /****************** FSMWithStartEnd ******************/
 
 std::string FSMWithStartEnd::ToString() const {
@@ -939,10 +981,10 @@ FSMWithStartEnd FSMWithStartEnd::RebuildWithMapping(
 }
 
 CompactFSMWithStartEnd FSMWithStartEnd::ToCompact() {
-  return CompactFSMWithStartEnd(fsm_.ToCompact(), start_, ends_);
+  return CompactFSMWithStartEnd(fsm_.ToCompact(), start_, ends_, is_dfa_);
 }
 
-FSMWithStartEnd FSMWithStartEnd::AddToCompleteFSM(
+FSMWithStartEndWithSize FSMWithStartEnd::AddToCompleteFSM(
     FSM* complete_fsm, std::vector<int>* state_mapping
 ) {
   XGRAMMAR_DCHECK(state_mapping != nullptr) << "state_mapping cannot be nullptr";
@@ -954,7 +996,17 @@ FSMWithStartEnd FSMWithStartEnd::AddToCompleteFSM(
       new_ends[(*state_mapping)[end]] = true;
     }
   }
-  return FSMWithStartEnd(*complete_fsm, new_start, new_ends, is_dfa_);
+
+  int num_edges = 0;
+  for (int i = 0; i < fsm_.NumStates(); ++i) {
+    num_edges += fsm_.GetEdges(i).size();
+  }
+
+  int num_nodes = fsm_.NumStates();
+
+  auto fsm_with_se = FSMWithStartEnd(*complete_fsm, new_start, new_ends, is_dfa_);
+
+  return FSMWithStartEndWithSize(fsm_with_se, num_edges, num_nodes);
 }
 
 FSMWithStartEnd FSMWithStartEnd::Star() const {
@@ -1303,7 +1355,7 @@ FSMWithStartEnd FSMWithStartEnd::SimplifyEpsilon(int max_num_states) const {
   return RebuildWithMapping(new_to_old, cnt);
 }
 
-FSMWithStartEnd FSMWithStartEnd::MergeEquivalentSuccessors(int max_result_num_states) const {
+FSMWithStartEnd FSMWithStartEnd::MergeEquivalentStates(int max_result_num_states) const {
   if (max_result_num_states < NumStates()) {
     return *this;
   }
@@ -1491,7 +1543,10 @@ FSMWithStartEnd FSMWithStartEnd::MergeEquivalentSuccessors(int max_result_num_st
         while (group_begin < siblings.size() && siblings[group_begin].peer == sibling) {
           ++group_begin;
         }
-        if (sibling <= i || outgoing_distinct_count[sibling] != 1 ||
+        // Avoid chaining a Case 2 merge onto a state already merged earlier in this iteration
+        // (typically by Case 1), which can over-merge via transitive closure.
+        if (sibling <= i || union_find_set.Count(sibling) ||
+            outgoing_distinct_count[sibling] != 1 ||
             result.IsEndState(i) != result.IsEndState(sibling)) {
           continue;
         }
@@ -1513,7 +1568,7 @@ FSMWithStartEnd FSMWithStartEnd::MergeEquivalentSuccessors(int max_result_num_st
           union_find_set.Add(i);
           union_find_set.Add(sibling);
           union_find_set.Union(i, sibling);
-          is_equiv_successor = true;
+          is_equiv_precursor = true;
         }
       }
     }
@@ -1954,7 +2009,5 @@ std::size_t MemorySize(const CompactFSMWithStartEnd& self) {
 FSMWithStartEnd CompactFSMWithStartEnd::ToFSM() const {
   return FSMWithStartEnd(fsm_.ToFSM(), start_, ends_);
 }
-
-size_t CompactFSMWithStartEnd::GetNumEdges() const { return edge_num_; }
 
 }  // namespace xgrammar

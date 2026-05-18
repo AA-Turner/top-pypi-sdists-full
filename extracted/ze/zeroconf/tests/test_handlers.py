@@ -160,6 +160,7 @@ class TestRegistrar(unittest.TestCase):
         nbr_answers = nbr_additionals = nbr_authorities = 0
         zc.close()
 
+    @pytest.mark.usefixtures("quick_timing")
     def test_name_conflicts(self):
         # instantiate a zeroconf instance
         zc = Zeroconf(interfaces=["127.0.0.1"])
@@ -189,6 +190,7 @@ class TestRegistrar(unittest.TestCase):
             zc.register_service(conflicting_info)
         zc.close()
 
+    @pytest.mark.usefixtures("quick_timing")
     def test_register_and_lookup_type_by_uppercase_name(self):
         # instantiate a zeroconf instance
         zc = Zeroconf(interfaces=["127.0.0.1"])
@@ -213,15 +215,22 @@ class TestRegistrar(unittest.TestCase):
         out = r.DNSOutgoing(const._FLAGS_QR_QUERY)
         out.add_question(r.DNSQuestion(type_.upper(), const._TYPE_PTR, const._CLASS_IN))
         zc.send(out)
-        time.sleep(1)
         info = ServiceInfo(type_, registration_name)
-        info.load_from_cache(zc)
+        for _ in range(50):
+            time.sleep(0.02)
+            info.load_from_cache(zc)
+            # Wait for both A and TXT records — they arrive as separate
+            # cache updates and the listener may schedule the assertions
+            # between the two. Breaking on just `info.addresses` makes
+            # the test flaky under PyPy / skip_cython.
+            if info.addresses and info.properties:
+                break
         assert info.addresses == [socket.inet_pton(socket.AF_INET, "1.2.3.4")]
         assert info.properties == {b"version": b"1.0"}
         zc.close()
 
 
-def test_ptr_optimization():
+def test_ptr_optimization(quick_timing: None) -> None:
     # instantiate a zeroconf instance
     zc = Zeroconf(interfaces=["127.0.0.1"])
 
@@ -595,7 +604,7 @@ async def test_probe_answered_immediately_with_uppercase_name():
     zc.close()
 
 
-def test_qu_response():
+def test_qu_response(quick_timing: None) -> None:
     """Handle multicast incoming with the QU bit set."""
     # instantiate a zeroconf instance
     zc = Zeroconf(interfaces=["127.0.0.1"])
@@ -1349,8 +1358,12 @@ async def test_cache_flush_bit():
         else:
             assert entry.ttl == 1
 
-    # Wait for the ttl 1 records to expire
-    await asyncio.sleep(1.1)
+    # Backdate the ttl=1 records so they are already expired when
+    # load_from_cache runs — equivalent to sleeping 1.1s without the wait.
+    for store in zc.cache.cache.values():
+        for cached in store.values():
+            if cached.ttl == 1:
+                cached.created -= 1100
 
     loaded_info = r.ServiceInfo(type_, registration_name)
     loaded_info.load_from_cache(zc)
@@ -1789,6 +1802,8 @@ async def test_response_aggregation_timings_multiple(run_isolated, disable_dupli
         incoming = r.DNSIncoming(outgoing.packets()[0])
         zc.record_manager.async_updates_from_response(incoming)
         assert info2.dns_pointer() in incoming.answers()
+
+    await aiozc.async_close()
 
 
 @pytest.mark.asyncio

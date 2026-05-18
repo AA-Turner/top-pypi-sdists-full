@@ -1054,6 +1054,14 @@ def main(userArgs=None, optionalFinalOutcome_df=None):
     reversalOption = None
     listStockCodes = None if lastScanOutputStockCodes is None else lastScanOutputStockCodes
     lastScanOutputStockCodes = None
+    if userPassedArgs and userPassedArgs.options:
+        if "|" not in userPassedArgs.options:
+            configManager.enableAdditionalTrendFilters = not userPassedArgs.monitor
+        else:
+            configManager.enableAdditionalTrendFilters = False
+    else:
+        configManager.enableAdditionalTrendFilters = not userPassedArgs.monitor
+    configManager.setConfig(ConfigManager.parser,default=True,showFileCreatedText=False)
     if not runCleanUp and userPassedArgs is not None and not userPassedArgs.systemlaunched:
         cleanupLocalResults()
     if userPassedArgs.log:
@@ -2972,10 +2980,7 @@ def printNotifySaveScreenedResults(screenResults, saveResults, selectedChoice, m
     
     indexName = ""
     if runOptionName.startswith("P"):
-        indexName = f" for {INDICES_MAP[runOptionName.split('_')[-1]]}" if runOptionName is not None and len(runOptionName.split('_')) >= 4 and str(runOptionName.split('_')[-1]).isnumeric() and int(str(runOptionName.split('_')[-1])) <= int(list(INDICES_MAP.keys())[-2]) else ""
-    
-    # userPassedArgs.pipedtitle = f"{userPassedArgs.pipedtitle}{indexName}" if userPassedArgs.pipedtitle is not None else ""
-    
+        indexName = f" for {INDICES_MAP[runOptionName.split('_')[-1]]}" if runOptionName is not None and len(runOptionName.split('_')) >= 4 and str(runOptionName.split('_')[-1]).isnumeric() and int(str(runOptionName.split('_')[-1])) <= int(list(INDICES_MAP.keys())[-2]) else ""    
     result_count = len(screenResults) if screenResults is not None else 0
     final_count = result_count
     # BUILD THE REPORT TITLE WITH COUNTS
@@ -3005,9 +3010,11 @@ def printNotifySaveScreenedResults(screenResults, saveResults, selectedChoice, m
     reportTitle = reportTitle.replace(last_scan_name,'')
     reportTitle = f"{runOptionName} {'|' if len(str(runOptionName)) > 0 else ''}{reportTitle.strip()}{last_scan_name.strip()}"
     ConsoleUtility.PKConsoleTools.clearScreen(forceTop=True)
+    record_backtest_base_date = f"{colorText.GREEN}  [+] For {recordDate}, {colorText.END}" if (userPassedArgs.backtestdaysago and int(userPassedArgs.backtestdaysago) > 0) else f"{colorText.FAIL}  [+] {colorText.END}"
     OutputControls().printOutput(
+        record_backtest_base_date+
         colorText.FAIL
-        + f"  [+] You chose: {reportTitle}"
+        + f"You chose: {reportTitle}"
         + (f" (Piped Scan Mode) [{userPassedArgs.pipedmenus}]" if (userPassedArgs is not None and userPassedArgs.pipedmenus is not None) else "")
         + colorText.END
         , enableMultipleLineOutput=True
@@ -3661,7 +3668,9 @@ def runScanners(menuOption, items, tasks_queue, results_queue, numStocks, backte
             + colorText.END
         )
         if not userPassedArgs.download:
-            OutputControls().printOutput(colorText.WARN
+            needsCalc = userPassedArgs is not None and userPassedArgs.backtestdaysago is not None
+            pastDate_warning = f"  [+] [Quick Backtest Mode for {colorText.WARN}{PKDateUtilities.nthPastTradingDateStringFromFutureDate(int(userPassedArgs.backtestdaysago) if needsCalc else 0)}{colorText.END} ]\n" if needsCalc else ""
+            OutputControls().printOutput(f"{pastDate_warning}"+colorText.WARN
                 + f"  [+] Starting {'Stock' if menuOption not in ['C'] else 'Intraday'} {'Screening' if menuOption=='X' else ('Analysis' if menuOption == 'C' else 'Look-up' if menuOption in ['F'] else 'Backtesting.')}. Press Ctrl+C to stop!"
                 + colorText.END
             )

@@ -43,6 +43,8 @@ from zeroconf.asyncio import (
 from zeroconf.const import _LISTENER_TIME
 
 from . import (
+    LOOPBACK_FIND_TIMEOUT,
+    QUICK_REQUEST_TIMEOUT_MS,
     QuestionHistoryWithoutSuppression,
     _clear_cache,
     has_working_ipv6,
@@ -126,7 +128,7 @@ async def test_sync_within_event_loop_executor() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_service_registration() -> None:
+async def test_async_service_registration(quick_timing: None) -> None:
     """Test registering services broadcasts the registration by default."""
     aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     type_ = "_test1-srvc-type._tcp.local."
@@ -193,7 +195,7 @@ async def test_async_service_registration() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_service_registration_with_server_missing() -> None:
+async def test_async_service_registration_with_server_missing(quick_timing: None) -> None:
     """Test registering a service with the server not specified.
 
     For backwards compatibility, the server should be set to the
@@ -394,7 +396,7 @@ async def test_async_service_registration_same_server_same_ports(quick_timing: N
 
 
 @pytest.mark.asyncio
-async def test_async_service_registration_name_conflict() -> None:
+async def test_async_service_registration_name_conflict(quick_timing: None) -> None:
     """Test registering services throws on name conflict."""
     aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     type_ = "_test-srvc2-type._tcp.local."
@@ -500,10 +502,11 @@ async def test_async_service_registration_name_strict_check(quick_timing: None) 
 
     await aiozc.async_unregister_service(info)
     await aiozc.async_close()
+    zc.close()
 
 
 @pytest.mark.asyncio
-async def test_async_tasks() -> None:
+async def test_async_tasks(quick_timing: None) -> None:
     """Test awaiting broadcast tasks"""
 
     aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
@@ -569,7 +572,7 @@ async def test_async_tasks() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_wait_unblocks_on_update() -> None:
+async def test_async_wait_unblocks_on_update(quick_timing: None) -> None:
     """Test async_wait will unblock on update."""
 
     aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
@@ -605,7 +608,7 @@ async def test_async_wait_unblocks_on_update() -> None:
 
 
 @pytest.mark.asyncio
-async def test_service_info_async_request() -> None:
+async def test_service_info_async_request(quick_timing: None) -> None:
     """Test registering services broadcasts and query with AsyncServceInfo.async_request."""
     if not has_working_ipv6() or os.environ.get("SKIP_IPV6"):
         pytest.skip("Requires IPv6")
@@ -695,26 +698,41 @@ async def test_service_info_async_request() -> None:
     assert aiosinfos[1] is not None
     assert aiosinfos[1].addresses == [socket.inet_aton("10.0.1.5")]
 
+    # Drop pending multicast responses queued under the original
+    # `info` / `info2` registrations. Their snapshots predate the
+    # `async_update_service` swap, so if they flushed after
+    # `_clear_cache` below they would poison `aiosinfo.server`
+    # with `ash-1.local.` and the `_is_complete=False` loop would
+    # then keep asking for an A record nobody answers. The pending
+    # `loop.call_at` for each queue fires harmlessly on the empty
+    # deque.
+    aiozc.zeroconf.out_queue.queue.clear()
+    aiozc.zeroconf.out_delay_queue.queue.clear()
     aiosinfo = AsyncServiceInfo(type_, registration_name)
     _clear_cache(aiozc.zeroconf)
     # Generating the race condition is almost impossible
-    # without patching since its a TOCTOU race
+    # without patching since its a TOCTOU race. 1500ms covers
+    # the initial _LISTENER_TIME + random delay (200-320ms) and
+    # leaves plenty of margin for the loopback response to land
+    # before the loop times out.
     with patch("zeroconf.asyncio.AsyncServiceInfo._is_complete", False):
-        await aiosinfo.async_request(aiozc.zeroconf, 3000)
+        await aiosinfo.async_request(aiozc.zeroconf, 1500)
     assert aiosinfo is not None
     assert aiosinfo.addresses == [socket.inet_aton("10.0.1.3")]
 
     task = await aiozc.async_unregister_service(new_info)
     await task
 
-    aiosinfo = await aiozc.async_get_service_info(type_, registration_name)
+    # Cap timeout: the service is gone, so this is expected to return None;
+    # waiting the default 3000ms is pure overhead.
+    aiosinfo = await aiozc.async_get_service_info(type_, registration_name, timeout=200)
     assert aiosinfo is None
 
     await aiozc.async_close()
 
 
 @pytest.mark.asyncio
-async def test_async_service_browser() -> None:
+async def test_async_service_browser(quick_timing: None) -> None:
     """Test AsyncServiceBrowser."""
     aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     type_ = "_test9-srvc-type._tcp.local."
@@ -774,7 +792,7 @@ async def test_async_service_browser() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_context_manager() -> None:
+async def test_async_context_manager(quick_timing: None) -> None:
     """Test using an async context manager."""
     type_ = "_test10-sr-type._tcp.local."
     name = "xxxyyy"
@@ -902,14 +920,20 @@ async def test_async_zeroconf_service_types(quick_timing: None) -> None:
     )
     task = await zeroconf_registrar.async_register_service(info)
     await task
-    # Ensure we do not clear the cache until after the last broadcast is processed
-    await asyncio.sleep(0.2)
+    # Wait for the last announce broadcast before clearing. With
+    # `quick_timing` the broadcasts use _REGISTER_TIME=10ms apart so
+    # 50ms is plenty.
+    await asyncio.sleep(0.05)
     _clear_cache(zeroconf_registrar.zeroconf)
     try:
-        service_types = await AsyncZeroconfServiceTypes.async_find(interfaces=["127.0.0.1"], timeout=2)
+        service_types = await AsyncZeroconfServiceTypes.async_find(
+            interfaces=["127.0.0.1"], timeout=LOOPBACK_FIND_TIMEOUT
+        )
         assert type_ in service_types
         _clear_cache(zeroconf_registrar.zeroconf)
-        service_types = await AsyncZeroconfServiceTypes.async_find(aiozc=zeroconf_registrar, timeout=2)
+        service_types = await AsyncZeroconfServiceTypes.async_find(
+            aiozc=zeroconf_registrar, timeout=LOOPBACK_FIND_TIMEOUT
+        )
         assert type_ in service_types
 
     finally:
@@ -974,7 +998,7 @@ async def test_service_browser_instantiation_generates_add_events_from_cache():
 
 
 @pytest.mark.asyncio
-async def test_integration():
+async def test_integration(quick_timing: None) -> None:
     service_added = asyncio.Event()
     service_removed = asyncio.Event()
     unexpected_ttl = asyncio.Event()
@@ -1123,7 +1147,7 @@ async def test_integration():
 
 
 @pytest.mark.asyncio
-async def test_info_asking_default_is_asking_qm_questions_after_the_first_qu():
+async def test_info_asking_default_is_asking_qm_questions_after_the_first_qu(quick_request_timing):
     """Verify the service info first question is QU and subsequent ones are QM questions."""
     type_ = "_quservice._tcp.local."
     aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
@@ -1166,9 +1190,11 @@ async def test_info_asking_default_is_asking_qm_questions_after_the_first_qu():
     # patch the zeroconf send
     with patch.object(zeroconf_info, "async_send", send):
         aiosinfo = AsyncServiceInfo(type_, registration_name)
-        # Patch _is_complete so we send multiple times
+        # Patch _is_complete so we send multiple times. Under
+        # `quick_request_timing` both the QU query at 0ms and the QM
+        # query at ~15ms land well inside QUICK_REQUEST_TIMEOUT_MS.
         with patch("zeroconf.asyncio.AsyncServiceInfo._is_complete", False):
-            await aiosinfo.async_request(aiozc.zeroconf, 1200)
+            await aiosinfo.async_request(aiozc.zeroconf, QUICK_REQUEST_TIMEOUT_MS)
         try:
             assert first_outgoing.questions[0].unicast is True  # type: ignore[union-attr]
             assert second_outgoing.questions[0].unicast is False  # type: ignore[attr-defined]

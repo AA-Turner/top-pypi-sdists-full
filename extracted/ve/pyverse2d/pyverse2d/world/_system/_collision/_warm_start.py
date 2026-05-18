@@ -99,3 +99,8 @@ def warm_start(a: Shape, b: Shape, contact: Contact, cached: CachedContact, C: C
     if ctx is None:
         return
     warm_start_processor(ctx)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "WarmStartContext",
+]

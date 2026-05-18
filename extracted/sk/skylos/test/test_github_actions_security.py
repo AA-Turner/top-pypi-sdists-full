@@ -1,4 +1,7 @@
 import json
+from pathlib import Path
+
+import yaml
 
 from skylos.analyzer import analyze
 from skylos.rules.config import scan_config_files
@@ -7,6 +10,18 @@ from skylos.rules.config.cicd.github_actions import scan_github_actions
 
 def _rule_ids(findings):
     return {finding["rule_id"] for finding in findings}
+
+
+def _publish_workflow():
+    return yaml.safe_load(Path(".github/workflows/publish.yml").read_text())
+
+
+def _tests_workflow():
+    return yaml.safe_load(Path(".github/workflows/tests.yaml").read_text())
+
+
+def _composite_action():
+    return yaml.safe_load(Path("action.yml").read_text())
 
 
 def _write_risky_workflow(path):
@@ -232,6 +247,52 @@ runs:
     assert {"SKY-D296", "SKY-D307"}.issubset(_rule_ids(findings))
 
 
+def test_github_actions_scanner_rejects_recursive_yaml_alias(tmp_path):
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    workflow = workflows / "ci.yml"
+    workflow.write_text(
+        """
+name: CI
+on: pull_request
+jobs:
+  test: &test
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+    self: *test
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    assert scan_github_actions(tmp_path) == []
+
+
+def test_github_actions_scanner_handles_shared_yaml_alias_once(tmp_path):
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    workflow = workflows / "ci.yml"
+    workflow.write_text(
+        """
+name: CI
+on: pull_request
+x-secret-step: &secret-step
+  run: echo "${{ secrets.PROD_TOKEN }}"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - *secret-step
+      - *secret-step
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    findings = scan_github_actions(tmp_path)
+
+    assert "SKY-D299" in _rule_ids(findings)
+
+
 def test_github_actions_scanner_detects_issue_derived_hardening_gaps(tmp_path):
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
@@ -280,6 +341,53 @@ jobs:
         "SKY-D312",
         "SKY-D313",
     }.issubset(_rule_ids(findings))
+
+
+def test_publish_workflow_keeps_pypi_token_out_of_tool_install():
+    workflow = _publish_workflow()
+    publish_steps = workflow["jobs"]["publish"]["steps"]
+    install_step = next(s for s in publish_steps if s.get("name") == "Install publish tools")
+    upload_step = next(s for s in publish_steps if s.get("name") == "Publish to PyPI")
+
+    assert "TWINE_PASSWORD" not in install_step.get("env", {})
+    assert "pip install" in install_step["run"]
+    assert upload_step["env"]["TWINE_PASSWORD"] == "${{ secrets.PYPI_TOKEN }}"
+    assert "pip install" not in upload_step["run"]
+    assert "twine upload" in upload_step["run"]
+
+
+def test_publish_workflow_validates_strict_semver_release_tags():
+    workflow = _publish_workflow()
+    build_steps = workflow["jobs"]["build"]["steps"]
+    resolve_step = next(s for s in build_steps if s.get("name") == "Resolve release tag input")
+
+    assert "semver_re=" in resolve_step["run"]
+    assert "(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)" in resolve_step["run"]
+
+
+def test_tests_workflow_pins_codecov_and_limits_permissions():
+    workflow = _tests_workflow()
+    assert workflow["permissions"] == {"contents": "read"}
+
+    steps = workflow["jobs"]["test_matrix"]["steps"]
+    codecov_step = next(s for s in steps if s.get("name") == "Upload coverage to Codecov")
+    action_ref = codecov_step["uses"].split("@", 1)[1]
+
+    assert len(action_ref) == 40
+    assert all(c in "0123456789abcdef" for c in action_ref)
+    assert codecov_step["with"]["token"] == "${{ secrets.CODECOV_TOKEN }}"
+
+
+def test_composite_action_validates_and_quotes_max_comments_input():
+    action = _composite_action()
+    steps = action["runs"]["steps"]
+    review_step = next(s for s in steps if s.get("name") == "Post PR Review Comments")
+    run = review_step["run"]
+
+    assert review_step["env"]["SKYLOS_MAX_COMMENTS"] == "${{ inputs.max-comments }}"
+    assert "${{ inputs.max-comments }}" not in run
+    assert '"$SKYLOS_MAX_COMMENTS"' in run
+    assert "=~ ^[0-9]+$" in run
 
 
 def test_analyzer_reports_github_actions_dangers_without_source_files(tmp_path):

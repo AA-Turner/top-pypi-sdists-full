@@ -92,7 +92,8 @@ class Cohpcar:
         is_lcfo: bool = False,
         filename: PathLike | None = None,
     ) -> None:
-        """
+        """Initialize a Cohpcar.
+
         Args:
             are_coops (bool): Whether the file includes COOPs (True) or COHPs (False).
                 Default is False.
@@ -369,7 +370,8 @@ class Icohplist(MSONable):
         orbitalwise: bool = False,
         icohpcollection: IcohpCollection | None = None,
     ) -> None:
-        """
+        """Initialize an Icohplist.
+
         Args:
             is_lcfo (bool): Whether the ICOHPLIST file is from LCFO analysis.
             are_coops (bool): Whether the file includes COOPs (True) or COHPs (False).
@@ -700,10 +702,7 @@ class NciCobiList:
 
     @property
     def ncicobi_list(self) -> dict[Any, dict[str, Any]]:
-        """
-        Returns:
-            dict: ncicobilist.
-        """
+        """A dict of ncICOBI data keyed by interaction index."""
         ncicobi_list = {}
         for idx in range(len(self.list_labels)):
             ncicobi_list[str(idx + 1)] = {
@@ -744,7 +743,8 @@ class Doscar:
         structure_file: PathLike | None = "POSCAR",
         structure: IStructure | Structure | None = None,
     ) -> None:
-        """
+        """Initialize a Doscar.
+
         Args:
             doscar (PathLike): The DOSCAR file, typically "DOSCAR.lobster".
             is_lcfo (bool): Whether the DOSCAR file is from LCFO analysis.
@@ -904,7 +904,8 @@ class Charge(MSONable):
         mulliken: list[float] | None = None,
         loewdin: list[float] | None = None,
     ) -> None:
-        """
+        """Initialize a Charge.
+
         Args:
             filename (PathLike): The CHARGE file, typically "CHARGE.lobster".
             is_lcfo (bool): Whether the CHARGE file is from LCFO analysis. Default is False.
@@ -1043,7 +1044,8 @@ class Lobsterout(MSONable):
     # TODO: add tests for skipping COBI and Madelung
     # TODO: add tests for including COBI and Madelung
     def __init__(self, filename: PathLike | None, **kwargs) -> None:
-        """
+        """Initialize a Lobsterout.
+
         Args:
             filename (PathLike): The lobsterout file.
             **kwargs: dict to initialize Lobsterout instance
@@ -1394,7 +1396,8 @@ class Fatband:
         structure: Structure | IStructure | None = None,
         efermi: float | None = None,
     ) -> None:
-        """
+        """Initialize a Fatband.
+
         Args:
             filenames (PathLike | list[PathLike]): File names or path to a
                 folder from which all "FATBAND_*" files will be read.
@@ -1617,7 +1620,8 @@ class Bandoverlaps(MSONable):
         band_overlaps_dict: dict[Spin, dict] | None = None,
         max_deviation: list[float] | None = None,
     ) -> None:
-        """
+        """Initialize a Bandoverlaps.
+
         Args:
             filename (PathLike): The "bandOverlaps.lobster" file.
             band_overlaps_dict: The band overlap data of the form:
@@ -1767,7 +1771,8 @@ class Grosspop(MSONable):
         is_lcfo: bool = False,
         list_dict_grosspop: list[dict] | None = None,
     ) -> None:
-        """
+        """Initialize a Grosspop.
+
         Args:
             filename (PathLike): The "GROSSPOP.lobster" file.
             is_lcfo (bool): Whether the GROSSPOP file is in LCFO format.
@@ -1881,7 +1886,8 @@ class Wavefunction:
     """
 
     def __init__(self, filename: PathLike, structure: Structure) -> None:
-        """
+        """Initialize a Wavefunction.
+
         Args:
             filename (PathLike): The wavecar file from LOBSTER.
             structure (Structure): The Structure object.
@@ -2062,7 +2068,8 @@ class MadelungEnergies(MSONable):
         madelungenergies_mulliken: float | None = None,
         madelungenergies_loewdin: float | None = None,
     ) -> None:
-        """
+        """Initialize a MadelungEnergies.
+
         Args:
             filename (PathLike): The "MadelungEnergies.lobster" file.
             ewald_splitting (float): The Ewald splitting parameter to compute SitePotentials.
@@ -2122,7 +2129,8 @@ class SitePotential(MSONable):
         madelungenergies_mulliken: float | None = None,
         madelungenergies_loewdin: float | None = None,
     ) -> None:
-        """
+        """Initialize a SitePotential.
+
         Args:
             filename (PathLike): The SitePotentials file, typically "SitePotentials.lobster".
             ewald_splitting (float): Ewald splitting parameter used for computing Madelung energies.
@@ -2289,7 +2297,8 @@ class LobsterMatrices:
         e_fermi: float | None = None,
         filename: PathLike = "hamiltonMatrices.lobster",
     ) -> None:
-        """
+        """Initialize a LobsterMatrices.
+
         Args:
             e_fermi (float): Fermi level in eV for the structure only.
                 Relevant if input file contains Hamilton matrices data.
@@ -2430,7 +2439,8 @@ class Polarization(MSONable):
         rel_mulliken_pol_vector: dict[str, float | str] | None = None,
         rel_loewdin_pol_vector: dict[str, float | str] | None = None,
     ) -> None:
-        """
+        """Initialize a Polarization.
+
         Args:
             filename (PathLike): The "POLARIZATION.lobster" file.
             rel_mulliken_pol_vector (dict[str, Union[float, str]]): Relative Mulliken polarization vector.
@@ -2471,7 +2481,8 @@ class Bwdf(MSONable):
         bwdf: dict[Spin, NDArray] | None = None,
         bin_width: float | None = None,
     ) -> None:
-        """
+        """Initialize a Bwdf.
+
         Args:
             filename (PathLike): The "BWDF.lobster" file. Can also read BWDFCOHP.lobster.
             centers (NDArray): Bond length centers for the distribution.

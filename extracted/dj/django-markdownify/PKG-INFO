@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: django-markdownify
-Version: 0.9.6
+Version: 0.9.7
 Summary: Markdown template filter for Django.
 Home-page: https://github.com/erwinmatijsen/django-markdownify
-Download-URL: https://github.com/erwinmatijsen/django-markdownify/archive/0.9.6.tar.gz
+Download-URL: https://github.com/erwinmatijsen/django-markdownify/archive/0.9.7.tar.gz
 Author: Erwin Matijsen, R Moelker
 Author-email: erwin@erwinmatijsen.nl
 License: MIT

@@ -285,3 +285,8 @@ def _make_clear_geometry_func(eid: int, g_cache: dict, g_keys: dict) -> Callable
         g_keys.pop(eid, None)
 
     return clear_geometry
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "UpdateContext",
+]

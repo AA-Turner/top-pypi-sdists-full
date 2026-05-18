@@ -31,3 +31,10 @@ def dispatch(geom_a: Geometry, geom_b: Geometry) -> Contact | None:
     """Dispatche vers le bon handler de narrowphase"""
     from ._narrow_phase import dispatch as _np_dispatch
     return _np_dispatch(geom_a, geom_b)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Contact",
+    "register",
+    "dispatch",
+]

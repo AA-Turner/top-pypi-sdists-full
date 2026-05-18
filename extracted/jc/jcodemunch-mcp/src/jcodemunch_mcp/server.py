@@ -5570,6 +5570,45 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
     from . import config as _cfg
     from . import __version__
 
+    # Project-aware getter wrapper (issue #300 follow-up, surfaced by @slazarov).
+    # If cwd has a .jcodemunch.jsonc, load it and route _cfg.get() through a
+    # shim that injects repo=cwd when callers don't pass one explicitly. Without
+    # this, `config --check` reports the project file as valid but the printed
+    # config values still come from _GLOBAL_CONFIG alone, so any project-level
+    # override is silently invisible in diagnostic output.
+    _project_repo_key: Optional[str] = None
+    _project_loaded_keys: set = set()
+    _project_config_path_for_display = Path.cwd() / ".jcodemunch.jsonc"
+    if _project_config_path_for_display.is_file():
+        try:
+            _cfg.load_project_config(str(Path.cwd()))
+            _project_repo_key = str(Path.cwd().resolve())
+            try:
+                _pc_content = _project_config_path_for_display.read_text(encoding="utf-8")
+                import json as _json_pc
+                _project_loaded_keys = set(_json_pc.loads(_cfg._strip_jsonc(_pc_content)).keys())
+            except Exception:
+                _project_loaded_keys = set()
+        except Exception:
+            _project_repo_key = None
+            _project_loaded_keys = set()
+
+    class _ProjectAwareCfg:
+        """Routes get() through the project-merged config when cwd has one."""
+        def __init__(self, module, repo):
+            self.__dict__["_mod"] = module
+            self.__dict__["_repo"] = repo
+
+        def get(self, key, default=None, repo=None):
+            if repo is None:
+                repo = self._repo
+            return self._mod.get(key, default, repo=repo)
+
+        def __getattr__(self, name):
+            return getattr(self._mod, name)
+
+    _cfg = _ProjectAwareCfg(_cfg, _project_repo_key)
+
     # Handle --upgrade
     if upgrade:
         storage_path = os.environ.get("CODE_INDEX_PATH", str(Path.home() / ".code-index"))
@@ -5663,6 +5702,17 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
     else:
         print(f"  {yellow(WARN)} config.jsonc not found: {config_path}")
         print(f"  {dim('  Using defaults + env var fallbacks. Run `config --init` to create a config file.')}")
+    # Project-level .jcodemunch.jsonc visibility (jdoc #300 follow-up).
+    if _project_repo_key is not None:
+        print(
+            f"  {green(CHECK)} .jcodemunch.jsonc loaded from cwd: {_project_config_path_for_display} "
+            f"{dim(f'({len(_project_loaded_keys)} key(s) override global)')}"
+        )
+    elif _project_config_path_for_display.is_file():
+        print(
+            f"  {yellow(WARN)} .jcodemunch.jsonc present but failed to load: "
+            f"{_project_config_path_for_display}"
+        )
 
     # ── Indexing ──────────────────────────────────────────────────────────
     section("Indexing")
@@ -5680,6 +5730,8 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
             pass
 
     def _detect_source(key, default):
+        if key in _project_loaded_keys:
+            return "project"
         if key in _loaded_keys:
             return "config"
         env_var = next((e for e, c in _cfg.ENV_VAR_MAPPING.items() if c == key), None)
@@ -5775,6 +5827,16 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
         "env" if not provider_d else "default",
     )
 
+    # summarizer_model display (surfaced by @slazarov on #300, runtime fix #304).
+    # As of v1.108.18, batch_summarize.py threads `repo=` through every
+    # _config.get() call, so .jcodemunch.jsonc overrides DO flow to the runtime.
+    # The display can now use the project-aware shim value directly.
+    _sm_effective = (_cfg.get("summarizer_model", "") or "").strip()
+    if _sm_effective:
+        row("summarizer_model", _sm_effective, _detect_source("summarizer_model", ""))
+    else:
+        row("summarizer_model", dim("(provider default)"), "default")
+
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     google_key = os.environ.get("GOOGLE_API_KEY", "")
     openai_base = os.environ.get("OPENAI_API_BASE", "")
@@ -5785,21 +5847,31 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
     elif provider_name == "anthropic":
         suffix = "JCODEMUNCH_SUMMARIZER_PROVIDER=anthropic" if provider == "anthropic" else "ANTHROPIC_API_KEY set"
         print(f"  Active provider:  {green('Anthropic')}  ({suffix})")
-        model, d = env("ANTHROPIC_MODEL", "claude-haiku-*")
-        row("  ANTHROPIC_MODEL", model, "env" if not d else "default")
+        # Runtime: summarizer_model (config; project-aware as of #304) > ANTHROPIC_MODEL env > default
+        if _sm_effective:
+            row("  ANTHROPIC_MODEL", _sm_effective, _detect_source("summarizer_model", ""))
+        else:
+            model, d = env("ANTHROPIC_MODEL", "claude-haiku-*")
+            row("  ANTHROPIC_MODEL", model, "env" if not d else "default")
     elif provider_name == "gemini":
         suffix = "JCODEMUNCH_SUMMARIZER_PROVIDER=gemini" if provider == "gemini" else "GOOGLE_API_KEY set"
         print(f"  Active provider:  {green('Google Gemini')}  ({suffix})")
-        model, d = env("GOOGLE_MODEL", "gemini-flash-*")
-        row("  GOOGLE_MODEL", model, "env" if not d else "default")
+        if _sm_effective:
+            row("  GOOGLE_MODEL", _sm_effective, _detect_source("summarizer_model", ""))
+        else:
+            model, d = env("GOOGLE_MODEL", "gemini-flash-*")
+            row("  GOOGLE_MODEL", model, "env" if not d else "default")
     elif provider_name == "openai":
         base_label = openai_base or "https://api.openai.com/v1"
         suffix = "JCODEMUNCH_SUMMARIZER_PROVIDER=openai" if provider == "openai" else "OPENAI_API_BASE set"
         print(f"  Active provider:  {green('OpenAI-compatible')}  ({suffix})")
         row("  OPENAI_API_BASE", base_label, "env" if openai_base else "default")
-        model_default = "gpt-4o-mini" if provider == "openai" and not openai_base else "qwen3-coder"
-        model, d = env("OPENAI_MODEL", model_default)
-        row("  OPENAI_MODEL", model, "env" if not d else "default")
+        if _sm_effective:
+            row("  OPENAI_MODEL", _sm_effective, _detect_source("summarizer_model", ""))
+        else:
+            model_default = "gpt-4o-mini" if provider == "openai" and not openai_base else "qwen3-coder"
+            model, d = env("OPENAI_MODEL", model_default)
+            row("  OPENAI_MODEL", model, "env" if not d else "default")
         v, d = env("OPENAI_TIMEOUT", "60.0")
         row("  OPENAI_TIMEOUT", v, "env" if not d else "default")
         v, d = env("OPENAI_BATCH_SIZE", "10")
@@ -5812,17 +5884,17 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
         suffix = "JCODEMUNCH_SUMMARIZER_PROVIDER=minimax" if provider == "minimax" else "MINIMAX_API_KEY set"
         print(f"  Active provider:  {green('MiniMax')}  ({suffix})")
         row("  OPENAI_API_BASE", "https://api.minimax.io/v1", "default")
-        row("  OPENAI_MODEL", "minimax-m2.7", "default")
+        row("  OPENAI_MODEL", _sm_effective or "minimax-m2.7", _detect_source("summarizer_model", "") if _sm_effective else "default")
     elif provider_name == "glm":
         suffix = "JCODEMUNCH_SUMMARIZER_PROVIDER=glm" if provider == "glm" else "ZHIPUAI_API_KEY set"
         print(f"  Active provider:  {green('GLM-5')}  ({suffix})")
         row("  OPENAI_API_BASE", "https://api.z.ai/api/paas/v4/", "default")
-        row("  OPENAI_MODEL", "glm-5", "default")
+        row("  OPENAI_MODEL", _sm_effective or "glm-5", _detect_source("summarizer_model", "") if _sm_effective else "default")
     elif provider_name == "openrouter":
         suffix = "JCODEMUNCH_SUMMARIZER_PROVIDER=openrouter" if provider == "openrouter" else "OPENROUTER_API_KEY set"
         print(f"  Active provider:  {green('OpenRouter')}  ({suffix})")
         row("  OPENAI_API_BASE", "https://openrouter.ai/api/v1", "default")
-        row("  OPENAI_MODEL", "meta-llama/llama-3.3-70b-instruct:free", "default")
+        row("  OPENAI_MODEL", _sm_effective or "meta-llama/llama-3.3-70b-instruct:free", _detect_source("summarizer_model", "") if _sm_effective else "default")
     elif provider == "none":
         print(f"  Active provider:  {yellow('none')} — explicitly disabled, signature fallback active")
     else:

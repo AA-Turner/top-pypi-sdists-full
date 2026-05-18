@@ -30,11 +30,12 @@ from monty.io import zopen
 from monty.json import MSONable
 from numpy.linalg import norm
 from ruamel.yaml import YAML
-from scipy.cluster.hierarchy import fcluster, linkage
-from scipy.linalg import expm, polar
-from scipy.spatial.distance import squareform
 from tabulate import tabulate
 
+# scipy.cluster.hierarchy, scipy.linalg, and scipy.spatial are imported
+# lazily inside the few methods that use them (merge_sites,
+# get_primitive_structure, rotate_sites, interpolate). Together they account
+# for ~85 ms of cold `from pymatgen.core import Structure` import time.
 from pymatgen.core.bonds import CovalentBond, get_bond_length
 from pymatgen.core.composition import Composition
 from pymatgen.core.lattice import Lattice, get_points_in_spheres
@@ -42,8 +43,11 @@ from pymatgen.core.operations import SymmOp
 from pymatgen.core.periodic_table import _PT_UNIT, DummySpecies, Element, Species, get_el_sp
 from pymatgen.core.sites import PeriodicSite, Site
 from pymatgen.core.units import Length, Mass
-from pymatgen.electronic_structure.core import Magmom
-from pymatgen.symmetry.maggroups import MagneticSpaceGroup
+
+# Magmom and MagneticSpaceGroup are imported lazily inside
+# IStructure.from_magnetic_spacegroup; they're the only call site and the
+# eager imports drag in pymatgen.electronic_structure.core + symmetry.maggroups
+# + symmetry.groups (~6-10 ms) on every `from pymatgen.core import Structure`.
 from pymatgen.util.coord import all_distances, get_angle, lattice_points_in_supercell
 from pymatgen.util.due import Doi, due
 
@@ -61,6 +65,7 @@ if TYPE_CHECKING:
     from matgl.ext.ase import TrajectoryObserver
     from numpy.typing import ArrayLike, NDArray
 
+    from pymatgen.symmetry.maggroups import MagneticSpaceGroup
     from pymatgen.util.typing import CompositionLike, PathLike, SpeciesLike
 
 FileFormats: TypeAlias = Literal[
@@ -97,7 +102,8 @@ class Neighbor(Site):
         index: int = 0,
         label: str | None = None,
     ) -> None:
-        """
+        """Initialize a Neighbor.
+
         Args:
             species: Same as Site
             coords: Same as Site, but must be fractional.
@@ -109,8 +115,8 @@ class Neighbor(Site):
         self._species: Composition = species
         self.coords: NDArray = coords
         self.properties: dict = properties or {}
-        self.nn_distance: float = nn_distance
-        self.index: int = index
+        object.__setattr__(self, "nn_distance", nn_distance)
+        object.__setattr__(self, "index", index)
         self._label = label
 
     def __len__(self) -> Literal[3]:
@@ -159,7 +165,8 @@ class PeriodicNeighbor(PeriodicSite):
         image: tuple[int, int, int] = (0, 0, 0),
         label: str | None = None,
     ) -> None:
-        """
+        """Initialize a PeriodicNeighbor.
+
         Args:
             species (Composition): Same as PeriodicSite
             coords (np.ndarray): Same as PeriodicSite, but must be fractional.
@@ -174,9 +181,9 @@ class PeriodicNeighbor(PeriodicSite):
         self._frac_coords = coords
         self._species = species
         self.properties = properties or {}
-        self.nn_distance = nn_distance
-        self.index = index
-        self.image = image
+        object.__setattr__(self, "nn_distance", nn_distance)
+        object.__setattr__(self, "index", index)
+        object.__setattr__(self, "image", image)
         self._label = label
 
     def __len__(self) -> Literal[4]:
@@ -621,7 +628,7 @@ class SiteCollection(collections.abc.Sequence, ABC):
                     new_sp = sp_mapping.get(sp, sp)
                     try:
                         comp += Composition(new_sp) * amt
-                    except Exception:
+                    except (ValueError, TypeError):
                         comp += {new_sp: amt}
                 site.species = comp
                 site.label = None  # type: ignore[assignment]
@@ -841,6 +848,7 @@ class SiteCollection(collections.abc.Sequence, ABC):
         opt_kwargs: dict | None = None,
         return_trajectory: bool = False,
         verbose: bool = False,
+        asecellfilter_kwargs: dict | None = None,
     ) -> Structure | Molecule | tuple[Structure | Molecule, TrajectoryObserver | Trajectory]:
         """Perform a structure relaxation using an ASE calculator.
 
@@ -858,6 +866,7 @@ class SiteCollection(collections.abc.Sequence, ABC):
             return_trajectory (bool): Whether to return the trajectory of relaxation.
                 Defaults to False.
             verbose (bool): whether to print stdout. Defaults to False.
+            asecellfilter_kwargs (dict): kwargs for the ASE FrechetCellFilter class.
 
         Returns:
             Structure | Molecule: Relaxed structure or molecule
@@ -870,6 +879,7 @@ class SiteCollection(collections.abc.Sequence, ABC):
         from pymatgen.io.ase import AseAtomsAdaptor
 
         opt_kwargs = opt_kwargs or {}
+        asecellfilter_kwargs = asecellfilter_kwargs or {}
         is_molecule = isinstance(self, Molecule)
         # UIP=universal interatomic potential
         run_uip = isinstance(calculator, str)
@@ -912,7 +922,7 @@ class SiteCollection(collections.abc.Sequence, ABC):
             if relax_cell:
                 if is_molecule:
                     raise ValueError("Can't relax cell for a Molecule")
-                ecf = FrechetCellFilter(atoms)
+                ecf = FrechetCellFilter(atoms, **asecellfilter_kwargs)
                 dyn = opt_class(ecf, **opt_kwargs)
             else:
                 dyn = opt_class(atoms, **opt_kwargs)
@@ -1443,6 +1453,9 @@ class IStructure(SiteCollection, MSONable):
         """
         if "magmom" not in site_properties:
             raise ValueError("Magnetic moments have to be defined.")
+
+        from pymatgen.electronic_structure.core import Magmom
+        from pymatgen.symmetry.maggroups import MagneticSpaceGroup
 
         magmoms = [Magmom(m) for m in site_properties["magmom"]]
 
@@ -2498,6 +2511,8 @@ class IStructure(SiteCollection, MSONable):
         structs = []
 
         if interpolate_lattices:
+            from scipy.linalg import polar
+
             # Interpolate lattice matrices using polar decomposition
             # u is a unitary rotation, p is stretch
             _u, p = polar(np.dot(end_structure.lattice.matrix.T, np.linalg.inv(self.lattice.matrix.T)))
@@ -2584,6 +2599,9 @@ class IStructure(SiteCollection, MSONable):
         Returns:
             The most primitive structure found.
         """
+        if tolerance <= 0:
+            raise ValueError("tolerance cannot be <=0 for Structure.get_primitive_structure()!")
+
         if constrain_latt is None:
             constrain_latt = []
 
@@ -2611,12 +2629,26 @@ class IStructure(SiteCollection, MSONable):
         super_ftol_2 = super_ftol * 2
 
         def pbc_coord_intersection(fc1, fc2, tol):
-            """Get the fractional coords in fc1 that have coordinates
+            """
+            Get the fractional coords in fc1 that have coordinates
             within tolerance to some coordinate in fc2.
             """
-            dist = fc1[:, None, :] - fc2[None, :, :]
-            dist -= np.round(dist)
-            return fc1[np.any(np.all(dist < tol, axis=-1), axis=-1)]
+            from scipy.spatial import cKDTree
+
+            tol = np.asarray(tol, dtype=float)
+            scale = 1.0 / tol
+            boxsize = scale
+
+            fc1_scaled = (fc1 % 1.0) * scale
+            fc2_scaled = (fc2 % 1.0) * scale
+
+            # cKDTree requires all coords strictly < boxsize
+            np.clip(fc1_scaled, 0, boxsize * (1 - 1e-15), out=fc1_scaled)
+            np.clip(fc2_scaled, 0, boxsize * (1 - 1e-15), out=fc2_scaled)
+
+            tree = cKDTree(fc2_scaled, boxsize=boxsize)
+            dist, _ = tree.query(fc1_scaled, p=np.inf, distance_upper_bound=1.0)
+            return fc1[np.isfinite(dist)]
 
         # Here we reduce the number of min_vecs by enforcing that every
         # vector in min_vecs approximately maps each site onto a similar site.
@@ -3081,6 +3113,29 @@ class IStructure(SiteCollection, MSONable):
 
         raise ValueError(f"Invalid source: {source}")
 
+    @staticmethod
+    def _filter_kwargs(func: Callable, kwargs: dict) -> dict:
+        """Filter kwargs to only those accepted by func, warning about any removed.
+
+        Args:
+            func: The callable to inspect.
+            kwargs: The kwargs dict to filter.
+
+        Returns:
+            dict of kwargs supported by func.
+        """
+        params = inspect.signature(func).parameters
+        if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+            return kwargs
+        supported = {k: v for k, v in kwargs.items() if k in params}
+        unsupported = kwargs.keys() - supported.keys()
+        if unsupported:
+            warnings.warn(
+                f"The following kwargs are not supported by {func.__qualname__} and will be ignored: {unsupported}",
+                stacklevel=3,
+            )
+        return supported
+
     @classmethod
     def from_str(  # type:ignore[override]
         cls,
@@ -3113,16 +3168,18 @@ class IStructure(SiteCollection, MSONable):
         if fmt_low == "cif":
             from pymatgen.io.cif import CifParser
 
-            parser = CifParser.from_str(input_string, **kwargs)
+            parser = CifParser.from_str(input_string, **cls._filter_kwargs(CifParser.from_str, kwargs))
             struct = parser.parse_structures(primitive=primitive)[0]
         elif fmt_low == "poscar":
             from pymatgen.io.vasp import Poscar
 
-            struct = Poscar.from_str(input_string, default_names=None, read_velocities=False, **kwargs).structure
+            struct = Poscar.from_str(
+                input_string, default_names=None, read_velocities=False, **cls._filter_kwargs(Poscar.from_str, kwargs)
+            ).structure
         elif fmt_low == "cssr":
             from pymatgen.io.cssr import Cssr
 
-            cssr = Cssr.from_str(input_string, **kwargs)
+            cssr = Cssr.from_str(input_string, **cls._filter_kwargs(Cssr.from_str, kwargs))
             struct = cssr.structure  # type:ignore[assignment]
         elif fmt_low == "json":
             dct = orjson.loads(input_string)
@@ -3134,11 +3191,11 @@ class IStructure(SiteCollection, MSONable):
         elif fmt_low == "xsf":
             from pymatgen.io.xcrysden import XSF
 
-            struct = XSF.from_str(input_string, **kwargs).structure  # type:ignore[assignment]
+            struct = XSF.from_str(input_string, **cls._filter_kwargs(XSF.from_str, kwargs)).structure  # type:ignore[assignment]
         elif fmt_low == "mcsqs":
             from pymatgen.io.atat import Mcsqs
 
-            struct = Mcsqs.structure_from_str(input_string, **kwargs)
+            struct = Mcsqs.structure_from_str(input_string, **cls._filter_kwargs(Mcsqs.structure_from_str, kwargs))
         elif fmt == "aims":
             from pymatgen.io.aims.inputs import AimsGeometryIn
 
@@ -3147,6 +3204,11 @@ class IStructure(SiteCollection, MSONable):
         elif fmt == "fleur-inpgen":
             from pymatgen.io.fleur import FleurInput
 
+            if kwargs:
+                warnings.warn(
+                    f"kwargs {set(kwargs)} cannot be validated for fleur-inpgen and will be passed through as-is.",
+                    stacklevel=2,
+                )
             struct = FleurInput.from_string(input_string, inpgen_input=True, **kwargs).structure
         elif fmt == "fleur":
             from pymatgen.io.fleur import FleurInput
@@ -3155,11 +3217,11 @@ class IStructure(SiteCollection, MSONable):
         elif fmt == "res":
             from pymatgen.io.res import ResIO
 
-            struct = ResIO.structure_from_str(input_string, **kwargs)
+            struct = ResIO.structure_from_str(input_string, **cls._filter_kwargs(ResIO.structure_from_str, kwargs))
         elif fmt == "pwmat":
             from pymatgen.io.pwmat import AtomConfig
 
-            struct = AtomConfig.from_str(input_string, **kwargs).structure
+            struct = AtomConfig.from_str(input_string, **cls._filter_kwargs(AtomConfig.from_str, kwargs)).structure
         else:
             raise ValueError(f"Invalid {fmt=}, valid options are {get_args(FileFormats)}")
 
@@ -4736,6 +4798,8 @@ class Structure(IStructure, collections.abc.MutableSequence):
         anchor = np.array(anchor)
         axis = np.array(axis)
 
+        from scipy.linalg import expm
+
         theta %= 2 * np.pi
 
         rm = expm(np.cross(np.eye(3), axis / norm(axis)) * theta)
@@ -4849,23 +4913,17 @@ class Structure(IStructure, collections.abc.MutableSequence):
 
         Args:
             tol (float): Tolerance for distance to merge sites.
-            mode ("sum" | "delete" | "average"): Only first letter is considered at this moment.
-                - "delete": delete duplicate sites.
+            mode ("sum" | "delete" | "average"):
                 - "sum": sum the occupancies for the sites.
+                - "delete": delete duplicate sites.
                 - "average": delete the site but average the properties if it's numerical.
 
         Returns:
             Structure: Structure with merged sites.
         """
-        # TODO: change the code the allow full name after 2025-12-01
-        # TODO2: add a test for mode value, currently it only checks if first letter is "s/a"
-        if mode.lower() not in {"sum", "delete", "average"} and mode.lower()[0] in {"s", "d", "a"}:
-            warnings.warn(
-                "mode would only allow full name sum/delete/average after 2025-12-01", DeprecationWarning, stacklevel=2
-            )
-
-        if mode.lower()[0] not in {"s", "d", "a"}:
-            raise ValueError(f"Illegal {mode=}, should start with a/d/s.")
+        mode_low = mode.lower()
+        if mode_low not in {"sum", "delete", "average"}:
+            raise ValueError(f"Illegal {mode=}, must be one of 'sum', 'delete', 'average'.")
 
         dist_mat: NDArray[np.float64] = self.distance_matrix
         np.fill_diagonal(dist_mat, 0)
@@ -4873,7 +4931,10 @@ class Structure(IStructure, collections.abc.MutableSequence):
         if dist_mat.shape == (1, 1):
             return self
 
-        clusters = fcluster(linkage(squareform((dist_mat + dist_mat.T) / 2)), tol, "distance")
+        from scipy.cluster.hierarchy import fcluster, linkage
+        from scipy.spatial import distance
+
+        clusters = fcluster(linkage(distance.squareform((dist_mat + dist_mat.T) / 2)), tol, "distance")
 
         sites: list[PeriodicSite] = []
         for cluster in np.unique(clusters):
@@ -4883,15 +4944,14 @@ class Structure(IStructure, collections.abc.MutableSequence):
             props: dict = self[indexes[0]].properties
 
             for site_idx, clust_idx in enumerate(indexes[1:]):
-                # Sum occupancies in "sum" mode
-                if mode.lower()[0] == "s":
+                if mode_low == "sum":
                     species += self[clust_idx].species  # type:ignore[index]
 
                 offset = self[clust_idx].frac_coords - coords  # type:ignore[index]
                 coords += ((offset - np.round(offset)) / (site_idx + 2)).astype(coords.dtype)
                 for key, val in props.items():
                     if val is not None and not np.array_equal(self[clust_idx].properties[key], val):  # type:ignore[index]
-                        if mode.lower()[0] == "a" and isinstance(val, float | int):
+                        if mode_low == "average" and isinstance(val, float | int):
                             # update a running total
                             props[key] = val * (site_idx + 1) / (site_idx + 2) + self[clust_idx].properties[key] / (  # type:ignore[index]
                                 site_idx + 2
@@ -4930,6 +4990,7 @@ class Structure(IStructure, collections.abc.MutableSequence):
         opt_kwargs: dict | None = None,
         return_trajectory: bool = False,
         verbose: bool = False,
+        asecellfilter_kwargs: dict | None = None,
     ) -> Structure | tuple[Structure, TrajectoryObserver | Trajectory]:
         """Perform a crystal structure relaxation using an ASE calculator.
 
@@ -4947,6 +5008,7 @@ class Structure(IStructure, collections.abc.MutableSequence):
             return_trajectory (bool): Whether to return the trajectory of relaxation.
                 Defaults to False.
             verbose (bool): whether to print out relaxation steps. Defaults to False.
+            asecellfilter_kwargs (dict): kwargs for the ASE FrechetCellFilter class.
 
         Returns:
             Structure | tuple[Structure, Trajectory]: Relaxed structure or if return_trajectory=True,
@@ -4962,6 +5024,7 @@ class Structure(IStructure, collections.abc.MutableSequence):
             opt_kwargs=opt_kwargs,
             return_trajectory=return_trajectory,
             verbose=verbose,
+            asecellfilter_kwargs=asecellfilter_kwargs,
         )
 
     def calculate(
@@ -5385,6 +5448,8 @@ class Molecule(IMolecule, collections.abc.MutableSequence):
 
         anchor = np.array(anchor)
         axis = np.array(axis)
+
+        from scipy.linalg import expm
 
         theta %= 2 * np.pi
 

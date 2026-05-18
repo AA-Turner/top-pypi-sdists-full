@@ -4,16 +4,16 @@
 {
     "distutils": {
         "depends": [
-            "/tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/_core/include/numpy/arrayobject.h",
-            "/tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/_core/include/numpy/arrayscalars.h",
-            "/tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
-            "/tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
-            "/tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/_core/include/numpy/ufuncobject.h",
+            "/tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/_core/include/numpy/arrayobject.h",
+            "/tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/_core/include/numpy/arrayscalars.h",
+            "/tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/_core/include/numpy/ndarrayobject.h",
+            "/tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/_core/include/numpy/ndarraytypes.h",
+            "/tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/_core/include/numpy/ufuncobject.h",
             "matio/v5/numpy_rephrasing.h"
         ],
         "include_dirs": [
             "matio/v5",
-            "/tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/_core/include",
+            "/tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/_core/include",
             "src/v5/include"
         ],
         "name": "matio.v5._mio5_utils",
@@ -1525,7 +1525,7 @@ static const char* const __pyx_f[] = {
   "matio/v5/_mio5_utils.pyx",
   "<stringsource>",
   "cpython/contextvars.pxd",
-  "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd",
+  "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd",
   "cpython/type.pxd",
   "cpython/bool.pxd",
   "cpython/complex.pxd",
@@ -1738,7 +1738,7 @@ typedef struct {
 
 /* #### Code section: numeric_typedefs ### */
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":744
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":744
  * # in Cython to enable them only on the right systems.
  * 
  * ctypedef npy_int8       int8_t             # <<<<<<<<<<<<<<
@@ -1747,7 +1747,7 @@ typedef struct {
 */
 typedef npy_int8 __pyx_t_5numpy_int8_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":745
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":745
  * 
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t             # <<<<<<<<<<<<<<
@@ -1756,7 +1756,7 @@ typedef npy_int8 __pyx_t_5numpy_int8_t;
 */
 typedef npy_int16 __pyx_t_5numpy_int16_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":746
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":746
  * ctypedef npy_int8       int8_t
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t             # <<<<<<<<<<<<<<
@@ -1765,7 +1765,7 @@ typedef npy_int16 __pyx_t_5numpy_int16_t;
 */
 typedef npy_int32 __pyx_t_5numpy_int32_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":747
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":747
  * ctypedef npy_int16      int16_t
  * ctypedef npy_int32      int32_t
  * ctypedef npy_int64      int64_t             # <<<<<<<<<<<<<<
@@ -1774,7 +1774,7 @@ typedef npy_int32 __pyx_t_5numpy_int32_t;
 */
 typedef npy_int64 __pyx_t_5numpy_int64_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":749
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":749
  * ctypedef npy_int64      int64_t
  * 
  * ctypedef npy_uint8      uint8_t             # <<<<<<<<<<<<<<
@@ -1783,7 +1783,7 @@ typedef npy_int64 __pyx_t_5numpy_int64_t;
 */
 typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":750
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":750
  * 
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t             # <<<<<<<<<<<<<<
@@ -1792,7 +1792,7 @@ typedef npy_uint8 __pyx_t_5numpy_uint8_t;
 */
 typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":751
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":751
  * ctypedef npy_uint8      uint8_t
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t             # <<<<<<<<<<<<<<
@@ -1801,7 +1801,7 @@ typedef npy_uint16 __pyx_t_5numpy_uint16_t;
 */
 typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":752
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":752
  * ctypedef npy_uint16     uint16_t
  * ctypedef npy_uint32     uint32_t
  * ctypedef npy_uint64     uint64_t             # <<<<<<<<<<<<<<
@@ -1810,7 +1810,7 @@ typedef npy_uint32 __pyx_t_5numpy_uint32_t;
 */
 typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":754
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":754
  * ctypedef npy_uint64     uint64_t
  * 
  * ctypedef npy_float32    float32_t             # <<<<<<<<<<<<<<
@@ -1819,7 +1819,7 @@ typedef npy_uint64 __pyx_t_5numpy_uint64_t;
 */
 typedef npy_float32 __pyx_t_5numpy_float32_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":755
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":755
  * 
  * ctypedef npy_float32    float32_t
  * ctypedef npy_float64    float64_t             # <<<<<<<<<<<<<<
@@ -1828,7 +1828,7 @@ typedef npy_float32 __pyx_t_5numpy_float32_t;
 */
 typedef npy_float64 __pyx_t_5numpy_float64_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":762
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":762
  * ctypedef double complex complex128_t
  * 
  * ctypedef npy_longlong   longlong_t             # <<<<<<<<<<<<<<
@@ -1837,7 +1837,7 @@ typedef npy_float64 __pyx_t_5numpy_float64_t;
 */
 typedef npy_longlong __pyx_t_5numpy_longlong_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":763
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":763
  * 
  * ctypedef npy_longlong   longlong_t
  * ctypedef npy_ulonglong  ulonglong_t             # <<<<<<<<<<<<<<
@@ -1846,7 +1846,7 @@ typedef npy_longlong __pyx_t_5numpy_longlong_t;
 */
 typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":765
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":765
  * ctypedef npy_ulonglong  ulonglong_t
  * 
  * ctypedef npy_intp       intp_t             # <<<<<<<<<<<<<<
@@ -1855,7 +1855,7 @@ typedef npy_ulonglong __pyx_t_5numpy_ulonglong_t;
 */
 typedef npy_intp __pyx_t_5numpy_intp_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":766
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":766
  * 
  * ctypedef npy_intp       intp_t
  * ctypedef npy_uintp      uintp_t             # <<<<<<<<<<<<<<
@@ -1864,7 +1864,7 @@ typedef npy_intp __pyx_t_5numpy_intp_t;
 */
 typedef npy_uintp __pyx_t_5numpy_uintp_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":768
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":768
  * ctypedef npy_uintp      uintp_t
  * 
  * ctypedef npy_double     float_t             # <<<<<<<<<<<<<<
@@ -1873,7 +1873,7 @@ typedef npy_uintp __pyx_t_5numpy_uintp_t;
 */
 typedef npy_double __pyx_t_5numpy_float_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":769
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":769
  * 
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t             # <<<<<<<<<<<<<<
@@ -1882,7 +1882,7 @@ typedef npy_double __pyx_t_5numpy_float_t;
 */
 typedef npy_double __pyx_t_5numpy_double_t;
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":770
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":770
  * ctypedef npy_double     float_t
  * ctypedef npy_double     double_t
  * ctypedef npy_longdouble longdouble_t             # <<<<<<<<<<<<<<
@@ -1990,7 +1990,7 @@ struct __pyx_opt_args_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric;
 struct __pyx_opt_args_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix;
 struct __pyx_opt_args_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header;
 
-/* "matio/v5/_mio5_utils.pyx":108
+/* "matio/v5/_mio5_utils.pyx":96
  * 
  * 
  * cdef enum:             # <<<<<<<<<<<<<<
@@ -2015,7 +2015,7 @@ enum  {
   __pyx_e_5matio_2v5_11_mio5_utils_miUTF32 = 18
 };
 
-/* "matio/v5/_mio5_utils.pyx":125
+/* "matio/v5/_mio5_utils.pyx":113
  *     miUTF32 = 18
  * 
  * cdef enum:             # <<<<<<<<<<<<<<
@@ -2043,7 +2043,7 @@ enum  {
   __pyx_e_5matio_2v5_11_mio5_utils_mxOBJECT_CLASS_FROM_MATRIX_H = 18
 };
 
-/* "matio/v5/_mio5_utils.pyx":340
+/* "matio/v5/_mio5_utils.pyx":310
  *         return 1
  * 
  *     cdef object read_element(self,             # <<<<<<<<<<<<<<
@@ -2055,7 +2055,7 @@ struct __pyx_opt_args_5matio_2v5_11_mio5_utils_10VarReader5_read_element {
   int copy;
 };
 
-/* "matio/v5/_mio5_utils.pyx":441
+/* "matio/v5/_mio5_utils.pyx":411
  *         return 0
  * 
  *     cpdef cnp.ndarray read_numeric(self, int copy=True, long int nnz=-1):             # <<<<<<<<<<<<<<
@@ -2068,7 +2068,7 @@ struct __pyx_opt_args_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric {
   long nnz;
 };
 
-/* "matio/v5/_mio5_utils.pyx":674
+/* "matio/v5/_mio5_utils.pyx":644
  *         return size
  * 
  *     cdef read_mi_matrix(self, int process=1):             # <<<<<<<<<<<<<<
@@ -2080,7 +2080,7 @@ struct __pyx_opt_args_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix {
   int process;
 };
 
-/* "matio/v5/_mio5_utils.pyx":702
+/* "matio/v5/_mio5_utils.pyx":672
  *         return self.array_from_header(header, process)
  * 
  *     cpdef array_from_header(self, VarHeader5 header, int process=1):             # <<<<<<<<<<<<<<
@@ -2106,7 +2106,7 @@ struct __pyx_obj_5matio_2v5_8_streams_GenericStream {
 };
 
 
-/* "matio/v5/_mio5_utils.pyx":158
+/* "matio/v5/_mio5_utils.pyx":145
  * 
  * 
  * cdef class VarHeader5:             # <<<<<<<<<<<<<<
@@ -2130,11 +2130,11 @@ struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 {
 };
 
 
-/* "matio/v5/_mio5_utils.pyx":183
+/* "matio/v5/_mio5_utils.pyx":160
  * 
  * 
  * cdef class VarReader5:             # <<<<<<<<<<<<<<
- *     """Initialize from file reader object
+ *     """Initialize from file reader object."""
  * 
 */
 struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 {
@@ -2170,11 +2170,11 @@ struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream {
 static struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *__pyx_vtabptr_5matio_2v5_8_streams_GenericStream;
 
 
-/* "matio/v5/_mio5_utils.pyx":183
+/* "matio/v5/_mio5_utils.pyx":160
  * 
  * 
  * cdef class VarReader5:             # <<<<<<<<<<<<<<
- *     """Initialize from file reader object
+ *     """Initialize from file reader object."""
  * 
 */
 
@@ -2597,14 +2597,6 @@ static CYTHON_INLINE int __Pyx_ParseKeywords(
 /* RaiseArgTupleInvalid.proto */
 static void __Pyx_RaiseArgtupleInvalid(const char* func_name, int exact,
     Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found);
-
-/* PyLongBinop.proto */
-#if !CYTHON_COMPILING_IN_PYPY
-static CYTHON_INLINE PyObject* __Pyx_PyLong_AddObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check);
-#else
-#define __Pyx_PyLong_AddObjC(op1, op2, intval, inplace, zerodivision_check)\
-    (inplace ? PyNumber_InPlaceAdd(op1, op2) : PyNumber_Add(op1, op2))
-#endif
 
 /* RejectKeywords.export */
 static void __Pyx_RejectKeywords(const char* function_name, PyObject *kwds);
@@ -3608,27 +3600,27 @@ int __pyx_module_is_main_matio__v5___mio5_utils = 0;
 
 /* Implementation of "matio.v5._mio5_utils" */
 /* #### Code section: global_var ### */
-static PyObject *__pyx_builtin_enumerate;
 static PyObject *__pyx_builtin_object;
+static PyObject *__pyx_builtin_enumerate;
 /* #### Code section: string_decls ### */
-static const char __pyx_k_Cython_mio5_utility_routines_pyt[] = "Cython mio5 utility routines (-*- python -*- like)";
+static const char __pyx_k_Cython_mio5_utility_routines[] = "Cython mio5 utility routines.";
 static const char __pyx_k_check_stream_limit_classname_dim[] = "check_stream_limit, classname, dims, dims_ptr, is_complex, is_global, is_logical, mclass, n_dims, name, nzmax, type_system";
 static const char __pyx_k_not_enough_values_found_during_a[] = "not enough values found during array assignment, expected %zd, got %zd";
 static const char __pyx_k_too_many_values_found_during_arr[] = "too many values found during array assignment, expected %zd";
 /* #### Code section: decls ### */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_byteswap_u4(CYTHON_UNUSED PyObject *__pyx_self, __pyx_t_5numpy_uint32_t __pyx_v_u4); /* proto */
-static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_set_dims(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self, PyObject *__pyx_v_dims); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_4name___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_9classname___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_11type_system___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_6mclass___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_4dims___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_10is_complex___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_10is_logical___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_9is_global___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
 static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_9is_global_2__set__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_5nzmax___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_2__reduce_cython__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_4__setstate_cython__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5___reduce_cython__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_2__setstate_cython__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self, PyObject *__pyx_v___pyx_state); /* proto */
 static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *__pyx_v_self, PyObject *__pyx_v_preader); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_2set_stream(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *__pyx_v_self, PyObject *__pyx_v_fobj); /* proto */
 static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_4read_tag(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *__pyx_v_self); /* proto */
@@ -3700,8 +3692,8 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_slice[1];
   PyObject *__pyx_tuple[2];
-  PyObject *__pyx_codeobj_tab[20];
-  PyObject *__pyx_string_tab[202];
+  PyObject *__pyx_codeobj_tab[19];
+  PyObject *__pyx_string_tab[196];
   PyObject *__pyx_number_tab[5];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
@@ -3788,163 +3780,157 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_VarHeader5 __pyx_string_tab[42]
 #define __pyx_n_u_VarHeader5___reduce_cython __pyx_string_tab[43]
 #define __pyx_n_u_VarHeader5___setstate_cython __pyx_string_tab[44]
-#define __pyx_n_u_VarHeader5_set_dims __pyx_string_tab[45]
-#define __pyx_n_u_VarReader5 __pyx_string_tab[46]
-#define __pyx_n_u_VarReader5___reduce_cython __pyx_string_tab[47]
-#define __pyx_n_u_VarReader5___setstate_cython __pyx_string_tab[48]
-#define __pyx_n_u_VarReader5_array_from_header __pyx_string_tab[49]
-#define __pyx_n_u_VarReader5_read_cells __pyx_string_tab[50]
-#define __pyx_n_u_VarReader5_read_char __pyx_string_tab[51]
-#define __pyx_n_u_VarReader5_read_fieldnames __pyx_string_tab[52]
-#define __pyx_n_u_VarReader5_read_full_tag __pyx_string_tab[53]
-#define __pyx_n_u_VarReader5_read_header __pyx_string_tab[54]
-#define __pyx_n_u_VarReader5_read_numeric __pyx_string_tab[55]
-#define __pyx_n_u_VarReader5_read_opaque __pyx_string_tab[56]
-#define __pyx_n_u_VarReader5_read_real_complex __pyx_string_tab[57]
-#define __pyx_n_u_VarReader5_read_struct __pyx_string_tab[58]
-#define __pyx_n_u_VarReader5_read_tag __pyx_string_tab[59]
-#define __pyx_n_u_VarReader5_set_stream __pyx_string_tab[60]
-#define __pyx_n_u_VarReader5_shape_from_header __pyx_string_tab[61]
-#define __pyx_n_u__5 __pyx_string_tab[62]
-#define __pyx_n_u_array_from_header __pyx_string_tab[63]
-#define __pyx_n_u_ascii __pyx_string_tab[64]
-#define __pyx_n_u_ascontiguousarray __pyx_string_tab[65]
-#define __pyx_n_u_astype __pyx_string_tab[66]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[67]
-#define __pyx_n_u_bool __pyx_string_tab[68]
-#define __pyx_n_u_buffer __pyx_string_tab[69]
-#define __pyx_n_u_byte_count __pyx_string_tab[70]
-#define __pyx_n_u_byte_order __pyx_string_tab[71]
-#define __pyx_n_u_byteorder __pyx_string_tab[72]
-#define __pyx_n_u_byteswap __pyx_string_tab[73]
-#define __pyx_n_u_byteswap_u4 __pyx_string_tab[74]
-#define __pyx_n_u_c16 __pyx_string_tab[75]
-#define __pyx_n_u_c8 __pyx_string_tab[76]
-#define __pyx_n_u_check_stream_limit __pyx_string_tab[77]
-#define __pyx_n_u_class_getitem __pyx_string_tab[78]
-#define __pyx_n_u_classes __pyx_string_tab[79]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[80]
-#define __pyx_n_u_codecs __pyx_string_tab[81]
-#define __pyx_n_u_copy __pyx_string_tab[82]
-#define __pyx_n_u_csc_array __pyx_string_tab[83]
-#define __pyx_n_u_d __pyx_string_tab[84]
-#define __pyx_n_u_decode __pyx_string_tab[85]
-#define __pyx_n_u_decode_char_arrays __pyx_string_tab[86]
-#define __pyx_n_u_dict __pyx_string_tab[87]
-#define __pyx_n_u_dict_2 __pyx_string_tab[88]
-#define __pyx_n_u_dim __pyx_string_tab[89]
-#define __pyx_n_u_dims __pyx_string_tab[90]
-#define __pyx_n_u_dtype __pyx_string_tab[91]
-#define __pyx_n_u_dtypes __pyx_string_tab[92]
-#define __pyx_n_u_empty __pyx_string_tab[93]
-#define __pyx_n_u_encode __pyx_string_tab[94]
-#define __pyx_n_u_enumerate __pyx_string_tab[95]
-#define __pyx_n_u_fobj __pyx_string_tab[96]
-#define __pyx_n_u_func __pyx_string_tab[97]
-#define __pyx_n_u_getstate __pyx_string_tab[98]
-#define __pyx_n_u_hdr __pyx_string_tab[99]
-#define __pyx_n_u_header __pyx_string_tab[100]
-#define __pyx_n_u_i __pyx_string_tab[101]
-#define __pyx_n_u_imag __pyx_string_tab[102]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[103]
-#define __pyx_n_u_items __pyx_string_tab[104]
-#define __pyx_n_u_itemsize __pyx_string_tab[105]
-#define __pyx_n_u_little __pyx_string_tab[106]
-#define __pyx_n_u_little_endian __pyx_string_tab[107]
-#define __pyx_n_u_load_opaque_object __pyx_string_tab[108]
-#define __pyx_n_u_main __pyx_string_tab[109]
-#define __pyx_n_u_mat_stream __pyx_string_tab[110]
-#define __pyx_n_u_matio5_params __pyx_string_tab[111]
-#define __pyx_n_u_matio_subsystem __pyx_string_tab[112]
-#define __pyx_n_u_matio_utils_matclass __pyx_string_tab[113]
-#define __pyx_n_u_matio_utils_matutils __pyx_string_tab[114]
-#define __pyx_n_u_matio_v5__mio5_utils __pyx_string_tab[115]
-#define __pyx_n_u_matio_v5_matio5_params __pyx_string_tab[116]
-#define __pyx_n_u_mc __pyx_string_tab[117]
-#define __pyx_n_u_mdtype __pyx_string_tab[118]
-#define __pyx_n_u_mio5p __pyx_string_tab[119]
-#define __pyx_n_u_module __pyx_string_tab[120]
-#define __pyx_n_u_n_names __pyx_string_tab[121]
-#define __pyx_n_u_name __pyx_string_tab[122]
-#define __pyx_n_u_ndarray __pyx_string_tab[123]
-#define __pyx_n_u_new __pyx_string_tab[124]
-#define __pyx_n_u_nnz __pyx_string_tab[125]
-#define __pyx_n_u_np __pyx_string_tab[126]
-#define __pyx_n_u_numpy __pyx_string_tab[127]
-#define __pyx_n_u_object __pyx_string_tab[128]
-#define __pyx_n_u_order __pyx_string_tab[129]
-#define __pyx_n_u_pop __pyx_string_tab[130]
-#define __pyx_n_u_preader __pyx_string_tab[131]
-#define __pyx_n_u_process __pyx_string_tab[132]
-#define __pyx_n_u_pycopy __pyx_string_tab[133]
-#define __pyx_n_u_pyx_checksum __pyx_string_tab[134]
-#define __pyx_n_u_pyx_result __pyx_string_tab[135]
-#define __pyx_n_u_pyx_state __pyx_string_tab[136]
-#define __pyx_n_u_pyx_type __pyx_string_tab[137]
-#define __pyx_n_u_pyx_unpickle_VarHeader5 __pyx_string_tab[138]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[139]
-#define __pyx_n_u_qualname __pyx_string_tab[140]
-#define __pyx_n_u_read_cells __pyx_string_tab[141]
-#define __pyx_n_u_read_char __pyx_string_tab[142]
-#define __pyx_n_u_read_fieldnames __pyx_string_tab[143]
-#define __pyx_n_u_read_full_tag __pyx_string_tab[144]
-#define __pyx_n_u_read_header __pyx_string_tab[145]
-#define __pyx_n_u_read_numeric __pyx_string_tab[146]
-#define __pyx_n_u_read_opaque __pyx_string_tab[147]
-#define __pyx_n_u_read_real_complex __pyx_string_tab[148]
-#define __pyx_n_u_read_struct __pyx_string_tab[149]
-#define __pyx_n_u_read_tag __pyx_string_tab[150]
-#define __pyx_n_u_reduce __pyx_string_tab[151]
-#define __pyx_n_u_reduce_cython __pyx_string_tab[152]
-#define __pyx_n_u_reduce_ex __pyx_string_tab[153]
-#define __pyx_n_u_reshape __pyx_string_tab[154]
-#define __pyx_n_u_scipy_sparse __pyx_string_tab[155]
-#define __pyx_n_u_self __pyx_string_tab[156]
-#define __pyx_n_u_set_dims __pyx_string_tab[157]
-#define __pyx_n_u_set_name __pyx_string_tab[158]
-#define __pyx_n_u_set_stream __pyx_string_tab[159]
-#define __pyx_n_u_setdefault __pyx_string_tab[160]
-#define __pyx_n_u_setstate __pyx_string_tab[161]
-#define __pyx_n_u_setstate_cython __pyx_string_tab[162]
-#define __pyx_n_u_shape __pyx_string_tab[163]
-#define __pyx_n_u_shape_from_header __pyx_string_tab[164]
-#define __pyx_n_u_state __pyx_string_tab[165]
-#define __pyx_n_u_subsystem __pyx_string_tab[166]
-#define __pyx_n_u_swapped_code __pyx_string_tab[167]
-#define __pyx_n_u_sys __pyx_string_tab[168]
-#define __pyx_n_u_tag_data __pyx_string_tab[169]
-#define __pyx_n_u_tag_ptr __pyx_string_tab[170]
-#define __pyx_n_u_tag_res __pyx_string_tab[171]
-#define __pyx_n_u_test __pyx_string_tab[172]
-#define __pyx_n_u_u4 __pyx_string_tab[173]
-#define __pyx_n_u_uint16_codec __pyx_string_tab[174]
-#define __pyx_n_u_uint16_len __pyx_string_tab[175]
-#define __pyx_n_u_uint8 __pyx_string_tab[176]
-#define __pyx_n_u_update __pyx_string_tab[177]
-#define __pyx_n_u_use_setstate __pyx_string_tab[178]
-#define __pyx_n_u_v5 __pyx_string_tab[179]
-#define __pyx_n_u_values __pyx_string_tab[180]
-#define __pyx_n_u_view __pyx_string_tab[181]
-#define __pyx_kp_b_iso88591_22FaJ_4_A_XQl_1Ja_Kt7_1_2Zs_D_D __pyx_string_tab[182]
-#define __pyx_kp_b_iso88591_A4_T_2_1_t_XQl_1Ja_c_Qb_avWF_7_Q __pyx_string_tab[183]
-#define __pyx_kp_b_iso88591_A_1A __pyx_string_tab[184]
-#define __pyx_kp_b_iso88591_A_6_m1A_D_Qa_s_Cq_c_c_xq_m1_s_6 __pyx_string_tab[185]
-#define __pyx_kp_b_iso88591_A_7q_q_e4q_T_2_1_4q_F_9F_R_84_Q __pyx_string_tab[186]
-#define __pyx_kp_b_iso88591_A_HA_Jc_Cwiq_Cq __pyx_string_tab[187]
-#define __pyx_kp_b_iso88591_A_HJaxuA_HJaxuA_4q_Qc_Kq_1A_Qa_C __pyx_string_tab[188]
-#define __pyx_kp_b_iso88591_A_O1AXQa_xq __pyx_string_tab[189]
-#define __pyx_kp_b_iso88591_A_d_3k_A_1_4_Q_1_d_q_S_cQR_q __pyx_string_tab[190]
-#define __pyx_kp_b_iso88591_A_fA_3c_E_1_E_E_q __pyx_string_tab[191]
-#define __pyx_kp_b_iso88591_A_fA_Cs_s_Q_s_Q_s_Q_s_Q_s_Q_s_Q __pyx_string_tab[192]
-#define __pyx_kp_b_iso88591_A_q_e4q_T_2_1_6_E_aq_5_O1_vXQha __pyx_string_tab[193]
-#define __pyx_kp_b_iso88591_A_q_j_q_83a_wb_A __pyx_string_tab[194]
-#define __pyx_kp_b_iso88591_A_t_AQa __pyx_string_tab[195]
-#define __pyx_kp_b_iso88591_Q __pyx_string_tab[196]
-#define __pyx_kp_b_iso88591_S_4q_3b_1_2Rz_s __pyx_string_tab[197]
-#define __pyx_kp_b_iso88591_T_d_d_PTTaaeeqqu_v_C_C_G_G_P_P __pyx_string_tab[198]
-#define __pyx_kp_b_iso88591_q __pyx_string_tab[199]
-#define __pyx_kp_b_iso88591_q_0_kQR_XQa_7_A_1 __pyx_string_tab[200]
-#define __pyx_kp_b_struct___pyx_obj_5matio_2v5_8_st __pyx_string_tab[201]
+#define __pyx_n_u_VarReader5 __pyx_string_tab[45]
+#define __pyx_n_u_VarReader5___reduce_cython __pyx_string_tab[46]
+#define __pyx_n_u_VarReader5___setstate_cython __pyx_string_tab[47]
+#define __pyx_n_u_VarReader5_array_from_header __pyx_string_tab[48]
+#define __pyx_n_u_VarReader5_read_cells __pyx_string_tab[49]
+#define __pyx_n_u_VarReader5_read_char __pyx_string_tab[50]
+#define __pyx_n_u_VarReader5_read_fieldnames __pyx_string_tab[51]
+#define __pyx_n_u_VarReader5_read_full_tag __pyx_string_tab[52]
+#define __pyx_n_u_VarReader5_read_header __pyx_string_tab[53]
+#define __pyx_n_u_VarReader5_read_numeric __pyx_string_tab[54]
+#define __pyx_n_u_VarReader5_read_opaque __pyx_string_tab[55]
+#define __pyx_n_u_VarReader5_read_real_complex __pyx_string_tab[56]
+#define __pyx_n_u_VarReader5_read_struct __pyx_string_tab[57]
+#define __pyx_n_u_VarReader5_read_tag __pyx_string_tab[58]
+#define __pyx_n_u_VarReader5_set_stream __pyx_string_tab[59]
+#define __pyx_n_u_VarReader5_shape_from_header __pyx_string_tab[60]
+#define __pyx_n_u__5 __pyx_string_tab[61]
+#define __pyx_n_u_array_from_header __pyx_string_tab[62]
+#define __pyx_n_u_ascii __pyx_string_tab[63]
+#define __pyx_n_u_ascontiguousarray __pyx_string_tab[64]
+#define __pyx_n_u_astype __pyx_string_tab[65]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[66]
+#define __pyx_n_u_bool __pyx_string_tab[67]
+#define __pyx_n_u_buffer __pyx_string_tab[68]
+#define __pyx_n_u_byte_count __pyx_string_tab[69]
+#define __pyx_n_u_byte_order __pyx_string_tab[70]
+#define __pyx_n_u_byteorder __pyx_string_tab[71]
+#define __pyx_n_u_byteswap __pyx_string_tab[72]
+#define __pyx_n_u_byteswap_u4 __pyx_string_tab[73]
+#define __pyx_n_u_c16 __pyx_string_tab[74]
+#define __pyx_n_u_c8 __pyx_string_tab[75]
+#define __pyx_n_u_check_stream_limit __pyx_string_tab[76]
+#define __pyx_n_u_class_getitem __pyx_string_tab[77]
+#define __pyx_n_u_classes __pyx_string_tab[78]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[79]
+#define __pyx_n_u_codecs __pyx_string_tab[80]
+#define __pyx_n_u_copy __pyx_string_tab[81]
+#define __pyx_n_u_csc_array __pyx_string_tab[82]
+#define __pyx_n_u_d __pyx_string_tab[83]
+#define __pyx_n_u_decode __pyx_string_tab[84]
+#define __pyx_n_u_decode_char_arrays __pyx_string_tab[85]
+#define __pyx_n_u_dict __pyx_string_tab[86]
+#define __pyx_n_u_dict_2 __pyx_string_tab[87]
+#define __pyx_n_u_dtype __pyx_string_tab[88]
+#define __pyx_n_u_dtypes __pyx_string_tab[89]
+#define __pyx_n_u_empty __pyx_string_tab[90]
+#define __pyx_n_u_encode __pyx_string_tab[91]
+#define __pyx_n_u_enumerate __pyx_string_tab[92]
+#define __pyx_n_u_fobj __pyx_string_tab[93]
+#define __pyx_n_u_func __pyx_string_tab[94]
+#define __pyx_n_u_getstate __pyx_string_tab[95]
+#define __pyx_n_u_hdr __pyx_string_tab[96]
+#define __pyx_n_u_header __pyx_string_tab[97]
+#define __pyx_n_u_imag __pyx_string_tab[98]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[99]
+#define __pyx_n_u_items __pyx_string_tab[100]
+#define __pyx_n_u_itemsize __pyx_string_tab[101]
+#define __pyx_n_u_little __pyx_string_tab[102]
+#define __pyx_n_u_little_endian __pyx_string_tab[103]
+#define __pyx_n_u_load_opaque_object __pyx_string_tab[104]
+#define __pyx_n_u_main __pyx_string_tab[105]
+#define __pyx_n_u_mat_stream __pyx_string_tab[106]
+#define __pyx_n_u_matio5_params __pyx_string_tab[107]
+#define __pyx_n_u_matio_subsystem __pyx_string_tab[108]
+#define __pyx_n_u_matio_utils_matclass __pyx_string_tab[109]
+#define __pyx_n_u_matio_utils_matutils __pyx_string_tab[110]
+#define __pyx_n_u_matio_v5__mio5_utils __pyx_string_tab[111]
+#define __pyx_n_u_matio_v5_matio5_params __pyx_string_tab[112]
+#define __pyx_n_u_mc __pyx_string_tab[113]
+#define __pyx_n_u_mdtype __pyx_string_tab[114]
+#define __pyx_n_u_mio5p __pyx_string_tab[115]
+#define __pyx_n_u_module __pyx_string_tab[116]
+#define __pyx_n_u_n_names __pyx_string_tab[117]
+#define __pyx_n_u_name __pyx_string_tab[118]
+#define __pyx_n_u_ndarray __pyx_string_tab[119]
+#define __pyx_n_u_new __pyx_string_tab[120]
+#define __pyx_n_u_nnz __pyx_string_tab[121]
+#define __pyx_n_u_np __pyx_string_tab[122]
+#define __pyx_n_u_numpy __pyx_string_tab[123]
+#define __pyx_n_u_object __pyx_string_tab[124]
+#define __pyx_n_u_order __pyx_string_tab[125]
+#define __pyx_n_u_pop __pyx_string_tab[126]
+#define __pyx_n_u_preader __pyx_string_tab[127]
+#define __pyx_n_u_process __pyx_string_tab[128]
+#define __pyx_n_u_pycopy __pyx_string_tab[129]
+#define __pyx_n_u_pyx_checksum __pyx_string_tab[130]
+#define __pyx_n_u_pyx_result __pyx_string_tab[131]
+#define __pyx_n_u_pyx_state __pyx_string_tab[132]
+#define __pyx_n_u_pyx_type __pyx_string_tab[133]
+#define __pyx_n_u_pyx_unpickle_VarHeader5 __pyx_string_tab[134]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[135]
+#define __pyx_n_u_qualname __pyx_string_tab[136]
+#define __pyx_n_u_read_cells __pyx_string_tab[137]
+#define __pyx_n_u_read_char __pyx_string_tab[138]
+#define __pyx_n_u_read_fieldnames __pyx_string_tab[139]
+#define __pyx_n_u_read_full_tag __pyx_string_tab[140]
+#define __pyx_n_u_read_header __pyx_string_tab[141]
+#define __pyx_n_u_read_numeric __pyx_string_tab[142]
+#define __pyx_n_u_read_opaque __pyx_string_tab[143]
+#define __pyx_n_u_read_real_complex __pyx_string_tab[144]
+#define __pyx_n_u_read_struct __pyx_string_tab[145]
+#define __pyx_n_u_read_tag __pyx_string_tab[146]
+#define __pyx_n_u_reduce __pyx_string_tab[147]
+#define __pyx_n_u_reduce_cython __pyx_string_tab[148]
+#define __pyx_n_u_reduce_ex __pyx_string_tab[149]
+#define __pyx_n_u_reshape __pyx_string_tab[150]
+#define __pyx_n_u_scipy_sparse __pyx_string_tab[151]
+#define __pyx_n_u_self __pyx_string_tab[152]
+#define __pyx_n_u_set_name __pyx_string_tab[153]
+#define __pyx_n_u_set_stream __pyx_string_tab[154]
+#define __pyx_n_u_setdefault __pyx_string_tab[155]
+#define __pyx_n_u_setstate __pyx_string_tab[156]
+#define __pyx_n_u_setstate_cython __pyx_string_tab[157]
+#define __pyx_n_u_shape __pyx_string_tab[158]
+#define __pyx_n_u_shape_from_header __pyx_string_tab[159]
+#define __pyx_n_u_state __pyx_string_tab[160]
+#define __pyx_n_u_subsystem __pyx_string_tab[161]
+#define __pyx_n_u_swapped_code __pyx_string_tab[162]
+#define __pyx_n_u_sys __pyx_string_tab[163]
+#define __pyx_n_u_tag_data __pyx_string_tab[164]
+#define __pyx_n_u_tag_ptr __pyx_string_tab[165]
+#define __pyx_n_u_tag_res __pyx_string_tab[166]
+#define __pyx_n_u_test __pyx_string_tab[167]
+#define __pyx_n_u_u4 __pyx_string_tab[168]
+#define __pyx_n_u_uint16_codec __pyx_string_tab[169]
+#define __pyx_n_u_uint16_len __pyx_string_tab[170]
+#define __pyx_n_u_uint8 __pyx_string_tab[171]
+#define __pyx_n_u_update __pyx_string_tab[172]
+#define __pyx_n_u_use_setstate __pyx_string_tab[173]
+#define __pyx_n_u_v5 __pyx_string_tab[174]
+#define __pyx_n_u_values __pyx_string_tab[175]
+#define __pyx_n_u_view __pyx_string_tab[176]
+#define __pyx_kp_b_iso88591_22FaJ_4_A_XQl_1Ja_Kt7_1_2Zs_D_D __pyx_string_tab[177]
+#define __pyx_kp_b_iso88591_A4_T_2_1_t_XQl_1Ja_c_Qb_avWF_7_Q __pyx_string_tab[178]
+#define __pyx_kp_b_iso88591_A_1A __pyx_string_tab[179]
+#define __pyx_kp_b_iso88591_A_6_m1A_D_Qa_s_Cq_c_c_xq_m1_s_6 __pyx_string_tab[180]
+#define __pyx_kp_b_iso88591_A_7q_q_e4q_T_2_1_4q_F_9F_R_84_Q __pyx_string_tab[181]
+#define __pyx_kp_b_iso88591_A_HJaxuA_HJaxuA_4q_Qc_Kq_1A_Qa_C __pyx_string_tab[182]
+#define __pyx_kp_b_iso88591_A_O1AXQa_xq __pyx_string_tab[183]
+#define __pyx_kp_b_iso88591_A_d_3k_A_1_4_Q_1_d_q_S_cQR_q __pyx_string_tab[184]
+#define __pyx_kp_b_iso88591_A_fA_3c_E_1_E_E_q __pyx_string_tab[185]
+#define __pyx_kp_b_iso88591_A_fA_Cs_s_Q_s_Q_s_Q_s_Q_s_Q_s_Q __pyx_string_tab[186]
+#define __pyx_kp_b_iso88591_A_q_e4q_T_2_1_6_E_aq_5_O1_vXQha __pyx_string_tab[187]
+#define __pyx_kp_b_iso88591_A_q_j_q_83a_wb_A __pyx_string_tab[188]
+#define __pyx_kp_b_iso88591_A_t_AQa __pyx_string_tab[189]
+#define __pyx_kp_b_iso88591_Q __pyx_string_tab[190]
+#define __pyx_kp_b_iso88591_S_4q_3b_1_2Rz_s __pyx_string_tab[191]
+#define __pyx_kp_b_iso88591_T_d_d_PTTaaeeqqu_v_C_C_G_G_P_P __pyx_string_tab[192]
+#define __pyx_kp_b_iso88591_q __pyx_string_tab[193]
+#define __pyx_kp_b_iso88591_q_0_kQR_XQa_7_A_1 __pyx_string_tab[194]
+#define __pyx_kp_b_struct___pyx_obj_5matio_2v5_8_st __pyx_string_tab[195]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_neg_1 __pyx_number_tab[1]
 #define __pyx_int_1 __pyx_number_tab[2]
@@ -3989,8 +3975,8 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_5matio_2v5_11_mio5_utils_VarReader5);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<20; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<202; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<19; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<196; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
@@ -4039,8 +4025,8 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type_5matio_2v5_11_mio5_utils_VarReader5);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<20; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<202; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<19; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<196; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
@@ -4929,7 +4915,7 @@ static CYTHON_INLINE PyObject *__pyx_f_7cpython_11contextvars_get_value_no_defau
 }
 #endif /*!(#if !CYTHON_COMPILING_IN_LIMITED_API)*/
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":243
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":243
  *         cdef int type_num
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4940,7 +4926,7 @@ static CYTHON_INLINE PyObject *__pyx_f_7cpython_11contextvars_get_value_no_defau
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":245
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":245
  *         @property
  *         cdef inline npy_intp itemsize(self) noexcept nogil:
  *             return PyDataType_ELSIZE(self)             # <<<<<<<<<<<<<<
@@ -4950,7 +4936,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
   __pyx_r = PyDataType_ELSIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":243
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":243
  *         cdef int type_num
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4963,7 +4949,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":247
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":247
  *             return PyDataType_ELSIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4974,7 +4960,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_8itemsize_itemsize(PyArray_D
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray_Descr *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":249
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":249
  *         @property
  *         cdef inline npy_intp alignment(self) noexcept nogil:
  *             return PyDataType_ALIGNMENT(self)             # <<<<<<<<<<<<<<
@@ -4984,7 +4970,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray
   __pyx_r = PyDataType_ALIGNMENT(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":247
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":247
  *             return PyDataType_ELSIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -4997,7 +4983,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_5dtype_9alignment_alignment(PyArray
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":253
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":253
  *         # Use fields/names with care as they may be NULL.  You must check
  *         # for this using PyDataType_HASFIELDS.
  *         @property             # <<<<<<<<<<<<<<
@@ -5011,7 +4997,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("fields", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":255
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":255
  *         @property
  *         cdef inline object fields(self):
  *             return <object>PyDataType_FIELDS(self)             # <<<<<<<<<<<<<<
@@ -5024,7 +5010,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   __pyx_r = ((PyObject *)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":253
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":253
  *         # Use fields/names with care as they may be NULL.  You must check
  *         # for this using PyDataType_HASFIELDS.
  *         @property             # <<<<<<<<<<<<<<
@@ -5039,7 +5025,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_6fields_fields(PyArray_Desc
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":257
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":257
  *             return <object>PyDataType_FIELDS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5053,7 +5039,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   PyObject *__pyx_t_1;
   __Pyx_RefNannySetupContext("names", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":259
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":259
  *         @property
  *         cdef inline tuple names(self):
  *             return <tuple>PyDataType_NAMES(self)             # <<<<<<<<<<<<<<
@@ -5066,7 +5052,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   __pyx_r = ((PyObject*)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":257
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":257
  *             return <object>PyDataType_FIELDS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5081,7 +5067,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":264
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":264
  *         # valid (the pointer can be NULL). Most users should access
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property             # <<<<<<<<<<<<<<
@@ -5092,7 +5078,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_5dtype_5names_names(PyArray_Descr 
 static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarray(PyArray_Descr *__pyx_v_self) {
   PyArray_ArrayDescr *__pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":266
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":266
  *         @property
  *         cdef inline PyArray_ArrayDescr* subarray(self) noexcept nogil:
  *             return PyDataType_SUBARRAY(self)             # <<<<<<<<<<<<<<
@@ -5102,7 +5088,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
   __pyx_r = PyDataType_SUBARRAY(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":264
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":264
  *         # valid (the pointer can be NULL). Most users should access
  *         # this field via the inline helper method PyDataType_SHAPE.
  *         @property             # <<<<<<<<<<<<<<
@@ -5115,7 +5101,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":268
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":268
  *             return PyDataType_SUBARRAY(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5126,7 +5112,7 @@ static CYTHON_INLINE PyArray_ArrayDescr *__pyx_f_5numpy_5dtype_8subarray_subarra
 static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr *__pyx_v_self) {
   npy_uint64 __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":271
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":271
  *         cdef inline npy_uint64 flags(self) noexcept nogil:
  *             """The data types flags."""
  *             return PyDataType_FLAGS(self)             # <<<<<<<<<<<<<<
@@ -5136,7 +5122,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
   __pyx_r = PyDataType_FLAGS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":268
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":268
  *             return PyDataType_SUBARRAY(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5149,7 +5135,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":280
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":280
  *     ctypedef class numpy.broadcast [object PyArrayMultiIterObject, check_size ignore]:
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5160,7 +5146,7 @@ static CYTHON_INLINE npy_uint64 __pyx_f_5numpy_5dtype_5flags_flags(PyArray_Descr
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":283
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":283
  *         cdef inline int numiter(self) noexcept nogil:
  *             """The number of arrays that need to be broadcast to the same shape."""
  *             return PyArray_MultiIter_NUMITER(self)             # <<<<<<<<<<<<<<
@@ -5170,7 +5156,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
   __pyx_r = PyArray_MultiIter_NUMITER(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":280
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":280
  *     ctypedef class numpy.broadcast [object PyArrayMultiIterObject, check_size ignore]:
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5183,7 +5169,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":285
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":285
  *             return PyArray_MultiIter_NUMITER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5194,7 +5180,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_7numiter_numiter(PyArrayMulti
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":288
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":288
  *         cdef inline npy_intp size(self) noexcept nogil:
  *             """The total broadcasted size."""
  *             return PyArray_MultiIter_SIZE(self)             # <<<<<<<<<<<<<<
@@ -5204,7 +5190,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
   __pyx_r = PyArray_MultiIter_SIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":285
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":285
  *             return PyArray_MultiIter_NUMITER(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5217,7 +5203,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":290
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":290
  *             return PyArray_MultiIter_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5228,7 +5214,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_4size_size(PyArrayMultiI
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":293
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":293
  *         cdef inline npy_intp index(self) noexcept nogil:
  *             """The current (1-d) index into the broadcasted result."""
  *             return PyArray_MultiIter_INDEX(self)             # <<<<<<<<<<<<<<
@@ -5238,7 +5224,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
   __pyx_r = PyArray_MultiIter_INDEX(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":290
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":290
  *             return PyArray_MultiIter_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5251,7 +5237,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":295
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":295
  *             return PyArray_MultiIter_INDEX(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5262,7 +5248,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_9broadcast_5index_index(PyArrayMult
 static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":298
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":298
  *         cdef inline int nd(self) noexcept nogil:
  *             """The number of dimensions in the broadcasted result."""
  *             return PyArray_MultiIter_NDIM(self)             # <<<<<<<<<<<<<<
@@ -5272,7 +5258,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
   __pyx_r = PyArray_MultiIter_NDIM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":295
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":295
  *             return PyArray_MultiIter_INDEX(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5285,7 +5271,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":300
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":300
  *             return PyArray_MultiIter_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5296,7 +5282,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_9broadcast_2nd_nd(PyArrayMultiIterObject
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions(PyArrayMultiIterObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":303
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":303
  *         cdef inline npy_intp* dimensions(self) noexcept nogil:
  *             """The shape of the broadcasted result."""
  *             return PyArray_MultiIter_DIMS(self)             # <<<<<<<<<<<<<<
@@ -5306,7 +5292,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
   __pyx_r = PyArray_MultiIter_DIMS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":300
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":300
  *             return PyArray_MultiIter_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5319,7 +5305,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":305
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":305
  *             return PyArray_MultiIter_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5330,7 +5316,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_9broadcast_10dimensions_dimensions
 static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiIterObject *__pyx_v_self) {
   void **__pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":309
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":309
  *             """An array of iterator objects that holds the iterators for the arrays to be broadcast together.
  *             On return, the iterators are adjusted for broadcasting."""
  *             return PyArray_MultiIter_ITERS(self)             # <<<<<<<<<<<<<<
@@ -5340,7 +5326,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
   __pyx_r = PyArray_MultiIter_ITERS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":305
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":305
  *             return PyArray_MultiIter_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5353,7 +5339,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":323
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":323
  *         # Instead, we use properties that map to the corresponding C-API functions.
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5364,7 +5350,7 @@ static CYTHON_INLINE void **__pyx_f_5numpy_9broadcast_5iters_iters(PyArrayMultiI
 static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject *__pyx_v_self) {
   PyObject *__pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":327
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":327
  *             """Returns a borrowed reference to the object owning the data/memory.
  *             """
  *             return PyArray_BASE(self)             # <<<<<<<<<<<<<<
@@ -5374,7 +5360,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject 
   __pyx_r = PyArray_BASE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":323
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":323
  *         # Instead, we use properties that map to the corresponding C-API functions.
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5387,7 +5373,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_7ndarray_4base_base(PyArrayObject 
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":329
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":329
  *             return PyArray_BASE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5401,7 +5387,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   PyArray_Descr *__pyx_t_1;
   __Pyx_RefNannySetupContext("descr", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":333
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":333
  *             """Returns an owned reference to the dtype of the array.
  *             """
  *             return <dtype>PyArray_DESCR(self)             # <<<<<<<<<<<<<<
@@ -5414,7 +5400,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   __pyx_r = ((PyArray_Descr *)__pyx_t_1);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":329
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":329
  *             return PyArray_BASE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5429,7 +5415,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":335
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":335
  *             return <dtype>PyArray_DESCR(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5440,7 +5426,7 @@ static CYTHON_INLINE PyArray_Descr *__pyx_f_5numpy_7ndarray_5descr_descr(PyArray
 static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx_v_self) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":339
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":339
  *             """Returns the number of dimensions in the array.
  *             """
  *             return PyArray_NDIM(self)             # <<<<<<<<<<<<<<
@@ -5450,7 +5436,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
   __pyx_r = PyArray_NDIM(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":335
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":335
  *             return <dtype>PyArray_DESCR(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5463,7 +5449,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":341
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":341
  *             return PyArray_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5474,7 +5460,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_7ndarray_4ndim_ndim(PyArrayObject *__pyx
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":347
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":347
  *             Can return NULL for 0-dimensional arrays.
  *             """
  *             return PyArray_DIMS(self)             # <<<<<<<<<<<<<<
@@ -5484,7 +5470,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
   __pyx_r = PyArray_DIMS(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":341
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":341
  *             return PyArray_NDIM(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5497,7 +5483,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":349
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":349
  *             return PyArray_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5508,7 +5494,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_5shape_shape(PyArrayObjec
 static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayObject *__pyx_v_self) {
   npy_intp *__pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":354
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":354
  *             The number of elements matches the number of dimensions of the array (ndim).
  *             """
  *             return PyArray_STRIDES(self)             # <<<<<<<<<<<<<<
@@ -5518,7 +5504,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
   __pyx_r = PyArray_STRIDES(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":349
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":349
  *             return PyArray_DIMS(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5531,7 +5517,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":356
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":356
  *             return PyArray_STRIDES(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5542,7 +5528,7 @@ static CYTHON_INLINE npy_intp *__pyx_f_5numpy_7ndarray_7strides_strides(PyArrayO
 static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *__pyx_v_self) {
   npy_intp __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":360
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":360
  *             """Returns the total size (in number of elements) of the array.
  *             """
  *             return PyArray_SIZE(self)             # <<<<<<<<<<<<<<
@@ -5552,7 +5538,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
   __pyx_r = PyArray_SIZE(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":356
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":356
  *             return PyArray_STRIDES(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5565,7 +5551,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":362
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":362
  *             return PyArray_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5576,7 +5562,7 @@ static CYTHON_INLINE npy_intp __pyx_f_5numpy_7ndarray_4size_size(PyArrayObject *
 static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__pyx_v_self) {
   char *__pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":369
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":369
  *             of `PyArray_DATA()` instead, which returns a 'void*'.
  *             """
  *             return PyArray_BYTES(self)             # <<<<<<<<<<<<<<
@@ -5586,7 +5572,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
   __pyx_r = PyArray_BYTES(__pyx_v_self);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":362
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":362
  *             return PyArray_SIZE(self)
  * 
  *         @property             # <<<<<<<<<<<<<<
@@ -5599,7 +5585,7 @@ static CYTHON_INLINE char *__pyx_f_5numpy_7ndarray_4data_data(PyArrayObject *__p
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":777
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":777
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -5616,7 +5602,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew1", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":778
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":778
  * 
  * cdef inline object PyArray_MultiIterNew1(a):
  *     return PyArray_MultiIterNew(1, <void*>a)             # <<<<<<<<<<<<<<
@@ -5630,7 +5616,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":777
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":777
  * ctypedef long double complex clongdouble_t
  * 
  * cdef inline object PyArray_MultiIterNew1(a):             # <<<<<<<<<<<<<<
@@ -5649,7 +5635,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew1(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":780
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":780
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -5666,7 +5652,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew2", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":781
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":781
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)             # <<<<<<<<<<<<<<
@@ -5680,7 +5666,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":780
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":780
  *     return PyArray_MultiIterNew(1, <void*>a)
  * 
  * cdef inline object PyArray_MultiIterNew2(a, b):             # <<<<<<<<<<<<<<
@@ -5699,7 +5685,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew2(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":783
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":783
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -5716,7 +5702,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew3", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":784
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":784
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)             # <<<<<<<<<<<<<<
@@ -5730,7 +5716,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":783
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":783
  *     return PyArray_MultiIterNew(2, <void*>a, <void*>b)
  * 
  * cdef inline object PyArray_MultiIterNew3(a, b, c):             # <<<<<<<<<<<<<<
@@ -5749,7 +5735,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew3(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":786
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":786
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -5766,7 +5752,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew4", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":787
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":787
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)             # <<<<<<<<<<<<<<
@@ -5780,7 +5766,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":786
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":786
  *     return PyArray_MultiIterNew(3, <void*>a, <void*>b, <void*> c)
  * 
  * cdef inline object PyArray_MultiIterNew4(a, b, c, d):             # <<<<<<<<<<<<<<
@@ -5799,7 +5785,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew4(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":789
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":789
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -5816,7 +5802,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("PyArray_MultiIterNew5", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":790
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":790
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)             # <<<<<<<<<<<<<<
@@ -5830,7 +5816,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":789
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":789
  *     return PyArray_MultiIterNew(4, <void*>a, <void*>b, <void*>c, <void*> d)
  * 
  * cdef inline object PyArray_MultiIterNew5(a, b, c, d, e):             # <<<<<<<<<<<<<<
@@ -5849,7 +5835,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyArray_MultiIterNew5(PyObject *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":792
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":792
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -5864,7 +5850,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   PyObject *__pyx_t_2;
   __Pyx_RefNannySetupContext("PyDataType_SHAPE", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":793
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":793
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -5874,7 +5860,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   __pyx_t_1 = PyDataType_HASSUBARRAY(__pyx_v_d);
   if (__pyx_t_1) {
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":794
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":794
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):
  *         return <tuple>d.subarray.shape             # <<<<<<<<<<<<<<
@@ -5887,7 +5873,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     __pyx_r = ((PyObject*)__pyx_t_2);
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":793
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":793
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):
  *     if PyDataType_HASSUBARRAY(d):             # <<<<<<<<<<<<<<
@@ -5896,7 +5882,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
 */
   }
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":796
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":796
  *         return <tuple>d.subarray.shape
  *     else:
  *         return ()             # <<<<<<<<<<<<<<
@@ -5910,7 +5896,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
     goto __pyx_L0;
   }
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":792
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":792
  *     return PyArray_MultiIterNew(5, <void*>a, <void*>b, <void*>c, <void*> d, <void*> e)
  * 
  * cdef inline tuple PyDataType_SHAPE(dtype d):             # <<<<<<<<<<<<<<
@@ -5925,7 +5911,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_PyDataType_SHAPE(PyArray_Descr *__
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":995
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":995
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -5939,7 +5925,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":996
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":996
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!             # <<<<<<<<<<<<<<
@@ -5948,7 +5934,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
 */
   Py_INCREF(__pyx_v_base);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":997
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":997
  * cdef inline void set_array_base(ndarray arr, object base) except *:
  *     Py_INCREF(base) # important to do this before stealing the reference below!
  *     PyArray_SetBaseObject(arr, base)             # <<<<<<<<<<<<<<
@@ -5957,7 +5943,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
 */
   __pyx_t_1 = PyArray_SetBaseObject(__pyx_v_arr, __pyx_v_base); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(3, 997, __pyx_L1_error)
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":995
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":995
  *     int _import_umath() except -1
  * 
  * cdef inline void set_array_base(ndarray arr, object base) except *:             # <<<<<<<<<<<<<<
@@ -5972,7 +5958,7 @@ static CYTHON_INLINE void __pyx_f_5numpy_set_array_base(PyArrayObject *__pyx_v_a
   __pyx_L0:;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":999
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":999
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -5987,7 +5973,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   int __pyx_t_1;
   __Pyx_RefNannySetupContext("get_array_base", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1000
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1000
  * 
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)             # <<<<<<<<<<<<<<
@@ -5996,7 +5982,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
 */
   __pyx_v_base = PyArray_BASE(__pyx_v_arr);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1001
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1001
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -6006,7 +5992,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   __pyx_t_1 = (__pyx_v_base == NULL);
   if (__pyx_t_1) {
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1002
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1002
  *     base = PyArray_BASE(arr)
  *     if base is NULL:
  *         return None             # <<<<<<<<<<<<<<
@@ -6017,7 +6003,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1001
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1001
  * cdef inline object get_array_base(ndarray arr):
  *     base = PyArray_BASE(arr)
  *     if base is NULL:             # <<<<<<<<<<<<<<
@@ -6026,7 +6012,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
 */
   }
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1003
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1003
  *     if base is NULL:
  *         return None
  *     return <object>base             # <<<<<<<<<<<<<<
@@ -6038,7 +6024,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   __pyx_r = ((PyObject *)__pyx_v_base);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":999
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":999
  *     PyArray_SetBaseObject(arr, base)
  * 
  * cdef inline object get_array_base(ndarray arr):             # <<<<<<<<<<<<<<
@@ -6053,7 +6039,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5numpy_get_array_base(PyArrayObject *__py
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1007
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1007
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -6079,7 +6065,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_array", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1008
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1008
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6095,7 +6081,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1009
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1009
  * cdef inline int import_array() except -1:
  *     try:
  *         __pyx_import_array()             # <<<<<<<<<<<<<<
@@ -6104,7 +6090,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
 */
       __pyx_t_4 = _import_array(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(3, 1009, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1008
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1008
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6118,7 +6104,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1010
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1010
  *     try:
  *         __pyx_import_array()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -6133,7 +6119,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1011
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1011
  *         __pyx_import_array()
  *     except Exception:
  *         raise ImportError("numpy._core.multiarray failed to import")             # <<<<<<<<<<<<<<
@@ -6155,7 +6141,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1008
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1008
  * # Cython code.
  * cdef inline int import_array() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6171,7 +6157,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1007
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1007
  * # Versions of the import_* functions which are more suitable for
  * # Cython code.
  * cdef inline int import_array() except -1:             # <<<<<<<<<<<<<<
@@ -6195,7 +6181,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_array(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1013
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1013
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -6221,7 +6207,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_umath", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1014
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1014
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6237,7 +6223,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1015
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1015
  * cdef inline int import_umath() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -6246,7 +6232,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
 */
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(3, 1015, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1014
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1014
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6260,7 +6246,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1016
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1016
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -6275,7 +6261,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1017
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1017
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -6297,7 +6283,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1014
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1014
  * 
  * cdef inline int import_umath() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6313,7 +6299,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1013
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1013
  *         raise ImportError("numpy._core.multiarray failed to import")
  * 
  * cdef inline int import_umath() except -1:             # <<<<<<<<<<<<<<
@@ -6337,7 +6323,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_umath(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1019
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1019
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -6363,7 +6349,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("import_ufunc", 0);
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1020
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1020
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6379,7 +6365,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1021
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1021
  * cdef inline int import_ufunc() except -1:
  *     try:
  *         _import_umath()             # <<<<<<<<<<<<<<
@@ -6388,7 +6374,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 */
       __pyx_t_4 = _import_umath(); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(3, 1021, __pyx_L3_error)
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1020
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1020
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6402,7 +6388,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1022
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1022
  *     try:
  *         _import_umath()
  *     except Exception:             # <<<<<<<<<<<<<<
@@ -6417,7 +6403,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1023
+      /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1023
  *         _import_umath()
  *     except Exception:
  *         raise ImportError("numpy._core.umath failed to import")             # <<<<<<<<<<<<<<
@@ -6439,7 +6425,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     }
     goto __pyx_L5_except_error;
 
-    /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1020
+    /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1020
  * 
  * cdef inline int import_ufunc() except -1:
  *     try:             # <<<<<<<<<<<<<<
@@ -6455,7 +6441,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
     __pyx_L8_try_end:;
   }
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1019
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1019
  *         raise ImportError("numpy._core.umath failed to import")
  * 
  * cdef inline int import_ufunc() except -1:             # <<<<<<<<<<<<<<
@@ -6479,7 +6465,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1026
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1026
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -6490,7 +6476,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_import_ufunc(void) {
 static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1038
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1038
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyTimedeltaArrType_Type)             # <<<<<<<<<<<<<<
@@ -6500,7 +6486,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   __pyx_r = PyObject_TypeCheck(__pyx_v_obj, (&PyTimedeltaArrType_Type));
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1026
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1026
  * 
  * 
  * cdef inline bint is_timedelta64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -6513,7 +6499,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1041
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1041
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -6524,7 +6510,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_timedelta64_object(PyObject *__pyx_v_
 static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_obj) {
   int __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1053
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1053
  *     bool
  *     """
  *     return PyObject_TypeCheck(obj, &PyDatetimeArrType_Type)             # <<<<<<<<<<<<<<
@@ -6534,7 +6520,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   __pyx_r = PyObject_TypeCheck(__pyx_v_obj, (&PyDatetimeArrType_Type));
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1041
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1041
  * 
  * 
  * cdef inline bint is_datetime64_object(object obj) noexcept:             # <<<<<<<<<<<<<<
@@ -6547,7 +6533,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1056
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1056
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6558,7 +6544,7 @@ static CYTHON_INLINE int __pyx_f_5numpy_is_datetime64_object(PyObject *__pyx_v_o
 static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *__pyx_v_obj) {
   npy_datetime __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1063
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1063
  *     also needed.  That can be found using `get_datetime64_unit`.
  *     """
  *     return (<PyDatetimeScalarObject*>obj).obval             # <<<<<<<<<<<<<<
@@ -6568,7 +6554,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   __pyx_r = ((PyDatetimeScalarObject *)__pyx_v_obj)->obval;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1056
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1056
  * 
  * 
  * cdef inline npy_datetime get_datetime64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6581,7 +6567,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1066
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1066
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6592,7 +6578,7 @@ static CYTHON_INLINE npy_datetime __pyx_f_5numpy_get_datetime64_value(PyObject *
 static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject *__pyx_v_obj) {
   npy_timedelta __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1070
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1070
  *     returns the int64 value underlying scalar numpy timedelta64 object
  *     """
  *     return (<PyTimedeltaScalarObject*>obj).obval             # <<<<<<<<<<<<<<
@@ -6602,7 +6588,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   __pyx_r = ((PyTimedeltaScalarObject *)__pyx_v_obj)->obval;
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1066
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1066
  * 
  * 
  * cdef inline npy_timedelta get_timedelta64_value(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6615,7 +6601,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
   return __pyx_r;
 }
 
-/* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1073
+/* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1073
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6626,7 +6612,7 @@ static CYTHON_INLINE npy_timedelta __pyx_f_5numpy_get_timedelta64_value(PyObject
 static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObject *__pyx_v_obj) {
   NPY_DATETIMEUNIT __pyx_r;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1077
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1077
  *     returns the unit part of the dtype for a numpy datetime64 object.
  *     """
  *     return <NPY_DATETIMEUNIT>(<PyDatetimeScalarObject*>obj).obmeta.base             # <<<<<<<<<<<<<<
@@ -6636,7 +6622,7 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   __pyx_r = ((NPY_DATETIMEUNIT)((PyDatetimeScalarObject *)__pyx_v_obj)->obmeta.base);
   goto __pyx_L0;
 
-  /* "../../../../../tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1073
+  /* "../../../../../tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/__init__.cython-30.pxd":1073
  * 
  * 
  * cdef inline NPY_DATETIMEUNIT get_datetime64_unit(object obj) noexcept nogil:             # <<<<<<<<<<<<<<
@@ -6649,8 +6635,8 @@ static CYTHON_INLINE NPY_DATETIMEUNIT __pyx_f_5numpy_get_datetime64_unit(PyObjec
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":151
- * 
+/* "matio/v5/_mio5_utils.pyx":138
+ * cdef cnp.dtype BOOL_DTYPE = np.dtype(np.bool_)
  * 
  * cpdef cnp.uint32_t byteswap_u4(cnp.uint32_t u4) noexcept:             # <<<<<<<<<<<<<<
  *     return ((u4 << 24) |
@@ -6667,7 +6653,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 static __pyx_t_5numpy_uint32_t __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4(__pyx_t_5numpy_uint32_t __pyx_v_u4, CYTHON_UNUSED int __pyx_skip_dispatch) {
   __pyx_t_5numpy_uint32_t __pyx_r;
 
-  /* "matio/v5/_mio5_utils.pyx":154
+  /* "matio/v5/_mio5_utils.pyx":141
  *     return ((u4 << 24) |
  *            ((u4 << 8) & 0xff0000U) |
  *            ((u4 >> 8 & 0xff00u)) |             # <<<<<<<<<<<<<<
@@ -6677,8 +6663,8 @@ static __pyx_t_5numpy_uint32_t __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4(__py
   __pyx_r = ((((__pyx_v_u4 << 24) | ((__pyx_v_u4 << 8) & 0xff0000U)) | ((__pyx_v_u4 >> 8) & 0xff00U)) | (__pyx_v_u4 >> 24));
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":151
- * 
+  /* "matio/v5/_mio5_utils.pyx":138
+ * cdef cnp.dtype BOOL_DTYPE = np.dtype(np.bool_)
  * 
  * cpdef cnp.uint32_t byteswap_u4(cnp.uint32_t u4) noexcept:             # <<<<<<<<<<<<<<
  *     return ((u4 << 24) |
@@ -6729,32 +6715,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_u4,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 151, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 138, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 151, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 138, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "byteswap_u4", 0) < (0)) __PYX_ERR(0, 151, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "byteswap_u4", 0) < (0)) __PYX_ERR(0, 138, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("byteswap_u4", 1, 1, 1, i); __PYX_ERR(0, 151, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("byteswap_u4", 1, 1, 1, i); __PYX_ERR(0, 138, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 151, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 138, __pyx_L3_error)
     }
-    __pyx_v_u4 = __Pyx_PyLong_As_npy_uint32(values[0]); if (unlikely((__pyx_v_u4 == ((npy_uint32)-1)) && PyErr_Occurred())) __PYX_ERR(0, 151, __pyx_L3_error)
+    __pyx_v_u4 = __Pyx_PyLong_As_npy_uint32(values[0]); if (unlikely((__pyx_v_u4 == ((npy_uint32)-1)) && PyErr_Occurred())) __PYX_ERR(0, 138, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("byteswap_u4", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 151, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("byteswap_u4", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 138, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6784,7 +6770,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_byteswap_u4(CYTHON_UNUSED PyO
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("byteswap_u4", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_npy_uint32(__pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4(__pyx_v_u4, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_npy_uint32(__pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4(__pyx_v_u4, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -6801,259 +6787,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_byteswap_u4(CYTHON_UNUSED PyO
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":172
- *     cdef readonly size_t nzmax
- * 
- *     def set_dims(self, dims):             # <<<<<<<<<<<<<<
- *         """ Allow setting of dimensions from python
- * 
-*/
-
-/* Python wrapper */
-static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_1set_dims(PyObject *__pyx_v_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-); /*proto*/
-PyDoc_STRVAR(__pyx_doc_5matio_2v5_11_mio5_utils_10VarHeader5_set_dims, " Allow setting of dimensions from python\n\n        This is for constructing headers for tests\n        ");
-static PyMethodDef __pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_1set_dims = {"set_dims", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_1set_dims, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_5matio_2v5_11_mio5_utils_10VarHeader5_set_dims};
-static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_1set_dims(PyObject *__pyx_v_self, 
-#if CYTHON_METH_FASTCALL
-PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
-#else
-PyObject *__pyx_args, PyObject *__pyx_kwds
-#endif
-) {
-  PyObject *__pyx_v_dims = 0;
-  #if !CYTHON_METH_FASTCALL
-  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
-  #endif
-  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[1] = {0};
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  PyObject *__pyx_r = 0;
-  __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("set_dims (wrapper)", 0);
-  #if !CYTHON_METH_FASTCALL
-  #if CYTHON_ASSUME_SAFE_SIZE
-  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
-  #else
-  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
-  #endif
-  #endif
-  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
-  {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_dims,0};
-    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 172, __pyx_L3_error)
-    if (__pyx_kwds_len > 0) {
-      switch (__pyx_nargs) {
-        case  1:
-        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
-        CYTHON_FALLTHROUGH;
-        case  0: break;
-        default: goto __pyx_L5_argtuple_error;
-      }
-      const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "set_dims", 0) < (0)) __PYX_ERR(0, 172, __pyx_L3_error)
-      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("set_dims", 1, 1, 1, i); __PYX_ERR(0, 172, __pyx_L3_error) }
-      }
-    } else if (unlikely(__pyx_nargs != 1)) {
-      goto __pyx_L5_argtuple_error;
-    } else {
-      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
-    }
-    __pyx_v_dims = values[0];
-  }
-  goto __pyx_L6_skip;
-  __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set_dims", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 172, __pyx_L3_error)
-  __pyx_L6_skip:;
-  goto __pyx_L4_argument_unpacking_done;
-  __pyx_L3_error:;
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __Pyx_AddTraceback("matio.v5._mio5_utils.VarHeader5.set_dims", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __Pyx_RefNannyFinishContext();
-  return NULL;
-  __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_set_dims(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_v_self), __pyx_v_dims);
-
-  /* function exit code */
-  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
-    Py_XDECREF(values[__pyx_temp]);
-  }
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_set_dims(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self, PyObject *__pyx_v_dims) {
-  PyObject *__pyx_v_i = NULL;
-  PyObject *__pyx_v_dim = NULL;
-  PyObject *__pyx_r = NULL;
-  __Pyx_RefNannyDeclarations
-  Py_ssize_t __pyx_t_1;
-  PyObject *__pyx_t_2 = NULL;
-  PyObject *__pyx_t_3 = NULL;
-  PyObject *(*__pyx_t_4)(PyObject *);
-  PyObject *__pyx_t_5 = NULL;
-  __pyx_t_5numpy_int32_t __pyx_t_6;
-  Py_ssize_t __pyx_t_7;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("set_dims", 0);
-
-  /* "matio/v5/_mio5_utils.pyx":177
- *         This is for constructing headers for tests
- *         """
- *         self.dims = dims             # <<<<<<<<<<<<<<
- *         self.n_dims = len(dims)
- *         for i, dim in enumerate(dims):
-*/
-  __Pyx_INCREF(__pyx_v_dims);
-  __Pyx_GIVEREF(__pyx_v_dims);
-  __Pyx_GOTREF(__pyx_v_self->dims);
-  __Pyx_DECREF(__pyx_v_self->dims);
-  __pyx_v_self->dims = __pyx_v_dims;
-
-  /* "matio/v5/_mio5_utils.pyx":178
- *         """
- *         self.dims = dims
- *         self.n_dims = len(dims)             # <<<<<<<<<<<<<<
- *         for i, dim in enumerate(dims):
- *             self.dims_ptr[i] = <cnp.int32_t>int(dim)
-*/
-  __pyx_t_1 = PyObject_Length(__pyx_v_dims); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 178, __pyx_L1_error)
-  __pyx_v_self->n_dims = __pyx_t_1;
-
-  /* "matio/v5/_mio5_utils.pyx":179
- *         self.dims = dims
- *         self.n_dims = len(dims)
- *         for i, dim in enumerate(dims):             # <<<<<<<<<<<<<<
- *             self.dims_ptr[i] = <cnp.int32_t>int(dim)
- * 
-*/
-  __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
-  __pyx_t_2 = __pyx_mstate_global->__pyx_int_0;
-  if (likely(PyList_CheckExact(__pyx_v_dims)) || PyTuple_CheckExact(__pyx_v_dims)) {
-    __pyx_t_3 = __pyx_v_dims; __Pyx_INCREF(__pyx_t_3);
-    __pyx_t_1 = 0;
-    __pyx_t_4 = NULL;
-  } else {
-    __pyx_t_1 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_dims); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 179, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 179, __pyx_L1_error)
-  }
-  for (;;) {
-    if (likely(!__pyx_t_4)) {
-      if (likely(PyList_CheckExact(__pyx_t_3))) {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 179, __pyx_L1_error)
-          #endif
-          if (__pyx_t_1 >= __pyx_temp) break;
-        }
-        __pyx_t_5 = __Pyx_PyList_GetItemRefFast(__pyx_t_3, __pyx_t_1, __Pyx_ReferenceSharing_OwnStrongReference);
-        ++__pyx_t_1;
-      } else {
-        {
-          Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
-          #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 179, __pyx_L1_error)
-          #endif
-          if (__pyx_t_1 >= __pyx_temp) break;
-        }
-        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_5 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_1));
-        #else
-        __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_1);
-        #endif
-        ++__pyx_t_1;
-      }
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 179, __pyx_L1_error)
-    } else {
-      __pyx_t_5 = __pyx_t_4(__pyx_t_3);
-      if (unlikely(!__pyx_t_5)) {
-        PyObject* exc_type = PyErr_Occurred();
-        if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 179, __pyx_L1_error)
-          PyErr_Clear();
-        }
-        break;
-      }
-    }
-    __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_XDECREF_SET(__pyx_v_dim, __pyx_t_5);
-    __pyx_t_5 = 0;
-    __Pyx_INCREF(__pyx_t_2);
-    __Pyx_XDECREF_SET(__pyx_v_i, __pyx_t_2);
-    __pyx_t_5 = __Pyx_PyLong_AddObjC(__pyx_t_2, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 179, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_DECREF(__pyx_t_2);
-    __pyx_t_2 = __pyx_t_5;
-    __pyx_t_5 = 0;
-
-    /* "matio/v5/_mio5_utils.pyx":180
- *         self.n_dims = len(dims)
- *         for i, dim in enumerate(dims):
- *             self.dims_ptr[i] = <cnp.int32_t>int(dim)             # <<<<<<<<<<<<<<
- * 
- * 
-*/
-    __pyx_t_5 = __Pyx_PyNumber_Int(__pyx_v_dim); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 180, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyLong_As_npy_int32(__pyx_t_5); if (unlikely((__pyx_t_6 == ((npy_int32)-1)) && PyErr_Occurred())) __PYX_ERR(0, 180, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_7 = __Pyx_PyIndex_AsSsize_t(__pyx_v_i); if (unlikely((__pyx_t_7 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 180, __pyx_L1_error)
-    (__pyx_v_self->dims_ptr[__pyx_t_7]) = ((__pyx_t_5numpy_int32_t)__pyx_t_6);
-
-    /* "matio/v5/_mio5_utils.pyx":179
- *         self.dims = dims
- *         self.n_dims = len(dims)
- *         for i, dim in enumerate(dims):             # <<<<<<<<<<<<<<
- *             self.dims_ptr[i] = <cnp.int32_t>int(dim)
- * 
-*/
-  }
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-  /* "matio/v5/_mio5_utils.pyx":172
- *     cdef readonly size_t nzmax
- * 
- *     def set_dims(self, dims):             # <<<<<<<<<<<<<<
- *         """ Allow setting of dimensions from python
- * 
-*/
-
-  /* function exit code */
-  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  goto __pyx_L0;
-  __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
-  __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_AddTraceback("matio.v5._mio5_utils.VarHeader5.set_dims", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
-  __pyx_L0:;
-  __Pyx_XDECREF(__pyx_v_i);
-  __Pyx_XDECREF(__pyx_v_dim);
-  __Pyx_XGIVEREF(__pyx_r);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
-/* "matio/v5/_mio5_utils.pyx":159
+/* "matio/v5/_mio5_utils.pyx":146
  * 
  * cdef class VarHeader5:
  *     cdef readonly object name             # <<<<<<<<<<<<<<
@@ -7092,7 +6826,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_4name___get__(st
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":160
+/* "matio/v5/_mio5_utils.pyx":147
  * cdef class VarHeader5:
  *     cdef readonly object name
  *     cdef readonly object classname             # <<<<<<<<<<<<<<
@@ -7131,7 +6865,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_9classname___get
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":161
+/* "matio/v5/_mio5_utils.pyx":148
  *     cdef readonly object name
  *     cdef readonly object classname
  *     cdef readonly object type_system             # <<<<<<<<<<<<<<
@@ -7170,7 +6904,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_11type_system___
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":162
+/* "matio/v5/_mio5_utils.pyx":149
  *     cdef readonly object classname
  *     cdef readonly object type_system
  *     cdef readonly int mclass             # <<<<<<<<<<<<<<
@@ -7202,7 +6936,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_6mclass___get__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->mclass); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->mclass); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 149, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -7219,7 +6953,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_6mclass___get__(
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":163
+/* "matio/v5/_mio5_utils.pyx":150
  *     cdef readonly object type_system
  *     cdef readonly int mclass
  *     cdef readonly object dims             # <<<<<<<<<<<<<<
@@ -7258,9 +6992,58 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_4dims___get__(st
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":168
+/* "matio/v5/_mio5_utils.pyx":154
+ *     cdef int n_dims
  *     cdef int check_stream_limit
- *     cdef int is_complex
+ *     cdef readonly int is_complex             # <<<<<<<<<<<<<<
+ *     cdef readonly int is_logical
+ *     cdef public int is_global
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_10is_complex_1__get__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_10is_complex_1__get__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__get__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_10is_complex___get__(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_10is_complex___get__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__get__", 0);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->is_complex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("matio.v5._mio5_utils.VarHeader5.is_complex.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "matio/v5/_mio5_utils.pyx":155
+ *     cdef int check_stream_limit
+ *     cdef readonly int is_complex
  *     cdef readonly int is_logical             # <<<<<<<<<<<<<<
  *     cdef public int is_global
  *     cdef readonly size_t nzmax
@@ -7290,7 +7073,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_10is_logical___g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->is_logical); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->is_logical); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -7307,8 +7090,8 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_10is_logical___g
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":169
- *     cdef int is_complex
+/* "matio/v5/_mio5_utils.pyx":156
+ *     cdef readonly int is_complex
  *     cdef readonly int is_logical
  *     cdef public int is_global             # <<<<<<<<<<<<<<
  *     cdef readonly size_t nzmax
@@ -7339,7 +7122,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_9is_global___get
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->is_global); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->is_global); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -7377,7 +7160,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_9is_global_2__set__(st
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L1_error)
   __pyx_v_self->is_global = __pyx_t_1;
 
   /* function exit code */
@@ -7390,12 +7173,12 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_9is_global_2__set__(st
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":170
+/* "matio/v5/_mio5_utils.pyx":157
  *     cdef readonly int is_logical
  *     cdef public int is_global
  *     cdef readonly size_t nzmax             # <<<<<<<<<<<<<<
  * 
- *     def set_dims(self, dims):
+ * 
 */
 
 /* Python wrapper */
@@ -7422,7 +7205,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_5nzmax___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_self->nzmax); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_self->nzmax); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -7446,15 +7229,15 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_5nzmax___get__(s
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_3__reduce_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_1__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_3__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_3__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_3__reduce_cython__(PyObject *__pyx_v_self, 
+static PyMethodDef __pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_1__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_1__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_1__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7480,14 +7263,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   const Py_ssize_t __pyx_kwds_len = unlikely(__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
   if (unlikely(__pyx_kwds_len < 0)) return NULL;
   if (unlikely(__pyx_kwds_len > 0)) {__Pyx_RejectKeywords("__reduce_cython__", __pyx_kwds); return NULL;}
-  __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_2__reduce_cython__(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_v_self));
+  __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5___reduce_cython__(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_2__reduce_cython__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self) {
+static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5___reduce_cython__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self) {
   PyObject *__pyx_v_state = 0;
   PyObject *__pyx_v__dict = 0;
   int __pyx_v_use_setstate;
@@ -7797,15 +7580,15 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_2__reduce_cython
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_5__setstate_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_3__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_5__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_5__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_5__setstate_cython__(PyObject *__pyx_v_self, 
+static PyMethodDef __pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_3__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_3__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_3__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7871,7 +7654,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_4__setstate_cython__(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_v_self), __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_2__setstate_cython__(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_v_self), __pyx_v___pyx_state);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -7881,7 +7664,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_4__setstate_cython__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_2__setstate_cython__(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_v_self, PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -7929,7 +7712,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarHeader5_4__setstate_cyth
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":205
+/* "matio/v5/_mio5_utils.pyx":172
  *     cdef object subsystem
  * 
  *     def __cinit__(self, preader):             # <<<<<<<<<<<<<<
@@ -7959,32 +7742,32 @@ static int __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_1__cinit__(PyObject *_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_preader,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 205, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 172, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 205, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 205, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 172, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 205, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, i); __PYX_ERR(0, 172, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 205, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
     }
     __pyx_v_preader = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 205, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 172, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8028,34 +7811,34 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":206
+  /* "matio/v5/_mio5_utils.pyx":173
  * 
  *     def __cinit__(self, preader):
  *         byte_order = preader.byte_order             # <<<<<<<<<<<<<<
  *         self.is_swapped = byte_order == swapped_code
  *         if self.is_swapped:
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_preader, __pyx_mstate_global->__pyx_n_u_byte_order); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_preader, __pyx_mstate_global->__pyx_n_u_byte_order); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_byte_order = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":207
+  /* "matio/v5/_mio5_utils.pyx":174
  *     def __cinit__(self, preader):
  *         byte_order = preader.byte_order
  *         self.is_swapped = byte_order == swapped_code             # <<<<<<<<<<<<<<
  *         if self.is_swapped:
  *             self.little_endian = not sys_is_le
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_swapped_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_swapped_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_v_byte_order, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_v_byte_order, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 207, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_self->is_swapped = __pyx_t_3;
 
-  /* "matio/v5/_mio5_utils.pyx":208
+  /* "matio/v5/_mio5_utils.pyx":175
  *         byte_order = preader.byte_order
  *         self.is_swapped = byte_order == swapped_code
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -8065,7 +7848,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   __pyx_t_4 = (__pyx_v_self->is_swapped != 0);
   if (__pyx_t_4) {
 
-    /* "matio/v5/_mio5_utils.pyx":209
+    /* "matio/v5/_mio5_utils.pyx":176
  *         self.is_swapped = byte_order == swapped_code
  *         if self.is_swapped:
  *             self.little_endian = not sys_is_le             # <<<<<<<<<<<<<<
@@ -8074,7 +7857,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
 */
     __pyx_v_self->little_endian = (!__pyx_v_5matio_2v5_11_mio5_utils_sys_is_le);
 
-    /* "matio/v5/_mio5_utils.pyx":208
+    /* "matio/v5/_mio5_utils.pyx":175
  *         byte_order = preader.byte_order
  *         self.is_swapped = byte_order == swapped_code
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -8084,34 +7867,34 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":211
+  /* "matio/v5/_mio5_utils.pyx":178
  *             self.little_endian = not sys_is_le
  *         else:
  *             self.little_endian = sys_is_le             # <<<<<<<<<<<<<<
+ * 
  *         # store codecs for text matrix reading
- *         self.codecs = mio5p.MDTYPES[byte_order]['codecs'].copy()
 */
   /*else*/ {
     __pyx_v_self->little_endian = __pyx_v_5matio_2v5_11_mio5_utils_sys_is_le;
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":213
- *             self.little_endian = sys_is_le
+  /* "matio/v5/_mio5_utils.pyx":181
+ * 
  *         # store codecs for text matrix reading
  *         self.codecs = mio5p.MDTYPES[byte_order]['codecs'].copy()             # <<<<<<<<<<<<<<
  *         self.uint16_codec = preader.uint16_codec
  *         uint16_codec = self.uint16_codec
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_mio5p); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_mio5p); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_MDTYPES); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_MDTYPES); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_GetItem(__pyx_t_6, __pyx_v_byte_order); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetItem(__pyx_t_6, __pyx_v_byte_order); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_codecs); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_codecs); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_1 = __pyx_t_6;
@@ -8122,7 +7905,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_copy, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_GIVEREF(__pyx_t_2);
@@ -8131,14 +7914,14 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   __pyx_v_self->codecs = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":214
+  /* "matio/v5/_mio5_utils.pyx":182
  *         # store codecs for text matrix reading
  *         self.codecs = mio5p.MDTYPES[byte_order]['codecs'].copy()
  *         self.uint16_codec = preader.uint16_codec             # <<<<<<<<<<<<<<
  *         uint16_codec = self.uint16_codec
- *         # Set length of miUINT16 char encoding
+ * 
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_preader, __pyx_mstate_global->__pyx_n_u_uint16_codec); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_preader, __pyx_mstate_global->__pyx_n_u_uint16_codec); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_2);
   __Pyx_GOTREF(__pyx_v_self->uint16_codec);
@@ -8146,20 +7929,20 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   __pyx_v_self->uint16_codec = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":215
+  /* "matio/v5/_mio5_utils.pyx":183
  *         self.codecs = mio5p.MDTYPES[byte_order]['codecs'].copy()
  *         self.uint16_codec = preader.uint16_codec
  *         uint16_codec = self.uint16_codec             # <<<<<<<<<<<<<<
+ * 
  *         # Set length of miUINT16 char encoding
- *         self.codecs['uint16_len'] = len("  ".encode(uint16_codec)) \
 */
   __pyx_t_2 = __pyx_v_self->uint16_codec;
   __Pyx_INCREF(__pyx_t_2);
   __pyx_v_uint16_codec = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":217
- *         uint16_codec = self.uint16_codec
+  /* "matio/v5/_mio5_utils.pyx":186
+ * 
  *         # Set length of miUINT16 char encoding
  *         self.codecs['uint16_len'] = len("  ".encode(uint16_codec)) \             # <<<<<<<<<<<<<<
  *                 - len(" ".encode(uint16_codec))
@@ -8172,18 +7955,18 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_uint16_codec};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 186, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_8 = __Pyx_PyBytes_GET_SIZE(__pyx_t_2); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 217, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyBytes_GET_SIZE(__pyx_t_2); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 186, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":218
+  /* "matio/v5/_mio5_utils.pyx":187
  *         # Set length of miUINT16 char encoding
  *         self.codecs['uint16_len'] = len("  ".encode(uint16_codec)) \
  *                 - len(" ".encode(uint16_codec))             # <<<<<<<<<<<<<<
  *         self.codecs['uint16_codec'] = uint16_codec
- *         # set c-optimized stream object from python file-like object
+ * 
 */
   __pyx_t_6 = __pyx_mstate_global->__pyx_kp_u__2;
   __Pyx_INCREF(__pyx_t_6);
@@ -8192,43 +7975,43 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
     PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_uint16_codec};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_encode, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 218, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_9 = __Pyx_PyBytes_GET_SIZE(__pyx_t_2); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1))) __PYX_ERR(0, 218, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyBytes_GET_SIZE(__pyx_t_2); if (unlikely(__pyx_t_9 == ((Py_ssize_t)-1))) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyLong_FromSsize_t((__pyx_t_8 - __pyx_t_9)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 218, __pyx_L1_error)
+  __pyx_t_2 = PyLong_FromSsize_t((__pyx_t_8 - __pyx_t_9)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "matio/v5/_mio5_utils.pyx":217
- *         uint16_codec = self.uint16_codec
+  /* "matio/v5/_mio5_utils.pyx":186
+ * 
  *         # Set length of miUINT16 char encoding
  *         self.codecs['uint16_len'] = len("  ".encode(uint16_codec)) \             # <<<<<<<<<<<<<<
  *                 - len(" ".encode(uint16_codec))
  *         self.codecs['uint16_codec'] = uint16_codec
 */
-  if (unlikely((PyObject_SetItem(__pyx_v_self->codecs, __pyx_mstate_global->__pyx_n_u_uint16_len, __pyx_t_2) < 0))) __PYX_ERR(0, 217, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_self->codecs, __pyx_mstate_global->__pyx_n_u_uint16_len, __pyx_t_2) < 0))) __PYX_ERR(0, 186, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":219
+  /* "matio/v5/_mio5_utils.pyx":188
  *         self.codecs['uint16_len'] = len("  ".encode(uint16_codec)) \
  *                 - len(" ".encode(uint16_codec))
  *         self.codecs['uint16_codec'] = uint16_codec             # <<<<<<<<<<<<<<
+ * 
  *         # set c-optimized stream object from python file-like object
- *         self.cstream = _streams.make_stream(preader.mat_stream)
 */
-  if (unlikely((PyObject_SetItem(__pyx_v_self->codecs, __pyx_mstate_global->__pyx_n_u_uint16_codec, __pyx_v_uint16_codec) < 0))) __PYX_ERR(0, 219, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_self->codecs, __pyx_mstate_global->__pyx_n_u_uint16_codec, __pyx_v_uint16_codec) < 0))) __PYX_ERR(0, 188, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":221
- *         self.codecs['uint16_codec'] = uint16_codec
+  /* "matio/v5/_mio5_utils.pyx":191
+ * 
  *         # set c-optimized stream object from python file-like object
  *         self.cstream = _streams.make_stream(preader.mat_stream)             # <<<<<<<<<<<<<<
  * 
  *         # copy refs to dtypes into object pointer array. We only need the
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_preader, __pyx_mstate_global->__pyx_n_u_mat_stream); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_preader, __pyx_mstate_global->__pyx_n_u_mat_stream); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = ((PyObject *)__pyx_f_5matio_2v5_8_streams_make_stream(__pyx_t_2, 0)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_6 = ((PyObject *)__pyx_f_5matio_2v5_8_streams_make_stream(__pyx_t_2, 0)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 191, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_GIVEREF(__pyx_t_6);
@@ -8237,7 +8020,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   __pyx_v_self->cstream = ((struct __pyx_obj_5matio_2v5_8_streams_GenericStream *)__pyx_t_6);
   __pyx_t_6 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":225
+  /* "matio/v5/_mio5_utils.pyx":195
  *         # copy refs to dtypes into object pointer array. We only need the
  *         # integer-keyed dtypes
  *         for key, dt in mio5p.MDTYPES[byte_order]['dtypes'].items():             # <<<<<<<<<<<<<<
@@ -8245,22 +8028,22 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
  *                 continue
 */
   __pyx_t_9 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_mio5p); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_mio5p); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_MDTYPES); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_MDTYPES); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_v_byte_order); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetItem(__pyx_t_1, __pyx_v_byte_order); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_dtypes); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_dtypes); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (unlikely(__pyx_t_1 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 225, __pyx_L1_error)
+    __PYX_ERR(0, 195, __pyx_L1_error)
   }
-  __pyx_t_2 = __Pyx_dict_iterator(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_8), (&__pyx_t_3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_dict_iterator(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_8), (&__pyx_t_3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 195, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_XDECREF(__pyx_t_6);
@@ -8269,7 +8052,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   while (1) {
     __pyx_t_10 = __Pyx_dict_iter_next(__pyx_t_6, __pyx_t_8, &__pyx_t_9, &__pyx_t_2, &__pyx_t_1, NULL, __pyx_t_3);
     if (unlikely(__pyx_t_10 == 0)) break;
-    if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 225, __pyx_L1_error)
+    if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 195, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_2);
@@ -8277,7 +8060,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
     __Pyx_XDECREF_SET(__pyx_v_dt, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":226
+    /* "matio/v5/_mio5_utils.pyx":196
  *         # integer-keyed dtypes
  *         for key, dt in mio5p.MDTYPES[byte_order]['dtypes'].items():
  *             if isinstance(key, str):             # <<<<<<<<<<<<<<
@@ -8287,16 +8070,16 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
     __pyx_t_4 = PyUnicode_Check(__pyx_v_key); 
     if (__pyx_t_4) {
 
-      /* "matio/v5/_mio5_utils.pyx":227
+      /* "matio/v5/_mio5_utils.pyx":197
  *         for key, dt in mio5p.MDTYPES[byte_order]['dtypes'].items():
  *             if isinstance(key, str):
  *                 continue             # <<<<<<<<<<<<<<
  *             self.dtypes[key] = <PyObject*>dt
- *         # copy refs to class_dtypes into object pointer array
+ * 
 */
       goto __pyx_L4_continue;
 
-      /* "matio/v5/_mio5_utils.pyx":226
+      /* "matio/v5/_mio5_utils.pyx":196
  *         # integer-keyed dtypes
  *         for key, dt in mio5p.MDTYPES[byte_order]['dtypes'].items():
  *             if isinstance(key, str):             # <<<<<<<<<<<<<<
@@ -8305,43 +8088,43 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":228
+    /* "matio/v5/_mio5_utils.pyx":198
  *             if isinstance(key, str):
  *                 continue
  *             self.dtypes[key] = <PyObject*>dt             # <<<<<<<<<<<<<<
+ * 
  *         # copy refs to class_dtypes into object pointer array
- *         for key, dt in mio5p.MDTYPES[byte_order]['classes'].items():
 */
-    __pyx_t_11 = __Pyx_PyIndex_AsSsize_t(__pyx_v_key); if (unlikely((__pyx_t_11 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 228, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyIndex_AsSsize_t(__pyx_v_key); if (unlikely((__pyx_t_11 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 198, __pyx_L1_error)
     (__pyx_v_self->dtypes[__pyx_t_11]) = ((PyObject *)__pyx_v_dt);
     __pyx_L4_continue:;
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":230
- *             self.dtypes[key] = <PyObject*>dt
+  /* "matio/v5/_mio5_utils.pyx":201
+ * 
  *         # copy refs to class_dtypes into object pointer array
  *         for key, dt in mio5p.MDTYPES[byte_order]['classes'].items():             # <<<<<<<<<<<<<<
  *             if isinstance(key, str):
  *                 continue
 */
   __pyx_t_8 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_mio5p); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_mio5p); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_MDTYPES); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_MDTYPES); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_v_byte_order); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_t_2, __pyx_v_byte_order); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_classes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_classes); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (unlikely(__pyx_t_2 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 230, __pyx_L1_error)
+    __PYX_ERR(0, 201, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_dict_iterator(__pyx_t_2, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_9), (&__pyx_t_3)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_dict_iterator(__pyx_t_2, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_9), (&__pyx_t_3)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_XDECREF(__pyx_t_6);
@@ -8350,7 +8133,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   while (1) {
     __pyx_t_10 = __Pyx_dict_iter_next(__pyx_t_6, __pyx_t_9, &__pyx_t_8, &__pyx_t_1, &__pyx_t_2, NULL, __pyx_t_3);
     if (unlikely(__pyx_t_10 == 0)) break;
-    if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 230, __pyx_L1_error)
+    if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 201, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_1);
@@ -8358,7 +8141,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
     __Pyx_XDECREF_SET(__pyx_v_dt, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":231
+    /* "matio/v5/_mio5_utils.pyx":202
  *         # copy refs to class_dtypes into object pointer array
  *         for key, dt in mio5p.MDTYPES[byte_order]['classes'].items():
  *             if isinstance(key, str):             # <<<<<<<<<<<<<<
@@ -8368,7 +8151,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
     __pyx_t_4 = PyUnicode_Check(__pyx_v_key); 
     if (__pyx_t_4) {
 
-      /* "matio/v5/_mio5_utils.pyx":232
+      /* "matio/v5/_mio5_utils.pyx":203
  *         for key, dt in mio5p.MDTYPES[byte_order]['classes'].items():
  *             if isinstance(key, str):
  *                 continue             # <<<<<<<<<<<<<<
@@ -8377,7 +8160,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
 */
       goto __pyx_L7_continue;
 
-      /* "matio/v5/_mio5_utils.pyx":231
+      /* "matio/v5/_mio5_utils.pyx":202
  *         # copy refs to class_dtypes into object pointer array
  *         for key, dt in mio5p.MDTYPES[byte_order]['classes'].items():
  *             if isinstance(key, str):             # <<<<<<<<<<<<<<
@@ -8386,27 +8169,27 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":233
+    /* "matio/v5/_mio5_utils.pyx":204
  *             if isinstance(key, str):
  *                 continue
  *             self.class_dtypes[key] = <PyObject*>dt             # <<<<<<<<<<<<<<
  * 
  *         self.subsystem = preader.subsystem
 */
-    __pyx_t_11 = __Pyx_PyIndex_AsSsize_t(__pyx_v_key); if (unlikely((__pyx_t_11 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 233, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyIndex_AsSsize_t(__pyx_v_key); if (unlikely((__pyx_t_11 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 204, __pyx_L1_error)
     (__pyx_v_self->class_dtypes[__pyx_t_11]) = ((PyObject *)__pyx_v_dt);
     __pyx_L7_continue:;
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":235
+  /* "matio/v5/_mio5_utils.pyx":206
  *             self.class_dtypes[key] = <PyObject*>dt
  * 
  *         self.subsystem = preader.subsystem             # <<<<<<<<<<<<<<
  * 
  *     def set_stream(self, fobj):
 */
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_preader, __pyx_mstate_global->__pyx_n_u_subsystem); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_preader, __pyx_mstate_global->__pyx_n_u_subsystem); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 206, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_GIVEREF(__pyx_t_6);
   __Pyx_GOTREF(__pyx_v_self->subsystem);
@@ -8414,7 +8197,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   __pyx_v_self->subsystem = __pyx_t_6;
   __pyx_t_6 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":205
+  /* "matio/v5/_mio5_utils.pyx":172
  *     cdef object subsystem
  * 
  *     def __cinit__(self, preader):             # <<<<<<<<<<<<<<
@@ -8441,12 +8224,12 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5___cinit__(struct __pyx
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":237
+/* "matio/v5/_mio5_utils.pyx":208
  *         self.subsystem = preader.subsystem
  * 
  *     def set_stream(self, fobj):             # <<<<<<<<<<<<<<
- *         ''' Set stream of best type from file-like `fobj`
- * 
+ *         """Set stream of best type from file-like `fobj`
+ *         Called from Python when initiating a variable read.
 */
 
 /* Python wrapper */
@@ -8457,7 +8240,7 @@ PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_5matio_2v5_11_mio5_utils_10VarReader5_2set_stream, " Set stream of best type from file-like `fobj`\n\n        Called from Python when initiating a variable read\n        ");
+PyDoc_STRVAR(__pyx_doc_5matio_2v5_11_mio5_utils_10VarReader5_2set_stream, "Set stream of best type from file-like `fobj`\n        Called from Python when initiating a variable read.\n        ");
 static PyMethodDef __pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_3set_stream = {"set_stream", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_3set_stream, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_5matio_2v5_11_mio5_utils_10VarReader5_2set_stream};
 static PyObject *__pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_3set_stream(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
@@ -8489,32 +8272,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_fobj,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 237, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 208, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 237, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 208, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "set_stream", 0) < (0)) __PYX_ERR(0, 237, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "set_stream", 0) < (0)) __PYX_ERR(0, 208, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("set_stream", 1, 1, 1, i); __PYX_ERR(0, 237, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("set_stream", 1, 1, 1, i); __PYX_ERR(0, 208, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 237, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 208, __pyx_L3_error)
     }
     __pyx_v_fobj = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set_stream", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 237, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("set_stream", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 208, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8544,14 +8327,14 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_2set_stream(stru
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("set_stream", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":242
- *         Called from Python when initiating a variable read
- *         '''
+  /* "matio/v5/_mio5_utils.pyx":212
+ *         Called from Python when initiating a variable read.
+ *         """
  *         self.cstream = _streams.make_stream(fobj)             # <<<<<<<<<<<<<<
  * 
  *     def read_tag(self):
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_8_streams_make_stream(__pyx_v_fobj, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 242, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_8_streams_make_stream(__pyx_v_fobj, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_v_self->cstream);
@@ -8559,12 +8342,12 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_2set_stream(stru
   __pyx_v_self->cstream = ((struct __pyx_obj_5matio_2v5_8_streams_GenericStream *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":237
+  /* "matio/v5/_mio5_utils.pyx":208
  *         self.subsystem = preader.subsystem
  * 
  *     def set_stream(self, fobj):             # <<<<<<<<<<<<<<
- *         ''' Set stream of best type from file-like `fobj`
- * 
+ *         """Set stream of best type from file-like `fobj`
+ *         Called from Python when initiating a variable read.
 */
 
   /* function exit code */
@@ -8580,7 +8363,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_2set_stream(stru
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":244
+/* "matio/v5/_mio5_utils.pyx":214
  *         self.cstream = _streams.make_stream(fobj)
  * 
  *     def read_tag(self):             # <<<<<<<<<<<<<<
@@ -8649,7 +8432,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_4read_tag(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_tag", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":265
+  /* "matio/v5/_mio5_utils.pyx":235
  *         cdef char tag_ptr[4]
  *         cdef int tag_res
  *         cdef object tag_data = None             # <<<<<<<<<<<<<<
@@ -8659,17 +8442,17 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_4read_tag(struct
   __Pyx_INCREF(Py_None);
   __pyx_v_tag_data = Py_None;
 
-  /* "matio/v5/_mio5_utils.pyx":266
+  /* "matio/v5/_mio5_utils.pyx":236
  *         cdef int tag_res
  *         cdef object tag_data = None
  *         tag_res = self.cread_tag(&mdtype, &byte_count, tag_ptr)             # <<<<<<<<<<<<<<
  *         if tag_res == 2: # sde format
  *             tag_data = tag_ptr[:byte_count]
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_tag(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), __pyx_v_tag_ptr); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 266, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_tag(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), __pyx_v_tag_ptr); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 236, __pyx_L1_error)
   __pyx_v_tag_res = __pyx_t_1;
 
-  /* "matio/v5/_mio5_utils.pyx":267
+  /* "matio/v5/_mio5_utils.pyx":237
  *         cdef object tag_data = None
  *         tag_res = self.cread_tag(&mdtype, &byte_count, tag_ptr)
  *         if tag_res == 2: # sde format             # <<<<<<<<<<<<<<
@@ -8679,19 +8462,19 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_4read_tag(struct
   __pyx_t_2 = (__pyx_v_tag_res == 2);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":268
+    /* "matio/v5/_mio5_utils.pyx":238
  *         tag_res = self.cread_tag(&mdtype, &byte_count, tag_ptr)
  *         if tag_res == 2: # sde format
  *             tag_data = tag_ptr[:byte_count]             # <<<<<<<<<<<<<<
  *         return (mdtype, byte_count, tag_data)
  * 
 */
-    __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_tag_ptr + 0, __pyx_v_byte_count - 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 268, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_tag_ptr + 0, __pyx_v_byte_count - 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 238, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF_SET(__pyx_v_tag_data, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":267
+    /* "matio/v5/_mio5_utils.pyx":237
  *         cdef object tag_data = None
  *         tag_res = self.cread_tag(&mdtype, &byte_count, tag_ptr)
  *         if tag_res == 2: # sde format             # <<<<<<<<<<<<<<
@@ -8700,7 +8483,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_4read_tag(struct
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":269
+  /* "matio/v5/_mio5_utils.pyx":239
  *         if tag_res == 2: # sde format
  *             tag_data = tag_ptr[:byte_count]
  *         return (mdtype, byte_count, tag_data)             # <<<<<<<<<<<<<<
@@ -8708,26 +8491,26 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_4read_tag(struct
  *     cdef int cread_tag(self,
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 269, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 239, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyLong_From_npy_uint32(__pyx_v_byte_count); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 269, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_npy_uint32(__pyx_v_byte_count); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 239, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = PyTuple_New(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 269, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_New(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 239, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_3) != (0)) __PYX_ERR(0, 269, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_3) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 269, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_tag_data);
   __Pyx_GIVEREF(__pyx_v_tag_data);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 2, __pyx_v_tag_data) != (0)) __PYX_ERR(0, 269, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 2, __pyx_v_tag_data) != (0)) __PYX_ERR(0, 239, __pyx_L1_error);
   __pyx_t_3 = 0;
   __pyx_t_4 = 0;
   __pyx_r = __pyx_t_5;
   __pyx_t_5 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":244
+  /* "matio/v5/_mio5_utils.pyx":214
  *         self.cstream = _streams.make_stream(fobj)
  * 
  *     def read_tag(self):             # <<<<<<<<<<<<<<
@@ -8749,7 +8532,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_4read_tag(struct
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":271
+/* "matio/v5/_mio5_utils.pyx":241
  *         return (mdtype, byte_count, tag_data)
  * 
  *     cdef int cread_tag(self,             # <<<<<<<<<<<<<<
@@ -8775,7 +8558,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("cread_tag", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":287
+  /* "matio/v5/_mio5_utils.pyx":257
  *         cdef cnp.uint16_t mdtype_sde, byte_count_sde
  *         cdef cnp.uint32_t mdtype
  *         cdef cnp.uint32_t* u4_ptr = <cnp.uint32_t*>data_ptr             # <<<<<<<<<<<<<<
@@ -8784,16 +8567,16 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
   __pyx_v_u4_ptr = ((__pyx_t_5numpy_uint32_t *)__pyx_v_data_ptr);
 
-  /* "matio/v5/_mio5_utils.pyx":315
+  /* "matio/v5/_mio5_utils.pyx":285
  *         # first four bytes are two little-endian uint16 values, first
  *         # ``mdtype`` and second ``byte_count``.
  *         self.cstream.read_into(<void *>u4s, 8)             # <<<<<<<<<<<<<<
  *         if self.is_swapped:
  *             mdtype = byteswap_u4(u4s[0])
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, ((void *)__pyx_v_u4s), 8); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 315, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, ((void *)__pyx_v_u4s), 8); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 285, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":316
+  /* "matio/v5/_mio5_utils.pyx":286
  *         # ``mdtype`` and second ``byte_count``.
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -8803,7 +8586,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
   __pyx_t_2 = (__pyx_v_self->is_swapped != 0);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":317
+    /* "matio/v5/_mio5_utils.pyx":287
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:
  *             mdtype = byteswap_u4(u4s[0])             # <<<<<<<<<<<<<<
@@ -8812,7 +8595,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
     __pyx_v_mdtype = __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4((__pyx_v_u4s[0]), 0);
 
-    /* "matio/v5/_mio5_utils.pyx":316
+    /* "matio/v5/_mio5_utils.pyx":286
  *         # ``mdtype`` and second ``byte_count``.
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -8822,7 +8605,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":319
+  /* "matio/v5/_mio5_utils.pyx":289
  *             mdtype = byteswap_u4(u4s[0])
  *         else:
  *             mdtype = u4s[0]             # <<<<<<<<<<<<<<
@@ -8834,7 +8617,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":322
+  /* "matio/v5/_mio5_utils.pyx":292
  *         # The most significant two bytes of a U4 *mdtype* will always be
  *         # 0, if they are not, this must be SDE format
  *         byte_count_sde = mdtype >> 16             # <<<<<<<<<<<<<<
@@ -8843,7 +8626,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
   __pyx_v_byte_count_sde = (__pyx_v_mdtype >> 16);
 
-  /* "matio/v5/_mio5_utils.pyx":323
+  /* "matio/v5/_mio5_utils.pyx":293
  *         # 0, if they are not, this must be SDE format
  *         byte_count_sde = mdtype >> 16
  *         if byte_count_sde: # small data element format             # <<<<<<<<<<<<<<
@@ -8853,7 +8636,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
   __pyx_t_2 = (__pyx_v_byte_count_sde != 0);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":324
+    /* "matio/v5/_mio5_utils.pyx":294
  *         byte_count_sde = mdtype >> 16
  *         if byte_count_sde: # small data element format
  *             mdtype_sde = mdtype & 0xffff             # <<<<<<<<<<<<<<
@@ -8862,7 +8645,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
     __pyx_v_mdtype_sde = (__pyx_v_mdtype & 0xffff);
 
-    /* "matio/v5/_mio5_utils.pyx":325
+    /* "matio/v5/_mio5_utils.pyx":295
  *         if byte_count_sde: # small data element format
  *             mdtype_sde = mdtype & 0xffff
  *             if byte_count_sde > 4:             # <<<<<<<<<<<<<<
@@ -8872,7 +8655,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
     __pyx_t_2 = (__pyx_v_byte_count_sde > 4);
     if (unlikely(__pyx_t_2)) {
 
-      /* "matio/v5/_mio5_utils.pyx":326
+      /* "matio/v5/_mio5_utils.pyx":296
  *             mdtype_sde = mdtype & 0xffff
  *             if byte_count_sde > 4:
  *                 raise ValueError('Error in SDE format data')             # <<<<<<<<<<<<<<
@@ -8885,14 +8668,14 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
         PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Error_in_SDE_format_data};
         __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 326, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 296, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_Raise(__pyx_t_3, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __PYX_ERR(0, 326, __pyx_L1_error)
+      __PYX_ERR(0, 296, __pyx_L1_error)
 
-      /* "matio/v5/_mio5_utils.pyx":325
+      /* "matio/v5/_mio5_utils.pyx":295
  *         if byte_count_sde: # small data element format
  *             mdtype_sde = mdtype & 0xffff
  *             if byte_count_sde > 4:             # <<<<<<<<<<<<<<
@@ -8901,7 +8684,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":327
+    /* "matio/v5/_mio5_utils.pyx":297
  *             if byte_count_sde > 4:
  *                 raise ValueError('Error in SDE format data')
  *             u4_ptr[0] = u4s[1]             # <<<<<<<<<<<<<<
@@ -8910,7 +8693,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
     (__pyx_v_u4_ptr[0]) = (__pyx_v_u4s[1]);
 
-    /* "matio/v5/_mio5_utils.pyx":328
+    /* "matio/v5/_mio5_utils.pyx":298
  *                 raise ValueError('Error in SDE format data')
  *             u4_ptr[0] = u4s[1]
  *             mdtype_ptr[0] = mdtype_sde             # <<<<<<<<<<<<<<
@@ -8919,7 +8702,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
     (__pyx_v_mdtype_ptr[0]) = __pyx_v_mdtype_sde;
 
-    /* "matio/v5/_mio5_utils.pyx":329
+    /* "matio/v5/_mio5_utils.pyx":299
  *             u4_ptr[0] = u4s[1]
  *             mdtype_ptr[0] = mdtype_sde
  *             byte_count_ptr[0] = byte_count_sde             # <<<<<<<<<<<<<<
@@ -8928,7 +8711,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
     (__pyx_v_byte_count_ptr[0]) = __pyx_v_byte_count_sde;
 
-    /* "matio/v5/_mio5_utils.pyx":330
+    /* "matio/v5/_mio5_utils.pyx":300
  *             mdtype_ptr[0] = mdtype_sde
  *             byte_count_ptr[0] = byte_count_sde
  *             return 2             # <<<<<<<<<<<<<<
@@ -8938,7 +8721,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
     __pyx_r = 2;
     goto __pyx_L0;
 
-    /* "matio/v5/_mio5_utils.pyx":323
+    /* "matio/v5/_mio5_utils.pyx":293
  *         # 0, if they are not, this must be SDE format
  *         byte_count_sde = mdtype >> 16
  *         if byte_count_sde: # small data element format             # <<<<<<<<<<<<<<
@@ -8947,7 +8730,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":332
+  /* "matio/v5/_mio5_utils.pyx":302
  *             return 2
  *         # regular element
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -8957,7 +8740,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
   __pyx_t_2 = (__pyx_v_self->is_swapped != 0);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":333
+    /* "matio/v5/_mio5_utils.pyx":303
  *         # regular element
  *         if self.is_swapped:
  *             byte_count_ptr[0] = byteswap_u4(u4s[1])             # <<<<<<<<<<<<<<
@@ -8966,7 +8749,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
     (__pyx_v_byte_count_ptr[0]) = __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4((__pyx_v_u4s[1]), 0);
 
-    /* "matio/v5/_mio5_utils.pyx":332
+    /* "matio/v5/_mio5_utils.pyx":302
  *             return 2
  *         # regular element
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -8976,7 +8759,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
     goto __pyx_L6;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":335
+  /* "matio/v5/_mio5_utils.pyx":305
  *             byte_count_ptr[0] = byteswap_u4(u4s[1])
  *         else:
  *             byte_count_ptr[0] = u4s[1]             # <<<<<<<<<<<<<<
@@ -8988,7 +8771,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
   }
   __pyx_L6:;
 
-  /* "matio/v5/_mio5_utils.pyx":336
+  /* "matio/v5/_mio5_utils.pyx":306
  *         else:
  *             byte_count_ptr[0] = u4s[1]
  *         mdtype_ptr[0] = mdtype             # <<<<<<<<<<<<<<
@@ -8997,7 +8780,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
   (__pyx_v_mdtype_ptr[0]) = __pyx_v_mdtype;
 
-  /* "matio/v5/_mio5_utils.pyx":337
+  /* "matio/v5/_mio5_utils.pyx":307
  *             byte_count_ptr[0] = u4s[1]
  *         mdtype_ptr[0] = mdtype
  *         u4_ptr[0] = 0             # <<<<<<<<<<<<<<
@@ -9006,7 +8789,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 */
   (__pyx_v_u4_ptr[0]) = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":338
+  /* "matio/v5/_mio5_utils.pyx":308
  *         mdtype_ptr[0] = mdtype
  *         u4_ptr[0] = 0
  *         return 1             # <<<<<<<<<<<<<<
@@ -9016,7 +8799,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":271
+  /* "matio/v5/_mio5_utils.pyx":241
  *         return (mdtype, byte_count, tag_data)
  * 
  *     cdef int cread_tag(self,             # <<<<<<<<<<<<<<
@@ -9035,7 +8818,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":340
+/* "matio/v5/_mio5_utils.pyx":310
  *         return 1
  * 
  *     cdef object read_element(self,             # <<<<<<<<<<<<<<
@@ -9045,7 +8828,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag(struct __pyx_
 
 static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *__pyx_v_self, __pyx_t_5numpy_uint32_t *__pyx_v_mdtype_ptr, __pyx_t_5numpy_uint32_t *__pyx_v_byte_count_ptr, void **__pyx_v_pp, struct __pyx_opt_args_5matio_2v5_11_mio5_utils_10VarReader5_read_element *__pyx_optional_args) {
 
-  /* "matio/v5/_mio5_utils.pyx":344
+  /* "matio/v5/_mio5_utils.pyx":314
  *                              cnp.uint32_t *byte_count_ptr,
  *                              void **pp,
  *                              int copy=True):             # <<<<<<<<<<<<<<
@@ -9076,17 +8859,17 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
     }
   }
 
-  /* "matio/v5/_mio5_utils.pyx":378
+  /* "matio/v5/_mio5_utils.pyx":348
  *         cdef object data
  *         cdef int mod8
  *         cdef int tag_res = self.cread_tag(mdtype_ptr,             # <<<<<<<<<<<<<<
  *                                           byte_count_ptr,
  *                                           tag_data)
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_tag(__pyx_v_self, __pyx_v_mdtype_ptr, __pyx_v_byte_count_ptr, __pyx_v_tag_data); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 378, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_tag(__pyx_v_self, __pyx_v_mdtype_ptr, __pyx_v_byte_count_ptr, __pyx_v_tag_data); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 348, __pyx_L1_error)
   __pyx_v_tag_res = __pyx_t_1;
 
-  /* "matio/v5/_mio5_utils.pyx":381
+  /* "matio/v5/_mio5_utils.pyx":351
  *                                           byte_count_ptr,
  *                                           tag_data)
  *         byte_count = byte_count_ptr[0]             # <<<<<<<<<<<<<<
@@ -9095,7 +8878,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
 */
   __pyx_v_byte_count = (__pyx_v_byte_count_ptr[0]);
 
-  /* "matio/v5/_mio5_utils.pyx":382
+  /* "matio/v5/_mio5_utils.pyx":352
  *                                           tag_data)
  *         byte_count = byte_count_ptr[0]
  *         if tag_res == 1: # full format             # <<<<<<<<<<<<<<
@@ -9105,7 +8888,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
   __pyx_t_2 = (__pyx_v_tag_res == 1);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":383
+    /* "matio/v5/_mio5_utils.pyx":353
  *         byte_count = byte_count_ptr[0]
  *         if tag_res == 1: # full format
  *             data = self.cstream.read_string(             # <<<<<<<<<<<<<<
@@ -9114,12 +8897,12 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
 */
     __pyx_t_4.__pyx_n = 1;
     __pyx_t_4.copy = __pyx_v_copy;
-    __pyx_t_3 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_string(__pyx_v_self->cstream, __pyx_v_byte_count, __pyx_v_pp, &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 383, __pyx_L1_error)
+    __pyx_t_3 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_string(__pyx_v_self->cstream, __pyx_v_byte_count, __pyx_v_pp, &__pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 353, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_data = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":388
+    /* "matio/v5/_mio5_utils.pyx":358
  *                 copy)
  *             # Seek to next 64-bit boundary
  *             mod8 = byte_count % 8             # <<<<<<<<<<<<<<
@@ -9128,7 +8911,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
 */
     __pyx_v_mod8 = __Pyx_mod_long(__pyx_v_byte_count, 8, 1);
 
-    /* "matio/v5/_mio5_utils.pyx":389
+    /* "matio/v5/_mio5_utils.pyx":359
  *             # Seek to next 64-bit boundary
  *             mod8 = byte_count % 8
  *             if mod8:             # <<<<<<<<<<<<<<
@@ -9138,7 +8921,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
     __pyx_t_2 = (__pyx_v_mod8 != 0);
     if (__pyx_t_2) {
 
-      /* "matio/v5/_mio5_utils.pyx":390
+      /* "matio/v5/_mio5_utils.pyx":360
  *             mod8 = byte_count % 8
  *             if mod8:
  *                 self.cstream.seek(8 - mod8, 1)             # <<<<<<<<<<<<<<
@@ -9147,9 +8930,9 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
 */
       __pyx_t_5.__pyx_n = 1;
       __pyx_t_5.whence = 1;
-      __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->seek(__pyx_v_self->cstream, (8 - __pyx_v_mod8), 0, &__pyx_t_5); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 390, __pyx_L1_error)
+      __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->seek(__pyx_v_self->cstream, (8 - __pyx_v_mod8), 0, &__pyx_t_5); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 360, __pyx_L1_error)
 
-      /* "matio/v5/_mio5_utils.pyx":389
+      /* "matio/v5/_mio5_utils.pyx":359
  *             # Seek to next 64-bit boundary
  *             mod8 = byte_count % 8
  *             if mod8:             # <<<<<<<<<<<<<<
@@ -9158,7 +8941,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":382
+    /* "matio/v5/_mio5_utils.pyx":352
  *                                           tag_data)
  *         byte_count = byte_count_ptr[0]
  *         if tag_res == 1: # full format             # <<<<<<<<<<<<<<
@@ -9168,7 +8951,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":392
+  /* "matio/v5/_mio5_utils.pyx":362
  *                 self.cstream.seek(8 - mod8, 1)
  *         else: # SDE format, make safer home for data
  *             data = tag_data[:byte_count]             # <<<<<<<<<<<<<<
@@ -9176,24 +8959,24 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
  *         return data
 */
   /*else*/ {
-    __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_tag_data + 0, __pyx_v_byte_count - 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 392, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBytes_FromStringAndSize(__pyx_v_tag_data + 0, __pyx_v_byte_count - 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 362, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_data = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":393
+    /* "matio/v5/_mio5_utils.pyx":363
  *         else: # SDE format, make safer home for data
  *             data = tag_data[:byte_count]
  *             pp[0] = <char *>data             # <<<<<<<<<<<<<<
  *         return data
  * 
 */
-    __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_data); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 393, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_data); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 363, __pyx_L1_error)
     (__pyx_v_pp[0]) = ((char *)__pyx_t_6);
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":394
+  /* "matio/v5/_mio5_utils.pyx":364
  *             data = tag_data[:byte_count]
  *             pp[0] = <char *>data
  *         return data             # <<<<<<<<<<<<<<
@@ -9205,7 +8988,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":340
+  /* "matio/v5/_mio5_utils.pyx":310
  *         return 1
  * 
  *     cdef object read_element(self,             # <<<<<<<<<<<<<<
@@ -9225,7 +9008,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element(stru
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":396
+/* "matio/v5/_mio5_utils.pyx":366
  *         return data
  * 
  *     cdef int read_element_into(self,             # <<<<<<<<<<<<<<
@@ -9250,7 +9033,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_element_into", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":424
+  /* "matio/v5/_mio5_utils.pyx":394
  *         cdef:
  *            int mod8
  *         if max_byte_count < 4:             # <<<<<<<<<<<<<<
@@ -9260,7 +9043,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
   __pyx_t_1 = (__pyx_v_max_byte_count < 4);
   if (unlikely(__pyx_t_1)) {
 
-    /* "matio/v5/_mio5_utils.pyx":425
+    /* "matio/v5/_mio5_utils.pyx":395
  *            int mod8
  *         if max_byte_count < 4:
  *             raise ValueError('Unexpected amount of data to read (malformed input file?)')             # <<<<<<<<<<<<<<
@@ -9273,14 +9056,14 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Unexpected_amount_of_data_to_rea};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 425, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 395, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 425, __pyx_L1_error)
+    __PYX_ERR(0, 395, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":424
+    /* "matio/v5/_mio5_utils.pyx":394
  *         cdef:
  *            int mod8
  *         if max_byte_count < 4:             # <<<<<<<<<<<<<<
@@ -9289,17 +9072,17 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":426
+  /* "matio/v5/_mio5_utils.pyx":396
  *         if max_byte_count < 4:
  *             raise ValueError('Unexpected amount of data to read (malformed input file?)')
  *         cdef int res = self.cread_tag(             # <<<<<<<<<<<<<<
  *             mdtype_ptr,
  *             byte_count_ptr,
 */
-  __pyx_t_5 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_tag(__pyx_v_self, __pyx_v_mdtype_ptr, __pyx_v_byte_count_ptr, ((char *)__pyx_v_ptr)); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_5 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_tag(__pyx_v_self, __pyx_v_mdtype_ptr, __pyx_v_byte_count_ptr, ((char *)__pyx_v_ptr)); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 396, __pyx_L1_error)
   __pyx_v_res = __pyx_t_5;
 
-  /* "matio/v5/_mio5_utils.pyx":430
+  /* "matio/v5/_mio5_utils.pyx":400
  *             byte_count_ptr,
  *             <char *>ptr)
  *         cdef cnp.uint32_t byte_count = byte_count_ptr[0]             # <<<<<<<<<<<<<<
@@ -9308,7 +9091,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
 */
   __pyx_v_byte_count = (__pyx_v_byte_count_ptr[0]);
 
-  /* "matio/v5/_mio5_utils.pyx":431
+  /* "matio/v5/_mio5_utils.pyx":401
  *             <char *>ptr)
  *         cdef cnp.uint32_t byte_count = byte_count_ptr[0]
  *         if res == 1: # full format             # <<<<<<<<<<<<<<
@@ -9318,7 +9101,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
   __pyx_t_1 = (__pyx_v_res == 1);
   if (__pyx_t_1) {
 
-    /* "matio/v5/_mio5_utils.pyx":432
+    /* "matio/v5/_mio5_utils.pyx":402
  *         cdef cnp.uint32_t byte_count = byte_count_ptr[0]
  *         if res == 1: # full format
  *             if byte_count > max_byte_count:             # <<<<<<<<<<<<<<
@@ -9328,7 +9111,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
     __pyx_t_1 = (__pyx_v_byte_count > __pyx_v_max_byte_count);
     if (unlikely(__pyx_t_1)) {
 
-      /* "matio/v5/_mio5_utils.pyx":433
+      /* "matio/v5/_mio5_utils.pyx":403
  *         if res == 1: # full format
  *             if byte_count > max_byte_count:
  *                 raise ValueError('Unexpected amount of data to read (malformed input file?)')             # <<<<<<<<<<<<<<
@@ -9341,14 +9124,14 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
         PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Unexpected_amount_of_data_to_rea};
         __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 433, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 403, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 433, __pyx_L1_error)
+      __PYX_ERR(0, 403, __pyx_L1_error)
 
-      /* "matio/v5/_mio5_utils.pyx":432
+      /* "matio/v5/_mio5_utils.pyx":402
  *         cdef cnp.uint32_t byte_count = byte_count_ptr[0]
  *         if res == 1: # full format
  *             if byte_count > max_byte_count:             # <<<<<<<<<<<<<<
@@ -9357,17 +9140,17 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":434
+    /* "matio/v5/_mio5_utils.pyx":404
  *             if byte_count > max_byte_count:
  *                 raise ValueError('Unexpected amount of data to read (malformed input file?)')
  *             res = self.cstream.read_into(ptr, byte_count)             # <<<<<<<<<<<<<<
  *             # Seek to next 64-bit boundary
  *             mod8 = byte_count % 8
 */
-    __pyx_t_5 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, __pyx_v_ptr, __pyx_v_byte_count); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 434, __pyx_L1_error)
+    __pyx_t_5 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, __pyx_v_ptr, __pyx_v_byte_count); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 404, __pyx_L1_error)
     __pyx_v_res = __pyx_t_5;
 
-    /* "matio/v5/_mio5_utils.pyx":436
+    /* "matio/v5/_mio5_utils.pyx":406
  *             res = self.cstream.read_into(ptr, byte_count)
  *             # Seek to next 64-bit boundary
  *             mod8 = byte_count % 8             # <<<<<<<<<<<<<<
@@ -9376,7 +9159,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
 */
     __pyx_v_mod8 = __Pyx_mod_long(__pyx_v_byte_count, 8, 1);
 
-    /* "matio/v5/_mio5_utils.pyx":437
+    /* "matio/v5/_mio5_utils.pyx":407
  *             # Seek to next 64-bit boundary
  *             mod8 = byte_count % 8
  *             if mod8:             # <<<<<<<<<<<<<<
@@ -9386,7 +9169,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
     __pyx_t_1 = (__pyx_v_mod8 != 0);
     if (__pyx_t_1) {
 
-      /* "matio/v5/_mio5_utils.pyx":438
+      /* "matio/v5/_mio5_utils.pyx":408
  *             mod8 = byte_count % 8
  *             if mod8:
  *                 self.cstream.seek(8 - mod8, 1)             # <<<<<<<<<<<<<<
@@ -9395,9 +9178,9 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
 */
       __pyx_t_6.__pyx_n = 1;
       __pyx_t_6.whence = 1;
-      __pyx_t_5 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->seek(__pyx_v_self->cstream, (8 - __pyx_v_mod8), 0, &__pyx_t_6); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 438, __pyx_L1_error)
+      __pyx_t_5 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->seek(__pyx_v_self->cstream, (8 - __pyx_v_mod8), 0, &__pyx_t_6); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 408, __pyx_L1_error)
 
-      /* "matio/v5/_mio5_utils.pyx":437
+      /* "matio/v5/_mio5_utils.pyx":407
  *             # Seek to next 64-bit boundary
  *             mod8 = byte_count % 8
  *             if mod8:             # <<<<<<<<<<<<<<
@@ -9406,7 +9189,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":431
+    /* "matio/v5/_mio5_utils.pyx":401
  *             <char *>ptr)
  *         cdef cnp.uint32_t byte_count = byte_count_ptr[0]
  *         if res == 1: # full format             # <<<<<<<<<<<<<<
@@ -9415,7 +9198,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":439
+  /* "matio/v5/_mio5_utils.pyx":409
  *             if mod8:
  *                 self.cstream.seek(8 - mod8, 1)
  *         return 0             # <<<<<<<<<<<<<<
@@ -9425,7 +9208,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":396
+  /* "matio/v5/_mio5_utils.pyx":366
  *         return data
  * 
  *     cdef int read_element_into(self,             # <<<<<<<<<<<<<<
@@ -9444,7 +9227,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element_into(struc
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":441
+/* "matio/v5/_mio5_utils.pyx":411
  *         return 0
  * 
  *     cpdef cnp.ndarray read_numeric(self, int copy=True, long int nnz=-1):             # <<<<<<<<<<<<<<
@@ -9511,16 +9294,16 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_numeric); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 441, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_numeric); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 411, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_7read_numeric)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_4 = __pyx_t_1; 
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_copy); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 441, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_copy); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 411, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_6 = __Pyx_PyLong_From_long(__pyx_v_nnz); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 441, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_From_long(__pyx_v_nnz); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 411, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_7 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -9541,10 +9324,10 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 441, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 411, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 441, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 411, __pyx_L1_error)
         __pyx_r = ((PyArrayObject *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9563,7 +9346,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
     #endif
   }
 
-  /* "matio/v5/_mio5_utils.pyx":478
+  /* "matio/v5/_mio5_utils.pyx":448
  *         cdef cnp.npy_intp el_count
  *         cdef cnp.ndarray el
  *         cdef object data = self.read_element(             # <<<<<<<<<<<<<<
@@ -9572,12 +9355,12 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
 */
   __pyx_t_8.__pyx_n = 1;
   __pyx_t_8.copy = __pyx_v_copy;
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_element(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), ((void **)(&__pyx_v_data_ptr)), &__pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 478, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_element(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), ((void **)(&__pyx_v_data_ptr)), &__pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 448, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_data = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":480
+  /* "matio/v5/_mio5_utils.pyx":450
  *         cdef object data = self.read_element(
  *             &mdtype, &byte_count, <void **>&data_ptr, copy)
  *         cdef cnp.dtype dt = <cnp.dtype>self.dtypes[mdtype]             # <<<<<<<<<<<<<<
@@ -9589,7 +9372,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
   __pyx_v_dt = ((PyArray_Descr *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":481
+  /* "matio/v5/_mio5_utils.pyx":451
  *             &mdtype, &byte_count, <void **>&data_ptr, copy)
  *         cdef cnp.dtype dt = <cnp.dtype>self.dtypes[mdtype]
  *         if dt.itemsize != 1 and nnz != -1 and byte_count == nnz:             # <<<<<<<<<<<<<<
@@ -9613,7 +9396,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_9) {
 
-    /* "matio/v5/_mio5_utils.pyx":482
+    /* "matio/v5/_mio5_utils.pyx":452
  *         cdef cnp.dtype dt = <cnp.dtype>self.dtypes[mdtype]
  *         if dt.itemsize != 1 and nnz != -1 and byte_count == nnz:
  *             el_count = <cnp.npy_intp> nnz             # <<<<<<<<<<<<<<
@@ -9622,7 +9405,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
 */
     __pyx_v_el_count = ((npy_intp)__pyx_v_nnz);
 
-    /* "matio/v5/_mio5_utils.pyx":483
+    /* "matio/v5/_mio5_utils.pyx":453
  *         if dt.itemsize != 1 and nnz != -1 and byte_count == nnz:
  *             el_count = <cnp.npy_intp> nnz
  *             dt = BOOL_DTYPE             # <<<<<<<<<<<<<<
@@ -9632,7 +9415,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
     __Pyx_INCREF((PyObject *)__pyx_v_5matio_2v5_11_mio5_utils_BOOL_DTYPE);
     __Pyx_DECREF_SET(__pyx_v_dt, __pyx_v_5matio_2v5_11_mio5_utils_BOOL_DTYPE);
 
-    /* "matio/v5/_mio5_utils.pyx":481
+    /* "matio/v5/_mio5_utils.pyx":451
  *             &mdtype, &byte_count, <void **>&data_ptr, copy)
  *         cdef cnp.dtype dt = <cnp.dtype>self.dtypes[mdtype]
  *         if dt.itemsize != 1 and nnz != -1 and byte_count == nnz:             # <<<<<<<<<<<<<<
@@ -9642,7 +9425,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":485
+  /* "matio/v5/_mio5_utils.pyx":455
  *             dt = BOOL_DTYPE
  *         else:
  *             el_count = byte_count // dt.itemsize             # <<<<<<<<<<<<<<
@@ -9653,17 +9436,17 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
     __pyx_t_11 = __pyx_f_5numpy_5dtype_8itemsize_itemsize(__pyx_v_dt);
     if (unlikely(__pyx_t_11 == 0)) {
       PyErr_SetString(PyExc_ZeroDivisionError, "integer division or modulo by zero");
-      __PYX_ERR(0, 485, __pyx_L1_error)
+      __PYX_ERR(0, 455, __pyx_L1_error)
     }
     else if (sizeof(npy_intp) == sizeof(long) && (!(((npy_intp)-1) > 0)) && unlikely(__pyx_t_11 == (npy_intp)-1)  && unlikely(__Pyx_UNARY_NEG_WOULD_OVERFLOW(__pyx_v_byte_count))) {
       PyErr_SetString(PyExc_OverflowError, "value too large to perform division");
-      __PYX_ERR(0, 485, __pyx_L1_error)
+      __PYX_ERR(0, 455, __pyx_L1_error)
     }
     __pyx_v_el_count = __Pyx_div_npy_intp(__pyx_v_byte_count, __pyx_t_11, 0);
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":486
+  /* "matio/v5/_mio5_utils.pyx":456
  *         else:
  *             el_count = byte_count // dt.itemsize
  *         cdef int flags = 0             # <<<<<<<<<<<<<<
@@ -9672,7 +9455,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
 */
   __pyx_v_flags = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":487
+  /* "matio/v5/_mio5_utils.pyx":457
  *             el_count = byte_count // dt.itemsize
  *         cdef int flags = 0
  *         if copy:             # <<<<<<<<<<<<<<
@@ -9682,7 +9465,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
   __pyx_t_9 = (__pyx_v_copy != 0);
   if (__pyx_t_9) {
 
-    /* "matio/v5/_mio5_utils.pyx":488
+    /* "matio/v5/_mio5_utils.pyx":458
  *         cdef int flags = 0
  *         if copy:
  *             flags = cnp.NPY_ARRAY_WRITEABLE             # <<<<<<<<<<<<<<
@@ -9691,7 +9474,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
 */
     __pyx_v_flags = NPY_ARRAY_WRITEABLE;
 
-    /* "matio/v5/_mio5_utils.pyx":487
+    /* "matio/v5/_mio5_utils.pyx":457
  *             el_count = byte_count // dt.itemsize
  *         cdef int flags = 0
  *         if copy:             # <<<<<<<<<<<<<<
@@ -9700,7 +9483,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":489
+  /* "matio/v5/_mio5_utils.pyx":459
  *         if copy:
  *             flags = cnp.NPY_ARRAY_WRITEABLE
  *         Py_INCREF(<object> dt)             # <<<<<<<<<<<<<<
@@ -9709,19 +9492,19 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
 */
   Py_INCREF(((PyObject *)__pyx_v_dt));
 
-  /* "matio/v5/_mio5_utils.pyx":490
+  /* "matio/v5/_mio5_utils.pyx":460
  *             flags = cnp.NPY_ARRAY_WRITEABLE
  *         Py_INCREF(<object> dt)
  *         el = PyArray_NewFromDescr(&PyArray_Type,             # <<<<<<<<<<<<<<
  *                                    dt,
  *                                    1,
 */
-  __pyx_t_1 = ((PyObject *)PyArray_NewFromDescr((&PyArray_Type), __pyx_v_dt, 1, (&__pyx_v_el_count), NULL, ((void *)__pyx_v_data_ptr), __pyx_v_flags, ((PyObject *)NULL))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 490, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)PyArray_NewFromDescr((&PyArray_Type), __pyx_v_dt, 1, (&__pyx_v_el_count), NULL, ((void *)__pyx_v_data_ptr), __pyx_v_flags, ((PyObject *)NULL))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 460, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_el = ((PyArrayObject *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":498
+  /* "matio/v5/_mio5_utils.pyx":468
  *                                    flags,
  *                                    <object>NULL)
  *         Py_INCREF(<object> data)             # <<<<<<<<<<<<<<
@@ -9730,7 +9513,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
 */
   Py_INCREF(__pyx_v_data);
 
-  /* "matio/v5/_mio5_utils.pyx":499
+  /* "matio/v5/_mio5_utils.pyx":469
  *                                    <object>NULL)
  *         Py_INCREF(<object> data)
  *         PyArray_Set_BASE(el, data)             # <<<<<<<<<<<<<<
@@ -9739,7 +9522,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
 */
   PyArray_Set_BASE(__pyx_v_el, __pyx_v_data);
 
-  /* "matio/v5/_mio5_utils.pyx":500
+  /* "matio/v5/_mio5_utils.pyx":470
  *         Py_INCREF(<object> data)
  *         PyArray_Set_BASE(el, data)
  *         return el             # <<<<<<<<<<<<<<
@@ -9751,7 +9534,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_numeric
   __pyx_r = __pyx_v_el;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":441
+  /* "matio/v5/_mio5_utils.pyx":411
  *         return 0
  * 
  *     cpdef cnp.ndarray read_numeric(self, int copy=True, long int nnz=-1):             # <<<<<<<<<<<<<<
@@ -9819,50 +9602,50 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_copy,&__pyx_mstate_global->__pyx_n_u_nnz,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 441, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 411, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 441, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 411, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 441, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 411, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_numeric", 0) < (0)) __PYX_ERR(0, 441, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_numeric", 0) < (0)) __PYX_ERR(0, 411, __pyx_L3_error)
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 441, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 411, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 441, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 411, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
     if (values[0]) {
-      __pyx_v_copy = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_copy == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 441, __pyx_L3_error)
+      __pyx_v_copy = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_copy == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 411, __pyx_L3_error)
     } else {
       __pyx_v_copy = ((int)1);
     }
     if (values[1]) {
-      __pyx_v_nnz = __Pyx_PyLong_As_long(values[1]); if (unlikely((__pyx_v_nnz == (long)-1) && PyErr_Occurred())) __PYX_ERR(0, 441, __pyx_L3_error)
+      __pyx_v_nnz = __Pyx_PyLong_As_long(values[1]); if (unlikely((__pyx_v_nnz == (long)-1) && PyErr_Occurred())) __PYX_ERR(0, 411, __pyx_L3_error)
     } else {
       __pyx_v_nnz = ((long)-1L);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_numeric", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 441, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_numeric", 0, 0, 2, __pyx_nargs); __PYX_ERR(0, 411, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9896,7 +9679,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_6read_numeric(st
   __pyx_t_2.__pyx_n = 2;
   __pyx_t_2.copy = __pyx_v_copy;
   __pyx_t_2.nnz = __pyx_v_nnz;
-  __pyx_t_1 = ((PyObject *)__pyx_vtabptr_5matio_2v5_11_mio5_utils_VarReader5->read_numeric(__pyx_v_self, 1, &__pyx_t_2)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 441, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_vtabptr_5matio_2v5_11_mio5_utils_VarReader5->read_numeric(__pyx_v_self, 1, &__pyx_t_2)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -9913,7 +9696,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_6read_numeric(st
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":502
+/* "matio/v5/_mio5_utils.pyx":472
  *         return el
  * 
  *     cdef inline object read_int8_string(self):             # <<<<<<<<<<<<<<
@@ -9942,19 +9725,19 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_int8_string", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":515
+  /* "matio/v5/_mio5_utils.pyx":485
  *             unsigned char* byte_ptr
  *             object data
  *         data = self.read_element(&mdtype, &byte_count, &ptr)             # <<<<<<<<<<<<<<
  *         if mdtype == miUTF8:  # Some badly-formed .mat files have utf8 here
  *             byte_ptr = <unsigned char*> ptr
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_element(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), (&__pyx_v_ptr), NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 515, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_element(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), (&__pyx_v_ptr), NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 485, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_data = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":516
+  /* "matio/v5/_mio5_utils.pyx":486
  *             object data
  *         data = self.read_element(&mdtype, &byte_count, &ptr)
  *         if mdtype == miUTF8:  # Some badly-formed .mat files have utf8 here             # <<<<<<<<<<<<<<
@@ -9964,7 +9747,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
   __pyx_t_2 = (__pyx_v_mdtype == __pyx_e_5matio_2v5_11_mio5_utils_miUTF8);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":517
+    /* "matio/v5/_mio5_utils.pyx":487
  *         data = self.read_element(&mdtype, &byte_count, &ptr)
  *         if mdtype == miUTF8:  # Some badly-formed .mat files have utf8 here
  *             byte_ptr = <unsigned char*> ptr             # <<<<<<<<<<<<<<
@@ -9973,7 +9756,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
 */
     __pyx_v_byte_ptr = ((unsigned char *)__pyx_v_ptr);
 
-    /* "matio/v5/_mio5_utils.pyx":518
+    /* "matio/v5/_mio5_utils.pyx":488
  *         if mdtype == miUTF8:  # Some badly-formed .mat files have utf8 here
  *             byte_ptr = <unsigned char*> ptr
  *             for i in range(byte_count):             # <<<<<<<<<<<<<<
@@ -9985,7 +9768,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
     for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
       __pyx_v_i = __pyx_t_5;
 
-      /* "matio/v5/_mio5_utils.pyx":519
+      /* "matio/v5/_mio5_utils.pyx":489
  *             byte_ptr = <unsigned char*> ptr
  *             for i in range(byte_count):
  *                 if byte_ptr[i] > 127:             # <<<<<<<<<<<<<<
@@ -9995,7 +9778,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
       __pyx_t_2 = ((__pyx_v_byte_ptr[__pyx_v_i]) > 0x7F);
       if (unlikely(__pyx_t_2)) {
 
-        /* "matio/v5/_mio5_utils.pyx":520
+        /* "matio/v5/_mio5_utils.pyx":490
  *             for i in range(byte_count):
  *                 if byte_ptr[i] > 127:
  *                     raise ValueError('Non ascii int8 string')             # <<<<<<<<<<<<<<
@@ -10008,14 +9791,14 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
           PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_Non_ascii_int8_string};
           __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 520, __pyx_L1_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 490, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
         }
         __Pyx_Raise(__pyx_t_1, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-        __PYX_ERR(0, 520, __pyx_L1_error)
+        __PYX_ERR(0, 490, __pyx_L1_error)
 
-        /* "matio/v5/_mio5_utils.pyx":519
+        /* "matio/v5/_mio5_utils.pyx":489
  *             byte_ptr = <unsigned char*> ptr
  *             for i in range(byte_count):
  *                 if byte_ptr[i] > 127:             # <<<<<<<<<<<<<<
@@ -10025,7 +9808,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
       }
     }
 
-    /* "matio/v5/_mio5_utils.pyx":516
+    /* "matio/v5/_mio5_utils.pyx":486
  *             object data
  *         data = self.read_element(&mdtype, &byte_count, &ptr)
  *         if mdtype == miUTF8:  # Some badly-formed .mat files have utf8 here             # <<<<<<<<<<<<<<
@@ -10035,7 +9818,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":521
+  /* "matio/v5/_mio5_utils.pyx":491
  *                 if byte_ptr[i] > 127:
  *                     raise ValueError('Non ascii int8 string')
  *         elif mdtype != miINT8:             # <<<<<<<<<<<<<<
@@ -10045,7 +9828,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
   __pyx_t_2 = (__pyx_v_mdtype != __pyx_e_5matio_2v5_11_mio5_utils_miINT8);
   if (unlikely(__pyx_t_2)) {
 
-    /* "matio/v5/_mio5_utils.pyx":522
+    /* "matio/v5/_mio5_utils.pyx":492
  *                     raise ValueError('Non ascii int8 string')
  *         elif mdtype != miINT8:
  *             raise TypeError('Expecting miINT8 as data type')             # <<<<<<<<<<<<<<
@@ -10058,14 +9841,14 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
       PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_Expecting_miINT8_as_data_type};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 522, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 492, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 522, __pyx_L1_error)
+    __PYX_ERR(0, 492, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":521
+    /* "matio/v5/_mio5_utils.pyx":491
  *                 if byte_ptr[i] > 127:
  *                     raise ValueError('Non ascii int8 string')
  *         elif mdtype != miINT8:             # <<<<<<<<<<<<<<
@@ -10075,7 +9858,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":523
+  /* "matio/v5/_mio5_utils.pyx":493
  *         elif mdtype != miINT8:
  *             raise TypeError('Expecting miINT8 as data type')
  *         return data             # <<<<<<<<<<<<<<
@@ -10087,7 +9870,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
   __pyx_r = __pyx_v_data;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":502
+  /* "matio/v5/_mio5_utils.pyx":472
  *         return el
  * 
  *     cdef inline object read_int8_string(self):             # <<<<<<<<<<<<<<
@@ -10108,7 +9891,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_rea
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":525
+/* "matio/v5/_mio5_utils.pyx":495
  *         return data
  * 
  *     cdef int read_into_int32s(self, cnp.int32_t *int32p, cnp.uint32_t max_byte_count) except -1:             # <<<<<<<<<<<<<<
@@ -10137,7 +9920,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_into_int32s", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":542
+  /* "matio/v5/_mio5_utils.pyx":512
  *         cdef:
  *             cnp.uint32_t mdtype, byte_count, n_ints, i
  *             check_ints=0             # <<<<<<<<<<<<<<
@@ -10147,16 +9930,16 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
   __pyx_v_check_ints = __pyx_mstate_global->__pyx_int_0;
 
-  /* "matio/v5/_mio5_utils.pyx":543
+  /* "matio/v5/_mio5_utils.pyx":513
  *             cnp.uint32_t mdtype, byte_count, n_ints, i
  *             check_ints=0
  *         self.read_element_into(&mdtype, &byte_count, <void *>int32p, max_byte_count)             # <<<<<<<<<<<<<<
  *         if mdtype == miUINT32:
  *             check_ints = 1
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_element_into(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), ((void *)__pyx_v_int32p), __pyx_v_max_byte_count); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 543, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_element_into(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), ((void *)__pyx_v_int32p), __pyx_v_max_byte_count); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 513, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":544
+  /* "matio/v5/_mio5_utils.pyx":514
  *             check_ints=0
  *         self.read_element_into(&mdtype, &byte_count, <void *>int32p, max_byte_count)
  *         if mdtype == miUINT32:             # <<<<<<<<<<<<<<
@@ -10166,7 +9949,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
   __pyx_t_2 = (__pyx_v_mdtype == __pyx_e_5matio_2v5_11_mio5_utils_miUINT32);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":545
+    /* "matio/v5/_mio5_utils.pyx":515
  *         self.read_element_into(&mdtype, &byte_count, <void *>int32p, max_byte_count)
  *         if mdtype == miUINT32:
  *             check_ints = 1             # <<<<<<<<<<<<<<
@@ -10176,7 +9959,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
     __Pyx_INCREF(__pyx_mstate_global->__pyx_int_1);
     __Pyx_DECREF_SET(__pyx_v_check_ints, __pyx_mstate_global->__pyx_int_1);
 
-    /* "matio/v5/_mio5_utils.pyx":544
+    /* "matio/v5/_mio5_utils.pyx":514
  *             check_ints=0
  *         self.read_element_into(&mdtype, &byte_count, <void *>int32p, max_byte_count)
  *         if mdtype == miUINT32:             # <<<<<<<<<<<<<<
@@ -10186,7 +9969,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":546
+  /* "matio/v5/_mio5_utils.pyx":516
  *         if mdtype == miUINT32:
  *             check_ints = 1
  *         elif mdtype != miINT32:             # <<<<<<<<<<<<<<
@@ -10196,7 +9979,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
   __pyx_t_2 = (__pyx_v_mdtype != __pyx_e_5matio_2v5_11_mio5_utils_miINT32);
   if (unlikely(__pyx_t_2)) {
 
-    /* "matio/v5/_mio5_utils.pyx":547
+    /* "matio/v5/_mio5_utils.pyx":517
  *             check_ints = 1
  *         elif mdtype != miINT32:
  *             raise TypeError('Expecting miINT32 as data type')             # <<<<<<<<<<<<<<
@@ -10209,14 +9992,14 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Expecting_miINT32_as_data_type};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 547, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 517, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 547, __pyx_L1_error)
+    __PYX_ERR(0, 517, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":546
+    /* "matio/v5/_mio5_utils.pyx":516
  *         if mdtype == miUINT32:
  *             check_ints = 1
  *         elif mdtype != miINT32:             # <<<<<<<<<<<<<<
@@ -10226,7 +10009,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":548
+  /* "matio/v5/_mio5_utils.pyx":518
  *         elif mdtype != miINT32:
  *             raise TypeError('Expecting miINT32 as data type')
  *         n_ints = byte_count // 4             # <<<<<<<<<<<<<<
@@ -10235,7 +10018,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
 */
   __pyx_v_n_ints = __Pyx_div_long(__pyx_v_byte_count, 4, 1);
 
-  /* "matio/v5/_mio5_utils.pyx":549
+  /* "matio/v5/_mio5_utils.pyx":519
  *             raise TypeError('Expecting miINT32 as data type')
  *         n_ints = byte_count // 4
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -10245,7 +10028,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
   __pyx_t_2 = (__pyx_v_self->is_swapped != 0);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":550
+    /* "matio/v5/_mio5_utils.pyx":520
  *         n_ints = byte_count // 4
  *         if self.is_swapped:
  *             for i in range(n_ints):             # <<<<<<<<<<<<<<
@@ -10257,7 +10040,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
     for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
       __pyx_v_i = __pyx_t_8;
 
-      /* "matio/v5/_mio5_utils.pyx":551
+      /* "matio/v5/_mio5_utils.pyx":521
  *         if self.is_swapped:
  *             for i in range(n_ints):
  *                 int32p[i] = byteswap_u4(int32p[i])             # <<<<<<<<<<<<<<
@@ -10267,7 +10050,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
       (__pyx_v_int32p[__pyx_v_i]) = __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4((__pyx_v_int32p[__pyx_v_i]), 0);
     }
 
-    /* "matio/v5/_mio5_utils.pyx":549
+    /* "matio/v5/_mio5_utils.pyx":519
  *             raise TypeError('Expecting miINT32 as data type')
  *         n_ints = byte_count // 4
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -10276,17 +10059,17 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":552
+  /* "matio/v5/_mio5_utils.pyx":522
  *             for i in range(n_ints):
  *                 int32p[i] = byteswap_u4(int32p[i])
  *         if check_ints:             # <<<<<<<<<<<<<<
  *             for i in range(n_ints):
  *                 if int32p[i] < 0:
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_check_ints); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_check_ints); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 522, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":553
+    /* "matio/v5/_mio5_utils.pyx":523
  *                 int32p[i] = byteswap_u4(int32p[i])
  *         if check_ints:
  *             for i in range(n_ints):             # <<<<<<<<<<<<<<
@@ -10298,7 +10081,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
     for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
       __pyx_v_i = __pyx_t_8;
 
-      /* "matio/v5/_mio5_utils.pyx":554
+      /* "matio/v5/_mio5_utils.pyx":524
  *         if check_ints:
  *             for i in range(n_ints):
  *                 if int32p[i] < 0:             # <<<<<<<<<<<<<<
@@ -10308,7 +10091,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
       __pyx_t_2 = ((__pyx_v_int32p[__pyx_v_i]) < 0);
       if (unlikely(__pyx_t_2)) {
 
-        /* "matio/v5/_mio5_utils.pyx":555
+        /* "matio/v5/_mio5_utils.pyx":525
  *             for i in range(n_ints):
  *                 if int32p[i] < 0:
  *                     raise ValueError('Expecting miINT32, got miUINT32 with '             # <<<<<<<<<<<<<<
@@ -10321,14 +10104,14 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
           PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Expecting_miINT32_got_miUINT32_w};
           __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 555, __pyx_L1_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 525, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
         __Pyx_Raise(__pyx_t_3, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __PYX_ERR(0, 555, __pyx_L1_error)
+        __PYX_ERR(0, 525, __pyx_L1_error)
 
-        /* "matio/v5/_mio5_utils.pyx":554
+        /* "matio/v5/_mio5_utils.pyx":524
  *         if check_ints:
  *             for i in range(n_ints):
  *                 if int32p[i] < 0:             # <<<<<<<<<<<<<<
@@ -10338,7 +10121,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
       }
     }
 
-    /* "matio/v5/_mio5_utils.pyx":552
+    /* "matio/v5/_mio5_utils.pyx":522
  *             for i in range(n_ints):
  *                 int32p[i] = byteswap_u4(int32p[i])
  *         if check_ints:             # <<<<<<<<<<<<<<
@@ -10347,7 +10130,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":557
+  /* "matio/v5/_mio5_utils.pyx":527
  *                     raise ValueError('Expecting miINT32, got miUINT32 with '
  *                                      'negative values')
  *         return n_ints             # <<<<<<<<<<<<<<
@@ -10357,7 +10140,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
   __pyx_r = __pyx_v_n_ints;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":525
+  /* "matio/v5/_mio5_utils.pyx":495
  *         return data
  * 
  *     cdef int read_into_int32s(self, cnp.int32_t *int32p, cnp.uint32_t max_byte_count) except -1:             # <<<<<<<<<<<<<<
@@ -10377,7 +10160,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_into_int32s(struct
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":559
+/* "matio/v5/_mio5_utils.pyx":529
  *         return n_ints
  * 
  *     def read_full_tag(self):             # <<<<<<<<<<<<<<
@@ -10442,16 +10225,16 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_8read_full_tag(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_full_tag", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":576
+  /* "matio/v5/_mio5_utils.pyx":546
  *         '''
  *         cdef cnp.uint32_t mdtype, byte_count
  *         self.cread_full_tag(&mdtype, &byte_count)             # <<<<<<<<<<<<<<
  *         return mdtype, byte_count
  * 
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_full_tag(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count)); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 576, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_full_tag(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count)); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 546, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":577
+  /* "matio/v5/_mio5_utils.pyx":547
  *         cdef cnp.uint32_t mdtype, byte_count
  *         self.cread_full_tag(&mdtype, &byte_count)
  *         return mdtype, byte_count             # <<<<<<<<<<<<<<
@@ -10459,23 +10242,23 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_8read_full_tag(s
  *     cdef int cread_full_tag(self,
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 577, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 547, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyLong_From_npy_uint32(__pyx_v_byte_count); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 577, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_From_npy_uint32(__pyx_v_byte_count); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 547, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 577, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 547, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 577, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 547, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 577, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 547, __pyx_L1_error);
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":559
+  /* "matio/v5/_mio5_utils.pyx":529
  *         return n_ints
  * 
  *     def read_full_tag(self):             # <<<<<<<<<<<<<<
@@ -10496,7 +10279,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_8read_full_tag(s
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":579
+/* "matio/v5/_mio5_utils.pyx":549
  *         return mdtype, byte_count
  * 
  *     cdef int cread_full_tag(self,             # <<<<<<<<<<<<<<
@@ -10513,16 +10296,16 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":584
+  /* "matio/v5/_mio5_utils.pyx":554
  *         ''' C method for reading full u4, u4 tag from stream'''
  *         cdef cnp.uint32_t u4s[2]
  *         self.cstream.read_into(<void *>u4s, 8)             # <<<<<<<<<<<<<<
  *         if self.is_swapped:
  *             mdtype[0] = byteswap_u4(u4s[0])
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, ((void *)__pyx_v_u4s), 8); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 584, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, ((void *)__pyx_v_u4s), 8); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 554, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":585
+  /* "matio/v5/_mio5_utils.pyx":555
  *         cdef cnp.uint32_t u4s[2]
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -10532,7 +10315,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
   __pyx_t_2 = (__pyx_v_self->is_swapped != 0);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":586
+    /* "matio/v5/_mio5_utils.pyx":556
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:
  *             mdtype[0] = byteswap_u4(u4s[0])             # <<<<<<<<<<<<<<
@@ -10541,7 +10324,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
 */
     (__pyx_v_mdtype[0]) = __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4((__pyx_v_u4s[0]), 0);
 
-    /* "matio/v5/_mio5_utils.pyx":587
+    /* "matio/v5/_mio5_utils.pyx":557
  *         if self.is_swapped:
  *             mdtype[0] = byteswap_u4(u4s[0])
  *             byte_count[0] = byteswap_u4(u4s[1])             # <<<<<<<<<<<<<<
@@ -10550,7 +10333,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
 */
     (__pyx_v_byte_count[0]) = __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4((__pyx_v_u4s[1]), 0);
 
-    /* "matio/v5/_mio5_utils.pyx":585
+    /* "matio/v5/_mio5_utils.pyx":555
  *         cdef cnp.uint32_t u4s[2]
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -10560,7 +10343,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":589
+  /* "matio/v5/_mio5_utils.pyx":559
  *             byte_count[0] = byteswap_u4(u4s[1])
  *         else:
  *             mdtype[0] = u4s[0]             # <<<<<<<<<<<<<<
@@ -10570,7 +10353,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
   /*else*/ {
     (__pyx_v_mdtype[0]) = (__pyx_v_u4s[0]);
 
-    /* "matio/v5/_mio5_utils.pyx":590
+    /* "matio/v5/_mio5_utils.pyx":560
  *         else:
  *             mdtype[0] = u4s[0]
  *             byte_count[0] = u4s[1]             # <<<<<<<<<<<<<<
@@ -10581,7 +10364,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":591
+  /* "matio/v5/_mio5_utils.pyx":561
  *             mdtype[0] = u4s[0]
  *             byte_count[0] = u4s[1]
  *         return 0             # <<<<<<<<<<<<<<
@@ -10591,7 +10374,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":579
+  /* "matio/v5/_mio5_utils.pyx":549
  *         return mdtype, byte_count
  * 
  *     cdef int cread_full_tag(self,             # <<<<<<<<<<<<<<
@@ -10607,7 +10390,7 @@ static int __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_full_tag(struct _
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":593
+/* "matio/v5/_mio5_utils.pyx":563
  *         return 0
  * 
  *     cpdef VarHeader5 read_header(self, int check_stream_limit):             # <<<<<<<<<<<<<<
@@ -10661,14 +10444,14 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 593, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 563, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_11read_header)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_4 = __pyx_t_1; 
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_check_stream_limit); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 593, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_check_stream_limit); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 563, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_t_6 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -10688,10 +10471,10 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 593, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 563, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5))))) __PYX_ERR(0, 593, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5))))) __PYX_ERR(0, 563, __pyx_L1_error)
         __pyx_r = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -10710,25 +10493,25 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     #endif
   }
 
-  /* "matio/v5/_mio5_utils.pyx":612
+  /* "matio/v5/_mio5_utils.pyx":582
  *             VarHeader5 header
  *         # Read and discard mdtype and byte_count
  *         self.cstream.read_into(<void *>u4s, 8)             # <<<<<<<<<<<<<<
  *         # get array flags and nzmax
  *         self.cstream.read_into(<void *>u4s, 8)
 */
-  __pyx_t_7 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, ((void *)__pyx_v_u4s), 8); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 612, __pyx_L1_error)
+  __pyx_t_7 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, ((void *)__pyx_v_u4s), 8); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 582, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":614
+  /* "matio/v5/_mio5_utils.pyx":584
  *         self.cstream.read_into(<void *>u4s, 8)
  *         # get array flags and nzmax
  *         self.cstream.read_into(<void *>u4s, 8)             # <<<<<<<<<<<<<<
  *         if self.is_swapped:
  *             flags_class = byteswap_u4(u4s[0])
 */
-  __pyx_t_7 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, ((void *)__pyx_v_u4s), 8); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 614, __pyx_L1_error)
+  __pyx_t_7 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->read_into(__pyx_v_self->cstream, ((void *)__pyx_v_u4s), 8); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 584, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":615
+  /* "matio/v5/_mio5_utils.pyx":585
  *         # get array flags and nzmax
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -10738,7 +10521,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   __pyx_t_8 = (__pyx_v_self->is_swapped != 0);
   if (__pyx_t_8) {
 
-    /* "matio/v5/_mio5_utils.pyx":616
+    /* "matio/v5/_mio5_utils.pyx":586
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:
  *             flags_class = byteswap_u4(u4s[0])             # <<<<<<<<<<<<<<
@@ -10747,7 +10530,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
     __pyx_v_flags_class = __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4((__pyx_v_u4s[0]), 0);
 
-    /* "matio/v5/_mio5_utils.pyx":617
+    /* "matio/v5/_mio5_utils.pyx":587
  *         if self.is_swapped:
  *             flags_class = byteswap_u4(u4s[0])
  *             nzmax = byteswap_u4(u4s[1])             # <<<<<<<<<<<<<<
@@ -10756,7 +10539,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
     __pyx_v_nzmax = __pyx_f_5matio_2v5_11_mio5_utils_byteswap_u4((__pyx_v_u4s[1]), 0);
 
-    /* "matio/v5/_mio5_utils.pyx":615
+    /* "matio/v5/_mio5_utils.pyx":585
  *         # get array flags and nzmax
  *         self.cstream.read_into(<void *>u4s, 8)
  *         if self.is_swapped:             # <<<<<<<<<<<<<<
@@ -10766,7 +10549,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":619
+  /* "matio/v5/_mio5_utils.pyx":589
  *             nzmax = byteswap_u4(u4s[1])
  *         else:
  *             flags_class = u4s[0]             # <<<<<<<<<<<<<<
@@ -10776,7 +10559,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   /*else*/ {
     __pyx_v_flags_class = (__pyx_v_u4s[0]);
 
-    /* "matio/v5/_mio5_utils.pyx":620
+    /* "matio/v5/_mio5_utils.pyx":590
  *         else:
  *             flags_class = u4s[0]
  *             nzmax = u4s[1]             # <<<<<<<<<<<<<<
@@ -10787,7 +10570,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":621
+  /* "matio/v5/_mio5_utils.pyx":591
  *             flags_class = u4s[0]
  *             nzmax = u4s[1]
  *         header = VarHeader5()             # <<<<<<<<<<<<<<
@@ -10800,13 +10583,13 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 621, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 591, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __pyx_v_header = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":622
+  /* "matio/v5/_mio5_utils.pyx":592
  *             nzmax = u4s[1]
  *         header = VarHeader5()
  *         mc = flags_class & 0xFF             # <<<<<<<<<<<<<<
@@ -10815,7 +10598,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   __pyx_v_mc = (__pyx_v_flags_class & 0xFF);
 
-  /* "matio/v5/_mio5_utils.pyx":623
+  /* "matio/v5/_mio5_utils.pyx":593
  *         header = VarHeader5()
  *         mc = flags_class & 0xFF
  *         header.mclass = mc             # <<<<<<<<<<<<<<
@@ -10824,7 +10607,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   __pyx_v_header->mclass = __pyx_v_mc;
 
-  /* "matio/v5/_mio5_utils.pyx":624
+  /* "matio/v5/_mio5_utils.pyx":594
  *         mc = flags_class & 0xFF
  *         header.mclass = mc
  *         header.check_stream_limit = check_stream_limit             # <<<<<<<<<<<<<<
@@ -10833,7 +10616,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   __pyx_v_header->check_stream_limit = __pyx_v_check_stream_limit;
 
-  /* "matio/v5/_mio5_utils.pyx":625
+  /* "matio/v5/_mio5_utils.pyx":595
  *         header.mclass = mc
  *         header.check_stream_limit = check_stream_limit
  *         header.is_logical = flags_class >> 9 & 1             # <<<<<<<<<<<<<<
@@ -10842,7 +10625,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   __pyx_v_header->is_logical = ((__pyx_v_flags_class >> 9) & 1);
 
-  /* "matio/v5/_mio5_utils.pyx":626
+  /* "matio/v5/_mio5_utils.pyx":596
  *         header.check_stream_limit = check_stream_limit
  *         header.is_logical = flags_class >> 9 & 1
  *         header.is_global = flags_class >> 10 & 1             # <<<<<<<<<<<<<<
@@ -10851,7 +10634,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   __pyx_v_header->is_global = ((__pyx_v_flags_class >> 10) & 1);
 
-  /* "matio/v5/_mio5_utils.pyx":627
+  /* "matio/v5/_mio5_utils.pyx":597
  *         header.is_logical = flags_class >> 9 & 1
  *         header.is_global = flags_class >> 10 & 1
  *         header.is_complex = flags_class >> 11 & 1             # <<<<<<<<<<<<<<
@@ -10860,7 +10643,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   __pyx_v_header->is_complex = ((__pyx_v_flags_class >> 11) & 1);
 
-  /* "matio/v5/_mio5_utils.pyx":628
+  /* "matio/v5/_mio5_utils.pyx":598
  *         header.is_global = flags_class >> 10 & 1
  *         header.is_complex = flags_class >> 11 & 1
  *         header.nzmax = nzmax             # <<<<<<<<<<<<<<
@@ -10869,7 +10652,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   __pyx_v_header->nzmax = __pyx_v_nzmax;
 
-  /* "matio/v5/_mio5_utils.pyx":631
+  /* "matio/v5/_mio5_utils.pyx":601
  *         # all miMATRIX types except the mxOPAQUE_CLASS have dims and a
  *         # name.
  *         if mc == mxOPAQUE_CLASS:             # <<<<<<<<<<<<<<
@@ -10879,14 +10662,14 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   __pyx_t_8 = (__pyx_v_mc == __pyx_e_5matio_2v5_11_mio5_utils_mxOPAQUE_CLASS);
   if (__pyx_t_8) {
 
-    /* "matio/v5/_mio5_utils.pyx":632
+    /* "matio/v5/_mio5_utils.pyx":602
  *         # name.
  *         if mc == mxOPAQUE_CLASS:
  *             header.name = self.read_int8_string()             # <<<<<<<<<<<<<<
  *             header.type_system = self.read_int8_string().decode('ascii')
  *             header.classname = self.read_int8_string().decode('ascii')
 */
-    __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 632, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 602, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GIVEREF(__pyx_t_1);
     __Pyx_GOTREF(__pyx_v_header->name);
@@ -10894,14 +10677,14 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     __pyx_v_header->name = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":633
+    /* "matio/v5/_mio5_utils.pyx":603
  *         if mc == mxOPAQUE_CLASS:
  *             header.name = self.read_int8_string()
  *             header.type_system = self.read_int8_string().decode('ascii')             # <<<<<<<<<<<<<<
  *             header.classname = self.read_int8_string().decode('ascii')
  *             header.dims = None
 */
-    __pyx_t_4 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 633, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 603, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_2 = __pyx_t_4;
     __Pyx_INCREF(__pyx_t_2);
@@ -10911,7 +10694,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_decode, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 633, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 603, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_GIVEREF(__pyx_t_1);
@@ -10920,14 +10703,14 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     __pyx_v_header->type_system = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":634
+    /* "matio/v5/_mio5_utils.pyx":604
  *             header.name = self.read_int8_string()
  *             header.type_system = self.read_int8_string().decode('ascii')
  *             header.classname = self.read_int8_string().decode('ascii')             # <<<<<<<<<<<<<<
  *             header.dims = None
  *             return header
 */
-    __pyx_t_2 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 634, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 604, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_4 = __pyx_t_2;
     __Pyx_INCREF(__pyx_t_4);
@@ -10937,7 +10720,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_decode, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 634, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 604, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_GIVEREF(__pyx_t_1);
@@ -10946,7 +10729,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     __pyx_v_header->classname = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":635
+    /* "matio/v5/_mio5_utils.pyx":605
  *             header.type_system = self.read_int8_string().decode('ascii')
  *             header.classname = self.read_int8_string().decode('ascii')
  *             header.dims = None             # <<<<<<<<<<<<<<
@@ -10959,7 +10742,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     __Pyx_DECREF(__pyx_v_header->dims);
     __pyx_v_header->dims = Py_None;
 
-    /* "matio/v5/_mio5_utils.pyx":636
+    /* "matio/v5/_mio5_utils.pyx":606
  *             header.classname = self.read_int8_string().decode('ascii')
  *             header.dims = None
  *             return header             # <<<<<<<<<<<<<<
@@ -10971,7 +10754,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     __pyx_r = __pyx_v_header;
     goto __pyx_L0;
 
-    /* "matio/v5/_mio5_utils.pyx":631
+    /* "matio/v5/_mio5_utils.pyx":601
  *         # all miMATRIX types except the mxOPAQUE_CLASS have dims and a
  *         # name.
  *         if mc == mxOPAQUE_CLASS:             # <<<<<<<<<<<<<<
@@ -10980,18 +10763,18 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":638
+  /* "matio/v5/_mio5_utils.pyx":608
  *             return header
  * 
  *         header.n_dims = self.read_into_int32s(header.dims_ptr, sizeof(header.dims_ptr))             # <<<<<<<<<<<<<<
  *         if header.n_dims > _MAT_MAXDIMS:
  *             raise ValueError('Too many dimensions (%d) for numpy arrays'
 */
-  if (unlikely(!__pyx_v_header)) { __Pyx_RaiseUnboundLocalError("header"); __PYX_ERR(0, 638, __pyx_L1_error) }
-  __pyx_t_7 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_into_int32s(__pyx_v_self, __pyx_v_header->dims_ptr, (sizeof(__pyx_v_header->dims_ptr))); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 638, __pyx_L1_error)
+  if (unlikely(!__pyx_v_header)) { __Pyx_RaiseUnboundLocalError("header"); __PYX_ERR(0, 608, __pyx_L1_error) }
+  __pyx_t_7 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_into_int32s(__pyx_v_self, __pyx_v_header->dims_ptr, (sizeof(__pyx_v_header->dims_ptr))); if (unlikely(__pyx_t_7 == ((int)-1))) __PYX_ERR(0, 608, __pyx_L1_error)
   __pyx_v_header->n_dims = __pyx_t_7;
 
-  /* "matio/v5/_mio5_utils.pyx":639
+  /* "matio/v5/_mio5_utils.pyx":609
  * 
  *         header.n_dims = self.read_into_int32s(header.dims_ptr, sizeof(header.dims_ptr))
  *         if header.n_dims > _MAT_MAXDIMS:             # <<<<<<<<<<<<<<
@@ -11001,7 +10784,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   __pyx_t_8 = (__pyx_v_header->n_dims > 32);
   if (unlikely(__pyx_t_8)) {
 
-    /* "matio/v5/_mio5_utils.pyx":640
+    /* "matio/v5/_mio5_utils.pyx":610
  *         header.n_dims = self.read_into_int32s(header.dims_ptr, sizeof(header.dims_ptr))
  *         if header.n_dims > _MAT_MAXDIMS:
  *             raise ValueError('Too many dimensions (%d) for numpy arrays'             # <<<<<<<<<<<<<<
@@ -11010,16 +10793,16 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
     __pyx_t_2 = NULL;
 
-    /* "matio/v5/_mio5_utils.pyx":641
+    /* "matio/v5/_mio5_utils.pyx":611
  *         if header.n_dims > _MAT_MAXDIMS:
  *             raise ValueError('Too many dimensions (%d) for numpy arrays'
  *                              % header.n_dims)             # <<<<<<<<<<<<<<
  *         # convert dims to list
  *         header.dims = [header.dims_ptr[i] for i in range(header.n_dims)]
 */
-    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_header->n_dims); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 641, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_header->n_dims); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 611, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_5 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Too_many_dimensions_d_for_numpy, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 641, __pyx_L1_error)
+    __pyx_t_5 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Too_many_dimensions_d_for_numpy, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 611, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_6 = 1;
@@ -11028,14 +10811,14 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 640, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 610, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 640, __pyx_L1_error)
+    __PYX_ERR(0, 610, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":639
+    /* "matio/v5/_mio5_utils.pyx":609
  * 
  *         header.n_dims = self.read_into_int32s(header.dims_ptr, sizeof(header.dims_ptr))
  *         if header.n_dims > _MAT_MAXDIMS:             # <<<<<<<<<<<<<<
@@ -11044,7 +10827,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":643
+  /* "matio/v5/_mio5_utils.pyx":613
  *                              % header.n_dims)
  *         # convert dims to list
  *         header.dims = [header.dims_ptr[i] for i in range(header.n_dims)]             # <<<<<<<<<<<<<<
@@ -11052,15 +10835,15 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
  * 
 */
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 643, __pyx_L1_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 613, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_7 = __pyx_v_header->n_dims;
     __pyx_t_9 = __pyx_t_7;
     for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
       __pyx_7genexpr__pyx_v_i = __pyx_t_10;
-      __pyx_t_5 = __Pyx_PyLong_From_npy_int32((__pyx_v_header->dims_ptr[__pyx_7genexpr__pyx_v_i])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 643, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyLong_From_npy_int32((__pyx_v_header->dims_ptr[__pyx_7genexpr__pyx_v_i])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 613, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 643, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 613, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
   } /* exit inner scope */
@@ -11070,14 +10853,14 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   __pyx_v_header->dims = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":644
+  /* "matio/v5/_mio5_utils.pyx":614
  *         # convert dims to list
  *         header.dims = [header.dims_ptr[i] for i in range(header.n_dims)]
  *         header.name = self.read_int8_string()             # <<<<<<<<<<<<<<
  * 
  *         if mc == mxOBJECT_CLASS:
 */
-  __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 644, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 614, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_header->name);
@@ -11085,7 +10868,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   __pyx_v_header->name = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":646
+  /* "matio/v5/_mio5_utils.pyx":616
  *         header.name = self.read_int8_string()
  * 
  *         if mc == mxOBJECT_CLASS:             # <<<<<<<<<<<<<<
@@ -11095,14 +10878,14 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   __pyx_t_8 = (__pyx_v_mc == __pyx_e_5matio_2v5_11_mio5_utils_mxOBJECT_CLASS);
   if (__pyx_t_8) {
 
-    /* "matio/v5/_mio5_utils.pyx":647
+    /* "matio/v5/_mio5_utils.pyx":617
  * 
  *         if mc == mxOBJECT_CLASS:
  *             header.classname = self.read_int8_string().decode('ascii')             # <<<<<<<<<<<<<<
  * 
  *         return header
 */
-    __pyx_t_2 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 647, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 617, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_5 = __pyx_t_2;
     __Pyx_INCREF(__pyx_t_5);
@@ -11112,7 +10895,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_decode, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 647, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 617, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_GIVEREF(__pyx_t_1);
@@ -11121,7 +10904,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
     __pyx_v_header->classname = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":646
+    /* "matio/v5/_mio5_utils.pyx":616
  *         header.name = self.read_int8_string()
  * 
  *         if mc == mxOBJECT_CLASS:             # <<<<<<<<<<<<<<
@@ -11130,7 +10913,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":649
+  /* "matio/v5/_mio5_utils.pyx":619
  *             header.classname = self.read_int8_string().decode('ascii')
  * 
  *         return header             # <<<<<<<<<<<<<<
@@ -11142,7 +10925,7 @@ static struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *__pyx_f_5matio_2v5_
   __pyx_r = __pyx_v_header;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":593
+  /* "matio/v5/_mio5_utils.pyx":563
  *         return 0
  * 
  *     cpdef VarHeader5 read_header(self, int check_stream_limit):             # <<<<<<<<<<<<<<
@@ -11206,32 +10989,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_check_stream_limit,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 593, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 563, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 593, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 563, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_header", 0) < (0)) __PYX_ERR(0, 593, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_header", 0) < (0)) __PYX_ERR(0, 563, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_header", 1, 1, 1, i); __PYX_ERR(0, 593, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_header", 1, 1, 1, i); __PYX_ERR(0, 563, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 593, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 563, __pyx_L3_error)
     }
-    __pyx_v_check_stream_limit = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_check_stream_limit == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 593, __pyx_L3_error)
+    __pyx_v_check_stream_limit = __Pyx_PyLong_As_int(values[0]); if (unlikely((__pyx_v_check_stream_limit == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 563, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_header", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 593, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_header", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 563, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11261,7 +11044,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_10read_header(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_header", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_header(__pyx_v_self, __pyx_v_check_stream_limit, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_header(__pyx_v_self, __pyx_v_check_stream_limit, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 563, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -11278,7 +11061,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_10read_header(st
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":651
+/* "matio/v5/_mio5_utils.pyx":621
  *         return header
  * 
  *     cdef inline size_t size_from_header(self, VarHeader5 header) noexcept:             # <<<<<<<<<<<<<<
@@ -11294,7 +11077,7 @@ static CYTHON_INLINE size_t __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_f
   int __pyx_t_2;
   int __pyx_t_3;
 
-  /* "matio/v5/_mio5_utils.pyx":668
+  /* "matio/v5/_mio5_utils.pyx":638
  *         '''
  *         # calculate number of items in array from dims product
  *         cdef size_t size = 1             # <<<<<<<<<<<<<<
@@ -11303,7 +11086,7 @@ static CYTHON_INLINE size_t __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_f
 */
   __pyx_v_size = 1;
 
-  /* "matio/v5/_mio5_utils.pyx":670
+  /* "matio/v5/_mio5_utils.pyx":640
  *         cdef size_t size = 1
  *         cdef int i
  *         for i in range(header.n_dims):             # <<<<<<<<<<<<<<
@@ -11315,7 +11098,7 @@ static CYTHON_INLINE size_t __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_f
   for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
     __pyx_v_i = __pyx_t_3;
 
-    /* "matio/v5/_mio5_utils.pyx":671
+    /* "matio/v5/_mio5_utils.pyx":641
  *         cdef int i
  *         for i in range(header.n_dims):
  *             size *= header.dims_ptr[i]             # <<<<<<<<<<<<<<
@@ -11325,7 +11108,7 @@ static CYTHON_INLINE size_t __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_f
     __pyx_v_size = (__pyx_v_size * (__pyx_v_header->dims_ptr[__pyx_v_i]));
   }
 
-  /* "matio/v5/_mio5_utils.pyx":672
+  /* "matio/v5/_mio5_utils.pyx":642
  *         for i in range(header.n_dims):
  *             size *= header.dims_ptr[i]
  *         return size             # <<<<<<<<<<<<<<
@@ -11335,7 +11118,7 @@ static CYTHON_INLINE size_t __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_f
   __pyx_r = __pyx_v_size;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":651
+  /* "matio/v5/_mio5_utils.pyx":621
  *         return header
  * 
  *     cdef inline size_t size_from_header(self, VarHeader5 header) noexcept:             # <<<<<<<<<<<<<<
@@ -11348,7 +11131,7 @@ static CYTHON_INLINE size_t __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_f
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":674
+/* "matio/v5/_mio5_utils.pyx":644
  *         return size
  * 
  *     cdef read_mi_matrix(self, int process=1):             # <<<<<<<<<<<<<<
@@ -11380,16 +11163,16 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
     }
   }
 
-  /* "matio/v5/_mio5_utils.pyx":694
+  /* "matio/v5/_mio5_utils.pyx":664
  *             cnp.uint32_t mdtype, byte_count
  *         # read full tag
  *         self.cread_full_tag(&mdtype, &byte_count)             # <<<<<<<<<<<<<<
  *         if mdtype != miMATRIX:
  *             raise TypeError('Expecting matrix here')
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_full_tag(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count)); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 694, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->cread_full_tag(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count)); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 664, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":695
+  /* "matio/v5/_mio5_utils.pyx":665
  *         # read full tag
  *         self.cread_full_tag(&mdtype, &byte_count)
  *         if mdtype != miMATRIX:             # <<<<<<<<<<<<<<
@@ -11399,7 +11182,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
   __pyx_t_2 = (__pyx_v_mdtype != __pyx_e_5matio_2v5_11_mio5_utils_miMATRIX);
   if (unlikely(__pyx_t_2)) {
 
-    /* "matio/v5/_mio5_utils.pyx":696
+    /* "matio/v5/_mio5_utils.pyx":666
  *         self.cread_full_tag(&mdtype, &byte_count)
  *         if mdtype != miMATRIX:
  *             raise TypeError('Expecting matrix here')             # <<<<<<<<<<<<<<
@@ -11412,14 +11195,14 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Expecting_matrix_here};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 696, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 666, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 696, __pyx_L1_error)
+    __PYX_ERR(0, 666, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":695
+    /* "matio/v5/_mio5_utils.pyx":665
  *         # read full tag
  *         self.cread_full_tag(&mdtype, &byte_count)
  *         if mdtype != miMATRIX:             # <<<<<<<<<<<<<<
@@ -11428,7 +11211,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":697
+  /* "matio/v5/_mio5_utils.pyx":667
  *         if mdtype != miMATRIX:
  *             raise TypeError('Expecting matrix here')
  *         if byte_count == 0:             # <<<<<<<<<<<<<<
@@ -11438,7 +11221,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
   __pyx_t_2 = (__pyx_v_byte_count == 0);
   if (__pyx_t_2) {
 
-    /* "matio/v5/_mio5_utils.pyx":698
+    /* "matio/v5/_mio5_utils.pyx":668
  *             raise TypeError('Expecting matrix here')
  *         if byte_count == 0:
  *             return MatlabCanonicalEmpty()             # <<<<<<<<<<<<<<
@@ -11447,7 +11230,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_MatlabCanonicalEmpty); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 698, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_MatlabCanonicalEmpty); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 668, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -11466,14 +11249,14 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 698, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 668, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "matio/v5/_mio5_utils.pyx":697
+    /* "matio/v5/_mio5_utils.pyx":667
  *         if mdtype != miMATRIX:
  *             raise TypeError('Expecting matrix here')
  *         if byte_count == 0:             # <<<<<<<<<<<<<<
@@ -11482,19 +11265,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":699
+  /* "matio/v5/_mio5_utils.pyx":669
  *         if byte_count == 0:
  *             return MatlabCanonicalEmpty()
  *         header = self.read_header(False)             # <<<<<<<<<<<<<<
  *         return self.array_from_header(header, process)
  * 
 */
-  __pyx_t_3 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_header(__pyx_v_self, 0, 0)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 699, __pyx_L1_error)
+  __pyx_t_3 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_header(__pyx_v_self, 0, 0)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 669, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_header = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":700
+  /* "matio/v5/_mio5_utils.pyx":670
  *             return MatlabCanonicalEmpty()
  *         header = self.read_header(False)
  *         return self.array_from_header(header, process)             # <<<<<<<<<<<<<<
@@ -11504,13 +11287,13 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_7.__pyx_n = 1;
   __pyx_t_7.process = __pyx_v_process;
-  __pyx_t_3 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->array_from_header(__pyx_v_self, __pyx_v_header, 0, &__pyx_t_7); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 700, __pyx_L1_error)
+  __pyx_t_3 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->array_from_header(__pyx_v_self, __pyx_v_header, 0, &__pyx_t_7); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 670, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":674
+  /* "matio/v5/_mio5_utils.pyx":644
  *         return size
  * 
  *     cdef read_mi_matrix(self, int process=1):             # <<<<<<<<<<<<<<
@@ -11532,7 +11315,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_mi_matrix(st
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":702
+/* "matio/v5/_mio5_utils.pyx":672
  *         return self.array_from_header(header, process)
  * 
  *     cpdef array_from_header(self, VarHeader5 header, int process=1):             # <<<<<<<<<<<<<<
@@ -11589,14 +11372,14 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_array_from_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 702, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_array_from_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 672, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_13array_from_header)) {
         __Pyx_XDECREF(__pyx_r);
         __pyx_t_3 = NULL;
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_4 = __pyx_t_1; 
-        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_process); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 702, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyLong_From_int(__pyx_v_process); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 672, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __pyx_t_6 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -11616,7 +11399,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 702, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 672, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -11637,7 +11420,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     #endif
   }
 
-  /* "matio/v5/_mio5_utils.pyx":720
+  /* "matio/v5/_mio5_utils.pyx":690
  *             object arr
  *             cnp.dtype mat_dtype
  *         cdef int mc = header.mclass             # <<<<<<<<<<<<<<
@@ -11647,7 +11430,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
   __pyx_t_7 = __pyx_v_header->mclass;
   __pyx_v_mc = __pyx_t_7;
 
-  /* "matio/v5/_mio5_utils.pyx":721
+  /* "matio/v5/_mio5_utils.pyx":691
  *             cnp.dtype mat_dtype
  *         cdef int mc = header.mclass
  *         if (mc == mxDOUBLE_CLASS             # <<<<<<<<<<<<<<
@@ -11658,7 +11441,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     case __pyx_e_5matio_2v5_11_mio5_utils_mxDOUBLE_CLASS:
     case __pyx_e_5matio_2v5_11_mio5_utils_mxSINGLE_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":722
+    /* "matio/v5/_mio5_utils.pyx":692
  *         cdef int mc = header.mclass
  *         if (mc == mxDOUBLE_CLASS
  *             or mc == mxSINGLE_CLASS             # <<<<<<<<<<<<<<
@@ -11667,7 +11450,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     case __pyx_e_5matio_2v5_11_mio5_utils_mxINT8_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":723
+    /* "matio/v5/_mio5_utils.pyx":693
  *         if (mc == mxDOUBLE_CLASS
  *             or mc == mxSINGLE_CLASS
  *             or mc == mxINT8_CLASS             # <<<<<<<<<<<<<<
@@ -11676,7 +11459,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     case __pyx_e_5matio_2v5_11_mio5_utils_mxUINT8_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":724
+    /* "matio/v5/_mio5_utils.pyx":694
  *             or mc == mxSINGLE_CLASS
  *             or mc == mxINT8_CLASS
  *             or mc == mxUINT8_CLASS             # <<<<<<<<<<<<<<
@@ -11685,7 +11468,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     case __pyx_e_5matio_2v5_11_mio5_utils_mxINT16_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":725
+    /* "matio/v5/_mio5_utils.pyx":695
  *             or mc == mxINT8_CLASS
  *             or mc == mxUINT8_CLASS
  *             or mc == mxINT16_CLASS             # <<<<<<<<<<<<<<
@@ -11694,7 +11477,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     case __pyx_e_5matio_2v5_11_mio5_utils_mxUINT16_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":726
+    /* "matio/v5/_mio5_utils.pyx":696
  *             or mc == mxUINT8_CLASS
  *             or mc == mxINT16_CLASS
  *             or mc == mxUINT16_CLASS             # <<<<<<<<<<<<<<
@@ -11703,7 +11486,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     case __pyx_e_5matio_2v5_11_mio5_utils_mxINT32_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":727
+    /* "matio/v5/_mio5_utils.pyx":697
  *             or mc == mxINT16_CLASS
  *             or mc == mxUINT16_CLASS
  *             or mc == mxINT32_CLASS             # <<<<<<<<<<<<<<
@@ -11712,7 +11495,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     case __pyx_e_5matio_2v5_11_mio5_utils_mxUINT32_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":728
+    /* "matio/v5/_mio5_utils.pyx":698
  *             or mc == mxUINT16_CLASS
  *             or mc == mxINT32_CLASS
  *             or mc == mxUINT32_CLASS             # <<<<<<<<<<<<<<
@@ -11721,7 +11504,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     case __pyx_e_5matio_2v5_11_mio5_utils_mxINT64_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":729
+    /* "matio/v5/_mio5_utils.pyx":699
  *             or mc == mxINT32_CLASS
  *             or mc == mxUINT32_CLASS
  *             or mc == mxINT64_CLASS             # <<<<<<<<<<<<<<
@@ -11730,19 +11513,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     case __pyx_e_5matio_2v5_11_mio5_utils_mxUINT64_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":731
+    /* "matio/v5/_mio5_utils.pyx":701
  *             or mc == mxINT64_CLASS
  *             or mc == mxUINT64_CLASS): # numeric matrix
  *             arr = self.read_real_complex(header)             # <<<<<<<<<<<<<<
  *             if header.is_logical:
  *                 mat_dtype = BOOL_DTYPE
 */
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_real_complex(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 731, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_real_complex(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 701, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arr = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":732
+    /* "matio/v5/_mio5_utils.pyx":702
  *             or mc == mxUINT64_CLASS): # numeric matrix
  *             arr = self.read_real_complex(header)
  *             if header.is_logical:             # <<<<<<<<<<<<<<
@@ -11752,7 +11535,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     __pyx_t_8 = (__pyx_v_header->is_logical != 0);
     if (__pyx_t_8) {
 
-      /* "matio/v5/_mio5_utils.pyx":733
+      /* "matio/v5/_mio5_utils.pyx":703
  *             arr = self.read_real_complex(header)
  *             if header.is_logical:
  *                 mat_dtype = BOOL_DTYPE             # <<<<<<<<<<<<<<
@@ -11762,7 +11545,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
       __Pyx_INCREF((PyObject *)__pyx_v_5matio_2v5_11_mio5_utils_BOOL_DTYPE);
       __pyx_v_mat_dtype = __pyx_v_5matio_2v5_11_mio5_utils_BOOL_DTYPE;
 
-      /* "matio/v5/_mio5_utils.pyx":732
+      /* "matio/v5/_mio5_utils.pyx":702
  *             or mc == mxUINT64_CLASS): # numeric matrix
  *             arr = self.read_real_complex(header)
  *             if header.is_logical:             # <<<<<<<<<<<<<<
@@ -11772,7 +11555,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
       goto __pyx_L3;
     }
 
-    /* "matio/v5/_mio5_utils.pyx":735
+    /* "matio/v5/_mio5_utils.pyx":705
  *                 mat_dtype = BOOL_DTYPE
  *             else:
  *                 mat_dtype = <object>self.class_dtypes[mc]             # <<<<<<<<<<<<<<
@@ -11782,13 +11565,13 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     /*else*/ {
       __pyx_t_1 = ((PyObject *)(__pyx_v_self->class_dtypes[__pyx_v_mc]));
       __Pyx_INCREF(__pyx_t_1);
-      if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_dtype))))) __PYX_ERR(0, 735, __pyx_L1_error)
+      if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_dtype))))) __PYX_ERR(0, 705, __pyx_L1_error)
       __pyx_v_mat_dtype = ((PyArray_Descr *)__pyx_t_1);
       __pyx_t_1 = 0;
     }
     __pyx_L3:;
 
-    /* "matio/v5/_mio5_utils.pyx":736
+    /* "matio/v5/_mio5_utils.pyx":706
  *             else:
  *                 mat_dtype = <object>self.class_dtypes[mc]
  *             if not header.is_complex:             # <<<<<<<<<<<<<<
@@ -11798,7 +11581,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     __pyx_t_8 = (!(__pyx_v_header->is_complex != 0));
     if (__pyx_t_8) {
 
-      /* "matio/v5/_mio5_utils.pyx":737
+      /* "matio/v5/_mio5_utils.pyx":707
  *                 mat_dtype = <object>self.class_dtypes[mc]
  *             if not header.is_complex:
  *                 arr = arr.astype(mat_dtype)             # <<<<<<<<<<<<<<
@@ -11812,13 +11595,13 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
         PyObject *__pyx_callargs[2] = {__pyx_t_2, ((PyObject *)__pyx_v_mat_dtype)};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 737, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 707, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF_SET(__pyx_v_arr, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "matio/v5/_mio5_utils.pyx":736
+      /* "matio/v5/_mio5_utils.pyx":706
  *             else:
  *                 mat_dtype = <object>self.class_dtypes[mc]
  *             if not header.is_complex:             # <<<<<<<<<<<<<<
@@ -11827,7 +11610,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":721
+    /* "matio/v5/_mio5_utils.pyx":691
  *             cnp.dtype mat_dtype
  *         cdef int mc = header.mclass
  *         if (mc == mxDOUBLE_CLASS             # <<<<<<<<<<<<<<
@@ -11837,19 +11620,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     break;
     case __pyx_e_5matio_2v5_11_mio5_utils_mxSPARSE_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":739
+    /* "matio/v5/_mio5_utils.pyx":709
  *                 arr = arr.astype(mat_dtype)
  *         elif mc == mxSPARSE_CLASS:
  *             arr = self.read_sparse(header)             # <<<<<<<<<<<<<<
  *         elif mc == mxCHAR_CLASS:
  *             arr = self.read_char(header)
 */
-    __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_sparse(__pyx_v_self, __pyx_v_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 739, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_sparse(__pyx_v_self, __pyx_v_header); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 709, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arr = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":738
+    /* "matio/v5/_mio5_utils.pyx":708
  *             if not header.is_complex:
  *                 arr = arr.astype(mat_dtype)
  *         elif mc == mxSPARSE_CLASS:             # <<<<<<<<<<<<<<
@@ -11859,19 +11642,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     break;
     case __pyx_e_5matio_2v5_11_mio5_utils_mxCHAR_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":741
+    /* "matio/v5/_mio5_utils.pyx":711
  *             arr = self.read_sparse(header)
  *         elif mc == mxCHAR_CLASS:
  *             arr = self.read_char(header)             # <<<<<<<<<<<<<<
  *         elif mc == mxCELL_CLASS:
  *             arr = self.read_cells(header)
 */
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_char(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 741, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_char(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 711, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arr = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":740
+    /* "matio/v5/_mio5_utils.pyx":710
  *         elif mc == mxSPARSE_CLASS:
  *             arr = self.read_sparse(header)
  *         elif mc == mxCHAR_CLASS:             # <<<<<<<<<<<<<<
@@ -11881,19 +11664,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     break;
     case __pyx_e_5matio_2v5_11_mio5_utils_mxCELL_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":743
+    /* "matio/v5/_mio5_utils.pyx":713
  *             arr = self.read_char(header)
  *         elif mc == mxCELL_CLASS:
  *             arr = self.read_cells(header)             # <<<<<<<<<<<<<<
  *         elif mc == mxSTRUCT_CLASS:
  *             arr = self.read_struct(header)
 */
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_cells(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 743, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_cells(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 713, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arr = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":742
+    /* "matio/v5/_mio5_utils.pyx":712
  *         elif mc == mxCHAR_CLASS:
  *             arr = self.read_char(header)
  *         elif mc == mxCELL_CLASS:             # <<<<<<<<<<<<<<
@@ -11903,19 +11686,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     break;
     case __pyx_e_5matio_2v5_11_mio5_utils_mxSTRUCT_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":745
+    /* "matio/v5/_mio5_utils.pyx":715
  *             arr = self.read_cells(header)
  *         elif mc == mxSTRUCT_CLASS:
  *             arr = self.read_struct(header)             # <<<<<<<<<<<<<<
  *         elif mc == mxOBJECT_CLASS:
  *             arr = self.read_struct(header)
 */
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_struct(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 745, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_struct(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 715, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arr = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":744
+    /* "matio/v5/_mio5_utils.pyx":714
  *         elif mc == mxCELL_CLASS:
  *             arr = self.read_cells(header)
  *         elif mc == mxSTRUCT_CLASS:             # <<<<<<<<<<<<<<
@@ -11925,19 +11708,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     break;
     case __pyx_e_5matio_2v5_11_mio5_utils_mxOBJECT_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":747
+    /* "matio/v5/_mio5_utils.pyx":717
  *             arr = self.read_struct(header)
  *         elif mc == mxOBJECT_CLASS:
  *             arr = self.read_struct(header)             # <<<<<<<<<<<<<<
  *             arr = MatlabObject(arr, header.classname)
  *         elif mc == mxFUNCTION_CLASS: # just a matrix of struct type
 */
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_struct(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 747, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_struct(__pyx_v_self, __pyx_v_header, 0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 717, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arr = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":748
+    /* "matio/v5/_mio5_utils.pyx":718
  *         elif mc == mxOBJECT_CLASS:
  *             arr = self.read_struct(header)
  *             arr = MatlabObject(arr, header.classname)             # <<<<<<<<<<<<<<
@@ -11945,7 +11728,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
  *             arr = self.read_mi_matrix()
 */
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_MatlabObject); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 748, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_MatlabObject); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 718, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -11964,13 +11747,13 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 748, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 718, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_arr, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":746
+    /* "matio/v5/_mio5_utils.pyx":716
  *         elif mc == mxSTRUCT_CLASS:
  *             arr = self.read_struct(header)
  *         elif mc == mxOBJECT_CLASS:             # <<<<<<<<<<<<<<
@@ -11980,19 +11763,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     break;
     case __pyx_e_5matio_2v5_11_mio5_utils_mxFUNCTION_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":750
+    /* "matio/v5/_mio5_utils.pyx":720
  *             arr = MatlabObject(arr, header.classname)
  *         elif mc == mxFUNCTION_CLASS: # just a matrix of struct type
  *             arr = self.read_mi_matrix()             # <<<<<<<<<<<<<<
  *             arr = MatlabFunction(arr)
  *         elif mc == mxOPAQUE_CLASS:
 */
-    __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_mi_matrix(__pyx_v_self, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 750, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_mi_matrix(__pyx_v_self, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 720, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arr = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":751
+    /* "matio/v5/_mio5_utils.pyx":721
  *         elif mc == mxFUNCTION_CLASS: # just a matrix of struct type
  *             arr = self.read_mi_matrix()
  *             arr = MatlabFunction(arr)             # <<<<<<<<<<<<<<
@@ -12000,7 +11783,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
  *             arr = self.read_opaque(header)
 */
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_MatlabFunction); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 751, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_MatlabFunction); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 721, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -12019,13 +11802,13 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 751, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 721, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_arr, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":749
+    /* "matio/v5/_mio5_utils.pyx":719
  *             arr = self.read_struct(header)
  *             arr = MatlabObject(arr, header.classname)
  *         elif mc == mxFUNCTION_CLASS: # just a matrix of struct type             # <<<<<<<<<<<<<<
@@ -12035,19 +11818,19 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     break;
     case __pyx_e_5matio_2v5_11_mio5_utils_mxOPAQUE_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":753
+    /* "matio/v5/_mio5_utils.pyx":723
  *             arr = MatlabFunction(arr)
  *         elif mc == mxOPAQUE_CLASS:
  *             arr = self.read_opaque(header)             # <<<<<<<<<<<<<<
  * 
  *         # ensure we have read checksum.
 */
-    __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_opaque(__pyx_v_self, __pyx_v_header, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 753, __pyx_L1_error)
+    __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_opaque(__pyx_v_self, __pyx_v_header, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 723, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_arr = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":752
+    /* "matio/v5/_mio5_utils.pyx":722
  *             arr = self.read_mi_matrix()
  *             arr = MatlabFunction(arr)
  *         elif mc == mxOPAQUE_CLASS:             # <<<<<<<<<<<<<<
@@ -12058,17 +11841,17 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
     default: break;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":756
+  /* "matio/v5/_mio5_utils.pyx":726
  * 
  *         # ensure we have read checksum.
  *         read_ok = self.cstream.all_data_read()             # <<<<<<<<<<<<<<
  *         if header.check_stream_limit and not read_ok:
  *             raise ValueError('Did not fully consume compressed contents' +
 */
-  __pyx_t_7 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->all_data_read(__pyx_v_self->cstream, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 756, __pyx_L1_error)
+  __pyx_t_7 = ((struct __pyx_vtabstruct_5matio_2v5_8_streams_GenericStream *)__pyx_v_self->cstream->__pyx_vtab)->all_data_read(__pyx_v_self->cstream, 0); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 726, __pyx_L1_error)
   __pyx_v_read_ok = __pyx_t_7;
 
-  /* "matio/v5/_mio5_utils.pyx":757
+  /* "matio/v5/_mio5_utils.pyx":727
  *         # ensure we have read checksum.
  *         read_ok = self.cstream.all_data_read()
  *         if header.check_stream_limit and not read_ok:             # <<<<<<<<<<<<<<
@@ -12086,7 +11869,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
   __pyx_L6_bool_binop_done:;
   if (unlikely(__pyx_t_8)) {
 
-    /* "matio/v5/_mio5_utils.pyx":758
+    /* "matio/v5/_mio5_utils.pyx":728
  *         read_ok = self.cstream.all_data_read()
  *         if header.check_stream_limit and not read_ok:
  *             raise ValueError('Did not fully consume compressed contents' +             # <<<<<<<<<<<<<<
@@ -12099,14 +11882,14 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Did_not_fully_consume_compressed};
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 758, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 728, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 758, __pyx_L1_error)
+    __PYX_ERR(0, 728, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":757
+    /* "matio/v5/_mio5_utils.pyx":727
  *         # ensure we have read checksum.
  *         read_ok = self.cstream.all_data_read()
  *         if header.check_stream_limit and not read_ok:             # <<<<<<<<<<<<<<
@@ -12115,7 +11898,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":761
+  /* "matio/v5/_mio5_utils.pyx":731
  *                              ' of an miCOMPRESSED element. This can' +
  *                              ' indicate that the .mat file is corrupted.')
  *         return arr             # <<<<<<<<<<<<<<
@@ -12123,12 +11906,12 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_array_from_header
  *     def shape_from_header(self, VarHeader5 header):
 */
   __Pyx_XDECREF(__pyx_r);
-  if (unlikely(!__pyx_v_arr)) { __Pyx_RaiseUnboundLocalError("arr"); __PYX_ERR(0, 761, __pyx_L1_error) }
+  if (unlikely(!__pyx_v_arr)) { __Pyx_RaiseUnboundLocalError("arr"); __PYX_ERR(0, 731, __pyx_L1_error) }
   __Pyx_INCREF(__pyx_v_arr);
   __pyx_r = __pyx_v_arr;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":702
+  /* "matio/v5/_mio5_utils.pyx":672
  *         return self.array_from_header(header, process)
  * 
  *     cpdef array_from_header(self, VarHeader5 header, int process=1):             # <<<<<<<<<<<<<<
@@ -12194,48 +11977,48 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_header,&__pyx_mstate_global->__pyx_n_u_process,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 702, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 672, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 702, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 672, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 702, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 672, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "array_from_header", 0) < (0)) __PYX_ERR(0, 702, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "array_from_header", 0) < (0)) __PYX_ERR(0, 672, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("array_from_header", 0, 1, 2, i); __PYX_ERR(0, 702, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("array_from_header", 0, 1, 2, i); __PYX_ERR(0, 672, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 702, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 672, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 702, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 672, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
     }
     __pyx_v_header = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)values[0]);
     if (values[1]) {
-      __pyx_v_process = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_process == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 702, __pyx_L3_error)
+      __pyx_v_process = __Pyx_PyLong_As_int(values[1]); if (unlikely((__pyx_v_process == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 672, __pyx_L3_error)
     } else {
       __pyx_v_process = ((int)1);
     }
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("array_from_header", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 702, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("array_from_header", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 672, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12246,7 +12029,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 702, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 672, __pyx_L1_error)
   __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_12array_from_header(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self), __pyx_v_header, __pyx_v_process);
 
   /* function exit code */
@@ -12278,7 +12061,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_12array_from_hea
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2.__pyx_n = 1;
   __pyx_t_2.process = __pyx_v_process;
-  __pyx_t_1 = __pyx_vtabptr_5matio_2v5_11_mio5_utils_VarReader5->array_from_header(__pyx_v_self, __pyx_v_header, 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 702, __pyx_L1_error)
+  __pyx_t_1 = __pyx_vtabptr_5matio_2v5_11_mio5_utils_VarReader5->array_from_header(__pyx_v_self, __pyx_v_header, 1, &__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 672, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -12295,7 +12078,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_12array_from_hea
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":763
+/* "matio/v5/_mio5_utils.pyx":733
  *         return arr
  * 
  *     def shape_from_header(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -12342,32 +12125,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_header,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 763, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 733, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 763, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 733, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "shape_from_header", 0) < (0)) __PYX_ERR(0, 763, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "shape_from_header", 0) < (0)) __PYX_ERR(0, 733, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("shape_from_header", 1, 1, 1, i); __PYX_ERR(0, 763, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("shape_from_header", 1, 1, 1, i); __PYX_ERR(0, 733, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 763, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 733, __pyx_L3_error)
     }
     __pyx_v_header = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("shape_from_header", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 763, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("shape_from_header", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 733, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12378,7 +12161,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 763, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 733, __pyx_L1_error)
   __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_14shape_from_header(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self), __pyx_v_header);
 
   /* function exit code */
@@ -12410,7 +12193,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_14shape_from_hea
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("shape_from_header", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":764
+  /* "matio/v5/_mio5_utils.pyx":734
  * 
  *     def shape_from_header(self, VarHeader5 header):
  *         cdef int mc = header.mclass             # <<<<<<<<<<<<<<
@@ -12420,7 +12203,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_14shape_from_hea
   __pyx_t_1 = __pyx_v_header->mclass;
   __pyx_v_mc = __pyx_t_1;
 
-  /* "matio/v5/_mio5_utils.pyx":766
+  /* "matio/v5/_mio5_utils.pyx":736
  *         cdef int mc = header.mclass
  *         cdef tuple shape
  *         if mc == mxSPARSE_CLASS:             # <<<<<<<<<<<<<<
@@ -12430,19 +12213,19 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_14shape_from_hea
   switch (__pyx_v_mc) {
     case __pyx_e_5matio_2v5_11_mio5_utils_mxSPARSE_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":767
+    /* "matio/v5/_mio5_utils.pyx":737
  *         cdef tuple shape
  *         if mc == mxSPARSE_CLASS:
  *             shape = tuple(header.dims)             # <<<<<<<<<<<<<<
  *         elif mc == mxCHAR_CLASS:
  *             shape = tuple(header.dims)
 */
-    __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_v_header->dims); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 767, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_v_header->dims); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 737, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_shape = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":766
+    /* "matio/v5/_mio5_utils.pyx":736
  *         cdef int mc = header.mclass
  *         cdef tuple shape
  *         if mc == mxSPARSE_CLASS:             # <<<<<<<<<<<<<<
@@ -12452,19 +12235,19 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_14shape_from_hea
     break;
     case __pyx_e_5matio_2v5_11_mio5_utils_mxCHAR_CLASS:
 
-    /* "matio/v5/_mio5_utils.pyx":769
+    /* "matio/v5/_mio5_utils.pyx":739
  *             shape = tuple(header.dims)
  *         elif mc == mxCHAR_CLASS:
  *             shape = tuple(header.dims)             # <<<<<<<<<<<<<<
  *         else:
  *             shape = tuple(header.dims)
 */
-    __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_v_header->dims); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 769, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_v_header->dims); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 739, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_shape = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":768
+    /* "matio/v5/_mio5_utils.pyx":738
  *         if mc == mxSPARSE_CLASS:
  *             shape = tuple(header.dims)
  *         elif mc == mxCHAR_CLASS:             # <<<<<<<<<<<<<<
@@ -12474,21 +12257,21 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_14shape_from_hea
     break;
     default:
 
-    /* "matio/v5/_mio5_utils.pyx":771
+    /* "matio/v5/_mio5_utils.pyx":741
  *             shape = tuple(header.dims)
  *         else:
  *             shape = tuple(header.dims)             # <<<<<<<<<<<<<<
  *         return shape
  * 
 */
-    __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_v_header->dims); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 771, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_v_header->dims); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 741, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_v_shape = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
     break;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":772
+  /* "matio/v5/_mio5_utils.pyx":742
  *         else:
  *             shape = tuple(header.dims)
  *         return shape             # <<<<<<<<<<<<<<
@@ -12500,7 +12283,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_14shape_from_hea
   __pyx_r = __pyx_v_shape;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":763
+  /* "matio/v5/_mio5_utils.pyx":733
  *         return arr
  * 
  *     def shape_from_header(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -12520,7 +12303,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_14shape_from_hea
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":774
+/* "matio/v5/_mio5_utils.pyx":744
  *         return shape
  * 
  *     cpdef cnp.ndarray read_real_complex(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -12567,7 +12350,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_real_complex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 774, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_real_complex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 744, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_17read_real_complex)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
@@ -12591,10 +12374,10 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 774, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 744, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 774, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 744, __pyx_L1_error)
         __pyx_r = ((PyArrayObject *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -12613,7 +12396,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
     #endif
   }
 
-  /* "matio/v5/_mio5_utils.pyx":778
+  /* "matio/v5/_mio5_utils.pyx":748
  *         cdef:
  *             cnp.ndarray res, res_j
  *         if header.is_complex:             # <<<<<<<<<<<<<<
@@ -12623,7 +12406,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
   __pyx_t_6 = (__pyx_v_header->is_complex != 0);
   if (__pyx_t_6) {
 
-    /* "matio/v5/_mio5_utils.pyx":780
+    /* "matio/v5/_mio5_utils.pyx":750
  *         if header.is_complex:
  *             # avoid array copy to save memory
  *             res = self.read_numeric(False)             # <<<<<<<<<<<<<<
@@ -12632,12 +12415,12 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
 */
     __pyx_t_7.__pyx_n = 1;
     __pyx_t_7.copy = 0;
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_7)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 780, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_7)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 750, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_res = ((PyArrayObject *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":781
+    /* "matio/v5/_mio5_utils.pyx":751
  *             # avoid array copy to save memory
  *             res = self.read_numeric(False)
  *             res_j = self.read_numeric(False)             # <<<<<<<<<<<<<<
@@ -12646,25 +12429,25 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
 */
     __pyx_t_7.__pyx_n = 1;
     __pyx_t_7.copy = 0;
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_7)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 781, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_7)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 751, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_res_j = ((PyArrayObject *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":784
+    /* "matio/v5/_mio5_utils.pyx":754
  *             # Use c8 for f4s and c16 for f8 input. Just ``res = res + res_j *
  *             # 1j`` upcasts to c16 regardless of input type.
  *             if res.itemsize == 4:             # <<<<<<<<<<<<<<
  *                 res = res.astype('c8')
  *             else:
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_res), __pyx_mstate_global->__pyx_n_u_itemsize); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 784, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_res), __pyx_mstate_global->__pyx_n_u_itemsize); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 754, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_4, 4, 0)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 784, __pyx_L1_error)
+    __pyx_t_6 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_4, 4, 0)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 754, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_6) {
 
-      /* "matio/v5/_mio5_utils.pyx":785
+      /* "matio/v5/_mio5_utils.pyx":755
  *             # 1j`` upcasts to c16 regardless of input type.
  *             if res.itemsize == 4:
  *                 res = res.astype('c8')             # <<<<<<<<<<<<<<
@@ -12678,14 +12461,14 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
         PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_n_u_c8};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 785, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 755, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
-      if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 785, __pyx_L1_error)
+      if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 755, __pyx_L1_error)
       __Pyx_DECREF_SET(__pyx_v_res, ((PyArrayObject *)__pyx_t_1));
       __pyx_t_1 = 0;
 
-      /* "matio/v5/_mio5_utils.pyx":784
+      /* "matio/v5/_mio5_utils.pyx":754
  *             # Use c8 for f4s and c16 for f8 input. Just ``res = res + res_j *
  *             # 1j`` upcasts to c16 regardless of input type.
  *             if res.itemsize == 4:             # <<<<<<<<<<<<<<
@@ -12695,7 +12478,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
       goto __pyx_L4;
     }
 
-    /* "matio/v5/_mio5_utils.pyx":787
+    /* "matio/v5/_mio5_utils.pyx":757
  *                 res = res.astype('c8')
  *             else:
  *                 res = res.astype('c16')             # <<<<<<<<<<<<<<
@@ -12710,25 +12493,25 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
         PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_n_u_c16};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 787, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 757, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
-      if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 787, __pyx_L1_error)
+      if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 757, __pyx_L1_error)
       __Pyx_DECREF_SET(__pyx_v_res, ((PyArrayObject *)__pyx_t_1));
       __pyx_t_1 = 0;
     }
     __pyx_L4:;
 
-    /* "matio/v5/_mio5_utils.pyx":788
+    /* "matio/v5/_mio5_utils.pyx":758
  *             else:
  *                 res = res.astype('c16')
  *             res.imag = res_j             # <<<<<<<<<<<<<<
  *         else:
  *             res = self.read_numeric()
 */
-    if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_res), __pyx_mstate_global->__pyx_n_u_imag, ((PyObject *)__pyx_v_res_j)) < (0)) __PYX_ERR(0, 788, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_res), __pyx_mstate_global->__pyx_n_u_imag, ((PyObject *)__pyx_v_res_j)) < (0)) __PYX_ERR(0, 758, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":778
+    /* "matio/v5/_mio5_utils.pyx":748
  *         cdef:
  *             cnp.ndarray res, res_j
  *         if header.is_complex:             # <<<<<<<<<<<<<<
@@ -12738,7 +12521,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":790
+  /* "matio/v5/_mio5_utils.pyx":760
  *             res.imag = res_j
  *         else:
  *             res = self.read_numeric()             # <<<<<<<<<<<<<<
@@ -12746,14 +12529,14 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
  * 
 */
   /*else*/ {
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 790, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 760, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_res = ((PyArrayObject *)__pyx_t_1);
     __pyx_t_1 = 0;
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":791
+  /* "matio/v5/_mio5_utils.pyx":761
  *         else:
  *             res = self.read_numeric()
  *         return res.reshape(header.dims[::-1]).T             # <<<<<<<<<<<<<<
@@ -12763,7 +12546,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
   __Pyx_XDECREF((PyObject *)__pyx_r);
   __pyx_t_2 = ((PyObject *)__pyx_v_res);
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetItem(__pyx_v_header->dims, __pyx_mstate_global->__pyx_slice[0]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 791, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetItem(__pyx_v_header->dims, __pyx_mstate_global->__pyx_slice[0]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 761, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 0;
   {
@@ -12771,18 +12554,18 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_co
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_reshape, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 791, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 761, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 791, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 761, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 791, __pyx_L1_error)
+  if (!(likely(((__pyx_t_4) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_4, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 761, __pyx_L1_error)
   __pyx_r = ((PyArrayObject *)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":774
+  /* "matio/v5/_mio5_utils.pyx":744
  *         return shape
  * 
  *     cpdef cnp.ndarray read_real_complex(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -12846,32 +12629,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_header,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 774, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 744, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 774, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 744, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_real_complex", 0) < (0)) __PYX_ERR(0, 774, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_real_complex", 0) < (0)) __PYX_ERR(0, 744, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_real_complex", 1, 1, 1, i); __PYX_ERR(0, 774, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_real_complex", 1, 1, 1, i); __PYX_ERR(0, 744, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 774, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 744, __pyx_L3_error)
     }
     __pyx_v_header = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_real_complex", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 774, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_real_complex", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 744, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12882,7 +12665,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 774, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 744, __pyx_L1_error)
   __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_16read_real_complex(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self), __pyx_v_header);
 
   /* function exit code */
@@ -12911,7 +12694,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_16read_real_comp
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_real_complex", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_complex(__pyx_v_self, __pyx_v_header, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 774, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_real_complex(__pyx_v_self, __pyx_v_header, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 744, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -12928,7 +12711,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_16read_real_comp
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":793
+/* "matio/v5/_mio5_utils.pyx":763
  *         return res.reshape(header.dims[::-1]).T
  * 
  *     cdef object read_sparse(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -12962,75 +12745,75 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_sparse", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":797
+  /* "matio/v5/_mio5_utils.pyx":767
  *         cdef cnp.ndarray rowind, indptr, data, data_j
  *         cdef size_t M, N, nnz
  *         rowind = self.read_numeric()             # <<<<<<<<<<<<<<
  *         indptr = self.read_numeric()
  *         M, N = header.dims[0], header.dims[1]
 */
-  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 797, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 767, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_rowind = ((PyArrayObject *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":798
+  /* "matio/v5/_mio5_utils.pyx":768
  *         cdef size_t M, N, nnz
  *         rowind = self.read_numeric()
  *         indptr = self.read_numeric()             # <<<<<<<<<<<<<<
  *         M, N = header.dims[0], header.dims[1]
  *         indptr = indptr[:N+1]
 */
-  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 798, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 768, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_indptr = ((PyArrayObject *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":799
+  /* "matio/v5/_mio5_utils.pyx":769
  *         rowind = self.read_numeric()
  *         indptr = self.read_numeric()
  *         M, N = header.dims[0], header.dims[1]             # <<<<<<<<<<<<<<
  *         indptr = indptr[:N+1]
  *         nnz = indptr[-1]
 */
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_header->dims, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 799, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_header->dims, 0, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 769, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_2 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 799, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_2 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 769, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_header->dims, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 799, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_header->dims, 1, long, 1, __Pyx_PyLong_From_long, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 769, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_3 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 799, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_3 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 769, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_M = __pyx_t_2;
   __pyx_v_N = __pyx_t_3;
 
-  /* "matio/v5/_mio5_utils.pyx":800
+  /* "matio/v5/_mio5_utils.pyx":770
  *         indptr = self.read_numeric()
  *         M, N = header.dims[0], header.dims[1]
  *         indptr = indptr[:N+1]             # <<<<<<<<<<<<<<
  *         nnz = indptr[-1]
  *         if header.is_complex:
 */
-  __pyx_t_1 = __Pyx_PyObject_GetSlice(((PyObject *)__pyx_v_indptr), 0, (__pyx_v_N + 1), NULL, NULL, NULL, 0, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 800, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetSlice(((PyObject *)__pyx_v_indptr), 0, (__pyx_v_N + 1), NULL, NULL, NULL, 0, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 770, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 800, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 770, __pyx_L1_error)
   __Pyx_DECREF_SET(__pyx_v_indptr, ((PyArrayObject *)__pyx_t_1));
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":801
+  /* "matio/v5/_mio5_utils.pyx":771
  *         M, N = header.dims[0], header.dims[1]
  *         indptr = indptr[:N+1]
  *         nnz = indptr[-1]             # <<<<<<<<<<<<<<
  *         if header.is_complex:
  *             # avoid array copy to save memory
 */
-  __pyx_t_1 = __Pyx_GetItemInt(((PyObject *)__pyx_v_indptr), -1L, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 801, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(((PyObject *)__pyx_v_indptr), -1L, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 771, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_3 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 801, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyLong_As_size_t(__pyx_t_1); if (unlikely((__pyx_t_3 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 771, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_nnz = __pyx_t_3;
 
-  /* "matio/v5/_mio5_utils.pyx":802
+  /* "matio/v5/_mio5_utils.pyx":772
  *         indptr = indptr[:N+1]
  *         nnz = indptr[-1]
  *         if header.is_complex:             # <<<<<<<<<<<<<<
@@ -13040,7 +12823,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
   __pyx_t_4 = (__pyx_v_header->is_complex != 0);
   if (__pyx_t_4) {
 
-    /* "matio/v5/_mio5_utils.pyx":804
+    /* "matio/v5/_mio5_utils.pyx":774
  *         if header.is_complex:
  *             # avoid array copy to save memory
  *             data   = self.read_numeric(False)             # <<<<<<<<<<<<<<
@@ -13049,12 +12832,12 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
 */
     __pyx_t_5.__pyx_n = 1;
     __pyx_t_5.copy = 0;
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_5)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 804, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_5)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 774, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_data = ((PyArrayObject *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":805
+    /* "matio/v5/_mio5_utils.pyx":775
  *             # avoid array copy to save memory
  *             data   = self.read_numeric(False)
  *             data_j = self.read_numeric(False)             # <<<<<<<<<<<<<<
@@ -13063,31 +12846,31 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
 */
     __pyx_t_5.__pyx_n = 1;
     __pyx_t_5.copy = 0;
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_5)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 805, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_5)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 775, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_data_j = ((PyArrayObject *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":806
+    /* "matio/v5/_mio5_utils.pyx":776
  *             data   = self.read_numeric(False)
  *             data_j = self.read_numeric(False)
  *             data = data + (data_j * 1j)             # <<<<<<<<<<<<<<
  *         elif header.is_logical:
  *             data = self.read_numeric(True, nnz)
 */
-    __pyx_t_1 = PyComplex_FromDoubles(0.0, 1.0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 806, __pyx_L1_error)
+    __pyx_t_1 = PyComplex_FromDoubles(0.0, 1.0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 776, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = PyNumber_Multiply(((PyObject *)__pyx_v_data_j), __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 806, __pyx_L1_error)
+    __pyx_t_6 = PyNumber_Multiply(((PyObject *)__pyx_v_data_j), __pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 776, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyNumber_Add(((PyObject *)__pyx_v_data), __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 806, __pyx_L1_error)
+    __pyx_t_1 = PyNumber_Add(((PyObject *)__pyx_v_data), __pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 776, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 806, __pyx_L1_error)
+    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 776, __pyx_L1_error)
     __Pyx_DECREF_SET(__pyx_v_data, ((PyArrayObject *)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":802
+    /* "matio/v5/_mio5_utils.pyx":772
  *         indptr = indptr[:N+1]
  *         nnz = indptr[-1]
  *         if header.is_complex:             # <<<<<<<<<<<<<<
@@ -13097,7 +12880,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":807
+  /* "matio/v5/_mio5_utils.pyx":777
  *             data_j = self.read_numeric(False)
  *             data = data + (data_j * 1j)
  *         elif header.is_logical:             # <<<<<<<<<<<<<<
@@ -13107,7 +12890,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
   __pyx_t_4 = (__pyx_v_header->is_logical != 0);
   if (__pyx_t_4) {
 
-    /* "matio/v5/_mio5_utils.pyx":808
+    /* "matio/v5/_mio5_utils.pyx":778
  *             data = data + (data_j * 1j)
  *         elif header.is_logical:
  *             data = self.read_numeric(True, nnz)             # <<<<<<<<<<<<<<
@@ -13117,12 +12900,12 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
     __pyx_t_5.__pyx_n = 2;
     __pyx_t_5.copy = 1;
     __pyx_t_5.nnz = __pyx_v_nnz;
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_5)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 808, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, &__pyx_t_5)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 778, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_data = ((PyArrayObject *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":809
+    /* "matio/v5/_mio5_utils.pyx":779
  *         elif header.is_logical:
  *             data = self.read_numeric(True, nnz)
  *             data = data.astype(BOOL_DTYPE)             # <<<<<<<<<<<<<<
@@ -13136,14 +12919,14 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
       PyObject *__pyx_callargs[2] = {__pyx_t_6, ((PyObject *)__pyx_v_5matio_2v5_11_mio5_utils_BOOL_DTYPE)};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_astype, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 809, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 779, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 809, __pyx_L1_error)
+    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 779, __pyx_L1_error)
     __Pyx_DECREF_SET(__pyx_v_data, ((PyArrayObject *)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":807
+    /* "matio/v5/_mio5_utils.pyx":777
  *             data_j = self.read_numeric(False)
  *             data = data + (data_j * 1j)
  *         elif header.is_logical:             # <<<<<<<<<<<<<<
@@ -13153,7 +12936,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
     goto __pyx_L3;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":811
+  /* "matio/v5/_mio5_utils.pyx":781
  *             data = data.astype(BOOL_DTYPE)
  *         else:
  *             data = self.read_numeric()             # <<<<<<<<<<<<<<
@@ -13161,14 +12944,14 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
  *         # From the matlab (TM) API documentation, last found here:
 */
   /*else*/ {
-    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 811, __pyx_L1_error)
+    __pyx_t_1 = ((PyObject *)((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_numeric(__pyx_v_self, 0, NULL)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 781, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_data = ((PyArrayObject *)__pyx_t_1);
     __pyx_t_1 = 0;
   }
   __pyx_L3:;
 
-  /* "matio/v5/_mio5_utils.pyx":825
+  /* "matio/v5/_mio5_utils.pyx":795
  *         # to each rowind
  * 
  *         return csc_array((data[:nnz], rowind[:nnz], indptr), shape=(M, N))             # <<<<<<<<<<<<<<
@@ -13177,33 +12960,33 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_csc_array); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 825, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_csc_array); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyObject_GetSlice(((PyObject *)__pyx_v_data), 0, __pyx_v_nnz, NULL, NULL, NULL, 0, 1, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 825, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetSlice(((PyObject *)__pyx_v_data), 0, __pyx_v_nnz, NULL, NULL, NULL, 0, 1, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyObject_GetSlice(((PyObject *)__pyx_v_rowind), 0, __pyx_v_nnz, NULL, NULL, NULL, 0, 1, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 825, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetSlice(((PyObject *)__pyx_v_rowind), 0, __pyx_v_nnz, NULL, NULL, NULL, 0, 1, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_10 = PyTuple_New(3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 825, __pyx_L1_error)
+  __pyx_t_10 = PyTuple_New(3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_8) != (0)) __PYX_ERR(0, 825, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_8) != (0)) __PYX_ERR(0, 795, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_t_9) != (0)) __PYX_ERR(0, 825, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_t_9) != (0)) __PYX_ERR(0, 795, __pyx_L1_error);
   __Pyx_INCREF((PyObject *)__pyx_v_indptr);
   __Pyx_GIVEREF((PyObject *)__pyx_v_indptr);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 2, ((PyObject *)__pyx_v_indptr)) != (0)) __PYX_ERR(0, 825, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 2, ((PyObject *)__pyx_v_indptr)) != (0)) __PYX_ERR(0, 795, __pyx_L1_error);
   __pyx_t_8 = 0;
   __pyx_t_9 = 0;
-  __pyx_t_9 = __Pyx_PyLong_FromSize_t(__pyx_v_M); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 825, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_FromSize_t(__pyx_v_M); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_8 = __Pyx_PyLong_FromSize_t(__pyx_v_N); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 825, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_FromSize_t(__pyx_v_N); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_11 = PyTuple_New(2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 825, __pyx_L1_error)
+  __pyx_t_11 = PyTuple_New(2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 795, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_11);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_t_9) != (0)) __PYX_ERR(0, 825, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_11, 0, __pyx_t_9) != (0)) __PYX_ERR(0, 795, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_11, 1, __pyx_t_8) != (0)) __PYX_ERR(0, 825, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_11, 1, __pyx_t_8) != (0)) __PYX_ERR(0, 795, __pyx_L1_error);
   __pyx_t_9 = 0;
   __pyx_t_8 = 0;
   __pyx_t_3 = 1;
@@ -13220,23 +13003,23 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_6, __pyx_t_10};
-    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 825, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 795, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_shape, __pyx_t_11, __pyx_t_8, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 825, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_shape, __pyx_t_11, __pyx_t_8, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 795, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 825, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 795, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":793
+  /* "matio/v5/_mio5_utils.pyx":763
  *         return res.reshape(header.dims[::-1]).T
  * 
  *     cdef object read_sparse(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -13265,7 +13048,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_sparse(struc
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":827
+/* "matio/v5/_mio5_utils.pyx":797
  *         return csc_array((data[:nnz], rowind[:nnz], indptr), shape=(M, N))
  * 
  *     cpdef cnp.ndarray read_char(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -13322,7 +13105,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_char); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 827, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_char); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 797, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_19read_char)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
@@ -13346,10 +13129,10 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 827, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 797, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 827, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 797, __pyx_L1_error)
         __pyx_r = ((PyArrayObject *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -13368,7 +13151,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     #endif
   }
 
-  /* "matio/v5/_mio5_utils.pyx":853
+  /* "matio/v5/_mio5_utils.pyx":823
  *             object data, codec, arr
  *             cnp.dtype dt
  *         cdef size_t length = self.size_from_header(header)             # <<<<<<<<<<<<<<
@@ -13377,7 +13160,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
   __pyx_v_length = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_from_header(__pyx_v_self, __pyx_v_header);
 
-  /* "matio/v5/_mio5_utils.pyx":854
+  /* "matio/v5/_mio5_utils.pyx":824
  *             cnp.dtype dt
  *         cdef size_t length = self.size_from_header(header)
  *         data = self.read_element(             # <<<<<<<<<<<<<<
@@ -13386,12 +13169,12 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
   __pyx_t_6.__pyx_n = 1;
   __pyx_t_6.copy = 1;
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_element(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), ((void **)(&__pyx_v_data_ptr)), &__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 854, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_element(__pyx_v_self, (&__pyx_v_mdtype), (&__pyx_v_byte_count), ((void **)(&__pyx_v_data_ptr)), &__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 824, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_data = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":859
+  /* "matio/v5/_mio5_utils.pyx":829
  *         # maybe with non-zero length.
  * 
  *         if byte_count == 0:             # <<<<<<<<<<<<<<
@@ -13401,7 +13184,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
   __pyx_t_7 = (__pyx_v_byte_count == 0);
   if (__pyx_t_7) {
 
-    /* "matio/v5/_mio5_utils.pyx":860
+    /* "matio/v5/_mio5_utils.pyx":830
  * 
  *         if byte_count == 0:
  *             return decode_char_arrays(np.empty(header.dims, dtype='U1'))             # <<<<<<<<<<<<<<
@@ -13410,12 +13193,12 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
     __Pyx_XDECREF((PyObject *)__pyx_r);
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_decode_char_arrays); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 860, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_decode_char_arrays); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 830, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 860, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 830, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 860, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 830, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __pyx_t_5 = 1;
@@ -13432,14 +13215,14 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     #endif
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, __pyx_v_header->dims};
-      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 860, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 830, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_mstate_global->__pyx_n_u_U1, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 860, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_mstate_global->__pyx_n_u_U1, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 830, __pyx_L1_error)
       __pyx_t_3 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 860, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 830, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_t_5 = 1;
@@ -13460,15 +13243,15 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 860, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 830, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 860, __pyx_L1_error)
+    if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 830, __pyx_L1_error)
     __pyx_r = ((PyArrayObject *)__pyx_t_1);
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "matio/v5/_mio5_utils.pyx":859
+    /* "matio/v5/_mio5_utils.pyx":829
  *         # maybe with non-zero length.
  * 
  *         if byte_count == 0:             # <<<<<<<<<<<<<<
@@ -13477,7 +13260,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":862
+  /* "matio/v5/_mio5_utils.pyx":832
  *             return decode_char_arrays(np.empty(header.dims, dtype='U1'))
  * 
  *         if mdtype == miUINT16:             # <<<<<<<<<<<<<<
@@ -13487,7 +13270,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
   __pyx_t_7 = (__pyx_v_mdtype == __pyx_e_5matio_2v5_11_mio5_utils_miUINT16);
   if (__pyx_t_7) {
 
-    /* "matio/v5/_mio5_utils.pyx":863
+    /* "matio/v5/_mio5_utils.pyx":833
  * 
  *         if mdtype == miUINT16:
  *             codec = "utf-8"             # <<<<<<<<<<<<<<
@@ -13497,7 +13280,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_utf_8);
     __pyx_v_codec = __pyx_mstate_global->__pyx_kp_u_utf_8;
 
-    /* "matio/v5/_mio5_utils.pyx":862
+    /* "matio/v5/_mio5_utils.pyx":832
  *             return decode_char_arrays(np.empty(header.dims, dtype='U1'))
  * 
  *         if mdtype == miUINT16:             # <<<<<<<<<<<<<<
@@ -13507,7 +13290,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     goto __pyx_L4;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":864
+  /* "matio/v5/_mio5_utils.pyx":834
  *         if mdtype == miUINT16:
  *             codec = "utf-8"
  *         elif mdtype == miINT8 or mdtype == miUINT8:             # <<<<<<<<<<<<<<
@@ -13525,7 +13308,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
   }
   if (__pyx_t_7) {
 
-    /* "matio/v5/_mio5_utils.pyx":865
+    /* "matio/v5/_mio5_utils.pyx":835
  *             codec = "utf-8"
  *         elif mdtype == miINT8 or mdtype == miUINT8:
  *             codec = 'utf-8'             # <<<<<<<<<<<<<<
@@ -13535,7 +13318,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_utf_8);
     __pyx_v_codec = __pyx_mstate_global->__pyx_kp_u_utf_8;
 
-    /* "matio/v5/_mio5_utils.pyx":864
+    /* "matio/v5/_mio5_utils.pyx":834
  *         if mdtype == miUINT16:
  *             codec = "utf-8"
  *         elif mdtype == miINT8 or mdtype == miUINT8:             # <<<<<<<<<<<<<<
@@ -13545,43 +13328,43 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     goto __pyx_L4;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":866
+  /* "matio/v5/_mio5_utils.pyx":836
  *         elif mdtype == miINT8 or mdtype == miUINT8:
  *             codec = 'utf-8'
  *         elif mdtype in self.codecs: # encoded char data             # <<<<<<<<<<<<<<
  *             codec = self.codecs[mdtype]
  *             if not codec:
 */
-  __pyx_t_1 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 866, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 836, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_v_self->codecs, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 866, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_t_1, __pyx_v_self->codecs, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 836, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (likely(__pyx_t_7)) {
 
-    /* "matio/v5/_mio5_utils.pyx":867
+    /* "matio/v5/_mio5_utils.pyx":837
  *             codec = 'utf-8'
  *         elif mdtype in self.codecs: # encoded char data
  *             codec = self.codecs[mdtype]             # <<<<<<<<<<<<<<
  *             if not codec:
  *                 raise TypeError('Do not support encoding %d' % mdtype)
 */
-    __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_self->codecs, __pyx_v_mdtype, __pyx_t_5numpy_uint32_t, 0, __Pyx_PyLong_From_npy_uint32, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 867, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_self->codecs, __pyx_v_mdtype, __pyx_t_5numpy_uint32_t, 0, __Pyx_PyLong_From_npy_uint32, 0, 0, 1, 1, __Pyx_ReferenceSharing_SharedReference); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 837, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_codec = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":868
+    /* "matio/v5/_mio5_utils.pyx":838
  *         elif mdtype in self.codecs: # encoded char data
  *             codec = self.codecs[mdtype]
  *             if not codec:             # <<<<<<<<<<<<<<
  *                 raise TypeError('Do not support encoding %d' % mdtype)
  *         else:
 */
-    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_codec); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 868, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_codec); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 838, __pyx_L1_error)
     __pyx_t_11 = (!__pyx_t_7);
     if (unlikely(__pyx_t_11)) {
 
-      /* "matio/v5/_mio5_utils.pyx":869
+      /* "matio/v5/_mio5_utils.pyx":839
  *             codec = self.codecs[mdtype]
  *             if not codec:
  *                 raise TypeError('Do not support encoding %d' % mdtype)             # <<<<<<<<<<<<<<
@@ -13589,9 +13372,9 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
  *             raise ValueError('Type %d does not appear to be char type'
 */
       __pyx_t_4 = NULL;
-      __pyx_t_3 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 869, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 839, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Do_not_support_encoding_d, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 869, __pyx_L1_error)
+      __pyx_t_2 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Do_not_support_encoding_d, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 839, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_5 = 1;
@@ -13600,14 +13383,14 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_TypeError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 869, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 839, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_Raise(__pyx_t_1, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __PYX_ERR(0, 869, __pyx_L1_error)
+      __PYX_ERR(0, 839, __pyx_L1_error)
 
-      /* "matio/v5/_mio5_utils.pyx":868
+      /* "matio/v5/_mio5_utils.pyx":838
  *         elif mdtype in self.codecs: # encoded char data
  *             codec = self.codecs[mdtype]
  *             if not codec:             # <<<<<<<<<<<<<<
@@ -13616,7 +13399,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":866
+    /* "matio/v5/_mio5_utils.pyx":836
  *         elif mdtype == miINT8 or mdtype == miUINT8:
  *             codec = 'utf-8'
  *         elif mdtype in self.codecs: # encoded char data             # <<<<<<<<<<<<<<
@@ -13626,7 +13409,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     goto __pyx_L4;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":871
+  /* "matio/v5/_mio5_utils.pyx":841
  *                 raise TypeError('Do not support encoding %d' % mdtype)
  *         else:
  *             raise ValueError('Type %d does not appear to be char type'             # <<<<<<<<<<<<<<
@@ -13636,16 +13419,16 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
   /*else*/ {
     __pyx_t_2 = NULL;
 
-    /* "matio/v5/_mio5_utils.pyx":872
+    /* "matio/v5/_mio5_utils.pyx":842
  *         else:
  *             raise ValueError('Type %d does not appear to be char type'
  *                              % mdtype)             # <<<<<<<<<<<<<<
  * 
  *         dt = <cnp.dtype>self.dtypes[mdtype]
 */
-    __pyx_t_4 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 872, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 842, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Type_d_does_not_appear_to_be_cha, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 872, __pyx_L1_error)
+    __pyx_t_3 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Type_d_does_not_appear_to_be_cha, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 842, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_5 = 1;
@@ -13654,16 +13437,16 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 871, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 841, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 871, __pyx_L1_error)
+    __PYX_ERR(0, 841, __pyx_L1_error)
   }
   __pyx_L4:;
 
-  /* "matio/v5/_mio5_utils.pyx":874
+  /* "matio/v5/_mio5_utils.pyx":844
  *                              % mdtype)
  * 
  *         dt = <cnp.dtype>self.dtypes[mdtype]             # <<<<<<<<<<<<<<
@@ -13675,7 +13458,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
   __pyx_v_dt = ((PyArray_Descr *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":875
+  /* "matio/v5/_mio5_utils.pyx":845
  * 
  *         dt = <cnp.dtype>self.dtypes[mdtype]
  *         arr = np.ndarray(shape=(length,), dtype=dt, buffer=data)             # <<<<<<<<<<<<<<
@@ -13683,17 +13466,17 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
  * 
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 875, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 845, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ndarray); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 875, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ndarray); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 845, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyLong_FromSize_t(__pyx_v_length); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 875, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_FromSize_t(__pyx_v_length); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 845, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_10 = PyTuple_New(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 875, __pyx_L1_error)
+  __pyx_t_10 = PyTuple_New(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 845, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 875, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 845, __pyx_L1_error);
   __pyx_t_2 = 0;
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -13709,23 +13492,23 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_3, NULL};
-    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 875, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 845, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_shape, __pyx_t_10, __pyx_t_2, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 875, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, ((PyObject *)__pyx_v_dt), __pyx_t_2, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 875, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_buffer, __pyx_v_data, __pyx_t_2, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 875, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_shape, __pyx_t_10, __pyx_t_2, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 845, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, ((PyObject *)__pyx_v_dt), __pyx_t_2, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 845, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_buffer, __pyx_v_data, __pyx_t_2, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 845, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_2);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 875, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 845, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_arr = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":876
+  /* "matio/v5/_mio5_utils.pyx":846
  *         dt = <cnp.dtype>self.dtypes[mdtype]
  *         arr = np.ndarray(shape=(length,), dtype=dt, buffer=data)
  *         arr = arr.reshape(header.dims, order='F')             # <<<<<<<<<<<<<<
@@ -13737,19 +13520,19 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
   __pyx_t_5 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_v_header->dims};
-    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 876, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 846, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_F, __pyx_t_2, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 876, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_order, __pyx_mstate_global->__pyx_n_u_F, __pyx_t_2, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 846, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_reshape, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_2);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 876, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 846, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF_SET(__pyx_v_arr, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":878
+  /* "matio/v5/_mio5_utils.pyx":848
  *         arr = arr.reshape(header.dims, order='F')
  * 
  *         if mdtype == miUINT16:             # <<<<<<<<<<<<<<
@@ -13759,7 +13542,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
   __pyx_t_11 = (__pyx_v_mdtype == __pyx_e_5matio_2v5_11_mio5_utils_miUINT16);
   if (__pyx_t_11) {
 
-    /* "matio/v5/_mio5_utils.pyx":882
+    /* "matio/v5/_mio5_utils.pyx":852
  *             # A two byte utf-8 is one single uint16 integer
  *             # View as uint8, byteswap preserves order of code unit
  *             arr = np.ascontiguousarray(arr)             # <<<<<<<<<<<<<<
@@ -13767,9 +13550,9 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
  *                 arr = arr.byteswap()
 */
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 882, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 852, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ascontiguousarray); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 882, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ascontiguousarray); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 852, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_5 = 1;
@@ -13789,55 +13572,55 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
       __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 882, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 852, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_arr, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":883
+    /* "matio/v5/_mio5_utils.pyx":853
  *             # View as uint8, byteswap preserves order of code unit
  *             arr = np.ascontiguousarray(arr)
  *             if arr.dtype.byteorder == '<' or (arr.dtype.byteorder == '=' and np.little_endian):             # <<<<<<<<<<<<<<
  *                 arr = arr.byteswap()
  *             arr = arr.view(np.uint8)
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_arr, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_arr, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_byteorder); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_byteorder); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_10, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_10, __pyx_mstate_global->__pyx_kp_u__3, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     if (!__pyx_t_7) {
     } else {
       __pyx_t_11 = __pyx_t_7;
       goto __pyx_L8_bool_binop_done;
     }
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_arr, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_arr, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_byteorder); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_byteorder); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u__4, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u__4, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_7) {
     } else {
       __pyx_t_11 = __pyx_t_7;
       goto __pyx_L8_bool_binop_done;
     }
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 883, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_little_endian); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_little_endian); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 883, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 853, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __pyx_t_11 = __pyx_t_7;
     __pyx_L8_bool_binop_done:;
     if (__pyx_t_11) {
 
-      /* "matio/v5/_mio5_utils.pyx":884
+      /* "matio/v5/_mio5_utils.pyx":854
  *             arr = np.ascontiguousarray(arr)
  *             if arr.dtype.byteorder == '<' or (arr.dtype.byteorder == '=' and np.little_endian):
  *                 arr = arr.byteswap()             # <<<<<<<<<<<<<<
@@ -13851,13 +13634,13 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
         PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
         __pyx_t_10 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_byteswap, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 884, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 854, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       __Pyx_DECREF_SET(__pyx_v_arr, __pyx_t_10);
       __pyx_t_10 = 0;
 
-      /* "matio/v5/_mio5_utils.pyx":883
+      /* "matio/v5/_mio5_utils.pyx":853
  *             # View as uint8, byteswap preserves order of code unit
  *             arr = np.ascontiguousarray(arr)
  *             if arr.dtype.byteorder == '<' or (arr.dtype.byteorder == '=' and np.little_endian):             # <<<<<<<<<<<<<<
@@ -13866,7 +13649,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":885
+    /* "matio/v5/_mio5_utils.pyx":855
  *             if arr.dtype.byteorder == '<' or (arr.dtype.byteorder == '=' and np.little_endian):
  *                 arr = arr.byteswap()
  *             arr = arr.view(np.uint8)             # <<<<<<<<<<<<<<
@@ -13875,9 +13658,9 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
     __pyx_t_1 = __pyx_v_arr;
     __Pyx_INCREF(__pyx_t_1);
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 885, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 855, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_uint8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 885, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_uint8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 855, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_5 = 0;
@@ -13886,13 +13669,13 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
       __pyx_t_10 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_view, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 885, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 855, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
     __Pyx_DECREF_SET(__pyx_v_arr, __pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":878
+    /* "matio/v5/_mio5_utils.pyx":848
  *         arr = arr.reshape(header.dims, order='F')
  * 
  *         if mdtype == miUINT16:             # <<<<<<<<<<<<<<
@@ -13901,7 +13684,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":887
+  /* "matio/v5/_mio5_utils.pyx":857
  *             arr = arr.view(np.uint8)
  * 
  *         return decode_char_arrays(arr, codec, mdtype)             # <<<<<<<<<<<<<<
@@ -13910,9 +13693,9 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
 */
   __Pyx_XDECREF((PyObject *)__pyx_r);
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_decode_char_arrays); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 887, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_decode_char_arrays); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 857, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 887, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_npy_uint32(__pyx_v_mdtype); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 857, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -13932,15 +13715,15 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(st
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 887, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 857, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (!(likely(((__pyx_t_10) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_10, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 887, __pyx_L1_error)
+  if (!(likely(((__pyx_t_10) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_10, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 857, __pyx_L1_error)
   __pyx_r = ((PyArrayObject *)__pyx_t_10);
   __pyx_t_10 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":827
+  /* "matio/v5/_mio5_utils.pyx":797
  *         return csc_array((data[:nnz], rowind[:nnz], indptr), shape=(M, N))
  * 
  *     cpdef cnp.ndarray read_char(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -14009,32 +13792,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_header,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 827, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 797, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 827, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 797, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_char", 0) < (0)) __PYX_ERR(0, 827, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_char", 0) < (0)) __PYX_ERR(0, 797, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_char", 1, 1, 1, i); __PYX_ERR(0, 827, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_char", 1, 1, 1, i); __PYX_ERR(0, 797, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 827, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 797, __pyx_L3_error)
     }
     __pyx_v_header = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_char", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 827, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_char", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 797, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14045,7 +13828,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 827, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 797, __pyx_L1_error)
   __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_18read_char(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self), __pyx_v_header);
 
   /* function exit code */
@@ -14074,7 +13857,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_18read_char(stru
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_char", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(__pyx_v_self, __pyx_v_header, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 827, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_char(__pyx_v_self, __pyx_v_header, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 797, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -14091,7 +13874,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_18read_char(stru
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":889
+/* "matio/v5/_mio5_utils.pyx":859
  *         return decode_char_arrays(arr, codec, mdtype)
  * 
  *     cpdef cnp.ndarray read_cells(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -14153,7 +13936,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_cells); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 889, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_cells); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 859, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_21read_cells)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
@@ -14177,10 +13960,10 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 889, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 859, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 889, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 859, __pyx_L1_error)
         __pyx_r = ((PyArrayObject *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -14199,22 +13982,22 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
     #endif
   }
 
-  /* "matio/v5/_mio5_utils.pyx":895
+  /* "matio/v5/_mio5_utils.pyx":865
  *             cnp.ndarray[object, ndim=1] result
  *         # Account for fortran indexing of cells
  *         tupdims = tuple(header.dims[::-1])             # <<<<<<<<<<<<<<
  *         cdef size_t length = self.size_from_header(header)
  *         result = np.empty(length, dtype=object)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_v_header->dims, __pyx_mstate_global->__pyx_slice[0]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 895, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_v_header->dims, __pyx_mstate_global->__pyx_slice[0]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 865, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 895, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 865, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_tupdims = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":896
+  /* "matio/v5/_mio5_utils.pyx":866
  *         # Account for fortran indexing of cells
  *         tupdims = tuple(header.dims[::-1])
  *         cdef size_t length = self.size_from_header(header)             # <<<<<<<<<<<<<<
@@ -14223,7 +14006,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
 */
   __pyx_v_length = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_from_header(__pyx_v_self, __pyx_v_header);
 
-  /* "matio/v5/_mio5_utils.pyx":897
+  /* "matio/v5/_mio5_utils.pyx":867
  *         tupdims = tuple(header.dims[::-1])
  *         cdef size_t length = self.size_from_header(header)
  *         result = np.empty(length, dtype=object)             # <<<<<<<<<<<<<<
@@ -14231,12 +14014,12 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
  *             result[i] = self.read_mi_matrix()
 */
   __pyx_t_1 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 897, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 867, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 897, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 867, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyLong_FromSize_t(__pyx_v_length); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 897, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_FromSize_t(__pyx_v_length); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 867, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -14252,18 +14035,18 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_1, __pyx_t_4};
-    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 897, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 867, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_builtin_object, __pyx_t_6, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 897, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_builtin_object, __pyx_t_6, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 867, __pyx_L1_error)
     __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 897, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 867, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 897, __pyx_L1_error)
+  if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 867, __pyx_L1_error)
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
     __Pyx_SafeReleaseBuffer(&__pyx_pybuffernd_result.rcbuffer->pybuffer);
@@ -14279,12 +14062,12 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
       __pyx_t_8 = __pyx_t_9 = __pyx_t_10 = 0;
     }
     __pyx_pybuffernd_result.diminfo[0].strides = __pyx_pybuffernd_result.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_result.diminfo[0].shape = __pyx_pybuffernd_result.rcbuffer->pybuffer.shape[0];
-    if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 897, __pyx_L1_error)
+    if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 867, __pyx_L1_error)
   }
   __pyx_v_result = ((PyArrayObject *)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":898
+  /* "matio/v5/_mio5_utils.pyx":868
  *         cdef size_t length = self.size_from_header(header)
  *         result = np.empty(length, dtype=object)
  *         for i in range(length):             # <<<<<<<<<<<<<<
@@ -14296,21 +14079,21 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
   for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
     __pyx_v_i = __pyx_t_12;
 
-    /* "matio/v5/_mio5_utils.pyx":899
+    /* "matio/v5/_mio5_utils.pyx":869
  *         result = np.empty(length, dtype=object)
  *         for i in range(length):
  *             result[i] = self.read_mi_matrix()             # <<<<<<<<<<<<<<
  *         return result.reshape(tupdims).T
  * 
 */
-    __pyx_t_2 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_mi_matrix(__pyx_v_self, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 899, __pyx_L1_error)
+    __pyx_t_2 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_mi_matrix(__pyx_v_self, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 869, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_13 = __pyx_v_i;
     __pyx_t_7 = -1;
     if (unlikely(__pyx_t_13 >= (size_t)__pyx_pybuffernd_result.diminfo[0].shape)) __pyx_t_7 = 0;
     if (unlikely(__pyx_t_7 != -1)) {
       __Pyx_RaiseBufferIndexError(__pyx_t_7);
-      __PYX_ERR(0, 899, __pyx_L1_error)
+      __PYX_ERR(0, 869, __pyx_L1_error)
     }
     __pyx_t_14 = __Pyx_BufPtrStrided1d(PyObject **, __pyx_pybuffernd_result.rcbuffer->pybuffer.buf, __pyx_t_13, __pyx_pybuffernd_result.diminfo[0].strides);
     __Pyx_XGOTREF(*__pyx_t_14);
@@ -14320,7 +14103,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":900
+  /* "matio/v5/_mio5_utils.pyx":870
  *         for i in range(length):
  *             result[i] = self.read_mi_matrix()
  *         return result.reshape(tupdims).T             # <<<<<<<<<<<<<<
@@ -14335,18 +14118,18 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(s
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_tupdims};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_reshape, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 900, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 870, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 900, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 870, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 900, __pyx_L1_error)
+  if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 870, __pyx_L1_error)
   __pyx_r = ((PyArrayObject *)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":889
+  /* "matio/v5/_mio5_utils.pyx":859
  *         return decode_char_arrays(arr, codec, mdtype)
  * 
  *     cpdef cnp.ndarray read_cells(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -14420,32 +14203,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_header,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 889, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 859, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 889, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 859, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_cells", 0) < (0)) __PYX_ERR(0, 889, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_cells", 0) < (0)) __PYX_ERR(0, 859, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_cells", 1, 1, 1, i); __PYX_ERR(0, 889, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_cells", 1, 1, 1, i); __PYX_ERR(0, 859, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 889, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 859, __pyx_L3_error)
     }
     __pyx_v_header = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_cells", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 889, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_cells", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 859, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14456,7 +14239,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 889, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 859, __pyx_L1_error)
   __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_20read_cells(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self), __pyx_v_header);
 
   /* function exit code */
@@ -14485,7 +14268,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_20read_cells(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_cells", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(__pyx_v_self, __pyx_v_header, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 889, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_cells(__pyx_v_self, __pyx_v_header, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 859, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -14502,7 +14285,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_20read_cells(str
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":902
+/* "matio/v5/_mio5_utils.pyx":872
  *         return result.reshape(tupdims).T
  * 
  *     def read_fieldnames(self):             # <<<<<<<<<<<<<<
@@ -14563,7 +14346,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_22read_fieldname
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_fieldnames", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":905
+  /* "matio/v5/_mio5_utils.pyx":875
  *         '''Read fieldnames for struct-like matrix.'''
  *         cdef int n_names
  *         return self.cread_fieldnames(&n_names)             # <<<<<<<<<<<<<<
@@ -14571,13 +14354,13 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_22read_fieldname
  *     cdef inline object cread_fieldnames(self, int *n_names_ptr):
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_fieldnames(__pyx_v_self, (&__pyx_v_n_names)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 905, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_fieldnames(__pyx_v_self, (&__pyx_v_n_names)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 875, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":902
+  /* "matio/v5/_mio5_utils.pyx":872
  *         return result.reshape(tupdims).T
  * 
  *     def read_fieldnames(self):             # <<<<<<<<<<<<<<
@@ -14596,7 +14379,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_22read_fieldname
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":907
+/* "matio/v5/_mio5_utils.pyx":877
  *         return self.cread_fieldnames(&n_names)
  * 
  *     cdef inline object cread_fieldnames(self, int *n_names_ptr):             # <<<<<<<<<<<<<<
@@ -14640,17 +14423,17 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("cread_fieldnames", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":914
+  /* "matio/v5/_mio5_utils.pyx":884
  *             object name
  *         # Read field names into list
  *         cdef int res = self.read_into_int32s(&namelength, 4)             # <<<<<<<<<<<<<<
  *         if res != 1:
  *             raise ValueError('Only one value for namelength')
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_into_int32s(__pyx_v_self, (&__pyx_v_namelength), 4); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 914, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_into_int32s(__pyx_v_self, (&__pyx_v_namelength), 4); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 884, __pyx_L1_error)
   __pyx_v_res = __pyx_t_1;
 
-  /* "matio/v5/_mio5_utils.pyx":915
+  /* "matio/v5/_mio5_utils.pyx":885
  *         # Read field names into list
  *         cdef int res = self.read_into_int32s(&namelength, 4)
  *         if res != 1:             # <<<<<<<<<<<<<<
@@ -14660,7 +14443,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
   __pyx_t_2 = (__pyx_v_res != 1);
   if (unlikely(__pyx_t_2)) {
 
-    /* "matio/v5/_mio5_utils.pyx":916
+    /* "matio/v5/_mio5_utils.pyx":886
  *         cdef int res = self.read_into_int32s(&namelength, 4)
  *         if res != 1:
  *             raise ValueError('Only one value for namelength')             # <<<<<<<<<<<<<<
@@ -14673,14 +14456,14 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Only_one_value_for_namelength};
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 916, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 886, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 916, __pyx_L1_error)
+    __PYX_ERR(0, 886, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":915
+    /* "matio/v5/_mio5_utils.pyx":885
  *         # Read field names into list
  *         cdef int res = self.read_into_int32s(&namelength, 4)
  *         if res != 1:             # <<<<<<<<<<<<<<
@@ -14689,49 +14472,49 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":917
+  /* "matio/v5/_mio5_utils.pyx":887
  *         if res != 1:
  *             raise ValueError('Only one value for namelength')
  *         cdef object names = self.read_int8_string()             # <<<<<<<<<<<<<<
  *         field_names = []
  *         n_names = PyBytes_Size(names) // namelength
 */
-  __pyx_t_3 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 917, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_int8_string(__pyx_v_self); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 887, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_names = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":918
+  /* "matio/v5/_mio5_utils.pyx":888
  *             raise ValueError('Only one value for namelength')
  *         cdef object names = self.read_int8_string()
  *         field_names = []             # <<<<<<<<<<<<<<
  *         n_names = PyBytes_Size(names) // namelength
  *         # Make n_duplicates and pointer arrays
 */
-  __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 918, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 888, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_field_names = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":919
+  /* "matio/v5/_mio5_utils.pyx":889
  *         cdef object names = self.read_int8_string()
  *         field_names = []
  *         n_names = PyBytes_Size(names) // namelength             # <<<<<<<<<<<<<<
  *         # Make n_duplicates and pointer arrays
  *         cdef:
 */
-  __pyx_t_6 = PyBytes_Size(__pyx_v_names); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 919, __pyx_L1_error)
+  __pyx_t_6 = PyBytes_Size(__pyx_v_names); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1L))) __PYX_ERR(0, 889, __pyx_L1_error)
   if (unlikely(__pyx_v_namelength == 0)) {
     PyErr_SetString(PyExc_ZeroDivisionError, "integer division or modulo by zero");
-    __PYX_ERR(0, 919, __pyx_L1_error)
+    __PYX_ERR(0, 889, __pyx_L1_error)
   }
   else if (sizeof(Py_ssize_t) == sizeof(long) && (!(((__pyx_t_5numpy_int32_t)-1) > 0)) && unlikely(__pyx_v_namelength == (__pyx_t_5numpy_int32_t)-1)  && unlikely(__Pyx_UNARY_NEG_WOULD_OVERFLOW(__pyx_t_6))) {
     PyErr_SetString(PyExc_OverflowError, "value too large to perform division");
-    __PYX_ERR(0, 919, __pyx_L1_error)
+    __PYX_ERR(0, 889, __pyx_L1_error)
   }
   __pyx_v_n_names = __Pyx_div_Py_ssize_t(__pyx_t_6, __pyx_v_namelength, 0);
 
-  /* "matio/v5/_mio5_utils.pyx":923
+  /* "matio/v5/_mio5_utils.pyx":893
  *         cdef:
  *             int *n_duplicates
  *         n_duplicates = <int *>calloc(n_names, sizeof(int))             # <<<<<<<<<<<<<<
@@ -14740,27 +14523,27 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
 */
   __pyx_v_n_duplicates = ((int *)calloc(__pyx_v_n_names, (sizeof(int))));
 
-  /* "matio/v5/_mio5_utils.pyx":925
+  /* "matio/v5/_mio5_utils.pyx":895
  *         n_duplicates = <int *>calloc(n_names, sizeof(int))
  *         cdef:
  *             char *names_ptr = names             # <<<<<<<<<<<<<<
  *             char *n_ptr = names
  *             int j, dup_no
 */
-  __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_names); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 925, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_names); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 895, __pyx_L1_error)
   __pyx_v_names_ptr = __pyx_t_7;
 
-  /* "matio/v5/_mio5_utils.pyx":926
+  /* "matio/v5/_mio5_utils.pyx":896
  *         cdef:
  *             char *names_ptr = names
  *             char *n_ptr = names             # <<<<<<<<<<<<<<
  *             int j, dup_no
  *         for i in range(n_names):
 */
-  __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_names); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 926, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_names); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 896, __pyx_L1_error)
   __pyx_v_n_ptr = __pyx_t_7;
 
-  /* "matio/v5/_mio5_utils.pyx":928
+  /* "matio/v5/_mio5_utils.pyx":898
  *             char *n_ptr = names
  *             int j, dup_no
  *         for i in range(n_names):             # <<<<<<<<<<<<<<
@@ -14772,19 +14555,19 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
   for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
     __pyx_v_i = __pyx_t_9;
 
-    /* "matio/v5/_mio5_utils.pyx":929
+    /* "matio/v5/_mio5_utils.pyx":899
  *             int j, dup_no
  *         for i in range(n_names):
  *             name = PyUnicode_FromString(n_ptr)             # <<<<<<<<<<<<<<
  *             # Check if this is a duplicate field, rename if so
  *             dup_no = 0
 */
-    __pyx_t_3 = PyUnicode_FromString(__pyx_v_n_ptr); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 929, __pyx_L1_error)
+    __pyx_t_3 = PyUnicode_FromString(__pyx_v_n_ptr); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 899, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XDECREF_SET(__pyx_v_name, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":931
+    /* "matio/v5/_mio5_utils.pyx":901
  *             name = PyUnicode_FromString(n_ptr)
  *             # Check if this is a duplicate field, rename if so
  *             dup_no = 0             # <<<<<<<<<<<<<<
@@ -14793,7 +14576,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
 */
     __pyx_v_dup_no = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":932
+    /* "matio/v5/_mio5_utils.pyx":902
  *             # Check if this is a duplicate field, rename if so
  *             dup_no = 0
  *             for j in range(i):             # <<<<<<<<<<<<<<
@@ -14805,7 +14588,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
     for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
       __pyx_v_j = __pyx_t_12;
 
-      /* "matio/v5/_mio5_utils.pyx":933
+      /* "matio/v5/_mio5_utils.pyx":903
  *             dup_no = 0
  *             for j in range(i):
  *                 if strcmp(n_ptr, names_ptr + j * namelength) == 0: # the same             # <<<<<<<<<<<<<<
@@ -14815,7 +14598,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
       __pyx_t_2 = (strcmp(__pyx_v_n_ptr, (__pyx_v_names_ptr + (__pyx_v_j * __pyx_v_namelength))) == 0);
       if (__pyx_t_2) {
 
-        /* "matio/v5/_mio5_utils.pyx":934
+        /* "matio/v5/_mio5_utils.pyx":904
  *             for j in range(i):
  *                 if strcmp(n_ptr, names_ptr + j * namelength) == 0: # the same
  *                     n_duplicates[j] += 1             # <<<<<<<<<<<<<<
@@ -14825,7 +14608,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
         __pyx_t_13 = __pyx_v_j;
         (__pyx_v_n_duplicates[__pyx_t_13]) = ((__pyx_v_n_duplicates[__pyx_t_13]) + 1);
 
-        /* "matio/v5/_mio5_utils.pyx":935
+        /* "matio/v5/_mio5_utils.pyx":905
  *                 if strcmp(n_ptr, names_ptr + j * namelength) == 0: # the same
  *                     n_duplicates[j] += 1
  *                     dup_no = n_duplicates[j]             # <<<<<<<<<<<<<<
@@ -14834,7 +14617,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
 */
         __pyx_v_dup_no = (__pyx_v_n_duplicates[__pyx_v_j]);
 
-        /* "matio/v5/_mio5_utils.pyx":936
+        /* "matio/v5/_mio5_utils.pyx":906
  *                     n_duplicates[j] += 1
  *                     dup_no = n_duplicates[j]
  *                     break             # <<<<<<<<<<<<<<
@@ -14843,7 +14626,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
 */
         goto __pyx_L7_break;
 
-        /* "matio/v5/_mio5_utils.pyx":933
+        /* "matio/v5/_mio5_utils.pyx":903
  *             dup_no = 0
  *             for j in range(i):
  *                 if strcmp(n_ptr, names_ptr + j * namelength) == 0: # the same             # <<<<<<<<<<<<<<
@@ -14854,7 +14637,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
     }
     __pyx_L7_break:;
 
-    /* "matio/v5/_mio5_utils.pyx":937
+    /* "matio/v5/_mio5_utils.pyx":907
  *                     dup_no = n_duplicates[j]
  *                     break
  *             if dup_no != 0:             # <<<<<<<<<<<<<<
@@ -14864,30 +14647,30 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
     __pyx_t_2 = (__pyx_v_dup_no != 0);
     if (__pyx_t_2) {
 
-      /* "matio/v5/_mio5_utils.pyx":938
+      /* "matio/v5/_mio5_utils.pyx":908
  *                     break
  *             if dup_no != 0:
  *                 name = '_%d_%s' % (dup_no, name)             # <<<<<<<<<<<<<<
  *             field_names.append(name)
  *             n_ptr += namelength
 */
-      __pyx_t_3 = __Pyx_PyUnicode_From_int(__pyx_v_dup_no, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 938, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyUnicode_From_int(__pyx_v_dup_no, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 908, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 938, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_name), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 908, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_14[0] = __pyx_mstate_global->__pyx_n_u__5;
       __pyx_t_14[1] = __pyx_t_3;
       __pyx_t_14[2] = __pyx_mstate_global->__pyx_n_u__5;
       __pyx_t_14[3] = __pyx_t_4;
       __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_14, 4, 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 938, __pyx_L1_error)
+      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 908, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_15);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF_SET(__pyx_v_name, __pyx_t_15);
       __pyx_t_15 = 0;
 
-      /* "matio/v5/_mio5_utils.pyx":937
+      /* "matio/v5/_mio5_utils.pyx":907
  *                     dup_no = n_duplicates[j]
  *                     break
  *             if dup_no != 0:             # <<<<<<<<<<<<<<
@@ -14896,16 +14679,16 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
 */
     }
 
-    /* "matio/v5/_mio5_utils.pyx":939
+    /* "matio/v5/_mio5_utils.pyx":909
  *             if dup_no != 0:
  *                 name = '_%d_%s' % (dup_no, name)
  *             field_names.append(name)             # <<<<<<<<<<<<<<
  *             n_ptr += namelength
  *         free(n_duplicates)
 */
-    __pyx_t_16 = __Pyx_PyList_Append(__pyx_v_field_names, __pyx_v_name); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 939, __pyx_L1_error)
+    __pyx_t_16 = __Pyx_PyList_Append(__pyx_v_field_names, __pyx_v_name); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 909, __pyx_L1_error)
 
-    /* "matio/v5/_mio5_utils.pyx":940
+    /* "matio/v5/_mio5_utils.pyx":910
  *                 name = '_%d_%s' % (dup_no, name)
  *             field_names.append(name)
  *             n_ptr += namelength             # <<<<<<<<<<<<<<
@@ -14915,7 +14698,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
     __pyx_v_n_ptr = (__pyx_v_n_ptr + __pyx_v_namelength);
   }
 
-  /* "matio/v5/_mio5_utils.pyx":941
+  /* "matio/v5/_mio5_utils.pyx":911
  *             field_names.append(name)
  *             n_ptr += namelength
  *         free(n_duplicates)             # <<<<<<<<<<<<<<
@@ -14924,7 +14707,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
 */
   free(__pyx_v_n_duplicates);
 
-  /* "matio/v5/_mio5_utils.pyx":942
+  /* "matio/v5/_mio5_utils.pyx":912
  *             n_ptr += namelength
  *         free(n_duplicates)
  *         n_names_ptr[0] = n_names             # <<<<<<<<<<<<<<
@@ -14933,7 +14716,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
 */
   (__pyx_v_n_names_ptr[0]) = __pyx_v_n_names;
 
-  /* "matio/v5/_mio5_utils.pyx":943
+  /* "matio/v5/_mio5_utils.pyx":913
  *         free(n_duplicates)
  *         n_names_ptr[0] = n_names
  *         return field_names             # <<<<<<<<<<<<<<
@@ -14945,7 +14728,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
   __pyx_r = __pyx_v_field_names;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":907
+  /* "matio/v5/_mio5_utils.pyx":877
  *         return self.cread_fieldnames(&n_names)
  * 
  *     cdef inline object cread_fieldnames(self, int *n_names_ptr):             # <<<<<<<<<<<<<<
@@ -14969,7 +14752,7 @@ static CYTHON_INLINE PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cre
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":945
+/* "matio/v5/_mio5_utils.pyx":915
  *         return field_names
  * 
  *     cpdef cnp.ndarray read_struct(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -15028,7 +14811,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 945, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 915, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_25read_struct)) {
         __Pyx_XDECREF((PyObject *)__pyx_r);
@@ -15052,10 +14835,10 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 945, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 915, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 945, __pyx_L1_error)
+        if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 915, __pyx_L1_error)
         __pyx_r = ((PyArrayObject *)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -15074,34 +14857,34 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
     #endif
   }
 
-  /* "matio/v5/_mio5_utils.pyx":957
+  /* "matio/v5/_mio5_utils.pyx":927
  *             object dt, tupdims
  *         # Read field names into list
  *         cdef object field_names = self.cread_fieldnames(&n_names)             # <<<<<<<<<<<<<<
  *         # Prepare struct array
  *         tupdims = tuple(header.dims[::-1])
 */
-  __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_fieldnames(__pyx_v_self, (&__pyx_v_n_names)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 957, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_fieldnames(__pyx_v_self, (&__pyx_v_n_names)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 927, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_field_names = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":959
+  /* "matio/v5/_mio5_utils.pyx":929
  *         cdef object field_names = self.cread_fieldnames(&n_names)
  *         # Prepare struct array
  *         tupdims = tuple(header.dims[::-1])             # <<<<<<<<<<<<<<
  *         cdef size_t length = self.size_from_header(header)
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_v_header->dims, __pyx_mstate_global->__pyx_slice[0]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 959, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_v_header->dims, __pyx_mstate_global->__pyx_slice[0]); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 929, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 959, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PySequence_Tuple(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 929, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_tupdims = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":960
+  /* "matio/v5/_mio5_utils.pyx":930
  *         # Prepare struct array
  *         tupdims = tuple(header.dims[::-1])
  *         cdef size_t length = self.size_from_header(header)             # <<<<<<<<<<<<<<
@@ -15110,7 +14893,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
 */
   __pyx_v_length = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_size_from_header(__pyx_v_self, __pyx_v_header);
 
-  /* "matio/v5/_mio5_utils.pyx":962
+  /* "matio/v5/_mio5_utils.pyx":932
  *         cdef size_t length = self.size_from_header(header)
  * 
  *         if not n_names:             # <<<<<<<<<<<<<<
@@ -15120,7 +14903,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
   __pyx_t_6 = (!(__pyx_v_n_names != 0));
   if (__pyx_t_6) {
 
-    /* "matio/v5/_mio5_utils.pyx":963
+    /* "matio/v5/_mio5_utils.pyx":933
  * 
  *         if not n_names:
  *             res = np.empty(tupdims, dtype=object).T             # <<<<<<<<<<<<<<
@@ -15128,9 +14911,9 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
  *         dt = [(field_name, object) for field_name in field_names]
 */
     __pyx_t_1 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 963, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 933, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 963, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 933, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_5 = 1;
@@ -15147,23 +14930,23 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
     #endif
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_1, __pyx_v_tupdims};
-      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 963, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 933, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_builtin_object, __pyx_t_4, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 963, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_builtin_object, __pyx_t_4, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 933, __pyx_L1_error)
       __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 963, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 933, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 963, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 933, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_res = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "matio/v5/_mio5_utils.pyx":964
+    /* "matio/v5/_mio5_utils.pyx":934
  *         if not n_names:
  *             res = np.empty(tupdims, dtype=object).T
  *             return EmptyMatStruct(res)             # <<<<<<<<<<<<<<
@@ -15172,7 +14955,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
 */
     __Pyx_XDECREF((PyObject *)__pyx_r);
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EmptyMatStruct); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 964, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_EmptyMatStruct); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 934, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -15191,15 +14974,15 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 964, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 934, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
-    if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 964, __pyx_L1_error)
+    if (!(likely(((__pyx_t_3) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_3, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 934, __pyx_L1_error)
     __pyx_r = ((PyArrayObject *)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "matio/v5/_mio5_utils.pyx":962
+    /* "matio/v5/_mio5_utils.pyx":932
  *         cdef size_t length = self.size_from_header(header)
  * 
  *         if not n_names:             # <<<<<<<<<<<<<<
@@ -15208,7 +14991,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":965
+  /* "matio/v5/_mio5_utils.pyx":935
  *             res = np.empty(tupdims, dtype=object).T
  *             return EmptyMatStruct(res)
  *         dt = [(field_name, object) for field_name in field_names]             # <<<<<<<<<<<<<<
@@ -15216,16 +14999,16 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
  *         for i in range(length):
 */
   { /* enter inner scope */
-    __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 965, __pyx_L6_error)
+    __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 935, __pyx_L6_error)
     __Pyx_GOTREF(__pyx_t_3);
     if (likely(PyList_CheckExact(__pyx_v_field_names)) || PyTuple_CheckExact(__pyx_v_field_names)) {
       __pyx_t_4 = __pyx_v_field_names; __Pyx_INCREF(__pyx_t_4);
       __pyx_t_7 = 0;
       __pyx_t_8 = NULL;
     } else {
-      __pyx_t_7 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_v_field_names); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 965, __pyx_L6_error)
+      __pyx_t_7 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_v_field_names); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 935, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 965, __pyx_L6_error)
+      __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 935, __pyx_L6_error)
     }
     for (;;) {
       if (likely(!__pyx_t_8)) {
@@ -15233,7 +15016,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 965, __pyx_L6_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 935, __pyx_L6_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
@@ -15243,7 +15026,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 965, __pyx_L6_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 935, __pyx_L6_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
@@ -15254,13 +15037,13 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
           #endif
           ++__pyx_t_7;
         }
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 965, __pyx_L6_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 935, __pyx_L6_error)
       } else {
         __pyx_t_2 = __pyx_t_8(__pyx_t_4);
         if (unlikely(!__pyx_t_2)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 965, __pyx_L6_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 935, __pyx_L6_error)
             PyErr_Clear();
           }
           break;
@@ -15269,15 +15052,15 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_field_name, __pyx_t_2);
       __pyx_t_2 = 0;
-      __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 965, __pyx_L6_error)
+      __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 935, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_INCREF(__pyx_8genexpr1__pyx_v_field_name);
       __Pyx_GIVEREF(__pyx_8genexpr1__pyx_v_field_name);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_8genexpr1__pyx_v_field_name) != (0)) __PYX_ERR(0, 965, __pyx_L6_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_8genexpr1__pyx_v_field_name) != (0)) __PYX_ERR(0, 935, __pyx_L6_error);
       __Pyx_INCREF(__pyx_builtin_object);
       __Pyx_GIVEREF(__pyx_builtin_object);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_builtin_object) != (0)) __PYX_ERR(0, 965, __pyx_L6_error);
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_3, (PyObject*)__pyx_t_2))) __PYX_ERR(0, 965, __pyx_L6_error)
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_builtin_object) != (0)) __PYX_ERR(0, 935, __pyx_L6_error);
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_3, (PyObject*)__pyx_t_2))) __PYX_ERR(0, 935, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -15291,7 +15074,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
   __pyx_v_dt = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":966
+  /* "matio/v5/_mio5_utils.pyx":936
  *             return EmptyMatStruct(res)
  *         dt = [(field_name, object) for field_name in field_names]
  *         rec_res = np.empty(length, dtype=dt)             # <<<<<<<<<<<<<<
@@ -15299,12 +15082,12 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
  *             for field_name in field_names:
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 966, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 936, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 966, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_empty); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 936, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyLong_FromSize_t(__pyx_v_length); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 966, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_FromSize_t(__pyx_v_length); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 936, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -15320,21 +15103,21 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_t_2};
-    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 966, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 936, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_v_dt, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 966, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_dtype, __pyx_v_dt, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 936, __pyx_L1_error)
     __pyx_t_3 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 966, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 936, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_v_rec_res = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":967
+  /* "matio/v5/_mio5_utils.pyx":937
  *         dt = [(field_name, object) for field_name in field_names]
  *         rec_res = np.empty(length, dtype=dt)
  *         for i in range(length):             # <<<<<<<<<<<<<<
@@ -15346,7 +15129,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
   for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
     __pyx_v_i = __pyx_t_11;
 
-    /* "matio/v5/_mio5_utils.pyx":968
+    /* "matio/v5/_mio5_utils.pyx":938
  *         rec_res = np.empty(length, dtype=dt)
  *         for i in range(length):
  *             for field_name in field_names:             # <<<<<<<<<<<<<<
@@ -15358,9 +15141,9 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
       __pyx_t_7 = 0;
       __pyx_t_8 = NULL;
     } else {
-      __pyx_t_7 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_field_names); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 968, __pyx_L1_error)
+      __pyx_t_7 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_field_names); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 938, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 968, __pyx_L1_error)
+      __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 938, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_8)) {
@@ -15368,7 +15151,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 968, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 938, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
@@ -15378,7 +15161,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 968, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 938, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
@@ -15389,13 +15172,13 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
           #endif
           ++__pyx_t_7;
         }
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 968, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 938, __pyx_L1_error)
       } else {
         __pyx_t_1 = __pyx_t_8(__pyx_t_3);
         if (unlikely(!__pyx_t_1)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 968, __pyx_L1_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 938, __pyx_L1_error)
             PyErr_Clear();
           }
           break;
@@ -15405,22 +15188,22 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
       __Pyx_XDECREF_SET(__pyx_v_field_name, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "matio/v5/_mio5_utils.pyx":969
+      /* "matio/v5/_mio5_utils.pyx":939
  *         for i in range(length):
  *             for field_name in field_names:
  *                 rec_res[i][field_name] = self.read_mi_matrix()             # <<<<<<<<<<<<<<
  *         return rec_res.reshape(tupdims).T
  * 
 */
-      __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_mi_matrix(__pyx_v_self, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 969, __pyx_L1_error)
+      __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_mi_matrix(__pyx_v_self, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 939, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_9 = __Pyx_GetItemInt(__pyx_v_rec_res, __pyx_v_i, size_t, 0, __Pyx_PyLong_FromSize_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 969, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_GetItemInt(__pyx_v_rec_res, __pyx_v_i, size_t, 0, __Pyx_PyLong_FromSize_t, 0, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 939, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      if (unlikely((PyObject_SetItem(__pyx_t_9, __pyx_v_field_name, __pyx_t_1) < 0))) __PYX_ERR(0, 969, __pyx_L1_error)
+      if (unlikely((PyObject_SetItem(__pyx_t_9, __pyx_v_field_name, __pyx_t_1) < 0))) __PYX_ERR(0, 939, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "matio/v5/_mio5_utils.pyx":968
+      /* "matio/v5/_mio5_utils.pyx":938
  *         rec_res = np.empty(length, dtype=dt)
  *         for i in range(length):
  *             for field_name in field_names:             # <<<<<<<<<<<<<<
@@ -15431,7 +15214,7 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
 
-  /* "matio/v5/_mio5_utils.pyx":970
+  /* "matio/v5/_mio5_utils.pyx":940
  *             for field_name in field_names:
  *                 rec_res[i][field_name] = self.read_mi_matrix()
  *         return rec_res.reshape(tupdims).T             # <<<<<<<<<<<<<<
@@ -15446,18 +15229,18 @@ static PyArrayObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(
     PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_tupdims};
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_reshape, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 970, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 940, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 970, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_T); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 940, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 970, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_5numpy_ndarray))))) __PYX_ERR(0, 940, __pyx_L1_error)
   __pyx_r = ((PyArrayObject *)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":945
+  /* "matio/v5/_mio5_utils.pyx":915
  *         return field_names
  * 
  *     cpdef cnp.ndarray read_struct(self, VarHeader5 header):             # <<<<<<<<<<<<<<
@@ -15527,32 +15310,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_header,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 945, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 915, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 945, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 915, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_struct", 0) < (0)) __PYX_ERR(0, 945, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_struct", 0) < (0)) __PYX_ERR(0, 915, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_struct", 1, 1, 1, i); __PYX_ERR(0, 945, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_struct", 1, 1, 1, i); __PYX_ERR(0, 915, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 945, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 915, __pyx_L3_error)
     }
     __pyx_v_header = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_struct", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 945, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_struct", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 915, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15563,7 +15346,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 945, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_header), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "header", 0))) __PYX_ERR(0, 915, __pyx_L1_error)
   __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_24read_struct(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self), __pyx_v_header);
 
   /* function exit code */
@@ -15592,7 +15375,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_24read_struct(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_struct", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(__pyx_v_self, __pyx_v_header, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 945, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct(__pyx_v_self, __pyx_v_header, 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 915, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -15609,7 +15392,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_24read_struct(st
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":972
+/* "matio/v5/_mio5_utils.pyx":942
  *         return rec_res.reshape(tupdims).T
  * 
  *     cpdef object read_opaque(self, VarHeader5 hdr):             # <<<<<<<<<<<<<<
@@ -15655,7 +15438,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_opaque); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 972, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_read_opaque); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 942, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_5matio_2v5_11_mio5_utils_10VarReader5_27read_opaque)) {
         __Pyx_XDECREF(__pyx_r);
@@ -15679,7 +15462,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
           __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 972, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 942, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -15700,34 +15483,34 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
     #endif
   }
 
-  /* "matio/v5/_mio5_utils.pyx":975
+  /* "matio/v5/_mio5_utils.pyx":945
  *         ''' Read opaque (function workspace) type'''
  * 
  *         objmetadata = self.read_mi_matrix()             # <<<<<<<<<<<<<<
  * 
  *         if hdr.classname == MCOS_SUBSYSTEM_CLASS:
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_mi_matrix(__pyx_v_self, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 975, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self->__pyx_vtab)->read_mi_matrix(__pyx_v_self, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 945, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_objmetadata = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":977
+  /* "matio/v5/_mio5_utils.pyx":947
  *         objmetadata = self.read_mi_matrix()
  * 
  *         if hdr.classname == MCOS_SUBSYSTEM_CLASS:             # <<<<<<<<<<<<<<
  *             return objmetadata
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_MCOS_SUBSYSTEM_CLASS); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 977, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_MCOS_SUBSYSTEM_CLASS); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 947, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_v_hdr->classname, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 977, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_v_hdr->classname, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 947, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 977, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 947, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_6) {
 
-    /* "matio/v5/_mio5_utils.pyx":978
+    /* "matio/v5/_mio5_utils.pyx":948
  * 
  *         if hdr.classname == MCOS_SUBSYSTEM_CLASS:
  *             return objmetadata             # <<<<<<<<<<<<<<
@@ -15739,7 +15522,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
     __pyx_r = __pyx_v_objmetadata;
     goto __pyx_L0;
 
-    /* "matio/v5/_mio5_utils.pyx":977
+    /* "matio/v5/_mio5_utils.pyx":947
  *         objmetadata = self.read_mi_matrix()
  * 
  *         if hdr.classname == MCOS_SUBSYSTEM_CLASS:             # <<<<<<<<<<<<<<
@@ -15748,7 +15531,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":980
+  /* "matio/v5/_mio5_utils.pyx":950
  *             return objmetadata
  * 
  *         if self.subsystem is None:             # <<<<<<<<<<<<<<
@@ -15758,7 +15541,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
   __pyx_t_6 = (__pyx_v_self->subsystem == Py_None);
   if (__pyx_t_6) {
 
-    /* "matio/v5/_mio5_utils.pyx":981
+    /* "matio/v5/_mio5_utils.pyx":951
  * 
  *         if self.subsystem is None:
  *             return objmetadata             # <<<<<<<<<<<<<<
@@ -15770,7 +15553,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
     __pyx_r = __pyx_v_objmetadata;
     goto __pyx_L0;
 
-    /* "matio/v5/_mio5_utils.pyx":980
+    /* "matio/v5/_mio5_utils.pyx":950
  *             return objmetadata
  * 
  *         if self.subsystem is None:             # <<<<<<<<<<<<<<
@@ -15779,7 +15562,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
 */
   }
 
-  /* "matio/v5/_mio5_utils.pyx":983
+  /* "matio/v5/_mio5_utils.pyx":953
  *             return objmetadata
  * 
  *         res = self.subsystem.load_opaque_object(objmetadata, hdr.type_system, hdr.classname)             # <<<<<<<<<<<<<<
@@ -15792,13 +15575,13 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
     PyObject *__pyx_callargs[4] = {__pyx_t_1, __pyx_v_objmetadata, __pyx_v_hdr->type_system, __pyx_v_hdr->classname};
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_load_opaque_object, __pyx_callargs+__pyx_t_5, (4-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 983, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 953, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_v_res = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":984
+  /* "matio/v5/_mio5_utils.pyx":954
  * 
  *         res = self.subsystem.load_opaque_object(objmetadata, hdr.type_system, hdr.classname)
  *         return res             # <<<<<<<<<<<<<<
@@ -15808,7 +15591,7 @@ static PyObject *__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(struc
   __pyx_r = __pyx_v_res;
   goto __pyx_L0;
 
-  /* "matio/v5/_mio5_utils.pyx":972
+  /* "matio/v5/_mio5_utils.pyx":942
  *         return rec_res.reshape(tupdims).T
  * 
  *     cpdef object read_opaque(self, VarHeader5 hdr):             # <<<<<<<<<<<<<<
@@ -15872,32 +15655,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_hdr,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 972, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 942, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 972, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 942, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_opaque", 0) < (0)) __PYX_ERR(0, 972, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "read_opaque", 0) < (0)) __PYX_ERR(0, 942, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_opaque", 1, 1, 1, i); __PYX_ERR(0, 972, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("read_opaque", 1, 1, 1, i); __PYX_ERR(0, 942, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 972, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 942, __pyx_L3_error)
     }
     __pyx_v_hdr = ((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("read_opaque", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 972, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("read_opaque", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 942, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15908,7 +15691,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_hdr), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "hdr", 0))) __PYX_ERR(0, 972, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_hdr), __pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, 1, "hdr", 0))) __PYX_ERR(0, 942, __pyx_L1_error)
   __pyx_r = __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_26read_opaque(((struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *)__pyx_v_self), __pyx_v_hdr);
 
   /* function exit code */
@@ -15937,7 +15720,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_26read_opaque(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("read_opaque", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(__pyx_v_self, __pyx_v_hdr, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 972, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque(__pyx_v_self, __pyx_v_hdr, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 942, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -15954,12 +15737,12 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_26read_opaque(st
   return __pyx_r;
 }
 
-/* "matio/v5/_mio5_utils.pyx":193
- *     """
+/* "matio/v5/_mio5_utils.pyx":163
+ *     """Initialize from file reader object."""
  * 
  *     cdef public int is_swapped, little_endian             # <<<<<<<<<<<<<<
  *     cdef object codecs, uint16_codec
- *     # c-optimized version of reading stream
+ * 
 */
 
 /* Python wrapper */
@@ -15986,7 +15769,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_10is_swapped___g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->is_swapped); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 193, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->is_swapped); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -16024,7 +15807,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_10is_swapped_2__set__(
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 193, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 163, __pyx_L1_error)
   __pyx_v_self->is_swapped = __pyx_t_1;
 
   /* function exit code */
@@ -16061,7 +15844,7 @@ static PyObject *__pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_13little_endian_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->little_endian); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 193, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->little_endian); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 163, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -16099,7 +15882,7 @@ static int __pyx_pf_5matio_2v5_11_mio5_utils_10VarReader5_13little_endian_2__set
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 193, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 163, __pyx_L1_error)
   __pyx_v_self->little_endian = __pyx_t_1;
 
   /* function exit code */
@@ -16770,6 +16553,10 @@ static PyObject *__pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_dims(PyObje
   return __pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_4dims_1__get__(o);
 }
 
+static PyObject *__pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_is_complex(PyObject *o, CYTHON_UNUSED void *x) {
+  return __pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_10is_complex_1__get__(o);
+}
+
 static PyObject *__pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_is_logical(PyObject *o, CYTHON_UNUSED void *x) {
   return __pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_10is_logical_1__get__(o);
 }
@@ -16793,9 +16580,8 @@ static PyObject *__pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_nzmax(PyObj
 }
 
 static PyMethodDef __pyx_methods_5matio_2v5_11_mio5_utils_VarHeader5[] = {
-  {"set_dims", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_1set_dims, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_5matio_2v5_11_mio5_utils_10VarHeader5_set_dims},
-  {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_3__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
-  {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_5__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"__reduce_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_1__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
+  {"__setstate_cython__", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_5matio_2v5_11_mio5_utils_10VarHeader5_3__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0},
   {0, 0, 0, 0}
 };
 
@@ -16805,6 +16591,7 @@ static struct PyGetSetDef __pyx_getsets_5matio_2v5_11_mio5_utils_VarHeader5[] = 
   {"type_system", __pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_type_system, 0, 0, 0},
   {"mclass", __pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_mclass, 0, 0, 0},
   {"dims", __pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_dims, 0, 0, 0},
+  {"is_complex", __pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_is_complex, 0, 0, 0},
   {"is_logical", __pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_is_logical, 0, 0, 0},
   {"is_global", __pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_is_global, __pyx_setprop_5matio_2v5_11_mio5_utils_10VarHeader5_is_global, 0, 0},
   {"nzmax", __pyx_getprop_5matio_2v5_11_mio5_utils_10VarHeader5_nzmax, 0, 0, 0},
@@ -17036,7 +16823,7 @@ static struct PyGetSetDef __pyx_getsets_5matio_2v5_11_mio5_utils_VarReader5[] = 
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_5matio_2v5_11_mio5_utils_VarReader5_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_5matio_2v5_11_mio5_utils_VarReader5},
-  {Py_tp_doc, (void *)PyDoc_STR("Initialize from file reader object\n\n    preader needs the following fields defined:\n\n    * mat_stream (file-like)\n    * byte_order (str)\n    * uint16_codec (str)\n    ")},
+  {Py_tp_doc, (void *)PyDoc_STR("Initialize from file reader object.")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_5matio_2v5_11_mio5_utils_VarReader5},
   {Py_tp_clear, (void *)__pyx_tp_clear_5matio_2v5_11_mio5_utils_VarReader5},
   {Py_tp_methods, (void *)__pyx_methods_5matio_2v5_11_mio5_utils_VarReader5},
@@ -17074,7 +16861,7 @@ static PyTypeObject __pyx_type_5matio_2v5_11_mio5_utils_VarReader5 = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR("Initialize from file reader object\n\n    preader needs the following fields defined:\n\n    * mat_stream (file-like)\n    * byte_order (str)\n    * uint16_codec (str)\n    "), /*tp_doc*/
+  PyDoc_STR("Initialize from file reader object."), /*tp_doc*/
   __pyx_tp_traverse_5matio_2v5_11_mio5_utils_VarReader5, /*tp_traverse*/
   __pyx_tp_clear_5matio_2v5_11_mio5_utils_VarReader5, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -17181,15 +16968,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5 = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_5matio_2v5_11_mio5_utils_VarHeader5_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5)) __PYX_ERR(0, 158, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_5matio_2v5_11_mio5_utils_VarHeader5_spec, __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5) < (0)) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5 = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_5matio_2v5_11_mio5_utils_VarHeader5_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5)) __PYX_ERR(0, 145, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_5matio_2v5_11_mio5_utils_VarHeader5_spec, __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5 = &__pyx_type_5matio_2v5_11_mio5_utils_VarHeader5;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5) < (0)) __PYX_ERR(0, 158, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5);
@@ -17199,8 +16986,8 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_VarHeader5, (PyObject *) __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5) < (0)) __PYX_ERR(0, 158, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5) < (0)) __PYX_ERR(0, 158, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_VarHeader5, (PyObject *) __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
   __pyx_vtabptr_5matio_2v5_11_mio5_utils_VarReader5 = &__pyx_vtable_5matio_2v5_11_mio5_utils_VarReader5;
   __pyx_vtable_5matio_2v5_11_mio5_utils_VarReader5.cread_tag = (int (*)(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *, __pyx_t_5numpy_uint32_t *, __pyx_t_5numpy_uint32_t *, char *))__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_cread_tag;
   __pyx_vtable_5matio_2v5_11_mio5_utils_VarReader5.read_element = (PyObject *(*)(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *, __pyx_t_5numpy_uint32_t *, __pyx_t_5numpy_uint32_t *, void **, struct __pyx_opt_args_5matio_2v5_11_mio5_utils_10VarReader5_read_element *__pyx_optional_args))__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_element;
@@ -17221,15 +17008,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_5matio_2v5_11_mio5_utils_VarReader5.read_struct = (PyArrayObject *(*)(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *, struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *, int __pyx_skip_dispatch))__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_struct;
   __pyx_vtable_5matio_2v5_11_mio5_utils_VarReader5.read_opaque = (PyObject *(*)(struct __pyx_obj_5matio_2v5_11_mio5_utils_VarReader5 *, struct __pyx_obj_5matio_2v5_11_mio5_utils_VarHeader5 *, int __pyx_skip_dispatch))__pyx_f_5matio_2v5_11_mio5_utils_10VarReader5_read_opaque;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5 = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_5matio_2v5_11_mio5_utils_VarReader5_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5)) __PYX_ERR(0, 183, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_5matio_2v5_11_mio5_utils_VarReader5_spec, __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5 = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_5matio_2v5_11_mio5_utils_VarReader5_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_5matio_2v5_11_mio5_utils_VarReader5_spec, __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5 = &__pyx_type_5matio_2v5_11_mio5_utils_VarReader5;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5);
@@ -17239,10 +17026,10 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_vtabptr_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_VarReader5, (PyObject *) __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_vtabptr_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_VarReader5, (PyObject *) __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -17525,7 +17312,7 @@ namespace {
   {
       PyModuleDef_HEAD_INIT,
       "_mio5_utils",
-      __pyx_k_Cython_mio5_utility_routines_pyt, /* m_doc */
+      __pyx_k_Cython_mio5_utility_routines, /* m_doc */
     #if CYTHON_USE_MODULE_STATE
       sizeof(__pyx_mstatetype), /* m_size */
     #else
@@ -17775,20 +17562,20 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
 
-  /* "matio/v5/_mio5_utils.pyx":45
- * # want to optimize.
+  /* "matio/v5/_mio5_utils.pyx":37
+ * # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * import sys             # <<<<<<<<<<<<<<
  * from copy import copy as pycopy
  * 
 */
-  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_sys, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_sys, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 37, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_sys, __pyx_t_2) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_sys, __pyx_t_2) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":46
+  /* "matio/v5/_mio5_utils.pyx":38
  * 
  * import sys
  * from copy import copy as pycopy             # <<<<<<<<<<<<<<
@@ -17797,18 +17584,18 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_copy};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_copy, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_copy, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 38, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_copy};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 46, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       switch (__pyx_t_3) {
         case 0:
-        if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pycopy, __pyx_t_4) < (0)) __PYX_ERR(0, 46, __pyx_L1_error)
+        if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pycopy, __pyx_t_4) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
         break;
         default:;
       }
@@ -17817,77 +17604,101 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":61
+  /* "matio/v5/_mio5_utils.pyx":53
  * from cpython cimport PyBytes_Size
  * 
  * import numpy as np             # <<<<<<<<<<<<<<
  * 
  * cimport numpy as cnp
 */
-  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_np, __pyx_t_2) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_np, __pyx_t_2) < (0)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":82
- * # Numpy must be initialized before any code using the numpy C-API
- * # directly
+  /* "matio/v5/_mio5_utils.pyx":73
+ * 
+ * # Numpy must be initialized before any code using the numpy C-API directly
  * cnp.import_array()             # <<<<<<<<<<<<<<
  * 
- * # Constant from numpy - max number of array dimensions
+ * DEF _MAT_MAXDIMS = 32 # numpy constant - max number of array dimensions
 */
-  __pyx_t_5 = __pyx_f_5numpy_import_array(); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_t_5 = __pyx_f_5numpy_import_array(); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 73, __pyx_L1_error)
 
-  /* "matio/v5/_mio5_utils.pyx":91
- * DEF _N_MXS = 20
+  /* "matio/v5/_mio5_utils.pyx":79
+ * DEF _N_MXS = 20 # max number of integer indices of matlab class types (mxINT8_CLASS etc)
  * 
  * from scipy.sparse import csc_array             # <<<<<<<<<<<<<<
  * 
- * from matio.utils.matclass import (
+ * from matio.subsystem import MatSubsystem
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_csc_array};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_scipy_sparse, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_scipy_sparse, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 79, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_csc_array};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 91, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 79, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 91, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":93
+  /* "matio/v5/_mio5_utils.pyx":81
  * from scipy.sparse import csc_array
  * 
+ * from matio.subsystem import MatSubsystem             # <<<<<<<<<<<<<<
+ * from matio.utils.matclass import (
+ *     MCOS_SUBSYSTEM_CLASS,
+*/
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_MatSubsystem};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_matio_subsystem, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+  }
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_MatSubsystem};
+    __pyx_t_3 = 0; {
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 81, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "matio/v5/_mio5_utils.pyx":82
+ * 
+ * from matio.subsystem import MatSubsystem
  * from matio.utils.matclass import (             # <<<<<<<<<<<<<<
  *     MCOS_SUBSYSTEM_CLASS,
  *     EmptyMatStruct,
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_MCOS_SUBSYSTEM_CLASS,__pyx_mstate_global->__pyx_n_u_EmptyMatStruct,__pyx_mstate_global->__pyx_n_u_MatlabCanonicalEmpty,__pyx_mstate_global->__pyx_n_u_MatlabFunction,__pyx_mstate_global->__pyx_n_u_MatlabObject};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_matio_utils_matclass, __pyx_imported_names, 5, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_matio_utils_matclass, __pyx_imported_names, 5, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_MCOS_SUBSYSTEM_CLASS,__pyx_mstate_global->__pyx_n_u_EmptyMatStruct,__pyx_mstate_global->__pyx_n_u_MatlabCanonicalEmpty,__pyx_mstate_global->__pyx_n_u_MatlabFunction,__pyx_mstate_global->__pyx_n_u_MatlabObject};
     for (__pyx_t_3=0; __pyx_t_3 < 5; __pyx_t_3++) {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 93, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 93, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 82, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":100
+  /* "matio/v5/_mio5_utils.pyx":89
  *     MatlabObject,
  * )
  * from matio.utils.matutils import decode_char_arrays             # <<<<<<<<<<<<<<
@@ -17896,85 +17707,61 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_decode_char_arrays};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_matio_utils_matutils, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_matio_utils_matutils, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_decode_char_arrays};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 100, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 89, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":104
+  /* "matio/v5/_mio5_utils.pyx":93
  * from matio.v5 cimport _streams
  * 
  * import matio.v5.matio5_params as mio5p             # <<<<<<<<<<<<<<
- * from matio.subsystem import MatSubsystem
+ * 
  * 
 */
-  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_matio_v5_matio5_params, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_matio_v5_matio5_params, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
   __pyx_t_6 = __Pyx_ImportFrom(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_v5);
   Py_DECREF(__pyx_t_1);
-  if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 93, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_6;
   __pyx_t_6 = __Pyx_ImportFrom(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_matio5_params);
   Py_DECREF(__pyx_t_1);
-  if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 93, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_6;
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_mio5p, __pyx_t_2) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_mio5p, __pyx_t_2) < (0)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":105
- * 
- * import matio.v5.matio5_params as mio5p
- * from matio.subsystem import MatSubsystem             # <<<<<<<<<<<<<<
- * 
- * 
-*/
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_MatSubsystem};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_matio_subsystem, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
-  }
-  __pyx_t_2 = __pyx_t_1;
-  __Pyx_GOTREF(__pyx_t_2);
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_MatSubsystem};
-    __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 105, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    }
-  }
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-  /* "matio/v5/_mio5_utils.pyx":145
+  /* "matio/v5/_mio5_utils.pyx":133
  *     mxOBJECT_CLASS_FROM_MATRIX_H = 18
  * 
  * cdef bint sys_is_le = sys.byteorder == 'little'             # <<<<<<<<<<<<<<
  * swapped_code = '>' if sys_is_le else '<'
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_sys); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_sys); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_byteorder); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_byteorder); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_little, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_little, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_7 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_7 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_5matio_2v5_11_mio5_utils_sys_is_le = __pyx_t_7;
 
-  /* "matio/v5/_mio5_utils.pyx":146
+  /* "matio/v5/_mio5_utils.pyx":134
  * 
  * cdef bint sys_is_le = sys.byteorder == 'little'
  * swapped_code = '>' if sys_is_le else '<'             # <<<<<<<<<<<<<<
@@ -17988,25 +17775,25 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__3);
     __pyx_t_2 = __pyx_mstate_global->__pyx_kp_u__3;
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_swapped_code, __pyx_t_2) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_swapped_code, __pyx_t_2) < (0)) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":148
+  /* "matio/v5/_mio5_utils.pyx":136
  * swapped_code = '>' if sys_is_le else '<'
  * 
  * cdef cnp.dtype BOOL_DTYPE = np.dtype(np.bool_)             # <<<<<<<<<<<<<<
  * 
- * 
+ * cpdef cnp.uint32_t byteswap_u4(cnp.uint32_t u4) noexcept:
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_dtype); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_bool); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_bool); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __pyx_t_11 = 1;
@@ -18016,43 +17803,28 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 148, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 136, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_dtype))))) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_5numpy_dtype))))) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_XGOTREF((PyObject *)__pyx_v_5matio_2v5_11_mio5_utils_BOOL_DTYPE);
   __Pyx_DECREF_SET(__pyx_v_5matio_2v5_11_mio5_utils_BOOL_DTYPE, ((PyArray_Descr *)__pyx_t_2));
   __Pyx_GIVEREF(__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":151
- * 
+  /* "matio/v5/_mio5_utils.pyx":138
+ * cdef cnp.dtype BOOL_DTYPE = np.dtype(np.bool_)
  * 
  * cpdef cnp.uint32_t byteswap_u4(cnp.uint32_t u4) noexcept:             # <<<<<<<<<<<<<<
  *     return ((u4 << 24) |
  *            ((u4 << 8) & 0xff0000U) |
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_1byteswap_u4, 0, __pyx_mstate_global->__pyx_n_u_byteswap_u4, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_1byteswap_u4, 0, __pyx_mstate_global->__pyx_n_u_byteswap_u4, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_byteswap_u4, __pyx_t_2) < (0)) __PYX_ERR(0, 151, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-  /* "matio/v5/_mio5_utils.pyx":172
- *     cdef readonly size_t nzmax
- * 
- *     def set_dims(self, dims):             # <<<<<<<<<<<<<<
- *         """ Allow setting of dimensions from python
- * 
-*/
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_1set_dims, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarHeader5_set_dims, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
-  #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, __pyx_mstate_global->__pyx_n_u_set_dims, __pyx_t_2) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_byteswap_u4, __pyx_t_2) < (0)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "(tree fragment)":1
@@ -18060,7 +17832,7 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
  *     cdef tuple state
  *     cdef object _dict
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_3__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarHeader5___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_1__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarHeader5___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
@@ -18074,7 +17846,7 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle_VarHeader5__set_state(self, __pyx_state)
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_5__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarHeader5___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarHeader5_3__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarHeader5___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
@@ -18082,201 +17854,201 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarHeader5, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_2) < (0)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":237
+  /* "matio/v5/_mio5_utils.pyx":208
  *         self.subsystem = preader.subsystem
  * 
  *     def set_stream(self, fobj):             # <<<<<<<<<<<<<<
- *         ''' Set stream of best type from file-like `fobj`
- * 
+ *         """Set stream of best type from file-like `fobj`
+ *         Called from Python when initiating a variable read.
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_3set_stream, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_set_stream, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 237, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_3set_stream, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_set_stream, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_set_stream, __pyx_t_2) < (0)) __PYX_ERR(0, 237, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_set_stream, __pyx_t_2) < (0)) __PYX_ERR(0, 208, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":244
+  /* "matio/v5/_mio5_utils.pyx":214
  *         self.cstream = _streams.make_stream(fobj)
  * 
  *     def read_tag(self):             # <<<<<<<<<<<<<<
  *         ''' Read tag mdtype and byte_count
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_5read_tag, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_tag, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_5read_tag, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_tag, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_tag, __pyx_t_2) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_tag, __pyx_t_2) < (0)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":441
+  /* "matio/v5/_mio5_utils.pyx":411
  *         return 0
  * 
  *     cpdef cnp.ndarray read_numeric(self, int copy=True, long int nnz=-1):             # <<<<<<<<<<<<<<
  *         ''' Read numeric data element into ndarray
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_7read_numeric, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_numeric, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 441, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_7read_numeric, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_numeric, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[0]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_numeric, __pyx_t_2) < (0)) __PYX_ERR(0, 441, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_numeric, __pyx_t_2) < (0)) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":559
+  /* "matio/v5/_mio5_utils.pyx":529
  *         return n_ints
  * 
  *     def read_full_tag(self):             # <<<<<<<<<<<<<<
  *         ''' Python method for reading full u4, u4 tag from stream
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_9read_full_tag, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_full_tag, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 559, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_9read_full_tag, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_full_tag, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 529, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_full_tag, __pyx_t_2) < (0)) __PYX_ERR(0, 559, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_full_tag, __pyx_t_2) < (0)) __PYX_ERR(0, 529, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":593
+  /* "matio/v5/_mio5_utils.pyx":563
  *         return 0
  * 
  *     cpdef VarHeader5 read_header(self, int check_stream_limit):             # <<<<<<<<<<<<<<
  *         ''' Return matrix header for current stream position
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_11read_header, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_header, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_11read_header, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_header, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 563, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_header, __pyx_t_2) < (0)) __PYX_ERR(0, 593, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_header, __pyx_t_2) < (0)) __PYX_ERR(0, 563, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":702
+  /* "matio/v5/_mio5_utils.pyx":672
  *         return self.array_from_header(header, process)
  * 
  *     cpdef array_from_header(self, VarHeader5 header, int process=1):             # <<<<<<<<<<<<<<
  *         ''' Read array of any class, given matrix `header`
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_13array_from_header, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_array_from_header, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 702, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_13array_from_header, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_array_from_header, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 672, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[1]);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_array_from_header, __pyx_t_2) < (0)) __PYX_ERR(0, 702, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_array_from_header, __pyx_t_2) < (0)) __PYX_ERR(0, 672, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":763
+  /* "matio/v5/_mio5_utils.pyx":733
  *         return arr
  * 
  *     def shape_from_header(self, VarHeader5 header):             # <<<<<<<<<<<<<<
  *         cdef int mc = header.mclass
  *         cdef tuple shape
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_15shape_from_header, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_shape_from_header, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 763, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_15shape_from_header, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_shape_from_header, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 733, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_shape_from_header, __pyx_t_2) < (0)) __PYX_ERR(0, 763, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_shape_from_header, __pyx_t_2) < (0)) __PYX_ERR(0, 733, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":774
+  /* "matio/v5/_mio5_utils.pyx":744
  *         return shape
  * 
  *     cpdef cnp.ndarray read_real_complex(self, VarHeader5 header):             # <<<<<<<<<<<<<<
  *         ''' Read real / complex matrices from stream '''
  *         cdef:
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_17read_real_complex, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_real_complex, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 774, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_17read_real_complex, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_real_complex, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 744, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_real_complex, __pyx_t_2) < (0)) __PYX_ERR(0, 774, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_real_complex, __pyx_t_2) < (0)) __PYX_ERR(0, 744, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":827
+  /* "matio/v5/_mio5_utils.pyx":797
  *         return csc_array((data[:nnz], rowind[:nnz], indptr), shape=(M, N))
  * 
  *     cpdef cnp.ndarray read_char(self, VarHeader5 header):             # <<<<<<<<<<<<<<
  *         ''' Read char matrices from stream as arrays
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_19read_char, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_char, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 827, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_19read_char, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_char, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 797, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_char, __pyx_t_2) < (0)) __PYX_ERR(0, 827, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_char, __pyx_t_2) < (0)) __PYX_ERR(0, 797, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":889
+  /* "matio/v5/_mio5_utils.pyx":859
  *         return decode_char_arrays(arr, codec, mdtype)
  * 
  *     cpdef cnp.ndarray read_cells(self, VarHeader5 header):             # <<<<<<<<<<<<<<
  *         ''' Read cell array from stream '''
  *         cdef:
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_21read_cells, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_cells, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 889, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_21read_cells, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_cells, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 859, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_cells, __pyx_t_2) < (0)) __PYX_ERR(0, 889, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_cells, __pyx_t_2) < (0)) __PYX_ERR(0, 859, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":902
+  /* "matio/v5/_mio5_utils.pyx":872
  *         return result.reshape(tupdims).T
  * 
  *     def read_fieldnames(self):             # <<<<<<<<<<<<<<
  *         '''Read fieldnames for struct-like matrix.'''
  *         cdef int n_names
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_23read_fieldnames, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_fieldnames, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 902, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_23read_fieldnames, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_fieldnames, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 872, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_fieldnames, __pyx_t_2) < (0)) __PYX_ERR(0, 902, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_fieldnames, __pyx_t_2) < (0)) __PYX_ERR(0, 872, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":945
+  /* "matio/v5/_mio5_utils.pyx":915
  *         return field_names
  * 
  *     cpdef cnp.ndarray read_struct(self, VarHeader5 header):             # <<<<<<<<<<<<<<
  *         ''' Read struct or object array from stream
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_25read_struct, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_struct, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 945, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_25read_struct, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_struct, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 915, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_struct, __pyx_t_2) < (0)) __PYX_ERR(0, 945, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_struct, __pyx_t_2) < (0)) __PYX_ERR(0, 915, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "matio/v5/_mio5_utils.pyx":972
+  /* "matio/v5/_mio5_utils.pyx":942
  *         return rec_res.reshape(tupdims).T
  * 
  *     cpdef object read_opaque(self, VarHeader5 hdr):             # <<<<<<<<<<<<<<
  *         ''' Read opaque (function workspace) type'''
  * 
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_27read_opaque, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_opaque, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 972, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_27read_opaque, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5_read_opaque, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 942, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_opaque, __pyx_t_2) < (0)) __PYX_ERR(0, 972, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_5matio_2v5_11_mio5_utils_VarReader5, __pyx_mstate_global->__pyx_n_u_read_opaque, __pyx_t_2) < (0)) __PYX_ERR(0, 942, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "(tree fragment)":1
@@ -18284,7 +18056,7 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_29__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_29__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
@@ -18298,7 +18070,7 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_31__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_10VarReader5_31__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_VarReader5___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
@@ -18313,7 +18085,7 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
  *     cdef object __pyx_result
  *     __Pyx_CheckUnpickleChecksum(__pyx_checksum, 0x80d4580, 0x5432d8d, 0x36b46e8, b'check_stream_limit, classname, dims, dims_ptr, is_complex, is_global, is_logical, mclass, n_dims, name, nzmax, type_system')
 */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_3__pyx_unpickle_VarHeader5, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle_VarHeader5, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 4, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_5matio_2v5_11_mio5_utils_3__pyx_unpickle_VarHeader5, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle_VarHeader5, NULL, __pyx_mstate_global->__pyx_n_u_matio_v5__mio5_utils, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 4, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
@@ -18322,7 +18094,7 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "matio/v5/_mio5_utils.pyx":1
- * """Cython mio5 utility routines (-*- python -*- like)"""             # <<<<<<<<<<<<<<
+ * """Cython mio5 utility routines."""             # <<<<<<<<<<<<<<
  * 
  * # Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy Developers.
 */
@@ -18371,8 +18143,8 @@ __Pyx_RefNannySetupContext("PyInit__mio5_utils", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 179, __pyx_L1_error)
-  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 897, __pyx_L1_error)
+  __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 867, __pyx_L1_error)
+  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(1, 86, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_items.type = (PyObject*)&PyDict_Type;
@@ -18392,36 +18164,36 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "matio/v5/_mio5_utils.pyx":791
+  /* "matio/v5/_mio5_utils.pyx":761
  *         else:
  *             res = self.read_numeric()
  *         return res.reshape(header.dims[::-1]).T             # <<<<<<<<<<<<<<
  * 
  *     cdef object read_sparse(self, VarHeader5 header):
 */
-  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, Py_None, __pyx_mstate_global->__pyx_int_neg_1); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 791, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, Py_None, __pyx_mstate_global->__pyx_int_neg_1); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 761, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[0]);
 
-  /* "matio/v5/_mio5_utils.pyx":441
+  /* "matio/v5/_mio5_utils.pyx":411
  *         return 0
  * 
  *     cpdef cnp.ndarray read_numeric(self, int copy=True, long int nnz=-1):             # <<<<<<<<<<<<<<
  *         ''' Read numeric data element into ndarray
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, Py_True, __pyx_mstate_global->__pyx_int_neg_1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 441, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, Py_True, __pyx_mstate_global->__pyx_int_neg_1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 411, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "matio/v5/_mio5_utils.pyx":702
+  /* "matio/v5/_mio5_utils.pyx":672
  *         return self.array_from_header(header, process)
  * 
  *     cpdef array_from_header(self, VarHeader5 header, int process=1):             # <<<<<<<<<<<<<<
  *         ''' Read array of any class, given matrix `header`
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_int_1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 702, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_int_1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 672, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -18473,31 +18245,31 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{2},{120},{26},{24},{21},{30},{52},{29},{21},{179},{29},{41},{39},{57},{1},{1},{1},{1},{1},{1},{8},{7},{6},{2},{9},{24},{50},{39},{34},{14},{5},{14},{1},{20},{7},{12},{20},{14},{12},{20},{1},{2},{10},{28},{30},{19},{10},{28},{30},{28},{21},{20},{26},{24},{22},{23},{22},{28},{22},{19},{21},{28},{1},{17},{5},{17},{6},{18},{5},{6},{10},{10},{9},{8},{11},{3},{2},{18},{17},{7},{18},{6},{4},{9},{1},{6},{18},{8},{5},{3},{4},{5},{6},{5},{6},{9},{4},{8},{12},{3},{6},{1},{4},{13},{5},{8},{6},{13},{18},{8},{10},{13},{15},{20},{20},{20},{22},{2},{6},{5},{10},{7},{8},{7},{7},{3},{2},{5},{6},{5},{3},{7},{7},{6},{14},{12},{11},{10},{25},{14},{12},{10},{9},{15},{13},{11},{12},{11},{17},{11},{8},{10},{17},{13},{7},{12},{4},{8},{12},{10},{10},{12},{19},{5},{17},{5},{9},{12},{3},{8},{7},{7},{8},{2},{12},{10},{5},{6},{12},{2},{6},{4},{186},{305},{16},{103},{156},{52},{359},{26},{73},{63},{350},{83},{55},{18},{9},{46},{244},{11},{55},{102}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2792 bytes) */
-const char* const cstring = "BZh91AY&SYT\221\250p\000\001-\177\377\377\377\377\367\377\377\377\377\377\377\377\376\277\377\377\377\300@@@@@@@@@@@@\000@\000`\n\037Q\347w\207^\366\366\364\354iV\314\225Z\263hh\207\265\340\007\200\324\320\211\252y=)\350\232z\230\004\332G\251\351\244\365=\031\251\243F\rS\312a=#\310i\223H\330\220zjh6\246Fi4\362L\230\324\364\202Q\004\t\350\t\251\215L\3215=C\022x\247\352\217H\003\324\321\243&\214 \320h\000\001\240\0004\0004\000\320\004%4\321\014jb\036\224=Li\351\032OH2a\030\324\030\200`\020\014&CCLL\232\030!\211\240\224\321\023M\t2z&\206\212~\247\252zO(\323@\365\003\324\000M0\214\230\000F\000\000\000\000\231\031\003L\203&\000L\002bd\311\200\0010&\002b`\230\000\000\000\00120\023\002\030@\t\024\206\232\"\200\003M\000h\320\332\200\30444\000\000\000\001\240\001\240\032h\000\017H\321\352\\\005T\231cU\250\204\353,\3655`_h\350\256\312X\214\265\000\202\343\343\344~\213b\310?e\274\226\020\252\252\202#[%\010\245\372\365\366\351oV\340\342\346\264\335\304\376u\327]u\327]u\327\266c\013\266\346\270\000\270\356\031\222\214\354.\365\202\201+J\021\211w\020\250\254\033c\032\033\033\0064\332\033I\215\003cb\260V\200s\225I\351P\253+\242HJ\241\203h\006\320\333vv\n\220\223%b\"\033#\025Dud\nr\266#==c\263\033Z\336L\202\254\302BI\222l\230\014\255\345HbS,\034tZ`\315\231\214\216\235(2I\341\236[1\231=\252\324BC\t\014J\322\342\374\007\245J\371\231\022\244B\210\342\004\320\206\001d\345\204\353\035\020(\035\010\205H\004\270\\\330\022[*\022p\262\301[\260A)q\034-\315\307`\272,'\005-rI\032V\265\255\002\306P\315y\230F\343\231\363\326\323\221|M\225\214V\021\376H\336t\347J\020[_\324^^+\303\305\221y\377\2534f\241\225i\343\307\215u\310\352\"\373\007\252\354 D\334\020*,\204=BZ0\313\313\303\236X\264G\246CO\336\322!\247\246\003\254!\2422\030\234N\034\367\004V\010\001(\272\224\025\255d\210q\375\376\\\223Z\254\005\333~i\300\212\362)u\"\000\370b.\320\262j\337^)\330\255\361\352\333\322\352\341\220\303&\244\006\205\377\357\2173\200\327\226\226sg\356\366qXy\274\235?\273\243\223\327\016\210\216\253M\260\246\235\206""\234\330\300\266\315\325rq\271\326\274<\035\314\332S<\262\213n\243\034\331X\032\271\021\263\"\303\022\033<\312n\372\275\333SD\245\210\2578j!\022\270\357\3570;\233BJVjU\027\246\010r\233hME\\\241Z\266K}\264\3004\301\203\330r:\035l9y\266S\231\322\301&c2\336\366\303\257\033\371\332\233\t\370|\035\016\306U\322\002&\023\013V\030\374\247vg\010\254\210\344CG4]\316\312\342\376\276\r\206`\3075\323}K\013?Z\371`\265\340\325[\026\020\260\366fd\277\010\205z\033\201\217v\345\006p1\"a:\302j\347\021\361\203Q\271\366\224\243[\3506\205\216^\263\017\242\377\267W\031\275Vq}a\2077B\004Yy6Su\324\342\374w;\352\177\242s{}\027\233\006\215[\016\336dX\301;%\002\"\034\216\205\275(\007?<\351i\203\007`\2579\204\365m\263\354\323\334TU=\327v\002~\177m\216\276\226\366<\335J/K\370g\336\333\321\243\305\312s\025\212q\252U\335fi|\373\337\277\035\226\344aM\247sm\255y\211s\347\305h\234\337\327\037*\273v#\241LJDm\250\002\220\300\301M\266\207\202\263\215\017>5\203\335\177\220\226\261\253\213\346\271\373\241\221g\2260\224k\314\273^\325\255U\305\276\270\231yu\031\260\241y\216\311\2251t\234\262\325\214!)W\010\231\365`\355\206\333\265Ye\272\031g/\233\004\204\016\246\230\232q\351\372\256\345P\305\n\227Z\261\210\274\\\037\343^\273\302\346Wh[\274\333c793y\211\206mV\206EN\001\207*\370\206\364\273\376\2128(D]*Rk\225\304\336\277\0249\004a\023/I\235\372 \302 \257;\237\263}\\\251Hl\266\306\24690\246\320\272\003\344\r\345lg\220\327\212jC\013\216\215\006\371`\035\207\022\353\233\254\007#\255v\345\027g;\023\304\271{\346\317\304ooq\235\240\244A\232$\315\035x\226\345\341\262\312\355\263\243\333\330r*e\013\n\204\256\262\313#jkYE\231\234:k\203\331\321\025\324\341\237,\336\347H\301\254\342P\3354\236\371\320\314\320\351$\220Z\206\250\361.\013\204\272\353\271\230d:k\0101\032\252\340b\211\251Q\007R\023\336\352\256\222\210\004\345\234\020\005\232\014\314\233N\341p\231A\202\026\314{P\273]\214\271\023NffYa}8h\300\341\303V\\\307U\030\276;\207QG\275\251\022J\321\352\363sv&\222Jo2\352N\272\356a\217\313\264H\031!%\225\210B`\251t\03073I""\211\271\027]E\005\316\222&9\262\tK_:\2219\312\374\346\314\330$\217\263I26\014\211R\226Q\237\006.\274\263\222\2626gZ\020\021\3717\232O\222\330\207!\242\242\270\236lF\347\2125\313\206\003#aZ3q\244\202\n\351\333\317\017\335q\234}\036<[\277\277{P\215\334v\211\022M\222\001!\327<\303+6\014\324'\315\301l\3541\344\3441\335\2576&\244o\003\203\233HA\251\0206\215lD\335-6j\275\r\312cvI\313_\241\274\306\214fbYj\036\343 \3443BS\014Ge;3\304\344M\006K\213\354.\022y\201\225\223h\350J\274V\230D\225\270\326\371\271t\216(\035\217\031\307\022F\215 a\211\206\207\277k?\037F\211\215JTT\220B\203)\277\267\252\311\020\3173{\200\272\010\253\226\210R\335\253_\016<\201\341\242S\304i\010g\027\200Y\255\375l\354\033\227:\354s\214\263\321\267\364G\273]K\305q\265\366%*\020\306\014\347(YI\013\370\223\240JhP!_\303\211)\332\351Y\020\314\225]\340\215\n\374\224;\264\240%]kS\24056\367P\000\256\221\352\234ph\246X\032\333\232V\306\214\250\0064j<\215r\345\232k\r\307\215RU\334R\010&\031\266\327\016K\2213c\255 \360zo\356S;\004X\332\307\247+\215:l8\232\221\330\254x\341R$\230\344)B\331d[WNg\323\217\006\226\304\267qJ\2700\346g\351\030whK+\345\037jpL\245\362\224\345|5\023cM\306\256\000\303\350\334[m\266\035~$$\003@\230\014^\273\260\33138\343LP\004\024sIv)\312,\315v\002a\204\303\t!s\220\355\244\004\332f\303\352\307:\334TN\265\250]\"\242\341XpTvmN\033\346\016Ms\352\324H6\211\354\014\220L\333`]\010\210r\211\004\365\344,\025\223K\0278\331lw\330C\272\262kLnTq=\226\316\226\024v\277\035\031\263\272\2716\205\025\0374\307U\300}4\302s\267(\220)Ud\312\224\253Q\242Ru<6\2228\204\246\375NjU\0239)\240D\315\244\330\340\272E\301\243T\267\026\250&\262J\030\2355\310p\337J\246\375\2414\203\227KJ+\017\000_|\024\272P\033\351\224k\224\212`\220\255\245+d\010\332T\341\335\032l\331kF\035\025\013X\022\310\356\034&Z\263K\005\223\276@x\326\355\304\221\222\313\306\314R\215s]&\221\252\333\222\342\346j1<\354\312T\244\242X\033\014z0\314qa\266-I\206e\320\315+\022#\371\264\324_\305\035n6n\362`Kz\304c\270\307\2523\237\323\206s^\322W?\006\321\246""\232x0H\230##\"\337\"\253vv\355\252\240.\370)\256b\204\336\223goN\246\rN\205\342\271\252\212+mm\274.\020x\360\335C\235\272$\262\240[\014\225\257\nen\024\331~\272z]^:\257M[\235\316\371sC\035c{W\221\211\2641x\233mx6\360/\2317Y4\233]\277+n\330Z\3231\t\222gDx\222\030\356:Wod\342o!\316\254\210\216?\254H\367\035\203\352M3Hna\223\215C{\004s}\340Z\245Cv\315<h\311\214\037G\024E\277\210\226\220\233T\305P`\350\235\021\371\206\3068\261\323\\\013*\021\351Y#\234\306\200\010\314=W\334\n\010\311:\221z\232%R;\343\213\\?\034\341\327\254\204\n\220k\264D\0166\014\331\217\342\207\354L\306Z*c\226\365jc_B\"bX\266\205\001\220\3226\372?q\010\264\"\330(\304\021T\377\243E\336d\226L\216D\t\340\361c\262\01742\\\266Gb%ZfH\2212H\376\204)\263\"\337Y\367YEq$\344b\321\322fQ\027\320\231\363\377%\004\002\222u\036\360G<n20\340\224\315cD\"\321(\371'\216J\r\254\352\004\334\324\210\026\370\333\024\347F\"\"\316\333\342\267\231\2407]\356p\303\276K\014x\371\363\322;H\325*+R\235&\004.B\210\240\212\341W\201\254\030=#5\017\362\240@\257\t\r\240O\365O\240EF\262\211\331\240(\344C\"\004(Ca\344\r\213\207$\2176\234\354\271\311\345\315Rl\334\270\241\202\2531\360v\300(2\337e\034\\.\207\364\334\232\246(\032M\307\243rOn\036%\033\362\315w\324\034H\215\206Nk`C\234Q\030\271\2556\317\277\352\374Q\301\276\027w\231\005\251{\301\001\346\324r\030\314!\201\253\354i\200\366\365j\220\257\032\270\357\205+\233\310\3326\rXn\237\351\242\350,e\203\204\261\366y\t\262\324\035\347\246\376\375f\372\376\226\201\3609\347\037#\207\243\244u?e\341V\002\033\262\"\232\314\243\223\326\030\330#\205yu\203\n\321E\220\003\2648ES\017$P\320\252p\253\022\222\302\026Q\331\034\331\241\\\315\314\345Y\303\240X\222\312\013\024QFj xj2\235\022\003\031\211H3\344\334@k\034K\324\353TFB\0252_\374]\311\024\341BARF\241\300";
-    PyObject *data = __Pyx_DecompressString(cstring, 2792, 2);
+    const struct { const unsigned int length: 9; } index[] = {{2},{120},{26},{24},{21},{30},{52},{29},{21},{179},{29},{41},{39},{57},{1},{1},{1},{1},{1},{1},{8},{7},{6},{2},{9},{24},{50},{39},{34},{14},{5},{14},{1},{20},{7},{12},{20},{14},{12},{20},{1},{2},{10},{28},{30},{10},{28},{30},{28},{21},{20},{26},{24},{22},{23},{22},{28},{22},{19},{21},{28},{1},{17},{5},{17},{6},{18},{5},{6},{10},{10},{9},{8},{11},{3},{2},{18},{17},{7},{18},{6},{4},{9},{1},{6},{18},{8},{5},{5},{6},{5},{6},{9},{4},{8},{12},{3},{6},{4},{13},{5},{8},{6},{13},{18},{8},{10},{13},{15},{20},{20},{20},{22},{2},{6},{5},{10},{7},{8},{7},{7},{3},{2},{5},{6},{5},{3},{7},{7},{6},{14},{12},{11},{10},{25},{14},{12},{10},{9},{15},{13},{11},{12},{11},{17},{11},{8},{10},{17},{13},{7},{12},{4},{12},{10},{10},{12},{19},{5},{17},{5},{9},{12},{3},{8},{7},{7},{8},{2},{12},{10},{5},{6},{12},{2},{6},{4},{186},{305},{16},{103},{156},{359},{26},{73},{63},{350},{83},{55},{18},{9},{46},{244},{11},{55},{102}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2744 bytes) */
+const char* const cstring = "BZh91AY&SY\361`E\226\000\001%\377\377\377\377\377\367\377\377\377\377\377\377\377\376\277\377\377\377\300@@@@@@@@@@@@\000@\000`\t\377^\005\357J\354=,\3312\226\232Bv\r#\261\340\007\21454\"ji?Jz&F4\203#\324x\211\350\332j\236L\r&\243LM\031\241\251\355S\322l(\3234\201\26546\247\250\364h\0235= \320\201\002`\232a\030\211\224\300\236I\351M\036Pd\321\3522h\315@4\320\000\001\240\032\006\200h4\000\320\004EOH4\320h\031\001\221\352\003@\000\000\000\006\200\000\000\000\000\000\000$D&B\t\244\236\246\3652jzSz\243jd\332\201\351\r\014C\3244\014\232\000\000\003@\000\320\0004\000\203&\000L\002bd\311\200\0010&\002b`\230\000\000\000\00120\023\002\030@\tE=M4&\243\324\365O\322\207\242\033MOS\365#\324\320\310\365\003C@\000\000\000\032\000\000\032i\240\001\352\000\177\201$\215L[p2N\265G\257\306\303s\353\"e\251\252\200 N&o\330\274'\334\374\227\277j7J\252\202!p\224\"\322\323\326\330\247[v\277\342\325\267N\350q\256\272\353\256\272\353\256\275\303\030_:5\320\007Q\177\343\201^h\347\356\212\013\371\n-c\236\310\301\2306\3060m\260cM\241\264\230\32066-\014\3001w\324\205\231\236.\t``\332\001\2646\336\275\345\222\273\276v\020\331k\025\267t\203-\272Z\231y0\221\267\246(\230a!\261\266\233[5\023\277\263lE+b\010e\315Q\275\033!\303rl\244J\212up\251]\270\300\306\3046\"\22734\324\252\336\353\234Y\253\014T53\327]\007~\370lym\324\332S[\rj\030\345\246\203\246\226)\001e\202\267\300\202R\355\240\265\253\026K\226\312^%\316A#>\336\255\260X\312\031\315\246Q\220\336\315\343\227\016\372\342lV1XG\343F\247\263:\030Ae\357iqn\334\037\\u\307\370\330\321~\206U\247\332\3622\026\243\250l\213\014}T45\320\204\nE8!\353%<\261M9\255-;#h\206\256\236\361\rZ\200H\203Dd17\\9\350\210\254\010\001(\266\224\025\255d\210p7\330\262MeX\013p\371\207\002\274\031\266^\240p\342-\301\26111\253\271;\n\316.%\231\336\346\004\206\030\372\205\003\"\177\353W\225\220_#\233\305\207\241\233;G\241\265\267\360\321\265\355\201\313\0064\322\362\215\206\200\023\030\263\002\013\330\245M\0276\313\203\347\353\277\2452\345|Xj/\r\225\201\253\221\0332,1!\263\251/`""\264\032\331zS\352\256\277=X,go\007_\177\354{b\352\372\341`\361\217(=\026\330&\306\371\303\221\315\350\367J\020\241\014>\322\311qu\360\344\343\236KV\374E\002&K\230\250\273\016gGB\232\237\037'\247\364\342\205\300\"f0\245\010\372\313Z\327\010E-\021\200\206\3161\017\245\213\305\354\376\264U\031E\343\366\235\314un\016\230u^\313\302;[\336Wy\324\3148p\210\300\3216%\024\242\376vL\371 \246\355@(*\354\246#\327\030\316\r\257\372(;7}\3323\253\316N\177\330\006\033zq\006\344\332\246K,\222\237\313s\300\223\220\320Wa\210F`J\307\210m\\4H\016\212\026\024f\200k\221\332\000\267K\237\031Z\267\270\243\014\244\313\257\236\316\265\260\224K\202\313>\3600t\270*\233\253\246\253|\230\356+\271\2704\355\345\313\343d\350\032\030\317)\236\352Z\377^\346jzz+A%\003\206\212\024\301I\337}1\002\343\355\325\275]\030\235\031\322`\003^\260\024B\265\205\032\354\255\211\0374N}\346\211q\377\021A,\252\316'V\321\343\230\0259\360\227\3235\232\027'%#YiL\351\251\241\236Il\310\345\356P\271\313\r\301\\\237,\261\272_I\251\352i\013\177$,'\2739O\260iT\024\030C\253E\\\021\227\252\374\307\221\301\217,\356\370L\350>\216\336\\\260\201\001\034\024\035\\S\002,\306E\3260\010\261\274\005fV\204\033\3274+\253\316\352\022\301~\210\266\224\234\310\222\022^\306T\325\017\010\240\322$\260\375\001\005\030\222\315\274L\025\225^\366I\343l$1f}\370\267\010/\202\302\306\324\302%a\\\260\210-OF0H\200\273\245]e\276\002\005s\020\270\001\360\261\246\212_\007\210Xs\212\353\331\035\3500\320-iZ\351\251;\017\233<\363Q?S\272\234l\312\221\234R\202\232a<\356Qk7\301\300\226\322\374H\336X8\035k8\030\220#f\252\336\261\312\353\244i\\\215\352a\266\333\013\262YQq\016(\343\307\217\235\313s\320z\353\n[\240C\027\212\322)\2706v\351\277\215\357\001\2273\260\013\2646\322\365B!\rY\276\243\333\n\333\203\033\010\226\352i\304Y\223\024Xb\026\305d\222\r*\231-\3047\034\232,\246\215\334\214E`\360\346\243\033\254T\317*\343\2474#\371\373\201\264&\336\344K\032\014\031\311\252\366\352\210\254\023\236{v\234i{E&\342\3355\330\313R\216\267\214pB\363\273\222\010\tQ#L\244H\357""\206\236\303\370\003\350\344\274\343\000\023+\322\241\202\272\032\026\205\234\002\210\234g\337\013\205\032\025\246b\007\300H\364*UPbM\005\024\264\033z\212\261\252\234\2720\326\3760\202\251\343\013\0132b\201!\350\021HE\021\023\2038\262<\306\211\366\266\204\365?\3058\306b\260\020\004\021\23001\230PTz\320\213tP1\313q\r\311\034\272\360\n\031\226|\351\":\014cy'd\224te}8*\333\226iB\2545\310\316\306\006\342\240$#*7V\376w\204JY\2753\367A\335\310\026#\013\252\256P'\224\024\"\030Z\203+\031\232\376V\\\260\r\006%\022\224D#\027\213&\306\325\205\0220W\220$\006\247\320<\014\032\352|\241\230\"\201\022\246\225\340*\020\335\266\004\345\215\337\003\237\263\336\253\307\036v\272\"\236\356\361^\031lY\275\233\250\245]\032\224\253\244\275\305\007\357\312\344\025 c\323\243\201K\336\033\264\312M\342\"I\354=9!\351\343\330\214Vq\207q\313\247\237\000Mb\336S\267\233yk\263L\373\327\306n)0\021$\252\231>~|\363\340wjK0\373\254\325\013\227?\031\362\327a\025\265LQ0\006\026\255\3110 #r\221\205\275\237\001bX\202@\272g`X2i@6LFs\316\334\326`\027\354O\222\222\234=\210\326\374D\020J\227\020D%\031\310\222\004\215\212\016&\326gkT\244\313\0316\232\270\003\0039iaa`^\230\272h\006\010b\273\254v\031\206j\237\023+\\ \275\\S\276\340\311\357Y\3520C\0046\307\3422\0270\rsU\021\332\341\312\374'\223\207\322\345\366\336O\241\353\317\202\022\355@q5\202\257\305\302\311\260\332W\2506IS\221\003\365\3633\006M\205zv\026\035\252\337\010=j}Q\035S\005\252\371\247\302\301\003\213\322\325-\013N\034;\017V\273\016nF\352\220\357\241\034\331iZ\337h\3303v\3636\266\271R-\247\243\340\222\3645\301\344\357\244\255\366\217\\\274A+v\006-\372\3368h\261x\216\305\006\036\005\250\203\035z\302\001a\233\342\307\203\014\300\340\244\226\254LH\032i&Y\322C\213NziC-[\035\362\313\026\221\233^]\036\030\252\226\354d\210f\002\350\033\331\020\035\006\354%M^\317\003\003\343\337\222h\315\226\320R\2078\240(\036\330\n5XV\013\023@\245\203\270\370\224\303\340\247\003\0220\220Z9\370ho(\260\300yS`\332D\3169%\027s\3352\306;<\270\203\367\033EV\n\2648t\271\"\274k\314S`""\337\3146$\223~\027\212\02787Pl\273\270\025\266f@\036\240\014k\200FZ^\307\267\261\241\002\213\247p\260\262\242\212\325\332\275\330D\0348.!\276\270$\222 W\232\305\013u4MI\204\354\211\3767\312\353o\320n\221FC\375+\365z\213\357\2616\206/L>\347\227\007\216\311\372)\244\332\372\377\205\257,}\266\221-6\211\370\262#\335uA\366\316\342\364\240\366\004\314\365\376\261\263\323\204\037\310\231i\r\310\312\rG\274\204z_\260\017#%\036k;\226\257\373\264?\300#\325\375\303E\260\233t\306\3400\307,r=\241\255\337\034\325\300\342I\037g\210\344ce\2023\017\325\252\t\201\000\352H\376\270J\244|\223\213{\373QGF\242\020)\261]\302\0305\344.Hg\351O\246\273\205Lr\333\334\244'GDk\027\021$\301\016$\356\242\324r(\322,\024\222\010\370\036\311\244m\264K&_\002\004\360y\022\232\007\323\r\027\353\204t\242o\024\316`\326\234\321\316\020\244\373\235\031\265f\"\270\232r1g54\213\346ML\343\232\200Y\247Q\376\364\263\312\340#\r\357,\312\306\220E\234R\340\036Y(\033\213@\235\032\221\002\370\212\"\236\274\242\"(\264~\367\031\216*\267\263\277\033\t,\262\366\334t\216\2425J\212\324\247I\221\022\301IPJv\253\340\346\034>Q\025\031Yl1^\"/X\241\352\240\331\025\032\312'\326\330\242\3761\020 \334f_1\257t\351\020t'\302\236\2331T\235:\024\240\311m\344\207\260\3011\221\007\320.\227$\032\230&\253\334\003\316\350y\251M\352\305\355\321\302(\217y\303\266\245b\227f\266&f\271H\207vv\247\016\327\322\010\366<\302\027\327\357\313C\003z\023\346\345\220\306\206\210cKa\306$\014\005\252\371/\334\273\301\nW7\212\366S\315\314\314|\254\364u\202\306X;K?W\321/V\241\341\216\234<5\235j\350\270\0360rxZY\257`\025\341%\366\020\030\335\221\024\326e\034\236\260\306\301\034+\313\254\030V\212,\200\035\241\302\241\207\222(gU8U\211Ia\013(\354\216l\320\256f\346r\254\341\320,I_\005\212(\2435\020<5\031N\211\001\214\304\244\031\362- 7\007\022\365:\342!\321\2545?\374]\311\024\341BC\305\201\026X";
+    PyObject *data = __Pyx_DecompressString(cstring, 2744, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2676 bytes) */
-const char* const cstring = "x\332\255XKW\033G\026F\n\023C\0026\030b'9N\322\230\2071\266\345\021\006\314L\034\317\020\036N\234\330F O\234\311\344\364)u\227\2446\255n\251\037\002%\231\211\227Z\366\262\226\275\354\245\226Z\262d\331K-\371\t\376\t\363\335j!\004x\262\232s\240\036\267nU\335\373\335\357\336.P\224\rCW,\333S\212\276i6\024\315\266\\\277\302\321W\252\016w]\256\223\310\343\226\347*vQa\226R1\326_<\333\336\331\334\335\335\334P\270\311+X\313(\371\262\341*\032\226\rK74\346q\305+3\017\rW2\025\014\212\206\311\025R\261\035\307\257z\\\317l\330\362Z\327\257Vm\307S\270\245\331\272a\225\224Y}\323ql\007\007)\273\033\233J\321vh\277\316<\266yP\345\232G:\2208\306\201R\346\016\357\023\032\337>\317?XT\230+\265\025\257Q\275\270zW)\341\322\212\3612\321\3357\274\262b\361\022\363\214:W\352\314\364\271{n\317\352\231\003\237\333\026\346\232a\300>oUqa\207Uzn\237\370\273\336\360\312\320\200\243:7\215\002w\200\004P%5\315\343\016)Y\312\366\346\366\275\245\325%\200\251+\016\177\215\313\\\300P\320L\006\274%\314\005\3370a\201\274\321\315(\337\026\225\206\355\303ND\303\263\225*\364\3727\000dKqy\202\366-f\001V\370c[*\266\303\272[\212n8\344\021<\304\356-f\272<\363\302\202Y\266\325\365\231PV,VA8\255\222W\316\3336 \266\032\330\210\350\2728\312U\346g\365\333\211\232_\2516\024\3468\254\341\346a\037\002\246\3506\314\240h\262j\2253\207\256)\200Ce\032B\345\245\305%\2460\237Ul\337\362\310\307\004R\033\0100]\231\2570\223\"\r\r\303\252\372\t_\376v[y\364U\346\361\337\230\256\2538\234\353\206\313\n&\347\026\265%\315p\223\221^!o\357\327\227\357\253\025\303^V}\3170\335L\265q`\331\210B\221\371\246\247\250\252\303u_\343\252\252\350\276\204\301\262\255{\210J\335`&V5\3032<U\225\276eT\220\224g*\330gH7\225\"\2035\022z\243Bd\355W\363q{\371\202\306\243\204\030\256\355;\032\177\354{\305{\253\233\225\252\327x\306\274]\317\3615o\353\331\372\213]u\367\345\327\273?\356\3467\237\251\353\337\257\355\356>\333\310\377\270\275\271KJ~\301m\270\036\257`l\262\302:\203\271H+\363\344\020\310\266|K\243('\263\027\005\342\221\252n7\016\360\273\001\266\251\317""\371\201\267\303\213\371\227\331\1770\347\033\240\314\235\345\323Q\246\007\211&9\253\252g\326@'\027,z\347*\326T0\303\205h\247w\354\316\037\034\273\363\207\307\236\254J\254\325\242cW\324\262\024\365\255\021IT\215\233\246{A\010\222\235\227\025\rn\352D\347\013\332T\344T\217\225\316\313\337}!\342\314\221\270\347\305v\225\325|~^\212\306T\251l\232\374\340\374\232+c~^z\326\016B\025z\234U\372\205eV\345\375\230\250\027P\222\325\010\r\252\264Q\362m\337\225\032\314\245\304cn\303\322\014;\003\246\332H\013\213\273\005\3336\325\202_,r\247\320\2408P:\312\221\355\350\211\2547p\367Y\365\244W\375%-\273\242\255je\256\355u\355TM\243BY#\353\220Z\342\236\001\302v\247\334\325L\334\247\032\250B\016\323x\201i{(\360\\\203\241\325\006\332\304\021\035\022H\223V\3062\221\273*\030F|\226\035\310F|\323\311%\331\270\234\362@~2P\016(J\340T\321.\274V\021aK\30362'a\232Z\326\235\004)\303\250\260\222j\270j\017\0162\330M\232_P\257=\317\354\266*\307g\214Y\246\335\013\267jw3\254\302\340\023\332\223h\311\352\263\254V\231\303*\256\234d\334\223\354M\246IA\302X\"sN&\007\211\254\216\0149\255`=\331\331\013\264\212D\200\364\2520\303\326}X\253Z\252\244\273*;\264zB\023\325\342\373h\254_\254\252\254Y\211\0172\300U\273Zu$,U\307\326\360\245GT\020\031UE\341Te\224\361\016Hfx\007\240\026&\343.\2464$3\222\221oU\rm\017v\234\026\211d\241\356Q\201\246p\324|f&\266\235\246r/\177\317%\355\231L\355K\317\376\234\354K\304\013\331\327\227r'yvZ\377/\324\247\236\200\037\320Pf\034R\n\005\336\005\344 27\213'\025O\026\260.\306\247\371\212Q\367;\323W\340\324w\024\273\344\354\363)-uz\224\241d\003\313U\2426I`;})\251\257z\016u\016\305\031;p\233\277\344\343\031\222]\221\332Zw\214o8\215V\375*6r\337\345=C\352\313\311\013\247n\360\375xp1^\334:do\237\246\006\206o\210%\361\357h\25532\332|\025\344\0023\274\035e\243\247-\326\031\272!\276\013\275\350ak\252\225\355\014}\330\\l\3763p\305M\261\021\016\206\033Q:\232\211\366\332\023ml\274\036\374\036\262\316\310x0~\214\361\257\341t\270\023\326:C\237\210q\332\226%\005L\261\034\334\0268i4\036\235\n\307""\303\2510\333\231\236I~\3025\331/DS\262\277\023e\373\364?\026)1)r\235\241+\315\332\233\265\267K\003\303\237\213|<\265\230\330u\245\351\005_\205\251\013\346\277\035\032\030\036i~\031h\260bd\"\236\230\rsa!z?bQ\275\365C{\353p\352\030\266=\014\246\203\\gd2X\353\214N\006\353\301\276\320\302\353\321{\270\376T\346\t9\333\020\227D\215\356\241\013\263\235\261k\201!j\261\362U{\247];\036\271\032,\2105\330\370\331\027\242v<4\332\374I\014\212'a\026~\r]n\026\202!\270p=\374 \232k\r\266\236\264\263$\324\202\217\305\270\230\013/\205\365(\327\263\005V\217N\0047\343\311\271\220\001C\\\346\006s\342\303\360A\250\003o\255u\255\365\353\341\364a\376h\362h\347\250FFh\342\223p\252\203\373\247\203\227bJ,\n\234u%\276B\000\317\206\373\021\003`\037\014\014\217\306#_\210\337\000\314\032\346\022\230\025\n\326\325`&\250H+\245\203\243\200\210\275}\177`t\014\267.\210u\321\275\341z\230\n\307\217O\207d\326AP\353\355\247 \270\301<\256_\t?\202\241\323Q\016\327|<0<\035\316\304s\017[\265v\252=~<t5\230\rj\342}\301\303%\242\307g\275 \222\367K\315\032yq3\330\3021\177\t\267\242[-\212[\360\230\230\002\3164w\232\277\211U\354\374O\013L8Q\\\rW\"\220l\244\271\031|\0240\260ld,\270,Xg\014\214\023i(<\216&#\025\034\205\205\373AY0q\020\326\272\2204\277A\204\261\365)QDL\321p\035JF\022\345\261`\030\322Yd\306zTk\245\260g.\331\363T\036\342Gk\307\330\3207\355\2348\361\251\270\003\034\265h\034d\006\254\337\341\274\367\010\343c\254L\213\034\254\033!Z\325D\2128\376\251\314\210\346\277\304U!i\361\232\304\227\343\3133\tu,\361=\350\270\030\355D5\232V\304\243\320\005\276\335i\262\372 *\264hS\323\010j\210\036\202\373\000\354\032'8\347\305L\374\371\375HB{?\234\214gWZ\205\366\245v\3550E\222{\302\213\247\227Z_\267J\355\\\233%\372S\004:\"B\226\014\3067\356E\271\250\330\372\256\275\177X:\312\221\213+\240-\231\332\317\370z\230\243\reD\240.~\004q]p\225\267\226\021\366kmih9\320\343O\221\325\024\351\236qg\257?\356\246\367M\202\371\205\310\342\360W\304G\n\035\310\206\025\270v=\320\305\375h<9fOL\210\265\256\271\204\375\257\004o\317|=X\210o""\300\365\326h{\367\360\362\221\026\347v\272\025\2443t-(\212\265>[&\203M\231\213\251\316\350X\360^\220\355\223\034\367-\322\366xp\355p\374\355\014\231\2023\022\322\270\301T\222\251\262\230\374\277\006H\256\370\332|\224\212d\276\325!\032\273\001\253\321|\203\362;\332\312\241D\313b\264\202\n\327\227\234'.Pr\232\262\312\366K^_\320\331\223\031\366\307\273\022\t\206wAw\037\331yv\203\035J{3\357\276\237\0027\201IYXI\232\254\304\343\263a\036\231\231\353\321\210t\306d\374GH\371\177\024\nJ\230\253\344\257\230\017\347\242\324\231\304\277\032L\005\313\250\272/\"Y\217\352\301+\344Z9\244\002\27000\254\240\226\r\365\374\017\347\243\251\350Q\253F\306\254\006\017\002F\237\250}Q\240\030\217\241X\217\204k\t\337\306\232^<\201T$\"\276Iu\006?h\336\tr4\030m\356\302\313%\\,\335}\020\024P\244\273\230-\006;\301/I\225\0043\336\244Pp\377t\271\231\217\307\347P\033\357\266\364\366\255\303\311\303\237\342\355|\234g1\3431\257\3055\377\355\300@=\265\236F\267\236~B\335\223\3646u\333\351<u\371\364\317\324\375\234f\324\261t\231\272r\332\244\316L{\324y\351\003\352\016\322\215tgp\244\371$\310\242D\336E\002\r^zSo\376\000\026\313\217(p\352\014\241<\036\243\361\304\227a)z\331\232n\345\221\251\373\207\374\350\301\221\036\357\274\212_\251\261\252\307z).\355\305{\007\361\301\3578\370\357\351\2654\235\005\324\360\201\271\023-!\267.\341st\353h\374\370\254d\212\020\"\346^\213joR\307\203_\320\207\362\317\255\017\333_\036\356Q\032\016N\004\177\355&7\316\373-xH\325\367n\264\026\375\334\316\034a+\336\014\311\013NI^\222\364\266_\226/au\261\276\254\256\236<\275\324'\334\242\367\340\256\234*\013\363\333\215\344Oae\341.\375\213\246\273\335\3353\252x\301\341E\347i\345\333\003\025\266\307\273'\374\027\243<T\030";
-    PyObject *data = __Pyx_DecompressString(cstring, 2676, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2635 bytes) */
+const char* const cstring = "x\332\255XIw\333F\022\026\031M,'\224-Z\212\235\3449\td-\226e\233\036j\263f\3428\303h\261\263\330\026Ez\342L&\257_\023h\222\260@\000\304B\221If\342#\217}\354#\2168\362\310\243\216:\342\310#\177\202\177\302T5(\212\2222ys\230\367\244^\252\253\273\253\276\372\252\032\222\242l\353\232bZ\236R\366\r\243\245\250\226\351\3725\006}\315v\230\3532\rE\0363=W\261\312\n5\225\232\276\365\342\331\336\376N\241\260\263\2550\203\325`-\243\024\253\272\253\250\260\254\233\232\256R\217)^\225z\3200%S\203AY7\230\202*\226\343\370\266\307\264\314\266%\257u}\333\266\034Oa\246ji\272YQ\026\264\035\307\261\0348H)l\357(e\313\301\375\032\365\350N\323f\252\207: q\364\246Re\016\033\021\352_?/\256\256(\324\225\332\212\327\262/\256\336S*piM\177\031\353\036\352^U1Y\205zz\203)\rj\370\314=\267g\363\314\201\317-\023\346\252\256\203}\336\246\342\202\035f\345\271u\342\357V\313\253\202\0068\2521C/1\007\220\000TQM\365\230\203J\246\262\267\263w\177ms\r\300\324\024\207\275\206\313\\\200\241\244\032\024\360\2260\227|\335\000\013\344\215nF\371\272\254\264,\037\354\204hx\226b\203\336\350\006\000\331T\\\026\243}\233\232\000+\370c\231\004\266\203u\267\025Mw\320#\360\020v\357R\303e\231\027&\230e\231\003\237\021e\305\2445\010\247Y\361\252E\313\002\210\315\026l\204\350\272p\224\253,-hwb5\277f\267\024\3528\264\345\026\301>\010\230\242Y`\006F\223\3326\243\016^S\002\016Uq\010*/M&1\005\363i\315\362M\017}\214!\265\000\001\252)K5j`\244AC7m?\346\313\227w\224G_d\036\177I5\215\300\341L\323]Z2\0303\261\255\250\272\033\217\264\032z\373\240\261\376\200\324tk\235\370\236n\270\031\273\3254-\210B\231\372\206\247\020\3420\315W\031!\212\346K\030L\313\274\017Qi\350\324\200UU7u\217\020\351[\206\000IY\246\006\373t\351\246R\246`\215\204^\257!YG\325|\270\275zA\343QL\014\327\362\035\225=\366\275\362\375\315\235\232\355\265\236Q\257\3409\276\352\355>\333zQ \205\227_\025~(\024w\236\221\255\357r\205\302\263\355\342\017{;\005T\362Kn\313\365X\r\306\006-mQ0\027\322\31289\004d\273\276\251b\224\343\331\213\022\362\210\220\275V\023~\267\201m\3449kz""\373\254\\|\231\375;u\236\002\312\314Y?\035e\206\220\250\222\263\204\234Y\003:\271\300\2423\253\373\3033\366\377\340\214\375\377\345\214\214\004\226\224\035\253F\252R4\262\206\214 *3\014\367\202\020\030u^V\326\231\241!w/hcE#\036\255\234\227\377\376\205\020T\006Yz^l\331\264\356\263\363Rh\014\2025\322`\315\363k\256\014\360y\351Y;\000\032\324c\2646*\254R\233\215bB.\240$K\0174P\222\365\212o\371\256\324\240.f\031u[\246\252[\031\240\245\0059`2\267dY\006)\371\3452sJ-\214\003\346\236\034Y\216\026\313\206\003\367\220\332'=\361\327\324\354\206\272\251V\231z0\260\223\030z\rSD\026\035Ra\236\016\354\034L\231\253\032p\037\321\241\3448Te%\252\036@5g*\030j\267\240\215\035\321@\002\322\270\225\261\214\345.!\032\0226\3564\364E6.C\266\313\207\001\222\036\303\003d*[\245\327\004Bk\252\240\217v\304\024#U\315\211!\322k\264Bt\227\014a@C\335\270\371\031\212\262\347\031\203\2260x\253\250iX\3030\023k\220F5\n\276@{\022%Yb\326\211M\035Zs\345$\343\236\244h<\215\253\016\214%\"\347dr\020\313\032\220\031\247ej(;{\201Z\223\000\240\236\rfX\232\017\326\022\223H\232\023\331A\253\305\364 &;\204\306\374\331\264ea\212}\220\201\265-\333v$*\266c\251\360\234C4 \"\204@u$2\272\360\330\3073x\354\241\340\305\343\001\2448D3\342\221o\332\272z\000v\234\326\211x\241\341a\025\306h\324}j\304\266\235\246\3600o\317%\353\231\014\035I\313\321\\\034I\300\013Y7\222j'\371uZ\344/\324\245\241\2005q(3\rR\t\252\270\013\220\003\201\231Q\226\005k\200\355i~\302h\360\210\214\0244\362;\305->\363|\nK\235!U0\271\200\334\004\031\215\022\260\031\237A\354m\317\301\316\301\370\302\016\270\315_\363\341\033#\273!\265\325\301\030\036h\034m\3726ld\276\313\206\2064\326\343\317\227\206\316\016\243\361\225he\367\210\276\375&1v\371\246X\023\377\ns\275\324d\373\025\317s#\270\023f\303o:\2647qS|\033x\341\303\316l'\333\233x\277\275\322\376\007w\305-\261\035\214\007\333a2\234\017\017\272\323]\330x\203\377\026\320^*\315\323}\030\377\022\314\005\373A\2757\361\221H\343\266,*\300\024\226\371\035\001'MF\223\263A:\230\r\262\275\271\371\370'\310\311~9\234""\225\375\3350;\242\377\241H\210\031\221\357M\\m\327\337\344\336\256\215]\376T\024\243\331\225\330\256\253m\217\177\021$.\230\377vb\354r\252\3759W\301\212\324t4\275\020\344\203R\370nH\303F\347\373\356\356\321l\037l{\310\347x\276\227\232\341\271\336\344\014\337\342\207B\rn\204\357\300\365\2472O\310\331\266\270$\352x\017^\230\355M]\347\272\250G\312\027\335\375n\275\237\272\306\227E\016l\374\3443Q\357OL\266\177\024\343\342I\220\005\277&\256\264K|\002\\\270\021\274\027.v\306;O\272Y\024\252\374C\221\026\213\301\245\240\021\346\207\266\200\325\223\323\374V4\263\030P\300\020.s\371\242x?X\r4\300[\355\\\357\374r4wT<\2369\336?\256\243\021\252\370(\230\355\301\375s\374\245\230\025+\002\316\272\032]E\200\027\202\303\220\002`\000\304d\224\372L\374\n\300\344\342y\252\275\201\301\272\306\347yMZ)\035\234\004\210\350\333w\307&\247\340\326e\261%\0067\334\010\022A\272\177:D\263\232\274>\334\217Ap\371\022\\\277\021|\000\206\316\205y\270\346\303\261\313s\301|\264\370\260S\357&\272\351\376\3045\276\300\353\342]\301\2025\244\307'\303 \242\367k\355:zq\213\357\3021\177\tv\303\333\035\214\033\177\214L\001\316\264\367\333\277\212M\330\371\357\0160\341Dq3\330\010\201d\251\366\016\377\200S`Yj\212_\021\2647\005\214\023IPx\034\316\204\0048\n\026\036\362\252\240\242\031 \207\026\001\222\366S\376\215\024\370a\256\017G\214L{'\006},\356\002&j\230\006b\002D\337\002\003\336A\274\372\2602'\362pS\n)R\027\t\344\353\307\222\335\355\177\212kB\206\3705\212\257DW\346c\032\230\342;\240\326J\270\037\326qZ\023\217\002\027\260\032L\343\325\325\260\324\301Mm\235\327!\022\020\250U`J\032\241Y\022\363\321\247\017B\t\323\203`&Z\330\350\224\272\227\272\365\243\004J\356\013/\232[\353|\325\251t\363]\032\353\317\"\200\200.Z2\036\335\274\037\346\303r\347\333\356\341Q\3458\217.n\000\005\321\324Q\3666\202<n\250\002\232\r\361\003\220\320\005\336\261\316:\204\360zW\032Z\345Z\3641d(Fmh\334\331\353\373\203T\275\2050\277\020Y8\374\025r\013\303\000\304\201\025p\355\006\327\304\2030\035\037s \246En`.b\377\013\302;4_\343\313\321Mp""\2753\331-\034]9V\243\374\376\240\032\364&\256\363\262\310\215\3302\303wd^%z\223S\374\035\236\035\221\364G\026q{4\236;J\277\235GS\340\014\244\321\026\360x6\316:Y\030\376_\003H\224\350\372R\230\010e\3564@4u\023\254\206\346)\224\322\311N\036\312\255,,\033P\255F\022\355\304\005L4CV\314Q\311\353\013:\0072[\376xW,\201\341=\240\273\017\231vv\203\025H{3\277\177?\006n\032&Ua\306i\262\021\245\027\202\"dY~H#\324\231\222\361O\241\362\177IzL\230k\350\257X\n\026\303\304\231$\276\306g\371:T\320\027\241\254-\r\376\nr\255\032`1[\036\273\254@]\232\030\372\037,\205\263\341\243N\035\215\331\344\253\234\342ss(J\030\343)(\274\251 \027\363m\252\355E\323\220\212H\3047\211\336\370{\355\273<\217\203\311v\001\274\\\203\213\245\273\253\274\004\005w\200\331\n\337\347?\307\025\017\230\361&\001\305\363OW\332\305(\275\010u\356^G\353\336>\2329\3721\332+FE\032Q\026\261zT\367\337\216\2155\022[I\350\266\222O\260{\222\334\303n/Y\304\256\230\374\t\273\237\222\024;\232\254bWM\032\330\031I\017;/\331\304\256\231l%{\343\251\366\023\236\205rw\017\022h\374\322\233F\373{`\261|\020\001\247\336\004\224\272>4\236\370<\250\204/;s\235\"d\352\341\021;^=\326\242\375W\321+\022\021-\322*Q\345 :hF\315\337\340\340\277%sI<\013P\203\307\342n\270\006\271u\t\236\226\333\307\351\376Y\311,\"\204\314\275\036\326\337$\372\343\237\341\243\367\347\316\373\335\317\217\0160\r\307\247\371_\007\311\r\347\375\312\037B\325\231\270\027\346\302\237\272\231c\330\n\357\177\374\025\246\304_\203\370y\276.\277f\311Jc\235l\236|F\221'\314\304o\272\202\234*\313K{\255\370oVe\371\036\376/e\260\335=\320m\3703\000\276\312<\265zg\254F\017\330\340\204\377\000\363\3732\246";
+    PyObject *data = __Pyx_DecompressString(cstring, 2635, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (4865 bytes) */
-const char* const bytes = "  Did not fully consume compressed contents of an miCOMPRESSED element. This can indicate that the .mat file is corrupted.Do not support encoding %dError in SDE format dataExpecting matrix hereExpecting miINT32 as data typeExpecting miINT32, got miUINT32 with negative valuesExpecting miINT8 as data typeNon ascii int8 stringNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Only one value for namelengthToo many dimensions (%d) for numpy arraysType %d does not appear to be char typeUnexpected amount of data to read (malformed input file?) <=.>?add_notedisableenablegcisenabledmatio/v5/_mio5_utils.pyxno default __reduce__ due to non-trivial __cinit__numpy._core.multiarray failed to importnumpy._core.umath failed to import<stringsource>utf-8EmptyMatStructFMCOS_SUBSYSTEM_CLASSMDTYPESMatSubsystemMatlabCanonicalEmptyMatlabFunctionMatlabObject__Pyx_PyDict_NextRefTU1VarHeader5VarHeader5.__reduce_cython__VarHeader5.__setstate_cython__VarHeader5.set_dimsVarReader5VarReader5.__reduce_cython__VarReader5.__setstate_cython__VarReader5.array_from_headerVarReader5.read_cellsVarReader5.read_charVarReader5.read_fieldnamesVarReader5.read_full_tagVarReader5.read_headerVarReader5.read_numericVarReader5.read_opaqueVarReader5.read_real_complexVarReader5.read_structVarReader5.read_tagVarReader5.set_streamVarReader5.shape_from_header_array_from_headerasciiascontiguousarrayastypeasyncio.coroutinesbool_bufferbyte_countbyte_orderbyteorderbyteswapbyteswap_u4c16c8check_stream_limit__class_getitem__classescline_in_tracebackcodecscopycsc_arrayddecodedecode_char_arrays__dict___dictdimdimsdtypedtypesemptyencodeenumeratefobj__func____getstate__hdrheaderiimag_is_coroutineitemsitemsizelittlelittle_endianload_opaque_object__main__mat_streammatio5_paramsmatio.subsystemmatio.utils.matclassmatio.utils.matutilsmatio.v5._mio5_utilsmatio.v5.matio5_paramsmcmdtypemio5p__module__n_names__""name__ndarray__new__nnznpnumpyobjectorderpoppreaderprocesspycopy__pyx_checksum__pyx_result__pyx_state__pyx_type__pyx_unpickle_VarHeader5__pyx_vtable____qualname__read_cellsread_charread_fieldnamesread_full_tagread_headerread_numericread_opaqueread_real_complexread_structread_tag__reduce____reduce_cython____reduce_ex__reshapescipy.sparseselfset_dims__set_name__set_streamsetdefault__setstate____setstate_cython__shapeshape_from_headerstatesubsystemswapped_codesystag_datatag_ptrtag_res__test__u4uint16_codecuint16_lenuint8updateuse_setstatev5valuesview\320\0042\3202F\300a\360J\001\000\t\034\2304\230}\250A\330\014\r\210X\220Q\220l\240)\2501\250J\260a\330\010\034\230K\240t\2507\260!\2601\330\010\013\2102\210Z\220s\230\"\230D\240\004\240D\250\002\250$\250k\270\023\270A\330\014\027\220\177\240a\330\014\021\220\021\340\014\027\220{\240#\240R\240q\330\010\031\230\021\330\010\013\2101\330\014\027\220q\330\010\021\220\021\220)\2301\330\010\r\320\r!\240\021\240!\2401\330#$\330#$\330#$\240A\330#$\330#*\250!\330#$\330#+\2501\330\010\021\220\021\220)\2301\330\010\030\230\001\230\024\230Q\330\010\017\210q\200A\3604\000\t\036\230T\320!2\260!\2601\330\010\017\210t\220=\240\001\330\014\r\210X\220Q\220l\240)\2501\250J\260a\360\010\000\t\014\210;\220c\230\021\330\014\023\320\023%\240Q\240b\250\006\250a\250v\260W\270F\300!\340\010\013\2107\220#\220Q\330\014\024\220A\330\r\024\220C\220w\230c\240\027\250\003\2501\330\014\024\220A\330\r\024\220C\220t\2301\330\014\024\220D\230\007\230q\240\001\330\014\017\210t\2201\330\020\026\220i\230q\320 =\270R\270q\340\014\022\220*\230A\230Q\330\035\037\230q\340\010\r\210[\230\004\230G\2401\240A\330\010\016\210b\220\010\230\001\230\027\240\n\250&\260\004\260G\2701\330\010\016\210c\220\030\230\021\230&\240\007\240v\250Q\340\010\013\2107\220#\220Q\360\010\000\r\023\220\"\320\024&\240a\240q\330\014\017\210s\220&\230\013\2403\240d\250$\250c\260\026\260{\300#\300T\310\024\310R\310q\330\020\026\220c\230\031\240!\330\014\022\220#\220U\230!\2302\230Q\340\010\017""\320\017!\240\021\240%\240w\250a\200A\360\n\000\t\r\320\014\037\230|\2501\250A\200A\360\010\000\t\014\2106\220\021\340\014\022\220$\220m\2401\240A\330\014\024\220D\230\r\240Q\240a\360\006\000\r\020\210s\220*\230C\230q\330\020\026\220c\230\027\240\001\240\021\340\020\026\220c\230\027\240\001\240\021\330\014\017\210x\220q\340\014\022\220$\220m\2401\330\010\017\210s\220(\230!\2306\240\025\240d\250#\250Q\200A\360\030\000\t#\240$\320&7\260q\270\001\270\021\340\010\022\220%\220q\230\006\230e\2404\240q\330\010\035\230T\320!2\260!\2601\340\010\013\2104\210q\330\014\022\220\"\220F\230!\2309\240F\250'\260\021\330\014\023\220>\240\021\240!\330\010\r\210R\210|\2308\2404\240~\260Q\330\010\022\220\"\220F\230!\2308\2406\250\021\330\010\014\210E\220\025\220a\220q\330\014\020\220\016\230a\330\020\027\220q\230\002\230!\230>\250\024\250_\270A\330\010\017\210w\220h\230a\230x\240q\200A\360\n\000\t\r\210H\220A\330\010\014\210J\220c\230\021\230!\330\010\014\210C\210w\220i\230q\240\001\330\014\020\220\t\230\021\230%\230}\250C\250q\260\001\200A\360&\000\t\r\210H\220J\230a\230x\240u\250A\340\010\014\210H\220J\230a\230x\240u\250A\330\010\013\2104\210q\330\014\032\230+\240Q\240c\250\021\250!\330\014\024\220K\230q\240\003\2401\240A\340\014\032\230#\230Q\230a\330\014\024\220C\220q\230\001\330\010\021\220\032\2301\330\010\r\210\\\230\022\2301\330\010\016\210j\230\001\330\010\016\320\016$\240A\330\010\016\210n\230L\250\003\2502\250R\250q\330\010\016\210m\230<\240s\250#\250R\250q\330\010\016\210n\230L\250\003\2503\250b\260\001\330\010\016\210i\220q\360\006\000\t\014\2103\210c\220\021\330\014\022\220(\230$\320\036/\250q\330\014\022\220/\240\024\320%6\260b\270\007\270q\300\001\330\014\022\220-\230t\320#4\260B\260g\270Q\270a\330\014\022\220(\230!\330\014\023\2201\340\010\016\210j\230\004\320\034-\250Q\250f\260K\270w\300g\310Q\330\010\013\2106\220\030\230\022\2301\330\014\022\220*\230A\230Q\330\035\037\230v\240Q\340\010\016\210h\220a\220v\230Y\240a\240s\250$\250e\2605\270\001\270\026\270q\330\010\016""\210h\220d\320\032+\2501\340\010\013\2103\210c\220\021\330\014\022\220-\230t\320#4\260B\260g\270Q\270a\340\010\017\210q\200A\360\"\000\t\r\210O\2301\230A\230X\240Q\240a\330\010\017\210x\220q\200A\360\006\000\t\027\220d\230/\250\021\340\010\013\2103\210k\230\023\230A\330\014\023\2201\340\010\013\2104\210{\230#\230Q\330\014\023\2201\340\010\016\210d\220*\320\034/\250q\260\r\270S\300\016\310c\320QR\330\010\017\210q\200A\330\010\026\220f\230A\340\010\013\2103\210c\220\021\330\014\024\220E\230\021\230&\240\001\330\r\020\220\003\2201\330\014\024\220E\230\021\230&\240\001\340\014\024\220E\230\021\230&\240\001\330\010\017\210q\320\004A\300\021\360$\000\t\027\220f\230A\330\010\014\210C\210s\220!\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\022\220$\320\026(\250\001\250\021\330\014\017\210v\220Q\330\020\034\230A\340\020\034\230H\240D\250\r\260Q\260a\330\014\017\210t\2206\230\021\330\020\026\220c\230\027\240\001\240\021\330\r\020\220\003\2201\330\014\022\220$\220l\240!\2401\330\r\020\220\003\2201\330\014\022\220$\220j\240\001\240\021\330\r\020\220\003\2201\330\014\022\220$\220k\240\021\240!\330\r\020\220\003\2201\330\014\022\220$\220l\240!\2401\330\r\020\220\003\2201\330\014\022\220$\220l\240!\2401\330\014\022\220,\230a\230u\240F\250!\330\r\020\220\003\2201\330\014\022\220$\220o\240Q\330\014\022\220.\240\001\240\021\330\r\020\220\003\2201\330\014\022\220$\220l\240!\2401\360\006\000\t\023\220$\220h\230n\250A\330\010\013\2106\320\021%\240T\250\024\250Q\330\014\022\220*\230A\230Q\360\006\000\t\020\210q\200A\360\014\000\t\023\220%\220q\230\006\230e\2404\240q\330\010\035\230T\320!2\260!\2601\330\010\021\220\022\2206\230\021\230(\240&\250\001\330\010\014\210E\220\025\220a\220q\330\014\022\220!\2205\230\004\230O\2501\330\010\017\210v\220X\230Q\230h\240a\200A\360*\000\t \230q\330""\010\022\220$\220j\240\001\240\021\240(\250!\250<\260q\330\010\013\2108\2203\220a\330\014\027\220w\230b\240\001\330\010\020\220\010\230\014\240A\200A\360\006\000\t\020\210t\320\023$\240A\240Q\240a\200\001\330\004\n\210+\220Q\200\001\330\004\r\210S\220\003\2204\220q\330\r\020\220\003\2203\220b\230\013\2401\330\r\020\220\003\2202\220R\220z\240\021\330\014\017\210s\220!\200\001\360\010\000\005\016\210T\320\021&\240d\250,\260d\270'\300\024\300[\320PT\320Ta\320ae\320eq\320qu\360\000\000v\001C\002\360\000\000C\002G\002\360\000\000G\002P\002\360\000\000P\002T\002\360\000\000T\002]\002\360\000\000]\002a\002\360\000\000a\002h\002\360\000\000h\002l\002\360\000\000l\002t\002\360\000\000t\002x\002\360\000\000x\002y\002\330\004\014\210G\2201\220F\230,\240a\330\004\007\200v\210W\220E\230\024\230Q\330\010\022\220!\330\010\027\220q\340\010\027\220t\230;\240g\250U\260#\260T\270\026\270w\300e\3103\310d\320RX\320X_\320_d\320dg\320gk\320kx\320x\177\360\000\000@\002A\002\330\004\007\200q\330\010\017\320\017+\2504\250q\260\007\260{\300'\310\021\340\010\017\320\017+\2504\250q\260\007\260{\300!\200\001\330\004(\250\001\250\026\250q\200\001\340\004\037\230q\320 0\260\013\270;\300k\320QR\330\004\023\220:\230X\240Q\240a\330\004\007\200|\2207\230!\330\010,\250A\250]\270.\310\001\330\004\013\2101struct __pyx_obj_5matio_2v5_8_streams_GenericStream *(PyObject *, int __pyx_skip_dispatch)\000make_stream";
+    #else /* compression: none (4778 bytes) */
+const char* const bytes = "  Did not fully consume compressed contents of an miCOMPRESSED element. This can indicate that the .mat file is corrupted.Do not support encoding %dError in SDE format dataExpecting matrix hereExpecting miINT32 as data typeExpecting miINT32, got miUINT32 with negative valuesExpecting miINT8 as data typeNon ascii int8 stringNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Only one value for namelengthToo many dimensions (%d) for numpy arraysType %d does not appear to be char typeUnexpected amount of data to read (malformed input file?) <=.>?add_notedisableenablegcisenabledmatio/v5/_mio5_utils.pyxno default __reduce__ due to non-trivial __cinit__numpy._core.multiarray failed to importnumpy._core.umath failed to import<stringsource>utf-8EmptyMatStructFMCOS_SUBSYSTEM_CLASSMDTYPESMatSubsystemMatlabCanonicalEmptyMatlabFunctionMatlabObject__Pyx_PyDict_NextRefTU1VarHeader5VarHeader5.__reduce_cython__VarHeader5.__setstate_cython__VarReader5VarReader5.__reduce_cython__VarReader5.__setstate_cython__VarReader5.array_from_headerVarReader5.read_cellsVarReader5.read_charVarReader5.read_fieldnamesVarReader5.read_full_tagVarReader5.read_headerVarReader5.read_numericVarReader5.read_opaqueVarReader5.read_real_complexVarReader5.read_structVarReader5.read_tagVarReader5.set_streamVarReader5.shape_from_header_array_from_headerasciiascontiguousarrayastypeasyncio.coroutinesbool_bufferbyte_countbyte_orderbyteorderbyteswapbyteswap_u4c16c8check_stream_limit__class_getitem__classescline_in_tracebackcodecscopycsc_arrayddecodedecode_char_arrays__dict___dictdtypedtypesemptyencodeenumeratefobj__func____getstate__hdrheaderimag_is_coroutineitemsitemsizelittlelittle_endianload_opaque_object__main__mat_streammatio5_paramsmatio.subsystemmatio.utils.matclassmatio.utils.matutilsmatio.v5._mio5_utilsmatio.v5.matio5_paramsmcmdtypemio5p__module__n_names__name__ndarray__new__nnznpnu""mpyobjectorderpoppreaderprocesspycopy__pyx_checksum__pyx_result__pyx_state__pyx_type__pyx_unpickle_VarHeader5__pyx_vtable____qualname__read_cellsread_charread_fieldnamesread_full_tagread_headerread_numericread_opaqueread_real_complexread_structread_tag__reduce____reduce_cython____reduce_ex__reshapescipy.sparseself__set_name__set_streamsetdefault__setstate____setstate_cython__shapeshape_from_headerstatesubsystemswapped_codesystag_datatag_ptrtag_res__test__u4uint16_codecuint16_lenuint8updateuse_setstatev5valuesview\320\0042\3202F\300a\360J\001\000\t\034\2304\230}\250A\330\014\r\210X\220Q\220l\240)\2501\250J\260a\330\010\034\230K\240t\2507\260!\2601\330\010\013\2102\210Z\220s\230\"\230D\240\004\240D\250\002\250$\250k\270\023\270A\330\014\027\220\177\240a\330\014\021\220\021\340\014\027\220{\240#\240R\240q\330\010\031\230\021\330\010\013\2101\330\014\027\220q\330\010\021\220\021\220)\2301\330\010\r\320\r!\240\021\240!\2401\330#$\330#$\330#$\240A\330#$\330#*\250!\330#$\330#+\2501\330\010\021\220\021\220)\2301\330\010\030\230\001\230\024\230Q\330\010\017\210q\200A\3604\000\t\036\230T\320!2\260!\2601\330\010\017\210t\220=\240\001\330\014\r\210X\220Q\220l\240)\2501\250J\260a\360\010\000\t\014\210;\220c\230\021\330\014\023\320\023%\240Q\240b\250\006\250a\250v\260W\270F\300!\340\010\013\2107\220#\220Q\330\014\024\220A\330\r\024\220C\220w\230c\240\027\250\003\2501\330\014\024\220A\330\r\024\220C\220t\2301\330\014\024\220D\230\007\230q\240\001\330\014\017\210t\2201\330\020\026\220i\230q\320 =\270R\270q\340\014\022\220*\230A\230Q\330\035\037\230q\340\010\r\210[\230\004\230G\2401\240A\330\010\016\210b\220\010\230\001\230\027\240\n\250&\260\004\260G\2701\330\010\016\210c\220\030\230\021\230&\240\007\240v\250Q\340\010\013\2107\220#\220Q\360\010\000\r\023\220\"\320\024&\240a\240q\330\014\017\210s\220&\230\013\2403\240d\250$\250c\260\026\260{\300#\300T\310\024\310R\310q\330\020\026\220c\230\031\240!\330\014\022\220#\220U\230!\2302\230Q\340\010\017\320\017!\240\021\240%\240w\250a\200A""\360\010\000\t\r\320\014\037\230|\2501\250A\200A\360\010\000\t\014\2106\220\021\340\014\022\220$\220m\2401\240A\330\014\024\220D\230\r\240Q\240a\360\006\000\r\020\210s\220*\230C\230q\330\020\026\220c\230\027\240\001\240\021\340\020\026\220c\230\027\240\001\240\021\330\014\017\210x\220q\340\014\022\220$\220m\2401\330\010\017\210s\220(\230!\2306\240\025\240d\250#\250Q\200A\360\030\000\t#\240$\320&7\260q\270\001\270\021\340\010\022\220%\220q\230\006\230e\2404\240q\330\010\035\230T\320!2\260!\2601\340\010\013\2104\210q\330\014\022\220\"\220F\230!\2309\240F\250'\260\021\330\014\023\220>\240\021\240!\330\010\r\210R\210|\2308\2404\240~\260Q\330\010\022\220\"\220F\230!\2308\2406\250\021\330\010\014\210E\220\025\220a\220q\330\014\020\220\016\230a\330\020\027\220q\230\002\230!\230>\250\024\250_\270A\330\010\017\210w\220h\230a\230x\240q\200A\360&\000\t\r\210H\220J\230a\230x\240u\250A\340\010\014\210H\220J\230a\230x\240u\250A\330\010\013\2104\210q\330\014\032\230+\240Q\240c\250\021\250!\330\014\024\220K\230q\240\003\2401\240A\340\014\032\230#\230Q\230a\330\014\024\220C\220q\230\001\330\010\021\220\032\2301\330\010\r\210\\\230\022\2301\330\010\016\210j\230\001\330\010\016\320\016$\240A\330\010\016\210n\230L\250\003\2502\250R\250q\330\010\016\210m\230<\240s\250#\250R\250q\330\010\016\210n\230L\250\003\2503\250b\260\001\330\010\016\210i\220q\360\006\000\t\014\2103\210c\220\021\330\014\022\220(\230$\320\036/\250q\330\014\022\220/\240\024\320%6\260b\270\007\270q\300\001\330\014\022\220-\230t\320#4\260B\260g\270Q\270a\330\014\022\220(\230!\330\014\023\2201\340\010\016\210j\230\004\320\034-\250Q\250f\260K\270w\300g\310Q\330\010\013\2106\220\030\230\022\2301\330\014\022\220*\230A\230Q\330\035\037\230v\240Q\340\010\016\210h\220a\220v\230Y\240a\240s\250$\250e\2605\270\001\270\026\270q\330\010\016\210h\220d\320\032+\2501\340\010\013\2103\210c\220\021\330\014\022\220-\230t\320#4\260B\260g\270Q\270a\340\010\017\210q\200A\360\"\000\t\r\210O\2301\230A\230X\240Q\240a\330\010\017\210x\220q\200A""\360\006\000\t\027\220d\230/\250\021\340\010\013\2103\210k\230\023\230A\330\014\023\2201\340\010\013\2104\210{\230#\230Q\330\014\023\2201\340\010\016\210d\220*\320\034/\250q\260\r\270S\300\016\310c\320QR\330\010\017\210q\200A\330\010\026\220f\230A\340\010\013\2103\210c\220\021\330\014\024\220E\230\021\230&\240\001\330\r\020\220\003\2201\330\014\024\220E\230\021\230&\240\001\340\014\024\220E\230\021\230&\240\001\330\010\017\210q\320\004A\300\021\360$\000\t\027\220f\230A\330\010\014\210C\210s\220!\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\017\210s\220#\220Q\330\014\022\220$\320\026(\250\001\250\021\330\014\017\210v\220Q\330\020\034\230A\340\020\034\230H\240D\250\r\260Q\260a\330\014\017\210t\2206\230\021\330\020\026\220c\230\027\240\001\240\021\330\r\020\220\003\2201\330\014\022\220$\220l\240!\2401\330\r\020\220\003\2201\330\014\022\220$\220j\240\001\240\021\330\r\020\220\003\2201\330\014\022\220$\220k\240\021\240!\330\r\020\220\003\2201\330\014\022\220$\220l\240!\2401\330\r\020\220\003\2201\330\014\022\220$\220l\240!\2401\330\014\022\220,\230a\230u\240F\250!\330\r\020\220\003\2201\330\014\022\220$\220o\240Q\330\014\022\220.\240\001\240\021\330\r\020\220\003\2201\330\014\022\220$\220l\240!\2401\360\006\000\t\023\220$\220h\230n\250A\330\010\013\2106\320\021%\240T\250\024\250Q\330\014\022\220*\230A\230Q\360\006\000\t\020\210q\200A\360\014\000\t\023\220%\220q\230\006\230e\2404\240q\330\010\035\230T\320!2\260!\2601\330\010\021\220\022\2206\230\021\230(\240&\250\001\330\010\014\210E\220\025\220a\220q\330\014\022\220!\2205\230\004\230O\2501\330\010\017\210v\220X\230Q\230h\240a\200A\360*\000\t \230q\330\010\022\220$\220j\240\001\240\021\240(\250!\250<\260q\330\010\013\2108\2203\220a\330\014\027\220w\230b\240\001\330\010\020\220\010\230\014\240A\200A\360\006\000\t\020\210t\320\023$\240A\240Q\240a""\200\001\330\004\n\210+\220Q\200\001\330\004\r\210S\220\003\2204\220q\330\r\020\220\003\2203\220b\230\013\2401\330\r\020\220\003\2202\220R\220z\240\021\330\014\017\210s\220!\200\001\360\010\000\005\016\210T\320\021&\240d\250,\260d\270'\300\024\300[\320PT\320Ta\320ae\320eq\320qu\360\000\000v\001C\002\360\000\000C\002G\002\360\000\000G\002P\002\360\000\000P\002T\002\360\000\000T\002]\002\360\000\000]\002a\002\360\000\000a\002h\002\360\000\000h\002l\002\360\000\000l\002t\002\360\000\000t\002x\002\360\000\000x\002y\002\330\004\014\210G\2201\220F\230,\240a\330\004\007\200v\210W\220E\230\024\230Q\330\010\022\220!\330\010\027\220q\340\010\027\220t\230;\240g\250U\260#\260T\270\026\270w\300e\3103\310d\320RX\320X_\320_d\320dg\320gk\320kx\320x\177\360\000\000@\002A\002\330\004\007\200q\330\010\017\320\017+\2504\250q\260\007\260{\300'\310\021\340\010\017\320\017+\2504\250q\260\007\260{\300!\200\001\330\004(\250\001\250\026\250q\200\001\340\004\037\230q\320 0\260\013\270;\300k\320QR\330\004\023\220:\230X\240Q\240a\330\004\007\200|\2207\230!\330\010,\250A\250]\270.\310\001\330\004\013\2101struct __pyx_obj_5matio_2v5_8_streams_GenericStream *(PyObject *, int __pyx_skip_dispatch)\000make_stream";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 182; i++) {
+    for (int i = 0; i < 177; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 31) PyUnicode_InternInPlace(&string);
@@ -18508,7 +18280,7 @@ const char* const bytes = "  Did not fully consume compressed contents of an miC
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 182; i < 202; i++) {
+    for (int i = 177; i < 196; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -18519,15 +18291,15 @@ const char* const bytes = "  Did not fully consume compressed contents of an miC
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 202; i++) {
+    for (Py_ssize_t i = 0; i < 196; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 182;
-      for (Py_ssize_t i=0; i<20; ++i) {
+      PyObject **table = stringtab + 177;
+      for (Py_ssize_t i=0; i<19; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
         if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -18600,104 +18372,99 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 151};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 138};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_u4};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_byteswap_u4, __pyx_mstate->__pyx_kp_b_iso88591_S_4q_3b_1_2Rz_s, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 172};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_dims, __pyx_mstate->__pyx_n_u_i, __pyx_mstate->__pyx_n_u_dim};
-    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_set_dims, __pyx_mstate->__pyx_kp_b_iso88591_A_HA_Jc_Cwiq_Cq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
-  }
-  {
     const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_state, __pyx_mstate->__pyx_n_u_dict_2, __pyx_mstate->__pyx_n_u_use_setstate};
-    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_reduce_cython, __pyx_mstate->__pyx_kp_b_iso88591_T_d_d_PTTaaeeqqu_v_C_C_G_G_P_P, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_reduce_cython, __pyx_mstate->__pyx_kp_b_iso88591_T_d_d_PTTaaeeqqu_v_C_C_G_G_P_P, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 16};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_pyx_state};
-    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 237};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 208};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_fobj};
-    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_set_stream, __pyx_mstate->__pyx_kp_b_iso88591_A_1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_set_stream, __pyx_mstate->__pyx_kp_b_iso88591_A_1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 244};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 214};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_mdtype, __pyx_mstate->__pyx_n_u_byte_count, __pyx_mstate->__pyx_n_u_tag_ptr, __pyx_mstate->__pyx_n_u_tag_res, __pyx_mstate->__pyx_n_u_tag_data};
-    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_tag, __pyx_mstate->__pyx_kp_b_iso88591_A_q_j_q_83a_wb_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_tag, __pyx_mstate->__pyx_kp_b_iso88591_A_q_j_q_83a_wb_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 441};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 411};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_copy, __pyx_mstate->__pyx_n_u_nnz};
-    __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_numeric, __pyx_mstate->__pyx_kp_b_iso88591_22FaJ_4_A_XQl_1Ja_Kt7_1_2Zs_D_D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_numeric, __pyx_mstate->__pyx_kp_b_iso88591_22FaJ_4_A_XQl_1Ja_Kt7_1_2Zs_D_D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 559};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 529};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_mdtype, __pyx_mstate->__pyx_n_u_byte_count};
-    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_full_tag, __pyx_mstate->__pyx_kp_b_iso88591_A_O1AXQa_xq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_full_tag, __pyx_mstate->__pyx_kp_b_iso88591_A_O1AXQa_xq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 593};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 563};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_check_stream_limit};
-    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_header, __pyx_mstate->__pyx_kp_b_iso88591_A_HJaxuA_HJaxuA_4q_Qc_Kq_1A_Qa_C, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_header, __pyx_mstate->__pyx_kp_b_iso88591_A_HJaxuA_HJaxuA_4q_Qc_Kq_1A_Qa_C, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 702};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 672};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_header, __pyx_mstate->__pyx_n_u_process};
-    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_array_from_header, __pyx_mstate->__pyx_kp_b_iso88591_A_fA_Cs_s_Q_s_Q_s_Q_s_Q_s_Q_s_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_array_from_header, __pyx_mstate->__pyx_kp_b_iso88591_A_fA_Cs_s_Q_s_Q_s_Q_s_Q_s_Q_s_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 763};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 733};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_header, __pyx_mstate->__pyx_n_u_mc, __pyx_mstate->__pyx_n_u_shape};
-    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_shape_from_header, __pyx_mstate->__pyx_kp_b_iso88591_A_fA_3c_E_1_E_E_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_shape_from_header, __pyx_mstate->__pyx_kp_b_iso88591_A_fA_3c_E_1_E_E_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 774};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 744};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_header};
-    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_real_complex, __pyx_mstate->__pyx_kp_b_iso88591_A_6_m1A_D_Qa_s_Cq_c_c_xq_m1_s_6, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_real_complex, __pyx_mstate->__pyx_kp_b_iso88591_A_6_m1A_D_Qa_s_Cq_c_c_xq_m1_s_6, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 827};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 797};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_header};
-    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_char, __pyx_mstate->__pyx_kp_b_iso88591_A4_T_2_1_t_XQl_1Ja_c_Qb_avWF_7_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_char, __pyx_mstate->__pyx_kp_b_iso88591_A4_T_2_1_t_XQl_1Ja_c_Qb_avWF_7_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 889};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 859};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_header};
-    __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_cells, __pyx_mstate->__pyx_kp_b_iso88591_A_q_e4q_T_2_1_6_E_aq_5_O1_vXQha, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_cells, __pyx_mstate->__pyx_kp_b_iso88591_A_q_e4q_T_2_1_6_E_aq_5_O1_vXQha, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 902};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 872};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_n_names};
-    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_fieldnames, __pyx_mstate->__pyx_kp_b_iso88591_A_t_AQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_fieldnames, __pyx_mstate->__pyx_kp_b_iso88591_A_t_AQa, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 945};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 915};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_header};
-    __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_struct, __pyx_mstate->__pyx_kp_b_iso88591_A_7q_q_e4q_T_2_1_4q_F_9F_R_84_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_struct, __pyx_mstate->__pyx_kp_b_iso88591_A_7q_q_e4q_T_2_1_4q_F_9F_R_84_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 972};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 942};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_hdr};
-    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_opaque, __pyx_mstate->__pyx_kp_b_iso88591_A_d_3k_A_1_4_Q_1_d_q_S_cQR_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_matio_v5__mio5_utils_pyx, __pyx_mstate->__pyx_n_u_read_opaque, __pyx_mstate->__pyx_kp_b_iso88591_A_d_3k_A_1_4_Q_1_d_q_S_cQR_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
-    __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_reduce_cython, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_reduce_cython, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 3};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_pyx_state};
-    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 4};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_pyx_type, __pyx_mstate->__pyx_n_u_pyx_checksum, __pyx_mstate->__pyx_n_u_pyx_state, __pyx_mstate->__pyx_n_u_pyx_result};
-    __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_pyx_unpickle_VarHeader5, __pyx_mstate->__pyx_kp_b_iso88591_q_0_kQR_XQa_7_A_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_pyx_unpickle_VarHeader5, __pyx_mstate->__pyx_kp_b_iso88591_q_0_kQR_XQa_7_A_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -20333,105 +20100,6 @@ static void __Pyx_RaiseArgtupleInvalid(
                  func_name, more_or_less, num_expected,
                  (num_expected == 1) ? "" : "s", num_found);
 }
-
-/* PyLongBinop */
-#if !CYTHON_COMPILING_IN_PYPY
-static PyObject* __Pyx_Fallback___Pyx_PyLong_AddObjC(PyObject *op1, PyObject *op2, int inplace) {
-    return (inplace ? PyNumber_InPlaceAdd : PyNumber_Add)(op1, op2);
-}
-#if CYTHON_USE_PYLONG_INTERNALS
-static PyObject* __Pyx_Unpacked___Pyx_PyLong_AddObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
-    CYTHON_MAYBE_UNUSED_VAR(inplace);
-    CYTHON_UNUSED_VAR(zerodivision_check);
-    const long b = intval;
-    long a;
-    const PY_LONG_LONG llb = intval;
-    PY_LONG_LONG lla;
-    if (unlikely(__Pyx_PyLong_IsZero(op1))) {
-        return __Pyx_NewRef(op2);
-    }
-    const int is_positive = __Pyx_PyLong_IsPos(op1);
-    const digit* digits = __Pyx_PyLong_Digits(op1);
-    const Py_ssize_t size = __Pyx_PyLong_DigitCount(op1);
-    if (likely(size == 1)) {
-        a = (long) digits[0];
-        if (!is_positive) a *= -1;
-    } else {
-        switch (size) {
-            case 2:
-                if (8 * sizeof(long) - 1 > 2 * PyLong_SHIFT) {
-                    a = (long) (((((unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    if (!is_positive) a *= -1;
-                    goto calculate_long;
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 2 * PyLong_SHIFT) {
-                    lla = (PY_LONG_LONG) (((((unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    if (!is_positive) lla *= -1;
-                    goto calculate_long_long;
-                }
-                break;
-            case 3:
-                if (8 * sizeof(long) - 1 > 3 * PyLong_SHIFT) {
-                    a = (long) (((((((unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    if (!is_positive) a *= -1;
-                    goto calculate_long;
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 3 * PyLong_SHIFT) {
-                    lla = (PY_LONG_LONG) (((((((unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    if (!is_positive) lla *= -1;
-                    goto calculate_long_long;
-                }
-                break;
-            case 4:
-                if (8 * sizeof(long) - 1 > 4 * PyLong_SHIFT) {
-                    a = (long) (((((((((unsigned long)digits[3]) << PyLong_SHIFT) | (unsigned long)digits[2]) << PyLong_SHIFT) | (unsigned long)digits[1]) << PyLong_SHIFT) | (unsigned long)digits[0]));
-                    if (!is_positive) a *= -1;
-                    goto calculate_long;
-                } else if (8 * sizeof(PY_LONG_LONG) - 1 > 4 * PyLong_SHIFT) {
-                    lla = (PY_LONG_LONG) (((((((((unsigned PY_LONG_LONG)digits[3]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[2]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[1]) << PyLong_SHIFT) | (unsigned PY_LONG_LONG)digits[0]));
-                    if (!is_positive) lla *= -1;
-                    goto calculate_long_long;
-                }
-                break;
-        }
-        return PyLong_Type.tp_as_number->nb_add(op1, op2);
-    }
-    calculate_long:
-        {
-            long x;
-            x = a + b;
-            return PyLong_FromLong(x);
-        }
-    calculate_long_long:
-        {
-            PY_LONG_LONG llx;
-            llx = lla + llb;
-            return PyLong_FromLongLong(llx);
-        }
-    
-}
-#endif
-static PyObject* __Pyx_Float___Pyx_PyLong_AddObjC(PyObject *float_val, long intval, int zerodivision_check) {
-    CYTHON_UNUSED_VAR(zerodivision_check);
-    const long b = intval;
-    double a = __Pyx_PyFloat_AS_DOUBLE(float_val);
-        double result;
-        
-        result = ((double)a) + (double)b;
-        return PyFloat_FromDouble(result);
-}
-static CYTHON_INLINE PyObject* __Pyx_PyLong_AddObjC(PyObject *op1, PyObject *op2, long intval, int inplace, int zerodivision_check) {
-    CYTHON_MAYBE_UNUSED_VAR(intval);
-    CYTHON_UNUSED_VAR(zerodivision_check);
-    #if CYTHON_USE_PYLONG_INTERNALS
-    if (likely(PyLong_CheckExact(op1))) {
-        return __Pyx_Unpacked___Pyx_PyLong_AddObjC(op1, op2, intval, inplace, zerodivision_check);
-    }
-    #endif
-    if (PyFloat_CheckExact(op1)) {
-        return __Pyx_Float___Pyx_PyLong_AddObjC(op1, intval, zerodivision_check);
-    }
-    return __Pyx_Fallback___Pyx_PyLong_AddObjC(op1, op2, inplace);
-}
-#endif
 
 /* RejectKeywords */
 static void __Pyx_RejectKeywords(const char* function_name, PyObject *kwds) {

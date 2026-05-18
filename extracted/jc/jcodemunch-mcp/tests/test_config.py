@@ -1159,6 +1159,257 @@ class TestServerConfigCheck:
             assert "parse error" not in captured.lower()
 
 
+class TestConfigDisplayHonorsProjectOverride:
+    """Regression: jcm #300 follow-up (reported by @slazarov on issue #300
+    after v1.108.14). `config --check` validated the project file but the
+    displayed config values still came from _GLOBAL_CONFIG alone, so any
+    project-level override was silently invisible in diagnostic output.
+    """
+
+    def test_project_override_visible_in_config_output(self, capsys, monkeypatch):
+        from src.jcodemunch_mcp.config import _GLOBAL_CONFIG, _PROJECT_CONFIGS
+        _GLOBAL_CONFIG.clear()
+        _PROJECT_CONFIGS.clear()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+
+            # Global config sets one value; project config overrides it.
+            storage = tmp / "storage"
+            storage.mkdir()
+            (storage / "config.jsonc").write_text(
+                '{"max_folder_files": 2000}', encoding="utf-8"
+            )
+
+            project = tmp / "project"
+            project.mkdir()
+            (project / ".jcodemunch.jsonc").write_text(
+                '{"max_folder_files": 9999}', encoding="utf-8"
+            )
+
+            monkeypatch.setenv("CODE_INDEX_PATH", str(storage))
+            monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp))
+            monkeypatch.setattr(Path, "cwd", classmethod(lambda cls: project))
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=False)
+
+            captured = capsys.readouterr().out
+            # Find the line for the overridden key and verify it carries the
+            # project value plus the [project] source tag. Other lines mention
+            # similar numbers (watch_debounce_ms defaults to 2000) so we have
+            # to match the specific row.
+            mff_lines = [
+                line for line in captured.splitlines()
+                if "max_folder_files" in line
+            ]
+            assert mff_lines, f"max_folder_files row missing; got: {captured}"
+            row = mff_lines[0]
+            assert "9999" in row, (
+                f"expected project-override value 9999 in max_folder_files row, got: {row}"
+            )
+            assert "2000" not in row, (
+                f"global value 2000 should not appear in overridden row, got: {row}"
+            )
+            assert "[project]" in row, (
+                f"expected '[project]' source tag on overridden row, got: {row}"
+            )
+
+    def test_check_section_reports_project_config_loaded(self, capsys, monkeypatch):
+        from src.jcodemunch_mcp.config import _GLOBAL_CONFIG, _PROJECT_CONFIGS
+        _GLOBAL_CONFIG.clear()
+        _PROJECT_CONFIGS.clear()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            storage = tmp / "storage"
+            storage.mkdir()
+            (storage / "config.jsonc").write_text("{}", encoding="utf-8")
+
+            project = tmp / "project"
+            project.mkdir()
+            (project / ".jcodemunch.jsonc").write_text(
+                '{"max_folder_files": 1234}', encoding="utf-8"
+            )
+
+            monkeypatch.setenv("CODE_INDEX_PATH", str(storage))
+            monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp))
+            monkeypatch.setattr(Path, "cwd", classmethod(lambda cls: project))
+
+            # Skip CLAUDE.md drift check noise by writing the canonical tool list.
+            from src.jcodemunch_mcp.server import _CANONICAL_TOOL_NAMES
+            (tmp / ".claude").mkdir()
+            (tmp / ".claude" / "CLAUDE.md").write_text(
+                "\n".join(_CANONICAL_TOOL_NAMES), encoding="utf-8"
+            )
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=True)
+
+            captured = capsys.readouterr().out
+            # The Config File section now reports the project file status.
+            assert ".jcodemunch.jsonc loaded from cwd" in captured, (
+                f"expected project-config-loaded line in output; got: {captured}"
+            )
+
+    def test_no_project_file_keeps_global_only_behavior(self, capsys, monkeypatch):
+        """When cwd has no .jcodemunch.jsonc, output is unchanged from
+        pre-fix behavior — global values, no [project] tags."""
+        from src.jcodemunch_mcp.config import _GLOBAL_CONFIG, _PROJECT_CONFIGS
+        _GLOBAL_CONFIG.clear()
+        _PROJECT_CONFIGS.clear()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            storage = tmp / "storage"
+            storage.mkdir()
+            (storage / "config.jsonc").write_text(
+                '{"max_folder_files": 2000}', encoding="utf-8"
+            )
+
+            project = tmp / "project"
+            project.mkdir()
+            # No .jcodemunch.jsonc here.
+
+            monkeypatch.setenv("CODE_INDEX_PATH", str(storage))
+            monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp))
+            monkeypatch.setattr(Path, "cwd", classmethod(lambda cls: project))
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=False)
+
+            captured = capsys.readouterr().out
+            assert "2000" in captured
+            assert "[project]" not in captured
+            assert ".jcodemunch.jsonc loaded" not in captured
+
+
+class TestSummarizerModelDisplay:
+    """Regression: surfaced by @slazarov on #300 (comment 4472458576).
+    `config --check` showed the OPENAI_MODEL env default even when
+    summarizer_model was configured, because the display logic only read
+    OPENAI_MODEL env var, not the config key. Mirror the runtime
+    resolution order (config summarizer_model > provider env var > default).
+    """
+
+    def _setup(self, monkeypatch, tmp, project_config: dict, env_vars: dict):
+        from src.jcodemunch_mcp.config import _GLOBAL_CONFIG, _PROJECT_CONFIGS
+        _GLOBAL_CONFIG.clear()
+        _PROJECT_CONFIGS.clear()
+
+        storage = tmp / "storage"
+        storage.mkdir()
+        (storage / "config.jsonc").write_text("{}", encoding="utf-8")
+
+        project = tmp / "project"
+        project.mkdir()
+        if project_config:
+            import json
+            (project / ".jcodemunch.jsonc").write_text(
+                json.dumps(project_config), encoding="utf-8"
+            )
+
+        monkeypatch.setenv("CODE_INDEX_PATH", str(storage))
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp))
+        monkeypatch.setattr(Path, "cwd", classmethod(lambda cls: project))
+        for k in ("ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_BASE",
+                  "MINIMAX_API_KEY", "ZHIPUAI_API_KEY", "OPENROUTER_API_KEY",
+                  "OPENAI_MODEL", "ANTHROPIC_MODEL", "GOOGLE_MODEL",
+                  "JCODEMUNCH_SUMMARIZER_PROVIDER",
+                  "JCODEMUNCH_SUMMARIZER_MODEL"):
+            monkeypatch.delenv(k, raising=False)
+        for k, v in env_vars.items():
+            monkeypatch.setenv(k, v)
+        return project
+
+    def test_summarizer_model_row_present_with_global_value(self, capsys, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            self._setup(monkeypatch, tmp, project_config={}, env_vars={})
+            # Set global summarizer_model via the storage config.jsonc.
+            import json
+            (tmp / "storage" / "config.jsonc").write_text(
+                json.dumps({"summarizer_model": "Qwen3.6-Plus"}), encoding="utf-8"
+            )
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=False)
+
+            captured = capsys.readouterr().out
+            sm_lines = [l for l in captured.splitlines() if "summarizer_model" in l]
+            assert sm_lines, f"summarizer_model row missing; got: {captured}"
+            assert "Qwen3.6-Plus" in sm_lines[0], (
+                f"expected configured value on summarizer_model row, got: {sm_lines[0]}"
+            )
+            # The warning hint for #304 only fires when project-only.
+            assert "#304" not in sm_lines[0]
+
+    def test_summarizer_model_project_only_now_displays_cleanly(
+        self, capsys, monkeypatch
+    ):
+        """After #304 runtime fix, project-level summarizer_model flows through
+        cleanly — the project-aware shim returns it, runtime honors it, and the
+        display tags it [project] without the v1.108.17 'not honored by runtime'
+        warning that #304 has now resolved."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            self._setup(
+                monkeypatch, tmp,
+                project_config={"summarizer_model": "Qwen3.6-Plus"},
+                env_vars={},
+            )
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=False)
+
+            captured = capsys.readouterr().out
+            sm_lines = [l for l in captured.splitlines() if "summarizer_model" in l]
+            assert sm_lines, f"summarizer_model row missing; got: {captured}"
+            row = sm_lines[0]
+            assert "Qwen3.6-Plus" in row
+            assert "[project]" in row, (
+                f"expected [project] source tag now that runtime honors it; got: {row}"
+            )
+            assert "#304" not in row, (
+                "the runtime-gap warning was specific to v1.108.17 and is "
+                f"obsolete after the #304 runtime fix; got: {row}"
+            )
+
+    def test_openai_model_row_uses_configured_summarizer_model(
+        self, capsys, monkeypatch
+    ):
+        """When summarizer_model is set globally AND OpenAI provider is
+        active, the OPENAI_MODEL row reflects the config value, not the
+        env-or-default fallback. Mirrors batch_summarize.py's resolution."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            self._setup(
+                monkeypatch, tmp,
+                project_config={},
+                env_vars={"OPENAI_API_BASE": "http://localhost:11434/v1"},
+            )
+            import json
+            (tmp / "storage" / "config.jsonc").write_text(
+                json.dumps({"summarizer_model": "Qwen3.6-Plus"}), encoding="utf-8"
+            )
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=False)
+
+            captured = capsys.readouterr().out
+            openai_model_lines = [
+                l for l in captured.splitlines() if "OPENAI_MODEL" in l
+            ]
+            assert openai_model_lines, f"OPENAI_MODEL row missing; got: {captured}"
+            row = openai_model_lines[0]
+            assert "Qwen3.6-Plus" in row, (
+                f"OPENAI_MODEL should reflect summarizer_model config, got: {row}"
+            )
+            assert "qwen3-coder" not in row, (
+                f"hardcoded default should be replaced by config, got: {row}"
+            )
+
+
 class TestClaudeMdDriftCheck:
     """config --check: CLAUDE.md drift detection."""
 

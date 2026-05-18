@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ttp_templates
-Version: 0.5.5
+Version: 0.5.6
 Summary: Template Text Parser Templates collections
 License: MIT
 License-File: LICENSE
@@ -24,6 +24,7 @@ Requires-Dist: mkdocs ; extra == "docs"
 Requires-Dist: mkdocs-material ; extra == "docs"
 Requires-Dist: mkdocs-material-extensions ; extra == "docs"
 Requires-Dist: mkdocstrings[python] ; extra == "docs"
+Requires-Dist: pydantic (>=2.0)
 Requires-Dist: pygments ; extra == "docs"
 Requires-Dist: pymdown-extensions ; extra == "docs"
 Requires-Dist: ttp (>=0.10.0)

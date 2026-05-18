@@ -7,7 +7,7 @@
 use std::ops::Range;
 
 use crate::ast::AstNode;
-use crate::unescape::escape_unicode_esc_str;
+use crate::unescape::{escape_unicode_esc_str, uescape_char};
 use crate::{SyntaxNode, SyntaxToken, ast, match_ast, syntax_error::SyntaxError};
 use rowan::{TextRange, TextSize};
 use squawk_parser::SyntaxKind::*;
@@ -16,6 +16,7 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
         match_ast! {
             match node {
                 ast::AlterAggregate(it) => validate_aggregate_params(it.aggregate().and_then(|x| x.param_list()), errors),
+                ast::BeginFuncOptionList(it) => validate_begin_func_option_list(it, errors),
                 ast::CreateAggregate(it) => validate_aggregate_params(it.param_list(), errors),
                 ast::CreateTable(it) => validate_create_table(it, errors),
                 ast::PrefixExpr(it) => validate_prefix_expr(it, errors),
@@ -24,8 +25,10 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
                 ast::JoinExpr(it) => validate_join_expr(it, errors),
                 ast::Literal(it) => validate_literal(it, errors),
                 ast::NonStandardParam(it) => validate_non_standard_param(it, errors),
+                ast::RuleStmtList(it) => validate_rule_stmt_list(it, errors),
                 ast::Select(it) => validate_select(it, errors),
                 ast::SelectInto(it) => validate_select_into(it, errors),
+                ast::SourceFile(it) => validate_source_file(it, errors),
                 _ => (),
             }
         }
@@ -36,6 +39,68 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
         {
             validate_unicode_esc_ident(&token, errors);
         }
+    }
+}
+
+fn validate_begin_func_option_list(it: ast::BeginFuncOptionList, acc: &mut Vec<SyntaxError>) {
+    for option in it.begin_func_options() {
+        let ast::BeginFuncOption::Stmt(stmt) = option else {
+            continue;
+        };
+        let syntax = stmt.syntax();
+        if syntax.kind() == EMPTY_STMT {
+            continue;
+        }
+        let ends_with_semi = syntax.last_token().is_some_and(|t| t.kind() == SEMICOLON);
+        if ends_with_semi {
+            continue;
+        }
+        let end = syntax.text_range().end();
+        acc.push(SyntaxError::new(
+            "Missing semicolon after statement",
+            TextRange::empty(end),
+        ));
+    }
+}
+
+fn validate_rule_stmt_list(it: ast::RuleStmtList, acc: &mut Vec<SyntaxError>) {
+    let mut stmts = it.rule_stmts().peekable();
+    while let Some(stmt) = stmts.next() {
+        let syntax = stmt.syntax();
+        if stmts.peek().is_none() {
+            continue;
+        }
+        let ends_with_semi = syntax.last_token().is_some_and(|t| t.kind() == SEMICOLON);
+        if ends_with_semi {
+            continue;
+        }
+        let end = syntax.text_range().end();
+        acc.push(SyntaxError::new(
+            "Missing semicolon between statements",
+            TextRange::empty(end),
+        ));
+    }
+}
+
+fn validate_source_file(it: ast::SourceFile, acc: &mut Vec<SyntaxError>) {
+    let mut stmts = it.stmts().peekable();
+    while let Some(stmt) = stmts.next() {
+        let syntax = stmt.syntax();
+        if syntax.kind() == EMPTY_STMT {
+            continue;
+        }
+        let Some(next) = stmts.peek() else {
+            continue;
+        };
+        let ends_with_semi = syntax.last_token().is_some_and(|t| t.kind() == SEMICOLON);
+        if ends_with_semi || next.syntax().kind() == EMPTY_STMT {
+            continue;
+        }
+        let end = syntax.text_range().end();
+        acc.push(SyntaxError::new(
+            "Missing semicolon between statements",
+            TextRange::empty(end),
+        ));
     }
 }
 
@@ -178,10 +243,140 @@ fn validate_literal(lit: ast::Literal, acc: &mut Vec<SyntaxError>) {
     }
 
     validate_unicode_esc_string(&lit, acc);
+    validate_prefixed_strings(&lit, acc);
+}
+
+#[derive(Clone, Copy)]
+enum PrefixedKind {
+    Bit,
+    Byte,
+    Esc,
+}
+
+fn validate_prefixed_strings(lit: &ast::Literal, acc: &mut Vec<SyntaxError>) {
+    let mut continuation: Option<PrefixedKind> = None;
+    for e in lit.syntax().children_with_tokens() {
+        let Some(token) = e.into_token() else {
+            continue;
+        };
+        match token.kind() {
+            ESC_STRING => {
+                let Some((inner, inner_start)) = prefixed_str_inner(&token, ['e', 'E']) else {
+                    continue;
+                };
+                validate_escape_string_content(inner, inner_start, acc);
+                continuation = Some(PrefixedKind::Esc);
+            }
+            BIT_STRING => {
+                let Some((inner, inner_start)) = prefixed_str_inner(&token, ['b', 'B']) else {
+                    continue;
+                };
+                validate_bit_string_content(inner, inner_start, acc);
+                continuation = Some(PrefixedKind::Bit);
+            }
+            BYTE_STRING => {
+                let Some((inner, inner_start)) = prefixed_str_inner(&token, ['x', 'X']) else {
+                    continue;
+                };
+                validate_byte_string_content(inner, inner_start, acc);
+                continuation = Some(PrefixedKind::Byte);
+            }
+            STRING => {
+                let Some(continuation) = continuation else {
+                    continue;
+                };
+                let Some(inner) = token
+                    .text()
+                    .strip_prefix('\'')
+                    .and_then(|s| s.strip_suffix('\''))
+                else {
+                    continue;
+                };
+                let inner_start = token.text_range().start() + TextSize::new(1);
+                match continuation {
+                    PrefixedKind::Esc => validate_escape_string_content(inner, inner_start, acc),
+                    PrefixedKind::Bit => validate_bit_string_content(inner, inner_start, acc),
+                    PrefixedKind::Byte => validate_byte_string_content(inner, inner_start, acc),
+                };
+            }
+            WHITESPACE | COMMENT => (),
+            _ => continuation = None,
+        }
+    }
+}
+
+fn validate_bit_string_content(inner: &str, inner_start: TextSize, acc: &mut Vec<SyntaxError>) {
+    for (i, c) in inner.char_indices() {
+        if c != '0' && c != '1' {
+            acc.push(SyntaxError::new(
+                format!("\"{c}\" is not a valid binary digit"),
+                offset_range(inner_start, i..i + c.len_utf8()),
+            ));
+        }
+    }
+}
+
+fn validate_byte_string_content(inner: &str, inner_start: TextSize, acc: &mut Vec<SyntaxError>) {
+    for (i, c) in inner.char_indices() {
+        if !c.is_ascii_hexdigit() {
+            acc.push(SyntaxError::new(
+                format!("\"{c}\" is not a valid hexadecimal digit"),
+                offset_range(inner_start, i..i + c.len_utf8()),
+            ));
+        }
+    }
+}
+
+fn prefixed_str_inner(token: &SyntaxToken, prefix: [char; 2]) -> Option<(&str, TextSize)> {
+    let inner = token
+        .text()
+        .strip_prefix(prefix)
+        .and_then(|s| s.strip_prefix('\''))
+        .and_then(|s| s.strip_suffix('\''))?;
+    let inner_start = token.text_range().start() + TextSize::new(2);
+    Some((inner, inner_start))
+}
+
+fn validate_escape_string_content(inner: &str, inner_start: TextSize, acc: &mut Vec<SyntaxError>) {
+    let mut chars = inner.char_indices().peekable();
+    while let Some((esc_start, c)) = chars.next() {
+        if c != '\\' {
+            continue;
+        }
+        let Some((next_pos, next_c)) = chars.next() else {
+            return;
+        };
+        let (required, example) = match next_c {
+            'u' => (4usize, r"\uXXXX"),
+            'U' => (8usize, r"\UXXXXXXXX"),
+            _ => continue,
+        };
+        let mut end = next_pos + next_c.len_utf8();
+        let mut got_all = true;
+        for _ in 0..required {
+            match chars.peek() {
+                Some(&(i, ch)) if ch.is_ascii_hexdigit() => {
+                    end = i + ch.len_utf8();
+                    chars.next();
+                }
+                _ => {
+                    got_all = false;
+                    break;
+                }
+            }
+        }
+        if !got_all {
+            acc.push(SyntaxError::new(
+                format!("Unicode escape requires {required} hex digits: {example}"),
+                offset_range(inner_start, esc_start..end),
+            ));
+        }
+    }
 }
 
 fn validate_unicode_esc_string(lit: &ast::Literal, acc: &mut Vec<SyntaxError>) {
     let mut unicode_esc = None;
+    let mut continuations: Vec<SyntaxToken> = vec![];
     let mut seen_uescape = false;
     let mut escape_char = '\\';
     for e in lit.syntax().children_with_tokens() {
@@ -192,7 +387,7 @@ fn validate_unicode_esc_string(lit: &ast::Literal, acc: &mut Vec<SyntaxError>) {
             UNICODE_ESC_STRING => unicode_esc = Some(token),
             UESCAPE_KW => seen_uescape = true,
             STRING if seen_uescape => {
-                escape_char = match uescape_char(&token) {
+                escape_char = match uescape_char(token.text()) {
                     Some(ch) => ch,
                     None => {
                         acc.push(SyntaxError::new(
@@ -204,36 +399,55 @@ fn validate_unicode_esc_string(lit: &ast::Literal, acc: &mut Vec<SyntaxError>) {
                 };
                 break;
             }
+            STRING if unicode_esc.is_some() => continuations.push(token),
             _ => (),
         }
     }
     let Some(token) = unicode_esc else {
         return;
     };
-    let text = token.text();
-    let Some(inside) = text
-        .strip_prefix("U&'")
-        .or_else(|| text.strip_prefix("u&'"))
+    let Some(inner) = token
+        .text()
+        .strip_prefix(['u', 'U'])
+        .and_then(|s| s.strip_prefix("&'"))
         .and_then(|s| s.strip_suffix('\''))
     else {
         return;
     };
-    let inside_start = token.text_range().start() + TextSize::new(3);
-    escape_unicode_esc_str(inside, escape_char, |range, result| {
+    let inner_start = token.text_range().start() + TextSize::new(3);
+    escape_unicode_esc_str(inner, escape_char, |range, result| {
         if let Err(err) = result {
             acc.push(SyntaxError::new(
                 err.to_string(),
-                offset_range(inside_start, range),
+                offset_range(inner_start, range),
             ));
         }
     });
+    for cont in continuations {
+        let Some(cont_inner) = cont
+            .text()
+            .strip_prefix('\'')
+            .and_then(|s| s.strip_suffix('\''))
+        else {
+            continue;
+        };
+        let cont_start = cont.text_range().start() + TextSize::new(1);
+        escape_unicode_esc_str(cont_inner, escape_char, |range, result| {
+            if let Err(err) = result {
+                acc.push(SyntaxError::new(
+                    err.to_string(),
+                    offset_range(cont_start, range),
+                ));
+            }
+        });
+    }
 }
 
 fn validate_unicode_esc_ident(token: &SyntaxToken, acc: &mut Vec<SyntaxError>) {
-    let text = token.text();
-    let Some(inside) = text
-        .strip_prefix("U&\"")
-        .or_else(|| text.strip_prefix("u&\""))
+    let Some(inner) = token
+        .text()
+        .strip_prefix(['u', 'U'])
+        .and_then(|s| s.strip_prefix("&\""))
         .and_then(|s| s.strip_suffix('"'))
     else {
         return;
@@ -248,7 +462,7 @@ fn validate_unicode_esc_ident(token: &SyntaxToken, acc: &mut Vec<SyntaxError>) {
             UESCAPE_KW => seen_uescape = true,
             STRING if seen_uescape => {
                 if let Some(string_token) = element.as_token() {
-                    escape_char = match uescape_char(string_token) {
+                    escape_char = match uescape_char(string_token.text()) {
                         Some(ch) => ch,
                         None => {
                             acc.push(SyntaxError::new(
@@ -266,12 +480,12 @@ fn validate_unicode_esc_ident(token: &SyntaxToken, acc: &mut Vec<SyntaxError>) {
         next = element.next_sibling_or_token();
     }
 
-    let inside_start = token.text_range().start() + TextSize::new(3);
-    escape_unicode_esc_str(inside, escape_char, |range, result| {
+    let inner_start = token.text_range().start() + TextSize::new(3);
+    escape_unicode_esc_str(inner, escape_char, |range, result| {
         if let Err(err) = result {
             acc.push(SyntaxError::new(
                 err.to_string(),
-                offset_range(inside_start, range),
+                offset_range(inner_start, range),
             ));
         }
     });
@@ -281,27 +495,6 @@ fn offset_range(start: TextSize, range: Range<usize>) -> TextRange {
     let begin = start + TextSize::new(range.start as u32);
     let end = start + TextSize::new(range.end as u32);
     TextRange::new(begin, end)
-}
-
-// https://github.com/postgres/postgres/blob/228a1f9542792c6533ef74c2e7aefad0da1d9a7a/src/backend/parser/parser.c#L350
-const fn is_valid_uescape_char(byte: u8) -> bool {
-    !byte.is_ascii_hexdigit()
-        && byte != b'+'
-        && byte != b'\''
-        && byte != b'"'
-        && !matches!(
-            byte,
-            b' ' | b'\t' | b'\n' | b'\r' | /* b'\v' */ 0x0B | /* b'\f' */ 0x0C
-        )
-}
-
-fn uescape_char(string_token: &SyntaxToken) -> Option<char> {
-    let text = string_token.text();
-    let inner = text.strip_prefix('\'')?.strip_suffix('\'')?;
-    let &[byte] = inner.as_bytes() else {
-        return None;
-    };
-    is_valid_uescape_char(byte).then(|| char::from(byte))
 }
 
 fn validate_join_expr(join_expr: ast::JoinExpr, acc: &mut Vec<SyntaxError>) {

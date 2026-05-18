@@ -1,7 +1,4 @@
-"""
-This module implements several useful functions and decorators that can be
-particularly useful for developers. E.g., deprecating methods / classes, etc.
-"""
+"""Developer-facing utilities, e.g. decorators for deprecating methods or classes."""
 
 from __future__ import annotations
 
@@ -14,17 +11,16 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Callable, Optional, Type
+    from collections.abc import Callable
 
 
 def deprecated(
-    replacement: Optional[Callable | str] = None,
+    replacement: Callable | str | None = None,
     message: str = "",
-    deadline: Optional[tuple[int, int, int]] = None,
-    category: Type[Warning] = FutureWarning,
+    deadline: tuple[int, int, int] | None = None,
+    category: type[Warning] = FutureWarning,
 ) -> Callable:
-    """
-    Decorator to mark classes or functions as deprecated, with a possible replacement.
+    """Decorator to mark classes or functions as deprecated, with a possible replacement.
 
     Args:
         replacement (Callable | str): A replacement class or function.
@@ -41,13 +37,14 @@ def deprecated(
 
     Returns:
         Original function/class, but with a warning to use the replacement.
+
     """
 
     def craft_message(
-        old: Callable,
-        replacement: Callable | str,
+        old: Callable | type,
+        replacement: Callable | str | None,
         message: str,
-        deadline: datetime,
+        deadline: datetime | None,
     ) -> str:
         msg = f"{old.__name__} is deprecated"
 
@@ -78,31 +75,36 @@ def deprecated(
         return msg
 
     def deprecated_function_decorator(old: Callable) -> Callable:
+        # Craft the warning message once at decoration time; the inputs are
+        # all closed over and immutable, so there is no need to rebuild the
+        # string on every call (this used to dominate hot deprecated paths).
+        msg = craft_message(old, replacement, message, _deadline)
+
         @functools.wraps(old)
         def wrapped(*args, **kwargs):
-            msg = craft_message(old, replacement, message, _deadline)
             warnings.warn(msg, category=category, stacklevel=2)
             return old(*args, **kwargs)
 
         return wrapped
 
-    def deprecated_class_decorator(cls: Type) -> Type:
+    def deprecated_class_decorator(cls: type) -> type:
         # Modify __post_init__ for dataclass
         if is_dataclass(cls) and hasattr(cls, "__post_init__"):
             original_init = cls.__post_init__
         else:
-            original_init = cls.__init__
+            original_init = cls.__init__  # type: ignore[misc]
+
+        msg = craft_message(cls, replacement, message, _deadline)
 
         @functools.wraps(original_init)
         def new_init(self, *args, **kwargs):
-            msg = craft_message(cls, replacement, message, _deadline)
             warnings.warn(msg, category=category, stacklevel=2)
             original_init(self, *args, **kwargs)
 
         if is_dataclass(cls) and hasattr(cls, "__post_init__"):
             cls.__post_init__ = new_init
         else:
-            cls.__init__ = new_init
+            cls.__init__ = new_init  # type: ignore[misc]
 
         return cls
 
@@ -112,23 +114,22 @@ def deprecated(
     def decorator(target: Callable) -> Callable:
         if inspect.isfunction(target):
             return deprecated_function_decorator(target)
-        elif inspect.isclass(target):
+        if inspect.isclass(target):
             return deprecated_class_decorator(target)
-        else:
-            raise TypeError(
-                "The @deprecated decorator can only be applied to classes or functions"
-            )
+        raise TypeError(
+            "The @deprecated decorator can only be applied to classes or functions"
+        )
 
     return decorator
 
 
 class requires:
-    """
-    Decorator to mark classes or functions as requiring a specified condition
-    to be true. This can be used to present useful error messages for
-    optional dependencies. For example, decorating the following code will
-    check if scipy is present and if not, a runtime error will be raised if
-    someone attempts to call the use_scipy function:
+    """Decorator to mark classes or functions as requiring a specified condition.
+
+    This can be used to present useful error messages for optional
+    dependencies. For example, decorating the following code will check if
+    scipy is present and if not, a runtime error will be raised if someone
+    attempts to call the use_scipy function:
 
         try:
             import scipy
@@ -142,24 +143,30 @@ class requires:
     Args:
         condition: Condition necessary to use the class or function.
         message: A message to be displayed if the condition is not True.
+
     """
 
     def __init__(
         self, condition: bool, message: str, err_cls: type[Exception] = RuntimeError
     ) -> None:
-        """
+        """Initialize the requires decorator.
+
         Args:
-            condition: A expression returning a bool.
+            condition: An expression returning a bool.
             message: Message to display if condition is False.
+            err_cls: Exception class to raise when condition is False.
+
         """
         self.condition = condition
         self.message = message
         self.err_cls = err_cls
 
     def __call__(self, _callable: Callable) -> Callable:
-        """
+        """Wrap ``_callable`` so it raises when the condition is False.
+
         Args:
             _callable: Callable function.
+
         """
 
         @functools.wraps(_callable)
@@ -172,15 +179,15 @@ class requires:
 
 
 def install_excepthook(hook_type: str = "color", **kwargs) -> int:
-    """
-    This function replaces the original python traceback with an improved
-    version from Ipython. Use `color` for colourful traceback formatting,
-    `verbose` for Ka-Ping Yee's "cgitb.py" version kwargs are the keyword
-    arguments passed to the constructor. See IPython.core.ultratb.py for more
-    info.
+    """Replace the default Python traceback with an improved version from IPython.
+
+    Use ``color`` for colourful traceback formatting or ``verbose`` for the
+    Ka-Ping Yee ``cgitb.py`` style. ``kwargs`` are forwarded to the hook
+    constructor; see ``IPython.core.ultratb`` for details.
 
     Returns:
         0 if hook is installed successfully.
+
     """
     try:
         from IPython.core import ultratb  # pylint: disable=import-outside-toplevel
@@ -188,10 +195,10 @@ def install_excepthook(hook_type: str = "color", **kwargs) -> int:
         raise ImportError("Cannot install excepthook, IPython not installed") from exc
 
     # Select the hook.
-    hook = dict(
-        color=ultratb.ColorTB,
-        verbose=ultratb.VerboseTB,
-    ).get(hook_type.lower(), None)
+    hook = {
+        "color": ultratb.ColorTB,
+        "verbose": ultratb.VerboseTB,
+    }.get(hook_type.lower())
 
     if hook is None:
         return 2

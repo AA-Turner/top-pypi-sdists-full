@@ -9,14 +9,16 @@ from .._world import World
 from .._component import Transform, Follow
 
 import math
+from typing import ClassVar
 
 # ======================================== SYSTEM ========================================
 class SteeringSystem(System):
     """Système gérant le pilotage positionnel"""
-    __slots__ = ()
+    __slots__ = tuple()
     
-    order = 10
-    exclusive = True
+    _ORDER: ClassVar[int] = 10
+
+    _IS_EXCLUSIVE: ClassVar[bool] = True
 
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
@@ -26,7 +28,12 @@ class SteeringSystem(System):
     # ======================================== LIFE CYCLE ========================================
     @profile_section("world.steering.update")
     def update(self, world: World, dt: float):
-        """Actualisation du pilotage"""
+        """Actualisation du pilotage
+        
+        Args:
+            world: monde à mettre à jour
+            dt: delta-time
+        """
         for entity in world.query(Follow, Transform):
             follow: Follow = entity.follow
             tr: Transform = entity.transform
@@ -129,17 +136,37 @@ class SteeringSystem(System):
 
 # ======================================== HELPERS ========================================
 def _angle_diff(a: float, b: float) -> float:
-    """Différence signée entre deux angles en degrés dans [-180, 180]"""
+    """Différence signée entre deux angles en degrés dans *[-180, 180]*
+    
+    Args:
+        a: angle ``A``
+        b: anbgle ``B``
+    """
     return (a - b + 180.0) % 360.0 - 180.0
 
 def _in_sector(current: float, angle: float, cone: float, cone_gap: float) -> bool:
-    """Vérifie si current est dans le secteur angulaire valide"""
+    """Vérifie si current est dans le secteur angulaire valide
+    
+    Args:
+        current: angle courant
+        angle: angle cible
+        cone: demi cone angulaire cible
+        cone_gap: demi cone angulaire interdit
+    """
     if cone >= 180.0:
         return True
     abs_diff = abs(_angle_diff(current, angle))
     return cone_gap <= abs_diff <= cone
 
-def _closest_sector_angle(current, angle, cone, cone_gap):
+def _closest_sector_angle(current: float, angle: float, cone: float, cone_gap: float):
+    """Renvoie le secteur angulaire valide le plus proche
+
+    Args:
+        current: angle courant
+        angle: angle cible
+        cone: demi cone angulaire cible
+        cone_gap: demi cone angulaire interdit
+    """
     if cone >= 180.0:
         return current
     if _in_sector(current, angle, cone, cone_gap):
@@ -153,3 +180,8 @@ def _closest_sector_angle(current, angle, cone, cone_gap):
         diff_pos = abs(_angle_diff(current, angle + cone))
         diff_neg = abs(_angle_diff(current, angle - cone))
         return angle + cone if diff_pos <= diff_neg else angle - cone
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "SteeringSystem",
+]

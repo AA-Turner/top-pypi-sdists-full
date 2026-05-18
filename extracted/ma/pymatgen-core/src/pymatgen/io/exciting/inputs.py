@@ -8,11 +8,11 @@ import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 
 import numpy as np
-import scipy.constants as const
 from monty.io import zopen
 from monty.json import MSONable
 
 from pymatgen.core import Element, Lattice, Structure
+from pymatgen.core import constants as const
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
@@ -53,7 +53,8 @@ class ExcitingInput(MSONable):
         title: str | None = None,
         lockxyz: ArrayLike | None = None,
     ) -> None:
-        """
+        """Initialize an ExcitingInput.
+
         Args:
             structure (Structure): Structure object.
             title (str): Optional title for exciting input. Defaults to unit
@@ -174,7 +175,8 @@ class ExcitingInput(MSONable):
 
     @classmethod
     def from_file(cls, filename: PathLike) -> Self:
-        """
+        """Construct a ExcitingInput from a file.
+
         Args:
             filename: Filename.
 

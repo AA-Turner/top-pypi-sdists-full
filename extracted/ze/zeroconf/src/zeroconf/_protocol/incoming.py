@@ -37,7 +37,7 @@ from .._dns import (
     DNSText,
 )
 from .._exceptions import IncomingDecodeError
-from .._logger import log
+from .._logger import _mark_seen, log
 from .._utils.time import current_time_millis
 from ..const import (
     _FLAGS_QR_MASK,
@@ -60,10 +60,10 @@ DNS_COMPRESSION_POINTER_LEN = 2
 MAX_DNS_LABELS = 128
 MAX_NAME_LENGTH = 253
 
-DECODE_EXCEPTIONS = (IndexError, struct.error, IncomingDecodeError)
+DECODE_EXCEPTIONS = (IndexError, struct.error, IncomingDecodeError, RecursionError)
 
 
-_seen_logs: dict[str, int | tuple] = {}
+_seen_logs: dict[str, None] = {}
 _str = str
 _int = int
 
@@ -182,13 +182,7 @@ class DNSIncoming:
 
     @classmethod
     def _log_exception_debug(cls, *logger_data: Any) -> None:
-        log_exc_info = False
-        exc_info = sys.exc_info()
-        exc_str = str(exc_info[1])
-        if exc_str not in _seen_logs:
-            # log the trace only on the first time
-            _seen_logs[exc_str] = exc_info
-            log_exc_info = True
+        log_exc_info = _mark_seen(_seen_logs, str(sys.exc_info()[1]))
         log.debug(*(logger_data or ["Exception occurred"]), exc_info=log_exc_info)
 
     def answers(self) -> list[DNSRecord]:
@@ -409,7 +403,7 @@ class DNSIncoming:
         labels: list[str] = []
         seen_pointers: set[int] = set()
         original_offset = self.offset
-        self.offset = self._decode_labels_at_offset(original_offset, labels, seen_pointers)
+        self.offset = self._decode_labels_at_offset(original_offset, labels, seen_pointers, 0)
         self._name_cache[original_offset] = labels
         name = ".".join(labels) + "."
         if len(name) > MAX_NAME_LENGTH:
@@ -418,8 +412,14 @@ class DNSIncoming:
             )
         return name
 
-    def _decode_labels_at_offset(self, off: _int, labels: list[str], seen_pointers: set[int]) -> int:
+    def _decode_labels_at_offset(
+        self, off: _int, labels: list[str], seen_pointers: set[int], depth: _int
+    ) -> int:
         # This is a tight loop that is called frequently, small optimizations can make a difference.
+        if depth > MAX_DNS_LABELS:
+            raise IncomingDecodeError(
+                f"DNS compression pointer chain exceeds {MAX_DNS_LABELS} at {off} from {self.source}"
+            )
         view = self.view
         while off < self._data_len:
             length = view[off]
@@ -457,7 +457,7 @@ class DNSIncoming:
             if not linked_labels:
                 linked_labels = []
                 seen_pointers.add(link_py_int)
-                self._decode_labels_at_offset(link, linked_labels, seen_pointers)
+                self._decode_labels_at_offset(link, linked_labels, seen_pointers, depth + 1)
                 self._name_cache[link_py_int] = linked_labels
             labels.extend(linked_labels)
             if len(labels) > MAX_DNS_LABELS:

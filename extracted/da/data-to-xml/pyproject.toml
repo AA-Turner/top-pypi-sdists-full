@@ -8,14 +8,21 @@ write_to = "src/data_to_xml/version.py"
 dynamic = ["version"]
 name = "data-to-xml"
 description = "A simple dict to xml converter"
-keywords = ["dict", "xml", "list", "data", "structure", "convert", "dictionary"]
+keywords = [
+	"data",
+	"dict",
+	"xml",
+	"list",
+	"dict",
+	"structure",
+	"convert",
+	"dictionary",
+	"dict-to-xml",
+	"dict to xml",
+]
 readme = { file = "README.rst", content-type = "text/x-rst" }
 requires-python = ">=3.11"
-authors = [
-	{ name = "Reimund Järnfors", email = "reimund@code7.se" },
-	{ name = "Thomas William" },
-	{ name = "Adam Nogowski", email = "anogowski@live.com" },
-]
+authors = [{ name = "Adam Nogowski", email = "anogowski@live.com" }]
 maintainers = [{ name = "Adam Nogowski", email = "anogowski@live.com" }]
 license = { file = "LICENSE" }
 classifiers = [
@@ -34,5 +41,22 @@ classifiers = [
 ]
 [project.urls]
 Repository = "https://github.com/anogowski/data-to-xml"
-[project.entry-points.data_to_xml]
-data-to-xml = "xml_converter"
+Homepage = "https://pypi.org/project/data-to-xml"
+[project.entry-points.dict_to_xml]
+dict-to-xml = "xml_converter"
+
+[project.optional-dependencies]
+dev = ["twine", "build", "readme_renderer[rst]"]
+
+[tool.semantic_release]
+# Let setuptools_scm own the version string — PSR only creates the git tag.
+tag_format = "v{version}"
+version_toml = []
+version_variables = []
+build_command = ""        # publishing is handled by the separate publish workflow
+commit_parser = "angular" # conventional commits: feat/fix/chore/etc.
+major_on_zero = false     # feat! or BREAKING CHANGE → major bump
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false

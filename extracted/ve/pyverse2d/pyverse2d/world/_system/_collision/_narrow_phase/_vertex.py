@@ -317,3 +317,11 @@ def capsule_vs_pts(
 
     # Construction du contact
     return Contact(Vector._make(best_nx, best_ny), r - min_dist)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "sat",
+    "circle_vs_pts",
+    "ellipse_vs_pts",
+    "capsule_vs_pts",
+]

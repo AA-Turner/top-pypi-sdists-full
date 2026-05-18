@@ -1,8 +1,8 @@
 # ======================================== IMPORTS ========================================
-from ..._managers import MouseManager
 from ..._managers._inputs import Listener
 from ...abc import Behavior
 from ...math import Point
+from ...typing import Button
 
 from pyverse2d import mouse, inputs
 
@@ -32,7 +32,7 @@ class ClickBehavior(Behavior):
     def add(
         self,
         name: str = None,
-        key: MouseManager.Button = mouse.B_LEFT,
+        key: Button = mouse.B_LEFT,
         callback: Callable = None,
         args: list[Any] = None,
         kwargs: dict[str, Any] = None,
@@ -99,7 +99,7 @@ class ClickBehavior(Behavior):
             inputs.remove_listener(self._up_listeners[name])
             del self._up_listeners[name]
     
-    def remove_with_filters(self, key: MouseManager.Button = None, callback: Callable = None) -> None:
+    def remove_with_filters(self, key: Button = None, callback: Callable = None) -> None:
         """Supprime les actions correspondant aux filtres
 
         Args:

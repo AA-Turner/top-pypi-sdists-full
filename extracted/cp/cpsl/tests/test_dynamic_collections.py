@@ -2,15 +2,20 @@ import json
 import os
 import sys
 import unittest
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cpsl.constants import CollectionDecl, Column
 from cpsl.clients.capsule import (
     DeleteManyResponse,
+    DeleteOneResponse,
     FindResponse,
     GetCollectionSchemaResponse,
+    InsertManyResponse,
+    InsertOneResponse,
     UpsertCollectionSchemaResponse,
+    UpdateOneResponse,
 )
 from cpsl.db import (
     Collection,
@@ -65,8 +70,69 @@ class FakeDataStub:
         self.last_delete_many = req
         return DeleteManyResponse(deleted=2)
 
+    def insert_one(self, req):
+        return InsertOneResponse(id="row-1")
+
+    def insert_many(self, req):
+        return InsertManyResponse(
+            ids=[f"row-{i + 1}" for i, _ in enumerate(req.documents_json)]
+        )
+
+    def update_one(self, req):
+        return UpdateOneResponse(matched=1, modified=1)
+
+    def delete_one(self, req):
+        return DeleteOneResponse(deleted=1)
+
 
 class DynamicCollectionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_collection_mutations_emit_widget_update_for_active_session(self):
+        stub = FakeDataStub()
+        blocks: list[dict] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(json.loads(block_json))
+
+        token = set_active_identity(SimpleNamespace(id="sess-1", _block_callback=block_cb))
+        try:
+            col = Collection(stub, "app-1", "leads")
+            await col.insert_one({"name": "Ada"})
+            await col.update_one({"_id": "row-1"}, {"name": "Grace"})
+            await col.delete_many({})
+        finally:
+            reset_active_identity(token)
+
+        self.assertEqual([b["type"] for b in blocks], ["widget_update"] * 3)
+        self.assertEqual([b["payload"]["collection"] for b in blocks], ["leads"] * 3)
+        self.assertEqual([b["payload"]["reason"] for b in blocks], ["data"] * 3)
+        self.assertEqual([b["payload"]["session_id"] for b in blocks], ["sess-1"] * 3)
+
+    async def test_schema_mutation_emits_widget_update_for_active_session(self):
+        stub = FakeDataStub()
+        blocks: list[dict] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(json.loads(block_json))
+
+        token = set_active_identity(SimpleNamespace(id="sess-1", _block_callback=block_cb))
+        try:
+            manager = CollectionManager(
+                stub,
+                "app-1",
+                collection_scopes={"leads": "owner"},
+                user_id="u1",
+                owner_id="org:o1",
+            )
+            leads = await manager.get("leads")
+            await leads.set_columns(["name"])
+        finally:
+            reset_active_identity(token)
+
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0]["type"], "widget_update")
+        self.assertEqual(blocks[0]["payload"]["collection"], "leads")
+        self.assertEqual(blocks[0]["payload"]["reason"], "schema")
+
     async def test_dynamic_collection_columns_round_trip(self):
         stub = FakeDataStub()
         manager = CollectionManager(

@@ -22,6 +22,7 @@ from xgrammar.builtin_structural_tag import (
     get_qwen_3_5_structural_tag,
     get_qwen_3_coder_structural_tag,
     get_qwen_3_structural_tag,
+    normalize_tool_choice,
 )
 from xgrammar.openai_tool_call_schema import BuiltinToolParam, FunctionToolParam
 from xgrammar.structural_tag import JSONSchemaFormat, StructuralTag, TagFormat
@@ -204,6 +205,16 @@ def test_unknown_format():
     assert "unknown_format" in str(exc_info.value)
 
 
+def test_unknown_format_is_checked_before_tool_inputs():
+    """Unknown model names are rejected before validating tool inputs."""
+
+    with pytest.raises(ValueError) as exc_info:
+        get_model_structural_tag("unknown_format", tools="not_a_list")
+
+    assert "Unknown format type" in str(exc_info.value)
+    assert "unknown_format" in str(exc_info.value)
+
+
 # ---------- Test: input validation errors ----------
 
 # (format_type, input_dict, substring that must appear in the error message)
@@ -314,6 +325,61 @@ def test_public_api_validation_errors(kwargs: Dict[str, Any], error_substring: s
     with pytest.raises(ValueError) as exc_info:
         get_model_structural_tag("harmony", **kwargs)
     assert error_substring in str(exc_info.value)
+
+
+def test_normalize_tool_choice_named_function():
+    """normalize_tool_choice returns one forced function for named choices."""
+
+    function_tools, builtin_tools, simplified_tool_choice = normalize_tool_choice(
+        tools=make_tools(["get_weather", "get_time"]),
+        tool_choice={"type": "function", "function": {"name": "get_weather"}},
+    )
+
+    assert [tool.function.name for tool in function_tools] == ["get_weather"]
+    assert builtin_tools == []
+    assert simplified_tool_choice == "forced"
+
+
+def test_normalize_tool_choice_allowed_tools():
+    """normalize_tool_choice filters function and builtin tools for allowed_tools."""
+
+    function_tools, builtin_tools, simplified_tool_choice = normalize_tool_choice(
+        tools=[
+            *make_tools(["get_weather", "get_time"]),
+            {"type": "web_search_preview", "name": "browser.search", "parameters": SIMPLE_SCHEMA},
+            {"type": "code_interpreter", "name": "browser.open", "parameters": SIMPLE_SCHEMA},
+        ],
+        tool_choice={
+            "type": "allowed_tools",
+            "allowed_tools": {
+                "mode": "required",
+                "tools": [
+                    {"type": "function", "function": {"name": "get_weather"}},
+                    {"type": "web_search_preview"},
+                ],
+            },
+        },
+    )
+
+    assert [tool.function.name for tool in function_tools] == ["get_weather"]
+    assert [tool.name for tool in builtin_tools] == ["browser.search"]
+    assert simplified_tool_choice == "required"
+
+
+def test_normalize_tool_choice_none_clears_tools():
+    """normalize_tool_choice maps public none to text-only auto."""
+
+    function_tools, builtin_tools, simplified_tool_choice = normalize_tool_choice(
+        tools=[
+            *make_tools(["get_weather"]),
+            {"type": "web_search_preview", "name": "browser.search", "parameters": SIMPLE_SCHEMA},
+        ],
+        tool_choice="none",
+    )
+
+    assert function_tools == []
+    assert builtin_tools == []
+    assert simplified_tool_choice == "auto"
 
 
 def test_public_tool_shapes():
@@ -468,6 +534,24 @@ def test_harmony_builtin_tool_instance():
     )
 
 
+def test_kimi_auto_requires_tool_calls_section():
+    """Kimi auto tool calls must use the official section wrapper."""
+
+    structural_tag = get_model_structural_tag("kimi", tools=_tools_kimi, reasoning=False)
+
+    assert "<|tool_calls_section_begin|>" in structural_tag.model_dump_json()
+    check_stag_with_instance(
+        structural_tag,
+        '<|tool_calls_section_begin|><|tool_call_begin|>functions.get_weather:0<|tool_call_argument_begin|>{"q": "v"}<|tool_call_end|><|tool_calls_section_end|>',
+        True,
+    )
+    check_stag_with_instance(
+        structural_tag,
+        '<|tool_call_begin|>functions.get_weather:0<|tool_call_argument_begin|>{"q": "v"}<|tool_call_end|>',
+        False,
+    )
+
+
 @pytest.mark.parametrize(
     "structural_tag_fn",
     [
@@ -563,12 +647,17 @@ def test_specific_functions_cases(structural_tag_fn, case: Dict[str, Any]):
         ("llama", '{"name": "t1", "parameters": {"q": "v"}}', True),
         (
             "kimi",
-            '123<|tool_call_begin|>functions.t1:0<|tool_call_argument_begin|>{"q": "v"}<|tool_call_end|>',
+            '123<|tool_calls_section_begin|><|tool_call_begin|>functions.t1:0<|tool_call_argument_begin|>{"q": "v"}<|tool_call_end|><|tool_calls_section_end|>',
             True,
         ),
         (
             "kimi",
-            '123<|tool_call_begin|>functions.t2:0<|tool_call_argument_begin|>{"q": "v"}<|tool_call_end|>',
+            '<|tool_call_begin|>functions.t1:0<|tool_call_argument_begin|>{"q": "v"}<|tool_call_end|>',
+            False,
+        ),
+        (
+            "kimi",
+            '123<|tool_calls_section_begin|><|tool_call_begin|>functions.t2:0<|tool_call_argument_begin|>{"q": "v"}<|tool_call_end|><|tool_calls_section_end|>',
             False,
         ),
         (
@@ -583,42 +672,42 @@ def test_specific_functions_cases(structural_tag_fn, case: Dict[str, Any]):
         ),
         (
             "deepseek_v3_2",
-            '<｜DSML｜function_calls>\n<｜DSML｜invoke name="t1">\n<q>{"type": "string"}</q>\n</｜DSML｜invoke>\n</｜DSML｜function_calls>\n',
+            '<｜DSML｜function_calls>\n<｜DSML｜invoke name="t1">\n<｜DSML｜parameter name="q" string="false">{"type": "string"}</｜DSML｜parameter>\n</｜DSML｜invoke>\n</｜DSML｜function_calls>\n',
             True,
         ),
         (
             "deepseek_v3_2",
-            '<｜DSML｜function_calls>\n<｜DSML｜invoke name="t2">\n<q>{"type": "string"}</q>\n</｜DSML｜invoke>\n</｜DSML｜function_calls>\n',
+            '<｜DSML｜function_calls>\n<｜DSML｜invoke name="t2">\n<｜DSML｜parameter name="q" string="false">{"type": "string"}</｜DSML｜parameter>\n</｜DSML｜invoke>\n</｜DSML｜function_calls>\n',
             False,
         ),
         (
             "deepseek_v4",
-            '<｜DSML｜tool_calls>\n<｜DSML｜invoke name="t1">\n<q>{"type": "string"}</q>\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>\n',
+            '<｜DSML｜tool_calls>\n<｜DSML｜invoke name="t1">\n<｜DSML｜parameter name="q" string="false">{"type": "string"}</｜DSML｜parameter>\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>\n',
             True,
         ),
         (
             "deepseek_v4",
-            '<｜DSML｜tool_calls>\n<｜DSML｜invoke name="t2">\n<q>{"type": "string"}</q>\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>\n',
+            '<｜DSML｜tool_calls>\n<｜DSML｜invoke name="t2">\n<｜DSML｜parameter name="q" string="false">{"type": "string"}</｜DSML｜parameter>\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>\n',
             False,
         ),
         (
             "minimax",
-            '\n</think>\n\n\n\n<minimax:tool_call>\n<invoke name="t1">\n<q>{"type": "string"}</q>\n</invoke>\n</minimax:tool_call>\n',
+            '\n</think>\n\n\n\n<minimax:tool_call>\n<invoke name="t1">\n<parameter name="q">{"type": "string"}</parameter>\n</invoke>\n</minimax:tool_call>\n',
             True,
         ),
         (
             "minimax",
-            '<minimax:tool_call>\n<invoke name="t2">\n<q>{"type": "string"}</q>\n</invoke>\n</minimax:tool_call>\n',
+            '<minimax:tool_call>\n<invoke name="t2">\n<parameter name="q">{"type": "string"}</parameter>\n</invoke>\n</minimax:tool_call>\n',
             False,
         ),
         (
             "qwen_3_coder",
-            '<tool_call>\n<function=t1>\n<q>{"type": "string"}</q>\n</function>\n</tool_call>',
+            '<tool_call>\n<function=t1>\n<parameter=q>{"type": "string"}</parameter>\n</function>\n</tool_call>',
             True,
         ),
         (
             "qwen_3_5",
-            '<tool_call>\n<function=t1>\n<q>{"type": "string"}</q>\n</function>\n</tool_call>',
+            '<tool_call>\n<function=t1>\n<parameter=q>{"type": "string"}</parameter>\n</function>\n</tool_call>',
             True,
         ),
         ("qwen_3", 'text<tool_call>\n{"name": "t1", "arguments": {"q": "v"}}\n</tool_call>', True),
@@ -1011,3 +1100,109 @@ def test_no_parameter_tools_build_grammar(format_type: str, kwargs: Dict[str, An
     structural_tag = get_model_structural_tag(format_type, **kwargs)
     grammar = xgr.Grammar.from_structural_tag(structural_tag)
     assert grammar is not None
+
+
+# ---------- Regression: deepseek_v3_2 / deepseek_v4 parallel invoke separator ----------
+#
+# The DeepSeek-V3.2 and DeepSeek-V4 chat templates render multiple tool calls
+# inside a single <｜DSML｜function_calls>...</｜DSML｜function_calls> (or
+# <｜DSML｜tool_calls>...) wrapper, joined by a single "\n" between
+# </｜DSML｜invoke> and the next <｜DSML｜invoke>. Prior to this regression
+# guard, the built-in structural tag forced a double "\n" between consecutive
+# invokes (INVOKE_END's trailing "\n" plus a "\n" separator on
+# TagsWithSeparatorFormat), preventing the model from emitting the
+# in-distribution single-newline join under constrained decoding.
+
+_DSML_TOOLS_PAIR = [
+    {
+        "function": {
+            "name": "search",
+            "parameters": {"type": "object", "properties": {"q": {"type": "string"}}},
+        }
+    },
+    {
+        "function": {
+            "name": "alt",
+            "parameters": {"type": "object", "properties": {"q": {"type": "string"}}},
+        }
+    },
+]
+
+
+def _dsml_two_call_output(block_name: str) -> str:
+    """Render exactly what the official chat template emits for 2 parallel calls."""
+    invoke_a = (
+        '<｜DSML｜invoke name="search">\n'
+        '<｜DSML｜parameter name="q" string="true">v</｜DSML｜parameter>'
+        "</｜DSML｜invoke>"
+    )
+    invoke_b = (
+        '<｜DSML｜invoke name="alt">\n'
+        '<｜DSML｜parameter name="q" string="true">v</｜DSML｜parameter>'
+        "</｜DSML｜invoke>"
+    )
+    tool_calls = "\n".join([invoke_a, invoke_b])
+    return f"<｜DSML｜{block_name}>\n{tool_calls}\n</｜DSML｜{block_name}>"
+
+
+@pytest.mark.parametrize(
+    "model,block_name,tool_choice,prefix",
+    [
+        ("deepseek_v3_2", "function_calls", "auto", ""),
+        ("deepseek_v3_2", "function_calls", "required", "\n\n"),
+        ("deepseek_v4", "tool_calls", "auto", ""),
+        ("deepseek_v4", "tool_calls", "required", "\n\n"),
+    ],
+    ids=[
+        "deepseek_v3_2-auto-parallel",
+        "deepseek_v3_2-required-parallel",
+        "deepseek_v4-auto-parallel",
+        "deepseek_v4-required-parallel",
+    ],
+)
+def test_deepseek_dsml_parallel_invokes_single_newline_accepted(
+    model: str, block_name: str, tool_choice: str, prefix: str
+):
+    """Regression: grammar must accept the chat-template's single-\\n invoke join."""
+    structural_tag = get_model_structural_tag(
+        model, tools=_DSML_TOOLS_PAIR, tool_choice=tool_choice, reasoning=False
+    )
+    grammar = xgr.Grammar.from_structural_tag(structural_tag)
+    chat_template_output = prefix + _dsml_two_call_output(block_name)
+    assert _is_grammar_accept_string(grammar, chat_template_output), (
+        f"Grammar rejected chat-template output for {model}/{tool_choice}:\n"
+        f"{chat_template_output!r}"
+    )
+
+
+@pytest.mark.parametrize(
+    "model,block_name,tool_choice,prefix",
+    [
+        ("deepseek_v3_2", "function_calls", "auto", ""),
+        ("deepseek_v3_2", "function_calls", "required", "\n\n"),
+        ("deepseek_v4", "tool_calls", "auto", ""),
+        ("deepseek_v4", "tool_calls", "required", "\n\n"),
+    ],
+    ids=[
+        "deepseek_v3_2-auto-parallel",
+        "deepseek_v3_2-required-parallel",
+        "deepseek_v4-auto-parallel",
+        "deepseek_v4-required-parallel",
+    ],
+)
+def test_deepseek_dsml_parallel_invokes_double_newline_rejected(
+    model: str, block_name: str, tool_choice: str, prefix: str
+):
+    """Regression: grammar must NOT accept the out-of-distribution double-\\n join."""
+    structural_tag = get_model_structural_tag(
+        model, tools=_DSML_TOOLS_PAIR, tool_choice=tool_choice, reasoning=False
+    )
+    grammar = xgr.Grammar.from_structural_tag(structural_tag)
+    chat_template_output = prefix + _dsml_two_call_output(block_name)
+    double_newline_output = chat_template_output.replace(
+        "</｜DSML｜invoke>\n<｜DSML｜invoke", "</｜DSML｜invoke>\n\n<｜DSML｜invoke", 1
+    )
+    assert not _is_grammar_accept_string(grammar, double_newline_output), (
+        f"Grammar wrongly accepted double-newline join for {model}/{tool_choice}:\n"
+        f"{double_newline_output!r}"
+    )

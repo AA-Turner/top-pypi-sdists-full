@@ -2,7 +2,7 @@
 
 import pytest
 
-from cpsl.db import _normalize_update, _with_id_alias
+from cpsl.db import _normalize_id, _normalize_update, _with_id_alias
 
 
 class TestNormalizeUpdate:
@@ -85,3 +85,12 @@ class TestIdAlias:
         doc = {"_id": "abc123"}
         result = _with_id_alias(doc)
         assert result is doc
+
+    def test_normalizes_object_id_wrapper_string(self):
+        assert _normalize_id('ObjectID("507f1f77bcf86cd799439011")') == "507f1f77bcf86cd799439011"
+        assert _normalize_id("ObjectId('507f1f77bcf86cd799439011')") == "507f1f77bcf86cd799439011"
+
+    def test_alias_uses_normalized_object_id_wrapper(self):
+        doc = {"_id": 'ObjectID("507f1f77bcf86cd799439011")'}
+        result = _with_id_alias(doc)
+        assert result["id"] == "507f1f77bcf86cd799439011"

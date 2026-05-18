@@ -17,7 +17,7 @@ class World:
         self._all_entities: dict[str, Entity] = {}
         self._all_systems: list[System] = []
 
-        # Cache
+        # Caches
         self._query_cache: dict[tuple, list[Entity]] = {}
         self._cache_dirty: bool = True
 
@@ -36,11 +36,10 @@ class World:
 
     # ======================================== ENTITIES ========================================
     def add_entity(self, entity: Entity):
-        """
-        Ajoute une entité au monde
+        """Ajoute une entité au monde
 
         Args:
-            entity(Entity): entité à ajouter
+            entity: entité à ajouter
         """
         expect(entity, Entity)
         self._all_entities[entity.id] = entity
@@ -48,11 +47,10 @@ class World:
         self._cache_dirty = True
 
     def remove_entity(self, entity: Entity):
-        """
-        Supprime une entité du monde
+        """Supprime une entité du monde
 
         Args:
-            entity(Entity): entité à supprimer
+            entity: entité à supprimer
         """
         self._all_entities.pop(entity.id, None)
         self._cache_dirty = True
@@ -71,22 +69,17 @@ class World:
         self._cache_dirty = True
 
     def query(self, *component_types: Type[Component]) -> list[Entity]:
-        """
-        Recherche filtrée par composants des entités.
-        Résultat mis en cache jusqu'à la prochaine modification du monde.
+        """Recherche filtrée par composants des entités
 
         Args:
-            component_types(Type[Component]): types des composants requis
+            component_types: types des composants requis
         """
         key = component_types
 
         if not self._cache_dirty and key in self._query_cache:
             return self._query_cache[key]
 
-        result = [
-            entity for entity in self._all_entities.values()
-            if entity.is_active() and all(entity.has(T) for T in component_types)
-        ]
+        result = [entity for entity in self._all_entities.values() if entity.is_active() and all(entity.has(T) for T in component_types)]
 
         if self._cache_dirty:
             self._query_cache.clear()
@@ -96,11 +89,10 @@ class World:
         return result
 
     def query_tags(self, *tags: str) -> list[Entity]:
-        """
-        Recherche filtrée par tags des entités
+        """Recherche filtrée par tags des entités
 
         Args:
-            tags(str): tags requis
+            tags: tags requis
         """
         return [
             entity for entity in self._all_entities.values()
@@ -109,40 +101,38 @@ class World:
 
     # ======================================== SYSTEMS ========================================
     def add_system(self, system: System):
-        """
-        Ajoute un système au monde
+        """Ajoute un système au monde
 
         Args:
-            system(System): système à ajouter
+            system: système à ajouter
         """
         T = type(expect(system, System))
 
         # Exclusivité
-        if system.exclusive and self.has_system(T):
+        if system._IS_EXCLUSIVE and self.has_system(T):
             raise ValueError(f"Can only have 1 {T.__name__} component")
 
         # Prérequis
-        for req in system.requires:
+        for req in system._REQUIRES:
             if not any(type(s).__name__ == req for s in self._all_systems):
                 raise ValueError(f"{T.__name__} requires {req}")
 
         # Conflits
-        for conflict in system.conflicts:
+        for conflict in system._CONFLICTS:
             if any(type(s).__name__ == conflict for s in self._all_systems):
                 raise ValueError(f"{T.__name__} conflicts with {conflict}")
         
         for i in range(len(self._all_systems)):
-            if system.order < self._all_systems[i].order:
+            if system._ORDER < self._all_systems[i]._ORDER:
                 self._all_systems.insert(i, system)
                 return
         self._all_systems.append(system)
 
     def remove_system(self, system: System):
-        """
-        Supprime un système du monde
+        """Supprime un système du monde
 
         Args:
-            system(System): système à supprimer
+            system: système à supprimer
         """
         if system in self._all_systems:
             self._all_systems.remove(expect(system, System))
@@ -153,20 +143,18 @@ class World:
         return len(self._all_systems)
 
     def has_system(self, system_type: Type[System]) -> bool:
-        """
-        Vérifie que le monde comporte un système donné
+        """Vérifie que le monde comporte un système donné
 
         Args:
-            system_type(Type[System]): type du système
+            system_type: type du système
         """
         return any(isinstance(s, system_type) for s in self._all_systems)
 
     def get_system(self, system_type: Type[System]) -> System:
-        """
-        Renvoie un système du monde
+        """Renvoie un système du monde
 
         Args:
-            system_type(Type[System]): type du système
+            system_type: type du système
         """
         for s in self._all_systems:
             if isinstance(s, system_type):
@@ -178,7 +166,7 @@ class World:
         """Actualise le monde en respectant l'ordre des phases
 
         Args:
-            dt: delta time en secondes
+            dt: delta-time
         """
         for system in self._all_systems:
             system.update(self, dt)
@@ -190,7 +178,7 @@ class World:
             pipeline: ``Pipeline`` de rendu courant
         """
         for system in self._all_systems:
-            if system.renderable:
+            if system._IS_RENDERABLE:
                 system.draw(self, pipeline)
 
     # ======================================== INTERNALS ========================================
@@ -200,8 +188,15 @@ class World:
         Args:
             entity: ``Entity`` à supprimer du monde
         """
+        
         def remove_entity() -> None:
             output = self._all_entities.pop(entity, None)
             if output is None:
                 entity.on_kill.remove(remove_entity)
+
         return remove_entity
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "World",
+]

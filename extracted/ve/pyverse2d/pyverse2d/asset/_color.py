@@ -53,7 +53,7 @@ class Color(tuple, Asset):
         r, g, b, a = self
         return f"Color(r={r:.3f}, g={g:.3f}, b={b:.3f}, a={a:.3f})"
 
-    # ======================================== GETTERS ========================================
+    # ======================================== PROPERTIES ========================================
     @property
     def r(self) -> float:
         """Renvoie la composante rouge *[0.0; 1.0]*"""

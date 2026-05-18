@@ -15,7 +15,7 @@ from webdriver_manager.core.utils import get_date_diff
 
 
 class DriverCacheManager(object):
-    def __init__(self, root_dir=None, valid_range=1, file_manager=None):
+    def __init__(self, root_dir=None, valid_range=1, file_manager=None, os_system_manager=None):
         self._root_dir = DEFAULT_USER_HOME_CACHE_PATH
         is_wdm_local = wdm_local()
         xdist_worker_id = get_xdist_worker_id()
@@ -37,10 +37,16 @@ class DriverCacheManager(object):
         self._cache_key_driver_version = None
         self._metadata_key = None
         self._driver_binary_path = None
+        self._os_system_manager = os_system_manager
+        if not os_system_manager:
+            self._os_system_manager = OperationSystemManager()
         self._file_manager = file_manager
-        self._os_system_manager = OperationSystemManager()
         if not self._file_manager:
             self._file_manager = FileManager(self._os_system_manager)
+
+    def get_driver_lock_path(self, driver_name: str, os_type: str) -> str:
+        os.makedirs(self._root_dir, exist_ok=True)
+        return os.path.join(self._root_dir, f".wdm-lock-{driver_name}-{os_type}")
 
     def save_archive_file(self, file: File, path):
         return self._file_manager.save_archive_file(file, path)
@@ -104,8 +110,19 @@ class DriverCacheManager(object):
         if not browser_version:
             return None
 
-        driver_version = self.get_cache_key_driver_version(driver)
         metadata = self.load_metadata_content()
+        requested_driver_version = getattr(driver, "_driver_version_to_download", None)
+        if not requested_driver_version:
+            cached_path = self.__find_driver_by_browser_version(
+                metadata=metadata,
+                os_type=os_type,
+                driver_name=driver_name,
+                browser_version=browser_version,
+            )
+            if cached_path:
+                return cached_path
+
+        driver_version = self.get_cache_key_driver_version(driver)
 
         key = self.__get_metadata_key(driver)
         if key not in metadata:
@@ -123,6 +140,36 @@ class DriverCacheManager(object):
 
         path = driver_info["binary_path"]
         log(f"Driver [{path}] found in cache")
+        return path
+
+    def __find_driver_by_browser_version(self, metadata, os_type, driver_name, browser_version):
+        prefix = f"{os_type}_{driver_name}_"
+        suffix = f"_for_{browser_version}"
+        candidates = []
+
+        for key, info in metadata.items():
+            if not key.startswith(prefix) or not key.endswith(suffix):
+                continue
+            path = info.get("binary_path")
+            timestamp = info.get("timestamp")
+            if not path or not os.path.exists(path):
+                continue
+            if not timestamp:
+                continue
+            if not self.__is_valid(info):
+                continue
+            try:
+                datetime.datetime.strptime(timestamp, self._date_format)
+            except ValueError:
+                continue
+            candidates.append((timestamp, path))
+
+        if not candidates:
+            return None
+
+        candidates.sort(key=lambda item: datetime.datetime.strptime(item[0], self._date_format), reverse=True)
+        path = candidates[0][1]
+        log(f"Driver [{path}] found in cache by browser version")
         return path
 
     def __is_valid(self, driver_info):
@@ -151,7 +198,8 @@ class DriverCacheManager(object):
     def get_cache_key_driver_version(self, driver: Driver):
         if self._cache_key_driver_version:
             return self._cache_key_driver_version
-        return driver.get_driver_version_to_download()
+        self._cache_key_driver_version = driver.get_driver_version_to_download()
+        return self._cache_key_driver_version
 
     def __get_path(self, driver: Driver):
         if self._driver_binary_path is None:
@@ -159,6 +207,6 @@ class DriverCacheManager(object):
                 self._drivers_directory,
                 driver.get_name(),
                 self.get_os_type(),
-                driver.get_driver_version_to_download(),
+                self.get_cache_key_driver_version(driver),
             )
         return self._driver_binary_path

@@ -1,8 +1,16 @@
 """SQL data access — reads from the causal-track Unity Catalog views.
 
-One SQL Warehouse connection, one cached DataFrame per query. The connection
-uses workspace identity in Databricks Apps (no credentials passed) and falls
-back to DATABRICKS_HOST / DATABRICKS_TOKEN locally.
+One SQL Warehouse connection per Streamlit session (held via
+``st.cache_resource``) is reused across every cached reader and every
+per-render query. Opening a Databricks SQL warehouse connection costs
+~1-2s of handshake; with 3-5 queries per L4 render that adds up to
+multi-second visible latency before any real query work happens.
+Reusing one connection collapses that to a single handshake at session
+start.
+
+The connection uses workspace identity in Databricks Apps (no
+credentials passed) and falls back to DATABRICKS_HOST /
+DATABRICKS_TOKEN locally.
 
 The queries here mirror the Unity Catalog views we already publish from
 `src/customer_retention/stages/causal/sql/dashboard_views.sql`:
@@ -13,6 +21,7 @@ The queries here mirror the Unity Catalog views we already publish from
 """
 from __future__ import annotations
 
+import time
 from contextlib import contextmanager
 from typing import Any, Optional
 
@@ -21,6 +30,7 @@ import streamlit as st
 from databricks import sql
 from databricks.sdk.core import Config
 
+from . import diagnostics
 from .config import AppConfig, load_config
 
 
@@ -28,38 +38,188 @@ def _warehouse_http_path(warehouse_id: str) -> str:
     return f"/sql/1.0/warehouses/{warehouse_id}"
 
 
+# ---------------------------------------------------------------------------
+# Diagnostics helpers
+# ---------------------------------------------------------------------------
+# Every query in this module flows through ``_query`` and emits a
+# ``diagnostics.record(...)`` event with timing + sql preview + attempt
+# number. Connection rebuilds, stale-hint matches, and retries get their
+# own events so the operator can see the full picture in the Diagnostics
+# tab. ``diagnostics.record`` short-circuits when CR_SHOW_DIAGNOSTICS is
+# off, so this instrumentation costs nothing in production.
+
+
+def _ms(t0: float) -> int:
+    return int((time.perf_counter() - t0) * 1000)
+
+
+def _short_sql(sql_text: str, limit: int = 100) -> str:
+    one_line = " ".join(sql_text.split())
+    return one_line[:limit] + ("..." if len(one_line) > limit else "")
+
+
+# Substrings of the driver's exception messages that mean "the cached
+# connection is no longer usable" -- Databricks SQL warehouses close
+# idle connections after ~10 minutes and any cursor opened on a closed
+# transport raises one of these. On match we drop the cached connection
+# and let ``_query`` re-run once against a fresh one.
+_STALE_CONNECTION_HINTS: tuple[str, ...] = (
+    "session was closed",
+    "session is closed",
+    "connection is closed",
+    "connection was closed",
+    "invalid session",
+    "session handle is not present",
+    "operation was canceled",
+    "broken pipe",
+    "thrifttransport",
+    "connectionreseterror",
+    "cursor was closed",
+)
+
+
+def _looks_like_stale_connection(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    for hint in _STALE_CONNECTION_HINTS:
+        if hint in msg:
+            diagnostics.record(
+                "stale_hint_matched",
+                hint=hint,
+                exc_type=type(exc).__name__,
+            )
+            return True
+    return False
+
+
+@st.cache_resource(show_spinner=False)
+def _shared_warehouse_connection(warehouse_id: str) -> Any:
+    """Return a single Databricks SQL warehouse connection per session.
+
+    ``st.cache_resource`` keeps one instance for the lifetime of the
+    Streamlit session (across reruns and across users in shared apps it
+    keys on the warehouse_id, so multiple deployments stay isolated).
+    Every dashboard query borrows this connection via ``_connect``
+    instead of paying the ~1-2s handshake cost on each query, which is
+    what made the L4 render visibly slow (3-5 connect/close cycles per
+    page click).
+
+    Stale-connection recovery lives in ``_query`` -- when a borrowed
+    cursor raises a "session closed" / "broken pipe" error we clear this
+    cache entry and retry once against a fresh connection.
+    """
+    t0 = time.perf_counter()
+    sdk_cfg = Config()
+    conn = sql.connect(
+        server_hostname=sdk_cfg.host.replace("https://", "").rstrip("/"),
+        http_path=_warehouse_http_path(warehouse_id),
+        credentials_provider=lambda: sdk_cfg.authenticate,
+    )
+    diagnostics.record("conn_rebuild", elapsed_ms=_ms(t0), reason="cache_miss")
+    return conn
+
+
 @contextmanager
 def _connect(cfg: AppConfig):
-    """Open a SQL connection using the Databricks SDK's unified auth chain.
+    """Yield the session-shared SQL connection.
 
-    In Databricks Apps this resolves to the app's on-behalf-of identity.
-    Locally it reads DATABRICKS_HOST / DATABRICKS_TOKEN from env or `.databrickscfg`.
+    No-op finalizer: closing the connection here would defeat the cache
+    -- the next call would reopen and pay the handshake cost again. The
+    connection lives until ``_shared_warehouse_connection.clear()`` is
+    called (stale-connection recovery in ``_query``) or the Streamlit
+    session ends.
     """
     if not cfg.warehouse_id:
         raise RuntimeError("CR_WAREHOUSE_ID is not set. Update app.yaml or your .env.")
-    sdk_cfg = Config()  # host/token/etc. resolved from standard chain
-    conn = sql.connect(
-        server_hostname=sdk_cfg.host.replace("https://", "").rstrip("/"),
-        http_path=_warehouse_http_path(cfg.warehouse_id),
-        credentials_provider=lambda: sdk_cfg.authenticate,
-    )
-    try:
-        yield conn
-    finally:
-        conn.close()
+    conn = _shared_warehouse_connection(cfg.warehouse_id)
+    yield conn
 
 
 def _query(cfg: AppConfig, sql_text: str, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
-    with _connect(cfg) as conn:
-        cur = conn.cursor()
-        try:
-            if params:
-                cur.execute(sql_text, params)
-            else:
-                cur.execute(sql_text)
-            return cur.fetchall_arrow().to_pandas()
-        finally:
-            cur.close()
+    """Run a parameterized query against the shared warehouse connection.
+
+    Stale-connection retry: when the borrowed cursor raises a "session
+    closed" / "broken pipe" error (Databricks SQL warehouses idle out
+    after ~10 min), drop the cached connection and re-run once against a
+    freshly-handshaken one. Any other failure -- syntax error,
+    permission denied, dataset missing -- propagates immediately so the
+    caller can surface a real error instead of silently retrying.
+
+    Tracing: when CR_QUERY_TRACE=1 in the environment, each attempt
+    logs ``elapsed_ms``, attempt number, retry status, and the first
+    100 chars of the SQL so the operator can see where an L4 render's
+    time actually goes.
+    """
+    last_exc: Optional[BaseException] = None
+    overall_t0 = time.perf_counter()
+    for attempt in (0, 1):
+        attempt_t0 = time.perf_counter()
+        with _connect(cfg) as conn:
+            cur = conn.cursor()
+            try:
+                if params:
+                    cur.execute(sql_text, params)
+                else:
+                    cur.execute(sql_text)
+                df = cur.fetchall_arrow().to_pandas()
+                diagnostics.record(
+                    "query_ok",
+                    elapsed_ms=_ms(attempt_t0),
+                    total_ms=_ms(overall_t0),
+                    attempt=attempt,
+                    rows=len(df),
+                    sql=_short_sql(sql_text),
+                )
+                return df
+            except Exception as exc:  # noqa: BLE001 -- classified below
+                last_exc = exc
+                stale = attempt == 0 and _looks_like_stale_connection(exc)
+                diagnostics.record(
+                    "query_fail",
+                    elapsed_ms=_ms(attempt_t0),
+                    attempt=attempt,
+                    will_retry=stale,
+                    exc_type=type(exc).__name__,
+                    sql=_short_sql(sql_text),
+                )
+                if stale:
+                    diagnostics.record("conn_clear", reason="stale_hint")
+                    _shared_warehouse_connection.clear()
+                    continue
+                raise
+            finally:
+                try:
+                    cur.close()
+                except Exception:  # noqa: BLE001 -- cursor close best-effort
+                    pass
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("_query exited the retry loop without returning")
+
+
+def fetch_template_data_source(
+    source: str,
+    join_key: str,
+    entity_id: str,
+    *,
+    order_by: Optional[str] = None,
+    limit: int = 1,
+) -> pd.DataFrame:
+    """Fetch rows of a customer-profile template data source.
+
+    Built on the shared connection via ``_query`` so the L4 render path
+    doesn't open a second Databricks SQL connection on top of the ones
+    the cached readers already borrow. Returns the raw DataFrame --
+    list vs single-row context shaping is the caller's job.
+    """
+    cfg = load_config()
+    order_clause = f"ORDER BY {order_by}" if order_by else ""
+    limit_clause = f"LIMIT {int(limit)}"
+    fqn = f"{cfg.fqn_prefix}.{source}"
+    return _query(
+        cfg,
+        f"SELECT * FROM {fqn} WHERE `{join_key}` = :eid {order_clause} {limit_clause}",
+        {"eid": entity_id},
+    )
 
 
 # ---------------------------------------------------------------------------

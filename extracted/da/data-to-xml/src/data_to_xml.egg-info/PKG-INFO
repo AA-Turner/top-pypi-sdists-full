@@ -1,9 +1,8 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: data-to-xml
-Version: 1.0.9
+Version: 1.0.14
 Summary: A simple dict to xml converter
-Author: Thomas William
-Author-email: Reimund Järnfors <reimund@code7.se>, Adam Nogowski <anogowski@live.com>
+Author-email: Adam Nogowski <anogowski@live.com>
 Maintainer-email: Adam Nogowski <anogowski@live.com>
 License: Dual License: All software and documentation is distributed under "BSD 3-Clause License" AND "Mozilla Public License Version 2.0"
         ==================================
@@ -411,7 +410,8 @@ License: Dual License: All software and documentation is distributed under "BSD 
           defined by the Mozilla Public License, v. 2.0.
         
 Project-URL: Repository, https://github.com/anogowski/data-to-xml
-Keywords: dict,xml,list,data,structure,convert,dictionary
+Project-URL: Homepage, https://pypi.org/project/data-to-xml
+Keywords: data,dict,xml,list,dict,structure,convert,dictionary,dict-to-xml,dict to xml
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -427,10 +427,15 @@ Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: readme_renderer[rst]; extra == "dev"
+Dynamic: license-file
 
-==================
-data-to-xml
-==================
+==========================
+dict-to-xml / data-to-xml
+==========================
 
 .. image:: https://img.shields.io/pypi/v/data-to-xml.svg
     :target: https://pypi.org/project/data-to-xml
@@ -503,8 +508,8 @@ If you encounter any problems, please `file an issue`_ along with a detailed des
 .. _`Mozilla Public License 2.0`: https://opensource.org/license/mpl-2-0
 .. _`GNU GPL v3.0`: https://www.gnu.org/licenses/gpl-3.0.txt
 .. _`Apache Software License 2.0`: https://www.apache.org/licenses/LICENSE-2.0
-.. _`cookiecutter-plugin`: https://github.com/dev/cookiecutter-plugin
+.. _`cookiecutter-plugin`: https://github.com/hackebrot/cookiecutter-plugin
 .. _`file an issue`: https://github.com/anogowski/data-to-xml/issues
 .. _`tox`: https://tox.readthedocs.io/en/latest/
 .. _`pip`: https://pypi.org/project/pip/
-.. _`PyPI`: https://pypi.org/project
+.. _`PyPI`: https://pypi.org/project/data-to-xml

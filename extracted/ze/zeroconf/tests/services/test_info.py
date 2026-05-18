@@ -23,7 +23,7 @@ from zeroconf._services.info import ServiceInfo
 from zeroconf._utils.net import IPVersion
 from zeroconf.asyncio import AsyncZeroconf
 
-from .. import _inject_response, has_working_ipv6
+from .. import QUICK_REQUEST_TIMEOUT_MS, _inject_response, has_working_ipv6
 
 log = logging.getLogger("zeroconf")
 original_logging_level = logging.NOTSET
@@ -430,18 +430,40 @@ class TestServiceInfo(unittest.TestCase):
 
                 return r.DNSIncoming(generated.packets()[0])
 
-            def get_service_info_helper(zc, type, name):
+            def get_service_info_helper(zc, type, name, timeout):
                 nonlocal service_info
-                service_info = zc.get_service_info(type, name)
+                service_info = zc.get_service_info(type, name, timeout)
                 service_info_event.set()
 
             try:
+                # Seed TXT/A/AAAA with a far-future `than` before the
+                # helper thread starts. The first (QU) query bypasses
+                # suppression so phase 1 still observes 4 questions; the
+                # second (QM) query fires ~220-320ms after the first, too
+                # tight a window to seed reliably from the test thread on
+                # slow runners. async_expire only removes entries where
+                # now - than > _DUPLICATE_QUESTION_INTERVAL, so future-
+                # dated entries persist for the duration of the test.
+                seed_history_questions = (
+                    r.DNSQuestion(service_name, const._TYPE_A, const._CLASS_IN),
+                    r.DNSQuestion(service_name, const._TYPE_AAAA, const._CLASS_IN),
+                    r.DNSQuestion(service_name, const._TYPE_TXT, const._CLASS_IN),
+                )
+                far_future = r.current_time_millis() + 60_000
+                for question in seed_history_questions:
+                    zc.question_history.add_question_at_time(question, far_future, set())
+
+                # No answers ever come back (all queries are suppressed),
+                # so cap the helper at the worst-case sum of the three
+                # phase waits below plus margin instead of the 3000ms
+                # default. Phase 3 waits ~1.6s (the 999ms QM gap plus
+                # jitter and 500ms buffer); 1500ms covers it.
                 helper_thread = threading.Thread(
                     target=get_service_info_helper,
-                    args=(zc, service_type, service_name),
+                    args=(zc, service_type, service_name, 1500),
                 )
                 helper_thread.start()
-                wait_time = (const._LISTENER_TIME + info._AVOID_SYNC_DELAY_RANDOM_INTERVAL[1] + 5) / 1000
+                wait_time = (const._LISTENER_TIME + info._AVOID_SYNC_DELAY_RANDOM_INTERVAL[1] + 500) / 1000
 
                 # Expect query for SRV, TXT, A, AAAA
                 send_event.wait(wait_time)
@@ -457,64 +479,29 @@ class TestServiceInfo(unittest.TestCase):
                 # by the question history
                 last_sent = None
                 send_event.clear()
-                for _ in range(3):
-                    send_event.wait(
-                        wait_time * 0.25
-                    )  # Wait long enough to be inside the question history window
-                    now = r.current_time_millis()
-                    zc.question_history.add_question_at_time(
-                        r.DNSQuestion(service_name, const._TYPE_A, const._CLASS_IN),
-                        now,
-                        set(),
-                    )
-                    zc.question_history.add_question_at_time(
-                        r.DNSQuestion(service_name, const._TYPE_AAAA, const._CLASS_IN),
-                        now,
-                        set(),
-                    )
-                    zc.question_history.add_question_at_time(
-                        r.DNSQuestion(service_name, const._TYPE_TXT, const._CLASS_IN),
-                        now,
-                        set(),
-                    )
-                send_event.wait(wait_time * 0.25)
+                send_event.wait(wait_time)
                 assert last_sent is not None
                 assert len(last_sent.questions) == 1  # type: ignore[unreachable]
                 assert r.DNSQuestion(service_name, const._TYPE_SRV, const._CLASS_IN) in last_sent.questions
                 assert service_info is None
 
+                # Future-date SRV too: the SRV entry added by the previous
+                # QM query has `than = now`, so it expires after
+                # _DUPLICATE_QUESTION_INTERVAL — before the next scheduled
+                # QM query (~1s + jitter later).
+                zc.question_history.add_question_at_time(
+                    r.DNSQuestion(service_name, const._TYPE_SRV, const._CLASS_IN),
+                    r.current_time_millis() + 60_000,
+                    set(),
+                )
+
                 wait_time = (
-                    const._DUPLICATE_QUESTION_INTERVAL + info._AVOID_SYNC_DELAY_RANDOM_INTERVAL[1] + 5
+                    const._DUPLICATE_QUESTION_INTERVAL + info._AVOID_SYNC_DELAY_RANDOM_INTERVAL[1] + 500
                 ) / 1000
                 # Expect no queries as all are suppressed by the question history
                 last_sent = None
                 send_event.clear()
-                for _ in range(3):
-                    send_event.wait(
-                        wait_time * 0.25
-                    )  # Wait long enough to be inside the question history window
-                    now = r.current_time_millis()
-                    zc.question_history.add_question_at_time(
-                        r.DNSQuestion(service_name, const._TYPE_A, const._CLASS_IN),
-                        now,
-                        set(),
-                    )
-                    zc.question_history.add_question_at_time(
-                        r.DNSQuestion(service_name, const._TYPE_AAAA, const._CLASS_IN),
-                        now,
-                        set(),
-                    )
-                    zc.question_history.add_question_at_time(
-                        r.DNSQuestion(service_name, const._TYPE_TXT, const._CLASS_IN),
-                        now,
-                        set(),
-                    )
-                    zc.question_history.add_question_at_time(
-                        r.DNSQuestion(service_name, const._TYPE_SRV, const._CLASS_IN),
-                        now,
-                        set(),
-                    )
-                send_event.wait(wait_time * 0.25)
+                send_event.wait(wait_time)
                 # All questions are suppressed so no query should be sent
                 assert last_sent is None
                 assert service_info is None
@@ -524,6 +511,7 @@ class TestServiceInfo(unittest.TestCase):
                 zc.remove_all_service_listeners()
                 zc.close()
 
+    @pytest.mark.usefixtures("quick_request_timing")
     def test_get_info_single(self):
         zc = r.Zeroconf(interfaces=["127.0.0.1"])
 
@@ -534,90 +522,87 @@ class TestServiceInfo(unittest.TestCase):
         service_address = "10.0.1.2"
 
         service_info = None
-        send_event = Event()
         service_info_event = Event()
 
-        last_sent: r.DNSOutgoing | None = None
+        ttl = 120
+        response_records = [
+            r.DNSText(
+                service_name,
+                const._TYPE_TXT,
+                const._CLASS_IN | const._CLASS_UNIQUE,
+                ttl,
+                service_text,
+            ),
+            r.DNSService(
+                service_name,
+                const._TYPE_SRV,
+                const._CLASS_IN | const._CLASS_UNIQUE,
+                ttl,
+                0,
+                0,
+                80,
+                service_server,
+            ),
+            r.DNSAddress(
+                service_server,
+                const._TYPE_A,
+                const._CLASS_IN | const._CLASS_UNIQUE,
+                ttl,
+                socket.inet_pton(socket.AF_INET, service_address),
+            ),
+        ]
+
+        def mock_incoming_msg(records: Iterable[r.DNSRecord]) -> r.DNSIncoming:
+            generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+            for record in records:
+                generated.add_answer_at_time(record, 0)
+            return r.DNSIncoming(generated.packets()[0])
+
+        sent_queries: list[r.DNSOutgoing] = []
 
         def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT, v6_flow_scope=()):
-            """Sends an outgoing packet."""
-            nonlocal last_sent
+            """Capture each query and, on the first one, fill the cache
+            inline so the next iteration of `async_request` finds
+            `_is_complete=True` and exits without sending another query.
 
-            last_sent = out
-            send_event.set()
+            Running the inject from inside `send` keeps it on the event
+            loop thread and atomic with the first send — eliminating the
+            test-thread → `run_coroutine_threadsafe` race that flaked
+            under PyPy + use_cython when `quick_request_timing` shortens
+            the inter-iteration delay to ~15ms.
+            """
+            sent_queries.append(out)
+            if len(sent_queries) == 1:
+                zc.record_manager.async_updates_from_response(mock_incoming_msg(response_records))
+
+        def get_service_info_helper(zc, type, name):
+            nonlocal service_info
+            service_info = zc.get_service_info(type, name)
+            service_info_event.set()
 
         # patch the zeroconf send
         with patch.object(zc, "async_send", send):
-
-            def mock_incoming_msg(records: Iterable[r.DNSRecord]) -> r.DNSIncoming:
-                generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-
-                for record in records:
-                    generated.add_answer_at_time(record, 0)
-
-                return r.DNSIncoming(generated.packets()[0])
-
-            def get_service_info_helper(zc, type, name):
-                nonlocal service_info
-                service_info = zc.get_service_info(type, name)
-                service_info_event.set()
-
             try:
-                ttl = 120
                 helper_thread = threading.Thread(
                     target=get_service_info_helper,
                     args=(zc, service_type, service_name),
                 )
                 helper_thread.start()
-                wait_time = 1
 
-                # Expect query for SRV, TXT, A, AAAA
-                send_event.wait(wait_time)
-                assert last_sent is not None
-                assert len(last_sent.questions) == 4
-                assert r.DNSQuestion(service_name, const._TYPE_SRV, const._CLASS_IN) in last_sent.questions
-                assert r.DNSQuestion(service_name, const._TYPE_TXT, const._CLASS_IN) in last_sent.questions
-                assert r.DNSQuestion(service_name, const._TYPE_A, const._CLASS_IN) in last_sent.questions
-                assert r.DNSQuestion(service_name, const._TYPE_AAAA, const._CLASS_IN) in last_sent.questions
-                assert service_info is None
-
-                # Expect no further queries
-                last_sent = None
-                send_event.clear()
-                _inject_response(
-                    zc,
-                    mock_incoming_msg(
-                        [
-                            r.DNSText(
-                                service_name,
-                                const._TYPE_TXT,
-                                const._CLASS_IN | const._CLASS_UNIQUE,
-                                ttl,
-                                service_text,
-                            ),
-                            r.DNSService(
-                                service_name,
-                                const._TYPE_SRV,
-                                const._CLASS_IN | const._CLASS_UNIQUE,
-                                ttl,
-                                0,
-                                0,
-                                80,
-                                service_server,
-                            ),
-                            r.DNSAddress(
-                                service_server,
-                                const._TYPE_A,
-                                const._CLASS_IN | const._CLASS_UNIQUE,
-                                ttl,
-                                socket.inet_pton(socket.AF_INET, service_address),
-                            ),
-                        ]
-                    ),
-                )
-                send_event.wait(wait_time)
-                assert last_sent is None
+                # Helper should complete promptly — the inline inject in
+                # `send` populates the cache before the request loop's
+                # next iteration.
+                service_info_event.wait(1)
                 assert service_info is not None
+
+                # First (and only) query: QU for SRV/TXT/A/AAAA.
+                assert len(sent_queries) == 1
+                first_sent = sent_queries[0]
+                assert len(first_sent.questions) == 4
+                assert r.DNSQuestion(service_name, const._TYPE_SRV, const._CLASS_IN) in first_sent.questions
+                assert r.DNSQuestion(service_name, const._TYPE_TXT, const._CLASS_IN) in first_sent.questions
+                assert r.DNSQuestion(service_name, const._TYPE_A, const._CLASS_IN) in first_sent.questions
+                assert r.DNSQuestion(service_name, const._TYPE_AAAA, const._CLASS_IN) in first_sent.questions
 
             finally:
                 helper_thread.join()
@@ -998,7 +983,7 @@ def test_serviceinfo_accepts_bytes_or_string_dict():
     assert info_service.dns_text().text == b"\x0epath=/~paulsm/"
 
 
-def test_asking_qu_questions():
+def test_asking_qu_questions(quick_request_timing):
     """Verify explicitly asking QU questions."""
     type_ = "_quservice._tcp.local."
     zeroconf = r.Zeroconf(interfaces=["127.0.0.1"])
@@ -1017,12 +1002,14 @@ def test_asking_qu_questions():
 
     # patch the zeroconf send
     with patch.object(zeroconf, "async_send", send):
-        zeroconf.get_service_info(f"name.{type_}", type_, 500, question_type=r.DNSQuestionType.QU)
+        zeroconf.get_service_info(
+            f"name.{type_}", type_, QUICK_REQUEST_TIMEOUT_MS, question_type=r.DNSQuestionType.QU
+        )
         assert first_outgoing.questions[0].unicast is True  # type: ignore[union-attr]
         zeroconf.close()
 
 
-def test_asking_qm_questions():
+def test_asking_qm_questions(quick_request_timing):
     """Verify explicitly asking QM questions."""
     type_ = "_quservice._tcp.local."
     zeroconf = r.Zeroconf(interfaces=["127.0.0.1"])
@@ -1041,7 +1028,9 @@ def test_asking_qm_questions():
 
     # patch the zeroconf send
     with patch.object(zeroconf, "async_send", send):
-        zeroconf.get_service_info(f"name.{type_}", type_, 500, question_type=r.DNSQuestionType.QM)
+        zeroconf.get_service_info(
+            f"name.{type_}", type_, QUICK_REQUEST_TIMEOUT_MS, question_type=r.DNSQuestionType.QM
+        )
         assert first_outgoing.questions[0].unicast is False  # type: ignore[union-attr]
         zeroconf.close()
 
@@ -1547,6 +1536,7 @@ async def test_bad_ip_addresses_ignored_in_cache():
     info = ServiceInfo(type_, registration_name)
     info.load_from_cache(aiozc.zeroconf)
     assert info.addresses_by_version(IPVersion.V4Only) == [b"\x7f\x00\x00\x01"]
+    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -1822,6 +1812,7 @@ async def test_address_resolver():
     aiozc.zeroconf.async_send(outgoing)
     assert await resolve_task
     assert resolver.addresses == [b"\x7f\x00\x00\x01"]
+    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -1846,6 +1837,7 @@ async def test_address_resolver_ipv4():
     aiozc.zeroconf.async_send(outgoing)
     assert await resolve_task
     assert resolver.addresses == [b"\x7f\x00\x00\x01"]
+    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -1872,6 +1864,7 @@ async def test_address_resolver_ipv6():
     aiozc.zeroconf.async_send(outgoing)
     assert await resolve_task
     assert resolver.ip_addresses_by_version(IPVersion.All) == [ip_address("fe80::52e:c2f2:bc5f:e9c6")]
+    await aiozc.async_close()
 
 
 @pytest.mark.asyncio

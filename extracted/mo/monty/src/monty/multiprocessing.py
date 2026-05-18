@@ -1,6 +1,4 @@
-"""
-Multiprocessing utilities.
-"""
+"""Multiprocessing utilities."""
 
 from __future__ import annotations
 
@@ -8,7 +6,7 @@ from multiprocessing import Pool
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Callable, Iterable
+    from collections.abc import Callable, Iterable
 
 try:
     from tqdm.autonotebook import tqdm
@@ -17,19 +15,18 @@ except ImportError as exc:
 
 
 def imap_tqdm(nprocs: int, func: Callable, iterable: Iterable, *args, **kwargs) -> list:
-    """
-    A wrapper around Pool.imap. Creates a Pool with nprocs and then runs a f
-    unction over an iterable with progress bar.
+    """Run ``Pool.imap`` over ``iterable`` with a ``tqdm`` progress bar.
 
     Args:
-        nprocs: Number of processes
-        func: Callable
+        nprocs: Number of processes.
+        func: Callable applied to each item.
         iterable: Iterable of arguments.
-        args: Passthrough to Pool.imap
-        kwargs: Passthrough to Pool.imap
+        args: Passthrough to ``Pool.imap``.
+        kwargs: Passthrough to ``Pool.imap``.
 
     Returns:
-        Results of Pool.imap.
+        Results of ``Pool.imap``.
+
     """
     data = []
     with Pool(nprocs) as pool:

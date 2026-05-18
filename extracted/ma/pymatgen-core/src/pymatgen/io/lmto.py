@@ -38,7 +38,8 @@ class LMTOCtrl:
     """
 
     def __init__(self, structure: Structure | IStructure, header: str | None = None, version: str = "LMASA-47") -> None:
-        """
+        """Initialize a LMTOCtrl.
+
         Args:
             structure (Structure): pymatgen object.
             header (str): The header for the CTRL file. Defaults to None.
@@ -315,7 +316,8 @@ class LMTOCopl:
     """
 
     def __init__(self, filename="COPL", to_eV=False):
-        """
+        """Initialize a LMTOCopl.
+
         Args:
             filename: filename of the COPL file. Defaults to "COPL".
             to_eV: LMTO-ASA gives energies in Ry. To convert energies into

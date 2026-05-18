@@ -268,7 +268,14 @@ def _env_float(name: str, default: float) -> float:
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
 _RAW_MARKDOWN_PATTERNS = [
     re.compile(r"\*\*\w[^*]{1,80}\*\*"),            # **bold words**
-    re.compile(r"(?m)^#{1,6}\s+\w"),                 # ##heading
+    # `^##\s+\w` — REQUIRE 2+ `#` for the heading pattern. The earlier
+    # `^#{1,6}` matched Python code comments like `# Instantiate GCS
+    # backend` inside code blocks the model emits, causing systematic
+    # false positives (raw_md=10+ on code-heavy prompts). Real markdown
+    # H1 is rare in conversational replies — the model uses **bold** or
+    # `## H2` for emphasis/sections — so requiring 2+ #s drops the
+    # false-positive rate without missing real leaks.
+    re.compile(r"(?m)^#{2,6}\s+\w"),                 # ##heading (2+ #s)
     re.compile(r"\[[^\]]{1,40}\]\([^)]{1,80}\)"),    # [link](url)
 ]
 
@@ -429,8 +436,16 @@ def _spawn_tui_child(log_path: Path, cwd: Path,
     spawn configuration. Appends to the existing log (don't wipe the
     history — the watcher is polling it and the prior content is useful
     for post-mortem)."""
-    child = pexpect.spawn(DRYDOCK_BIN, encoding="utf-8", timeout=5,
-                          maxread=100000, env=env, cwd=str(cwd))
+    # Match the operator's real daily-driver config: they run drydock
+    # with --dangerously-skip-permissions, so the stress harness should
+    # too. Without this, every tool call that requires approval pops a
+    # modal that the harness can't dismiss → SKIP cascade. The user's
+    # real TUI never hits this path because approvals are pre-granted.
+    child = pexpect.spawn(
+        DRYDOCK_BIN, args=["--dangerously-skip-permissions"],
+        encoding="utf-8", timeout=5,
+        maxread=100000, env=env, cwd=str(cwd),
+    )
     child.logfile_read = open(log_path, "a", buffering=1)
     child.expect([r">", r"Drydock", r"┌"], timeout=30)
     time.sleep(2)
@@ -718,6 +733,21 @@ def run(cwd: Path, pkg: str, prompts_file: Path, max_per_prompt: float,
             _recycle_requested = False
             child = _recycle_tui_child(child, watcher, log_path, cwd, env)
             consecutive_skips = 0
+
+        # Fast-fail: if the drydock subprocess died (crashed, OOM,
+        # operator-killed for a version upgrade), respawn immediately
+        # instead of waiting 90s × N SKIP cycles for the FORCE-RESET
+        # path to notice. Observed 2026-05-17: operator killed drydock
+        # at 11:34 to roll forward to v2.8.53; harness didn't recycle
+        # until 11:44 because nothing checks isalive between prompts.
+        try:
+            if not child.isalive():
+                print(f"\n┈┈┈ TUI child died unexpectedly (PID {child.pid}); "
+                      f"respawning ┈┈┈", flush=True)
+                child = _recycle_tui_child(child, watcher, log_path, cwd, env)
+                consecutive_skips = 0
+        except Exception:
+            pass
 
         # Adversarial-code-review pattern from asdlc.io: every N user
         # prompts, reset the session so context stays bounded.

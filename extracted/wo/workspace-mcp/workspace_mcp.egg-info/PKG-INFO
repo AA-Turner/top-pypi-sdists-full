@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: workspace-mcp
-Version: 1.20.4
+Version: 1.21.0
 Summary: Comprehensive, highly performant Google Workspace Streamable HTTP & SSE MCP Server for Calendar, Gmail, Docs, Sheets, Slides & Drive
 Author-email: Taylor Wilsdon <taylor@taylorwilsdon.com>
 License-Expression: MIT
@@ -35,6 +35,7 @@ Requires-Dist: google-api-python-client>=2.168.0
 Requires-Dist: google-auth-httplib2>=0.2.0
 Requires-Dist: google-auth-oauthlib>=1.2.2
 Requires-Dist: httpx>=0.28.1
+Requires-Dist: urllib3>=2.7.0
 Requires-Dist: py-key-value-aio>=0.3.0
 Requires-Dist: pyjwt>=2.12.0
 Requires-Dist: python-dotenv>=1.1.0
@@ -77,7 +78,7 @@ Dynamic: license-file
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![PyPI](https://img.shields.io/pypi/v/workspace-mcp.svg)](https://pypi.org/project/workspace-mcp/)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/workspace-mcp?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=downloads)](https://pepy.tech/projects/workspace-mcp)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/workspace-mcp?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=BLUE&left_text=pypi)](https://pepy.tech/projects/workspace-mcp)
 [![Website](https://img.shields.io/badge/Website-workspacemcp.com-green.svg)](https://workspacemcp.com)
 
 *Full natural language control over Google Calendar, Drive, Gmail, Docs, Sheets, Slides, Forms, Tasks, Contacts, and Chat through all MCP clients, AI assistants and developer tools.*
@@ -158,10 +159,7 @@ Dynamic: license-file
 
 ## <span style="color:#adbcbc">Overview</span>
 
-Workspace MCP is the single most complete MCP server that integrates all major Google Workspace services with AI assistants. It supports both single-user operation and multi-user authentication via OAuth 2.1, making it a powerful backend for custom applications. Built with FastMCP for optimal performance, featuring advanced authentication handling, service caching, and streamlined development patterns. The entire toolset is available for CLI usage supporting both local and remote instances.
-
-**Simplified Setup**: can use Google Desktop OAuth clients for local runs - no redirect URIs or port configuration needed!
-
+Workspace MCP is the single most complete MCP server, the only that integrates all major Google Workspace services with AI assistants and all agent platforms. The entire toolset is available for CLI usage supporting both local and remote instances.
 
 ## <span style="color:#adbcbc">Features</span>
 
@@ -627,6 +625,12 @@ The `workspace-cli` command lists tools and calls them against a running server 
 
 Tokens are stored encrypted at `~/.workspace-mcp/cli-tokens/` using a Fernet key auto-generated at `~/.workspace-mcp/.cli-encryption-key`.
 
+To use workspace-cli globally, you'll want to start in this repo and run `uv tool install .`
+
+Once complete, you'll have workspace-cli available globally via `workspace-cli`
+
+Note: there is a public (but abandoned) pypi package with the same name - do not use uvx, as it will pull the wrong thing. 
+
 <details open>
 <summary>▶ <b>workspace-cli Commands</b> <sub><sup>← Persistent OAuth, no re-auth on every call</sup></sub></summary>
 
@@ -841,7 +845,7 @@ cp .env.oauth21 .env
 | <sub>`update_drive_file`</sub> | <sub>Extended</sub> | <sub>Update file metadata, move between folders</sub> |
 | <sub>`manage_drive_access`</sub> | <sub>Extended</sub> | <sub>Grant, update, revoke permissions, and transfer ownership</sub> |
 | <sub>`set_drive_file_permissions`</sub> | <sub>Extended</sub> | <sub>Set link sharing and file-level sharing settings</sub> |
-| <sub>`get_drive_file_permissions`</sub> | <sub>Complete</sub> | <sub>Get detailed file permissions</sub> |
+| <sub>`get_drive_file_permissions`</sub> | <sub>Complete</sub> | <sub>Get file metadata, parents, and permissions</sub> |
 | <sub>`check_drive_file_public_access`</sub> | <sub>Complete</sub> | <sub>Check public sharing status</sub> |
 
 #### 📧 Gmail <sub>[`gmail_tools.py`](gmail/gmail_tools.py)</sub>

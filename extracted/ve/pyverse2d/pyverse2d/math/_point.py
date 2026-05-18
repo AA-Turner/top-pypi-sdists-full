@@ -6,7 +6,7 @@ from ..abc import MathObject
 from ._vector import Vector
 
 from numbers import Real
-from typing import Iterator, ClassVar
+from typing import Iterator, ClassVar, Iterable, overload, Self
 from math import sqrt
 
 # ======================================== OBJECT ========================================
@@ -20,6 +20,15 @@ class Point(MathObject):
     __slots__ = ("_x", "_y")
 
     PRECISION: ClassVar[int] = 8
+
+    @overload
+    def __init__(self, x: Real, y: Real) -> Self: ...
+
+    @overload
+    def __init__(self, point: Point) -> Self: ...
+
+    @overload
+    def __init__(self, iterable: Iterable[Real, Real]) -> Self: ...
 
     def __init__(self, x, y=None):
         # Transtypage

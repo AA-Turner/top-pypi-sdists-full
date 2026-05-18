@@ -1,12 +1,12 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, not_null, positive, over, different_from
+from .._internal import over, different_from
 from ..abc import Asset
 
 from numbers import Real
 
-# ======================================== OBJET ========================================
+# ======================================== ASSET ========================================
 class Image(Asset):
     """Descripteur d'image immuable
 
@@ -50,7 +50,7 @@ class Image(Asset):
         """Renvoie une représentation de l'image"""
         return f"Image(path={self._path}, width={self._width}, height={self._height}, scale={self._scale_factor})"
 
-    # ======================================== GETTERS ========================================
+    # ======================================== PROPERTIES ========================================
     @property
     def path(self) -> str:
         """Renvoie le chemin du fichier"""
@@ -75,7 +75,6 @@ class Image(Asset):
     def scale_factor(self) -> float:
         """Renvoie le facteur de redimensionnement"""
         return self._scale_factor
-    
 
 # ======================================== EXPORTS ========================================
 __all__ = [

@@ -1,6 +1,4 @@
-"""
-Useful additional functions for operators
-"""
+"""Useful additional functions for operators."""
 
 from __future__ import annotations
 
@@ -9,15 +7,15 @@ import operator
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Callable
+    from collections.abc import Callable
 
 
 def operator_from_str(op: str) -> Callable:
-    """
-    Return the operator associated to the given string `op`.
+    """Return the operator associated to the given string `op`.
 
-    raises:
+    Raises:
         `KeyError` if invalid string.
+
     """
     d = {
         "==": operator.eq,

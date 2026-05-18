@@ -13,8 +13,8 @@ class ChromeDriverManager(DriverManager):
             self,
             driver_version: Optional[str] = None,
             name: str = "chromedriver",
-            url: str = "https://chromedriver.storage.googleapis.com",
-            latest_release_url: str = "https://chromedriver.storage.googleapis.com/LATEST_RELEASE",
+            url: str = "https://storage.googleapis.com/chrome-for-testing-public/",
+            latest_release_url: str = "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE",
             chrome_type: str = ChromeType.GOOGLE,
             download_manager: Optional[DownloadManager] = None,
             cache_manager: Optional[DriverCacheManager] = None,
@@ -44,12 +44,12 @@ class ChromeDriverManager(DriverManager):
     def get_os_type(self):
         os_type = super().get_os_type()
         if "win" in os_type:
-            return "win32"
+            return "win64" if self._os_system_manager.get_os_architecture() == 64 else "win32"
 
         if not self._os_system_manager.is_mac_os(os_type):
             return os_type
 
-        if self._os_system_manager.is_arch(os_type):
+        if self._os_system_manager.is_arch():
             return "mac_arm64"
 
         return os_type

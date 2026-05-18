@@ -94,7 +94,7 @@ class PrivateRequestMixin:
     def __init__(self, *args, **kwargs):
         session = requests.Session()
         self.private = session
-        self.private.verify = False  # fix SSLError/HTTPSConnectionPool
+        self.private.verify = getattr(self, "tls_verify", True)
         self.email = kwargs.pop("email", None)
         self.phone_number = kwargs.pop("phone_number", None)
         self.request_timeout = kwargs.pop("request_timeout", getattr(self, "request_timeout", self.request_timeout))
@@ -200,6 +200,11 @@ class PrivateRequestMixin:
             "Accept-Encoding": "gzip, deflate",  # ignore zstd
             "Host": self.domain,
             "X-FB-HTTP-Engine": "Tigon/MNS/TCP",
+            "X-Tigon-Is-Retry": "False",
+            "X-Zero-Balance": "INIT",
+            "X-Zero-Eh": "",
+            "X-Zero-State": "unknown",
+            "Zero-HTTP-Network-Interface": "wifi",
             "Connection": "keep-alive",
             # "Pragma": "no-cache",
             # "Cache-Control": "no-cache",

@@ -165,8 +165,8 @@ class TileMeta:
         if __debug__:
             expect(tags, frozenset[str])
             expect(collision_shape, (Shape, None))
-            positive(friction)
-            positive(restitution)
+            if friction is not None: positive(friction)
+            if restitution is not None: positive(restitution)
 
         # Attributs publiques
         self._tags: frozenset[str] = tags

@@ -316,13 +316,42 @@ def auto_train(
                 cat_feature_indices = [X_train.columns.get_loc(col) for col in cat_features if
                     col in X_train.columns]
 
-            model = TabPFNRegressor(device="auto", 
+            model = TabPFNRegressor(device="auto",
                                     categorical_features_indices=cat_feature_indices,
+                                    ignore_pretraining_limits=True,
                                     random_state=seed)
 
             # model = AutoTabPFNRegressor(max_time=600,
             #                            #categorical_feature_indices=cat_feature_indices,
             #                            ignore_pretraining_limits=True)
+        elif model_name == "tabpfn_ft":
+            from tabpfn.finetuning import FinetunedTabPFNRegressor
+
+            if cat_features is None:
+                cat_feature_indices = []
+            else:
+                cat_feature_indices = [X_train.columns.get_loc(col) for col in cat_features if
+                    col in X_train.columns]
+
+            # Fine-tuned variant of TabPFN. Needs X_val/y_val (handled by
+            # TabPFNFTFitter in geocif.py). Defaults from PriorLabs tutorial;
+            # CPU works but expect ~5-10x slower per task than zero-shot 'tabpfn'.
+            model = FinetunedTabPFNRegressor(
+                device="auto",
+                epochs=30,
+                learning_rate=1e-5,
+                n_estimators_finetune=2,
+                n_estimators_validation=2,
+                n_estimators_final_inference=8,
+                early_stopping=True,
+                early_stopping_patience=8,
+                use_fixed_preprocessing_seed=False,
+                random_state=seed,
+                extra_regressor_kwargs={
+                    "categorical_features_indices": cat_feature_indices,
+                    "ignore_pretraining_limits": True,
+                },
+            )
         elif model_name == "tabicl":
             from tabicl import TabICLRegressor
 
@@ -477,7 +506,7 @@ def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     Returns:
         Wrapped model for confidence interval estimation
     """
-    if model_name in ["ngboost", "tabpfn", "tabicl", "tabicl_ft"]:
+    if model_name in ["ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft"]:
         return model
     elif model_type == "CLASSIFICATION" and model_name == "catboost":
         return model

@@ -7,11 +7,11 @@ import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
-import scipy.constants as cst
 from monty.io import zopen
 from scipy.stats import norm
 
 from pymatgen.core import Composition, Element, Molecule
+from pymatgen.core import constants as cst
 from pymatgen.core.operations import SymmOp
 from pymatgen.core.units import Ha_to_eV
 from pymatgen.electronic_structure.core import Spin
@@ -25,10 +25,10 @@ if TYPE_CHECKING:
     from pymatgen.util.typing import PathLike
 
 __author__ = "Shyue Ping Ong, Germain Salvato-Vallverdu, Xin Chen"
-__copyright__ = "Copyright 2013, The Materials Virtual Lab"
+__copyright__ = "Copyright 2013, The Materialyze Lab"
 __version__ = "0.1"
 __maintainer__ = "Shyue Ping Ong"
-__email__ = "ongsp@ucsd.edu"
+__email__ = "shyue@nus.edu"
 __date__ = "8/1/15"
 
 
@@ -102,7 +102,8 @@ class GaussianInput:
         dieze_tag="#P",
         gen_basis=None,
     ):
-        """
+        """Initialize a GaussianInput.
+
         Args:
             mol: Input molecule. It can either be a Molecule object,
                 a string giving the geometry in a format supported by Gaussian,
@@ -468,7 +469,8 @@ class GaussianInput:
 
     @classmethod
     def from_dict(cls, dct: dict) -> Self:
-        """
+        """Reconstruct GaussianInput from its MSONable dict representation.
+
         Args:
             dct: dict.
 
@@ -576,7 +578,8 @@ class GaussianOutput:
     """
 
     def __init__(self, filename: PathLike) -> None:
-        """
+        """Initialize a GaussianOutput.
+
         Args:
             filename: Filename of Gaussian output file.
         """

@@ -28,6 +28,7 @@ from instagrapi.utils.serialization import dumps, json_value
 
 MAX_USER_COUNT = 200
 INFO_FROM_MODULES = ("self_profile", "feed_timeline", "reel_feed_timeline")
+FOLLOWERS_ORDERS = ("date_followed_latest", "date_followed_earliest")
 USER_WEB_PROFILE_DOC_ID = "26762473490008061"
 
 logger = logging.getLogger(__name__)
@@ -36,8 +37,10 @@ try:
     from typing import Literal
 
     INFO_FROM_MODULE = Literal[INFO_FROM_MODULES]
+    FOLLOWERS_ORDER = Literal[FOLLOWERS_ORDERS]
 except Exception:
     INFO_FROM_MODULE = str
+    FOLLOWERS_ORDER = str
 
 
 class UserMixin:
@@ -891,7 +894,11 @@ class UserMixin:
         return users
 
     def user_followers_v1_chunk(
-        self, user_id: str, max_amount: int = 0, max_id: str = ""
+        self,
+        user_id: str,
+        max_amount: int = 0,
+        max_id: str = "",
+        order: FOLLOWERS_ORDER = None,
     ) -> Tuple[List[UserShort], str]:
         """
         Get user's followers information by Private Mobile API and max_id (cursor)
@@ -904,6 +911,8 @@ class UserMixin:
             Maximum number of media to return, default is 0 - Inf
         max_id: str, optional
             Max ID, default value is empty String
+        order: str, optional
+            Followers sort order: date_followed_latest or date_followed_earliest
 
         Returns
         -------
@@ -920,6 +929,8 @@ class UserMixin:
                 "query": "",
                 "enable_groups": "true",
             }
+            if order:
+                params["order"] = order
             if max_id:
                 params["max_id"] = max_id
             result = self.private_request(
@@ -937,7 +948,12 @@ class UserMixin:
                 break
         return users, max_id
 
-    def user_followers_v1(self, user_id: str, amount: int = 0) -> List[UserShort]:
+    def user_followers_v1(
+        self,
+        user_id: str,
+        amount: int = 0,
+        order: FOLLOWERS_ORDER = None,
+    ) -> List[UserShort]:
         """
         Get user's followers information by Private Mobile API
 
@@ -947,18 +963,26 @@ class UserMixin:
             User id of an instagram account
         amount: int, optional
             Maximum number of media to return, default is 0 - Inf
+        order: str, optional
+            Followers sort order: date_followed_latest or date_followed_earliest
 
         Returns
         -------
         List[UserShort]
             List of objects of User type
         """
-        users, _ = self.user_followers_v1_chunk(str(user_id), amount)
+        users, _ = self.user_followers_v1_chunk(str(user_id), amount, order=order)
         if amount:
             users = users[:amount]
         return users
 
-    def user_followers(self, user_id: str, use_cache: bool = True, amount: int = 0) -> Dict[str, UserShort]:
+    def user_followers(
+        self,
+        user_id: str,
+        use_cache: bool = True,
+        amount: int = 0,
+        order: FOLLOWERS_ORDER = None,
+    ) -> Dict[str, UserShort]:
         """
         Get user's followers
 
@@ -970,6 +994,9 @@ class UserMixin:
             Whether or not to use information from cache, default value is True
         amount: int, optional
             Maximum number of media to return, default is 0 - Inf
+        order: str, optional
+            Followers sort order: date_followed_latest or date_followed_earliest.
+            Sorted requests use the private mobile endpoint and bypass cache.
 
         Returns
         -------
@@ -977,6 +1004,9 @@ class UserMixin:
             Dict of user_id and User object
         """
         user_id = str(user_id)
+        if order:
+            users = self.user_followers_v1(user_id, amount, order=order)
+            return {user.pk: user for user in users}
         users = self._users_followers.get(user_id, {})
         if not use_cache or not users or (amount and len(users) < amount):
             try:
@@ -1851,9 +1881,10 @@ class UserMixin:
         self,
         user_id: str,
         rank_token: str,
-        client_doc_id: str = "28479704798344003308647327139",
+        client_doc_id: str = "28479704797510738576165798526",
         max_id: int = None,
         priority: str = None,
+        order: str = None,
         exclude_field_is_favorite: bool = None,
         exclude_unused_fields: bool = None,
     ) -> dict:
@@ -1862,17 +1893,25 @@ class UserMixin:
             "enableGroups": True,
         }
         variables = {
-            "include_unseen_count": False,
-            "query": "",
-            "include_biography": False,
             "user_id": str(user_id),
+            "skip_suggested_users": True,
+            "skip_more_groups_available": True,
+            "skip_friendship_followers_fields": True,
             "request_data": request_data,
+            "skip_page_size": True,
+            "skip_pending_admins": True,
+            "skip_has_more": True,
             "search_surface": "follow_list_page",
+            "query": "",
+            "skip_big_list": True,
+            "include_unseen_count": True,
         }
         if exclude_field_is_favorite is not None:
             variables["exclude_field_is_favorite"] = exclude_field_is_favorite
         if max_id is not None:
             variables["max_id"] = max_id
+        if order is not None:
+            variables["order"] = order
         if exclude_unused_fields is not None:
             variables["exclude_unused_fields"] = exclude_unused_fields
         return self.private_graphql_query_request(
@@ -1881,15 +1920,17 @@ class UserMixin:
             variables=variables,
             client_doc_id=client_doc_id,
             priority=priority,
+            extra_headers={"X-FB-RMD": "state=URL_ELIGIBLE"},
         )
 
     def private_graphql_following_list(
         self,
         user_id: str,
         rank_token: str,
-        client_doc_id: str = "16104639289023609826830352479",
+        client_doc_id: str = "161046392817718486717479294775",
         max_id: int = None,
         priority: str = None,
+        order: str = None,
         exclude_field_is_favorite: bool = None,
         exclude_unused_fields: bool = None,
     ) -> dict:
@@ -1899,17 +1940,31 @@ class UserMixin:
             "includes_hashtags": True,
         }
         variables = {
-            "include_unseen_count": False,
-            "enable_groups": True,
             "user_id": str(user_id),
+            "skip_use_clickable_see_more": True,
+            "skip_preview_hashtags": True,
+            "skip_should_limit_list_of_followers": True,
+            "skip_pending_admins": True,
+            "skip_more_groups_available": True,
+            "skip_friendship_followers_fields": False,
             "request_data": request_data,
-            "include_biography": False,
+            "skip_page_size": True,
+            "skip_friend_requests": True,
+            "skip_big_list": True,
             "query": "",
+            "include_profile_update_info": True,
+            "skip_suggested_users": True,
+            "include_unseen_count": True,
+            "skip_has_more": True,
+            "enable_groups": True,
+            "skip_hashtag_count": True,
         }
         if exclude_field_is_favorite is not None:
             variables["exclude_field_is_favorite"] = exclude_field_is_favorite
         if max_id is not None:
             variables["max_id"] = max_id
+        if order is not None:
+            variables["order"] = order
         if exclude_unused_fields is not None:
             variables["exclude_unused_fields"] = exclude_unused_fields
         return self.private_graphql_query_request(
@@ -1918,6 +1973,7 @@ class UserMixin:
             variables=variables,
             client_doc_id=client_doc_id,
             priority=priority,
+            extra_headers={"X-FB-RMD": "state=URL_ELIGIBLE"},
         )
 
     def private_graphql_clips_profile(

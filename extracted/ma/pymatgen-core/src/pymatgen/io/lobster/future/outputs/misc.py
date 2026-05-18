@@ -593,7 +593,8 @@ class BWDF(LobsterFile):
         process_immediately: bool = True,
         lobster_version: str | None = None,
     ) -> None:
-        """
+        """Initialize a BWDF.
+
         Args:
             filename (PathLike): The BWDF file from LOBSTER, typically "BWDF.lobster"
                 or "BWDFCOHP.lobster".

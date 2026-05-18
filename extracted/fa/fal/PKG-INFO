@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fal
-Version: 1.73.2
+Version: 1.74.0
 Summary: fal is an easy-to-use Serverless Python Framework
 Author: Features & Labels <support@fal.ai>
 Requires-Python: >=3.8
@@ -16,6 +16,7 @@ Requires-Dist: opentelemetry-api<2,>=1.15.0
 Requires-Dist: opentelemetry-sdk<2,>=1.15.0
 Requires-Dist: grpc-interceptor<1,>=0.15.0
 Requires-Dist: colorama<1,>=0.4.6
+Requires-Dist: certifi>=2024.2.2
 Requires-Dist: portalocker<3,>=2.7.0
 Requires-Dist: rich<15,>=13.3.2
 Requires-Dist: rich_argparse

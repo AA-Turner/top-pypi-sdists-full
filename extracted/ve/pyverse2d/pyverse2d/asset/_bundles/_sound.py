@@ -35,7 +35,7 @@ class SoundBundle(Bundle):
         if __debug__:
             positive(volume)
             positive(cooldown)
-            expect(group, (SoundGroup, None))
+            expect(group, (Sound._get_group_class(), None))
 
         # Attributs publiques
         self._volume: float = volume
@@ -86,7 +86,7 @@ class SoundBundle(Bundle):
     @group.setter
     def group(self, value: SoundGroup | None) -> None:
         if __debug__:
-            expect(value, (SoundGroup, None))
+            expect(value, (Sound._get_group_class(), None))
         self._group = value
 
     # ======================================== INTERFACE ========================================

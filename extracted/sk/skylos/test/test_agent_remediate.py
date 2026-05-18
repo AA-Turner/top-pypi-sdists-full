@@ -258,6 +258,42 @@ class TestRemediationExecutor:
         executor = RemediationExecutor(project_root=tmp_path)
         assert executor.apply_fix("/nonexistent", "content") is False
 
+    def test_apply_rejects_symlinked_file(self, tmp_path):
+        outside = tmp_path.parent / f"{tmp_path.name}-outside"
+        outside.mkdir()
+        target = outside / "target.py"
+        target.write_text("original")
+        link = tmp_path / "link.py"
+        try:
+            link.symlink_to(target)
+        except OSError:
+            import pytest
+
+            pytest.skip("filesystem does not allow symlink creation")
+
+        executor = RemediationExecutor(project_root=tmp_path)
+
+        assert executor.apply_fix(str(link), "changed") is False
+        assert target.read_text() == "original"
+
+    def test_apply_rejects_file_under_symlinked_parent(self, tmp_path):
+        outside = tmp_path.parent / f"{tmp_path.name}-outside"
+        outside.mkdir()
+        target = outside / "target.py"
+        target.write_text("original")
+        link_dir = tmp_path / "linked-dir"
+        try:
+            link_dir.symlink_to(outside, target_is_directory=True)
+        except OSError:
+            import pytest
+
+            pytest.skip("filesystem does not allow symlink creation")
+
+        executor = RemediationExecutor(project_root=tmp_path)
+
+        assert executor.apply_fix(str(link_dir / "target.py"), "changed") is False
+        assert target.read_text() == "original"
+
     def test_revert_all(self, tmp_path):
         f1 = tmp_path / "a.py"
         f2 = tmp_path / "b.py"
@@ -294,17 +330,64 @@ class TestRemediationExecutor:
         executor = RemediationExecutor(project_root=tmp_path)
         result = executor.run_tests()
         assert result.passed is True
-        assert "No test suite" in result.output
+        assert "Test execution disabled" in result.output
 
     def test_run_tests_with_custom_cmd(self, tmp_path):
-        executor = RemediationExecutor(test_cmd="echo ok", project_root=tmp_path)
+        executor = RemediationExecutor(
+            test_cmd="echo ok",
+            project_root=tmp_path,
+            allow_test_execution=True,
+        )
         result = executor.run_tests()
         assert result.passed is True
 
     def test_run_tests_failure(self, tmp_path):
-        executor = RemediationExecutor(test_cmd="exit 1", project_root=tmp_path)
+        executor = RemediationExecutor(
+            test_cmd="false",
+            project_root=tmp_path,
+            allow_test_execution=True,
+        )
         result = executor.run_tests()
         assert result.passed is False
+
+    def test_run_tests_rejects_shell_metacharacters(self, tmp_path):
+        marker = tmp_path / "marker.txt"
+        executor = RemediationExecutor(
+            test_cmd=f"true; touch {marker}",
+            project_root=tmp_path,
+            allow_test_execution=True,
+        )
+
+        result = executor.run_tests()
+
+        assert result.passed is False
+        assert "Rejected test command" in result.output
+        assert not marker.exists()
+
+    def test_run_tests_does_not_auto_execute_makefile_by_default(self, tmp_path):
+        marker = tmp_path / "make-marker.txt"
+        (tmp_path / "Makefile").write_text(f"test:\n\ttouch {marker}\n")
+
+        executor = RemediationExecutor(project_root=tmp_path)
+        result = executor.run_tests()
+
+        assert result.passed is True
+        assert "Test execution disabled" in result.output
+        assert not marker.exists()
+
+    def test_run_tests_auto_detect_requires_explicit_opt_in(self, tmp_path):
+        marker = tmp_path / "make-marker.txt"
+        (tmp_path / "Makefile").write_text(f"test:\n\ttouch {marker}\n")
+
+        executor = RemediationExecutor(
+            project_root=tmp_path,
+            allow_test_execution=True,
+            auto_detect_tests=True,
+        )
+        result = executor.run_tests()
+
+        assert result.passed is True
+        assert marker.exists()
 
     def test_verify_fix(self, tmp_path):
         f = tmp_path / "test_verify.py"

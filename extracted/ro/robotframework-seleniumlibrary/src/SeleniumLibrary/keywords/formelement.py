@@ -15,18 +15,17 @@
 # limitations under the License.
 
 import os
-from typing import Optional, Union
 
 from robot.libraries.BuiltIn import BuiltIn
-from selenium.webdriver.remote.webelement import WebElement
 
 from SeleniumLibrary.base import LibraryComponent, keyword
 from SeleniumLibrary.errors import ElementNotFound
+from SeleniumLibrary.utils.types import Locator, Secret
 
 
 class FormElementKeywords(LibraryComponent):
     @keyword
-    def submit_form(self, locator: Union[WebElement, None, str] = None):
+    def submit_form(self, locator: Locator | None = None):
         """Submits a form identified by ``locator``.
 
         If ``locator`` is not given, first form on the page is submitted.
@@ -41,7 +40,7 @@ class FormElementKeywords(LibraryComponent):
         element.submit()
 
     @keyword
-    def checkbox_should_be_selected(self, locator: Union[WebElement, str]):
+    def checkbox_should_be_selected(self, locator: Locator):
         """Verifies checkbox ``locator`` is selected/checked.
 
         See the `Locating elements` section for details about the locator
@@ -55,7 +54,7 @@ class FormElementKeywords(LibraryComponent):
             )
 
     @keyword
-    def checkbox_should_not_be_selected(self, locator: Union[WebElement, str]):
+    def checkbox_should_not_be_selected(self, locator: Locator):
         """Verifies checkbox ``locator`` is not selected/checked.
 
         See the `Locating elements` section for details about the locator
@@ -69,8 +68,8 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def page_should_contain_checkbox(
         self,
-        locator: Union[WebElement, str],
-        message: Optional[str] = None,
+        locator: Locator,
+        message: str | None = None,
         loglevel: str = "TRACE",
     ):
         """Verifies checkbox ``locator`` is found from the current page.
@@ -86,8 +85,8 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def page_should_not_contain_checkbox(
         self,
-        locator: Union[WebElement, str],
-        message: Optional[str] = None,
+        locator: Locator,
+        message: str | None = None,
         loglevel: str = "TRACE",
     ):
         """Verifies checkbox ``locator`` is not found from the current page.
@@ -101,7 +100,7 @@ class FormElementKeywords(LibraryComponent):
         self.assert_page_not_contains(locator, "checkbox", message, loglevel)
 
     @keyword
-    def select_checkbox(self, locator: Union[WebElement, str]):
+    def select_checkbox(self, locator: Locator):
         """Selects the checkbox identified by ``locator``.
 
         Does nothing if checkbox is already selected.
@@ -115,7 +114,7 @@ class FormElementKeywords(LibraryComponent):
             element.click()
 
     @keyword
-    def unselect_checkbox(self, locator: Union[WebElement, str]):
+    def unselect_checkbox(self, locator: Locator):
         """Removes the selection of checkbox identified by ``locator``.
 
         Does nothing if the checkbox is not selected.
@@ -131,8 +130,8 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def page_should_contain_radio_button(
         self,
-        locator: Union[WebElement, str],
-        message: Optional[str] = None,
+        locator: Locator,
+        message: str | None = None,
         loglevel: str = "TRACE",
     ):
         """Verifies radio button ``locator`` is found from current page.
@@ -149,8 +148,8 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def page_should_not_contain_radio_button(
         self,
-        locator: Union[WebElement, str],
-        message: Optional[str] = None,
+        locator: Locator,
+        message: str | None = None,
         loglevel: str = "TRACE",
     ):
         """Verifies radio button ``locator`` is not found from current page.
@@ -213,14 +212,14 @@ class FormElementKeywords(LibraryComponent):
             element.click()
 
     @keyword
-    def choose_file(self, locator: Union[WebElement, str], file_path: str):
+    def choose_file(self, locator: Locator, file_path: str):
         """Inputs the ``file_path`` into the file input field ``locator``.
 
         This keyword is most often used to input files into upload forms.
         The keyword does not check ``file_path`` is the file or folder
         available on the machine where tests are executed. If the ``file_path``
         points at a file and when using Selenium Grid, Selenium will
-        [https://seleniumhq.github.io/selenium/docs/api/py/webdriver_remote/selenium.webdriver.remote.command.html?highlight=upload#selenium.webdriver.remote.command.Command.UPLOAD_FILE|magically],
+        [https://www.selenium.dev/selenium/docs/api/py/selenium_webdriver_remote/selenium.webdriver.remote.command.html#selenium.webdriver.remote.command.Command.UPLOAD_FILE|magically],
         transfer the file from the machine where the tests are executed
         to the Selenium Grid node where the browser is running.
         Then Selenium will send the file path, from the nodes file
@@ -240,7 +239,7 @@ class FormElementKeywords(LibraryComponent):
 
     @keyword
     def input_password(
-        self, locator: Union[WebElement, str], password: str, clear: bool = True
+        self, locator: Locator, password: str | Secret, clear: bool = True
     ):
         """Types the given password into the text field identified by ``locator``.
 
@@ -259,8 +258,15 @@ class FormElementKeywords(LibraryComponent):
         | Input Password | password_field | ${PASSWORD} |
 
         Please notice that Robot Framework logs all arguments using
-        the TRACE level and tests must not be executed using level below
-        DEBUG if the password should not be logged in any format.
+        the TRACE level. When not using the ``Secret`` type, tests must
+        not be executed using level below DEBUG if the password should
+        not be logged in any format.
+
+        This keyword supports Robot Framework 7.4
+        [https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#secret-variables|Secret]
+        variable type. When a ``Secret`` is passed, the value is protected
+        from Robot Framework logs and Selenium internal logging is also
+        suppressed during typing.
 
         The `clear` argument is new in SeleniumLibrary 4.0. Hiding password
         logging from Selenium logs is new in SeleniumLibrary 4.2.
@@ -269,15 +275,20 @@ class FormElementKeywords(LibraryComponent):
         self._input_text_into_text_field(locator, password, clear, disable_log=True)
 
     @keyword
-    def input_text(
-        self, locator: Union[WebElement, str], text: str, clear: bool = True
-    ):
+    def input_text(self, locator: Locator, text: str | Secret, clear: bool = True):
         """Types the given ``text`` into the text field identified by ``locator``.
 
         When ``clear`` is true, the input element is cleared before
         the text is typed into the element. When false, the previous text
         is not cleared from the element. Use `Input Password` if you
         do not want the given ``text`` to be logged.
+
+        This keyword supports Robot Framework 7.4
+        [https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#secret-variables|Secret]
+        variable type. When a ``Secret`` is passed, the value is masked in
+        Robot Framework logs and Selenium's internal logs are suppressed during
+        typing. When a plain string is passed, Selenium's internal logs are not
+        suppressed.
 
         If [https://github.com/SeleniumHQ/selenium/wiki/Grid2|Selenium Grid]
         is used and the ``text`` argument points to a file in the file system,
@@ -294,13 +305,15 @@ class FormElementKeywords(LibraryComponent):
         argument are new in SeleniumLibrary 4.0
         """
         self.info(f"Typing text '{text}' into text field '{locator}'.")
-        self._input_text_into_text_field(locator, text, clear)
+        self._input_text_into_text_field(
+            locator, text, clear, disable_log=isinstance(text, Secret)
+        )
 
     @keyword
     def page_should_contain_textfield(
         self,
-        locator: Union[WebElement, str],
-        message: Optional[str] = None,
+        locator: Locator,
+        message: str | None = None,
         loglevel: str = "TRACE",
     ):
         """Verifies text field ``locator`` is found from current page.
@@ -316,8 +329,8 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def page_should_not_contain_textfield(
         self,
-        locator: Union[WebElement, str],
-        message: Optional[str] = None,
+        locator: Locator,
+        message: str | None = None,
         loglevel: str = "TRACE",
     ):
         """Verifies text field ``locator`` is not found from current page.
@@ -333,9 +346,9 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def textfield_should_contain(
         self,
-        locator: Union[WebElement, str],
+        locator: Locator,
         expected: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         """Verifies text field ``locator`` contains text ``expected``.
 
@@ -357,9 +370,9 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def textfield_value_should_be(
         self,
-        locator: Union[WebElement, str],
+        locator: Locator,
         expected: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         """Verifies text field ``locator`` has exactly text ``expected``.
 
@@ -381,9 +394,9 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def textarea_should_contain(
         self,
-        locator: Union[WebElement, str],
+        locator: Locator,
         expected: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         """Verifies text area ``locator`` contains text ``expected``.
 
@@ -405,9 +418,9 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def textarea_value_should_be(
         self,
-        locator: Union[WebElement, str],
+        locator: Locator,
         expected: str,
-        message: Optional[str] = None,
+        message: str | None = None,
     ):
         """Verifies text area ``locator`` has exactly text ``expected``.
 
@@ -429,8 +442,8 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def page_should_contain_button(
         self,
-        locator: Union[WebElement, str],
-        message: Optional[str] = None,
+        locator: Locator,
+        message: str | None = None,
         loglevel: str = "TRACE",
     ):
         """Verifies button ``locator`` is found from current page.
@@ -450,8 +463,8 @@ class FormElementKeywords(LibraryComponent):
     @keyword
     def page_should_not_contain_button(
         self,
-        locator: Union[WebElement, str],
-        message: Optional[str] = None,
+        locator: Locator,
+        message: str | None = None,
         loglevel: str = "TRACE",
     ):
         """Verifies button ``locator`` is not found from current page.
@@ -469,7 +482,7 @@ class FormElementKeywords(LibraryComponent):
     def _get_value(self, locator, tag):
         return self.find_element(locator, tag).get_attribute("value")
 
-    def _get_checkbox(self, locator: Union[WebElement, str]):
+    def _get_checkbox(self, locator: Locator):
         return self.find_element(locator, tag="checkbox")
 
     def _get_radio_buttons(self, group_name):
@@ -488,11 +501,10 @@ class FormElementKeywords(LibraryComponent):
         self.debug(f"Radio group locator: {xpath}")
         try:
             return self.find_element(xpath)
-        except ElementNotFound:
+        except ElementNotFound as original_exception:
             raise ElementNotFound(
-                f"No radio button with name '{group_name}' "
-                f"and value '{value}' found."
-            )
+                f"No radio button with name '{group_name}' and value '{value}' found."
+            ) from original_exception
 
     def _get_value_from_radio_buttons(self, elements):
         for element in elements:
@@ -508,7 +520,7 @@ class FormElementKeywords(LibraryComponent):
             self.info("Temporally setting log level to: NONE")
             previous_level = BuiltIn().set_log_level("NONE")
         try:
-            element.send_keys(text)
+            element.send_keys(text.value if isinstance(text, Secret) else text)
         finally:
             if disable_log:
                 BuiltIn().set_log_level(previous_level)

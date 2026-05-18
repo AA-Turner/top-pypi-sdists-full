@@ -293,47 +293,17 @@ def amount_between(
 
 def random(population):
     """
-    Generate random values for each entity in the population.
+    Raise an error for formula-time randomness.
 
-    Args:
-        population: The population object containing simulation data.
-
-    Returns:
-        np.ndarray: Array of random values for each entity.
+    Random values should be created during data construction and exposed to
+    formulas as ordinary input variables, so simulations remain reproducible and
+    calibration outputs stay tied to the records that were calibrated.
     """
-    # Initialize count of random calls if not already present
-    if not hasattr(population.simulation, "count_random_calls"):
-        population.simulation.count_random_calls = 0
-    population.simulation.count_random_calls += 1
-
-    # Get known periods or use default calculation period
-    known_periods = population.simulation.get_holder(
-        f"{population.entity.key}_id"
-    ).get_known_periods()
-    period = (
-        known_periods[0]
-        if known_periods
-        else population.simulation.default_calculation_period
+    raise RuntimeError(
+        "Formula-time randomness is not allowed. Create random seeds or draws "
+        "during microdata construction and read them through input variables "
+        "inside formulas."
     )
-
-    # Get entity IDs for the period
-    entity_ids = population(f"{population.entity.key}_id", period)
-
-    # Generate deterministic random values using vectorised hash
-    seeds = np.abs(entity_ids * 100 + population.simulation.count_random_calls).astype(
-        np.uint64
-    )
-
-    # PCG-style mixing function for high-quality pseudo-random generation
-    x = seeds * np.uint64(0x5851F42D4C957F2D)
-    x = x ^ (x >> np.uint64(33))
-    x = x * np.uint64(0xC4CEB9FE1A85EC53)
-    x = x ^ (x >> np.uint64(33))
-
-    # Convert to float in [0, 1) using upper 53 bits for full double precision
-    values = (x >> np.uint64(11)).astype(np.float64) / (2**53)
-
-    return values
 
 
 def is_in(values: ArrayLike, *targets: list) -> ArrayLike:
@@ -378,10 +348,28 @@ def uprated(by: str = None, start_year: int = 2015) -> Callable:
     """
 
     def uprater(variable: Type[Variable]) -> type:
-        if hasattr(variable, f"formula_{start_year}"):
-            return variable
-
-        formula = variable.formula if hasattr(variable, "formula") else None
+        formula_names = [
+            name for name in variable.__dict__ if name.startswith("formula")
+        ]
+        if formula_names:
+            raise ValueError(
+                f'Variable "{variable.__name__}" uses @uprated and has a formula. '
+                "Uprating is only supported for input variables; formulas "
+                "should handle their own time behavior explicitly."
+            )
+        if "adds" in variable.__dict__ or "subtracts" in variable.__dict__:
+            raise ValueError(
+                f'Variable "{variable.__name__}" uses @uprated and has '
+                "adds/subtracts. Uprating is only supported for input "
+                "variables without formula, adds/subtracts, or uprating "
+                "metadata."
+            )
+        if "uprating" in variable.__dict__:
+            raise ValueError(
+                f'Variable "{variable.__name__}" uses @uprated and has '
+                "uprating. Uprating is only supported for input variables "
+                "without formula, adds/subtracts, or uprating metadata."
+            )
 
         variable.metadata = {
             "uprating": by,
@@ -398,16 +386,6 @@ def uprated(by: str = None, start_year: int = 2015) -> Callable:
                     last_year_parameter = getattr(last_year_parameter, name)
                 uprating = current_parameter / last_year_parameter
                 old = entity(variable.__name__, period.last_year)
-                # Use numpy.all on the element-wise equality with 0; Python's
-                # ``all(old)`` checks truthiness of each element, so a single
-                # non-zero value makes the guard ``False`` even when every
-                # other value is zero — which defeated the "no values were
-                # inputted" short-circuit and caused uprating to run on top
-                # of a formula fall-back output (bug M1).
-                if (formula is not None) and np.all(old == 0):
-                    # If no values have been inputted, don't uprate and
-                    # instead use the previous formula on the current period.
-                    return formula(entity, period, parameters)
                 return uprating * old
 
         formula_start_year.__name__ = f"formula_{start_year}"

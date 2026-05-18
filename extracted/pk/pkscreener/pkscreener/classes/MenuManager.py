@@ -662,10 +662,11 @@ class MenuManager:
                     slicewindow_param = f" --slicewindow {self.user_passed_args.slicewindow}" if self.user_passed_args.slicewindow else ""
                     fname_param = f" --fname {self.results_contents_encoded}" if self.results_contents_encoded else ""
                     launcher = f"python3.12 {launcher}" if (launcher.endswith(".py\"") or launcher.endswith(".py")) else launcher
-                    
+                    exit_param = " -e" if self.user_passed_args.exit else ''
+                    ans_param = " -a Y" if self.user_passed_args.answerdefault else ''
                     OutputControls().printOutput(f"{colorText.GREEN}Launching PKScreener in quick backtest mode. If it does not launch, please try with the following:{colorText.END}\n{colorText.FAIL}{launcher} --backtestdaysago {int(backtest_days_ago)}{requesting_user}{enable_log}{enable_telegram_mode}{stock_list_param}{slicewindow_param}{fname_param}{colorText.END}\n{colorText.WARN}Press Ctrl + C to exit quick backtest mode.{colorText.END}")
                     sleep(2)
-                    os.system(f"{launcher} --systemlaunched -a Y -e --backtestdaysago {int(backtest_days_ago)}{requesting_user}{enable_log}{enable_telegram_mode}{stock_list_param}{slicewindow_param}{fname_param}")
+                    os.system(f"{launcher} --systemlaunched{ans_param}{exit_param} --backtestdaysago {int(backtest_days_ago)}{requesting_user}{enable_log}{enable_telegram_mode}{stock_list_param}{slicewindow_param}{fname_param}")
                     ConsoleUtility.PKConsoleTools.clearScreen(clearAlways=True, forceTop=True)
                     return None, None
             elif self.user_passed_args is not None and self.user_passed_args.options is not None:

@@ -1,5 +1,5 @@
 
-import json
+
 import os
 import re
 import time
@@ -23,22 +23,6 @@ class UperfPod(WorkloadsOperations):
         self.__kind = ''
         self.__status = ''
         self.__template_ops = TemplateOperations(workload=self._workload)
-
-    def _extract_json_from_pod_logs(self, pod_logs: str) -> list:
-        """
-        Extract parsed JSON results from pod logs.
-        """
-        results = []
-        for line in pod_logs.strip().splitlines():
-            line = line.strip()
-            if line.startswith('{') and line.endswith('}'):
-                try:
-                    results.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
-        if not results:
-            logger.warning("No JSON results found in pod logs")
-        return results
 
     def save_error_logs(self):
         if self._es_host:
@@ -115,7 +99,7 @@ class UperfPod(WorkloadsOperations):
             self._oc.wait_for_initialized(label='app=uperf-bench-client', workload=self.__workload_name, label_uuid=False)
             self._oc.wait_for_ready(label='app=uperf-bench-client', workload=self.__workload_name, label_uuid=False)
 
-            self.__status = self._oc.wait_for_pod_completed(label='app=uperf-bench-client', workload=self.__workload_name, label_uuid=False, job=True)
+            self.__status = self._oc.wait_for_pod_completed(label='app=uperf-bench-client', workload=self.__workload_name, label_uuid=False, job=False)
             self.__status = 'complete' if self.__status else 'failed'
 
             # Get client pod info
@@ -140,7 +124,7 @@ class UperfPod(WorkloadsOperations):
 
             if self._es_host:
                 logger.info("Extracting uperf JSON results from pod logs")
-                parsed_results = self._extract_json_from_pod_logs(pod_logs)
+                parsed_results = self._extract_all_json_from_pod_logs(pod_logs)
 
                 if parsed_results:
                     logger.info(f"Uploading {len(parsed_results)} uperf results to ElasticSearch")

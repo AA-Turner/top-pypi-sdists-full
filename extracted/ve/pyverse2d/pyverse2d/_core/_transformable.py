@@ -11,7 +11,7 @@ from numbers import Real
 # ======================================== HANDLE ========================================
 class Transformable:
     """Objet portant une transformation monde"""
-    __slots__ = ("_position",)
+    __slots__ = ("_transform",)
 
     def __init__(
         self,

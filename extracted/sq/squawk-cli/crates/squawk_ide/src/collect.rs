@@ -1,7 +1,7 @@
 use crate::ast_nav;
-use crate::builtins::builtins_file;
 use crate::column_name::ColumnName;
-use crate::db::{File, parse};
+use crate::db::{File, bind, list_files, parse};
+use crate::file::InFile;
 use crate::goto_definition::goto_definition;
 use crate::infer::{Type, infer_type_from_expr, infer_type_from_ty};
 use crate::location::{Location, LocationKind};
@@ -20,7 +20,7 @@ pub(crate) fn columns_from_create_table(
     db: &dyn Db,
     file: File,
     create_table: &ast::CreateTableLike,
-) -> Vec<(Name, Option<SyntaxNodePtr>)> {
+) -> Vec<(Name, Option<InFile<SyntaxNodePtr>>)> {
     let mut columns = vec![];
     columns_from_create_table_impl(db, file, create_table, &mut columns, 0);
     columns
@@ -30,7 +30,7 @@ fn columns_from_create_table_impl(
     db: &dyn Db,
     file: File,
     create_table: &ast::CreateTableLike,
-    columns: &mut Vec<(Name, Option<SyntaxNodePtr>)>,
+    columns: &mut Vec<(Name, Option<InFile<SyntaxNodePtr>>)>,
     depth: usize,
 ) {
     if depth > 40 {
@@ -43,13 +43,12 @@ fn columns_from_create_table_impl(
             ast_nav::CreateTableArg::Inherits(path) => {
                 if let Some((schema, table_name)) = name::schema_and_name_path(&path) {
                     let position = path.syntax().text_range().start();
-                    if let Some((lookup_file, resolved)) =
-                        resolve_table_name(db, file, &table_name, schema.as_ref(), position)
-                    {
+                    let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
+                    if let Some(resolved) = resolve_table_name(db, &table_name, &schemas, file) {
                         columns.extend(resolved_to_column_ptrs(
                             db,
-                            lookup_file,
-                            resolved,
+                            resolved.file_id,
+                            resolved.value,
                             depth + 1,
                         ));
                     }
@@ -58,7 +57,10 @@ fn columns_from_create_table_impl(
             ast_nav::CreateTableArg::Column(column) => {
                 if let Some(name) = column.name() {
                     let col_name = Name::from_node(&name);
-                    columns.push((col_name, Some(SyntaxNodePtr::new(name.syntax()))));
+                    columns.push((
+                        col_name,
+                        Some(InFile::new(file, SyntaxNodePtr::new(name.syntax()))),
+                    ));
                 }
             }
             ast_nav::CreateTableArg::LikeClause(like_clause) => {
@@ -66,13 +68,12 @@ fn columns_from_create_table_impl(
                     && let Some((schema, table_name)) = name::schema_and_name_path(&path)
                 {
                     let position = path.syntax().text_range().start();
-                    if let Some((lookup_file, resolved)) =
-                        resolve_table_name(db, file, &table_name, schema.as_ref(), position)
-                    {
+                    let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
+                    if let Some(resolved) = resolve_table_name(db, &table_name, &schemas, file) {
                         columns.extend(resolved_to_column_ptrs(
                             db,
-                            lookup_file,
-                            resolved,
+                            resolved.file_id,
+                            resolved.value,
                             depth + 1,
                         ));
                     }
@@ -88,7 +89,7 @@ fn resolved_to_column_ptrs(
     file: File,
     resolved: ResolvedTableName,
     depth: usize,
-) -> Vec<(Name, Option<SyntaxNodePtr>)> {
+) -> Vec<(Name, Option<InFile<SyntaxNodePtr>>)> {
     match resolved {
         ResolvedTableName::Table(parent_table) => {
             let mut cols = vec![];
@@ -145,13 +146,12 @@ fn table_columns_impl(
             ast_nav::CreateTableArg::Inherits(path) => {
                 if let Some((schema, table_name)) = name::schema_and_name_path(&path) {
                     let position = path.syntax().text_range().start();
-                    if let Some((lookup_file, resolved)) =
-                        resolve_table_name(db, file, &table_name, schema.as_ref(), position)
-                    {
+                    let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
+                    if let Some(resolved) = resolve_table_name(db, &table_name, &schemas, file) {
                         columns.extend(resolved_to_columns_with_types(
                             db,
-                            lookup_file,
-                            resolved,
+                            resolved.file_id,
+                            resolved.value,
                             depth + 1,
                         ));
                     }
@@ -168,13 +168,12 @@ fn table_columns_impl(
                     && let Some((schema, table_name)) = name::schema_and_name_path(&path)
                 {
                     let position = path.syntax().text_range().start();
-                    if let Some((lookup_file, resolved)) =
-                        resolve_table_name(db, file, &table_name, schema.as_ref(), position)
-                    {
+                    let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
+                    if let Some(resolved) = resolve_table_name(db, &table_name, &schemas, file) {
                         columns.extend(resolved_to_columns_with_types(
                             db,
-                            lookup_file,
-                            resolved,
+                            resolved.file_id,
+                            resolved.value,
                             depth + 1,
                         ));
                     }
@@ -216,7 +215,7 @@ pub(crate) fn create_table_as_columns_with_types(
     file: File,
     create_table_as: &ast::CreateTableAs,
 ) -> Vec<(Name, Option<Type>)> {
-    for file in [file, builtins_file(db)] {
+    for file in list_files(db, file) {
         let columns = select_columns_with_types(db, file, &create_table_as.query());
         if !columns.is_empty() {
             return columns;
@@ -290,15 +289,11 @@ fn select_columns_with_types(
             };
             let name_ref = path.segment().and_then(|s| s.name_ref());
             let position = table.syntax().text_range().start();
+            let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
             // Try CTE resolution first since resolve_table_name doesn't handle CTEs
-            if let Some((ptr, kind)) = resolve_table_like(
-                db,
-                file,
-                name_ref.as_ref(),
-                &table_name,
-                schema.as_ref(),
-                position,
-            ) {
+            if let Some((ptr, kind)) =
+                resolve_table_like(db, name_ref.as_ref(), &table_name, &schemas, file)
+            {
                 let tree = parse(db, file).tree();
                 let node = ptr.to_node(tree.syntax());
                 match kind {
@@ -319,10 +314,8 @@ fn select_columns_with_types(
                 }
             }
             // Fall back to builtins for schema-qualified names
-            if let Some((lookup_file, resolved)) =
-                resolve_table_name(db, file, &table_name, schema.as_ref(), position)
-            {
-                return resolved_to_columns_with_types(db, lookup_file, resolved, 0);
+            if let Some(resolved) = resolve_table_name(db, &table_name, &schemas, file) {
+                return resolved_to_columns_with_types(db, resolved.file_id, resolved.value, 0);
             }
             vec![]
         }
@@ -397,15 +390,17 @@ fn returning_target_list_columns_with_types(
 
             if target.star_token().is_some()
                 && let Some((schema, table_name)) = name::schema_and_name_path(path)
-                && let Some((lookup_file, resolved)) = resolve_table_name(
-                    db,
-                    file,
-                    &table_name,
-                    schema.as_ref(),
-                    target.syntax().text_range().start(),
-                )
             {
-                columns.extend(resolved_to_columns_with_types(db, lookup_file, resolved, 0));
+                let position = target.syntax().text_range().start();
+                let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
+                if let Some(resolved) = resolve_table_name(db, &table_name, &schemas, file) {
+                    columns.extend(resolved_to_columns_with_types(
+                        db,
+                        resolved.file_id,
+                        resolved.value,
+                        0,
+                    ));
+                }
             }
         }
     }
@@ -426,7 +421,7 @@ pub(crate) fn view_like_columns_with_types(
         .collect();
 
     let mut base_columns = vec![];
-    for file in [file, builtins_file(db)] {
+    for file in list_files(db, file) {
         base_columns = select_columns_with_types(db, file, &create_view.query());
         if !base_columns.is_empty() {
             break;
@@ -464,7 +459,7 @@ pub(crate) fn with_table_columns_with_types(
         .collect();
 
     let mut base_columns = vec![];
-    for file in [file, builtins_file(db)] {
+    for file in list_files(db, file) {
         base_columns = with_table_query_columns_with_types(db, file, with_table.clone());
         if !base_columns.is_empty() {
             break;
@@ -532,7 +527,7 @@ fn column_ref_type(db: &dyn Db, file: File, expr: &ast::Expr) -> Option<Type> {
         ast::Expr::ParenExpr(paren) => return column_ref_type(db, file, &paren.expr()?),
         _ => return None,
     };
-    let defs = goto_definition(db, file, position);
+    let defs = goto_definition(db, InFile::new(file, position));
     let def = *defs.first()?;
     if def.kind != LocationKind::Column {
         return None;
@@ -630,7 +625,7 @@ fn columns_for_star_from_from_item(
         return columns_for_star_from_alias(db, file, from_item, &alias);
     }
 
-    let Some(table_ptr) = table_ptr_from_from_item(db, file, from_item) else {
+    let Some(table_ptr) = table_ptr_from_from_item(db, InFile::new(file, from_item)) else {
         return vec![];
     };
 
@@ -650,7 +645,7 @@ pub(crate) fn columns_for_star_from_alias(
         .filter_map(|column| column.name().map(|name| Name::from_node(&name)))
         .collect();
 
-    let Some(table_ptr) = table_ptr_from_from_item(db, file, from_item) else {
+    let Some(table_ptr) = table_ptr_from_from_item(db, InFile::new(file, from_item)) else {
         return vec![];
     };
 
@@ -686,7 +681,7 @@ fn columns_for_star_from_table_ptr(
             columns_for_star_from_alias(db, file, &from_item, &alias)
         }
         Some(ast_nav::ParentSouce::WithTable(with_table)) => {
-            for f in [file, builtins_file(db)] {
+            for f in list_files(db, file) {
                 let columns = with_table_columns_with_types(db, f, with_table.clone());
                 if !columns.is_empty() {
                     return columns;
@@ -781,14 +776,10 @@ fn select_variant_columns_with_types(
             };
             let name_ref = path.segment().and_then(|segment| segment.name_ref());
             let position = table.syntax().text_range().start();
-            let Some((ptr, kind)) = resolve_table_like(
-                db,
-                file,
-                name_ref.as_ref(),
-                &table_name,
-                schema.as_ref(),
-                position,
-            ) else {
+            let schemas = bind(db, file).resolved_schemas(position, schema.as_ref());
+            let Some((ptr, kind)) =
+                resolve_table_like(db, name_ref.as_ref(), &table_name, &schemas, file)
+            else {
                 return vec![];
             };
             let node = ptr.to_node(root);
@@ -826,7 +817,7 @@ pub(crate) fn star_column_names(db: &dyn Db, file: File, table_ptr: &SyntaxNodeP
             .filter_map(|column| column.name().map(|name| Name::from_node(&name)))
             .collect(),
         Some(ast_nav::ParentSouce::WithTable(with_table)) => {
-            for file in [file, builtins_file(db)] {
+            for file in list_files(db, file) {
                 let columns: Vec<_> = with_table_columns_with_types(db, file, with_table.clone())
                     .into_iter()
                     .map(|(name, _)| name)
@@ -882,7 +873,7 @@ fn star_column_names_from_paren_select(
     };
     let mut columns = vec![];
     for from_item in ast_nav::iter_from_clause(&from_clause) {
-        if let Some(table_ptr) = table_ptr_from_from_item(db, file, &from_item) {
+        if let Some(table_ptr) = table_ptr_from_from_item(db, InFile::new(file, &from_item)) {
             columns.extend(star_column_names(db, file, &table_ptr));
         }
     }

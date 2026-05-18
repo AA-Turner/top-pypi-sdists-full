@@ -407,7 +407,8 @@ class MenuNavigator:
             params.append(f" --fname {results_contents_encoded}")
         
         extra_params = "".join(params)
-        
+        exit_param = " -e" if user_passed_args.exit else ''
+        ans_param = " -a Y" if user_passed_args.answerdefault else ''
         OutputControls().printOutput(
             f"{colorText.GREEN}Launching PKScreener in quick backtest mode.{colorText.END}\n"
             f"{colorText.FAIL}{launcher} --backtestdaysago {int(backtest_days_ago)}{extra_params}{colorText.END}\n"
@@ -415,7 +416,7 @@ class MenuNavigator:
         )
         sleep(2)
         os.system(
-            f"{launcher} --systemlaunched -a Y -e --backtestdaysago {int(backtest_days_ago)}{extra_params}"
+            f"{launcher} --systemlaunched{ans_param}{exit_param} --backtestdaysago {int(backtest_days_ago)}{extra_params}"
         )
         ConsoleUtility.PKConsoleTools.clearScreen(clearAlways=True, forceTop=True)
     

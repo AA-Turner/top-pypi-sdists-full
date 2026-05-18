@@ -35,7 +35,8 @@ class XYZ:
         mol: Molecule | Structure | Sequence[Molecule | Structure],
         coord_precision: int = 6,
     ) -> None:
-        """
+        """Initialize a XYZ.
+
         Args:
             mol (Molecule | Structure): Input molecule or structure or list thereof.
             coord_precision: Precision to be used for coordinates.

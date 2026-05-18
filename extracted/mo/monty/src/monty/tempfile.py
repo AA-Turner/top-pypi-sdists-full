@@ -1,9 +1,8 @@
-"""
-Temporary directory and file creation utilities.
-"""
+"""Temporary directory and file creation utilities."""
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import tempfile
@@ -19,17 +18,12 @@ if TYPE_CHECKING:
 
 
 class ScratchDir:
-    """
-    Notes:
-        With effect from Python 3.2, tempfile.TemporaryDirectory already
-        implements much of the functionality of ScratchDir. However, it does
-        not provide options for copying of files to and from (though it is
-        possible to do this with other methods provided by shutil).
+    """Context manager that creates and cleans up a temporary working directory.
 
     Creates a "with" context manager that automatically handles creation of
-    temporary directories (utilizing Python's build in temp directory
-    functions) and cleanup when done. This improves on Python's built in
-    functions by allowing for truly temporary workspace that are deleted
+    temporary directories (utilizing Python's built-in temp directory
+    functions) and cleanup when done. This improves on Python's built-in
+    functions by allowing for truly temporary workspaces that are deleted
     when it is done. The way it works is as follows:
 
     1. Create a temp dir in specified root path.
@@ -39,24 +33,31 @@ class ScratchDir:
     5. Optionally copy generated output files back to original directory.
     6. Change back to original directory.
     7. Delete temp dir.
+
+    Note:
+        From Python 3.2 on, ``tempfile.TemporaryDirectory`` implements much
+        of the functionality of ScratchDir. However, it does not provide
+        options for copying of files to and from (though it is possible to
+        do this with other methods provided by shutil).
+
     """
 
     SCR_LINK: ClassVar[str] = "scratch_link"
 
     def __init__(
         self,
-        rootpath: Union[PathLike, None],
+        rootpath: PathLike | None,
         create_symbolic_link: bool = False,
         copy_from_current_on_enter: bool = False,
         copy_to_current_on_exit: bool = False,
         gzip_on_exit: bool = False,
         delete_removed_files: bool | None = None,
     ) -> None:
-        """
-        Initializes scratch directory given a **root** path. There is no need
-        to try to create unique directory names. The code will generate a
-        temporary sub directory in the rootpath. The way to use this is using a
-        with context manager. Example::
+        """Initialize scratch directory given a **root** path.
+
+        There is no need to try to create unique directory names. The code
+        will generate a temporary sub directory in the rootpath. The way to
+        use this is using a with context manager. Example::
 
             with ScratchDir("/scratch"):
                 do_something()
@@ -84,6 +85,7 @@ class ScratchDir:
                 Defaults to False.
             delete_removed_files (DEPRECATED): It now has no effect
                 and will be removed in 2027-01-01.
+
         """
         if delete_removed_files is not None:
             warnings.warn(
@@ -131,39 +133,40 @@ class ScratchDir:
                 if self.gzip_on_exit:
                     gzip_dir(self.tempdir)
 
-                # Timestamp check
-                def get_files(root: PathLike) -> set[str]:
-                    paths: set[str] = set()
-                    for dirpath, _, filenames in os.walk(root):
-                        for fn in filenames:
-                            abs_path = os.path.join(dirpath, fn)
-                            rel_path = os.path.relpath(abs_path, root)
-                            paths.add(rel_path)
-                    return paths
+                def walk_with_mtimes(root: PathLike) -> dict[str, float]:
+                    """Single-pass scandir walk: build {relpath -> mtime}.
 
-                def get_modif_times(
-                    root: PathLike,
-                    rel_paths: set[str],
-                ) -> dict[str, float]:
+                    ``DirEntry.stat()`` reuses the ``stat`` info collected by
+                    the directory iterator on most platforms, avoiding the
+                    extra syscall pair that ``os.walk`` + ``os.path.getmtime``
+                    would incur.
+                    """
                     out: dict[str, float] = {}
-                    for rel in rel_paths:
+                    root_str = os.fspath(root)
+                    stack: list[str] = [root_str]
+                    while stack:
+                        d = stack.pop()
                         try:
-                            out[rel] = os.path.getmtime(os.path.join(root, rel))
+                            with os.scandir(d) as it:
+                                for entry in it:
+                                    if entry.is_dir(follow_symlinks=False):
+                                        stack.append(entry.path)
+                                    else:
+                                        with contextlib.suppress(FileNotFoundError):
+                                            out[
+                                                os.path.relpath(entry.path, root_str)
+                                            ] = entry.stat().st_mtime
                         except FileNotFoundError:
-                            # File may have been removed between listing and stat
-                            pass
+                            continue
                     return out
 
-                common_paths = get_files(self.tempdir) & get_files(self.cwd)
-                temp_mtimes = get_modif_times(self.tempdir, common_paths)
-                cwd_mtimes = get_modif_times(self.cwd, common_paths)
+                temp_mtimes = walk_with_mtimes(self.tempdir)
+                cwd_mtimes = walk_with_mtimes(self.cwd)
 
                 newer_in_cwd = [
                     rel
-                    for rel in common_paths
-                    if rel in temp_mtimes
-                    and rel in cwd_mtimes
-                    and cwd_mtimes[rel] > temp_mtimes[rel]
+                    for rel, t in cwd_mtimes.items()
+                    if rel in temp_mtimes and t > temp_mtimes[rel]
                 ]
 
                 if newer_in_cwd:

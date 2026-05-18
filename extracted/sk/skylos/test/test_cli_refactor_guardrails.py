@@ -1,5 +1,6 @@
 import json
 import sys
+import tomllib
 import types
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -8,6 +9,10 @@ import pytest
 from rich.console import Console
 
 import skylos.cli as cli
+from skylos.cli_core.dispatch import EARLY_COMMAND_HANDLERS
+from skylos.cli_core.main_parser import build_main_parser
+from skylos.commands.run_cmd import run_run_command
+from skylos.commands.scan_cmd import run_scan_command
 from skylos.debt.result import DebtHotspot, DebtScore, DebtSnapshot
 
 
@@ -56,6 +61,18 @@ def _progress_ctx():
     cm.__enter__ = Mock(return_value=Mock(add_task=Mock(return_value="t")))
     cm.__exit__ = Mock(return_value=False)
     return cm
+
+
+def test_cli_public_entrypoint_stays_compatibility_facade():
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    metadata = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+
+    assert metadata["project"]["scripts"]["skylos"] == "skylos.cli:main"
+    assert callable(cli.main)
+    assert cli.EARLY_COMMAND_HANDLERS is EARLY_COMMAND_HANDLERS
+    assert build_main_parser.__module__ == "skylos.cli_core.main_parser"
+    assert run_run_command.__module__ == "skylos.commands.run_cmd"
+    assert run_scan_command.__module__ == "skylos.commands.scan_cmd"
 
 
 def test_cli_grade_render_only_shows_scanned_categories():
@@ -697,6 +714,86 @@ def test_defend_command_rejects_invalid_owasp_version(tmp_path):
     assert "Unsupported OWASP version" in console.print.call_args.args[0]
 
 
+def test_defend_command_ignores_repo_policy_without_explicit_flag(tmp_path, monkeypatch):
+    target = tmp_path / "repo"
+    target.mkdir()
+    (target / "app.py").write_text(
+        """
+import openai
+client = openai.OpenAI()
+
+def run():
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "hello"}],
+    )
+    return eval(response.choices[0].message.content)
+""",
+        encoding="utf-8",
+    )
+    (target / "skylos-defend.yaml").write_text(
+        "rules:\n  no-dangerous-sink:\n    enabled: false\n",
+        encoding="utf-8",
+    )
+    console = Mock()
+    monkeypatch.chdir(target)
+
+    from skylos.commands.defend_cmd import run_defend_command
+
+    with patch("builtins.print"):
+        exit_code = run_defend_command(
+            [".", "--json", "--fail-on", "critical"],
+            console_factory=lambda: console,
+            progress_factory=lambda *args, **kwargs: _progress_ctx(),
+        )
+
+    assert exit_code == 1
+
+
+def test_defend_command_applies_policy_when_explicit(tmp_path, monkeypatch):
+    target = tmp_path / "repo"
+    target.mkdir()
+    (target / "app.py").write_text(
+        """
+import openai
+client = openai.OpenAI()
+
+def run():
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "hello"}],
+    )
+    return eval(response.choices[0].message.content)
+""",
+        encoding="utf-8",
+    )
+    policy_path = target / "skylos-defend.yaml"
+    policy_path.write_text(
+        "rules:\n  no-dangerous-sink:\n    enabled: false\n",
+        encoding="utf-8",
+    )
+    console = Mock()
+    monkeypatch.chdir(target)
+
+    from skylos.commands.defend_cmd import run_defend_command
+
+    with patch("builtins.print"):
+        exit_code = run_defend_command(
+            [
+                ".",
+                "--json",
+                "--fail-on",
+                "critical",
+                "--policy",
+                str(policy_path),
+            ],
+            console_factory=lambda: console,
+            progress_factory=lambda *args, **kwargs: _progress_ctx(),
+        )
+
+    assert exit_code == 0
+
+
 def test_defend_command_json_upload_formats_once(tmp_path):
     target = tmp_path / "repo"
     target.mkdir()
@@ -814,6 +911,30 @@ def test_cicd_gate_command_reads_input_and_returns_gate_exit(tmp_path):
     assert exit_code == 0
     assert mock_gate.call_args.kwargs["strict"] is True
     assert mock_gate.call_args.kwargs["result"]["project_root"] == str(tmp_path)
+
+
+def test_cicd_init_rejects_control_characters_in_scan_path(tmp_path):
+    from skylos.commands.cicd_cmd import run_cicd_command
+
+    console = Mock()
+    output = tmp_path / "skylos.yml"
+    exit_code = run_cicd_command(
+        [
+            "init",
+            "--scan-path",
+            "apps/api\n      - name: Injected",
+            "--output",
+            str(output),
+        ],
+        console_factory=lambda: console,
+        load_config_func=lambda path: {},
+        run_gate_interaction_func=Mock(),
+        emit_github_annotations_func=Mock(),
+    )
+
+    assert exit_code == 1
+    assert not output.exists()
+    assert "Invalid workflow option" in console.print.call_args.args[0]
 
 
 def test_cicd_review_command_passes_evidence_cards_flag(tmp_path, monkeypatch):

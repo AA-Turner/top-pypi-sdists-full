@@ -22,7 +22,7 @@ get_target_property(GODOTCPP_SUFFIX godot::cpp GODOTCPP_SUFFIX)
 get_target_property(GODOTCPP_PLATFORM godot::cpp GODOTCPP_PLATFORM)
 project(
   prismatoid
-  VERSION 0.15.0
+  VERSION 0.16.1
   DESCRIPTION "Prism bindings for Godot"
   LANGUAGES C CXX)
 add_library(${LIBNAME} SHARED)
@@ -31,7 +31,7 @@ target_sources(
   PRIVATE src/register_types.cpp src/register_types.h
           src/godot_prism_context.cpp src/godot_prism_context.h
           src/godot_prism_backend.cpp src/godot_prism_backend.h)
-target_link_libraries(${LIBNAME} PRIVATE godot-cpp prism)
+target_link_libraries(${LIBNAME} PRIVATE godot-cpp prism::prism)
 if(APPLE)
   set_target_properties(${LIBNAME} PROPERTIES LINKER_LANGUAGE CXX)
   target_link_directories(${LIBNAME} PRIVATE

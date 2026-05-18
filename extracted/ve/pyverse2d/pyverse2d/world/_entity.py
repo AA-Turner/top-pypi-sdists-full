@@ -8,7 +8,7 @@ from ..abc import Component
 from ._component import *
 
 import uuid
-from typing import Type
+from typing import Type, overload
 
 # ======================================== CONSTANTS ========================================
 _COMPONENTS: dict[Component, str] = {
@@ -31,8 +31,8 @@ class Entity:
     Classe représentant les entités en accumulant des composants
 
     Args:
-        components(Component, optional): ensemble des composants de l'entité
-        tags(Iterable[str], optional): labels de l'entité
+        components: ensemble des composants de l'entité
+        tags: labels de l'entité
     """
     __slots__ = (
         "_id", "_tags", "_active", "_dead",
@@ -41,9 +41,17 @@ class Entity:
         )
 
     def __init__(self, *components: Component, tags: tuple[str, ...] = ()):
-        # Attributs
-        self._id: str = str(uuid.uuid4())
+        # Transtypage et vérifications
+        tags = set(map(str, tags))
+
+        if __debug__:
+            expect(components, tuple[Component])
+
+        # Attributs publiques
         self._tags: set[str] = set(tags)
+
+        # Attributs internes
+        self._id: str = str(uuid.uuid4())
         self._active: bool = True
         self._dead: bool = False
 
@@ -65,7 +73,6 @@ class Entity:
         self._sound_emitter: SoundEmitter = None
         self._video_player: VideoPlayer = None
 
-        # Ajouts
         for component in components:
             self.add(component)
     
@@ -211,11 +218,10 @@ class Entity:
     
     # ======================================== COMPONENTS ========================================
     def add(self, component: Component) -> Entity:
-        """
-        Ajoute un composant à l'entité
+        """Ajoute un composant à l'entité
 
         Args:
-            component(Component): composant à ajouter
+            component: composant à ajouter
         """
         T = type(expect(component, Component))
         all_types = self.get_all_types()
@@ -225,23 +231,29 @@ class Entity:
             raise ValueError(f"Can only have 1 {T.__name__} component")
 
         # Prérequis
-        for req in component.requires:
+        for req in component._REQUIRES:
             if not any(c.__name__ == req for c in all_types):
                 raise ValueError(f"{T.__name__} requires {req}")
 
         # Conflits
-        for conflict in component.conflicts:
+        for conflict in component._CONFLICTS:
             if any(c.__name__ == conflict for c in all_types):
                 raise ValueError(f"{T.__name__} conflicts with {conflict}")
             
         setattr(self, _COMPONENTS[T], component)
         return self
     
+    @overload
+    def remove(self, component_type: Type[Component]) -> None: ...
+
+    @overload
+    def remove(self, component_id: str) -> None: ...
+    
     def remove(self, component_type: Type[Component] | str) -> None:
         """Supprime un composant de l'entité
 
         Args:
-            component_type(Type[Component]): type du composant
+            component_type: type du composant
         """
         if isinstance(component_type, str):
             if component_type not in _COMPONENTS:
@@ -257,12 +269,17 @@ class Entity:
         for component in _COMPONENTS.values():
             setattr(self, component, None)
     
+    @overload
+    def get(self, component_type: Type[Component]) -> Component: ...
+
+    @overload
+    def get(self, component_id: str) -> Component: ...
+    
     def get(self, component_type: Type[Component] | str) -> Component:
-        """
-        Renvoie un composant de l'entité
+        """Renvoie un composant de l'entité
 
         Args:
-            component_type(Type[Component]): type du composant
+            component_type: type du composant
         """
         if isinstance(component_type, str):
             return getattr(self, component_type, None)
@@ -276,12 +293,17 @@ class Entity:
         """Renvoie l'ensemble des types de composant possédés"""
         return tuple(T for T in _COMPONENTS if getattr(self, _COMPONENTS[T]) is not None)
     
+    @overload
+    def has(self, component_type: Type[Component]) -> bool: ...
+
+    @overload
+    def has(self, component_id: str) -> bool: ...
+    
     def has(self, component_type: Type[Component] | str) -> bool:
-        """
-        Vérifie la possession d'un composant
+        """Vérifie la possession d'un composant
 
         Args:
-            component_type(Type[C]): type du composant
+            component_type: type du composant
         """
         if type(component_type) is str:
             attr_name = f"_{component_type.lower()}"
@@ -293,30 +315,32 @@ class Entity:
     
     # ======================================== TAGS ========================================
     def add_tag(self, tag: str) -> Entity:
-        """
-        Ajoute un label à l'entité
+        """Ajoute un label à l'entité
 
         Args:
-            tag(str): label à ajouter
+            tag: label à ajouter
         """
         self._tags.add(expect(tag, str))
         return self
     
     def remove_tag(self, tag: str) -> Entity:
-        """
-        Supprime un label de l'entité
+        """Supprime un label de l'entité
 
         Args:
-            tag(str): label à supprimer
+            tag: label à supprimer
         """
         self._tags.discard(expect(tag, str))
         return self
     
     def has_tag(self, tag: str) -> bool:
-        """
-        Vérifie que l'entité possède un label
+        """Vérifie que l'entité possède un label
 
         Args:
-            tag(str): label à vérifier
+            tag: label à vérifier
         """
         return expect(tag, str) in self._tags
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "Entity",
+]

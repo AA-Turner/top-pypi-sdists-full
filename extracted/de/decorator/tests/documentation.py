@@ -14,14 +14,14 @@ doc = r"""# Decorators for Humans
 |---|---|
 |E-mail | michele.simionato@gmail.com|
 |Version| $VERSION ($DATE)|
-|Supports| Python 3.7, 3.8, 3.9, 3.10, 3.11, 3.12|
+|Supports| Python 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, 3.14|
 |Download page| https://pypi.org/project/decorator/$VERSION|
 |Installation| ``pip install decorator``|
 |License | BSD license|
 
 ## Introduction
 
-The ``decorator`` module is over ten years old, but still alive and
+The ``decorator`` module is over twenty years old, but still alive and
 kicking. It is used by several frameworks (IPython, scipy, authkit,
 pylons, pycuda, sugar, ...) and has been stable for a *long* time. It
 is your best option if you want to preserve the signature of decorated

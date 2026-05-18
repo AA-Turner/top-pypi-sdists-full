@@ -33,7 +33,7 @@ def load(scene: Scene):
     _stack.clear()
     _stack.append(scene)
     scene._set_state(SceneState.RUNNING)
-    scene.on_start()
+    scene.on_start.trigger()
 
 def switch(scene: Scene):
     """Remplace la scene active par une autre
@@ -50,7 +50,7 @@ def switch(scene: Scene):
         _stack.pop()
     _stack.append(scene)
     scene._set_state(SceneState.RUNNING)
-    scene.on_start()
+    scene.on_start.trigger()
 
 def push(scene: Scene):
     """Empile une scene par dessus la scene active
@@ -69,7 +69,7 @@ def push(scene: Scene):
             top.on_stop()
     _stack.append(scene)
     scene._set_state(SceneState.RUNNING)
-    scene.on_start()
+    scene.on_start.trigger()
 
 def pop():
     """Dépile la scene active et reprend la précédente"""
@@ -119,7 +119,7 @@ def _stop_all():
     """Arrête toutes les scènes"""
     for scene in _stack:
         scene._set_state(SceneState.SLEEPING)
-        scene.on_stop()
+        scene.on_stop.trigger()
 
 # ======================================== EXPORTS ========================================
 __all__ = [

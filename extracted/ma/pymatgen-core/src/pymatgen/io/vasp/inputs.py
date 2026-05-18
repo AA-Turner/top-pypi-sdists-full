@@ -6,6 +6,7 @@ All major VASP input files.
 from __future__ import annotations
 
 import codecs
+import functools
 import hashlib
 import itertools
 import math
@@ -24,7 +25,6 @@ from zipfile import ZipFile
 
 import numpy as np
 import orjson
-import scipy.constants as const
 from monty.dev import deprecated
 from monty.io import zopen
 from monty.json import MontyDecoder, MSONable
@@ -34,6 +34,7 @@ from monty.serialization import dumpfn, loadfn
 from tabulate import tabulate
 
 from pymatgen.core import SETTINGS, Element, Lattice, Structure, get_el_sp
+from pymatgen.core import constants as const
 from pymatgen.electronic_structure.core import Magmom
 from pymatgen.util.io_utils import clean_lines
 from pymatgen.util.string import str_delimited
@@ -113,7 +114,8 @@ class Poscar(MSONable):
         lattice_velocities: ArrayLike | None = None,
         sort_structure: bool = False,
     ) -> None:
-        """
+        """Initialize a Poscar.
+
         Args:
             structure (Structure): Structure object.
             comment (str | None, optional): Optional comment line for POSCAR. Defaults to unit
@@ -721,7 +723,8 @@ class Poscar(MSONable):
 
     @classmethod
     def from_dict(cls, dct: dict) -> Self:
-        """
+        """Reconstruct Poscar from its MSONable dict representation.
+
         Args:
             dct (dict): Dict representation.
 
@@ -881,7 +884,8 @@ class Incar(UserDict, MSONable):
 
     @classmethod
     def from_dict(cls, dct: dict[str, Any]) -> Self:
-        """
+        """Reconstruct Incar from its MSONable dict representation.
+
         Args:
             dct (dict): Serialized Incar.
 
@@ -1174,7 +1178,8 @@ class KpointsSupportedModes(Enum):
 
     @classmethod
     def from_str(cls, mode: str) -> Self:
-        """
+        """Construct a KpointsSupportedModes from a string.
+
         Args:
             mode: String.
 
@@ -1312,7 +1317,8 @@ class Kpoints(MSONable):
 
     @kpts.setter
     def kpts(self, kpts: Sequence[float | int] | Sequence[Sequence[float | int]]) -> None:
-        """
+        """Set the kpoints.
+
         Args:
             kpts: Sequence[float | int] | Sequence[Sequence[float | int]].
         """
@@ -1845,7 +1851,8 @@ class Kpoints(MSONable):
 
     @classmethod
     def from_dict(cls, dct: dict[str, Any]) -> Self:
-        """
+        """Reconstruct Kpoints from its MSONable dict representation.
+
         Args:
             dct (dict): Dict representation.
 
@@ -1919,6 +1926,12 @@ VASP_POTCAR_HASHES: dict = loadfn(f"{MODULE_DIR}/vasp_potcar_file_hashes.json")
 POTCAR_STATS_PATH: str = os.path.join(MODULE_DIR, "potcar-summary-stats.json.bz2")
 
 
+@functools.cache
+def _load_potcar_summary_stats() -> dict:
+    """Lazily load and cache POTCAR summary stats to avoid import-time overhead."""
+    return loadfn(POTCAR_STATS_PATH)
+
+
 class PmgVaspPspDirError(ValueError):
     """Error thrown when PMG_VASP_PSP_DIR is not configured, but POTCAR is requested."""
 
@@ -1990,11 +2003,9 @@ class PotcarSingle:
         "COPYR": str.strip,
     }
 
-    # Used for POTCAR validation
-    _potcar_summary_stats = loadfn(POTCAR_STATS_PATH)
-
     def __init__(self, data: str, symbol: str | None = None) -> None:
-        """
+        """Initialize a PotcarSingle.
+
         Args:
             data (str): Complete, single and raw POTCAR file as a string.
             symbol (str): POTCAR symbol corresponding to the filename suffix
@@ -2344,9 +2355,9 @@ class PotcarSingle:
         # Thus we have to look for matches in all POTCAR dirs, not just the ones with
         # consistent values of LEXCH
         for func in self.functional_dir:
-            for titel_no_spc in self._potcar_summary_stats[func]:
+            for titel_no_spc in _load_potcar_summary_stats()[func]:
                 if self.TITEL.replace(" ", "") == titel_no_spc:
-                    for potcar_subvariant in self._potcar_summary_stats[func][titel_no_spc]:
+                    for potcar_subvariant in _load_potcar_summary_stats()[func][titel_no_spc]:
                         if self.VRHFIN.replace(" ", "") == potcar_subvariant["VRHFIN"]:
                             possible_match = {
                                 "POTCAR_FUNCTIONAL": func,
@@ -2636,7 +2647,7 @@ class PotcarSingle:
 
         identity: dict[str, list] = {"potcar_functionals": [], "potcar_symbols": []}
         for func in self.functional_dir:
-            for ref_psp in self._potcar_summary_stats[func].get(self.TITEL.replace(" ", ""), []):
+            for ref_psp in _load_potcar_summary_stats()[func].get(self.TITEL.replace(" ", ""), []):
                 if self.VRHFIN.replace(" ", "") != ref_psp["VRHFIN"]:
                     continue
 
@@ -2856,7 +2867,8 @@ class Potcar(list, MSONable):
         functional: str | None = None,
         sym_potcar_map: dict[str, str] | None = None,
     ) -> None:
-        """
+        """Initialize a Potcar.
+
         Args:
             symbols (list[str]): Element symbols for POTCAR. This should correspond
                 to the symbols used by VASP. e.g. "Mg", "Fe_pv", etc.
@@ -2926,7 +2938,8 @@ class Potcar(list, MSONable):
 
     @classmethod
     def from_dict(cls, dct: dict) -> Potcar:
-        """
+        """Reconstruct Potcar from its MSONable dict representation.
+
         Args:
             dct (dict): Dict representation.
 
@@ -3026,7 +3039,7 @@ class Potcar(list, MSONable):
             Potcar, a POTCAR using a single functional that matches the input spec.
         """
 
-        functionals = functionals or list(PotcarSingle._potcar_summary_stats)
+        functionals = functionals or list(_load_potcar_summary_stats())
         for functional in functionals:
             potcar = Potcar()
             matched = [False for _ in range(len(potcar_spec))]
@@ -3035,7 +3048,7 @@ class Potcar(list, MSONable):
                 titel_no_spc = titel.replace(" ", "")
                 symbol = titel.split(" ")[1].strip()
 
-                for stats in PotcarSingle._potcar_summary_stats[functional].get(titel_no_spc, []):
+                for stats in _load_potcar_summary_stats()[functional].get(titel_no_spc, []):
                     if PotcarSingle.compare_potcar_stats(spec["summary_stats"], stats):
                         potcar.append(PotcarSingle.from_symbol_and_functional(symbol=symbol, functional=functional))
                         matched[ispec] = True
@@ -3101,24 +3114,28 @@ class VaspInput(dict, MSONable):
 
     def as_dict(self) -> dict:
         """MSONable dict."""
-        dct = {key: val.as_dict() for key, val in self.items()}
+        dct = {key: val.as_dict() if hasattr(val, "as_dict") else val for key, val in self.items()}
         dct["@module"] = type(self).__module__
         dct["@class"] = type(self).__name__
         return dct
 
     @classmethod
     def from_dict(cls, dct: dict) -> Self:
-        """
+        """Reconstruct VaspInput from its MSONable dict representation.
+
         Args:
             dct (dict): Dict representation.
 
         Returns:
             VaspInput
         """
-        sub_dct: dict[str, dict] = {"optional_files": {}}
+        sub_dct: dict[str, Any] = {"optional_files": {}}
         for key, val in dct.items():
             if key in ("INCAR", "POSCAR", "POTCAR", "KPOINTS"):
                 sub_dct[key.lower()] = MontyDecoder().process_decoded(val)
+            elif key == "POTCAR.spec":
+                sub_dct["potcar"] = val
+                sub_dct["potcar_spec"] = True
             elif key not in ["@module", "@class"]:
                 sub_dct["optional_files"][key] = MontyDecoder().process_decoded(val)
         return cls(**sub_dct)  # type: ignore[arg-type]

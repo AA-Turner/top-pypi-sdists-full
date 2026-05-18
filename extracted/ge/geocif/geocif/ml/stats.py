@@ -358,9 +358,27 @@ def add_statistics(
             prod_value = prod_value.replace([0, np.inf, -np.inf], np.nan)
 
             if not yield_value.empty:
-                group.loc[:, target_col] = yield_value.values[0]
-                group.loc[:, "Area (ha)"] = area_value.values[0]
-                group.loc[:, "Production (tn)"] = prod_value.values[0]
+                # Area-weighted aggregation: multiple hvstat rows may pass
+                # the filter (e.g. Rainfed (PS) + irrigated for the same
+                # district/year).  Combine via total_production /
+                # total_area so each system contributes proportionally to
+                # its area, rather than the first row winning.
+                total_area = area_value.sum(skipna=True)
+                total_prod = prod_value.sum(skipna=True)
+                if total_area and total_area > 0 and total_prod and total_prod > 0:
+                    agg_yield = total_prod / total_area
+                elif total_area and total_area > 0 and yield_value.notna().any():
+                    agg_yield = (
+                        (yield_value.fillna(0) * area_value.fillna(0)).sum()
+                        / total_area
+                    )
+                else:
+                    agg_yield = yield_value.mean(skipna=True)
+                group.loc[:, target_col] = agg_yield
+                group.loc[:, "Area (ha)"] = total_area if total_area > 0 else np.nan
+                group.loc[:, "Production (tn)"] = (
+                    total_prod if total_prod > 0 else np.nan
+                )
 
             return group
 

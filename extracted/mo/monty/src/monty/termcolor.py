@@ -1,5 +1,4 @@
-"""
-Copyright (c) 2008-2011 Volvox Development Team
+"""Copyright (c) 2008-2011 Volvox Development Team.
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,22 +36,36 @@ __all__ = ["colored", "cprint"]
 
 VERSION = (1, 1, 0)
 
-ATTRIBUTES = dict(bold=1, dark=2, underline=4, blink=5, reverse=7, concealed=8)
+ATTRIBUTES = {
+    "bold": 1,
+    "dark": 2,
+    "underline": 4,
+    "blink": 5,
+    "reverse": 7,
+    "concealed": 8,
+}
 
-HIGHLIGHTS = dict(
-    on_grey=40,
-    on_red=41,
-    on_green=42,
-    on_yellow=43,
-    on_blue=44,
-    on_magenta=45,
-    on_cyan=46,
-    on_white=47,
-)
+HIGHLIGHTS = {
+    "on_grey": 40,
+    "on_red": 41,
+    "on_green": 42,
+    "on_yellow": 43,
+    "on_blue": 44,
+    "on_magenta": 45,
+    "on_cyan": 46,
+    "on_white": 47,
+}
 
-COLORS = dict(
-    grey=30, red=31, green=32, yellow=33, blue=34, magenta=35, cyan=36, white=37
-)
+COLORS = {
+    "grey": 30,
+    "red": 31,
+    "green": 32,
+    "yellow": 33,
+    "blue": 34,
+    "magenta": 35,
+    "cyan": 36,
+    "white": 37,
+}
 
 RESET = "\033[0m"
 
@@ -60,7 +73,7 @@ __ISON = True
 
 
 def enable(true_false: bool) -> None:
-    """Enable/Disable ANSII Color formatting"""
+    """Enable/Disable ANSII Color formatting."""
     global __ISON
     __ISON = true_false
 
@@ -71,9 +84,7 @@ def ison() -> bool:
 
 
 def stream_has_colours(stream: object) -> bool:
-    """
-    True if stream supports colours. Python cookbook, #475186
-    """
+    """True if stream supports colours. Python cookbook, #475186."""
     if not hasattr(stream, "isatty"):
         return False
 
@@ -87,7 +98,10 @@ def stream_has_colours(stream: object) -> bool:
 
 
 def colored(
-    text: str, color: str = "", on_color: str = "", attrs: list[str] = []
+    text: str,
+    color: str = "",
+    on_color: str = "",
+    attrs: list[str] | None = None,
 ) -> str:
     """Colorize text.
 
@@ -103,8 +117,8 @@ def colored(
     Examples:
         colored('Hello, World!', 'red', 'on_grey', ['blue', 'blink'])
         colored('Hello, World!', 'green')
-    """
 
+    """
     if __ISON and os.getenv("ANSI_COLORS_DISABLED") is None:
         fmt_str = "\033[%dm%s"
         if color:
@@ -122,7 +136,11 @@ def colored(
 
 
 def cprint(
-    text: str, color: str = "", on_color: str = "", attrs: list[str] = [], **kwargs
+    text: str,
+    color: str = "",
+    on_color: str = "",
+    attrs: list[str] | None = None,
+    **kwargs,
 ) -> None:
     """Print colorize text.
 
@@ -132,8 +150,7 @@ def cprint(
 
 
 def colored_map(text: str, cmap: dict) -> str:
-    """
-    Return colorized text. cmap is a dict mapping tokens to color options.
+    """Return colorized text. cmap is a dict mapping tokens to color options.
 
     colored_key("foo bar", {bar: "green"})
     colored_key("foo bar", {bar: {"color": "green", "on_color": "on_red"}})
@@ -149,20 +166,22 @@ def colored_map(text: str, cmap: dict) -> str:
 
 
 def cprint_map(text: str, cmap: dict, **kwargs) -> None:
-    """
-    Print colorize text.
-    cmap is a dict mapping keys to color options.
-    kwargs are passed to print function
+    """Print colorized text using a key→color mapping.
+
+    Args:
+        text: Text to print.
+        cmap: Mapping of substrings to color options.
+        **kwargs: Forwarded to ``print``.
 
     Examples:
-        cprint_map("Hello world", {"Hello": "red"})
+        >>> cprint_map("Hello world", {"Hello": "red"})
+
     """
     print(colored_map(text, cmap), **kwargs)
 
 
 def get_terminal_size():
-    """
-    Return the size of the terminal as (nrow, ncols)
+    """Return the size of the terminal as (nrow, ncols).
 
     Based on:
 

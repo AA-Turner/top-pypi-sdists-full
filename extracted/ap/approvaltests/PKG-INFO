@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approvaltests
-Version: 18.0.3
+Version: 18.0.5
 Summary: Assertion/verification library to aid testing
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
@@ -32,7 +32,7 @@ Requires-Dist: beautifulsoup4>=4.4.0
 Requires-Dist: allpairspy>=2.1.0
 Requires-Dist: testfixtures>=7.1.0
 Requires-Dist: mock>=5.1.0
-Requires-Dist: approval_utilities==18.0.3
+Requires-Dist: approval_utilities==18.0.5
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -345,7 +345,7 @@ typing_extensions>=3.6.2
 
 These dependencies are needed if you are going to use the related functionality.  
 If you want the bare minimum you can use the pypi project
-[approvaltests-minimal](https://pypi.org/project/approvaltests-minimal/).
+[approvaltests_minimal](https://pypi.org/project/approvaltests-minimal/).
 
 <!-- snippet: requirements.prod.extras.txt -->
 <a id='snippet-requirements.prod.extras.txt'></a>

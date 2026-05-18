@@ -1,5 +1,5 @@
-use crate::builtins::builtins_file;
-use crate::db::{File, parse};
+use crate::db::{list_files, parse};
+use crate::file::InFile;
 use crate::location::{Location, LocationKind};
 use crate::offsets::token_from_offset;
 use crate::resolve;
@@ -11,9 +11,9 @@ use squawk_syntax::{
     ast::{self, AstNode},
 };
 
-#[salsa::tracked]
-pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[Location; 1]> {
-    let Some(token) = token_from_offset(db, file, offset) else {
+pub fn goto_definition(db: &dyn Db, position: InFile<TextSize>) -> SmallVec<[Location; 1]> {
+    let file = position.file_id;
+    let Some(token) = token_from_offset(db, position) else {
         return smallvec![];
     };
     let Some(parent) = token.parent() else {
@@ -40,21 +40,21 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
 
     // goto def on COMMIT -> BEGIN/START TRANSACTION
     if ast::Commit::can_cast(parent.kind())
-        && let Some(begin_range) = find_preceding_begin(db, file, offset)
+        && let Some(begin_range) = find_preceding_begin(db, position)
     {
         return smallvec![Location::new(file, begin_range, LocationKind::CommitBegin)];
     }
 
     // goto def on ROLLBACK -> BEGIN/START TRANSACTION
     if ast::Rollback::can_cast(parent.kind())
-        && let Some(begin_range) = find_preceding_begin(db, file, offset)
+        && let Some(begin_range) = find_preceding_begin(db, position)
     {
         return smallvec![Location::new(file, begin_range, LocationKind::CommitBegin)];
     }
 
     // goto def on BEGIN/START TRANSACTION -> COMMIT or ROLLBACK
     if ast::Begin::can_cast(parent.kind())
-        && let Some(end_range) = find_following_commit_or_rollback(db, file, offset)
+        && let Some(end_range) = find_following_commit_or_rollback(db, position)
     {
         return smallvec![Location::new(file, end_range, LocationKind::CommitEnd)];
     }
@@ -66,8 +66,12 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
     }
 
     if let Some(name_ref) = ast::NameRef::cast(parent.clone()) {
-        for definition_file in [file, builtins_file(db)] {
-            if let Some(locations) = resolve::resolve_name_ref(db, definition_file, &name_ref) {
+        for definition_file in list_files(db, file) {
+            if let Some(locations) =
+                // TODO: we shouldn't be wrapping name_ref like this since it's
+                // a different file. Probably a bug.
+                resolve::resolve_name_ref(db, InFile::new(definition_file, &name_ref))
+            {
                 return locations;
             }
         }
@@ -82,10 +86,11 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
         }
     });
     if let Some(ty) = type_node {
-        for definition_file in [file, builtins_file(db)] {
-            let position = token.text_range().start();
+        for definition_file in list_files(db, file) {
             if let Some(ptr) =
-                resolve::resolve_type_ptr_from_type(db, definition_file, &ty, position)
+                // TODO: we shouldn't be wrapping name_ref like this since it's
+                // a different file. Probably a bug.
+                resolve::resolve_type_ptr_from_type(db, InFile::new(definition_file, &ty))
             {
                 return smallvec![Location {
                     file: definition_file,
@@ -99,12 +104,12 @@ pub fn goto_definition(db: &dyn Db, file: File, offset: TextSize) -> SmallVec<[L
     smallvec![]
 }
 
-fn find_preceding_begin(db: &dyn Db, file: File, before: TextSize) -> Option<TextRange> {
+fn find_preceding_begin(db: &dyn Db, position: InFile<TextSize>) -> Option<TextRange> {
     let mut last_begin: Option<TextRange> = None;
-    for stmt in parse(db, file).tree().stmts() {
+    for stmt in parse(db, position.file_id).tree().stmts() {
         if let ast::Stmt::Begin(begin) = stmt {
             let range = begin.syntax().text_range();
-            if range.end() <= before {
+            if range.end() <= position.value {
                 last_begin = Some(range);
             }
         }
@@ -112,18 +117,14 @@ fn find_preceding_begin(db: &dyn Db, file: File, before: TextSize) -> Option<Tex
     last_begin
 }
 
-fn find_following_commit_or_rollback(
-    db: &dyn Db,
-    file: File,
-    after: TextSize,
-) -> Option<TextRange> {
-    for stmt in parse(db, file).tree().stmts() {
+fn find_following_commit_or_rollback(db: &dyn Db, position: InFile<TextSize>) -> Option<TextRange> {
+    for stmt in parse(db, position.file_id).tree().stmts() {
         let range = match &stmt {
             ast::Stmt::Commit(commit) => commit.syntax().text_range(),
             ast::Stmt::Rollback(rollback) => rollback.syntax().text_range(),
             _ => continue,
         };
-        if range.start() >= after {
+        if range.start() >= position.value {
             return Some(range);
         }
     }
@@ -133,12 +134,12 @@ fn find_following_commit_or_rollback(
 #[cfg(test)]
 mod test {
     use crate::builtins::builtins_file;
-    use crate::db::{Database, File};
+    use crate::db::File;
+
     use crate::goto_definition::goto_definition;
     use crate::test_utils::Fixture;
     use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet, renderer::DecorStyle};
     use insta::assert_snapshot;
-    use log::info;
     use rowan::TextRange;
     use rustc_hash::FxHashMap;
 
@@ -150,25 +151,23 @@ mod test {
 
     #[track_caller]
     fn goto_(sql: &str) -> Option<String> {
-        info!("starting");
         let fixture = Fixture::new(sql);
         // For go to def we want the previous character since we usually put the
         // marker after the item we're trying to go to def on.
         let marker = fixture.marker();
         let offset = marker.offset_before();
         let source_span = marker.range();
-        let sql = fixture.sql();
-        let db = Database::default();
-        let current_file = File::new(&db, sql.into());
-        assert_eq!(crate::db::parse(&db, current_file).errors(), vec![]);
-        let results = goto_definition(&db, current_file, offset);
+        let db = fixture.db();
+        let current_file = offset.file_id;
+
+        let results = goto_definition(db, offset);
         if results.is_empty() {
             return None;
         }
 
         let mut file_paths = FxHashMap::default();
         file_paths.insert(current_file, "current.sql");
-        file_paths.insert(builtins_file(&db), "builtins.sql");
+        file_paths.insert(builtins_file(db), "builtins.sql");
 
         let mut dests_by_file: FxHashMap<File, Vec<(usize, TextRange)>> = FxHashMap::default();
         for (i, location) in results.iter().enumerate() {
@@ -180,7 +179,7 @@ mod test {
 
         let multi_file = dests_by_file.len() > 1 || !dests_by_file.contains_key(&current_file);
 
-        let mut snippet = Snippet::source(current_file.content(&db).as_ref()).fold(true);
+        let mut snippet = Snippet::source(current_file.content(db).as_ref()).fold(true);
         if multi_file {
             snippet = snippet.path(*file_paths.get(&current_file).unwrap());
         }
@@ -193,7 +192,7 @@ mod test {
 
         for (dest_file, dests) in dests_by_file {
             let path = file_paths.get(&dest_file).unwrap();
-            let other_snippet = Snippet::source(dest_file.content(&db).as_ref())
+            let other_snippet = Snippet::source(dest_file.content(db).as_ref())
                 .path(*path)
                 .fold(true);
             let other_snippet = annotate_destinations(other_snippet, dests);
@@ -226,7 +225,7 @@ mod test {
             snippet = snippet.annotation(
                 AnnotationKind::Context
                     .span(range.into())
-                    .label(format!("{}. destination", label_index)),
+                    .label(format!("{label_index}. destination")),
             );
         }
 
@@ -296,10 +295,10 @@ begin;
 select 1;
 rollback$0;
 ",
-        ), @r"
+        ), @"
           ╭▸ 
         2 │ begin;
-          │ ───── 2. destination
+          │ ────── 2. destination
         3 │ select 1;
         4 │ rollback;
           ╰╴       ─ 1. source
@@ -867,11 +866,12 @@ alter policy p on t
     #[test]
     fn goto_builtin_now() {
         assert_snapshot!(goto("
+-- include-builtins
 select now$0();
 "), @"
-              ╭▸ current.sql:2:10
+              ╭▸ current.sql:3:10
               │
-            2 │ select now();
+            3 │ select now();
               │          ─ 1. source
               ╰╴
 
@@ -885,11 +885,12 @@ select now$0();
     #[test]
     fn goto_current_timestamp() {
         assert_snapshot!(goto("
+-- include-builtins
 select current_timestamp$0;
 "), @"
-              ╭▸ current.sql:2:24
+              ╭▸ current.sql:3:24
               │
-            2 │ select current_timestamp;
+            3 │ select current_timestamp;
               │                        ─ 1. source
               ╰╴
 
@@ -1011,12 +1012,13 @@ select current_timestamp$0 from t;
     #[test]
     fn goto_current_timestamp_in_where() {
         assert_snapshot!(goto("
+-- include-builtins
 create table t(created_at timestamptz);
 select * from t where current_timestamp$0 > t.created_at;
 "), @"
-              ╭▸ current.sql:3:39
+              ╭▸ current.sql:4:39
               │
-            3 │ select * from t where current_timestamp > t.created_at;
+            4 │ select * from t where current_timestamp > t.created_at;
               │                                       ─ 1. source
               ╰╴
 
@@ -2163,13 +2165,14 @@ inherits (foo.bar, bar$0, buzz);
     #[test]
     fn goto_create_table_inherits_builtin() {
         assert_snapshot!(goto("
+-- include-builtins
 create table t ()
 inherits (information_schema.sql_features);
 select feature_name$0 from t;
 "), @"
-            ╭▸ current.sql:4:19
+            ╭▸ current.sql:5:19
             │
-          4 │ select feature_name from t;
+          5 │ select feature_name from t;
             │                   ─ 1. source
             ╰╴
 
@@ -3481,13 +3484,13 @@ select 1;
 rollback;
 commit;
 ",
-        ), @r"
+        ), @"
           ╭▸ 
         2 │ begin;
           │     ─ 1. source
         3 │ select 1;
         4 │ rollback;
-          ╰╴──────── 2. destination
+          ╰╴───────── 2. destination
         ");
     }
 
@@ -3499,10 +3502,10 @@ begin;
 select 1;
 commit$0;
 ",
-        ), @r"
+        ), @"
           ╭▸ 
         2 │ begin;
-          │ ───── 2. destination
+          │ ────── 2. destination
         3 │ select 1;
         4 │ commit;
           ╰╴     ─ 1. source
@@ -3517,13 +3520,13 @@ begin$0;
 select 1;
 commit;
 ",
-        ), @r"
+        ), @"
           ╭▸ 
         2 │ begin;
           │     ─ 1. source
         3 │ select 1;
         4 │ commit;
-          ╰╴────── 2. destination
+          ╰╴─────── 2. destination
         ");
     }
 
@@ -3535,10 +3538,10 @@ start transaction;
 select 1;
 commit$0;
 ",
-        ), @r"
+        ), @"
           ╭▸ 
         2 │ start transaction;
-          │ ───────────────── 2. destination
+          │ ────────────────── 2. destination
         3 │ select 1;
         4 │ commit;
           ╰╴     ─ 1. source
@@ -3553,13 +3556,13 @@ start$0 transaction;
 select 1;
 commit;
 ",
-        ), @r"
+        ), @"
           ╭▸ 
         2 │ start transaction;
           │     ─ 1. source
         3 │ select 1;
         4 │ commit;
-          ╰╴────── 2. destination
+          ╰╴─────── 2. destination
         ");
     }
 

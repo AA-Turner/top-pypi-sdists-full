@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: subagents-pydantic-ai
-Version: 0.2.2
+Version: 0.2.3
 Summary: Subagent toolset for pydantic-ai with dual-mode execution and dynamic agent creation
 Project-URL: Homepage, https://github.com/vstorm-co/subagents-pydantic-ai
 Project-URL: Documentation, https://github.com/vstorm-co/subagents-pydantic-ai#readme

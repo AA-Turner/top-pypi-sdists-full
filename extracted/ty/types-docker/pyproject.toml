@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-docker"
-version = "7.1.0.20260512"
+version = "7.1.0.20260518"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for docker"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.409
 
 It was generated from typeshed commit
-[`bfcf8df2918b0d24c810a31d9b56c4a9ddd23958`](https://github.com/python/typeshed/commit/bfcf8df2918b0d24c810a31d9b56c4a9ddd23958).
+[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

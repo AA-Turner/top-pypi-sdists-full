@@ -5,7 +5,7 @@
     "distutils": {
         "depends": [],
         "include_dirs": [
-            "/tmp/build-env-48ea_j2h/lib/python3.11/site-packages/numpy/_core/include"
+            "/tmp/build-env-3svx5b9o/lib/python3.11/site-packages/numpy/_core/include"
         ],
         "name": "matio.v5._streams",
         "sources": [

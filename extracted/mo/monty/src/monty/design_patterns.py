@@ -1,6 +1,4 @@
-"""
-Some common design patterns such as singleton and cached classes.
-"""
+"""Some common design patterns such as singleton and cached classes."""
 
 from __future__ import annotations
 
@@ -11,24 +9,23 @@ from typing import TYPE_CHECKING, TypeVar
 from weakref import WeakValueDictionary
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from typing import Any
 
 
-def singleton(cls):
+def singleton(cls: type) -> Callable[[], Any]:
+    """Decorate a class so it has at most one instance.
+
+    Examples:
+        >>> @singleton
+        ... class MySingleton:
+        ...     def __init__(self):
+        ...         pass
+
     """
-    This decorator can be used to create a singleton out of a class.
+    instances: dict[type, Any] = {}
 
-    Usage:
-        @singleton
-        class MySingleton():
-
-            def __init__():
-                pass
-    """
-
-    instances = {}
-
-    def getinstance():
+    def getinstance() -> Any:
         if cls not in instances:
             instances[cls] = cls()
         return instances[cls]
@@ -41,27 +38,25 @@ Klass = TypeVar("Klass")
 
 
 def cached_class(cls: type[Klass]) -> type[Klass]:
-    """
-    Decorator to cache class instances by constructor arguments.
-    This results in a class that behaves like a singleton for each
-    set of constructor arguments, ensuring efficiency.
+    """Decorator to cache class instances by constructor arguments.
 
-    Note that this should be used for *immutable classes only*.  Having
-    a cached mutable class makes very little sense.  For efficiency,
-    avoid using this decorator for situations where there are many
-    constructor arguments permutations.
-
-    If any arguments are non-hashable, that set of arguments
-    is not cached.
+    Results in a class that behaves like a singleton for each set of
+    constructor arguments. Use for *immutable classes only* — caching a
+    mutable class rarely makes sense. Avoid in cases where constructor
+    arguments have many permutations. If any arguments are non-hashable,
+    that set of arguments is not cached.
     """
     orig_new = cls.__new__
     orig_init = cls.__init__
     cache: WeakValueDictionary = WeakValueDictionary()
+    # ``inspect.signature`` is one of the most expensive stdlib calls (typ.
+    # 10-100µs); hoist it out so we pay this cost once per decoration rather
+    # than once per instantiation.
+    sig = inspect.signature(orig_init)
 
     @wraps(orig_new)
     def new_new(cls, *args: Any, **kwargs: Any) -> Any:
         # Normalize arguments
-        sig = inspect.signature(orig_init)
         bound_args = sig.bind(None, *args, **kwargs)
         bound_args.apply_defaults()
 
@@ -116,19 +111,15 @@ class NullFile:
     """A file object that is associated to /dev/null."""
 
     def __new__(cls):
-        """
-        Pass through.
-        """
+        """Pass through."""
         return open(os.devnull, "w")  # pylint: disable=R1732
 
     def __init__(self):
-        """no-op"""
+        """no-op."""
 
 
 class NullStream:
     """A fake stream with a no-op write."""
 
-    def write(self, *args):  # pylint: disable=E0211
-        """
-        Does nothing...
-        """
+    def write(self, *args: Any) -> None:  # pylint: disable=E0211
+        """Do nothing."""

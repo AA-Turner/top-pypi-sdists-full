@@ -1,19 +1,22 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-import av
-import queue
-import threading
-import time as _time
+from ..._internal import expect, HasPosition, profile_section
+from ..._rendering import PygletTextureRenderer, Pipeline
+from ...abc import System
+
+from .._world import World
+from .._component import Transform, VideoPlayer
+
 import pyglet.image as _image
 import pyglet.media as _media
 import pyglet.media.codecs as _codecs
 
-from ..._internal import expect, HasPosition, profile_section
-from ..._rendering import PygletTextureRenderer, Pipeline
-from ...abc import System
-from .._world import World
-from .._component import Transform, VideoPlayer
+import av
+import queue
+import threading
+import time as _time
+from typing import ClassVar
 
 # ======================================== CONSTANTS ========================================
 _VIDEO_BUFFER: int = 16
@@ -33,39 +36,28 @@ class _NoSeekPlayer(_media.Player):
     def on_eos(self) -> None:
         pass
 
-
 # ======================================== AUDIO FEED ========================================
 class _AudioFeed(_media.StreamingSource):
     """Source PCM streaming thread-safe pour pyglet/OpenAL"""
 
-    def __init__(self, sample_rate: int = _AUDIO_RATE, channels: int = _AUDIO_CH) -> None:
-        self.audio_format = _codecs.AudioFormat(
-            channels=channels,
-            sample_size=16,
-            sample_rate=sample_rate,
-        )
-        self._buf:               bytearray         = bytearray()
-        self._lock:              threading.Lock    = threading.Lock()
-        self._done:              bool              = False
-        self._start_mono:        float | None      = None
-        self._play_requested_at: float | None      = None
-        self._loop_offset:       float             = 0.0
-        self._queued:            bool              = False
-        # Positionné à True sur les passes de loop : le buffer est déjà plein
-        # au moment du démarrage, pas besoin d'attendre _AUDIO_PREBUFFER.
-        self._skip_prebuffer:    bool              = False
+    def __init__(
+            self,
+            sample_rate: int = _AUDIO_RATE,
+            channels: int = _AUDIO_CH
+        ) -> None:
+        # Attributs publiques
+        self.audio_format = _codecs.AudioFormat(channels=channels, sample_size=16, sample_rate=sample_rate)
 
-    # ------------------------------------------------------------------
-    def push(self, data: bytes) -> None:
-        with self._lock:
-            if len(self._buf) + len(data) <= _AUDIO_BUFFER_MAX:
-                self._buf.extend(data)
+        # Attributs internes
+        self._buf: bytearray = bytearray()
+        self._lock: threading.Lock = threading.Lock()
+        self._done: bool = False
+        self._start_mono: float | None = None
+        self._play_requested_at: float | None = None
+        self._loop_offset: float = 0.0
+        self._queued: bool = False
+        self._skip_prebuffer: bool = False
 
-    def mark_done(self) -> None:
-        with self._lock:
-            self._done = True
-
-    # ------------------------------------------------------------------
     @property
     def started(self) -> bool:
         """``True`` dès que le premier sample réel a été consommé par OpenAL."""
@@ -82,12 +74,32 @@ class _AudioFeed(_media.StreamingSource):
 
     @property
     def buffered_seconds(self) -> float:
+        """Calcul de temps bufferisé"""
         bps = self.audio_format.sample_rate * self.audio_format.channels * 2
         with self._lock:
             return len(self._buf) / bps
 
-    # ------------------------------------------------------------------
-    def get_audio_data(self, num_bytes: int, compensation_time: float = 0.0):
+    def push(self, data: bytes) -> None:
+        """Pousse des données sur le buffer
+        
+        Args:
+            data: données audio à pousser
+        """
+        with self._lock:
+            if len(self._buf) + len(data) <= _AUDIO_BUFFER_MAX:
+                self._buf.extend(data)
+
+    def mark_done(self) -> None:
+        """Flag de fin"""
+        with self._lock:
+            self._done = True
+
+    def get_audio_data(self, num_bytes: int):
+        """Renvoie les données audio
+        
+        Args:
+            num_bytes: nombre de bits
+        """
         with self._lock:
             available = len(self._buf)
 
@@ -112,51 +124,44 @@ class _AudioFeed(_media.StreamingSource):
         dur = n / (sr * ch * 2)
         return _codecs.AudioData(data, n, 0.0, dur, [])
 
-
 # ======================================== SYSTEM ========================================
 class VideoSystem(System):
-    """Système gérant les composants ``VideoPlayer``.
-
-    ## Clock de synchro vidéo
-
-    ``_AudioFeed.playback_time`` — monotonic ancré au moment où OpenAL consomme
-    le premier sample réel (pas au play(), pas aux bytes théoriques). Aucun drift
-    lié à la latence driver. Le temps absolu est ``_loop_time_offset + feed.playback_time``.
-
-    ## Stratégie loop
-
-    À chaque loop :
-    1. Thread décodeur finit, pose ``loop_event``, s'arrête sans mark_done.
-    2. Main thread recrée un ``_NoSeekPlayer`` propre, accumule ``_loop_time_offset``.
-    3. Un nouveau thread démarre avec ``pts_offset = _loop_time_offset`` pour que
-       les PTS vidéo soient continus sur toute la durée de vie du player.
-    4. Le prebuffer est ignoré (``_skip_prebuffer=True``) car le thread a déjà
-       eu le temps de remplir le buffer pendant que l'ancien audio se terminait.
+    """Système gérant les composants ``VideoPlayer``
+    
+    Args:
+        origin: référentiel sonore
     """
+    __slots__ = (
+        "_origin",
+        "_threads", "_sprites",
+    )
 
-    __slots__ = ("_origin", "_threads", "_sprites")
+    _ORDER: ClassVar[int] = 95
 
-    order      = 95
-    exclusive  = True
-    renderable = True
+    _IS_EXCLUSIVE: ClassVar[bool] = True
+    _IS_RENDERABLE: ClassVar[bool] = True
 
     def __init__(self, origin: HasPosition) -> None:
+        # Vérifications
         if __debug__:
             expect(origin, HasPosition)
-        self._origin:  HasPosition                      = origin
-        self._threads: dict[int, threading.Thread]      = {}
+        
+        # Attributs publiques
+        self._origin: HasPosition = origin
+
+        # Attributs internes
+        self._threads: dict[int, threading.Thread] = {}
         self._sprites: dict[int, PygletTextureRenderer] = {}
 
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
-        return (
-            f"VideoSystem(origin={(self._origin.x, self._origin.y)}, "
-            f"active={len(self._threads)})"
-        )
+        """Renvoie une représentation du système"""
+        return f"VideoSystem(origin={(self._origin.x, self._origin.y)}, active={len(self._threads)})"
 
     # ======================================== PROPERTIES ========================================
     @property
     def origin(self) -> HasPosition:
+        """Référentiel sonore"""
         return self._origin
 
     @origin.setter
@@ -165,20 +170,21 @@ class VideoSystem(System):
             expect(value, HasPosition)
         self._origin = value
 
-    def _video_time(self, vp: VideoPlayer) -> float:
-        if vp._audio_feed is None:
-            return vp._loop_time_offset
-        return vp._loop_time_offset + vp._audio_feed.playback_time
-
     # ======================================== LIFE CYCLE ========================================
     @profile_section("world.video.update")
     def update(self, world: World, dt: float) -> None:
+        """Actualisation des lecteurs vidéo
+
+        Args:
+            world: monde à mettre à jour
+            dt: delta-time
+        """
         active_eids: set[int] = set()
 
         for entity in world.query(VideoPlayer):
-            vp:  VideoPlayer = entity.video_player
-            tr:  Transform   = entity.transform
-            eid: int         = entity.id
+            vp: VideoPlayer = entity.video_player
+            tr: Transform = entity.transform
+            eid: int = entity.id
             active_eids.add(eid)
 
             if vp._video and not vp._initialized:
@@ -205,10 +211,16 @@ class VideoSystem(System):
 
     @profile_section("world.video.draw")
     def draw(self, world: World, pipeline: Pipeline) -> None:
+        """Affichage
+        
+        Args:
+            world: monde à rendre
+            pipeline: ``Pipeline`` de rendu courant
+        """
         for entity in world.query(VideoPlayer):
             eid = entity.id
-            vp  = entity.video_player
-            tr  = entity.transform
+            vp = entity.video_player
+            tr = entity.transform
 
             renderer = self._sprites.get(eid)
             if renderer is None:
@@ -226,6 +238,12 @@ class VideoSystem(System):
 
     # ======================================== PLAYER LIFECYCLE ========================================
     def _load_player(self, eid: int, vp: VideoPlayer) -> None:
+        """Charge un ``MediaPlayer`` pyglet
+        
+        Args:
+            eid: identifiant de l'entité
+            vp: composant ``VideoPlayer``
+        """
         was_playing = vp._playing
         self._stop_player(eid, vp)
 
@@ -241,38 +259,34 @@ class VideoSystem(System):
         self._start_decode_pass(eid, vp, first=True)
 
         vp._initialized = True
-        vp._playing     = was_playing
+        vp._playing = was_playing
 
     def _start_decode_pass(self, eid: int, vp: VideoPlayer, *, first: bool) -> None:
-        """Lance une passe de décodage (première ou loop).
-
-        first=True  → initialise aussi la queue vidéo et les events globaux.
-        first=False → réutilise queue et stop/pause events ; crée juste
-                      un nouveau feed et thread pour cette passe.
-
-        Note : le feed N'EST PAS queué ici sur le player. C'est _update_audio
-        qui s'en charge au moment du prebuffer, pour éviter le double-queue.
+        """Lance une passe de décodage
+        
+        Args:
+            eid: identifiant de l'entité
+            vp: composant ``VideoPlayer``
+            first: première lecture
         """
         if first:
-            vp._frame_queue      = queue.Queue(maxsize=_VIDEO_BUFFER)
-            vp._pending_frame    = None
-            vp._stop_event       = threading.Event()
-            vp._pause_event      = threading.Event()
+            vp._frame_queue = queue.Queue(maxsize=_VIDEO_BUFFER)
+            vp._pending_frame = None
+            vp._stop_event = threading.Event()
+            vp._pause_event = threading.Event()
             vp._pause_event.set()
-            vp._audio_started    = False
+            vp._audio_started = False
             vp._loop_time_offset = 0.0
-            vp._prev_audio_feed  = None
-            vp._frames_ready     = False
-            vp._audio_ready      = False
+            vp._prev_audio_feed = None
+            vp._frames_ready = False
+            vp._audio_ready = False
 
         feed = _AudioFeed(_AUDIO_RATE, _AUDIO_CH)
-        feed._loop_offset    = vp._loop_time_offset
+        feed._loop_offset = vp._loop_time_offset
         feed._skip_prebuffer = not first
-        vp._audio_feed       = feed
-        # Le queue sur le player est délégué à _update_audio (via _queued flag)
-        # pour éviter le double-queue qui causait le décalage aux loops.
+        vp._audio_feed = feed
 
-        vp._end_event  = threading.Event()
+        vp._end_event = threading.Event()
         vp._loop_event = threading.Event()
 
         thread = threading.Thread(
@@ -290,10 +304,16 @@ class VideoSystem(System):
             daemon=True,
         )
         thread.start()
-        vp._decode_thread  = thread
+        vp._decode_thread = thread
         self._threads[eid] = thread
 
     def _stop_player(self, eid: int, vp: VideoPlayer) -> None:
+        """Arrête le ``MediaPlayer`` pyglet
+        
+        Args:
+            eid: identifiant de l'entité
+            vp: composant ``VideoPlayer``
+        """
         vp.stop()
 
         if vp._decode_thread is not None:
@@ -312,20 +332,26 @@ class VideoSystem(System):
                 pass
             vp._audio_player = None
 
-        vp._audio_feed      = None
+        vp._audio_feed = None
         vp._prev_audio_feed = None
-        vp._decode_thread   = None
-        vp._frame_queue     = None
-        vp._pending_frame   = None
-        vp._stop_event      = None
-        vp._pause_event     = None
-        vp._end_event       = None
-        vp._loop_event      = None
-        vp._audio_started   = False
+        vp._decode_thread = None
+        vp._frame_queue = None
+        vp._pending_frame = None
+        vp._stop_event = None
+        vp._pause_event = None
+        vp._end_event = None
+        vp._loop_event = None
+        vp._audio_started = False
         self._threads.pop(eid, None)
 
     # ======================================== SIGNALS ========================================
     def _check_signals(self, eid: int, vp: VideoPlayer) -> None:
+        """Vérifie les signaux des threads secondaires
+
+        Args:
+            eid: identifiant de l'entité
+            vp: composant ``VideoPlayer``
+        """
         if vp._loop_event is not None and vp._loop_event.is_set():
             vp._loop_event.clear()
             self._prepare_loop(eid, vp)
@@ -338,14 +364,16 @@ class VideoSystem(System):
             self._stop_player(eid, vp)
 
     def _prepare_loop(self, eid: int, vp: VideoPlayer) -> None:
-        """Prépare la transition seamless vers la passe suivante."""
+        """Prépare la transition seamless vers la passe suivante
+        
+        Args:
+            eid: identifiant de l'entité
+            vp: composant ``VideoPlayer``
+        """
         if vp._decode_thread is not None:
             vp._decode_thread.join(timeout=1.0)
             vp._decode_thread = None
 
-        # Calcul de l'offset AVANT de tuer le feed.
-        # On utilise _duration (temps réel du fichier) plutôt que playback_time
-        # qui est toujours en retard sur le buffer non encore consommé par OpenAL.
         if vp._duration is not None:
             vp._loop_time_offset += vp._duration
         else:
@@ -377,6 +405,12 @@ class VideoSystem(System):
 
     # ======================================== AUDIO ========================================
     def _update_audio(self, vp: VideoPlayer, spatial_volume: float) -> None:
+        """Actualisation audio
+
+        Args:
+            vp: composant ``VideoPlayer``
+            spatial_volume: volume sonore
+        """
         player = vp._audio_player
         if player is None:
             return
@@ -387,9 +421,7 @@ class VideoSystem(System):
         if not vp._audio_started:
             if vp._audio_feed is None:
                 return
-            # Sur une passe de loop, le thread a déjà eu le temps de remplir
-            # le buffer pendant que l'ancien audio se terminait — on démarre
-            # immédiatement sans attendre _AUDIO_PREBUFFER.
+            
             if not vp._audio_feed._skip_prebuffer:
                 if vp._audio_feed.buffered_seconds < _AUDIO_PREBUFFER:
                     return
@@ -409,6 +441,11 @@ class VideoSystem(System):
 
     # ======================================== FRAMES ========================================
     def _consume_frames(self, vp: VideoPlayer) -> None:
+        """Consomme les frames vidéo prêtes
+
+        Args:
+            vp: composant ``VideoPlayer``
+        """
         if vp._frame_queue is None or vp._audio_feed is None:
             return
 
@@ -440,6 +477,14 @@ class VideoSystem(System):
 
     @staticmethod
     def _blit_frame(vp: VideoPlayer, w: int, h: int, data: bytes) -> None:
+        """Affiche la frame courante
+        
+        Args:
+            vp: composant ``VideoPlayer``
+            w: largeur du lecteur
+            h: hauteur du lecteur
+            data: données vidéo
+        """
         if not vp.visible:
             return
         img = _image.ImageData(w, h, "RGB", data, pitch=-w * 3)
@@ -451,6 +496,12 @@ class VideoSystem(System):
     # ======================================== SPATIAL VOLUME ========================================
     @staticmethod
     def _compute_volume(vp: VideoPlayer, distance: float) -> float:
+        """Calcul du volume spatial
+        
+        Args:
+            vp: composant ``VideoPlayer``
+            distance: distance entre le lecteur et le référentiel sonore
+        """
         base = vp.volume * vp._video.volume
         if vp.outer_radius == 0.0 or distance <= vp.inner_radius:
             return base
@@ -471,20 +522,20 @@ class VideoSystem(System):
         loop_event: threading.Event,
         loop: bool,
     ) -> None:
-        """Thread de décodage AV — une seule passe par instance.
-
-        En mode loop : pose ``loop_event`` et s'arrête SANS mark_done.
-        Le main thread appellera mark_done sur ce feed plus tard, quand
-        le nouveau feed suivant sera prêt (transition seamless).
-
-        En mode non-loop : mark_done puis end_event.
+        """Thread de décodage AV
+        
+        Args:
+            path: chemin vers le fichier vidéo
+            frame_queue: file des frames
+            audio_feed: source pcm de streaming
+            stop_event: événement d'arrêt
+            pause_event: événement de pause
+            end_event: événement de fin
+            loop_event: événement de répétition
+            loop: répétition
         """
-        pts_offset      = audio_feed._loop_offset
-        audio_resampler = av.AudioResampler(
-            format="s16",
-            layout="stereo",
-            rate=_AUDIO_RATE,
-        )
+        pts_offset = audio_feed._loop_offset
+        audio_resampler = av.AudioResampler(format="s16", layout="stereo", rate=_AUDIO_RATE)
 
         try:
             with av.open(path) as container:
@@ -514,10 +565,10 @@ class VideoSystem(System):
                         if isinstance(frame, av.VideoFrame):
                             if frame.pts is None:
                                 continue
-                            pts     = float(frame.pts * frame.time_base) + pts_offset
-                            rgb     = frame.to_ndarray(format="rgb24")
+                            pts = float(frame.pts * frame.time_base) + pts_offset
+                            rgb = frame.to_ndarray(format="rgb24")
                             h, w, _ = rgb.shape
-                            data    = rgb.tobytes()
+                            data = rgb.tobytes()
                             while not stop_event.is_set():
                                 try:
                                     frame_queue.put((pts, w, h, data), timeout=0.05)
@@ -547,3 +598,19 @@ class VideoSystem(System):
         else:
             audio_feed.mark_done()
             end_event.set()
+
+    # ======================================== INTERNALS ========================================
+    def _video_time(self, vp: VideoPlayer) -> float:
+        """Calcul du temps total de lecture
+
+        Args:
+            vp: composant ``VideoPlayer``
+        """
+        if vp._audio_feed is None:
+            return vp._loop_time_offset
+        return vp._loop_time_offset + vp._audio_feed.playback_time
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "VideoSystem",
+]

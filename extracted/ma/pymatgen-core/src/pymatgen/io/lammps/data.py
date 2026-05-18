@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from pymatgen.core.structure import IMolecule, IStructure, SiteCollection
 
 __author__ = "Kiran Mathew, Zhi Deng, Tingzheng Hou"
-__copyright__ = "Copyright 2018, The Materials Virtual Lab"
+__copyright__ = "Copyright 2018, The Materialyze Lab"
 __version__ = "2.0"
 __maintainer__ = "Tingzheng Hou"
 __email__ = "tingzheng_hou@berkeley.edu"
@@ -197,7 +197,8 @@ class LammpsBox(MSONable):
     """Object for representing a simulation box in LAMMPS settings."""
 
     def __init__(self, bounds: Sequence, tilt: Sequence | None = None) -> None:
-        """
+        """Initialize a LammpsBox.
+
         Args:
             bounds: A (3, 2) array/list of floats setting the
                 boundaries of simulation box.
@@ -1059,7 +1060,8 @@ class Topology(MSONable):
         velocities: Sequence[Sequence] | None = None,
         topologies: dict | None = None,
     ) -> None:
-        """
+        """Initialize a Topology.
+
         Args:
             sites ([Site] or SiteCollection): A group of sites in a
                 list or as a Molecule/Structure.
@@ -1206,7 +1208,8 @@ class ForceField(MSONable):
         nonbond_coeffs: list | None = None,
         topo_coeffs: dict | None = None,
     ) -> None:
-        """
+        """Initialize a ForceField.
+
         Args:
             mass_info (list): List of atomic mass info. Elements,
                 strings (symbols) and floats are all acceptable for the
@@ -1405,7 +1408,8 @@ class CombinedData(LammpsData):
         coordinates: pd.DataFrame,
         atom_style: str = "full",
     ) -> None:
-        """
+        """Initialize a CombinedData.
+
         Args:
             list_of_molecules: A list of LammpsData objects of a chemical cluster.
                 Each LammpsData object (cluster) may contain one or more molecule ID.

@@ -65,3 +65,8 @@ class GravitySystem(System):
             if rb.is_static() or not rb.is_gravitational():
                 continue
             rb.apply_acceleration(self._gravity * rb.gravity_scale)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "GravitySystem",
+]

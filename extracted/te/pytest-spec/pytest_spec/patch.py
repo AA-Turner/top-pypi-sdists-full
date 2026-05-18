@@ -5,7 +5,7 @@
 
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from _pytest.config import Config
 from _pytest.main import Session
@@ -21,6 +21,20 @@ BOUNDARIES_REGEXP = re.compile(
     """,
     re.VERBOSE,
 )
+
+
+def iterate_scope_hierarchy(previous: list[str], current: list[str]) -> Generator[tuple[int, str], None, None]:
+    """
+    Generates a (depth, scope) sequence for the current hierarchy starting from the first
+    level that differs from the previous hierarchy. This is used to process only the new
+    namespace depths when transitioning between two scope hirarchies.
+    """
+    yielding = False
+    for depth, scope in enumerate(current):
+        if depth >= len(previous) or scope != previous[depth]:
+            yielding = True
+        if yielding:
+            yield depth, scope
 
 
 def pytest_runtest_logstart(self, nodeid: str, location: Tuple[str, int, str]) -> None:
@@ -84,14 +98,9 @@ def pytest_runtest_logreport(self, report: TestReport) -> None:
         self.currentfspath = test_path
         _print_description(self)
 
-    scope_ind = 0
-    for msg in self.current_scopes:
-        if msg not in self.previous_scopes:
-            msg = [indent * scope_ind + prettify_description(msg)]
-            msg = "\n".join(msg)
-            if msg:
-                _print_description(self, msg)
-        scope_ind += 1
+    for scope_ind, scope in iterate_scope_hierarchy(self.previous_scopes, self.current_scopes):
+        container_name = _format_container_name(scope, self.config)
+        _print_description(self, indent * scope_ind + container_name)
     self.previous_scopes = self.current_scopes
 
     if not isinstance(word, tuple):
@@ -155,6 +164,16 @@ def _get_test_path(nodeid: str, header: str) -> str:
     )
 
 
+def _format_container_name(container: str, config) -> str:
+    unit_name = _remove_test_container_prefix(container)
+    sentence = prettify(unit_name)
+
+    return config.getini("spec_container_format").format(
+        sentence=sentence,
+        unit_name=unit_name,
+    )
+
+
 def _print_description(self, msg: Optional[str] = None) -> None:
     if msg is None:
         msg = self.currentfspath
@@ -166,7 +185,7 @@ def _print_description(self, msg: Optional[str] = None) -> None:
 
 
 def _remove_test_container_prefix(nodeid: str) -> str:
-    return re.sub("^(Test)|(describe)", "", nodeid)
+    return re.sub("^(Test)|(describe_?)", "", nodeid)
 
 
 def _remove_file_extension(nodeid: str) -> str:

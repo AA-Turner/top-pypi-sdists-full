@@ -53,6 +53,12 @@ class SessionLogger:
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self.session_dir = self.save_folder
         self.session_metadata = self._initialize_session_metadata()
+        # Publish current session dir at init too (not just on reset)
+        # so external watchers can find the very first session.
+        try:
+            self._publish_current_session()
+        except Exception:  # noqa: BLE001
+            pass
 
     @property
     def save_folder(self) -> Path:
@@ -80,6 +86,30 @@ class SessionLogger:
                 "Cannot get session messages filepath when logging is disabled"
             )
         return self.session_dir / MESSAGES_FILENAME
+
+    def log_event(self, event: dict) -> None:
+        """Append a structured event to <session_dir>/events.jsonl.
+
+        Used for things that aren't conversation messages but ARE
+        worth recording for replay/debugging — e.g.
+        user_injection_queued (typed during agent run), tool_recycled,
+        modal_opened, etc. Fail-silent: never raise.
+
+        Creates session_dir on first call if it doesn't exist yet
+        (early-session events can fire before persist_messages
+        materialises the dir).
+        """
+        if self.session_dir is None:
+            return
+        try:
+            import json as _json
+            import time as _time
+            event_with_ts = {"ts": _time.time(), **event}
+            self.session_dir.mkdir(parents=True, exist_ok=True)
+            with (self.session_dir / "events.jsonl").open("a") as f:
+                f.write(_json.dumps(event_with_ts) + "\n")
+        except Exception:  # noqa: BLE001 — never block on logging
+            pass
 
     @property
     def git_commit(self) -> str | None:
@@ -298,7 +328,21 @@ class SessionLogger:
             self.maybe_cleanup_tmp_files()
 
     def reset_session(self, session_id: str) -> None:
-        """Clear existing session info and setup a new session"""
+        """Clear existing session info and setup a new session.
+
+        Materializes the new session_dir on disk immediately so external
+        watchers (drydock-using tools, dashboards, the stress harness)
+        can discover the new session BEFORE the first message gets
+        persisted.
+
+        Also publishes the new session_dir path to
+        ~/.drydock/current_session.txt — any external tool that wants to
+        know "which drydock session is active right now" can read this
+        single file instead of doing a heuristic mtime-sorted search of
+        all ~3k+ historical session dirs. Solves the post-/clear race
+        where a watcher polling between reset_session and the OS
+        filesystem flush would cache the OLD dir as "newest".
+        """
         if not self.enabled:
             return
 
@@ -306,6 +350,38 @@ class SessionLogger:
         self.session_start_time = utc_now().isoformat()
         self.session_dir = self.save_folder
         self.session_metadata = self._initialize_session_metadata()
+        try:
+            self.session_dir.mkdir(parents=True, exist_ok=True)
+            # Touch the messages.jsonl marker so watchers see this as a
+            # discoverable session dir immediately, not after the first
+            # message lands.
+            (self.session_dir / MESSAGES_FILENAME).touch(exist_ok=True)
+            # Publish the active session_dir for external watchers.
+            self._publish_current_session()
+            self.log_event({
+                "event": "session_reset",
+                "session_id": session_id,
+            })
+        except Exception:  # noqa: BLE001 — never block on disk
+            pass
+
+    def _publish_current_session(self) -> None:
+        """Write the active session_dir path to ~/.drydock/current_session.txt
+        so external watchers don't have to mtime-scan the whole history.
+
+        Atomic via write-then-rename. Fail-silent — publishing is an
+        observability convenience, never block the session on it.
+        """
+        if self.session_dir is None:
+            return
+        try:
+            pub_path = Path.home() / ".drydock" / "current_session.txt"
+            pub_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = pub_path.with_suffix(".txt.tmp")
+            tmp_path.write_text(str(self.session_dir) + "\n")
+            tmp_path.replace(pub_path)
+        except Exception:  # noqa: BLE001
+            pass
 
     def resume_existing_session(self, session_id: str, session_dir: Path) -> None:
         if not self.enabled:

@@ -483,38 +483,31 @@ def label_data_for_printing_impl(
         )
         ascending = [False if "RSI" not in menu_choice_hierarchy else True]
         
-        # Override based on execute option
-        if execute_option == 21:
-            if reversal_option in [3, 5, 6, 7]:
-                sort_key = ["MFI"]
-                ascending = [reversal_option in [6, 7]]
-            elif reversal_option in [8, 9]:
-                sort_key = ["FVDiff"]
-                ascending = [reversal_option in [9]]
-        elif execute_option == 7:
-            if reversal_option in [3]:
-                if "SuperConfSort" in save_results.columns:
-                    sort_key = ["SuperConfSort"]
-                    ascending = [False]
-                else:
-                    sort_key = ["volume"]
-                    ascending = [False]
-            elif reversal_option in [4,7]:
-                sort_col = "Pattern_Score" if "Pattern_Score" in save_results.columns else ("Score" if "Score" in save_results.columns else "volume")
-                sort_key = [sort_col]
-                ascending = [False]
-        elif execute_option == 23:
-            sort_key = ["bbands_ulr_ratio_max5"] if "bbands_ulr_ratio_max5" in screen_results.columns else ["volume"]
-            ascending = [False]
-        elif execute_option == 27:  # ATR Cross
-            sort_key = ["ATR"] if "ATR" in screen_results.columns else ["volume"]
-            ascending = [False]
-        elif execute_option == 30:  # ATR Trailing Stop
-             sort_key = ["Confidence"] if "Confidence" in screen_results.columns else ["volume"]
-             ascending = [False]
-        elif execute_option == 31:  # DEEL Momentum
-            sort_key = ["%Chng"]
-            ascending = [False]
+        sort_key = ["volume"]
+        ascending = [False]
+        if "Score" in save_results.columns:
+            sort_key = ["Score"]
+        else:
+            # Override based on execute option
+            if execute_option == 21:
+                if reversal_option in [3, 5, 6, 7]:
+                    sort_key = ["MFI"]
+                    ascending = [reversal_option in [6, 7]]
+                elif reversal_option in [8, 9]:
+                    sort_key = ["FVDiff"]
+                    ascending = [reversal_option in [9]]
+            elif execute_option == 7:
+                if reversal_option in [3]:
+                    if "SuperConfSort" in save_results.columns:
+                        sort_key = ["SuperConfSort"]
+            elif execute_option == 23:
+                sort_key = ["bbands_ulr_ratio_max5"] if "bbands_ulr_ratio_max5" in screen_results.columns else sort_key
+            elif execute_option == 27:  # ATR Cross
+                sort_key = ["ATR"] if "ATR" in screen_results.columns else sort_key
+            elif execute_option == 30:  # ATR Trailing Stop
+                sort_key = ["Confidence"] if "Confidence" in screen_results.columns else sort_key
+            elif execute_option == 31:  # DEEL Momentum
+                sort_key = ["%Chng"]
         
         # Apply sorting
         try:
@@ -536,7 +529,7 @@ def label_data_for_printing_impl(
             default_logger().debug(e, exc_info=True)
         
         # Columns to delete
-        columns_to_be_deleted = ["MFI", "FVDiff", "ConfDMADifference", "bbands_ulr_ratio_max5", "RSIi", "Pattern_Score"]
+        columns_to_be_deleted = ["MFI", "FVDiff", "ConfDMADifference", "bbands_ulr_ratio_max5", "RSIi"]
         if menu_option not in ["F"]:
             columns_to_be_deleted.extend(["ScanOption"])
         if "EoDDiff" in save_results.columns:

@@ -66,6 +66,35 @@ def get_active_identity() -> object | None:
     return _active_identity.get()
 
 
+async def _emit_collection_widget_update(collection: str, *, reason: str = "data") -> None:
+    if not collection or collection.startswith("_"):
+        return
+    identity = get_active_identity()
+    if identity is None:
+        return
+    session_id = getattr(identity, "id", "")
+    block_callback = getattr(identity, "_block_callback", None)
+    if not session_id or block_callback is None:
+        return
+    block_json = json.dumps(
+        {
+            "id": f"widget_update_{session_id}",
+            "type": "widget_update",
+            "payload": {
+                "reason": reason,
+                "session_id": session_id,
+                "collection": collection,
+            },
+        }
+    )
+    try:
+        result = block_callback(block_json)
+        if asyncio.iscoroutine(result):
+            await result
+    except Exception:
+        pass
+
+
 def _normalize_update(update: dict) -> dict:
     """Normalize an update document for MongoDB.
 
@@ -122,7 +151,20 @@ def _mongo_field(field: str) -> str:
 
 def _normalize_id(value):
     if isinstance(value, dict) and "$oid" in value:
-        return value["$oid"]
+        return _normalize_id(value["$oid"])
+    if isinstance(value, str):
+        return _normalize_object_id_string(value)
+    return value
+
+
+def _normalize_object_id_string(value: str) -> str:
+    for prefix in ('ObjectID("', 'ObjectId("', "ObjectID('", "ObjectId('"):
+        if value.startswith(prefix) and len(value) == len(prefix) + 26:
+            quote = prefix[-1]
+            if value[-2] == quote and value[-1] == ")":
+                candidate = value[len(prefix) : len(prefix) + 24]
+                if re.fullmatch(r"[0-9a-fA-F]{24}", candidate):
+                    return candidate
     return value
 
 
@@ -366,6 +408,7 @@ class Collection:
         )
         result = dict(document)
         result["_id"] = resp.id
+        await _emit_collection_widget_update(self._name)
         return CollectionRow(result, self)
 
     async def insert_many(self, documents: list[dict]) -> list[dict]:
@@ -382,6 +425,7 @@ class Collection:
             r = dict(doc)
             r["_id"] = id_
             results.append(CollectionRow(r, self))
+        await _emit_collection_widget_update(self._name)
         return results
 
     async def raw_get(self, filter: dict | None = None) -> CollectionRow | None:
@@ -462,6 +506,7 @@ class Collection:
                 upsert=upsert,
             ),
         )
+        await _emit_collection_widget_update(self._name)
         return {"matched": resp.matched, "modified": resp.modified}
 
     async def delete_one(self, filter: dict) -> dict:
@@ -473,6 +518,7 @@ class Collection:
             self._stub.delete_one,
             DeleteOneRequest(app_id=self._app_id, collection=self._name, filter_json=filter_json),
         )
+        await _emit_collection_widget_update(self._name)
         return {"deleted": resp.deleted}
 
     async def delete_many(self, filter: dict) -> dict:
@@ -484,6 +530,7 @@ class Collection:
             self._stub.delete_many,
             DeleteManyRequest(app_id=self._app_id, collection=self._name, filter_json=filter_json),
         )
+        await _emit_collection_widget_update(self._name)
         return {"deleted": resp.deleted}
 
     async def delete_rows(self, rows_or_ids) -> dict:
@@ -602,6 +649,7 @@ class DynamicCollection:
             self._stub.upsert_collection_schema,
             UpsertCollectionSchemaRequest(app_id=self._app_id, schema=schema),
         )
+        await _emit_collection_widget_update(self.name, reason="schema")
         return self._columns_from_schema(resp.schema)
 
     async def add_column(

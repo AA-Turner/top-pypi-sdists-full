@@ -20,6 +20,7 @@ from numbers_parser.constants import (
     DEFAULT_ROW_COUNT,
     DEFAULT_ROW_HEIGHT,
 )
+from numbers_parser.xrefs import CellRange
 
 ISSUE_3_REF = [("A", "B"), (2.0, 0.0), (3.0, 1.0), (None, None)]
 ISSUE_4_REF_1 = "Part 1 \n\nPart 2\n"
@@ -112,7 +113,7 @@ def test_issue_7():
     table = tables[0]
     assert table.cell(1, 1).value == ISSUE_7_REF_1
     assert table.cell(2, 1).value == ISSUE_7_REF_2
-    assert table.cell(1, 1).bullets[0] == ISSUE_7_REF_1.split("\n")[0]
+    assert table.cell(1, 1).bullets[0] == ISSUE_7_REF_1.split("\n", maxsplit=1)[0]
     assert table.cell(2, 1).bullets[2] == ISSUE_7_REF_2.split("\n")[2]
 
 
@@ -629,3 +630,21 @@ def test_issue_104():
     data = tables["table_name"].rows()
     assert data[0][0].value == "Data"
     assert data[3][1].value == "4"  # Cell deliberately formatted as text
+
+
+def test_issue_121():
+    doc = Document("tests/data/issue-121.numbers")
+    table = doc.sheets[0].tables[0]
+    cell = table.cell(1, 2)
+    assert isinstance(cell, ErrorCell)
+    assert cell.formula == "#REF!"
+
+    r = CellRange(row_start=cell.row, col_start=-1, model=cell._model)
+    assert r.expand_ref("A1") == "#REF!"
+
+
+def test_issue_131():
+    doc = Document("tests/data/issue-131.numbers")
+    table = doc.sheets["Test"].tables["Summary"]
+    assert table.cell(0, 1).formula == 'SUMIF(Category,"="&A1,Amount)'
+    assert table.cell(9, 1).formula == "-SUM(B1:B6)"

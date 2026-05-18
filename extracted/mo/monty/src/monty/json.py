@@ -1,15 +1,15 @@
-"""
-JSON serialization and deserialization utilities.
-"""
+"""JSON serialization and deserialization utilities."""
 
 from __future__ import annotations
 
 import dataclasses
 import datetime
+import functools
 import json
 import os
 import pathlib
 import pickle
+import sys
 import traceback
 import types
 from collections import OrderedDict, defaultdict
@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 import numpy as np
-from ruamel.yaml import YAML
 
 if TYPE_CHECKING:
     from typing import Any
@@ -30,22 +29,111 @@ if TYPE_CHECKING:
 try:
     import bson
     from bson import json_util
+
+    _BSON_JSON_OPTIONS = json_util.JSONOptions(tz_aware=True)  # type: ignore[no-untyped-call]
 except ImportError:
-    bson = None
-    json_util = None
+    bson = None  # type: ignore[assignment]
+    json_util = None  # type: ignore[assignment]
+    _BSON_JSON_OPTIONS = None  # type: ignore[assignment]
 
 __version__ = "3.0.0"
 
 
-def _load_redirect(redirect_file) -> dict:
+# ---------------------------------------------------------------------------
+# Cached helpers (perf hot paths)
+# ---------------------------------------------------------------------------
+
+
+@functools.cache
+def _init_spec(cls: type):
+    """Cache ``getfullargspec(cls.__init__)``.
+
+    Typically the dominant cost of ``MSONable.as_dict``.
+    """
+    return getfullargspec(cls.__init__)  # type: ignore[misc]
+
+
+@functools.cache
+def _module_version(modname: str) -> str | None:
+    """Cache the ``__version__`` lookup for a top-level module name.
+
+    ``MSONable.as_dict`` and ``MontyEncoder.default`` both call this per
+    encoded object; the result is determined entirely by the module name.
+    """
     try:
-        with open(redirect_file, encoding="utf-8") as f:
-            yaml = YAML()
-            d = yaml.load(f)
+        return str(import_module(modname).__version__)
+    except (AttributeError, ImportError):
+        return None
+
+
+@functools.cache
+def _resolve_class(modname: str, classname: str) -> type | None:
+    """Cache ``__import__`` + ``getattr`` of a class by ``(module, name)``.
+
+    ``ImportError`` is intentionally *not* swallowed — callers (notably the
+    redirect path) rely on it surfacing when a redirect points at a missing
+    module.
+    """
+    mod = __import__(modname, globals(), locals(), [classname], 0)
+    return getattr(mod, classname, None)
+
+
+_TYPE_STR_CACHE: dict[tuple[type, tuple[str, ...]], bool] = {}
+
+
+def _type_str_match(tp: type, type_strs: tuple[str, ...]) -> bool:
+    """Return whether ``tp.mro()`` contains any qualified name in ``type_strs``.
+
+    Result is cached per ``(type, type_strs)`` pair — most callers query the
+    same handful of strings against the same type repeatedly (``torch.Tensor``,
+    ``pandas.DataFrame``, etc.).
+    """
+    key = (tp, type_strs)
+    cached = _TYPE_STR_CACHE.get(key)
+    if cached is not None:
+        return cached
+    result = any(
+        f"{o.__module__}.{o.__qualname__}" == ts for o in tp.mro() for ts in type_strs
+    )
+    _TYPE_STR_CACHE[key] = result
+    return result
+
+
+class _LazyRedirect:
+    """Class-level descriptor that loads ``~/.monty.yaml`` lazily on first access.
+
+    Avoids paying the ``ruamel.yaml`` import and filesystem stat cost on every
+    ``import monty.json`` (which is on the import path of pymatgen, matgl,
+    matcalc, etc.).
+    """
+
+    def __init__(self) -> None:
+        self._value: dict | None = None
+
+    def __get__(self, instance, owner) -> dict:
+        if self._value is None:
+            self._value = _load_redirect(
+                os.path.join(os.path.expanduser("~"), ".monty.yaml")
+            )
+        return self._value
+
+    def __set__(self, instance, value) -> None:
+        # Allow overriding (e.g. for tests).
+        self._value = value
+
+
+def _load_redirect(redirect_file) -> dict:
+    # Defer the heavy ruamel.yaml import until we actually need to parse a
+    # redirect file. This avoids pulling YAML in on every ``import monty.json``.
+    try:
+        f = open(redirect_file, encoding="utf-8")
     except OSError:
-        # If we can't find the file
-        # Just use an empty redirect dict
         return {}
+
+    with f:
+        from ruamel.yaml import YAML  # local import — cold path
+
+        d = YAML().load(f)
 
     # Convert the full paths to module/class
     redirect_dict: dict = defaultdict(dict)
@@ -65,52 +153,511 @@ def _load_redirect(redirect_file) -> dict:
 
 
 def _check_type(obj: object, type_str: tuple[str, ...] | str) -> bool:
-    """Alternative to isinstance that avoids imports.
+    """Import-free alternative to ``isinstance`` based on qualified type names.
 
-    Checks whether obj is an instance of the type defined by type_str. This
-    removes the need to explicitly import type_str. Handles subclasses like
-    isinstance does. E.g.:
-        class A:
-            pass
+    Checks whether ``obj`` is an instance of the type identified by
+    ``type_str`` (a fully qualified name like ``"torch.Tensor"``), which
+    avoids importing the type explicitly. Subclasses are matched, mirroring
+    ``isinstance`` semantics.
 
-
-        class B(A):
-            pass
-
-
-        a, b = A(), B()
-        assert isinstance(a, A)
-        assert isinstance(b, B)
-        assert isinstance(b, A)
-        assert not isinstance(a, B)
-
-    Note for future developers: the type_str is not always obvious for an
-    object. To find out the type_str for an object, run type(obj).mro(). This will
-    list all the types that an object can resolve to in order of generality
-    (all objects have the "builtins.object" as the last one).
+    Note for future developers: the ``type_str`` for a given object is not
+    always obvious. Use ``type(obj).mro()`` to enumerate the qualified names
+    that an object will match (in order of generality, with
+    ``"builtins.object"`` last).
     """
     # This function is intended as an alternative of "isinstance",
     # therefore wouldn't check class
     if isclass(obj):
         return False
 
-    type_str = type_str if isinstance(type_str, tuple) else (type_str,)
+    type_strs = type_str if isinstance(type_str, tuple) else (type_str,)
+    return _type_str_match(type(obj), type_strs)
 
-    mro = type(obj).mro()
 
-    return any(f"{o.__module__}.{o.__qualname__}" == ts for o in mro for ts in type_str)
+def _recursive_as_dict(obj):
+    """Recursive helper for ``MSONable.as_dict``.
+
+    Kept at module level so it is not re-created on every ``as_dict`` invocation.
+    """
+    if isinstance(obj, (list, tuple)):
+        return [_recursive_as_dict(it) for it in obj]
+    if isinstance(obj, dict):
+        return {kk: _recursive_as_dict(vv) for kk, vv in obj.items()}
+    if hasattr(obj, "as_dict"):
+        return obj.as_dict()
+    if dataclasses.is_dataclass(obj):
+        d = dataclasses.asdict(obj)
+        d.update(
+            {
+                "@module": obj.__class__.__module__,
+                "@class": obj.__class__.__name__,
+            }
+        )
+        return d
+    return obj
+
+
+# ---------------------------------------------------------------------------
+# Type handler plugin registry
+# ---------------------------------------------------------------------------
+
+
+class TypeHandler:
+    """Plugin protocol for encoding and decoding a single external type.
+
+    Subclasses set ``module`` and ``class_name`` class attributes (used for
+    decoder dispatch and for the ``@module``/``@class`` keys of the emitted
+    JSON dict) and implement :meth:`matches`, :meth:`encode`, and
+    :meth:`decode`. ``class_name`` may be a tuple of strings when one
+    handler covers more than one ``@class`` value (e.g. pandas DataFrame
+    + Series); ``encode`` is then responsible for picking the right
+    ``@class`` per object.
+
+    Register custom handlers via :func:`register`. Built-in handlers for
+    ``datetime``, ``uuid``, ``pathlib.Path``, ``numpy.ndarray``,
+    ``torch.Tensor``, ``pandas.DataFrame``/``Series``, ``pint.Quantity``,
+    and ``bson.ObjectId`` are registered at import time and are always
+    checked first; user handlers run after.
+
+    Examples:
+        >>> class MyHandler(TypeHandler):
+        ...     module = "mypkg"
+        ...     class_name = "MyType"
+        ...
+        ...     def matches(self, obj):
+        ...         return isinstance(obj, MyType)
+        ...
+        ...     def encode(self, obj):
+        ...         return {"@module": "mypkg", "@class": "MyType", "value": obj.value}
+        ...
+        ...     def decode(self, d):
+        ...         return MyType(d["value"])
+        ...
+        >>> register(MyHandler())
+    """
+
+    module: str = ""
+    class_name: str | tuple[str, ...] = ""
+
+    def decoder_keys(self) -> list[tuple[str, str]]:
+        """Return all ``(@module, @class)`` decoder keys this handler claims.
+
+        The default derives keys from the ``module`` and ``class_name``
+        attributes (the latter may be a tuple of names). Override when one
+        handler spans multiple ``@module`` namespaces — e.g. a merged bson
+        handler claiming both ``("bson.objectid", "ObjectId")`` and
+        ``("bson.dbref", "DBRef")``.
+        """
+        names = self.class_name
+        if isinstance(names, str):
+            names = (names,)
+        return [(self.module, n) for n in names]
+
+    def matches(self, obj: Any) -> bool:
+        """Return True if this handler should encode ``obj``."""
+        raise NotImplementedError
+
+    def encode(self, obj: Any) -> Any:
+        """Return the JSON-compatible representation of ``obj``.
+
+        Typically a dict carrying ``@module``, ``@class``, and type-specific
+        fields. May also return a JSON-native primitive (int/float/bool/
+        str/None) for types that collapse to a scalar on the wire (e.g.
+        numpy scalars). Primitives are not reconstructed by the decoder's
+        ``@module``/``@class`` dispatch — the standard JSON parser handles
+        them on the way back.
+        """
+        raise NotImplementedError
+
+    def decode(self, d: dict) -> Any:
+        """Reconstruct the live object from its dict representation."""
+        raise NotImplementedError
+
+
+# Built-in handlers, checked first to preserve PR #791's hot-path order.
+_BUILTIN_HANDLERS: list[TypeHandler] = []
+
+# User-registered handlers, checked after the built-ins.
+_USER_HANDLERS: list[TypeHandler] = []
+
+# (module, class_name) -> handler for O(1) decoder dispatch.
+_DECODER_HANDLERS: dict[tuple[str, str], TypeHandler] = {}
+
+# Pre-bound ``(matches, encode)`` callable pairs for the encoder hot path.
+# Iterating bound methods directly avoids the attribute-lookup cost of
+# ``h.matches(obj)`` / ``h.encode(obj)`` per dispatch and recovers most of
+# the perf delta vs. the legacy inline if/elif chain. Rebuilt whenever the
+# user handler list changes; built-in pairs come first.
+_ENCODER_DISPATCH: tuple[tuple[Any, Any], ...] = ()
+
+
+def _rebuild_encoder_dispatch() -> None:
+    global _ENCODER_DISPATCH  # noqa: PLW0603 — module-level dispatch tuple
+    _ENCODER_DISPATCH = tuple(
+        (h.matches, h.encode) for h in (*_BUILTIN_HANDLERS, *_USER_HANDLERS)
+    )
+
+
+def _handler_keys(handler: TypeHandler) -> list[tuple[str, str]]:
+    """Return one ``(module, class_name)`` decoder key per name a handler claims."""
+    return list(handler.decoder_keys())
+
+
+def register(handler: TypeHandler) -> None:
+    """Register a custom :class:`TypeHandler` with the JSON registry.
+
+    The handler's ``encode(obj)`` is invoked when ``MontyEncoder`` encounters
+    an instance for which ``handler.matches(obj)`` returns True. The
+    ``decode(d)`` method is dispatched on the ``@module``/``@class`` keys
+    of the incoming dict.
+
+    A handler may claim multiple ``@class`` names by setting ``class_name``
+    to a tuple — every entry is registered as its own decoder key.
+    Re-registering for any of those keys replaces the previous registration.
+    """
+    keys = _handler_keys(handler)
+    for key in keys:
+        existing = _DECODER_HANDLERS.get(key)
+        if existing is not None and existing in _USER_HANDLERS:
+            _USER_HANDLERS.remove(existing)
+    if handler not in _USER_HANDLERS:
+        _USER_HANDLERS.append(handler)
+    for key in keys:
+        _DECODER_HANDLERS[key] = handler
+    _rebuild_encoder_dispatch()
+
+
+def unregister(handler: TypeHandler) -> None:
+    """Remove a previously-registered user handler."""
+    if handler in _USER_HANDLERS:
+        _USER_HANDLERS.remove(handler)
+    for key in _handler_keys(handler):
+        if _DECODER_HANDLERS.get(key) is handler:
+            del _DECODER_HANDLERS[key]
+    _rebuild_encoder_dispatch()
+
+
+def _register_builtin(handler: TypeHandler) -> None:
+    _BUILTIN_HANDLERS.append(handler)
+    for key in _handler_keys(handler):
+        _DECODER_HANDLERS[key] = handler
+    _rebuild_encoder_dispatch()
+
+
+# ---------------------------------------------------------------------------
+# Built-in type handlers
+# ---------------------------------------------------------------------------
+
+
+class DatetimeHandler(TypeHandler):
+    """Encode and decode :class:`datetime.datetime` instances."""
+
+    module = "datetime"
+    class_name = "datetime"
+
+    def matches(self, obj: Any) -> bool:
+        return isinstance(obj, datetime.datetime)
+
+    def encode(self, obj: Any) -> dict:
+        return {
+            "@module": "datetime",
+            "@class": "datetime",
+            "string": str(obj),
+        }
+
+    def decode(self, d: dict) -> Any:
+        s = d["string"]
+        try:
+            # ``fromisoformat`` is ~5x faster than ``strptime`` and handles
+            # fractional seconds and ``+HH:MM`` timezone suffixes natively.
+            return datetime.datetime.fromisoformat(s)
+        except ValueError:
+            # Fall back to the legacy parser for non-ISO inputs.
+            s = s.split("+")[0]
+            try:
+                return datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f")
+            except ValueError:
+                return datetime.datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+
+
+class UUIDHandler(TypeHandler):
+    """Encode and decode :class:`uuid.UUID` instances."""
+
+    module = "uuid"
+    class_name = "UUID"
+
+    def matches(self, obj: Any) -> bool:
+        return isinstance(obj, UUID)
+
+    def encode(self, obj: Any) -> dict:
+        return {"@module": "uuid", "@class": "UUID", "string": str(obj)}
+
+    def decode(self, d: dict) -> Any:
+        return UUID(d["string"])
+
+
+class PathHandler(TypeHandler):
+    """Encode and decode :class:`pathlib.Path` instances."""
+
+    module = "pathlib"
+    class_name = "Path"
+
+    def matches(self, obj: Any) -> bool:
+        return isinstance(obj, Path)
+
+    def encode(self, obj: Any) -> dict:
+        return {"@module": "pathlib", "@class": "Path", "string": str(obj)}
+
+    def decode(self, d: dict) -> Any:
+        return Path(d["string"])
+
+
+class TorchTensorHandler(TypeHandler):
+    """Encode and decode ``torch.Tensor`` (lazy ``torch`` import)."""
+
+    module = "torch"
+    class_name = "Tensor"
+
+    def matches(self, obj: Any) -> bool:
+        # ``sys.modules`` gate skips the (cached but non-free) MRO scan when
+        # torch hasn't been imported yet — see PR #791.
+        return "torch" in sys.modules and _check_type(obj, "torch.Tensor")
+
+    def encode(self, obj: Any) -> dict:
+        d: dict[str, Any] = {
+            "@module": "torch",
+            "@class": "Tensor",
+            "dtype": obj.type(),
+            "size": list(obj.size()),
+        }
+        if "Complex" in obj.type():
+            d["data"] = [obj.real.tolist(), obj.imag.tolist()]
+        else:
+            d["data"] = obj.numpy().tolist()
+        return d
+
+    def decode(self, d: dict) -> Any:
+        import torch  # heavy import deferred until first decode
+
+        if "Complex" in d["dtype"]:
+            if "size" in d and d["data"] == [[], []]:
+                return torch.empty(d["size"]).type(d["dtype"])
+            return torch.tensor(
+                [
+                    np.array(r) + np.array(i) * 1j
+                    for r, i in zip(*d["data"], strict=True)
+                ],
+            ).type(d["dtype"])
+        if "size" in d and d["data"] == []:
+            return torch.empty(d["size"]).type(d["dtype"])
+        return torch.tensor(d["data"]).type(d["dtype"])
+
+
+class NumpyHandler(TypeHandler):
+    """Encode and decode numpy arrays and scalars.
+
+    ``np.ndarray`` round-trips through the ``@module``/``@class`` envelope;
+    ``np.generic`` scalars collapse to native Python primitives on the
+    wire (decoded by stdlib ``json``).
+    """
+
+    module = "numpy"
+    class_name = "array"
+
+    def matches(self, obj: Any) -> bool:
+        # Match both ndarray and scalar in one branch so the order of
+        # operations between them lives entirely inside ``encode``.
+        return isinstance(obj, (np.ndarray, np.generic))
+
+    def encode(self, obj: Any) -> Any:
+        # Numpy scalars collapse to a JSON-native primitive — no envelope.
+        if isinstance(obj, np.generic):
+            return obj.item()
+        if str(obj.dtype).startswith("complex"):
+            return {
+                "@module": "numpy",
+                "@class": "array",
+                "dtype": str(obj.dtype),
+                "data": [obj.real.tolist(), obj.imag.tolist()],
+            }
+        return {
+            "@module": "numpy",
+            "@class": "array",
+            "dtype": str(obj.dtype),
+            "data": obj.tolist(),
+        }
+
+    def decode(self, d: dict) -> Any:
+        if d["dtype"].startswith("complex"):
+            return np.array(
+                [
+                    np.array(r) + np.array(i) * 1j
+                    for r, i in zip(*d["data"], strict=True)
+                ],
+                dtype=d["dtype"],
+            )
+        return np.array(d["data"], dtype=d["dtype"])
+
+
+class PandasHandler(TypeHandler):
+    """Encode and decode ``pandas.DataFrame`` / ``Series`` (lazy ``pandas`` import).
+
+    A single handler covers both because they share the same encoding shape
+    (``to_json`` payload). The emitted ``@class`` is ``"DataFrame"`` or
+    ``"Series"`` depending on the concrete object so the decoder can pick
+    the right pandas constructor.
+    """
+
+    module = "pandas"
+    class_name = ("DataFrame", "Series")
+
+    # Qualified names matched by ``_check_type``. DataFrame's are listed
+    # first so ``encode`` can discriminate without re-walking the MRO.
+    _DF_QUALNAMES = ("pandas.core.frame.DataFrame", "pandas.DataFrame")
+    _SERIES_QUALNAMES = ("pandas.core.series.Series", "pandas.Series")
+
+    def matches(self, obj: Any) -> bool:
+        return "pandas" in sys.modules and _check_type(
+            obj, self._DF_QUALNAMES + self._SERIES_QUALNAMES
+        )
+
+    def encode(self, obj: Any) -> dict:
+        cls_name = "DataFrame" if _check_type(obj, self._DF_QUALNAMES) else "Series"
+        return {
+            "@module": "pandas",
+            "@class": cls_name,
+            "data": obj.to_json(default_handler=MontyEncoder().encode),
+        }
+
+    def decode(self, d: dict) -> Any:
+        import pandas as pd
+
+        pd_cls = pd.DataFrame if d["@class"] == "DataFrame" else pd.Series
+        return pd_cls(MontyDecoder().decode(d["data"]))
+
+
+class PintQuantityHandler(TypeHandler):
+    """Encode and decode ``pint.Quantity`` (lazy ``pint`` import)."""
+
+    module = "pint"
+    class_name = "Quantity"
+
+    def matches(self, obj: Any) -> bool:
+        return "pint" in sys.modules and _check_type(obj, "pint.Quantity")
+
+    def encode(self, obj: Any) -> dict:
+        return {
+            "@module": "pint",
+            "@class": "Quantity",
+            "data": str(obj),
+            "@version": _module_version("pint"),
+        }
+
+    def decode(self, d: dict) -> Any:
+        from pint import UnitRegistry
+
+        ureg = UnitRegistry()
+        return ureg.Quantity(d["data"])
+
+
+class BsonHandler(TypeHandler):
+    """Encode and decode ``bson.objectid.ObjectId`` and ``bson.dbref.DBRef``
+    (requires ``bson``).
+
+    The two bson types share the same ``bson is not None`` gate and lazy
+    import strategy, so they live in one handler. Each emits its own
+    ``@module``/``@class`` keys so the decoder routes back to the correct
+    constructor.
+
+    DBRef is serialized with monty-style field names (``collection`` /
+    ``id`` / optional ``database`` / optional ``extras``) rather than
+    bson's extended-JSON convention (``$ref`` / ``$id`` / ``$db``). The
+    latter is recognised by ``bson.json_util`` and would be eagerly
+    constructed back into a DBRef during ``MontyDecoder.decode`` — before
+    our registry could route the nested ``id`` field through the decoder.
+    """
+
+    # ``decoder_keys`` is overridden below because the two types live in
+    # different ``@module`` namespaces; the inherited ``module`` /
+    # ``class_name`` attributes are intentionally left at their defaults.
+
+    def decoder_keys(self) -> list[tuple[str, str]]:
+        return [
+            ("bson.objectid", "ObjectId"),
+            ("bson.dbref", "DBRef"),
+        ]
+
+    def matches(self, obj: Any) -> bool:
+        if bson is None:
+            return False
+        return isinstance(obj, (bson.objectid.ObjectId, bson.dbref.DBRef))
+
+    def encode(self, obj: Any) -> dict:
+        if isinstance(obj, bson.objectid.ObjectId):
+            return {
+                "@module": "bson.objectid",
+                "@class": "ObjectId",
+                "oid": str(obj),
+            }
+        # bson.dbref.DBRef. ``id`` may itself be an MSONable / ObjectId /
+        # etc.; we hand it back to the surrounding ``MontyEncoder`` so the
+        # full encode pipeline recurses into it as it walks the result dict.
+        d: dict[str, Any] = {
+            "@module": "bson.dbref",
+            "@class": "DBRef",
+            "collection": obj.collection,
+            "id": obj.id,
+        }
+        if obj.database is not None:
+            d["database"] = obj.database
+        # DBRef supports arbitrary keyword extras; ``as_doc()`` exposes them
+        # under their user-supplied names alongside the bson ``$``-prefixed
+        # canonical fields. Drop the canonical ones to recover just extras.
+        extras = {
+            k: v for k, v in obj.as_doc().items() if k not in {"$ref", "$id", "$db"}
+        }
+        if extras:
+            d["extras"] = extras
+        return d
+
+    def decode(self, d: dict) -> Any:
+        if d["@class"] == "ObjectId":
+            return bson.objectid.ObjectId(d["oid"])
+        # DBRef: recurse through the decoder so a nested ObjectId (or any
+        # other handler-managed type) in ``id``/extras reconstructs.
+        decoder = MontyDecoder()
+        extras = {k: decoder.process_decoded(v) for k, v in d.get("extras", {}).items()}
+        return bson.dbref.DBRef(
+            collection=d["collection"],
+            id=decoder.process_decoded(d["id"]),
+            database=d.get("database"),
+            **extras,
+        )
+
+
+# Register built-ins in the order the legacy if/elif chain checked them.
+# Ordering is load-bearing for performance (see PR #791): cheap isinstance
+# checks first, then ``sys.modules``-gated qualified-name matches.
+_register_builtin(DatetimeHandler())
+_register_builtin(UUIDHandler())
+_register_builtin(PathHandler())
+_register_builtin(TorchTensorHandler())
+_register_builtin(NumpyHandler())
+_register_builtin(PandasHandler())
+_register_builtin(PintQuantityHandler())
+_register_builtin(BsonHandler())
 
 
 class MSONable:
-    """
-    This is a mix-in base class specifying an API for msonable objects. MSON
-    is Monty JSON. Essentially, MSONable objects must implement an as_dict
-    method, which must return a json serializable dict and must also support
-    no arguments (though optional arguments to finetune the output is ok),
-    and a from_dict class method that regenerates the object from the dict
-    generated by the as_dict method. The as_dict method should contain the
-    "@module" and "@class" keys which will allow the MontyEncoder to
-    dynamically deserialize the class. E.g.::
+    """Mix-in base class specifying an API for msonable objects.
+
+    MSON is Monty JSON. Essentially, MSONable objects must implement an
+    as_dict method, which must return a json serializable dict and must also
+    support no arguments (though optional arguments to finetune the output
+    is ok), and a from_dict class method that regenerates the object from
+    the dict generated by the as_dict method. The as_dict method should
+    contain the "@module" and "@class" keys which will allow the
+    MontyEncoder to dynamically deserialize the class. E.g.::
 
         d["@module"] = self.__class__.__module__
         d["@class"] = self.__class__.__name__
@@ -140,45 +687,25 @@ class MSONable:
 
     Example:
     old_module.old_class: new_module.new_class
+
     """
 
-    REDIRECT = _load_redirect(os.path.join(os.path.expanduser("~"), ".monty.yaml"))
+    # Backwards-compatible class attribute. The redirect file is loaded the
+    # first time it is accessed via the ``_LazyRedirect`` descriptor.
+    REDIRECT = _LazyRedirect()
 
     def as_dict(self) -> dict:
-        """
-        A JSON serializable dict representation of an object.
-        """
+        """A JSON serializable dict representation of an object."""
+        cls = self.__class__
         d: dict[str, Any] = {
-            "@module": self.__class__.__module__,
-            "@class": self.__class__.__name__,
+            "@module": cls.__module__,
+            "@class": cls.__name__,
         }
 
-        try:
-            parent_module = self.__class__.__module__.split(".", maxsplit=1)[0]
-            module_version = import_module(parent_module).__version__
-            d["@version"] = str(module_version)
-        except (AttributeError, ImportError):
-            d["@version"] = None
+        parent_module = cls.__module__.partition(".")[0]
+        d["@version"] = _module_version(parent_module)
 
-        spec = getfullargspec(self.__class__.__init__)
-
-        def recursive_as_dict(obj):
-            if isinstance(obj, (list, tuple)):
-                return [recursive_as_dict(it) for it in obj]
-            if isinstance(obj, dict):
-                return {kk: recursive_as_dict(vv) for kk, vv in obj.items()}
-            if hasattr(obj, "as_dict"):
-                return obj.as_dict()
-            if dataclasses is not None and dataclasses.is_dataclass(obj):
-                d = dataclasses.asdict(obj)
-                d.update(
-                    {
-                        "@module": obj.__class__.__module__,
-                        "@class": obj.__class__.__name__,
-                    }
-                )
-                return d
-            return obj
+        spec = _init_spec(cls)  # type: ignore[arg-type]
 
         for c in spec.args + spec.kwonlyargs:
             if c != "self":
@@ -187,7 +714,7 @@ class MSONable:
                 except AttributeError:
                     try:
                         a = getattr(self, "_" + c)
-                    except AttributeError:
+                    except AttributeError as exc:
                         raise NotImplementedError(
                             "Unable to automatically determine as_dict "
                             "format from class. MSONAble requires all "
@@ -196,8 +723,8 @@ class MSONable:
                             "a self.kwargs variable to automatically "
                             "determine the dict format. Alternatively, "
                             "you can implement both as_dict and from_dict."
-                        )
-                d[c] = recursive_as_dict(a)
+                        ) from exc
+                d[c] = _recursive_as_dict(a)
         if hasattr(self, "kwargs"):
             d.update(**self.kwargs)
         if spec.varargs is not None and getattr(self, spec.varargs, None) is not None:
@@ -209,33 +736,35 @@ class MSONable:
         return d
 
     @classmethod
-    def from_dict(cls, d):
-        """
+    def from_dict(cls, d: dict) -> MSONable:
+        """Reconstruct an MSONable object from a dict.
 
         Args:
             d: Dict representation.
 
         Returns:
             MSONable class.
+
         """
+        # Reuse a single module-level decoder rather than allocating a new
+        # ``MontyDecoder`` for every key, which used to dominate this path.
         decoded = {
-            k: MontyDecoder().process_decoded(v)
+            k: _SHARED_DECODER.process_decoded(v)
             for k, v in d.items()
             if not k.startswith("@")
         }
         return cls(**decoded)
 
     def to_json(self) -> str:
-        """
-        Returns a json string representation of the MSONable object.
-        """
+        """Returns a json string representation of the MSONable object."""
         return json.dumps(self, cls=MontyEncoder)
 
-    def unsafe_hash(self):
-        """
-        Returns an hash of the current object. This uses a generic but low
-        performance method of converting the object to a dictionary, flattening
-        any nested keys, and then performing a hash on the resulting object
+    def unsafe_hash(self) -> Any:
+        """Return a hash of the current object.
+
+        This uses a generic but low performance method of converting the
+        object to a dictionary, flattening any nested keys, and then
+        performing a hash on the resulting object.
         """
 
         def flatten(obj, separator="."):
@@ -264,13 +793,15 @@ class MSONable:
             flatten(jsanitize(self.as_dict())).items(), key=lambda x: x[0]
         )
         ordered_keys = [item for item in ordered_keys if "@" not in item[0]]
-        return sha1(json.dumps(OrderedDict(ordered_keys)).encode("utf-8"))
+        # sha1 is used here as a fingerprint, not for cryptographic security.
+        return sha1(
+            json.dumps(OrderedDict(ordered_keys)).encode("utf-8"),
+            usedforsecurity=False,
+        )
 
     @classmethod
     def _validate_monty(cls, __input_value):
-        """
-        pydantic Validator for MSONable pattern
-        """
+        """Pydantic Validator for MSONable pattern."""
         if isinstance(__input_value, cls):
             return __input_value
         if isinstance(__input_value, dict):
@@ -281,11 +812,11 @@ class MSONable:
                 if isinstance(new_obj, cls):
                     return new_obj
                 return cls(**__input_value)
-            except Exception:
+            except Exception as exc:
                 raise ValueError(
                     f"Error while deserializing {cls.__name__} "
                     f"object: {traceback.format_exc()}"
-                )
+                ) from exc
 
         raise ValueError(
             f"Must provide {cls.__name__}, the as_dict form, or the proper"
@@ -293,28 +824,22 @@ class MSONable:
 
     @classmethod
     def validate_monty_v1(cls, __input_value):
-        """
-        Pydantic validator with correct signature for pydantic v1.x
-        """
+        """Pydantic validator with correct signature for pydantic v1.x."""
         return cls._validate_monty(__input_value)
 
     @classmethod
     def validate_monty_v2(cls, __input_value, _):
-        """
-        Pydantic validator with correct signature for pydantic v2.x
-        """
+        """Pydantic validator with correct signature for pydantic v2.x."""
         return cls._validate_monty(__input_value)
 
     @classmethod
     def __get_validators__(cls):
-        """Return validators for use in pydantic"""
+        """Return validators for use in pydantic."""
         yield cls.validate_monty_v1
 
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type, handler):
-        """
-        pydantic v2 core schema definition
-        """
+        """Pydantic v2 core schema definition."""
         try:
             from pydantic_core import core_schema
 
@@ -339,51 +864,39 @@ class MSONable:
 
     @classmethod
     def __get_pydantic_json_schema__(cls, core_schema, handler):
-        """JSON schema for MSONable pattern"""
+        """JSON schema for MSONable pattern."""
         return cls._generic_json_schema()
 
     @classmethod
     def __modify_schema__(cls, field_schema):
-        """JSON schema for MSONable pattern"""
+        """JSON schema for MSONable pattern."""
         custom_schema = cls._generic_json_schema()
         field_schema.update(custom_schema)
 
     def save(
         self,
-        json_path,
-        mkdir=True,
-        json_kwargs=None,
-        pickle_kwargs=None,
-        strict=True,
-    ):
-        """Utility that uses the standard tools of MSONable to convert the
-        class to json format, but also save it to disk. In addition, this
-        method intelligently uses pickle to individually pickle class objects
-        that are not serializable, saving them separately. This maximizes the
-        readability of the saved class information while allowing _any_
-        class to be at least partially serializable to disk.
+        json_path: os.PathLike | str,
+        mkdir: bool = True,
+        json_kwargs: dict | None = None,
+        pickle_kwargs: dict | None = None,
+        strict: bool = True,
+    ) -> None:
+        """Serialize the instance to JSON on disk, pickling fields if needed.
 
-        For a fully MSONable class, only a class.json file will be saved to
-        the location {save_dir}/class.json. For a partially MSONable class,
-        additional information will be saved to the save directory at
-        {save_dir}. This includes a pickled object for each attribute that
-        e serialized.
+        For a fully MSONable class, only ``{save_dir}/class.json`` is written.
+        For a partially MSONable class, non-serializable attributes are
+        pickled individually into the same directory, keeping the JSON
+        portion readable.
 
-        Parameters
-        ----------
-        file_path : os.PathLike
-            The file to which to save the json object. A pickled object of
-            the same name but different extension might also be saved if the
-            class is not entirely MSONable.
-        mkdir : bool
-            If True, makes the provided directory, including all parent
-            directories.
-        json_kwargs : dict
-            Keyword arguments to pass to the serializer.
-        pickle_kwargs : dict
-            Keyword arguments to pass to pickle.dump.
-        strict : bool
-            If True, will not allow you to overwrite existing files.
+        Args:
+            json_path: The file to which to save the JSON object. A pickled
+                companion file with the same stem but a different extension
+                may also be written if the class is not entirely MSONable.
+            mkdir: If True, create the target directory (including parents).
+            json_kwargs: Keyword arguments forwarded to the JSON serializer.
+            pickle_kwargs: Keyword arguments forwarded to ``pickle.dump``.
+            strict: If True, refuse to overwrite existing files.
+
         """
         save(
             self,
@@ -395,63 +908,45 @@ class MSONable:
         )
 
     @classmethod
-    def load(cls, file_path):
-        """Loads a class from a provided json file.
+    def load(cls, file_path: os.PathLike | str) -> MSONable:
+        """Load an instance from a JSON file written by :meth:`save`.
 
-        Parameters
-        ----------
-        file_path : os.PathLike
-            The json file to load from.
+        Args:
+            file_path: The JSON file to load from.
 
-        Returns
-        -------
-        MSONable
+        Returns:
             An instance of the class being reloaded.
-        """
 
+        """
         d = load2dict(file_path)
         return cls.from_dict(d)
 
 
 def save(
-    obj,
-    json_path,
-    mkdir=True,
-    json_kwargs=None,
-    pickle_kwargs=None,
-    strict=True,
-):
-    """Utility that uses the standard tools of MSONable to convert the
-    class to json format, but also save it to disk. In addition, this
-    method intelligently uses pickle to individually pickle class objects
-    that are not serializable, saving them separately. This maximizes the
-    readability of the saved class information while allowing _any_
-    class to be at least partially serializable to disk.
+    obj: Any,
+    json_path: os.PathLike | str,
+    mkdir: bool = True,
+    json_kwargs: dict | None = None,
+    pickle_kwargs: dict | None = None,
+    strict: bool = True,
+) -> None:
+    """Serialize an object to JSON on disk, pickling fields if needed.
 
-    For a fully MSONable class, only a class.json file will be saved to
-    the location {save_dir}/class.json. For a partially MSONable class,
-    additional information will be saved to the save directory at
-    {save_dir}. This includes a pickled object for each attribute that
-    e serialized.
+    For a fully MSONable object, only ``{save_dir}/class.json`` is written.
+    For a partially MSONable object, non-serializable attributes are pickled
+    individually into the same directory, keeping the JSON portion readable.
 
     Args:
-    obj : Object
-        The object to save.
-    file_path : os.PathLike
-        The file to which to save the json object. A pickled object of
-        the same name but different extension might also be saved if the
-        class is not entirely MSONable.
-    mkdir : bool
-        If True, makes the provided directory, including all parent
-        directories.
-    json_kwargs : dict
-        Keyword arguments to pass to the serializer.
-    pickle_kwargs : dict
-        Keyword arguments to pass to pickle.dump.
-    strict : bool
-        If True, will not allow you to overwrite existing files.
-    """
+        obj: The object to save.
+        json_path: The file to which to save the JSON object. A pickled
+            companion file with the same stem but a different extension may
+            also be written if ``obj`` is not entirely MSONable.
+        mkdir: If True, create the target directory (including parents).
+        json_kwargs: Keyword arguments forwarded to the JSON serializer.
+        pickle_kwargs: Keyword arguments forwarded to ``pickle.dump``.
+        strict: If True, refuse to overwrite existing files.
 
+    """
     json_path = Path(json_path)
     save_dir = json_path.parent
 
@@ -482,19 +977,16 @@ def save(
             pickle.dump(name_object_map, f, **pickle_kwargs)
 
 
-def load(path):
-    """Loads a json file that was saved using MSONable.save.
+def load(path: os.PathLike | str) -> MSONable:
+    """Load an MSONable object from a JSON file written by :func:`save`.
 
-    Parameters
-    ----------
-    path : os.PathLike
-        Path to the json file to load.
+    Args:
+        path: Path to the JSON file to load.
 
-    Returns
-    -------
-    MSONable
+    Returns:
+        The reconstructed MSONable instance.
+
     """
-
     d = load2dict(path)
     module = d["@module"]
     klass = d["@class"]
@@ -503,27 +995,26 @@ def load(path):
     return klass.from_dict(d)
 
 
-def load2dict(file_path) -> dict:
-    """Load a serialized json file into a dictionary.
+def load2dict(file_path: os.PathLike | str) -> dict:
+    """Load a JSON file written by :func:`save` into a dictionary.
 
-    Assumes that you saved using `save` and will
-    load the json file into a dictionary.
-
-    Arg:
-        file_path: (str) Path to the json file.
+    Args:
+        file_path (str): Path to the JSON file.
 
     Returns:
-        (dict) The dictionary representation of the json file.
+        dict: The dictionary representation of the JSON file.
+
     """
     json_path = Path(file_path)
     save_dir = json_path.parent
     pickle_path = save_dir / f"{json_path.stem}.pkl"
 
-    with open(json_path, "r", encoding="utf-8") as infile:
+    with open(json_path, encoding="utf-8") as infile:
         d = json.loads(infile.read())
 
     if pickle_path.exists():
-        name_object_map = pickle.load(open(pickle_path, "rb"))
+        with open(pickle_path, "rb") as pkl_file:
+            name_object_map = pickle.load(pkl_file)
         d = _recursive_name_object_map_replacement(d, name_object_map)
     return d
 
@@ -537,18 +1028,21 @@ def _recursive_name_object_map_replacement(d, name_object_map):
             k: _recursive_name_object_map_replacement(v, name_object_map)
             for k, v in d.items()
         }
-    elif isinstance(d, list):
+    if isinstance(d, list):
         return [_recursive_name_object_map_replacement(x, name_object_map) for x in d]
     return d
 
 
 class MontyEncoder(json.JSONEncoder):
-    """
-    A Json Encoder which supports the MSONable API, plus adds support for
-    NumPy arrays, datetime objects, bson ObjectIds (requires bson).
-    Usage::
-        # Add it as a *cls* keyword when using json.dump
-        json.dumps(object, cls=MontyEncoder)
+    """JSON encoder that supports the MSONable API.
+
+    Adds support for NumPy arrays, ``datetime`` objects, and bson
+    ``ObjectId`` (when ``bson`` is installed).
+
+    Examples:
+        >>> import json
+        >>> json.dumps(object, cls=MontyEncoder)
+
     """
 
     def __init__(
@@ -560,100 +1054,36 @@ class MontyEncoder(json.JSONEncoder):
         self._index: int = 0
 
     def _update_name_object_map(self, o):
-        name = f"{self._index:012}-{str(uuid4())}"
+        name = f"{self._index:012}-{uuid4()!s}"
         self._index += 1
         self._name_object_map[name] = o
         return {"@object_reference": name}
 
-    def default(self, o) -> dict:
-        """
-        Overriding default method for JSON encoding. This method does two
-        things: (a) If an object has a to_dict property, return the to_dict
-        output. (b) If the @module and @class keys are not in the to_dict,
-        add them to the output automatically. If the object has no to_dict
-        property, the default Python json encoder default method is called.
+    def default(self, o) -> Any:
+        """Encode an object for JSON serialization.
+
+        Type-specific handling is delegated to :class:`TypeHandler` plugins
+        registered via :func:`register` (built-in handlers cover datetime,
+        uuid, pathlib, numpy, torch, pandas, pint, bson). The fallback
+        chain dispatches on pydantic / non-MSONable dataclass / MSONable
+        ``as_dict`` / ``Enum`` in that order and injects ``@module``,
+        ``@class``, and ``@version`` keys when they are missing.
 
         Args:
             o: Python object.
 
-        Return:
-            Python dict representation.
+        Returns:
+            A JSON-compatible value — typically a dict with ``@module`` and
+            ``@class`` keys, but may also be a JSON-native primitive (e.g.
+            for numpy scalars).
         """
-        if isinstance(o, datetime.datetime):
-            return {
-                "@module": "datetime",
-                "@class": "datetime",
-                "string": str(o),
-            }
-        if isinstance(o, UUID):
-            return {"@module": "uuid", "@class": "UUID", "string": str(o)}
-        if isinstance(o, Path):
-            return {"@module": "pathlib", "@class": "Path", "string": str(o)}
-
-        # Support for Pytorch Tensors
-        if _check_type(o, "torch.Tensor"):
-            d: dict[str, Any] = {
-                "@module": "torch",
-                "@class": "Tensor",
-                "dtype": o.type(),
-                "size": list(o.size()),
-            }
-            if "Complex" in o.type():
-                d["data"] = [o.real.tolist(), o.imag.tolist()]
-            else:
-                d["data"] = o.numpy().tolist()
-            return d
-
-        if isinstance(o, np.ndarray):
-            if str(o.dtype).startswith("complex"):
-                return {
-                    "@module": "numpy",
-                    "@class": "array",
-                    "dtype": str(o.dtype),
-                    "data": [o.real.tolist(), o.imag.tolist()],
-                }
-            return {
-                "@module": "numpy",
-                "@class": "array",
-                "dtype": str(o.dtype),
-                "data": o.tolist(),
-            }
-
-        if isinstance(o, np.generic):
-            return o.item()
-
-        if _check_type(o, ("pandas.core.frame.DataFrame", "pandas.DataFrame")):
-            return {
-                "@module": "pandas",
-                "@class": "DataFrame",
-                "data": o.to_json(default_handler=MontyEncoder().encode),
-            }
-        if _check_type(o, ("pandas.core.series.Series", "pandas.Series")):
-            return {
-                "@module": "pandas",
-                "@class": "Series",
-                "data": o.to_json(default_handler=MontyEncoder().encode),
-            }
-
-        if _check_type(o, "pint.Quantity"):
-            d = {
-                "@module": "pint",
-                "@class": "Quantity",
-                "data": str(o),
-            }
-            try:
-                module_version = import_module("pint").__version__
-                d["@version"] = str(module_version)
-            except (AttributeError, ImportError):
-                d["@version"] = None
-            return d
-
-        if bson is not None and isinstance(o, bson.objectid.ObjectId):
-            return {
-                "@module": "bson.objectid",
-                "@class": "ObjectId",
-                "oid": str(o),
-            }
+        # Plugin dispatch (datetime, uuid, pathlib, numpy, torch, pandas,
+        # pint, bson + any user-registered handlers). The tuple holds
+        # pre-bound ``(matches, encode)`` pairs to avoid per-iteration
+        # attribute lookups.
+        for matches, encode in _ENCODER_DISPATCH:
+            if matches(o):
+                return encode(o)
 
         if callable(o) and not isinstance(o, MSONable):
             try:
@@ -662,10 +1092,10 @@ class MontyEncoder(json.JSONEncoder):
                 # Some callables may not have instance __name__
                 if self._allow_unserializable_objects:
                     return self._update_name_object_map(o)
-                raise AttributeError(e)
+                raise AttributeError(e) from e
 
         try:
-            if _check_type(o, "pydantic.main.BaseModel"):
+            if "pydantic" in sys.modules and _check_type(o, "pydantic.main.BaseModel"):
                 d = o.model_dump()
             elif (
                 dataclasses is not None
@@ -693,38 +1123,32 @@ class MontyEncoder(json.JSONEncoder):
             if "@class" not in d:
                 d["@class"] = str(o.__class__.__name__)
             if "@version" not in d:
-                try:
-                    parent_module = o.__class__.__module__.split(".")[0]
-                    module_version = import_module(parent_module).__version__
-                    d["@version"] = str(module_version)
-                except (AttributeError, ImportError):
-                    d["@version"] = None
+                d["@version"] = _module_version(
+                    o.__class__.__module__.partition(".")[0]
+                )
             return d
         except AttributeError:
             return json.JSONEncoder.default(self, o)
 
 
 class MontyDecoder(json.JSONDecoder):
-    """
-    A Json Decoder which supports the MSONable API. By default, the
-    decoder attempts to find a module and name associated with a dict. If
-    found, the decoder will generate a Pymatgen as a priority.  If that fails,
-    the original decoded dictionary from the string is returned. Note that
-    nested lists and dicts containing pymatgen object will be decoded correctly
-    as well.
+    """JSON decoder that supports the MSONable API.
 
-    Usage:
+    Inspects each decoded dict for ``@module``/``@class`` keys and rebuilds
+    the corresponding object when possible, falling back to the raw dict
+    otherwise. Nested lists and dicts of MSONable objects decode correctly.
 
-        # Add it as a *cls* keyword when using json.load
-        json.loads(json_string, cls=MontyDecoder)
+    Examples:
+        >>> import json
+        >>> json.loads(json_string, cls=MontyDecoder)
+
     """
 
-    def process_decoded(self, d):
-        """
-        Recursive method to support decoding dicts and lists containing
-        pymatgen objects.
-        """
+    def process_decoded(self, d: Any) -> Any:
+        """Recursively decode dicts and lists containing MSONable objects."""
         if isinstance(d, dict):
+            modname: str | None
+            classname: str | None
             if "@module" in d and "@class" in d:
                 modname = d["@module"]
                 classname = d["@class"]
@@ -761,42 +1185,32 @@ class MontyDecoder(json.JSONDecoder):
                 modname = None
                 classname = None
 
-            if classname:
-                if modname and modname not in {
-                    "bson.objectid",
-                    "numpy",
-                    "pandas",
-                    "pint",
-                    "torch",
-                }:
-                    if modname == "datetime" and classname == "datetime":
-                        try:
-                            # Remove timezone info in the form of "+xx:00"
-                            dt = datetime.datetime.strptime(
-                                d["string"].split("+")[0], "%Y-%m-%d %H:%M:%S.%f"
-                            )
-                        except ValueError:
-                            dt = datetime.datetime.strptime(
-                                d["string"].split("+")[0], "%Y-%m-%d %H:%M:%S"
-                            )
-                        return dt
-
-                    elif modname == "uuid" and classname == "UUID":
-                        return UUID(d["string"])
-
-                    elif modname == "pathlib" and classname == "Path":
-                        return Path(d["string"])
-
-                    mod = __import__(modname, globals(), locals(), [classname], 0)
-                    if hasattr(mod, classname):
-                        cls_ = getattr(mod, classname)
+            if classname and modname:
+                # Plugin dispatch: O(1) lookup keyed on ``(@module, @class)``.
+                # Covers datetime, uuid, pathlib, torch, numpy, pandas, pint,
+                # bson, and any user-registered handlers. ``modname`` is only
+                # ever ``None`` when ``classname`` is too (see the branches
+                # above); the joint guard keeps mypy happy.
+                handler = _DECODER_HANDLERS.get((modname, classname))
+                if handler is not None:
+                    try:
+                        return handler.decode(d)
+                    except ImportError:
+                        # Optional decoder dependency missing (e.g. torch).
+                        # Fall through to the generic resolver / raw dict.
+                        pass
+                else:
+                    # Generic class resolution for MSONable / Enum / pydantic /
+                    # non-MSONable dataclass classes.
+                    cls_ = _resolve_class(modname, classname)
+                    if cls_ is not None:
                         data = {k: v for k, v in d.items() if not k.startswith("@")}
                         if hasattr(cls_, "from_dict"):
                             return cls_.from_dict(data)
                         if issubclass(cls_, Enum):
                             return cls_(d["value"])
 
-                        try:
+                        if "pydantic" in sys.modules:
                             import pydantic
 
                             if issubclass(cls_, pydantic.BaseModel):
@@ -804,76 +1218,12 @@ class MontyDecoder(json.JSONDecoder):
                                     k: self.process_decoded(v) for k, v in data.items()
                                 }
                                 return cls_(**d)
-                        except ImportError:
-                            pass
 
                         if (
-                            dataclasses is not None
-                            and (not issubclass(cls_, MSONable))
-                            and dataclasses.is_dataclass(cls_)
-                        ):
+                            not issubclass(cls_, MSONable)
+                        ) and dataclasses.is_dataclass(cls_):
                             d = {k: self.process_decoded(v) for k, v in data.items()}
-                            return cls_(**d)
-
-                elif modname == "torch" and classname == "Tensor":
-                    try:
-                        import torch  # import torch is very expensive
-
-                        if "Complex" in d["dtype"]:
-                            if "size" in d and d["data"] == [[], []]:
-                                return torch.empty(d["size"]).type(d["dtype"])
-
-                            return torch.tensor(
-                                [
-                                    np.array(r) + np.array(i) * 1j
-                                    for r, i in zip(*d["data"])
-                                ],
-                            ).type(d["dtype"])
-
-                        else:
-                            if "size" in d and d["data"] == []:
-                                return torch.empty(d["size"]).type(d["dtype"])
-
-                            return torch.tensor(d["data"]).type(d["dtype"])
-
-                    except ImportError:
-                        pass
-
-                elif modname == "numpy" and classname == "array":
-                    if d["dtype"].startswith("complex"):
-                        return np.array(
-                            [
-                                np.array(r) + np.array(i) * 1j
-                                for r, i in zip(*d["data"])
-                            ],
-                            dtype=d["dtype"],
-                        )
-                    return np.array(d["data"], dtype=d["dtype"])
-
-                elif modname == "pandas":
-                    import pandas as pd
-
-                    if classname == "DataFrame":
-                        decoded_data = MontyDecoder().decode(d["data"])
-                        return pd.DataFrame(decoded_data)
-                    if classname == "Series":
-                        decoded_data = MontyDecoder().decode(d["data"])
-                        return pd.Series(decoded_data)
-
-                elif modname == "pint":
-                    from pint import UnitRegistry
-
-                    ureg = UnitRegistry()
-
-                    if classname == "Quantity":
-                        return ureg.Quantity(d["data"])
-
-                elif (
-                    (bson is not None)
-                    and modname == "bson.objectid"
-                    and classname == "ObjectId"
-                ):
-                    return bson.objectid.ObjectId(d["oid"])
+                            return cls_(**d)  # type: ignore[operator]
 
             return {
                 self.process_decoded(k): self.process_decoded(v) for k, v in d.items()
@@ -884,40 +1234,45 @@ class MontyDecoder(json.JSONDecoder):
 
         return d
 
-    def decode(self, s):
-        """
-        Overrides decode from JSONDecoder.
+    def decode(self, s: str) -> Any:  # type: ignore[override]
+        """Override decode from JSONDecoder.
 
-        :param s: string
-        :return: Object.
+        Args:
+            s: JSON string.
+
+        Returns:
+            Decoded object.
+
         """
         if bson is not None:
-            # need to pass `json_options` to ensure that datetimes are not
-            # converted by BSON
-            d = json_util.loads(s, json_options=json_util.JSONOptions(tz_aware=True))
+            # ``JSONOptions`` is moved to module scope so we do not allocate
+            # a fresh options object on every decode call.
+            d = json_util.loads(s, json_options=_BSON_JSON_OPTIONS)
         else:
             d = json.loads(s)
         return self.process_decoded(d)
 
 
+# Module-level decoder reused by ``MSONable.from_dict`` so we avoid the
+# allocation cost of constructing a fresh decoder on every key.
+_SHARED_DECODER = MontyDecoder()
+
+
 class MSONError(Exception):
-    """
-    Exception class for serialization errors.
-    """
+    """Exception class for serialization errors."""
 
 
 def jsanitize(
-    obj,
-    strict=False,
-    allow_bson=False,
-    enum_values=False,
-    recursive_msonable=False,
-):
-    """
-    This method cleans an input json-like object, either a list or a dict or
-    some sequence, nested or otherwise, by converting all non-string
-    dictionary keys (such as int and float) to strings, and also recursively
-    encodes all objects using Monty's as_dict() protocol.
+    obj: Any,
+    strict: bool = False,
+    allow_bson: bool = False,
+    enum_values: bool = False,
+    recursive_msonable: bool = False,
+) -> Any:
+    """Recursively sanitize a JSON-like object for serialization.
+
+    Walks lists/dicts (nested or otherwise), converts non-string dict keys to
+    strings, and recursively encodes objects via Monty's ``as_dict`` protocol.
 
     Args:
         obj: input json-like object.
@@ -929,26 +1284,30 @@ def jsanitize(
             the object to a string representation.  If "skip" is provided,
             jsanitize will skip and return the original object without modification.
         allow_bson (bool): This parameter sets the behavior when jsanitize
-            encounters a bson supported type such as objectid and datetime. If
-            True, such bson types will be ignored, allowing for proper
-            insertion into MongoDB databases.
+            encounters a bson supported type such as ObjectId, DBRef, or
+            datetime. If True, such bson types will be ignored, allowing
+            for proper insertion into MongoDB databases.
         enum_values (bool): Convert Enums to their values.
         recursive_msonable (bool): If True, uses .as_dict() for MSONables regardless
             of the value of strict.
 
     Returns:
         Sanitized dict that can be json serialized.
+
     """
     if isinstance(obj, Enum):
         if enum_values:
             return obj.value
-        elif hasattr(obj, "as_dict"):
+        if hasattr(obj, "as_dict"):
             return obj.as_dict()
         return MontyEncoder().default(obj)
 
     if allow_bson and (
         isinstance(obj, (datetime.datetime, bytes))
-        or (bson is not None and isinstance(obj, bson.objectid.ObjectId))
+        or (
+            bson is not None
+            and isinstance(obj, (bson.objectid.ObjectId, bson.dbref.DBRef))
+        )
     ):
         return obj
 
@@ -982,7 +1341,8 @@ def jsanitize(
     if isinstance(obj, np.generic):
         return obj.item()
 
-    if _check_type(
+    # Fast path: skip the pandas type-check entirely if pandas isn't loaded.
+    if "pandas" in sys.modules and _check_type(
         obj,
         (
             "pandas.core.series.Series",
@@ -1039,7 +1399,7 @@ def jsanitize(
     if isinstance(obj, str):
         return obj
 
-    if _check_type(obj, "pydantic.main.BaseModel"):
+    if "pydantic" in sys.modules and _check_type(obj, "pydantic.main.BaseModel"):
         return jsanitize(
             MontyEncoder().default(obj),
             strict=strict,
@@ -1056,10 +1416,10 @@ def jsanitize(
             enum_values=enum_values,
             recursive_msonable=recursive_msonable,
         )
-    except Exception as exc_:
+    except Exception:
         if strict == "skip":
             return obj
-        raise exc_
+        raise
 
 
 def _serialize_callable(o):
@@ -1076,10 +1436,10 @@ def _serialize_callable(o):
     if bound is not None:
         try:
             bound = MontyEncoder().default(bound)
-        except TypeError:
+        except TypeError as exc:
             raise TypeError(
                 "Only bound methods of classes or MSONable instances are supported."
-            )
+            ) from exc
 
     return {
         "@module": o.__module__,
@@ -1089,32 +1449,36 @@ def _serialize_callable(o):
 
 
 def _get_partial_json(obj, json_kwargs):
-    """Gets the json representation of a class
-    with the unserializable components substituted for hash references."""
+    """Return the JSON representation of an object with unserializable parts substituted.
+
+    Unserializable components are replaced with hash references that
+    :func:`partial_monty_encode` can map back to pickled companions.
+    """
     json_kwargs = json_kwargs or {}
     encoder = MontyEncoder(allow_unserializable_objects=True, **json_kwargs)
     encoded = encoder.encode(obj)
     return encoder, encoded
 
 
-def partial_monty_encode(obj: object, json_kwargs=None):
+def partial_monty_encode(
+    obj: object, json_kwargs: dict | None = None
+) -> tuple[str, dict | None]:
     """Encode an object that may contain unhashable parts.
 
-    Parameters
-    ----------
-    obj : object
-        The object to encode.
-    json_kwargs : dict
-        Keyword arguments to pass to the serializer.
+    Args:
+        obj: The object to encode.
+        json_kwargs: Keyword arguments forwarded to the JSON serializer.
 
-    Returns
-    -------
-    str, dict
-        The json encoding of the class and the name-object map if one is
-        required, otherwise None.
+    Returns:
+        A ``(json_string, name_object_map)`` pair. The map is ``None`` when
+        no unserializable parts were encountered — previously an empty dict
+        was returned, which caused ``save()`` to always write an empty
+        ``.pkl`` companion file.
+
     """
     encoder, encoded = _get_partial_json(
         obj=obj,
         json_kwargs=json_kwargs,
     )
-    return encoded, encoder._name_object_map
+    name_object_map = encoder._name_object_map
+    return encoded, (name_object_map or None)

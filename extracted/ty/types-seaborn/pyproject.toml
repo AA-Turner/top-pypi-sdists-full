@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-seaborn"
-version = "0.13.2.20260509"
+version = "0.13.2.20260518"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for seaborn"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.0.0
+* [mypy](https://github.com/python/mypy/) 2.1.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.409
 
 It was generated from typeshed commit
-[`6a4075c7bcf192227421bc13558c19bc9fd2342e`](https://github.com/python/typeshed/commit/6a4075c7bcf192227421bc13558c19bc9fd2342e).
+[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

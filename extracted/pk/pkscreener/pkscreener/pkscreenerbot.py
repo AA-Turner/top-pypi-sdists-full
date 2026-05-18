@@ -1412,6 +1412,7 @@ def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_nam
             return True
         else:
             logger.error(f"Failed to trigger workflow: {result.status_code if result else 'No response'}")
+            logger.error(f"Failed to trigger workflow: {result if result else 'No response'}")
             return False
             
     except Exception as e:

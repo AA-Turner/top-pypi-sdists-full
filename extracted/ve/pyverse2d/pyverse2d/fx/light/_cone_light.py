@@ -49,7 +49,7 @@ class ConeLight(LightSource):
         softness = float(softness)
 
         if __debug__:
-            if self._direction.is_null(): raise ValueError(f"direction cannot be null vector")
+            if direction.is_null(): raise ValueError(f"direction cannot be null vector")
             different_from(angle, 0)
             clamped(softness)
 

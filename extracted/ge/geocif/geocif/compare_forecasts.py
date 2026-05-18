@@ -229,7 +229,7 @@ def run(path_config_files=None, since_year=None):
                 friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
 
                 n_pre = sum(1 for s in stages_sorted if s.startswith("Pre-Season"))
-                base_title = f"{country.title()} {crop.title()} ({model})"
+                base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})"
 
                 colors = {
                     "All CIDs": "black",
@@ -265,7 +265,7 @@ def run(path_config_files=None, since_year=None):
                         ax.text(n_pre - 0.5, ax.get_ylim()[1] * 0.97, " Start of planting",
                                 fontsize=7, color="gray", ha="left", va="top")
 
-                    ax.set_ylabel("MAPE (%)")
+                    ax.set_ylabel("Mean Absolute Percentage Error (%)")
                     ax.set_ylim(bottom=0)
                     ax.set_title(f"Forecast Impact on MAPE — {base_title}")
                     ax.legend(loc="best", fontsize=8)
@@ -344,7 +344,7 @@ def run(path_config_files=None, since_year=None):
                         if 0 < n_pre < len(stages_sorted):
                             ax.axvline(x=n_pre - 0.5, color="gray", linestyle="--", linewidth=1.2)
 
-                        ax.set_ylabel("MAPE (%)")
+                        ax.set_ylabel("Mean Absolute Percentage Error (%)")
                         ax.set_ylim(bottom=0)
                         ax.set_title(f"Forecast Impact — {region} — {base_title}")
                         ax.legend(loc="best", fontsize=8)

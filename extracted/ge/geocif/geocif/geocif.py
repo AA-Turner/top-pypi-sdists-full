@@ -119,6 +119,11 @@ class Geocif:
 
     def _initialize_ml_configuration(self):
         """Load ML-specific configuration."""
+        # Optional explicit training-window cutoff. None => fall back to
+        # the default "drop the earliest year" behavior.
+        _tsy_raw = self.parser.get("ML", "training_start_year", fallback="").strip()
+        self.training_start_year = int(_tsy_raw) if _tsy_raw else None
+
         self.model_type = self.parser.get("ML", "model_type")
         self.classify_target = self.parser.getboolean("ML", "classify_target")
         self.number_classes = self.parser.getint("ML", "number_classes")
@@ -136,6 +141,9 @@ class Geocif:
         self.spatial_autocorrelation = self.parser.getboolean("ML", "spatial_autocorrelation")
         self.sa_method = self.parser.get("ML", "sa_method")
         self.last_year_yield_as_feature = self.parser.getboolean("ML", "last_year_yield_as_feature")
+        self.use_yield_trend_as_feature = self.parser.getboolean(
+            "ML", "use_yield_trend_as_feature", fallback=False
+        )
         self.panel_model = self.parser.getboolean("ML", "panel_model")
         self.panel_model_region = self.parser.get("ML", "panel_model_region")
         self.use_outlook_as_feature = self.parser.getboolean("ML", "use_outlook_as_feature")
@@ -324,7 +332,7 @@ class Geocif:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
-        elif self.model_name in ["tabpfn", "desreg", "tabicl", "tabicl_ft"]:
+        elif self.model_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft"]:
             self._setup_tabular_flags()
         elif self.model_name in ["oblique", "ydf"]:
             self._setup_tree_flags()
@@ -565,7 +573,7 @@ class Geocif:
         if self.rename_target:
             self._rename_target_column()
 
-        self._drop_earliest_year()
+        self._apply_training_year_filter()
 
     def _get_statistics_file_path(self, country: str, crop: str) -> Path:
         """Get path to statistics file."""
@@ -586,8 +594,7 @@ class Geocif:
         
         file_name = f"{country}_{crop}_s*.csv"
         all_files = list(_dir_country.glob(file_name))
-        all_files = [f for f in all_files if "_2000" not in f.name]
-        
+
         if not all_files:
             raise FileNotFoundError(
                 f"No files found in {_dir_country} with pattern {file_name}"
@@ -666,7 +673,7 @@ class Geocif:
         if self.rename_target:
             self._rename_target_column()
 
-        self._drop_earliest_year()
+        self._apply_training_year_filter()
 
     def _rename_target_column(self):
         """Rename target column if configured."""
@@ -677,31 +684,40 @@ class Geocif:
         self.target = self.new_name_target
         self.target_column = self.new_name_target
 
-    def _drop_earliest_year(self):
-        """Drop rows belonging to the earliest Harvest Year in df_inputs.
+    def _apply_training_year_filter(self):
+        """Trim df_inputs to the configured training window.
 
-        The boundary year of any configured range often has partial CID
-        coverage (e.g. when start_year predates an EO source's start
-        date, that year's missing values are NaN->0 filled in
-        _update_column_names, which injects misleading zeros into the
-        feature signal).  Year is derived from the data, never hardcoded,
-        so the rule survives future widenings of start_year.
+        Behavior:
+          * ``self.training_start_year is None`` (default): drop the
+            single earliest Harvest Year (boundary CID coverage is often
+            partial when start_year predates an EO source's start date).
+          * ``self.training_start_year = <int>``: filter to
+            ``Harvest Year >= training_start_year``; an explicit value
+            overrides the first-year drop.
         """
         if self.df_inputs is None or self.df_inputs.empty:
             return
         if "Harvest Year" not in self.df_inputs.columns:
             return
 
-        first_year = int(self.df_inputs["Harvest Year"].min())
         before = len(self.df_inputs)
-        self.df_inputs = self.df_inputs[
-            self.df_inputs["Harvest Year"] > first_year
-        ].reset_index(drop=True)
+        if self.training_start_year is not None:
+            cutoff = int(self.training_start_year)
+            self.df_inputs = self.df_inputs[
+                self.df_inputs["Harvest Year"] >= cutoff
+            ].reset_index(drop=True)
+            mode_msg = f"training_start_year={cutoff}"
+        else:
+            first_year = int(self.df_inputs["Harvest Year"].min())
+            self.df_inputs = self.df_inputs[
+                self.df_inputs["Harvest Year"] > first_year
+            ].reset_index(drop=True)
+            mode_msg = f"drop earliest year ({first_year})"
+
         dropped = before - len(self.df_inputs)
         if dropped:
             self.logger.info(
-                f"  Dropped earliest year {first_year} from df_inputs "
-                f"({dropped} rows) - boundary CID coverage often partial."
+                f"  Training-year filter ({mode_msg}): dropped {dropped} rows"
             )
 
     # ============================================================================
@@ -743,6 +759,7 @@ class Geocif:
 
         self._prepare_train_test_split(df)
         self._compute_detrended_yield()
+        self._compute_yield_trend_feature()
         self._add_spatial_neighbor_features()
 
         if self.run_ml:
@@ -924,6 +941,7 @@ class Geocif:
 
             self._prepare_train_test_split(df)
             self._compute_detrended_yield()
+            self._compute_yield_trend_feature()
             self._add_spatial_neighbor_features()
 
             if self.run_ml:
@@ -975,6 +993,7 @@ class Geocif:
 
             self._prepare_train_test_split(df)
             self._compute_detrended_yield()
+            self._compute_yield_trend_feature()
             self._add_spatial_neighbor_features()
 
             if self.run_ml:
@@ -1226,6 +1245,68 @@ class Geocif:
         self.df_test = df[mask].copy()
         
         self.df_train = self.df_train.dropna(subset=[self.target])
+
+    def _compute_yield_trend_feature(self):
+        """Compute per-region BEAST-segmented linear trend, write to
+        ``Yield Trend`` column on both df_train and df_test.
+
+        LOOCV-safe: only training data is used to fit BEAST + OLS; the
+        forecast year is already excluded by ``_prepare_train_test_split``.
+        """
+        if not self.use_yield_trend_as_feature:
+            return
+        if self.check_yield_trend:
+            self.logger.warning(
+                "  use_yield_trend_as_feature is incompatible with "
+                "check_yield_trend (target detrending). Skipping trend feature."
+            )
+            return
+
+        import ast as _ast
+        cp_threshold = self.parser.getfloat(
+            "BEAST", "strong_cp_threshold", fallback=0.5
+        )
+        tcp_minmax = _ast.literal_eval(
+            self.parser.get("BEAST", "tcp_minmax", fallback="[0, 8]")
+        )
+        tseg_minlength = self.parser.getint(
+            "BEAST", "tseg_minlength", fallback=5
+        )
+        mcmc_seed = self.parser.getint(
+            "BEAST", "mcmc_seed", fallback=42
+        )
+
+        self.df_train["Yield Trend"] = np.nan
+        self.df_test["Yield Trend"] = np.nan
+
+        for region_name, group in self.df_train.groupby("Region"):
+            # .astype(float) is required: Harvest Year may be a pandas
+            # Categorical (used by tree models that treat it as a cat
+            # feature), and ``slope * Categorical`` raises TypeError.
+            years = group["Harvest Year"].astype(float).values
+            yields = group[self.target].astype(float).values
+            intercept, slope, cp_used, n_used = trend.segment_aware_trend(
+                years, yields,
+                cp_threshold=cp_threshold,
+                tcp_minmax=tcp_minmax,
+                tseg_minlength=tseg_minlength,
+                mcmc_seed=mcmc_seed,
+            )
+            if np.isnan(intercept):
+                continue
+
+            train_mask = self.df_train["Region"] == region_name
+            test_mask = self.df_test["Region"] == region_name
+            tr_yrs = self.df_train.loc[train_mask, "Harvest Year"].astype(float).values
+            te_yrs = self.df_test.loc[test_mask, "Harvest Year"].astype(float).values
+            self.df_train.loc[train_mask, "Yield Trend"] = intercept + slope * tr_yrs
+            self.df_test.loc[test_mask, "Yield Trend"] = intercept + slope * te_yrs
+
+            self.logger.info(
+                f"  Yield Trend [{region_name}]: "
+                f"slope={slope:.4f} t/ha/yr, n_used={n_used}, "
+                f"cp_used={cp_used}"
+            )
 
     def _compute_detrended_yield(self):
         """Compute detrended yield for each region."""
@@ -1867,6 +1948,9 @@ class Geocif:
         
         if self.median_yield_as_feature:
             self.feature_names.append(f"Median {self.target}")
+
+        if self.use_yield_trend_as_feature and "Yield Trend" in self.df_train.columns:
+            self.feature_names.append("Yield Trend")
         
         if self.lag_yield_as_feature:
             for i in range(1, self.number_lag_years + 1):
@@ -2706,7 +2790,14 @@ class Geocif:
         if df_region_train.empty:
             self.logger.warning(f"No training data for region {region_id}")
             return
-        
+
+        if df_region_test.empty:
+            self.logger.warning(
+                f"No test data for region {region_id} "
+                f"forecast_season={self.forecast_season}; skipping predict()"
+            )
+            return
+
         self._setup_training_data(df_region_train)
         self._select_features(region_id, dir_output)
         
@@ -3101,6 +3192,7 @@ class ModelTrainer:
             "tabpfn": TabPFNFitter(self.obj),
             "tabicl": TabICLFitter(self.obj),
             "tabicl_ft": TabICLFTFitter(self.obj),
+            "tabpfn_ft": TabPFNFTFitter(self.obj),
             "ngboost": NGBoostFitter(self.obj),
             "oblique": ObliqueFitter(self.obj),
             "ydf": YDFFitter(self.obj),
@@ -3187,6 +3279,65 @@ class TabICLFitter(BaseFitter):
         sklearn.set_config(transform_output="default")
         try:
             self.obj.model.fit(X_train, np.asarray(self.obj.y_train).ravel())
+        finally:
+            sklearn.set_config(transform_output=prev)
+
+
+class TabPFNFTFitter(BaseFitter):
+    """FinetunedTabPFNRegressor — needs X_val/y_val for early stopping.
+
+    Holds out a fraction of X_train as the validation set passed to
+    ``model.fit(X, y, X_val=, y_val=)``.  Fraction is configurable via
+    ``[ML] tabpfn_ft_val_frac`` (default 0.2).
+
+    Best used when training set has > 1000 rows; below that the fine-
+    tuning overhead doesn't pay off and zero-shot ``tabpfn`` will be
+    both faster and competitive.  Warns if n_train < 1000.
+    """
+
+    def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
+        import sklearn
+        import warnings as _warnings
+        from sklearn.model_selection import train_test_split
+
+        y = np.asarray(self.obj.y_train).ravel()
+        try:
+            val_frac = self.obj.parser.getfloat(
+                "ML", "tabpfn_ft_val_frac", fallback=0.2
+            )
+        except Exception:
+            val_frac = 0.2
+
+        if len(X_train) < 1000:
+            self.obj.logger.warning(
+                f"tabpfn_ft: only {len(X_train)} training rows - "
+                f"fine-tuning overhead may not pay off below ~1000 rows; "
+                f"consider zero-shot 'tabpfn' for small training sets"
+            )
+
+        prev = sklearn.get_config()["transform_output"]
+        sklearn.set_config(transform_output="default")
+        try:
+            with _warnings.catch_warnings():
+                # We intentionally don't pass output_dir; tabpfn warns about
+                # missing checkpointing on every fit. Silence it.
+                _warnings.filterwarnings(
+                    "ignore",
+                    message=r".*output_dir.*",
+                    category=UserWarning,
+                )
+                if len(X_train) < 5:
+                    self.obj.logger.warning(
+                        f"tabpfn_ft: only {len(X_train)} training rows - "
+                        f"too few for a holdout; fitting without validation"
+                    )
+                    self.obj.model.fit(X_train, y)
+                else:
+                    X_tr, X_val, y_tr, y_val = train_test_split(
+                        X_train, y, test_size=val_frac,
+                        random_state=42, shuffle=True,
+                    )
+                    self.obj.model.fit(X_tr, y_tr, X_val=X_val, y_val=y_val)
         finally:
             sklearn.set_config(transform_output=prev)
 

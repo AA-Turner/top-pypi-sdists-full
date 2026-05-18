@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Any
 
 from setuptools import find_packages, setup
 
@@ -27,7 +28,7 @@ def get_requirements_from_file(file: str) -> list[str]:
     return required
 
 
-def do_the_setup(
+def setup_approvaltests(
     package_name: str,
     package_description: str,
     required: list[str],
@@ -39,14 +40,9 @@ def do_the_setup(
     build_dir = _SCRIPT_DIR / "build"
     build_dir.mkdir(exist_ok=True)
 
-    setup(
+    setup_approvals(
         name=package_name,
-        version=get_version(),
         description=package_description,
-        author="ApprovalTests Contributors",
-        author_email="llewellyn.falco@gmail.com",
-        url="https://github.com/approvals/ApprovalTests.Python",
-        python_requires=">=3.10",
         packages=find_packages(include=["approvaltests*"]),
         package_data={"approvaltests": ["reporters/reporters.json"]},
         entry_points={
@@ -55,10 +51,27 @@ def do_the_setup(
             ],
         },
         install_requires=required,
-        extras_require=extra_requires,
+        extra_requires=extra_requires,
         long_description=(_SCRIPT_DIR.parent / "README.md").read_text(),
         long_description_content_type="text/markdown",
+        additional_classifiers=[
+            "Topic :: Software Development :: Testing",
+            "Topic :: Utilities",
+        ],
+    )
+
+
+def setup_approvals(
+    additional_classifiers: list[str] = [],
+    **kwargs: Any,
+) -> None:
+    setup(
+        version=get_version(),
         license="Apache-2.0",
+        author="ApprovalTests Contributors",
+        author_email="llewellyn.falco@gmail.com",
+        url="https://github.com/approvals/ApprovalTests.Python",
+        python_requires=">=3.10",
         classifiers=[
             "Development Status :: 4 - Beta",
             "Intended Audience :: Developers",
@@ -67,7 +80,7 @@ def do_the_setup(
             "Operating System :: MacOS :: MacOS X",
             *PYTHON_VERSION_CLASSIFIERS,
             "Topic :: Software Development :: Libraries",
-            "Topic :: Software Development :: Testing",
-            "Topic :: Utilities",
+            *additional_classifiers,
         ],
+        **kwargs,
     )

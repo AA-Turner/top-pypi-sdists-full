@@ -148,7 +148,7 @@ class Transform:
     # ======================================== INTERFACE ========================================
     def copy(self) -> Transform:
         """Renvoie une copie du composant"""
-        return Transform(self._position, self._anchor, self._rotation, self._scale)
+        return Transform(self._position.copy(), self._anchor.copy(), self._rotation, self._scale)
     
     def translate(self, vector: Vector) -> None:
         """Applique une translation

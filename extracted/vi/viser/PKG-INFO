@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: viser
-Version: 1.0.27
+Version: 1.0.28
 Summary: 3D visualization + Python
 Project-URL: GitHub, https://github.com/viser-project/viser
 License: MIT
@@ -25,20 +25,30 @@ Requires-Dist: tqdm<5.0.0,>=4.0.0
 Requires-Dist: trimesh<5.0.0,>=3.21.7
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: websockets<17.0.0,>=13.1
-Requires-Dist: yourdfpy<1.0.0,>=0.0.53
 Requires-Dist: zstandard<1.0.0,>=0.20.0
 Provides-Extra: dev
+Requires-Dist: gdown>=4.6.6; extra == 'dev'
 Requires-Dist: hypothesis[numpy]; extra == 'dev'
+Requires-Dist: matplotlib>=3.7.1; extra == 'dev'
 Requires-Dist: nodeenv<2.0.0,>=1.9.1; extra == 'dev'
-Requires-Dist: opencv-python<5.0.0,>=4.0.0.21; extra == 'dev'
+Requires-Dist: opencv-python; extra == 'dev'
+Requires-Dist: pandas; extra == 'dev'
 Requires-Dist: playwright>=1.40.0; extra == 'dev'
+Requires-Dist: plotly>=5.21.0; extra == 'dev'
+Requires-Dist: plyfile; extra == 'dev'
 Requires-Dist: pre-commit==3.3.2; extra == 'dev'
 Requires-Dist: psutil<8.0.0,>=5.9.5; extra == 'dev'
+Requires-Dist: pyliblzfse>=0.4.1; (platform_system != 'Windows') and extra == 'dev'
 Requires-Dist: pyright>=1.1.308; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-playwright>=0.4.0; extra == 'dev'
 Requires-Dist: pytest-xdist>=3.0.0; extra == 'dev'
+Requires-Dist: robot-descriptions>=1.18.0; extra == 'dev'
 Requires-Dist: ruff>=0.9.3; extra == 'dev'
+Requires-Dist: torch<2.5.0; (python_version < '3.9') and extra == 'dev'
+Requires-Dist: torch>=1.13.1; extra == 'dev'
+Requires-Dist: tyro>=1.0.0; extra == 'dev'
+Requires-Dist: yourdfpy<1.0.0,>=0.0.53; extra == 'dev'
 Provides-Extra: examples
 Requires-Dist: gdown>=4.6.6; extra == 'examples'
 Requires-Dist: matplotlib>=3.7.1; extra == 'examples'
@@ -50,7 +60,10 @@ Requires-Dist: pyliblzfse>=0.4.1; (platform_system != 'Windows') and extra == 'e
 Requires-Dist: robot-descriptions>=1.18.0; extra == 'examples'
 Requires-Dist: torch<2.5.0; (python_version < '3.9') and extra == 'examples'
 Requires-Dist: torch>=1.13.1; extra == 'examples'
-Requires-Dist: tyro<1.0.0,>=0.2.0; extra == 'examples'
+Requires-Dist: tyro>=1.0.0; extra == 'examples'
+Requires-Dist: yourdfpy<1.0.0,>=0.0.53; extra == 'examples'
+Provides-Extra: urdf
+Requires-Dist: yourdfpy<1.0.0,>=0.0.53; extra == 'urdf'
 Description-Content-Type: text/markdown
 
 <h1 align="left">

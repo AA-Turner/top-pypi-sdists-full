@@ -41,6 +41,7 @@ from chalk.client.models import (
     WhoAmIResponse,
 )
 from chalk.client.response import Dataset, DatasetRevision, OnlineQueryResult
+from chalk.ml.model_handler import model_handler
 
 __all__ = [
     "APINamespace",
@@ -84,4 +85,5 @@ __all__ = [
     "LinkedSecretRef",
     "StreamResolverTestResponse",
     "WhoAmIResponse",
+    "model_handler",
 ]

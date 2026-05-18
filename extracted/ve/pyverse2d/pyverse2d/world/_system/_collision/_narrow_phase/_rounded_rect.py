@@ -171,3 +171,11 @@ def rr_capsule(
         return None
     nx, ny, depth = result
     return Contact(Vector._make(-nx, -ny), depth)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "rr_rr",
+    "rr_circle",
+    "rr_ellipse",
+    "rr_capsule",
+]

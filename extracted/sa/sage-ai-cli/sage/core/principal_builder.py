@@ -323,7 +323,57 @@ def build_project_principal(
     # ── 1. Decompose ──
     log("[1/8] decomposing spec...")
     plan = decompose_spec(task, generate)
-    log(f"      features={len(plan.features)} stack={plan.stack}")
+    log(f"      task_type={plan.task_type} features={len(plan.features)} stack={plan.stack}")
+
+    # Game prompts route to sage/games — entirely separate pipeline because
+    # game-engine projects have nothing structurally in common with the
+    # webapp scaffold (no frontend/backend siblings, no FastAPI/React).
+    # The PrincipalBuildReport shape we return is intentionally minimal for
+    # games — the games pipeline owns its own richer GameBuildReport that
+    # the CLI inspects via `report.game_report`.
+    if plan.task_type == "game":
+        from sage.games.exceptions import (
+            BuildNotSupported,
+            EngineNotInstalled,
+            GameBuildIncomplete,
+        )
+        from sage.games.pipeline import build_game
+
+        try:
+            game_report = build_game(
+                plan.game_request, out_dir, generate, progress=log,
+            )
+            return PrincipalBuildReport(
+                title=plan.title,
+                stack={"engine": game_report.engine},
+                out_dir=str(out_dir),
+                file_count=len(game_report.scripts_written)
+                            + game_report.sprite_count
+                            + game_report.mesh_count
+                            + game_report.audio_count,
+                feature_count=0,
+                install_ok=True,
+                tests_ok=True if game_report.build_artifact else None,
+            )
+        except EngineNotInstalled as exc:
+            # Engine missing isn't a sage bug — surface a clear install
+            # hint without raising BuildIncomplete (which would imply we
+            # tried + couldn't recover).
+            log(f"[game] {exc}")
+            return PrincipalBuildReport(
+                title=plan.title,
+                stack={"engine": (plan.game_request.engine or "godot")},
+                out_dir=str(out_dir), file_count=0, feature_count=0,
+                install_ok=False, tests_ok=False,
+            )
+        except (BuildNotSupported, GameBuildIncomplete) as exc:
+            log(f"[game] build did not complete: {exc}")
+            return PrincipalBuildReport(
+                title=plan.title,
+                stack={"engine": (plan.game_request.engine or "godot")},
+                out_dir=str(out_dir), file_count=0, feature_count=0,
+                install_ok=True, tests_ok=False,
+            )
 
     # ── 2. Layout (root files only) ──
     log("[2/8] planning layout...")

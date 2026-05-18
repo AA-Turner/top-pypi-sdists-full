@@ -16,11 +16,11 @@ class GroundSensor(Component):
     Ce composant est manipulé par ``CollisionSystem`` et ``PhysicsSystem``.
 
     Args:
-        threshold(Real, optional): composante Y minimale de la normale pour considérer sol (0 à 1)
-        stability_angle(Real, optional): angle maximal en degrés auquel l'entité peut ne pas glisser (0 à 75)
-        ground_damping(Real, optional): amortissement horizontal appliqué uniquement au sol
-        max_step_height(Real, optional)
-        coyote_time(Real, optional): durée de grâce en secondes après perte du sol
+        threshold: composante Y minimale de la normale pour considérer sol (0 à 1)
+        stability_angle: angle maximal en degrés auquel l'entité peut ne pas glisser (0 à 75)
+        ground_damping: amortissement horizontal appliqué uniquement au sol
+        max_step_height: pas maximal toléré
+        coyote_time: durée de grâce en secondes après perte du sol
     """
     __slots__ = (
         "_threshold", "_stability_angle", "_ground_damping", "_max_step_height", "_coyote_time",
@@ -38,20 +38,20 @@ class GroundSensor(Component):
             coyote_time: Real = 0.08,
         ):
         # Transtypage et vérifications
-        treshold = float(treshold)
+        threshold = float(threshold)
         stability_angle = abs(float(stability_angle))
         ground_damping = float(ground_damping)
         max_step_height = float(max_step_height)
         coyote_time = float(coyote_time)
 
         if __debug__:
-            clamped(treshold)
+            clamped(threshold)
             positive(ground_damping)
             positive(max_step_height)
             positive(coyote_time)
 
         # Attributs publiques
-        self._threshold: float = treshold
+        self._threshold: float = threshold
         self._stability_angle: float = stability_angle
         self._ground_damping: float = ground_damping
         self._max_step_height: float = max_step_height

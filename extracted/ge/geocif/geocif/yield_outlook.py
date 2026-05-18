@@ -384,7 +384,7 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
     os.makedirs(dir_maps, exist_ok=True)
     os.makedirs(dir_csvs, exist_ok=True)
 
-    title = f"{country.title()} {crop.title()} — {model}"
+    title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} — {model}"
     if stage_name:
         title += f" ({diag.friendly_stage_label(stage_name)})"
 
@@ -513,9 +513,9 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
         for bar, val in zip(bars, df_bar.values):
             ax_bar.text(val + 0.3, bar.get_y() + bar.get_height() / 2,
                         f"{val:.1f}%", va="center", fontsize=8)
-        ax_bar.set_xlabel("MAPE (%)")
+        ax_bar.set_xlabel("Mean Absolute Percentage Error (%)")
         ax_bar.set_title("MAPE by Region", fontsize=10, fontweight="bold")
-        ax_bar.tick_params(axis='y', length=0)
+        ax_bar.tick_params(axis='y', which='minor', length=0)
 
         fig.suptitle(title, fontsize=12, fontweight="bold", y=1.02)
         fig.subplots_adjust(wspace=0.3)
@@ -798,7 +798,7 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
     dir_progression = dir_outlook / "plots" / model / country / "progression"
     dir_csvs_prog = dir_outlook / "csvs" / model / country / "progression"
     os.makedirs(dir_csvs_prog, exist_ok=True)
-    base_title = f"{country.title()} {crop.title()} ({model})"
+    base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})"
 
     # MAPE
     _plot_metric_progression(
@@ -1004,7 +1004,7 @@ def _plot_feature_selection_by_stage(df_features, country, crop, model, dir_outl
     os.makedirs(dir_plots, exist_ok=True)
     os.makedirs(dir_csvs, exist_ok=True)
 
-    base_title = f"{country.title()} {crop.title()} ({model})"
+    base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})"
 
     with plt.style.context(["science", "no-latex"]):
         # --- Heatmap ---
@@ -1299,7 +1299,7 @@ def _plot_variable_value_by_source(df_long, stages_sorted, friendly_labels, n_pr
 
 
 def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
-                          dict_config=None, db_path=None):
+                          dict_config=None, db_path=None, parser=None):
     """Generate scatter, MAPE bar chart, and MAPE map per (country, crop, model, stage).
 
     When multi-step results are present (multiple Stage Names), produces
@@ -1344,6 +1344,393 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
 
     # Model comparison plots (only when multiple models)
     _generate_model_comparison(df_pred_store, dg, dir_outlook)
+
+    # Cross-country comparison plots (only when multiple countries)
+    _generate_cross_country_comparison(df_pred_store, dir_outlook)
+
+    # Per-country breakpoint diagnostics (BEAST CP + segment-aware trend)
+    if parser is not None:
+        _generate_breakpoint_plots(df_pred_store, dir_outlook, parser)
+
+
+def _generate_breakpoint_plots(df_pred_store, dir_outlook, parser):
+    """Per-region observed-yield series with BEAST changepoint + segment-
+    aware linear trend overlaid.  One figure per (country, crop).
+
+    Loads observed yields from the per-country statistics CSV (full
+    history from ``[DEFAULT] start_year``) — NOT from df_pred_store,
+    which is limited to the LOOCV outlook window.  BEAST changepoint
+    detection works better on longer series.
+
+    Saved to ``outlook/plots/breakpoints/{country}/`` with sibling CSV
+    in ``outlook/csvs/breakpoints/{country}/``.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator
+    import scienceplots  # noqa: F401
+    from geocif import utils as _ut
+    from .ml import trend as _trend
+
+    obs_col = "Yield (tn per ha)"  # stats-CSV column name
+
+    country_crop_set = set()
+    for (country, crop, _model) in df_pred_store.keys():
+        if country == "pooled":
+            continue
+        country_crop_set.add((country, crop))
+    if not country_crop_set:
+        return
+
+    dir_output = Path(parser.get("PATHS", "dir_output"))
+    project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
+    method = parser.get("DEFAULT", "method", fallback="monthly_r")
+    dir_out = dir_output / project_name
+
+    cp_threshold = parser.getfloat("BEAST", "strong_cp_threshold", fallback=0.5)
+    import ast as _ast
+    tcp_minmax = _ast.literal_eval(
+        parser.get("BEAST", "tcp_minmax", fallback="[0, 8]")
+    )
+    tseg_minlength = parser.getint("BEAST", "tseg_minlength", fallback=5)
+    mcmc_seed = parser.getint("BEAST", "mcmc_seed", fallback=42)
+
+    for (country, crop) in country_crop_set:
+        f = _ut.statistics_file_path(dir_out, method, country, crop)
+        if not f.exists():
+            continue
+        df = pd.read_csv(f, usecols=["Region", "Harvest Year", obs_col])
+        df = df.dropna(subset=["Region", "Harvest Year", obs_col])
+        if df.empty:
+            continue
+        series_by_region = {}
+        for region, rdf in df.groupby("Region"):
+            yr = (rdf.groupby("Harvest Year")[obs_col]
+                  .mean().sort_index())
+            yr = yr[yr > 0]
+            if len(yr) >= 5:
+                series_by_region[region] = yr
+        if not series_by_region:
+            continue
+
+        results = {}
+        for region, yr in series_by_region.items():
+            try:
+                intercept, slope, cp_used, n_used = _trend.segment_aware_trend(
+                    yr.index.values.astype(float),
+                    yr.values.astype(float),
+                    cp_threshold=cp_threshold,
+                    tcp_minmax=tcp_minmax,
+                    tseg_minlength=tseg_minlength,
+                    mcmc_seed=mcmc_seed,
+                )
+            except Exception:
+                continue
+            results[region] = {
+                "yields": yr,
+                "intercept": intercept,
+                "slope": slope,
+                "cp_used": cp_used,
+                "n_used": n_used,
+            }
+
+        if not results:
+            continue
+
+        n = len(results)
+        ncols = min(3, n)
+        nrows = (n + ncols - 1) // ncols
+        with plt.style.context(["science", "no-latex"]):
+            fig, axes = plt.subplots(
+                nrows, ncols,
+                figsize=(4.5 * ncols, 3 * nrows),
+                squeeze=False,
+            )
+            country_disp = country.title().replace('_', ' ')
+            crop_disp = crop.title().replace('_', ' ')
+            fig.suptitle(
+                f"Yield breakpoints — {country_disp} {crop_disp}",
+                fontsize=13, fontweight="bold",
+            )
+            regions_sorted = sorted(results.keys())
+            for i, region in enumerate(regions_sorted):
+                r = results[region]
+                yr = r["yields"]
+                ax = axes[i // ncols][i % ncols]
+                ax.plot(
+                    yr.index.astype(int), yr.values,
+                    color="steelblue", linewidth=1.2, marker="o",
+                    markersize=3, label="Observed",
+                )
+                if r["cp_used"] is not None:
+                    x_fit = yr.index[yr.index >= r["cp_used"]].astype(int)
+                    ax.axvline(
+                        r["cp_used"], color="darkorange",
+                        linestyle="--", linewidth=1.2,
+                        label=f"CP {r['cp_used']}",
+                    )
+                else:
+                    x_fit = yr.index.astype(int)
+                if len(x_fit) >= 2:
+                    trend_y = r["intercept"] + r["slope"] * x_fit
+                    ax.plot(
+                        x_fit, trend_y, color="firebrick",
+                        linewidth=1.5,
+                        label=f"Trend (slope={r['slope']:.3f})",
+                    )
+                ax.set_title(region, fontsize=10, fontweight="bold")
+                ax.set_xlabel("Harvest Year", fontsize=8)
+                ax.set_ylabel(obs_col, fontsize=8)
+                ax.legend(fontsize=7, frameon=False)
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax.tick_params(axis='both', which='minor', length=0)
+
+            for j in range(n, nrows * ncols):
+                axes[j // ncols][j % ncols].axis("off")
+
+            plt.tight_layout(rect=(0, 0, 1, 0.97))
+
+            out_dir = dir_outlook / "plots" / "breakpoints" / country
+            out_dir.mkdir(parents=True, exist_ok=True)
+            fig.savefig(
+                out_dir / f"breakpoints_{country}_{crop}.png",
+                dpi=200, bbox_inches="tight",
+            )
+            plt.close(fig)
+
+        cp_counts = {}
+        for region, r in results.items():
+            if r["cp_used"] is not None:
+                cp_counts.setdefault(int(r["cp_used"]), []).append(region)
+
+        if cp_counts:
+            years_sorted = sorted(cp_counts.keys())
+            counts = [len(cp_counts[y]) for y in years_sorted]
+            with plt.style.context(["science", "no-latex"]):
+                fig, ax = plt.subplots(
+                    figsize=(max(8, len(years_sorted) * 0.5), 5)
+                )
+                bars = ax.bar(
+                    [str(y) for y in years_sorted], counts,
+                    color="steelblue",
+                )
+                for bar, y in zip(bars, years_sorted):
+                    regions = cp_counts[y]
+                    if len(regions) <= 4:
+                        label = "\n".join(regions)
+                    else:
+                        label = "\n".join(regions[:3]) + f"\n+{len(regions)-3} more"
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        bar.get_height() + 0.05,
+                        label, ha="center", va="bottom", fontsize=7,
+                        color="dimgray",
+                    )
+                ax.set_xlabel("Breakpoint year")
+                ax.set_ylabel("Number of regions")
+                ax.set_title(
+                    f"Breakpoint year frequency — {country_disp} {crop_disp}",
+                    fontsize=12, fontweight="bold",
+                )
+                ax.tick_params(axis='both', which='minor', length=0)
+                ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+                plt.xticks(rotation=45, ha='right')
+                plt.tight_layout()
+                fig.savefig(
+                    out_dir / f"breakpoints_count_{country}_{crop}.png",
+                    dpi=200, bbox_inches="tight",
+                )
+                plt.close(fig)
+
+        out_csv_dir = dir_outlook / "csvs" / "breakpoints" / country
+        out_csv_dir.mkdir(parents=True, exist_ok=True)
+        if cp_counts:
+            count_rows = [
+                {"country": country, "crop": crop, "cp_year": y,
+                 "n_regions": len(cp_counts[y]),
+                 "regions": ";".join(cp_counts[y])}
+                for y in sorted(cp_counts.keys())
+            ]
+            pd.DataFrame(count_rows).to_csv(
+                out_csv_dir / f"breakpoints_count_{country}_{crop}.csv",
+                index=False,
+            )
+        rows = [
+            {
+                "country": country, "crop": crop, "region": region,
+                "cp_used": r["cp_used"],
+                "slope": r["slope"], "intercept": r["intercept"],
+                "n_used": r["n_used"],
+                "year_first": int(r["yields"].index.min()),
+                "year_last": int(r["yields"].index.max()),
+            }
+            for region, r in results.items()
+        ]
+        pd.DataFrame(rows).to_csv(
+            out_csv_dir / f"breakpoints_{country}_{crop}.csv", index=False,
+        )
+
+
+def _generate_cross_country_comparison(df_pred_store, dir_outlook):
+    """Cross-country comparison: MAPE distribution KDE + national MAPE
+    time series, one figure per (crop, model) when >=2 real countries
+    are present in df_pred_store.
+    """
+    import matplotlib.pyplot as plt
+    import scienceplots  # noqa: F401
+
+    obs_col = "Observed Yield (tn per ha)"
+    pred_col = "Predicted Yield (tn per ha)"
+
+    # Group by (crop, model) across countries; skip the synthetic
+    # "pooled" entry.
+    crop_model_countries = {}
+    for (country, crop, model), df in df_pred_store.items():
+        if country == "pooled":
+            continue
+        crop_model_countries.setdefault((crop, model), {})[country] = df
+
+    dir_plots = dir_outlook / "plots" / "cross_country"
+    dir_csvs = dir_outlook / "csvs" / "cross_country"
+
+    _PALETTE = [
+        (0.122, 0.467, 0.706, 1.0), (0.839, 0.153, 0.157, 1.0),
+        (0.173, 0.627, 0.173, 1.0), (0.580, 0.404, 0.741, 1.0),
+        (1.000, 0.498, 0.055, 1.0), (0.549, 0.337, 0.294, 1.0),
+        (0.890, 0.467, 0.761, 1.0), (0.498, 0.498, 0.498, 1.0),
+    ]
+
+    for (crop, model), country_dfs in crop_model_countries.items():
+        if len(country_dfs) < 2:
+            continue
+        countries_sorted = sorted(country_dfs.keys())
+        country_colors = {
+            c: _PALETTE[i % len(_PALETTE)]
+            for i, c in enumerate(countries_sorted)
+        }
+
+        region_mape = {}
+        nat_ts = {}
+        for country, df in country_dfs.items():
+            df = df.dropna(subset=[obs_col, pred_col])
+            df = df[df[obs_col] != 0].copy()
+            if df.empty:
+                continue
+            df["_ape"] = (df[pred_col] - df[obs_col]).abs() / df[obs_col] * 100
+
+            r_mape = df.groupby("Region")["_ape"].mean().dropna()
+            region_mape[country] = r_mape
+
+            has_area = (
+                "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
+            )
+            if has_area:
+                ry = (
+                    df.groupby(["Region", "Harvest Year"])
+                    .agg(ape=("_ape", "mean"), area=("Area (ha)", "mean"))
+                    .reset_index()
+                )
+            else:
+                ry = (
+                    df.groupby(["Region", "Harvest Year"])
+                    .agg(ape=("_ape", "mean"))
+                    .reset_index()
+                )
+                ry["area"] = np.nan
+
+            def _wmean(g, _has_area=has_area):
+                if _has_area:
+                    w = g["area"].fillna(0)
+                    if w.sum() > 0:
+                        return (g["ape"] * w).sum() / w.sum()
+                return g["ape"].mean()
+
+            nat = (
+                ry.groupby("Harvest Year").apply(_wmean).sort_index()
+            )
+            if not nat.empty:
+                nat_ts[country] = nat
+
+        if not region_mape and not nat_ts:
+            continue
+
+        dir_plots.mkdir(parents=True, exist_ok=True)
+        dir_csvs.mkdir(parents=True, exist_ok=True)
+
+        if region_mape:
+            with plt.style.context(["science", "no-latex"]):
+                fig, ax = plt.subplots(figsize=(9, 5.5))
+                from scipy.stats import gaussian_kde
+                for country in countries_sorted:
+                    if country not in region_mape:
+                        continue
+                    vals = region_mape[country].values
+                    kde = gaussian_kde(vals)
+                    x_min = max(0.0, float(np.nanmin(vals)) - 10)
+                    x_max = float(np.nanmax(vals)) + 10
+                    xs = np.linspace(x_min, x_max, 200)
+                    ax.plot(
+                        xs, kde(xs),
+                        color=country_colors[country], linewidth=2,
+                        label=f"{country.title().replace('_', ' ')} (n={len(vals)})",
+                    )
+                ax.set_xlabel("Per-region Mean Absolute Percentage Error (%)")
+                ax.set_ylabel("Density")
+                ax.set_title(
+                    f"MAPE distribution by country — {crop} ({model})",
+                    fontsize=11, fontweight="bold",
+                )
+                ax.legend(title="Country", fontsize=8, frameon=False)
+                plt.tight_layout()
+                fig.savefig(
+                    dir_plots / f"mape_kde_{crop}_{model}.png",
+                    dpi=250, bbox_inches="tight",
+                )
+                plt.close(fig)
+
+            pd.concat(
+                {c: s.rename("MAPE") for c, s in region_mape.items()},
+                names=["Country", "Region"],
+            ).reset_index().to_csv(
+                dir_csvs / f"mape_kde_{crop}_{model}.csv", index=False,
+            )
+
+        if nat_ts:
+            with plt.style.context(["science", "no-latex"]):
+                fig, ax = plt.subplots(figsize=(11, 5.5))
+                for country in countries_sorted:
+                    if country not in nat_ts:
+                        continue
+                    s = nat_ts[country]
+                    ax.plot(
+                        s.index.astype(int), s.values,
+                        color=country_colors[country], linewidth=2,
+                        marker="o", markersize=4,
+                        label=country.title().replace('_', ' '),
+                    )
+                ax.set_xlabel("Harvest Year")
+                ax.set_ylabel("National Mean Absolute Percentage Error (%, area-weighted)")
+                ax.set_title(
+                    f"National MAPE over time — {crop} ({model})",
+                    fontsize=11, fontweight="bold",
+                )
+                ax.legend(title="Country", fontsize=8, frameon=False)
+                all_years = sorted({
+                    int(y) for s in nat_ts.values() for y in s.index
+                })
+                ax.set_xticks(all_years)
+                ax.set_xticklabels([str(y) for y in all_years],
+                                   rotation=45, ha='right')
+                ax.tick_params(axis='x', length=0)
+                plt.tight_layout()
+                fig.savefig(
+                    dir_plots / f"national_mape_timeseries_{crop}_{model}.png",
+                    dpi=250, bbox_inches="tight",
+                )
+                plt.close(fig)
+
+            pd.DataFrame(nat_ts).sort_index().to_csv(
+                dir_csvs / f"national_mape_timeseries_{crop}_{model}.csv",
+            )
 
 
 def _generate_model_comparison(df_pred_store, dg, dir_outlook):
@@ -1426,7 +1813,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
         df_year = pd.DataFrame(rows_year)
         df_region.to_csv(dir_csvs_comp / f"metrics_by_region_{country}_{crop}.csv", index=False)
         df_year.to_csv(dir_csvs_comp / f"metrics_by_year_{country}_{crop}.csv", index=False)
-        base_title = f"{country.title()} {crop.title()}"
+        base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')}"
 
         # Consistent model colors across all plots
         all_models_sorted = sorted(df_region["Model"].unique())
@@ -1446,9 +1833,9 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
             for i, m in enumerate(all_models_sorted)
         }
 
-        # Production share per region (reuse existing utility)
+        # Area share per region (reuse existing utility)
         first_df = next(iter(model_dfs.values()))
-        prod_pct = diag.compute_production_pct(first_df, country)
+        area_pct = diag.compute_area_pct(first_df, country)
 
         # National-scale metric per model (for legend labels). Computed on
         # production-aggregated national yields per year — i.e. the metric a
@@ -1490,16 +1877,17 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
 
         with plt.style.context(["science", "no-latex"]):
             # By region: grouped bar for each metric
-            for metric, ylabel in [("MAPE", "MAPE (%)"), ("RMSE", "RMSE (tn/ha)"), ("R2", "R²")]:
+            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", "RMSE (tn/ha)"), ("R2", "R²")]:
                 pivot = df_region.pivot_table(index="Region", columns="Model", values=metric)
                 if pivot.empty:
                     continue
-                # Sort by production share descending (largest producer at top)
-                if prod_pct:
-                    order = sorted(pivot.index, key=lambda r: prod_pct.get(r, 0), reverse=True)
+                # Sort ascending by area share so matplotlib's barh (row 0 at
+                # bottom) renders the largest area at the TOP visually.
+                if area_pct:
+                    order = sorted(pivot.index, key=lambda r: area_pct.get(r, 0))
                     pivot = pivot.reindex(order)
                     pivot.index = [
-                        f"{r} ({prod_pct[r]:.1f}%)" if r in prod_pct else r
+                        f"{r} ({area_pct[r]:.1f}%)" if r in area_pct else r
                         for r in pivot.index
                     ]
                 # Rename columns to include national metric
@@ -1511,14 +1899,14 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 ax.set_xlabel(ylabel)
                 ax.set_title(f"{ylabel} by Region — {base_title}", fontweight="bold")
                 ax.legend(title="Model", fontsize=8)
-                ax.tick_params(axis='y', length=0)
+                ax.tick_params(axis='y', which='minor', length=0)
                 plt.tight_layout()
                 fig.savefig(dir_comp / f"{metric.lower()}_by_region_{country}_{crop}.png",
                             dpi=250, bbox_inches="tight")
                 plt.close(fig)
 
             # By year: grouped bar for each metric
-            for metric, ylabel in [("MAPE", "MAPE (%)"), ("RMSE", "RMSE (tn/ha)"), ("R2", "R²")]:
+            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", "RMSE (tn/ha)"), ("R2", "R²")]:
                 if df_year.empty:
                     continue
                 pivot = df_year.pivot_table(index="Harvest Year", columns="Model", values=metric)
@@ -1531,7 +1919,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 ax.set_ylabel(ylabel)
                 ax.set_title(f"{ylabel} by Year — {base_title}", fontweight="bold")
                 ax.legend(title="Model", fontsize=8)
-                ax.tick_params(axis='x', length=0)
+                ax.tick_params(axis='x', which='minor', length=0)
                 plt.xticks(rotation=45, ha="right")
                 plt.tight_layout()
                 fig.savefig(dir_comp / f"{metric.lower()}_by_year_{country}_{crop}.png",
@@ -1887,6 +2275,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("Crops", crops),
             ("Models", models),
             ("Forecast year", str(current_year)),
+            ("Outlook since year",
+                f"{since_year} ({current_year - since_year + 1} years LOOCV)"),
             ("Outlook index window", f"{n_years} years"),
             ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
             ("Aggregation", aggregation),
@@ -1901,7 +2291,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 str(parser.getboolean("ML", "force_include_forecast_cids", fallback=True))),
             ("save_model_blobs",
                 str(parser.getboolean("ML", "save_model_blobs", fallback=False))),
-            ("Pre-ML observed-yield plots", "Yes (always since 0.4.586)"),
+            ("training_start_year",
+                parser.get("ML", "training_start_year", fallback="").strip()
+                or "(earliest - 1)"),
         ]
         for c, yf in yield_files.items():
             params.append((f"  {c} yield file", yf))
@@ -2282,6 +2674,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     title=f"MAPE by Year \u2014 {country} {crop} ({model})",
                     dir_out=plot_dir,
                     fname=f"mape_year_{country_lower}_{crop}_{model}.png",
+                    obs_col="Observed Yield (tn per ha)",
+                    pred_col="Predicted Yield (tn per ha)",
+                    area_col="Area (ha)",
                     threshold=20.0,
                 )
 
@@ -2448,7 +2843,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     if df_pred_store:
         _generate_diagnostics(df_pred_store, dg, dir_outlook,
                               current_year=current_year, dict_config=dict_config,
-                              db_path=db_path)
+                              db_path=db_path, parser=parser)
 
     # Optional PDF report
     generate_report_flag = parser.getboolean("ML", "generate_report", fallback=False)

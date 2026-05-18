@@ -35,6 +35,22 @@ from zeroconf._history import QuestionHistory
 
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
 
+# get_service_info / async_request timeout for tests using the
+# `quick_request_timing` fixture. The fixture cuts the initial-query
+# delay to ~15ms (10ms _LISTENER_TIME + 1-5ms jitter), so 50ms is
+# ample headroom for tests that only need to observe the first one
+# or two queries.
+QUICK_REQUEST_TIMEOUT_MS = 50
+
+# Timeout for ZeroconfServiceTypes.find() / AsyncZeroconfServiceTypes.async_find()
+# in loopback integration tests. `find()` is just `time.sleep(timeout)` —
+# it doesn't short-circuit on the first matching response — so the
+# timeout becomes a lower bound on the test runtime. Callers MUST use
+# the `quick_timing` fixture, which shrinks the browser's first-query
+# delay from RFC 6762 §5.2's 20-120ms window to 1-5ms; with that shave
+# the registrar's response lands inside ~10ms and 75ms is ~7x headroom.
+LOOPBACK_FIND_TIMEOUT = 0.075
+
 
 class QuestionHistoryWithoutSuppression(QuestionHistory):
     def suppresses(self, question: DNSQuestion, now: float, known_answers: set[DNSRecord]) -> bool:
@@ -89,6 +105,23 @@ def has_working_ipv6():
 def _clear_cache(zc: Zeroconf) -> None:
     zc.cache.cache.clear()
     zc.question_history.clear()
+
+
+def _backdate_cache(zc: Zeroconf, ms: int = 1100) -> None:
+    """Backdate every cached record's `created` time by `ms` milliseconds.
+
+    rfc6762#section-10.2 keys off "received more than one second ago", so
+    backdating is equivalent to sleeping `ms` in real time without the
+    wall-clock wait.
+
+    Iterate `store.values()`, not the dict directly — when a record is
+    re-added with an equal hash, the key stays the original object while
+    the value is replaced with the latest; mutating the key would update
+    stale objects no one reads.
+    """
+    for store in zc.cache.cache.values():
+        for record in store.values():
+            record.created -= ms
 
 
 def time_changed_millis(millis: float | None = None) -> None:

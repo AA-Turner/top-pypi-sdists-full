@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Set, Dict, List, Tuple, Union, Optional, 
 from datetime import datetime
 from typing_extensions import Literal, Annotated, TypeAlias, override
 
+from . import environment
 from .step import Step
 from .tool import Tool
 from .model import Model
@@ -42,11 +43,13 @@ from .audio_response_format import AudioResponseFormat
 from .image_response_format import ImageResponseFormat
 from .deep_research_agent_config import DeepResearchAgentConfig
 
-__all__ = ["Interaction", "AgentConfig", "Input", "ResponseFormat", "ResponseFormatResponseFormatList"]
+__all__ = ["Interaction", "AgentConfig", "Environment", "Input", "ResponseFormat", "ResponseFormatResponseFormatList"]
 
 AgentConfig: TypeAlias = Annotated[
     Union[DynamicAgentConfig, DeepResearchAgentConfig], PropertyInfo(discriminator="type")
 ]
+
+Environment: TypeAlias = Union[str, environment.Environment]
 
 Input: TypeAlias = Union[
     str, List[Step], List[Content], TextContent, ImageContent, AudioContent, DocumentContent, VideoContent
@@ -98,6 +101,20 @@ class Interaction(BaseModel):
 
     agent_config: Optional[AgentConfig] = None
     """Configuration parameters for the agent interaction."""
+
+    environment: Optional[Environment] = None
+    """The environment configuration for the interaction.
+
+    Can be an object specifying remote environment sources or a string referencing
+    an existing environment ID.
+    """
+
+    environment_id: Optional[str] = None
+    """Output only.
+
+    The environment ID for the interaction. Only populated if environment config is
+    set in the request.
+    """
 
     input: Optional[Input] = None
     """The input for the interaction."""
@@ -216,33 +233,31 @@ class Interaction(BaseModel):
                 return coerced
 
     @property
-    def _last_model_output_steps(self) -> List[ModelOutputStep]:
-        if not self.steps:
-            return []
-        trailing: List[ModelOutputStep] = []
-        for step in reversed(self.steps):
-            if isinstance(step, ModelOutputStep):
-                trailing.append(step)
-            else:
-                break
-        trailing.reverse()
-        return trailing
-
-    @property
     def output_text(self) -> str:
-        """Concatenated last consecutive text from the last consecutive model output steps."""
+        """The last consecutive run of text from the trailing model output steps.
+
+        Scans backwards through the steps (stopping at any UserInputStep) and
+        skips non-text content until the first text item is found, then
+        continues collecting text until a non-text item is encountered.
+        Returns an empty string when no text content is present.
+        """
         parts: List[str] = []
-        done = False
-        for step in reversed(self._last_model_output_steps):
-            if done:
+        collecting = False
+        for step in reversed(self.steps or []):
+            if isinstance(step, UserInputStep):
                 break
-            if step.content:
-                for content in reversed(step.content):
-                    if isinstance(content, TextContent):
-                        parts.append(content.text)
-                    else:
-                        done = True
-                        break
+            if not isinstance(step, ModelOutputStep) or not step.content:
+                if collecting:
+                    break
+                continue
+            for content in reversed(step.content):
+                if isinstance(content, TextContent):
+                    collecting = True
+                    parts.append(content.text)
+                elif collecting:
+                    # Hit a non-text barrier after we started collecting.
+                    parts.reverse()
+                    return "".join(parts)
         parts.reverse()
         return "".join(parts)
 

@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: watchfiles
-Version: 1.1.1
+Version: 1.2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -29,13 +29,13 @@ Summary: Simple, modern and high performance file watching and code reload in py
 Home-Page: https://github.com/samuelcolvin/watchfiles
 Author-email: Samuel Colvin <s@muelcolvin.com>
 License: MIT
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://github.com/samuelcolvin/watchfiles
+Project-URL: Changelog, https://github.com/samuelcolvin/watchfiles/releases
 Project-URL: Documentation, https://watchfiles.helpmanual.io
 Project-URL: Funding, https://github.com/sponsors/samuelcolvin
+Project-URL: Homepage, https://github.com/samuelcolvin/watchfiles
 Project-URL: Source, https://github.com/samuelcolvin/watchfiles
-Project-URL: Changelog, https://github.com/samuelcolvin/watchfiles/releases
 
 # watchfiles
 
@@ -62,7 +62,7 @@ see [the migration guide](https://watchfiles.helpmanual.io/migrating/) for more 
 
 ## Installation
 
-**watchfiles** requires Python 3.9 - 3.14.
+**watchfiles** requires Python 3.10 - 3.15.
 
 ```bash
 pip install watchfiles

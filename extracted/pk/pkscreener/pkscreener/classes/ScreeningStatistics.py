@@ -4020,8 +4020,8 @@ class ScreeningStatistics:
             
             screenDict["Pattern"] = saved[0] + colorText.GREEN + pattern_display + colorText.END
             saveDict["Pattern"] = saved[1] + pattern_display
-            saveDict["Pattern_Score"] = best_score
-            screenDict["Pattern_Score"] = best_score
+            saveDict["Score"] = best_score
+            screenDict["Score"] = best_score
             
             # Store additional tracking info
             if check_ema_retest:
@@ -4852,7 +4852,7 @@ class ScreeningStatistics:
         if df is not None:
             try:
                 data = df.copy()
-                data = data[::-1]
+                data = data[::-1] # Ensure oldest first
                 today_sma = pktalib.SMA(data["close"], timeperiod=50)
                 sma_minus9 = pktalib.SMA(data.head(len(data)-9)["close"], timeperiod=50)
                 sma_minus14 = pktalib.SMA(data.head(len(data)-14)["close"], timeperiod=50)
@@ -5478,7 +5478,7 @@ class ScreeningStatistics:
         return dataframe
     
     # Preprocess the acquired data
-    def preprocessData(self, df, daysToLookback=None):
+    def preprocessData(self, df, daysToLookback=None,recentDaysToDiscard=0):
         """
         Preprocess the acquired data by calculating technical indicators and adding them as new columns to the dataframe.
         The indicators calculated include:
@@ -5498,6 +5498,12 @@ class ScreeningStatistics:
         assert isinstance(df, pd.DataFrame)
         data = df.copy()
         data = data[::-1]  # Reverse the dataframe so that its the oldest date first for technical indicator calculations
+        # Discard rows with dates later than the calculated cutoff
+        if recentDaysToDiscard > 0:
+            cutoff_date_str = PKDateUtilities.nthPastTradingDateStringFromFutureDate(recentDaysToDiscard)
+            cutoff_date = datetime.datetime.strptime(cutoff_date_str, "%Y-%m-%d").date()
+            # Filter: keep rows where the index date <= cutoff_date
+            data = data[data.index.date <= cutoff_date]
         try:
             data = data.replace(np.inf, np.nan).replace(-np.inf, np.nan).dropna(how="all")
             if data.empty:
@@ -6367,49 +6373,53 @@ class ScreeningStatistics:
 
     def validateLTPForPortfolioCalc(self, df, screenDict, saveDict,requestedPeriod=0):
         data = df.copy()
+        data = data.sort_index(ascending=True)
         periods = self.configManager.periodsRange
         if requestedPeriod > 0 and requestedPeriod not in periods:
             periods.append(requestedPeriod)
-        previous_recent = data.head(1)
-        previous_recent.reset_index(inplace=True)
-        calc_date = str(previous_recent.iloc[:, 0][0]).split(" ")[0]
+        calcDate_recent = data.tail(1)
+        calcDate_recent.reset_index(inplace=True)
+        calc_date = str(calcDate_recent.iloc[:, 0][0]).split(" ")[0]
         for prd in periods:
             if len(data) >= prd + 1:
-                prevLtp = data["close"].iloc[0]
-                ltpTdy = data["close"].iloc[prd]
-                if isinstance(prevLtp,pd.Series):
-                    prevLtp = prevLtp[0]
-                    ltpTdy = ltpTdy[0]
+                baseLtp = data["close"].iloc[0]
+                prdLtp = data["close"].iloc[prd]
+                if isinstance(baseLtp,pd.Series):
+                    baseLtp = baseLtp[0]
+                    prdLtp = prdLtp[0]
                 screenDict[f"LTP{prd}"] = (
-                    (colorText.GREEN if (ltpTdy >= prevLtp) else (colorText.FAIL))
-                    + str("{:.2f}".format(ltpTdy))
+                    (colorText.GREEN if (prdLtp >= baseLtp) else (colorText.FAIL))
+                    + str("{:.2f}".format(prdLtp))
                     + colorText.END
                 )
                 screenDict[f"Growth{prd}"] = (
-                    (colorText.GREEN if (ltpTdy >= prevLtp) else (colorText.FAIL))
-                    + str("{:.2f}".format(ltpTdy - prevLtp))
+                    (colorText.GREEN if (prdLtp >= baseLtp) else (colorText.FAIL))
+                    + str("{:.2f}".format(prdLtp - baseLtp))
                     + colorText.END
                 )
-                saveDict[f"LTP{prd}"] = round(ltpTdy, 2)
-                saveDict[f"Growth{prd}"] = round(ltpTdy - prevLtp, 2)
+                saveDict[f"LTP{prd}"] = round(prdLtp, 2)
+                saveDict[f"Growth{prd}"] = round(prdLtp - baseLtp, 2)
                 if prd == 22 or (prd == requestedPeriod):
-                    changePercent = round(((prevLtp-ltpTdy) if requestedPeriod ==0 else (ltpTdy - prevLtp))*100/ltpTdy, 2) if ltpTdy != 0 else 0
-                    saveDict[f"{prd}-Pd"] = f"{changePercent}%" if not pd.isna(changePercent) else '-'
-                    screenDict[f"{prd}-Pd"] = ((colorText.GREEN if changePercent >=0 else colorText.FAIL) + f"{changePercent}%" + colorText.END) if not pd.isna(changePercent) else '-'
+                    changePercent = round(((baseLtp-prdLtp) if requestedPeriod ==0 else (prdLtp - baseLtp))*100/baseLtp, 2) if baseLtp != 0 else 0
+                    saveDict[f"{prd}-Pd"] = f"{changePercent}% ({prdLtp})" if not pd.isna(changePercent) else '-'
+                    screenDict[f"{prd}-Pd"] = ((colorText.GREEN if changePercent >=0 else colorText.FAIL) + f"{changePercent}% ({prdLtp})" + colorText.END) if not pd.isna(changePercent) else '-'
                     if (prd == requestedPeriod):
-                        maxLTPPotential = max(data["high"].head(prd))
+                        slice_df = data.tail(prd)
+                        maxLTPPotential = slice_df["high"].max()
+                        max_high_idx = slice_df["high"].idxmax()
+                        max_date_str = max_high_idx.strftime("%d/%m")
                         screenDict[f"MaxLTP"] = (
-                            (colorText.GREEN if (maxLTPPotential >= prevLtp) else (colorText.FAIL))
-                            + str("{:.2f}".format(maxLTPPotential))
+                            (colorText.GREEN if (maxLTPPotential >= baseLtp) else colorText.FAIL)
+                            + f"{maxLTPPotential:.2f} ({max_date_str})"
                             + colorText.END
                         )
                         screenDict[f"Pot.Grw"] = (
-                            (colorText.GREEN if (maxLTPPotential >= prevLtp) else (colorText.FAIL))
-                            + str("{:.2f}%".format((maxLTPPotential - prevLtp)*100/prevLtp))
+                            (colorText.GREEN if (maxLTPPotential >= baseLtp) else (colorText.FAIL))
+                            + str("{:.2f}%".format((maxLTPPotential - baseLtp)*100/baseLtp))
                             + colorText.END
                         )
-                        saveDict[f"MaxLTP"] = round(maxLTPPotential, 2)
-                        saveDict[f"Pot.Grw"] = f"{round((maxLTPPotential - prevLtp)*100/prevLtp, 2)}%"
+                        saveDict[f"MaxLTP"] = f"{round(maxLTPPotential, 2)} ({max_date_str})"
+                        saveDict[f"Pot.Grw"] = f"{round((maxLTPPotential - baseLtp)*100/baseLtp, 2)}%"
                 screenDict["Date"] = calc_date
                 saveDict["Date"] = calc_date
             else:

@@ -33,6 +33,7 @@ from chalk.features.tag import BranchId, EnvironmentId
 from chalk.features.underscore import _, __, underscore
 from chalk.importer import get_resolver
 from chalk.logging import chalk_logger
+from chalk.ml.model_handler import model_handler
 from chalk.ml.model_reference import ModelReference
 from chalk.operators import StaticOperator, scan_parquet
 from chalk.prompts import Prompt, completion, run_prompt
@@ -106,6 +107,7 @@ __all__ = (
     "is_primary",
     "make_model_resolver",
     "make_sql_file_resolver",
+    "model_handler",
     "offline",
     "online",
     "op",

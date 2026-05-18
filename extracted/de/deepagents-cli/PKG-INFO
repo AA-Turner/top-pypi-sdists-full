@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents-cli
-Version: 0.1.0
+Version: 0.1.1
 Summary: Deployment tooling for Deep Agents - bundle, run, and ship agents to LangGraph Platform.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/

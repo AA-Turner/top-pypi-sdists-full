@@ -1,4 +1,5 @@
 import os
+import platform
 
 import pytest
 from selenium import webdriver
@@ -8,13 +9,19 @@ from webdriver_manager.core.driver_cache import DriverCacheManager
 from webdriver_manager.core.os_manager import OperationSystemManager
 from webdriver_manager.firefox import GeckoDriverManager
 
+requires_gh_token = pytest.mark.skipif(
+    not os.getenv("GH_TOKEN"),
+    reason="GH_TOKEN is required to avoid GitHub API rate limiting in Firefox tests",
+)
 
+@requires_gh_token
 def test_firefox_manager_with_cache(delete_drivers_dir):
     GeckoDriverManager().install()
     binary = GeckoDriverManager().install()
     assert os.path.exists(binary)
 
 
+@requires_gh_token
 def test_gecko_manager_with_selenium():
     driver_path = GeckoDriverManager().install()
     ff = webdriver.Firefox(service=Service(driver_path))
@@ -22,6 +29,8 @@ def test_gecko_manager_with_selenium():
     ff.quit()
 
 
+@pytest.mark.filterwarnings("ignore:Unverified HTTPS request:urllib3.exceptions.InsecureRequestWarning")
+@requires_gh_token
 def test_driver_with_ssl_verify_disabled_can_be_downloaded(ssl_verify_enable):
     os.environ['WDM_SSL_VERIFY'] = '0'
     custom_path = os.path.join(
@@ -33,6 +42,7 @@ def test_driver_with_ssl_verify_disabled_can_be_downloaded(ssl_verify_enable):
     assert os.path.exists(driver_path)
 
 
+@requires_gh_token
 def test_gecko_manager_with_wrong_version():
     with pytest.raises(ValueError) as ex:
         GeckoDriverManager("0.2").install()
@@ -42,22 +52,29 @@ def test_gecko_manager_with_wrong_version():
            in ex.value.args[0]
 
 
+@requires_gh_token
 def test_gecko_manager_with_correct_version_and_token(delete_drivers_dir):
-    driver_path = GeckoDriverManager(version="v0.11.0").install()
+    latest = GeckoDriverManager().driver.get_latest_release_version()
+    driver_path = GeckoDriverManager(version=latest).install()
     assert os.path.exists(driver_path)
 
 
+@requires_gh_token
 def test_can_download_ff_x64(delete_drivers_dir):
     driver_path = GeckoDriverManager(os_system_manager=OperationSystemManager("win64")).install()
     assert os.path.exists(driver_path)
 
 
-@pytest.mark.parametrize('os_type', ['win32',
-                                     'win64',
-                                     'linux32',
-                                     'linux64',
-                                     'mac64',
-                                     'mac64_m1'])
+def _cache_os_types_for_current_platform():
+    if platform.system().lower().startswith("win"):
+        return ["win32", "win64"]
+    if platform.system().lower().startswith("linux"):
+        return ["linux32", "linux64"]
+    return ["mac64"]
+
+
+@pytest.mark.parametrize('os_type', _cache_os_types_for_current_platform())
+@requires_gh_token
 def test_can_get_driver_from_cache(os_type):
     GeckoDriverManager(os_system_manager=OperationSystemManager(os_type)).install()
     driver_path = GeckoDriverManager(os_system_manager=OperationSystemManager(os_type)).install()

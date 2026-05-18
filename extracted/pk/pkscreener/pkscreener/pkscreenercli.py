@@ -749,13 +749,27 @@ class ApplicationRunner:
         Returns:
             argparse.Namespace: Refreshed arguments
         """
+        # print("\n[DEBUG] === _refresh_args called ===")
         args = _get_debug_args()
+        # print(f"[DEBUG] Step 1: Raw args from _get_debug_args() = {args!r}")
         if not isinstance(args, argparse.Namespace) and not hasattr(args, "side_effect"):
+            # print("[DEBUG] Step 2: args is NOT a Namespace, parsing with parse_known_args(args=args)")
             argsv = self.arg_parser.parse_known_args(args=args)
             args = argsv[0]
-        if args is not None and not args.exit and not args.monitor:
+            # print(f"[DEBUG] Step 2: Parsed Namespace = {args}")
+            # print(f"[DEBUG] Step 2: Remaining unknown args = {argsv[1]}")
+        # else:
+        #     print("[DEBUG] Step 2: args is already a Namespace or has side_effect, skipping parse")
+        # print(f"[DEBUG] Step 3: Checking conditions: args is {args} (type {type(args)})")
+        if args is not None and not args.exit and not args.monitor and not args.backtestdaysago:
+            # print("[DEBUG] Step 3: Condition met (not exit and not monitor and not backtestdaysago) - re-parsing from sys.argv")
             argsv = self.arg_parser.parse_known_args()
             args = argsv[0]
+        #     print(f"[DEBUG] Step 3: Re-parsed Namespace = {args}")
+        #     print(f"[DEBUG] Step 3: Unknown args = {argsv[1]}")
+        # else:
+        #     print("[DEBUG] Step 3: Condition not met - skipping re-parse")
+        # print(f"[DEBUG] Final returning args = {args}")
         return args
     
     def _setup_user_and_timestamp(self):
@@ -961,8 +975,12 @@ class ApplicationRunner:
                     f"{'Reduce number of piped scans if no stocks found.' if '[0]' in self.args.pipedtitle else ''}" +
                     colorText.END
                 )
-                if self.args.answerdefault is None:
-                    OutputControls().takeUserInput("Press <Enter> to continue...")
+                org_args = self._refresh_args()
+                if not org_args.monitor:
+                    if org_args.answerdefault is None:
+                        OutputControls().takeUserInput("Press <Enter> to continue...")
+                    if org_args.exit:
+                        sys.exit(0)
         
         # Process results
         self._process_results(update_menu_hierarchy, monitor_option_org)
@@ -1146,16 +1164,16 @@ def _remove_old_instances():
 # =============================================================================
 # MAIN ENTRY POINTS
 # =============================================================================
+if __name__ == "__main__":
+    # Global state
+    args = None
+    argParser = ArgumentParser.create_parser()
+    configManager = ConfigManager.tools()
 
-# Global state
-args = None
-argParser = ArgumentParser.create_parser()
-configManager = ConfigManager.tools()
-
-# Parse initial arguments
-args = _get_debug_args()
-argsv = argParser.parse_known_args(args=args) if args is not None else argParser.parse_known_args()
-args = argsv[0]
+    # Parse initial arguments
+    args = _get_debug_args()
+    argsv = argParser.parse_known_args(args=args) if args is not None else argParser.parse_known_args()
+    args = argsv[0]
 
 
 def runApplication():

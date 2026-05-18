@@ -36,59 +36,85 @@ from .anonymizer import anonymize_payload
 from .base import Message, ModelInfo, ProviderBase
 
 
-# Catalog of sage-hosted models — kept in sync with model_servers/cloudbuild.*.yaml
-# Each entry maps to a Cloud Run GPU service. Tag = the prefix users type
-# (cloud:tag). Description should be punchy — surfaces in `sage models`.
+# Catalog of sage-hosted models — slot IDs renamed 2026-05-17 to match what
+# each service actually serves. Old IDs stay registered as ALIAS_REDIRECTS
+# below so existing user config (sage config set default_model cloud:...,
+# cached frontend selections, etc.) keeps working without a breaking change.
 _HOSTED_MODELS: tuple[ModelInfo, ...] = (
     ModelInfo(
-        id="cloud:qwen-coder-7b",
+        id="cloud:qwen3-coder",
         provider="cloud",
-        name="Qwen 2.5 Coder 7B",
-        description="Top-tier coding model. Paid tier — sage-hosted on GCP.",
+        name="Qwen3 Coder",
+        description="Latest Qwen3 coding model — top-tier code generation. Paid tier — sage-hosted on GCP.",
     ),
     ModelInfo(
-        id="cloud:llama-3-1-8b",
+        id="cloud:llama-3-2",
         provider="cloud",
-        name="Llama 3.1 8B Instruct",
-        description="General chat. Paid tier — sage-hosted on GCP.",
+        name="Llama 3.2",
+        description="Meta's latest small Llama, multimodal-ready. Paid tier — sage-hosted on GCP.",
     ),
     ModelInfo(
         id="cloud:deepseek-r1-7b",
         provider="cloud",
-        name="DeepSeek R1 Distill 7B",
-        description="Reasoning & chain-of-thought. Paid tier — sage-hosted on GCP.",
+        name="DeepSeek R1 7B",
+        description="Reasoning + chain-of-thought specialist. Paid tier — sage-hosted on GCP.",
     ),
     ModelInfo(
-        id="cloud:gemma-2-9b",
+        id="cloud:gemma-4",
         provider="cloud",
-        name="Gemma 2 9B Instruct",
-        description="Google's open chat model. Paid tier — sage-hosted on GCP.",
+        name="Gemma 4",
+        description="Google's latest multimodal Gemma — text + vision + audio + tools. Paid tier — sage-hosted on GCP.",
     ),
     ModelInfo(
-        id="cloud:phi-4-14b",
+        id="cloud:phi-4-reasoning",
         provider="cloud",
-        name="Phi-4 14B",
-        description="Microsoft's compact 14B powerhouse. Paid tier — sage-hosted on GCP.",
+        name="Phi-4 Reasoning",
+        description="Microsoft's Phi-4 reasoning variant — 14B with chain-of-thought. Paid tier — sage-hosted on GCP.",
     ),
     ModelInfo(
-        id="cloud:mistral-7b",
+        id="cloud:mistral-small",
         provider="cloud",
-        name="Mistral 7B Instruct v0.3",
-        description="Reliable instruction-following. Paid tier — sage-hosted on GCP.",
+        name="Mistral Small",
+        description="Mistral's latest small instruct model — reliable + fast. Paid tier — sage-hosted on GCP.",
     ),
     ModelInfo(
-        id="cloud:llava-next-7b",
+        id="cloud:llava-llama-3",
         provider="cloud",
-        name="LLaVA-NeXT 7B (Vision)",
-        description="Image input + text output. Paid tier — sage-hosted on GCP.",
+        name="LLaVA Llama 3 (Vision)",
+        description="Vision-capable Llama 3 — image + text input → text output. Paid tier — sage-hosted on GCP.",
     ),
     ModelInfo(
-        id="cloud:yi-1-5-9b",
+        id="cloud:yi-coder-9b",
         provider="cloud",
-        name="Yi 1.5 9B (32K context)",
-        description="Long-document analysis. Paid tier — sage-hosted on GCP.",
+        name="Yi Coder 9B",
+        description="Yi's 9B coding specialist with extended context. Paid tier — sage-hosted on GCP.",
     ),
 )
+
+
+# Backward-compat: old `cloud:<id>` strings users may have saved in their
+# config or selected in the frontend redirect to the new slot. Updated
+# whenever a slot ID changes — drop entries once the deprecation window
+# has passed (recommend 1 release cycle minimum).
+_LEGACY_ID_ALIASES: dict[str, str] = {
+    "cloud:qwen-coder-7b":  "cloud:qwen3-coder",
+    "cloud:llama-3-1-8b":   "cloud:llama-3-2",
+    "cloud:gemma-2-9b":     "cloud:gemma-4",
+    "cloud:phi-4-14b":      "cloud:phi-4-reasoning",
+    "cloud:mistral-7b":     "cloud:mistral-small",
+    "cloud:llava-next-7b":  "cloud:llava-llama-3",
+    "cloud:yi-1-5-9b":      "cloud:yi-coder-9b",
+}
+
+
+def resolve_legacy_id(model_id: str) -> str:
+    """Translate old-style cloud slot IDs to their current canonical form.
+
+    Safe no-op for anything not in the alias table. Called by the
+    backend's `/chat` route + the CLI router so old IDs route to the
+    right Cloud Run service without an explicit migration step.
+    """
+    return _LEGACY_ID_ALIASES.get(model_id, model_id)
 
 
 def _deployed_model_tags() -> set[str] | None:

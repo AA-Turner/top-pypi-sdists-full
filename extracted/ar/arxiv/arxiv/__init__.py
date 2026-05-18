@@ -5,41 +5,28 @@ from __future__ import annotations
 import logging
 import time
 import itertools
-import feedparser
-import os
-import math
-import re
 import requests
-import warnings
 
-from urllib.parse import urlencode, urlparse
-from urllib.request import urlretrieve
+from importlib.metadata import PackageNotFoundError, version
+from urllib.parse import urlencode
 from datetime import datetime, timedelta, timezone
 from calendar import timegm
 
 from enum import Enum
-from typing import TYPE_CHECKING, Generator, Iterator
+from typing import Generator, Iterator
 
-if TYPE_CHECKING:
-    from typing_extensions import TypedDict
-    import feedparser
-
-    class FeedParserDict(TypedDict, total=False):
-        id: str
-        title: str
-        summary: str
-        authors: list[dict[str, str]]
-        links: list[dict[str, str]]
-        tags: list[dict[str, str]]
-        updated_parsed: time.struct_time
-        published_parsed: time.struct_time
-        arxiv_comment: str
-        arxiv_journal_ref: str
-        arxiv_doi: str
-        arxiv_primary_category: dict[str, str]
+from . import _feed
+from ._feed import ParsedFeed
 
 
 logger = logging.getLogger(__name__)
+
+try:
+    __version__ = version("arxiv")
+except PackageNotFoundError:
+    __version__ = "0.0.0+unknown"
+
+_USER_AGENT = f"arxiv.py/{__version__}"
 
 _DEFAULT_TIME = datetime.min
 
@@ -61,7 +48,7 @@ class Result:
     title: str
     """The title of the result."""
     authors: list[Result.Author]
-    """The result's authors."""
+    """The result's authors, including any `<arxiv:affiliation>` data."""
     summary: str
     """The result abstract."""
     comment: str | None
@@ -84,11 +71,6 @@ class Result:
     """Up to three URLs associated with this result."""
     pdf_url: str | None
     """The URL of a PDF version of this result if present among links."""
-    _raw: feedparser.FeedParserDict
-    """
-    The raw feedparser result object if this Result was constructed with
-    Result._from_feed_entry.
-    """
 
     def __init__(
         self,
@@ -104,13 +86,12 @@ class Result:
         primary_category: str = "",
         categories: list[str] | None = None,
         links: list[Result.Link] | None = None,
-        _raw: feedparser.FeedParserDict | None = None,
     ):
         """
         Constructs an arXiv search result item.
 
-        In most cases, prefer using `Result._from_feed_entry` to parsing and
-        constructing `Result`s yourself.
+        In most cases, results are produced by `Client.results`, which parses
+        API responses internally.
         """
         self.entry_id = entry_id
         self.updated = updated
@@ -126,41 +107,6 @@ class Result:
         self.links = links or []
         # Calculated members
         self.pdf_url = Result._get_pdf_url(self.links)
-        # Debugging
-        self._raw = _raw
-
-    @classmethod
-    def _from_feed_entry(cls, entry: feedparser.FeedParserDict) -> Result:
-        """
-        Converts a feedparser entry for an arXiv search result feed into a
-        Result object.
-        """
-        if not hasattr(entry, "id"):
-            raise Result.MissingFieldError("id")
-        # Title attribute may be absent for certain titles. Defaulting to "0" as
-        # it's the only title observed to cause this bug.
-        # https://github.com/lukasschwab/arxiv.py/issues/71
-        # title = entry.title if hasattr(entry, "title") else "0"
-        title = "0"
-        if hasattr(entry, "title"):
-            title = entry.title
-        else:
-            logger.warning("Result %s is missing title attribute; defaulting to '0'", entry.id)
-        return Result(
-            entry_id=entry.id,
-            updated=Result._to_datetime(entry.updated_parsed),
-            published=Result._to_datetime(entry.published_parsed),
-            title=re.sub(r"\s+", " ", title),
-            authors=[Result.Author._from_feed_author(a) for a in entry.authors],
-            summary=entry.summary,
-            comment=entry.get("arxiv_comment"),
-            journal_ref=entry.get("arxiv_journal_ref"),
-            doi=entry.get("arxiv_doi"),
-            primary_category=entry.arxiv_primary_category.get("term"),
-            categories=[tag.get("term") for tag in entry.tags],
-            links=[Result.Link._from_feed_link(link) for link in entry.links],
-            _raw=entry,
-        )
 
     def __str__(self) -> str:
         return self.entry_id
@@ -208,67 +154,6 @@ class Result:
         """
         return self.entry_id.split("arxiv.org/abs/")[-1]
 
-    def _get_default_filename(self, extension: str = "pdf") -> str:
-        """
-        A default `to_filename` function for the extension given.
-        """
-        nonempty_title = self.title if self.title else "UNTITLED"
-        return ".".join(
-            [
-                self.get_short_id().replace("/", "_"),
-                re.sub(r"[^\w]", "_", nonempty_title),
-                extension,
-            ]
-        )
-
-    def download_pdf(
-        self,
-        dirpath: str = "./",
-        filename: str = "",
-        download_domain: str = "export.arxiv.org",
-    ) -> str:
-        """
-        Downloads the PDF for this result to the specified directory.
-
-        The filename is generated by calling `to_filename(self)`.
-
-        **Deprecated:** future versions of this client library will not provide
-        download helpers (out of scope). Use `result.pdf_url` directly.
-        """
-        if not filename:
-            filename = self._get_default_filename()
-        path = os.path.join(dirpath, filename)
-        if self.pdf_url is None:
-            raise ValueError("No PDF URL available for this result")
-        pdf_url = Result._substitute_domain(self.pdf_url, download_domain)
-        written_path, _ = urlretrieve(pdf_url, path)
-        return written_path
-
-    def download_source(
-        self,
-        dirpath: str = "./",
-        filename: str = "",
-        download_domain: str = "export.arxiv.org",
-    ) -> str:
-        """
-        Downloads the source tarfile for this result to the specified
-        directory.
-
-        The filename is generated by calling `to_filename(self)`.
-
-        **Deprecated:** future versions of this client library will not provide
-        download helpers (out of scope). Use `result.source_url` directly.
-        """
-        if not filename:
-            filename = self._get_default_filename("tar.gz")
-        path = os.path.join(dirpath, filename)
-        source_url_str = self.source_url()
-        if source_url_str is None:
-            raise ValueError("No source URL available for this result")
-        source_url = Result._substitute_domain(source_url_str, download_domain)
-        written_path, _ = urlretrieve(source_url, path)
-        return written_path
-
     def source_url(self) -> str | None:
         """
         Derives a URL for the source tarfile for this result.
@@ -295,22 +180,13 @@ class Result:
     @staticmethod
     def _to_datetime(ts: time.struct_time) -> datetime:
         """
-        Converts a UTC time.struct_time into a time-zone-aware datetime.
+        Converts a UTC `time.struct_time` into a time-zone-aware `datetime`.
 
-        This will be replaced with feedparser functionality [when it becomes
-        available](https://github.com/kurtmckee/feedparser/issues/212).
+        Retained as a stable utility for callers that historically relied on
+        feedparser's `*_parsed` time tuples; the internal Atom parser produces
+        `datetime` objects directly.
         """
         return datetime.fromtimestamp(timegm(ts), tz=timezone.utc)
-
-    @staticmethod
-    def _substitute_domain(url: str, domain: str) -> str:
-        """
-        Replaces the domain of the given URL with the specified domain.
-
-        This is useful for testing purposes.
-        """
-        parsed_url = urlparse(url)
-        return parsed_url._replace(netloc=domain).geturl()
 
     class Author:
         """
@@ -319,30 +195,31 @@ class Result:
 
         name: str
         """The author's name."""
+        affiliation: list[str]
+        """
+        Any `<arxiv:affiliation>` values associated with this author. Most
+        results have no affiliation data and this is an empty list; some
+        results have one or more affiliation strings per author.
 
-        def __init__(self, name: str):
+        See https://github.com/lukasschwab/arxiv.py/issues/62.
+        """
+
+        def __init__(self, name: str, affiliation: list[str] | None = None):
             """
-            Constructs an `Author` with the specified name.
-
-            In most cases, prefer using `Author._from_feed_author` to parsing
-            and constructing `Author`s yourself.
+            Constructs an `Author` with the specified name and (optional)
+            affiliations.
             """
             self.name = name
-
-        @classmethod
-        def _from_feed_author(cls, feed_author: feedparser.FeedParserDict) -> Result.Author:
-            """
-            Constructs an `Author` with the name specified in an author object
-            from a feed entry.
-
-            See usage in `Result._from_feed_entry`.
-            """
-            return Result.Author(feed_author.name)
+            self.affiliation = affiliation or []
 
         def __str__(self) -> str:
             return self.name
 
         def __repr__(self) -> str:
+            if self.affiliation:
+                return "{}({}, affiliation={})".format(
+                    _classname(self), repr(self.name), repr(self.affiliation)
+                )
             return "{}({})".format(_classname(self), repr(self.name))
 
         def __eq__(self, other: object) -> bool:
@@ -373,29 +250,11 @@ class Result:
         ):
             """
             Constructs a `Link` with the specified link metadata.
-
-            In most cases, prefer using `Link._from_feed_link` to parsing and
-            constructing `Link`s yourself.
             """
             self.href = href
             self.title = title
             self.rel = rel
             self.content_type = content_type
-
-        @classmethod
-        def _from_feed_link(cls, feed_link: feedparser.FeedParserDict) -> Result.Link:
-            """
-            Constructs a `Link` with link metadata specified in a link object
-            from a feed entry.
-
-            See usage in `Result._from_feed_entry`.
-            """
-            return Result.Link(
-                href=feed_link.href,
-                title=feed_link.get("title"),
-                rel=feed_link.get("rel") or "",
-                content_type=feed_link.get("content_type"),
-            )
 
         def __str__(self) -> str:
             return self.href
@@ -511,8 +370,7 @@ class Search:
         """
         self.query = query
         self.id_list = id_list or []
-        # Handle deprecated v1 default behavior.
-        self.max_results = None if max_results == math.inf else max_results
+        self.max_results = max_results
         self.sort_by = sort_by
         self.sort_order = sort_order
 
@@ -547,20 +405,6 @@ class Search:
             "sortBy": self.sort_by.value,
             "sortOrder": self.sort_order.value,
         }
-
-    def results(self, offset: int = 0) -> Iterator[Result]:
-        """
-        Executes the specified search using a default arXiv API client. For info
-        on default behavior, see `Client.__init__` and `Client.results`.
-
-        **Deprecated** after 2.0.0; use `Client.results`.
-        """
-        warnings.warn(
-            "The 'Search.results' method is deprecated, use 'Client.results' instead",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return Client().results(self, offset=offset)
 
 
 class Client:
@@ -646,23 +490,19 @@ class Client:
     def _results(self, search: Search, offset: int = 0) -> Generator[Result, None, None]:
         page_url = self._format_url(search, offset, self.page_size)
         feed = self._parse_feed(page_url, first_page=True)
-        if not feed.entries:
+        if not feed.results:
             logger.info("Got empty first page; stopping generation")
             return
-        total_results = int(feed.feed.opensearch_totalresults)
+        total_results = feed.header.total_results
         logger.info(
             "Got first page: %d of %d total results",
-            len(feed.entries),
+            len(feed.results),
             total_results,
         )
 
-        while feed.entries:
-            for entry in feed.entries:
-                try:
-                    yield Result._from_feed_entry(entry)
-                except Result.MissingFieldError as e:
-                    logger.warning("Skipping partial result: %s", e)
-            offset += len(feed.entries)
+        while feed.results:
+            yield from feed.results
+            offset += len(feed.results)
             if offset >= total_results:
                 break
             page_url = self._format_url(search, offset, self.page_size)
@@ -682,11 +522,9 @@ class Client:
         )
         return self.query_url_format.format(urlencode(url_args))
 
-    def _parse_feed(
-        self, url: str, first_page: bool = True, _try_index: int = 0
-    ) -> feedparser.FeedParserDict:
+    def _parse_feed(self, url: str, first_page: bool = True, _try_index: int = 0) -> ParsedFeed:
         """
-        Fetches the specified URL and parses it with feedparser.
+        Fetches the specified URL and parses it as an Atom feed.
 
         If a request fails or is unexpectedly empty, retries the request up to
         `self.num_retries` times.
@@ -709,7 +547,7 @@ class Client:
         url: str,
         first_page: bool,
         try_index: int,
-    ) -> feedparser.FeedParserDict:
+    ) -> ParsedFeed:
         """
         Recursive helper for _parse_feed. Enforces `self.delay_seconds`: if that
         number of seconds has not passed since `_parse_feed` was last called,
@@ -726,20 +564,17 @@ class Client:
 
         logger.info("Requesting page (first: %r, try: %d): %s", first_page, try_index, url)
 
-        resp = self._session.get(url, headers={"user-agent": "arxiv.py/2.3.2"})
+        resp = self._session.get(url, headers={"user-agent": _USER_AGENT})
         self._last_request_dt = datetime.now()
         if resp.status_code != requests.codes.OK:
             raise HTTPError(url, try_index, resp.status_code)
 
-        feed = feedparser.parse(resp.content)
-        if len(feed.entries) == 0 and not first_page:
+        feed = _feed.parse(resp.content)
+        if len(feed.results) == 0 and not first_page:
             raise UnexpectedEmptyPageError(url, try_index, feed)
 
-        if feed.bozo:
-            logger.warning(
-                "Bozo feed; consider handling: %s",
-                feed.bozo_exception if "bozo_exception" in feed else None,
-            )
+        if feed.malformed:
+            logger.warning("Malformed feed; consider handling: %s", feed.error)
 
         return feed
 
@@ -783,13 +618,13 @@ class UnexpectedEmptyPageError(ArxivError):
     See `Client.results` for usage.
     """
 
-    raw_feed: feedparser.FeedParserDict
+    raw_feed: ParsedFeed
     """
-    The raw output of `feedparser.parse`. Sometimes this contains useful
-    diagnostic information, e.g. in 'bozo_exception'.
+    The raw parsed feed. Sometimes this contains useful diagnostic information,
+    e.g. in `bozo_exception`.
     """
 
-    def __init__(self, url: str, retry: int, raw_feed: feedparser.FeedParserDict):
+    def __init__(self, url: str, retry: int, raw_feed: ParsedFeed):
         """
         Constructs an `UnexpectedEmptyPageError` encountered for the specified
         API URL after `retry` tries.
@@ -815,7 +650,7 @@ class HTTPError(ArxivError):
     """
 
     status: int
-    """The HTTP status reported by feedparser."""
+    """The HTTP status reported by the underlying request."""
 
     def __init__(self, url: str, retry: int, status: int):
         """

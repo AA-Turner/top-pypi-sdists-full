@@ -289,3 +289,8 @@ class RenderSystem(System):
             self._geometries_keys.pop(eid, None)
 
         return clear_geometry
+    
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "RenderSystem",
+]

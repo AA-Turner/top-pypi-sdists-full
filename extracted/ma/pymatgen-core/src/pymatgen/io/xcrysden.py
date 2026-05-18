@@ -21,7 +21,8 @@ class XSF:
     """Parse XCrysden files."""
 
     def __init__(self, structure: Structure | IStructure):
-        """
+        """Initialize a XSF.
+
         Args:
             structure (Structure): Structure object.
         """

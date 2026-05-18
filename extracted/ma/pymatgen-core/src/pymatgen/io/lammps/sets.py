@@ -51,7 +51,8 @@ class LammpsInputSet(InputSet):
         additional_data: dict | None = None,
         keep_stages: bool = False,
     ) -> None:
-        """
+        """Initialize a LammpsInputSet.
+
         Args:
             inputfile: The input file containing settings. It can be a LammpsInputFile object
                 or a string representation.

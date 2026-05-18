@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spotipyFree
-Version: 1.4.2
+Version: 1.5.0
 Summary: A Spotipy-compatible wrapper using SpotAPI
 Author: Tzur
 License: Copyright (c) <2026> <Tzur Soffer>
@@ -48,6 +48,9 @@ Currently implemented:
 *   `artist_albums()`
 *   `album()`
 *   `album_tracks()`
+*   `current_user_recently_played()` - must first run startRecentlyPlayedListener
+*   `current_user_saved_tracks()`
+*   `me()`
 - - -
 
 ## Installation

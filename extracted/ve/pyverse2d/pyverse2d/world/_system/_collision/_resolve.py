@@ -229,3 +229,9 @@ def resolve(a: Shape, b: Shape, contact: Contact, cached: CachedContact, C: Cons
     if ctx is None:
         return
     resolve_processor(ctx)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "CachedContact",
+    "ResolveContext",
+]

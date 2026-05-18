@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.7.4
+Version: 0.7.5
 Summary: Define, Prompt and Test MCP enabled Agents and Workflows
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -260,8 +260,12 @@ Requires-Dist: boto3>=1.35.0; extra == 'all-providers'
 Requires-Dist: tensorzero>=2025.7.5; extra == 'all-providers'
 Provides-Extra: azure
 Requires-Dist: azure-identity>=1.14.0; extra == 'azure'
+Provides-Extra: batch-parquet
+Requires-Dist: duckdb>=1.4; extra == 'batch-parquet'
 Provides-Extra: bedrock
 Requires-Dist: boto3>=1.35.0; extra == 'bedrock'
+Provides-Extra: parquet
+Requires-Dist: duckdb>=1.4; extra == 'parquet'
 Provides-Extra: privacy
 Requires-Dist: numpy>=2; extra == 'privacy'
 Requires-Dist: onnxruntime>=1.25; extra == 'privacy'
@@ -371,19 +375,8 @@ Recent features include:
 
 > [!IMPORTANT]
 >
-> Documentation is included as a submodule. When cloning, use `--recurse-submodules` to get everything:
->
-> ```bash
-> git clone --recurse-submodules https://github.com/evalstate/fast-agent.git
-> ```
->
-> Or if you've already cloned:
->
-> ```bash
-> git submodule update --init --recursive
-> ```
->
-> The documentation source is also available at: https://github.com/evalstate/fast-agent-docs
+> Documentation is included in this repository under `docs/`. Use the docs helper script from the
+> repository root to install, generate, build, serve, screenshot, and assess the site.
 
 ### Agent Application Development
 
@@ -970,7 +963,7 @@ mcp:
 
 ## Documentation
 
-The documentation site is included as a submodule in `docs/`. To work with the docs locally:
+The documentation site lives in `docs/`. To work with the docs locally:
 
 ```bash
 # Install docs dependencies (first time only)
@@ -981,6 +974,10 @@ uv run scripts/docs.py generate
 
 # Run the dev server (http://127.0.0.1:8000)
 uv run scripts/docs.py serve
+
+# Capture and assess screenshots of the built docs
+uv run scripts/docs.py screenshot
+uv run scripts/docs.py assess
 
 # Or generate and serve in one command
 uv run scripts/docs.py all

@@ -6,6 +6,7 @@ import sys
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
+from chalk.utils._ast_extract import is_module_level_definition
 from chalk.utils.environment_parsing import env_var_bool
 
 if TYPE_CHECKING:
@@ -244,6 +245,11 @@ def _parse_notebook_cells(cells: list[tuple[int, int, str]]):
             continue
 
         for node in cell_tree.body:
+            # Definition-shaped nodes only; side-effect statements (top-level
+            # calls, control flow) are dropped. Per-kind branches below route
+            # each into its own name-keyed dict.
+            if not is_module_level_definition(node):
+                continue
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 import_source = ast.get_source_segment(sanitized, node)
                 if import_source is None:
@@ -443,6 +449,80 @@ def parse_notebook_into_script(fn: Callable[[], None], takes_argument: bool) -> 
     if not is_valid_python_code(script):
         raise RuntimeError("Error generating valid training function from notebook")
 
+    return script
+
+
+def assemble_module_for_class(cls: type) -> str:
+    """Reconstruct a self-contained Python module that defines ``cls``, pulling
+    only the dependency closure of helpers/imports/constants from Jupyter cell
+    history.
+
+    Must be called from inside a Jupyter notebook. Walks the IPython history,
+    parses cells with ``_parse_notebook_cells``, then reuses the same
+    ``_collect_dependencies`` / ``_filter_imports`` / ``_build_script``
+    pipeline that ``parse_notebook_into_script`` uses for training functions.
+    The output therefore contains only the imports, globals, and helper
+    classes/functions actually referenced by ``cls`` (transitively), with the
+    target class appended last so siblings/bases resolve first.
+
+    Caveat: name resolution is purely textual — references introduced via
+    ``getattr(module, "name")`` or string-keyed config lookups will not be
+    detected. If a user hits this they should pass the missing dependency
+    through ``register_model_version(dependencies=[...])`` or refactor.
+
+    Raises
+    ------
+    RuntimeError
+        Not running inside a notebook, or IPython history isn't accessible.
+    ValueError
+        ``cls.__name__`` was never defined at the top level of any cell.
+    """
+    import builtins as _builtins
+
+    if not is_notebook():
+        raise RuntimeError("assemble_module_for_class should only be called from a notebook environment.")
+
+    shell = get_ipython_or_none()
+    if shell is None:
+        raise RuntimeError("Could not access IPython shell")
+    if getattr(shell, "history_manager", None) is None:
+        raise RuntimeError("Could not access IPython history manager")
+
+    history_manager = shell.history_manager
+    session_number = history_manager.get_last_session_id()
+    cells = list(history_manager.get_range(session=session_number, start=1))
+
+    latest_function_def, latest_class_def, latest_global_assign, all_imports = _parse_notebook_cells(cells)
+
+    if cls.__name__ not in latest_class_def:
+        raise ValueError(
+            f"@model_handler class {cls.__name__!r} was not found in the notebook's cell history. Make sure the class is defined at the top level of a cell (not inside a function or `if` block) and that the cell has been executed."
+        )
+
+    target_src, _target_node = latest_class_def[cls.__name__]
+    builtin_names = set(dir(_builtins))
+
+    needed_functions, needed_classes, needed_globals, needed_names = _collect_dependencies(
+        target_src,
+        cls.__name__,
+        latest_function_def,
+        latest_class_def,
+        latest_global_assign,
+        builtin_names,
+    )
+    needed_imports = _filter_imports(all_imports, needed_names)
+
+    script = _build_script(
+        target_src,
+        cls.__name__,
+        needed_imports,
+        needed_globals,
+        needed_classes,
+        needed_functions,
+    )
+
+    if not is_valid_python_code(script):
+        raise RuntimeError(f"Error generating valid module source for class {cls.__name__!r} from notebook")
     return script
 
 

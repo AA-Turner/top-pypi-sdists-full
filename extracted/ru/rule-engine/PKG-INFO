@@ -1,41 +1,26 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: rule-engine
-Version: 4.5.3
+Version: 5.0.0
 Summary: A lightweight, optionally typed expression language with a custom grammar for matching arbitrary Python objects.
-Home-page: https://github.com/zeroSteiner/rule-engine
-Author: Spencer McIntyre
-Author-email: zeroSteiner@gmail.com
-Maintainer: Spencer McIntyre
-Maintainer-email: zeroSteiner@gmail.com
+Author-email: Spencer McIntyre <zeroSteiner@gmail.com>
+Maintainer-email: Spencer McIntyre <zeroSteiner@gmail.com>
 License: BSD
+Project-URL: Homepage, https://github.com/zeroSteiner/rule-engine
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: ply>=3.9
 Requires-Dist: python-dateutil~=2.7
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: requires-dist
-Dynamic: summary
+Dynamic: license-file
 
 Rule Engine
 ===========
@@ -46,8 +31,8 @@ A lightweight, optionally typed expression language with a custom grammar for ma
 Documentation is available at https://zeroSteiner.github.io/rule-engine/.
 
 :Warning:
-  The next major version (5.0) will remove support Python versions 3.6, 3.7 and 3.8. There is currently no timeline for
-  its release.
+  Version 5.0 removes support for Python versions 3.6, 3.7, 3.8, and 3.9 and deprecates attribute-style access on
+  ``MAPPING`` values (use bracket syntax ``mapping["key"]`` instead). See the `Change Log`_ for details.
 
 Rule Engine expressions are written in their own language, defined as strings in Python. The syntax is most similar to
 Python with some inspiration from Ruby. Some features of this language includes:

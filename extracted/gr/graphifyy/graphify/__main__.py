@@ -1255,7 +1255,7 @@ def main() -> None:
         print("    --top-k-edges N         per-symbol outbound edges in inspector (default 12)")
         print("    --label NAME            project label in header")
         print("  extract <path>          headless full extraction (AST + semantic LLM) for CI/scripts")
-        print("    --backend B             gemini|kimi|claude|openai|ollama (default: whichever API key is set)")
+        print("    --backend B             gemini|kimi|claude|openai|deepseek|ollama (default: whichever API key is set)")
         print("    --model M               override backend default model")
         print("    --max-workers N         AST extraction subprocess count (default: cpu_count)")
         print("    --token-budget N        per-chunk token cap for semantic extraction (default: 60000)")
@@ -1761,11 +1761,21 @@ def main() -> None:
         args = sys.argv[2:]
         watch_path: Path | None = None
         graph_override: Path | None = None
+        co_resolution: float = 1.0
+        co_exclude_hubs: float | None = None
         i_arg = 0
         while i_arg < len(args):
             a = args[i_arg]
             if a == "--graph" and i_arg + 1 < len(args):
                 graph_override = Path(args[i_arg + 1]); i_arg += 2
+            elif a == "--resolution" and i_arg + 1 < len(args):
+                co_resolution = float(args[i_arg + 1]); i_arg += 2
+            elif a.startswith("--resolution="):
+                co_resolution = float(a.split("=", 1)[1]); i_arg += 1
+            elif a == "--exclude-hubs" and i_arg + 1 < len(args):
+                co_exclude_hubs = float(args[i_arg + 1]); i_arg += 2
+            elif a.startswith("--exclude-hubs="):
+                co_exclude_hubs = float(a.split("=", 1)[1]); i_arg += 1
             elif a == "--no-viz" or a.startswith("--min-community-size="):
                 i_arg += 1
             elif a.startswith("--"):
@@ -1792,7 +1802,7 @@ def main() -> None:
         G = build_from_json(_raw, directed=_directed)
         print(f"Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
         print("Re-clustering...")
-        communities = cluster(G)
+        communities = cluster(G, resolution=co_resolution, exclude_hubs_percentile=co_exclude_hubs)
         cohesion = score_all(G, communities)
         gods = god_nodes(G)
         surprises = surprising_connections(G, communities)
@@ -1880,6 +1890,7 @@ def main() -> None:
                 os.environ.get("GEMINI_API_KEY")
                 or os.environ.get("GOOGLE_API_KEY")
                 or os.environ.get("MOONSHOT_API_KEY")
+                or os.environ.get("DEEPSEEK_API_KEY")
                 or os.environ.get("GRAPHIFY_NO_TIPS")
             ):
                 print("Tip: set GEMINI_API_KEY or GOOGLE_API_KEY to use Gemini for semantic extraction.")
@@ -2218,6 +2229,8 @@ def main() -> None:
         from graphify.build import build_from_json as _bfj
 
         _raw = json.loads(graph_path.read_text(encoding="utf-8"))
+        if "links" not in _raw and "edges" in _raw:
+            _raw = dict(_raw, links=_raw["edges"])
         try:
             G = _jg.node_link_graph(_raw, edges="links")
         except TypeError:
@@ -2386,7 +2399,7 @@ def main() -> None:
         # has an API key set.
         if len(sys.argv) < 3:
             print(
-                "Usage: graphify extract <path> [--backend gemini|kimi|claude|openai|ollama] "
+                "Usage: graphify extract <path> [--backend gemini|kimi|claude|openai|deepseek|ollama] "
                 "[--model M] [--out DIR] [--google-workspace] [--no-cluster] "
                 "[--max-workers N] [--token-budget N] [--max-concurrency N] "
                 "[--api-timeout S]",
@@ -2412,6 +2425,9 @@ def main() -> None:
         cli_token_budget: int | None = None
         cli_max_concurrency: int | None = None
         cli_api_timeout: float | None = None
+        # Clustering tuning knobs
+        cli_resolution: float = 1.0
+        cli_exclude_hubs: float | None = None
 
         def _parse_int(name: str, raw: str) -> int:
             try:
@@ -2477,6 +2493,14 @@ def main() -> None:
                 cli_api_timeout = _parse_float("--api-timeout", args[i + 1]); i += 2
             elif a.startswith("--api-timeout="):
                 cli_api_timeout = _parse_float("--api-timeout", a.split("=", 1)[1]); i += 1
+            elif a == "--resolution" and i + 1 < len(args):
+                cli_resolution = _parse_float("--resolution", args[i + 1]); i += 2
+            elif a.startswith("--resolution="):
+                cli_resolution = _parse_float("--resolution", a.split("=", 1)[1]); i += 1
+            elif a == "--exclude-hubs" and i + 1 < len(args):
+                cli_exclude_hubs = float(args[i + 1]); i += 2
+            elif a.startswith("--exclude-hubs="):
+                cli_exclude_hubs = float(a.split("=", 1)[1]); i += 1
             else:
                 i += 1
 
@@ -2505,7 +2529,8 @@ def main() -> None:
                 print(
                     "error: no LLM API key found. Set GEMINI_API_KEY or GOOGLE_API_KEY "
                     "(gemini), MOONSHOT_API_KEY (kimi), ANTHROPIC_API_KEY (claude), "
-                    "or OPENAI_API_KEY (openai), or pass --backend.",
+                    "OPENAI_API_KEY (openai), DEEPSEEK_API_KEY (deepseek), "
+                    "or pass --backend.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
@@ -2792,7 +2817,7 @@ def main() -> None:
             )
             sys.exit(1)
 
-        communities = _cluster(G)
+        communities = _cluster(G, resolution=cli_resolution, exclude_hubs_percentile=cli_exclude_hubs)
         cohesion = _score_all(G, communities)
         try:
             gods = _god_nodes(G)

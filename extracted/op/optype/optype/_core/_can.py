@@ -1096,7 +1096,6 @@ class CanROrSelf(Protocol[_T_contra]):
 ###
 # Augmented arithmetic operands
 
-# ruff: noqa: PYI034
 
 # __iadd__
 
@@ -1459,7 +1458,7 @@ class CanRound1(Protocol[_T_int_co]):
 
 @runtime_checkable
 class CanRound2(Protocol[_T_int_contra, _T_float_co]):
-    def __round__(self, /, ndigits: _T_int_contra) -> _T_float_co: ...
+    def __round__(self, ndigits: _T_int_contra, /) -> _T_float_co: ...
 
 
 @runtime_checkable
@@ -1472,7 +1471,7 @@ class CanRound(
     @override
     def __round__(self, /) -> _T_int_co: ...
     @overload
-    def __round__(self, /, ndigits: _T_int_contra) -> _T_float_co: ...
+    def __round__(self, ndigits: _T_int_contra, /) -> _T_float_co: ...
 
 
 @runtime_checkable

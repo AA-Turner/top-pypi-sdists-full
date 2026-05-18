@@ -1,6 +1,4 @@
-"""
-Pretty printing functions.
-"""
+"""Pretty printing functions."""
 
 from __future__ import annotations
 
@@ -10,20 +8,22 @@ from json import JSONEncoder, loads
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Callable, TextIO
+    from collections.abc import Callable
+    from typing import Any, TextIO
 
 
 def pprint_table(
     table: list[list], out: TextIO = sys.stdout, rstrip: bool = False
 ) -> None:
-    """
-    Prints out a table of data, padded for alignment
+    """Print out a table of data, padded for alignment.
+
     Each row must have the same number of columns.
 
     Args:
         table: The table to print. A list of lists.
         out: Output stream (file-like object)
-        rstrip: if True, trailing withespaces are removed from the entries.
+        rstrip: if True, trailing whitespace is removed from the entries.
+
     """
 
     def max_width_col(table: list[list], col_idx: int) -> int:
@@ -34,10 +34,8 @@ def pprint_table(
         for row_idx, row in enumerate(table):
             table[row_idx] = [c.rstrip() for c in row]
 
-    col_paddings = []
     ncols = len(table[0])
-    for i in range(ncols):
-        col_paddings.append(max_width_col(table, i))
+    col_paddings = [max_width_col(table, i) for i in range(ncols)]
 
     for row in table:
         # left col
@@ -49,12 +47,17 @@ def pprint_table(
         out.write("\n")
 
 
-def draw_tree(node, child_iter=lambda n: n.children, text_str=str):
-    """
+def draw_tree(
+    node: Any,
+    child_iter: Callable[[Any], Any] = lambda n: n.children,
+    text_str: Callable[[Any], str] = str,
+) -> str:
+    """Draw a tree from a root node as a string.
+
     Args:
-        node: the root of the tree to be drawn,
+        node: the root of the tree to be drawn.
         child_iter: function that when called with a node, returns an iterable
-            over all its children
+            over all its children.
         text_str: turns a node into the text to be displayed in the tree.
 
     The default implementations of these two arguments retrieve the children
@@ -62,11 +65,17 @@ def draw_tree(node, child_iter=lambda n: n.children, text_str=str):
     string. The resulting tree is drawn into a buffer and returned as a string.
 
     Based on https://pypi.python.org/pypi/asciitree/
+
     """
     return _draw_tree(node, "", child_iter, text_str)
 
 
-def _draw_tree(node, prefix: str, child_iter: Callable, text_str: Callable):
+def _draw_tree(
+    node: Any,
+    prefix: str,
+    child_iter: Callable[[Any], Any],
+    text_str: Callable[[Any], str],
+) -> str:
     buf = StringIO()
 
     children = list(child_iter(node))
@@ -87,14 +96,10 @@ def _draw_tree(node, prefix: str, child_iter: Callable, text_str: Callable):
 
 
 class DisplayEcoder(JSONEncoder):
-    """
-    Help convert dicts and objects to a format that can be displayed in notebooks
-    """
+    """Help convert dicts and objects to a format that can be displayed in notebooks."""
 
-    def default(self, o):
-        """
-        Try different ways of converting the present object for displaying
-        """
+    def default(self, o: Any) -> Any:
+        """Try different ways of converting the present object for displaying."""
         try:
             return o.as_dict()
         except Exception:
@@ -113,9 +118,9 @@ class DisplayEcoder(JSONEncoder):
         return None
 
 
-def pprint_json(data):
-    """
-    Display a tree-like object in a jupyter notebook.
+def pprint_json(data: Any) -> None:
+    """Display a tree-like object in a jupyter notebook.
+
     Allows for collapsible interactive interaction with data.
 
     Args:

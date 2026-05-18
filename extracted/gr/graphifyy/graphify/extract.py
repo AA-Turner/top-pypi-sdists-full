@@ -1012,7 +1012,7 @@ _C_CONFIG = LanguageConfig(
 
 _CPP_CONFIG = LanguageConfig(
     ts_module="tree_sitter_cpp",
-    class_types=frozenset({"class_specifier"}),
+    class_types=frozenset({"class_specifier", "struct_specifier"}),
     function_types=frozenset({"function_definition"}),
     import_types=frozenset({"preproc_include"}),
     call_types=frozenset({"call_expression"}),
@@ -1416,6 +1416,50 @@ def _extract_generic(path: Path, config: LanguageConfig) -> dict:
                                     for tid in sub.children:
                                         if tid.type == "type_identifier":
                                             _emit_java_parent(_read_text(tid, source), "extends", line)
+
+            # C++-specific: inheritance via base_class_clause (class and struct).
+            # tree-sitter-cpp shape:
+            #   class_specifier / struct_specifier
+            #     base_class_clause
+            #       access_specifier? ("public"/"protected"/"private")  -- skip
+            #       "virtual"?                                          -- skip
+            #       type_identifier                                     -- "Base"
+            #       qualified_identifier                                -- "ns::Base"
+            #       template_type                                       -- "Vec<int>"
+            # Multiple bases are siblings separated by ',' tokens.
+            if config.ts_module == "tree_sitter_cpp":
+                for child in node.children:
+                    if child.type != "base_class_clause":
+                        continue
+                    for sub in child.children:
+                        if sub.type == "type_identifier":
+                            base = _read_text(sub, source)
+                        elif sub.type == "qualified_identifier":
+                            # Use the unqualified tail so "std::vector" matches
+                            # a "vector" node id if one exists in the graph;
+                            # fall back to the full qualified text otherwise.
+                            tail = sub.child_by_field_name("name")
+                            base = _read_text(tail, source) if tail else _read_text(sub, source)
+                        elif sub.type == "template_type":
+                            tname = sub.child_by_field_name("name")
+                            base = _read_text(tname, source) if tname else _read_text(sub, source)
+                        else:
+                            continue
+                        if not base:
+                            continue
+                        base_nid = _make_id(stem, base)
+                        if base_nid not in seen_ids:
+                            base_nid = _make_id(base)
+                            if base_nid not in seen_ids:
+                                nodes.append({
+                                    "id": base_nid,
+                                    "label": base,
+                                    "file_type": "code",
+                                    "source_file": "",
+                                    "source_location": "",
+                                })
+                                seen_ids.add(base_nid)
+                        add_edge(class_nid, base_nid, "inherits", line)
 
             # Find body and recurse
             body = _find_body(node, config)
@@ -3610,6 +3654,17 @@ def extract_go(path: Path) -> dict:
 
 # ── Rust extractor (custom walk) ──────────────────────────────────────────────
 
+# Common Rust trait/stdlib method names that appear in virtually every codebase.
+# Resolving these cross-file produces spurious INFERRED edges across crate
+# boundaries (issue #908) — skip them from the unresolved-call queue entirely.
+_RUST_TRAIT_METHOD_BLOCKLIST: frozenset[str] = frozenset({
+    "new", "default", "parse", "from_str", "now", "clone", "into", "from",
+    "to_string", "to_owned", "len", "is_empty", "iter", "next", "build",
+    "start", "run", "init", "app", "get", "set", "push", "pop", "insert",
+    "remove", "contains", "collect", "map", "filter", "unwrap", "expect",
+    "ok", "err", "some", "none", "send", "recv", "lock", "read", "write",
+})
+
 def extract_rust(path: Path) -> dict:
     """Extract functions, structs, enums, traits, impl methods, and use declarations from a .rs file."""
     try:
@@ -3740,6 +3795,7 @@ def extract_rust(path: Path) -> dict:
             func_node = node.child_by_field_name("function")
             callee_name: str | None = None
             is_member_call: bool = False
+            is_scoped_call: bool = False
             if func_node:
                 if func_node.type == "identifier":
                     callee_name = _read_text(func_node, source)
@@ -3749,6 +3805,10 @@ def extract_rust(path: Path) -> dict:
                     if field:
                         callee_name = _read_text(field, source)
                 elif func_node.type == "scoped_identifier":
+                    # Type::method() — still allow in-file EXTRACTED match, but
+                    # skip cross-file resolution: bare last-segment lookup ignores
+                    # crate boundaries and produces spurious INFERRED edges (#908).
+                    is_scoped_call = True
                     name = func_node.child_by_field_name("name")
                     if name:
                         callee_name = _read_text(name, source)
@@ -3769,7 +3829,7 @@ def extract_rust(path: Path) -> dict:
                             "source_location": f"L{line}",
                             "weight": 1.0,
                         })
-                else:
+                elif not is_scoped_call and callee_name.lower() not in _RUST_TRAIT_METHOD_BLOCKLIST:
                     raw_calls.append({
                         "caller_nid": caller_nid,
                         "callee": callee_name,

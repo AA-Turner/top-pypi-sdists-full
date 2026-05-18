@@ -1386,9 +1386,27 @@ class SessionWatcher:
     def find_session(self) -> Path | None:
         if self.session_dir is not None:
             return self.session_dir
-        # meta.json is only written at session EXIT (CLAUDE.md learning #37).
-        # For active sessions we fall back to: new dir (mtime > since) that
-        # has messages.jsonl. meta.json match is preferred when available.
+        # Fast path (added 2026-05-17 with v2.8.58): drydock now
+        # publishes the active session_dir to ~/.drydock/current_session.txt
+        # at session init and on every reset_session. This avoids the
+        # post-/clear race where mtime-scan returned the stale OLD dir
+        # because reset_session's mkdir hadn't flushed yet.
+        pub_path = Path.home() / ".drydock" / "current_session.txt"
+        try:
+            published = pub_path.read_text().strip()
+            if published:
+                p = Path(published)
+                # Only accept the published path if it's recent enough —
+                # protects against a leftover file from a previous run.
+                if p.is_dir() and p.stat().st_mtime >= self.since - 5:
+                    self.session_dir = p
+                    return p
+        except (FileNotFoundError, OSError):
+            pass
+        # Fallback: meta.json is only written at session EXIT (CLAUDE.md
+        # learning #37). For active sessions we fall back to: new dir
+        # (mtime > since) that has messages.jsonl. meta.json match is
+        # preferred when available.
         fallback: Path | None = None
         for entry in sorted(SESSION_ROOT.iterdir(), reverse=True):
             try:
@@ -1441,6 +1459,40 @@ class SessionWatcher:
                         new_msgs = True
                     except Exception:
                         continue
+            except Exception:
+                continue
+        # Also drain events.jsonl (added 2026-05-17 by SessionLogger.log_event)
+        # so queued-while-busy injections count toward "did the TUI accept
+        # my prompt?" — without this, the harness SKIPs every prompt typed
+        # during a multi-tool turn because the user message only lands in
+        # messages.jsonl at the NEXT drain (could be 5+ min later). The
+        # events file gets the user_injection_queued record immediately.
+        for events_file in sorted(sd.rglob("events.jsonl")):
+            key = str(events_file) + "::events"
+            try:
+                with events_file.open("rb") as f:
+                    f.seek(self._offsets.get(key, 0))
+                    chunk = f.read()
+                    self._offsets[key] = f.tell()
+                if not chunk:
+                    continue
+                for raw in chunk.decode("utf-8", errors="replace").split("\n"):
+                    line = raw.strip()
+                    if not line:
+                        continue
+                    try:
+                        ev = json.loads(line)
+                    except Exception:
+                        continue
+                    if ev.get("event") == "user_injection_queued":
+                        # Synthesise a user-role message so
+                        # count_user_messages() picks it up.
+                        self.messages.append({
+                            "role": "user",
+                            "content": ev.get("text", ""),
+                            "_from_events_jsonl": True,
+                        })
+                        new_msgs = True
             except Exception:
                 continue
         # Cap the in-memory window so long sessions don't bloat RAM.

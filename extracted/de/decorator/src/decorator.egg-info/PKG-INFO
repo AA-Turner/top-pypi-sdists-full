@@ -1,13 +1,12 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: decorator
-Version: 5.2.1
+Version: 5.3.1
 Summary: Decorators for Humans
 Author-email: Michele Simionato <michele.simionato@gmail.com>
 License: BSD-2-Clause
 Keywords: decorators
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -17,12 +16,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: license-file
 
 Decorators for Humans
 =====================
@@ -58,11 +59,7 @@ Testing
 
 If you have the source code installation you can run the tests with
 
- `$ python src/tests/test.py -v`
-
-or (if you have setuptools installed)
-
- `$ python setup.py test`
+ `$ python tests/test.py -v`
 
 Notice that you may run into trouble if in your system there
 is an older version of the decorator module; in such a case remove the

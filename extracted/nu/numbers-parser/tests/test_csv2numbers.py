@@ -1,7 +1,10 @@
 """Tests for CSV conversion."""
 
+import runpy
 import shutil
+import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -9,7 +12,7 @@ from numbers_parser import Document, _get_version
 from numbers_parser._csv2numbers import Transformer
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_help(script_runner) -> None:
     """Test conversion with no transforms."""
     ret = script_runner.run(["csv2numbers"], print_result=False)
@@ -21,7 +24,7 @@ def test_help(script_runner) -> None:
     assert "usage: csv2numbers" in ret.stdout
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_version(script_runner) -> None:
     """Test Version number."""
     ret = script_runner.run(["csv2numbers", "-V"], print_result=False)
@@ -64,7 +67,7 @@ def test_defaults_no_header(script_runner, tmp_path) -> None:
     assert table.cell(3, 1).value == "GROCERY STORE        LONDON"
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_errors(script_runner) -> None:
     """Test error detection in command line."""
     ret = script_runner.run(
@@ -162,7 +165,7 @@ def test_errors(script_runner) -> None:
     assert "Index/Metadata.iwa: invalid IWA file Index/Metadata.iwa" in ret.stderr
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_multifile(script_runner, tmp_path) -> None:
     """Test conversion with no options."""
     csv_path_1 = str(tmp_path / "format-1.csv")
@@ -193,10 +196,36 @@ def test_multifile(script_runner, tmp_path) -> None:
         ],
         print_result=False,
     )
-    assert "numbers of input and output file names do not match" in ret.stderr
+    assert "number of input and output file names do not match" in ret.stderr
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.filterwarnings(
+    "ignore:'numbers_parser._csv2numbers' found in sys.modules:RuntimeWarning",
+)
+def test_main(capsys):
+    with patch.object(sys, "argv", ["_csv2numbers.py", "--help"]):
+        with pytest.raises(SystemExit) as excinfo:
+            # Use runpy instead of script_runner to ensure coverage
+            runpy.run_module("numbers_parser._csv2numbers", run_name="__main__")
+
+        assert excinfo.value.code == 0
+
+    captured = capsys.readouterr()
+    assert "strip whitespace from beginning" in captured.out
+    assert captured.err == ""
+
+
+@pytest.mark.script_launch_mode("inprocess")
+def test_arg_len_mismatch(script_runner) -> None:
+    """Test conversion with no transforms."""
+    ret = script_runner.run(
+        ["csv2numbers", "tests/data/format-1.csv", "tests/data/format-2.csv", "-o", "test.numbers"],
+        print_result=False,
+    )
+    assert "The number of input and output file names do not match" in ret.stderr
+
+
+@pytest.mark.script_launch_mode("inprocess")
 def test_parse_error(script_runner) -> None:
     """Test conversion with no transforms."""
     ret = script_runner.run(
@@ -306,7 +335,7 @@ def test_transforms_format_3(script_runner, tmp_path) -> None:
     assert table.cell(7, 2).value == -1283.72
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_transforms_lookup(script_runner, tmp_path) -> None:
     """Test conversion with transformation."""
     csv_path = str(tmp_path / "matches.csv")

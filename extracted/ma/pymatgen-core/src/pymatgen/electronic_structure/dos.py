@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, NamedTuple, cast
 
 import numpy as np
 from monty.json import MSONable
-from scipy.constants import value as _constant
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import hilbert
 from scipy.special import expit
 from scipy.stats import wasserstein_distance
 
 from pymatgen.core import Structure, get_el_sp
+from pymatgen.core.constants import value as _constant
 from pymatgen.core.spectrum import Spectrum
 from pymatgen.electronic_structure.core import Orbital, OrbitalType, Spin
 from pymatgen.util.coord import get_linear_interpolated_value
@@ -50,7 +50,8 @@ class DOS(Spectrum):
     YLABEL = "Density"
 
     def __init__(self, energies: ArrayLike, densities: ArrayLike, efermi: float) -> None:
-        """
+        """Initialize a DOS.
+
         Args:
             energies (Sequence[float]): The Energies.
             densities (NDArray): A Nx1 or Nx2 array. If former, it is
@@ -186,7 +187,8 @@ class Dos(MSONable):
         densities: Mapping[Spin, ArrayLike],
         norm_vol: float | None = None,
     ) -> None:
-        """
+        """Initialize a Dos.
+
         Args:
             efermi (float): The Fermi level.
             energies (Sequence[float]): Energies.
@@ -409,7 +411,8 @@ class FermiDos(Dos, MSONable):
         nelecs: float | None = None,
         bandgap: float | None = None,
     ) -> None:
-        """
+        """Initialize a FermiDos.
+
         Args:
             dos (Dos): Pymatgen Dos object.
             structure (Structure): A structure. If None, the Structure
@@ -660,7 +663,8 @@ class CompleteDos(Dos):
         pdoss: Mapping[PeriodicSite, Mapping[Orbital, Mapping[Spin, ArrayLike]]],
         normalize: bool = False,
     ) -> None:
-        """
+        """Initialize a CompleteDos.
+
         Args:
             structure (Structure): Structure associated with this DOS.
             total_dos (Dos): Total DOS for the structure.

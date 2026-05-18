@@ -4,7 +4,7 @@ from __future__ import annotations
 from ..abc import MathObject
 
 from numbers import Real
-from typing import Iterator, ClassVar
+from typing import Iterator, ClassVar, overload, Self, Iterable
 from math import acos, sqrt
 
 # ======================================== OBJET ========================================
@@ -18,6 +18,15 @@ class Vector(MathObject):
     __slots__ = ("_x", "_y")
 
     PRECISION: ClassVar[int] = 9
+
+    @overload
+    def __init__(self, x: Real, y: Real) -> Self: ...
+
+    @overload
+    def __init__(self, vector: Vector) -> Self: ...
+
+    @overload
+    def __init__(self, iterable: Iterable[Real, Real]) -> Self: ...
 
     def __init__(self, x, y=None):
         # Transtypage

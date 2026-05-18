@@ -26,7 +26,7 @@ class TileMap(Positionable):
         tile_width: largeur d'une tuile en pixels monde
         tile_height: hauteur d'une tuile en pixels monde
         flags: tableau 2D de flags de flip (FLIP_H, FLIP_V, FLIP_D)
-        pos: position monde de l'ancre
+        position: position monde de l'ancre
         anchor: point d'ancrage normalisé
     """
     __slots__ = (
@@ -72,7 +72,7 @@ class TileMap(Positionable):
     def __repr__(self) -> str:
         """Renvoie une représentation de la carte"""
         rows, cols = self._grid.shape
-        return f"TileMap(tile={self._tile}, grid={cols}x{rows}, tile={self._tile_width}x{self._tile_height}, pos={self._pos}, anchor={self._anchor})"
+        return f"TileMap(tile={self._tile}, grid={cols}x{rows}, tile={self._tile_width}x{self._tile_height}, position={self._position}, anchor={self._anchor})"
 
     # ======================================== PROPERTIES ========================================
     @property
@@ -150,8 +150,8 @@ class TileMap(Positionable):
     @property
     def origin(self) -> tuple[float, float]:
         """Renvoie le coin bas-gauche de la map en coordonnées monde"""
-        ox = self._pos.x - self._anchor[0] * self.pixel_width
-        oy = self._pos.y - self._anchor[1] * self.pixel_height
+        ox = self._position.x - self._anchor[0] * self.pixel_width
+        oy = self._position.y - self._anchor[1] * self.pixel_height
         return ox, oy
 
     # ======================================== INTERFACE ========================================

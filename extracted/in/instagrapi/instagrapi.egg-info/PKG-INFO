@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.6.7
+Version: 2.6.11
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -23,7 +23,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests==2.34.2
 Requires-Dist: PySocks==1.7.1
-Requires-Dist: pydantic==2.13.4
+Requires-Dist: pydantic==2.12.5; sys_platform == "android"
+Requires-Dist: pydantic<2.14,>=2.12.5; sys_platform != "android"
 Requires-Dist: Pillow==12.2.0
 Requires-Dist: pycryptodomex==3.23.0
 Provides-Extra: curl
@@ -99,6 +100,8 @@ cl = Client(public_transport="curl", public_transport_impersonate="chrome136")
 ```
 
 See the [public transport guide](docs/usage-guide/public-transport.md) for live comparison results and caveats.
+
+TLS certificate verification is enabled by default. For a trusted debugging MITM proxy, prefer `Client(tls_verify="/path/to/proxy-ca.pem")`; use `Client(tls_verify=False)` only for temporary local debugging because it allows session interception.
 
 If your project uses [uv](https://docs.astral.sh/uv/), you can add the package with:
 
@@ -235,6 +238,7 @@ cl.delete_note(note.id)
 * Works with users, media, comments, locations, hashtags, collections, notes, direct messages, and insights
 * Supports story building with mentions, hashtags, link stickers, and media stickers
 * Includes helpers for current location search and notes flows
+* Supports mobile follower sorting with `date_followed_latest` and `date_followed_earliest`
 * App-side discovery surfaces: `chaining`, `fetch_suggestion_details`, `discover_recommended_accounts_for_category_v1`, `user_stream_*`, `user_web_profile_info_v1`
 * v2 search SERPs: `fbsearch_accounts_v2`, `fbsearch_reels_v2`, `fbsearch_topsearch_v2`, `fbsearch_typehead`
 * Alternative media-info path (`media_info_v2`) for ad-tagged / sponsored media that the canonical endpoint refuses
@@ -343,9 +347,12 @@ For local setup, tests, linting, and pull request expectations, see [CONTRIBUTIN
 Maintainer release commands:
 
 ```bash
-python -m build
-twine upload dist/*
+git tag -a X.Y.Z -m "Release X.Y.Z"
+git push origin X.Y.Z
+git push codeberg X.Y.Z
 ```
+
+The tag-based `publish.yml` workflow publishes to PyPI via trusted publishing and creates the GitHub release.
 
 ## License
 

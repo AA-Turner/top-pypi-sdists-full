@@ -1,15 +1,15 @@
-"""
-Addition math functions.
-"""
+"""Addition math functions."""
 
 from __future__ import annotations
 
 import math
 
+from monty.dev import deprecated
 
+
+@deprecated(replacement="math.comb", deadline=(2028, 1, 1))
 def nCr(n: int, r: int) -> int:
-    """
-    Calculates nCr (binomial coefficient or "n choose r").
+    """Calculates nCr (binomial coefficient or "n choose r").
 
     Args:
         n (int): total number of items.
@@ -17,14 +17,14 @@ def nCr(n: int, r: int) -> int:
 
     Returns:
         nCr.
+
     """
-    f = math.factorial
-    return int(f(n) / f(r) / f(n - r))
+    return math.comb(n, r)
 
 
+@deprecated(replacement="math.perm", deadline=(2028, 1, 1))
 def nPr(n: int, r: int) -> int:
-    """
-    Calculates nPr.
+    """Calculates nPr.
 
     Args:
         n (int): total number of items.
@@ -32,6 +32,6 @@ def nPr(n: int, r: int) -> int:
 
     Returns:
         nPr.
+
     """
-    f = math.factorial
-    return int(f(n) / f(n - r))
+    return math.perm(n, r)

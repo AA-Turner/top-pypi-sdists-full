@@ -634,29 +634,6 @@ def cmd_pull():
         sys.exit(1)
 
 
-PRECOMMIT_HOOK_DEPENDENCIES = [
-    "inquirer>=3.0.3",
-    "libcst>=1.8.2",
-    "rich>=14.0.0",
-    "textual>=1.0.0",
-    "keyring>=25.6.0,!=3.4.2",
-    "requests",
-    "tree-sitter>=0.25.2",
-    "tree-sitter-typescript>=0.23.2",
-    "tree-sitter-go>=0.23.0",
-    "tree-sitter-java>=0.23.0",
-    "tree-sitter-php>=0.24.1",
-    "tree-sitter-rust>=0.24.2",
-    "tree-sitter-dart-orchard>=0.3.2",
-    "tomli>=2.0.1; python_version < '3.11'",
-    "pyyaml",
-    "networkx",
-    "pyperclip",
-    "ca9>=0.1.0",
-    "mcp>=1.0.0",
-]
-
-
 def create_precommit_config():
     precommit_path = Path(".pre-commit-config.yaml")
 
@@ -664,11 +641,7 @@ def create_precommit_config():
         print("  ⚠️  .pre-commit-config.yaml already exists (skipping)")
         return False
 
-    dependency_lines = "\n".join(
-        f'          - "{dependency}"' for dependency in PRECOMMIT_HOOK_DEPENDENCIES
-    )
-
-    config_content = f"""# Skylos pre-commit configuration
+    config_content = """# Skylos pre-commit configuration
 # Fast staged-only local hook.
 # Checks security, secrets, and quality in staged source/config files.
 # Full repo and diff-aware enforcement runs in CI.
@@ -678,10 +651,8 @@ repos:
     hooks:
       - id: skylos-gate
         name: Skylos Staged Gate
-        entry: python -m skylos.cli
-        language: python
-        additional_dependencies:
-{dependency_lines}
+        entry: skylos
+        language: system
         pass_filenames: false
         require_serial: true
         args: ["agent", "pre-commit", "."]
@@ -717,6 +688,7 @@ def _write_sync_suppressions(skylos_dir: Path, supp_data):
 def _build_pre_push_hook() -> str:
     return """#!/bin/bash
 # Fast local push guard only. Full Skylos scans should run manually or in CI.
+# Keep this hook shell-only: it must not import or execute repository code.
 
 # Git supplies pending remote updates on stdin. Check the remote ref so
 # `git push origin HEAD:main`, force-pushes, and deletes are all blocked.
@@ -730,18 +702,6 @@ while read -r local_ref local_sha remote_ref remote_sha; do
             ;;
     esac
 done
-
-if python3 -c "import skylos_fast" 2>/dev/null; then
-    echo "Running Rust/Python parity check..."
-    python3 -m pytest test/test_fast_parity.py -k "synthetic or exact_match or same_cycles_found or python_files_match" -q --no-header --tb=line 2>&1
-    PARITY_EXIT=$?
-    if [ $PARITY_EXIT -ne 0 ]; then
-        echo ""
-        echo "BLOCKED: Rust/Python parity drift detected."
-        echo "Run 'pytest test/test_fast_parity.py -v' for details."
-        exit 1
-    fi
-fi
 
 exit 0
 """
@@ -831,7 +791,8 @@ def cmd_setup(token_arg=None):
     try:
         response = (
             input(
-                "  Install optional pre-push parity hook? (fast push safeguard) [Y/n]: "
+                "  Install optional pre-push protected-branch hook? "
+                "(blocks direct main/master pushes) [Y/n]: "
             )
             .strip()
             .lower()

@@ -13,6 +13,7 @@ Each workspace+surface combination gets a GET route that:
 """
 
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -43,6 +44,54 @@ except ImportError:
 # =============================================================================
 # Helpers (module-level, no closure state)
 # =============================================================================
+
+
+def _collect_request_params(request: Any) -> dict[str, str]:
+    """#1129: merge ``request.path_params`` + ``request.query_params``
+    into a flat ``{name: str}`` dict for ``CustomRenderCtx.params``.
+
+    Path params win on key collision because they're more specific
+    (the route declared them; the query string is opportunistic).
+    Both attributes are documented stable on
+    ``starlette.requests.Request``; ``hasattr`` guards so test
+    fixtures that pass a bare ``MagicMock`` (no attribute set)
+    don't crash here. We accept any mapping shape — production
+    callers pass starlette's ``QueryParams`` / ``ImmutableMultiDict``,
+    tests pass plain dicts — and require ``.items()``. Anything
+    that has the attribute but isn't iterable is a contract
+    violation the caller will see on the next access.
+    """
+    out: dict[str, str] = {}
+    qp = getattr(request, "query_params", None)
+    if qp is not None and hasattr(qp, "items"):
+        out.update({str(k): str(v) for k, v in qp.items()})
+    pp = getattr(request, "path_params", None)
+    if pp is not None and hasattr(pp, "items"):
+        out.update({str(k): str(v) for k, v in pp.items()})
+    return out
+
+
+async def _resolve_auth_context(get_auth_context: Callable[..., Any] | None, request: Any) -> Any:
+    """Call ``get_auth_context`` and await the result if it's a coroutine (#1128).
+
+    Page routes are FastAPI handlers (always async), but the
+    ``get_auth_context`` seam was originally declared sync-only.
+    Projects on async auth stacks (async DB session, async permission
+    lookup, FastAPI's idiomatic ``Depends``-style flow) hit silent
+    ``AttributeError: 'coroutine' object has no attribute
+    'is_authenticated'`` on every page load because the returned
+    coroutine was assigned to ``auth_ctx`` and treated as the
+    resolved value.
+
+    This helper accepts either signature: sync callables return
+    their value unchanged; async callables are awaited.
+    """
+    if get_auth_context is None:
+        return None
+    result = get_auth_context(request)
+    if inspect.iscoroutine(result):
+        result = await result
+    return result
 
 
 def _sync_fetch(url: str, cookies: dict[str, str] | None = None, timeout: int = 5) -> bytes:
@@ -503,12 +552,45 @@ class _PageRequestContext:
 # =============================================================================
 
 
-def _inject_auth_context(prc: _PageRequestContext) -> None:
-    """Resolve auth context from request and inject into page context."""
+def _apply_anon_nav(prc: _PageRequestContext) -> None:
+    """#1127: swap the sidebar to the anon-safe variants.
+
+    Compile-time builds two parallel nav lists per page: ``nav_items``
+    (everything) and ``nav_items_anon`` (only items from workspaces
+    that declared no persona gate). This helper switches to the anon
+    variants whenever the request has no auth, no user, or no role
+    that matches any persona — closing the leak where anon visitors
+    were seeing more workspaces than authenticated users.
+    """
+    prc.ctx.nav_items = list(prc.ctx.nav_items_anon)
+    prc.ctx.nav_groups = list(prc.ctx.nav_groups_anon)
+
+
+async def _inject_auth_context(prc: _PageRequestContext) -> None:
+    """Resolve auth context from request and inject into page context.
+
+    Anon nav contract (#1127): when no auth context is configured, the
+    request has no user, or the user matches no compiled persona, the
+    sidebar collapses to ``nav_items_anon`` — items whose underlying
+    workspace declared no persona gate. Workspaces with
+    ``access: persona(...)`` are never exposed in the anon sidebar.
+
+    Async (#1128): ``get_auth_context`` may be either sync or async.
+    The resolver call goes through ``_resolve_auth_context`` which
+    awaits the returned coroutine when the project wires up an
+    ``async def`` auth dependency (FastAPI-idiomatic). Pre-async
+    sync callables continue to work unchanged.
+    """
     if prc.deps.get_auth_context is None:
+        # No auth wiring at all — the app has opted out of access
+        # control. Persona gates have no enforcement layer in this
+        # mode, so leave the compile-time nav as declared rather
+        # than collapsing the sidebar to nothing. The anon-leak path
+        # closed by #1127 is the production shape: auth IS configured,
+        # but the request has no session yet (handled below).
         return
     try:
-        prc.auth_ctx = prc.deps.get_auth_context(prc.request)
+        prc.auth_ctx = await _resolve_auth_context(prc.deps.get_auth_context, prc.request)
         prc.ctx.is_authenticated = bool(prc.auth_ctx and prc.auth_ctx.is_authenticated)
         if prc.auth_ctx and prc.auth_ctx.user:
             prc.ctx.user_email = prc.auth_ctx.user.email or ""
@@ -518,12 +600,14 @@ def _inject_auth_context(prc: _PageRequestContext) -> None:
             # per-persona nav variants compiled from workspace access.
             roles = getattr(prc.auth_ctx.user, "roles", None) or []
             prc.ctx.user_roles = list(roles)
+            matched_persona = False
             if prc.ctx.nav_by_persona and roles:
                 for role in roles:
                     # Roles use "role_" prefix; persona IDs don't
                     persona_nav = prc.ctx.nav_by_persona.get(role.removeprefix("role_"))
                     if persona_nav is not None:
                         prc.ctx.nav_items = persona_nav
+                        matched_persona = True
                         break
 
             # v0.61.5 (#863): mirror the per-persona resolution for nav_groups
@@ -535,6 +619,13 @@ def _inject_auth_context(prc: _PageRequestContext) -> None:
                     if persona_groups is not None:
                         prc.ctx.nav_groups = persona_groups
                         break
+
+            # #1127: authenticated but no persona match → anon-safe view.
+            # An authed user with a role the app doesn't recognise has
+            # the same nav reach as an anon visitor; without this they'd
+            # see the unfiltered flat nav and leak persona-gated entries.
+            if prc.ctx.nav_by_persona and not matched_persona:
+                _apply_anon_nav(prc)
 
             # Filter out nav items for entities the user cannot LIST (#583).
             # This catches entities that appear in an allowed workspace but
@@ -554,8 +645,15 @@ def _inject_auth_context(prc: _PageRequestContext) -> None:
                 prc.ctx.nav_items = _dedupe_nav_items_against_groups(
                     prc.ctx.nav_items, prc.ctx.nav_groups
                 )
+        else:
+            # #1127: auth wiring present but request is anon (no user or
+            # not authenticated) — apply the anon-safe nav.
+            _apply_anon_nav(prc)
     except Exception:
         logger.warning("Failed to resolve auth context for page", exc_info=True)
+        # Fail closed: an exception while resolving auth must not leave
+        # the full unfiltered nav exposed (#1127).
+        _apply_anon_nav(prc)
 
 
 def _inject_onboarding_step(prc: _PageRequestContext) -> None:
@@ -1439,9 +1537,24 @@ def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str
         return overlay + inner if overlay else inner
 
     if surface.mode == SurfaceMode.CUSTOM:
-        ctx_dict = _build_dispatch_ctx(render_ctx, surface)
+        # #1129: hand custom-mode renderers a typed CustomRenderCtx
+        # instead of the empty dict the previous build path produced.
+        # Existing renderers that take ``ctx: dict`` keep working —
+        # CustomRenderCtx is a sibling shape, not a replacement, so
+        # isinstance-aware renderers can opt into the typed form
+        # without breaking the registered Protocol contract.
+        from dazzle.render.context import CustomRenderCtx
+
+        custom_ctx = CustomRenderCtx(
+            request=prc.request,
+            params=_collect_request_params(prc.request),
+            services=services,
+            auth_ctx=prc.auth_ctx,
+            surface_name=surface.name,
+            workspace_name=getattr(surface, "workspace", None),
+        )
         try:
-            return _compose(dispatch_render(surface, ctx=ctx_dict, services=services))
+            return _compose(dispatch_render(surface, ctx=custom_ctx, services=services))
         except FragmentError as e:
             logger.warning(
                 "dispatch_render failed for custom-mode surface %r (render=%r); "
@@ -1644,7 +1757,7 @@ async def _page_handler(
     )
 
     # Phase 1: Auth + access control
-    _inject_auth_context(prc)
+    await _inject_auth_context(prc)
     # v0.71.3 — resolve any active onboarding step + render its HTML.
     # No-op for anonymous users / projects without guides / unsupported
     # step kinds. The rendered overlay is prepended to the body by
@@ -1820,7 +1933,8 @@ async def _workspace_handler(
 
     if deps.get_auth_context is not None:
         try:
-            auth_ctx = deps.get_auth_context(request)
+            # #1128: await coroutine when get_auth_context is async.
+            auth_ctx = await _resolve_auth_context(deps.get_auth_context, request)
             if auth_ctx and auth_ctx.is_authenticated:
                 is_authenticated = True
                 user_email = auth_ctx.user.email if auth_ctx.user else ""
@@ -1997,7 +2111,8 @@ async def _root_redirect(
     """Redirect app root to the appropriate workspace for the user's persona."""
     if deps.get_auth_context is not None:
         try:
-            auth_ctx = deps.get_auth_context(request)
+            # #1128: await coroutine when get_auth_context is async.
+            auth_ctx = await _resolve_auth_context(deps.get_auth_context, request)
             if auth_ctx and auth_ctx.is_authenticated and auth_ctx.roles:
                 for role in auth_ctx.roles:
                     route = persona_ws_routes.get(role)

@@ -1,7 +1,4 @@
-"""
-Augments Python's suite of IO functions with useful transparent support for
-compressed files.
-"""
+"""Augment Python's I/O functions with transparent support for compressed files."""
 
 from __future__ import annotations
 
@@ -15,17 +12,20 @@ import os
 import subprocess
 import time
 import warnings
+from builtins import EncodingWarning as EncodingWarning
+from collections import deque
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Literal, cast, overload
 
 if TYPE_CHECKING:
-    from typing import Iterator, TypeAlias
+    from collections.abc import Iterator
+    from typing import TypeAlias
 
     from monty.shutil import PathLike
 
 
-class EncodingWarning(Warning): ...  # Added in Python 3.10
-
+# `EncodingWarning` (Python 3.10+) is re-exported above so users can keep
+# using ``from monty.io import EncodingWarning``.
 
 # fmt: off
 TextModes: TypeAlias = Literal[
@@ -51,26 +51,25 @@ def zopen(
     mode: str,
     **kwargs: Any,
 ) -> IO[Any]:
-    """
-    This function wraps around `[bz2/gzip/lzma].open` and `open`
-    to deal intelligently with compressed or uncompressed files.
-    Supports context manager:
-        `with zopen(filename, mode="rt", ...)`
+    """Open a file, transparently handling bz2/gzip/lzma compression.
 
-    Important Notes:
-        - Always explicitly specify binary/text in `mode`, i.e.
-            always pass `t` or `b` in `mode`.
-        - Always provide an explicit `encoding` in text mode, it would
-            be set to UTF-8 by default otherwise.
+    Wraps ``[bz2|gzip|lzma].open`` and ``open`` and is usable as a context
+    manager: ``with zopen(filename, mode="rt", ...) as f``.
+
+    Important:
+        - Always specify binary/text explicitly in ``mode`` (pass ``t`` or ``b``).
+        - Always provide an explicit ``encoding`` in text mode; UTF-8 is used
+          as the default otherwise.
 
     Args:
         filename (PathLike): The file to open.
-        mode (str): The mode in which the file is opened, you should
-            explicitly specify "b" for binary or "t" for text.
-        **kwargs: Additional keyword arguments to pass to `open`.
+        mode (str): The mode in which the file is opened. Must explicitly
+            include ``b`` for binary or ``t`` for text.
+        **kwargs: Additional keyword arguments forwarded to ``open``.
 
     Returns:
         TextIO | BinaryIO | bz2.BZ2File | gzip.GzipFile | lzma.LZMAFile
+
     """
     # Don't allow implicit text/binary `mode`
     if not ("b" in mode or "t" in mode):
@@ -80,8 +79,8 @@ def zopen(
 
     # Warn against default `encoding` in text mode if
     # `PYTHONWARNDEFAULTENCODING` environment variable is set (PEP 597)
-    if "t" in mode and kwargs.get("encoding", None) is None:
-        if os.getenv("PYTHONWARNDEFAULTENCODING", False):
+    if "t" in mode and kwargs.get("encoding") is None:
+        if os.getenv("PYTHONWARNDEFAULTENCODING"):
             warnings.warn(
                 "We strongly encourage explicit `encoding`, "
                 "and we would use UTF-8 by default as per PEP 686",
@@ -140,6 +139,7 @@ def _get_line_ending(
 
     Warnings:
         If file is empty, "\n" would be used as default.
+
     """
     if isinstance(file, (str, Path)):
         with zopen(file, mode="rb") as f:
@@ -166,29 +166,30 @@ def _get_line_ending(
         return "\n"
 
     # It's likely the line is missing a line ending for the first line
-    raise ValueError(f"Unknown line ending in line {repr(first_line)}.")
+    raise ValueError(f"Unknown line ending in line {first_line!r}.")
 
 
 def reverse_readfile(
     filename: PathLike,
 ) -> Iterator[str]:
-    """
-    A much faster reverse read of file by using Python's mmap to generate a
-    memory-mapped file. It is slower for very small files than
-    reverse_readline, but at least 2x faster for large files (the primary use
-    of such a function).
+    """Read a file in reverse using ``mmap`` for performance.
+
+    Slower than ``reverse_readline`` on very small files, but at least 2x
+    faster on large files — the primary use case.
 
     Args:
         filename (PathLike): File to read.
 
     Yields:
         Lines from the file in reverse order.
-    """
-    # Get line ending
-    l_end = _get_line_ending(filename)
-    len_l_end = len(l_end)
 
+    """
     with zopen(filename, mode="rb") as file:
+        # Detect line ending from the already-open handle so compressed files
+        # are not opened twice.
+        l_end = _get_line_ending(file)  # type: ignore[arg-type]
+        len_l_end = len(l_end)
+
         if isinstance(file, (gzip.GzipFile, bz2.BZ2File)):
             for line in reversed(file.readlines()):
                 # "readlines" would keep the line end character
@@ -224,10 +225,9 @@ def reverse_readline(
     blk_size: int = 4096,
     max_mem: int = 4_000_000,
 ) -> Iterator[str]:
-    """
-    Read a file backwards line-by-line, and behave similarly to
-    the file.readline function. This allows one to efficiently
-    get data from the end of a file.
+    """Read a file backwards line-by-line, similar to ``file.readline``.
+
+    Allows efficient retrieval of data from the end of a file.
 
     Supported file stream formats:
     - TextIOWrapper (text mode) | BufferedReader (binary mode)
@@ -259,6 +259,7 @@ def reverse_readline(
 
     Warnings:
         If max_mem is smaller than blk_size.
+
     """
     # Check for illegal usage
     if isinstance(m_file, (str, Path)):
@@ -294,6 +295,10 @@ def reverse_readline(
         # Check if the file stream is text (instead of binary)
         is_text: bool = isinstance(m_file, io.TextIOWrapper)
 
+        # Use a deque of decoded chunks instead of repeated string concatenation
+        # to avoid O(N^2) behavior on large files. Chunks are joined only when
+        # the buffer must be searched/sliced for a line ending.
+        chunks: deque[str] = deque()
         buffer: str = ""
         m_file.seek(0, 2)
         skipped_1st_l_end: bool = False
@@ -319,16 +324,21 @@ def reverse_readline(
                 to_read: int = min(blk_size, pt_pos)
                 m_file.seek(pt_pos - to_read)
                 if is_text:
-                    buffer = cast(str, m_file.read(to_read)) + buffer
+                    chunk = cast(str, m_file.read(to_read))
                 else:
-                    buffer = cast(bytes, m_file.read(to_read)).decode("utf-8") + buffer
+                    chunk = cast(bytes, m_file.read(to_read)).decode("utf-8")
+                chunks.appendleft(buffer)
+                chunks.appendleft(chunk)
 
                 # Move pointer forward
                 m_file.seek(pt_pos - to_read)
 
                 # Add a l_end to the start of file
                 if pt_pos == to_read:
-                    buffer = l_end + buffer
+                    chunks.appendleft(l_end)
+
+                buffer = "".join(chunks)
+                chunks.clear()
 
             # Start of file
             else:  # l_end_pos == -1 and pt_post == 0
@@ -340,13 +350,10 @@ class FileLockException(Exception):
 
 
 class FileLock:
-    """
-    A file locking mechanism that has context-manager support so you can use
-    it in a with statement. This should be relatively cross-compatible as it
-    doesn't rely on msvcrt or fcntl for the locking.
+    """Cross-platform file locking with context-manager support.
 
-    Taken from http://www.evanfosmark.com/2009/01/cross-platform-file-locking
-    -support-in-python/
+    Does not rely on ``msvcrt`` or ``fcntl`` for locking. Adapted from
+    http://www.evanfosmark.com/2009/01/cross-platform-file-locking-support-in-python/.
     """
 
     Error = FileLockException
@@ -354,14 +361,13 @@ class FileLock:
     def __init__(
         self, file_name: str, timeout: float = 10, delay: float = 0.05
     ) -> None:
-        """
-        Prepare the file locker. Specify the file to lock and optionally
-        the maximum timeout and the delay between each attempt to lock.
+        """Prepare the file locker.
 
         Args:
             file_name (str): Name of file to lock.
-            timeout (float): Maximum timeout in second for locking. Defaults to 10.
-            delay (float): Delay in second between each attempt to lock. Defaults to 0.05.
+            timeout (float): Maximum timeout in seconds for locking. Defaults to 10.
+            delay (float): Delay in seconds between each attempt to lock. Defaults to 0.05.
+
         """
         self.file_name = os.path.abspath(file_name)
         self.lockfile = f"{os.path.abspath(file_name)}.lock"
@@ -373,35 +379,25 @@ class FileLock:
             raise ValueError("delay and timeout must be positive with delay <= timeout")
 
     def __enter__(self):
-        """
-        Activated when used in the with statement. Should automatically
-        acquire a lock to be used in the with block.
-        """
+        """Acquire the lock on entering the ``with`` block."""
         if not self.is_locked:
             self.acquire()
         return self
 
     def __exit__(self, type_, value, traceback):
-        """
-        Activated at the end of the with statement. It automatically releases
-        the lock if it isn't locked.
-        """
+        """Release the lock when exiting the ``with`` block, if held."""
         if self.is_locked:
             self.release()
 
     def __del__(self):
-        """
-        Make sure that the FileLock instance doesn't leave a lockfile
-        lying around.
-        """
+        """Release any held lock so no lockfile is left behind."""
         self.release()
 
     def acquire(self) -> None:
-        """
-        Acquire the lock, if possible. If the lock is in use, it check again
-        every `delay` seconds. It does this until it either gets the lock or
-        exceeds `timeout` number of seconds, in which case it throws
-        an exception.
+        """Acquire the lock, retrying every ``delay`` seconds.
+
+        Continues until the lock is acquired or ``timeout`` seconds elapse,
+        in which case ``FileLockException`` is raised.
         """
         start_time = time.time()
         while True:
@@ -412,16 +408,17 @@ class FileLock:
                 if exc.errno != errno.EEXIST:
                     raise
                 if (time.time() - start_time) >= self.timeout:
-                    raise FileLockException(f"{self.lockfile}: Timeout occurred.")
+                    raise FileLockException(
+                        f"{self.lockfile}: Timeout occurred."
+                    ) from exc
                 time.sleep(self.delay)
 
         self.is_locked = True
 
     def release(self) -> None:
-        """
-        Get rid of the lock by deleting the lockfile.
-        When working in a `with` statement, this gets automatically
-        called at the end.
+        """Release the lock by deleting the lockfile.
+
+        Called automatically at the end of a ``with`` statement.
         """
         if self.is_locked:
             os.close(self.fd)
@@ -430,13 +427,13 @@ class FileLock:
 
 
 def get_open_fds() -> int:
-    """
-    Get the number of open file descriptors for current process.
+    """Get the number of open file descriptors for current process.
 
     Warning, this will only work on UNIX-like OS.
 
     Returns:
         int: The number of open file descriptors for current process.
+
     """
     pid: int = os.getpid()
     procs: bytes = subprocess.check_output(["lsof", "-w", "-Ff", "-p", str(pid)])

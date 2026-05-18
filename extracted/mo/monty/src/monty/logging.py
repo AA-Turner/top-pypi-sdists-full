@@ -1,6 +1,4 @@
-"""
-Logging tools
-"""
+"""Logging tools."""
 
 from __future__ import annotations
 
@@ -11,16 +9,15 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Callable
+    from collections.abc import Callable
 
 
 def logged(level: int = logging.DEBUG) -> Callable:
-    """
-    Useful logging decorator. If a method is logged, the beginning and end of
-    the method call will be logged at a pre-specified level.
+    """Decorator that logs the start and end of a method call.
 
     Args:
-        level: Level to log method at. Defaults to DEBUG.
+        level: Level to log method at. Defaults to ``DEBUG``.
+
     """
 
     def wrap(f):
@@ -44,15 +41,14 @@ def logged(level: int = logging.DEBUG) -> Callable:
 
 
 def enable_logging(main: Callable) -> Callable:
-    """
-    This decorator is used to decorate main functions.
-    It adds the initialization of the logger and an argument parser that allows
-    one to select the loglevel.
-    Useful if we are writing simple main functions that call libraries where
-    the logging module is used
+    """Decorator that initializes logging with a ``--loglevel`` CLI option.
+
+    Useful for simple main functions calling libraries that use the standard
+    ``logging`` module.
 
     Args:
         main: The main function.
+
     """
 
     @functools.wraps(main)

@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: opening_hours_py
-Version: 1.2.0
+Version: 1.2.1
 License-File: LICENSE-APACHE
 License-File: LICENSE-MIT
-Summary: A parser and toolkit for the opening_hours in OpenStreetMap written in Rust.
+Summary: A parser for the opening_hours fields from OpenStreetMap.
 Keywords: openstreetmap,parser,time,schedule
 Home-Page: https://github.com/remi-dupre/opening-hours-rs/tree/master/opening-hours-py
-Author: Rémi Dupré <remi@dupre.io>
-Author-email: Rémi Dupré <remi@dupre.io>
+Author-email: Rémi Dupré <remi+openinghours@dupre.io>
 License: MIT OR Apache-2.0
+Requires-Python: ~=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # ![][demo-favicon] Python bindings for [OSM Opening Hours](https://github.com/remi-dupre/opening-hours-rs)
@@ -90,7 +90,7 @@ $ git clone https://github.com/remi-dupre/opening-hours-rs.git
 $ cd opening-hours-rs
 
 # Install Python dependancies
-$ poetry install
+$ poetry install --with dev
 
 # Enter the virtualenv
 $ poetry shell

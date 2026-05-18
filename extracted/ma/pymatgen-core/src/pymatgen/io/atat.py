@@ -26,17 +26,15 @@ class Mcsqs:
     """
 
     def __init__(self, structure: Structure | IStructure):
-        """
+        """Initialize a Mcsqs.
+
         Args:
             Structure: input Structure.
         """
         self.structure = structure
 
     def to_str(self):
-        """
-        Returns:
-            str: a structure in mcsqs rndstr.in format.
-        """
+        """Get a string representation in mcsqs rndstr.in format."""
         # add lattice vectors
         mat = self.structure.lattice.matrix
         output = [f"{vec[0]:6f} {vec[1]:6f} {vec[2]:6f}" for vec in mat]

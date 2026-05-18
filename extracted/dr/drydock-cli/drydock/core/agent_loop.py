@@ -322,10 +322,24 @@ class AgentLoop:
         per-turn iteration in `act()` and surfaced to the model as a SYSTEM
         note on the last tool result so message ordering stays valid for
         vLLM/Mistral.
+
+        Side-effect: logs the queue event via the session logger so a
+        replay (or a harness/watcher) can see that the message was
+        accepted, even though it won't appear in `self.messages` until
+        the drain runs. Without this, debugging "did my queued message
+        land?" requires waiting for the next turn boundary.
         """
         cleaned = (text or "").strip()
         if cleaned:
             self._pending_user_injections.append(cleaned)
+            try:
+                self.session_logger.log_event({
+                    "event": "user_injection_queued",
+                    "text": cleaned[:1000],
+                    "pending_count": len(self._pending_user_injections),
+                })
+            except Exception as _e:  # noqa: BLE001 — never block queueing on logger failure
+                logger.debug("[injection] session log_event failed: %s", _e)
 
     def _drain_user_injections(self) -> None:
         """Pull any queued user messages into the current turn's context.
@@ -1129,11 +1143,14 @@ class AgentLoop:
                     elif ("context length" in error_str.lower()
                           or "maximum context" in error_str.lower()
                           or "400 bad request" in error_str.lower()
+                          or "400: bad request" in error_str.lower()
                           or "status: 400" in error_str.lower()
                           or "exceeds the available context" in error_str.lower()
                           or "error code: 400" in error_str.lower()
+                          or "both backends failed" in error_str.lower()
                           or "500 internal server error" in error_str.lower()
                           or "status: 500" in error_str.lower()
+                          or "error code: 500" in error_str.lower()
                           or "llm backend error" in error_str.lower()):
                         # Context limit or malformed request — aggressive recovery
                         # Step 0 (added 2026-05-09): if the error looks like a
@@ -1369,7 +1386,8 @@ class AgentLoop:
                     prev_tool_name = assistant_msg.tool_calls[-1].function.name if assistant_msg.tool_calls[-1].function else None
             _readonly_tools = {"read_file", "grep", "glob", "ls", "pwd",
                                "ralph_repo_index", "ralph_file_summary",
-                               "retrieve", "search_files", "lsp"}
+                               "retrieve", "search_files", "lsp",
+                               "web_search", "web_fetch"}
             _write_tools = {"write_file", "search_replace"}
             _prev_was_read = prev_tool_name in _readonly_tools
             _prev_was_write = prev_tool_name in _write_tools
@@ -1471,10 +1489,12 @@ class AgentLoop:
                     )
                 elif _prev_was_read:
                     _tool_name_str = prev_tool_name or "read_file"
+                    _generic_suffix = os.environ.get("DRYDOCK_STOP_NOW_SUFFIX", "")
                     note = (
                         f"You called {_tool_name_str} but produced no output. "
-                        f"Now use write_file, search_replace, or bash "
-                        f"to make changes — do NOT call {_tool_name_str} again."
+                        f"Now respond in text — write your answer or make changes. "
+                        f"Do NOT call {_tool_name_str} again."
+                        + (f" {_generic_suffix}" if _generic_suffix else "")
                     )
                 elif _prev_write_success:
                     note = (
@@ -1507,10 +1527,12 @@ class AgentLoop:
                         "to the user. Do NOT re-run the same command."
                     )
                 else:
+                    _generic_suffix = os.environ.get("DRYDOCK_STOP_NOW_SUFFIX", "")
                     note = (
                         "Continue working. Use a tool (write_file, "
                         "search_replace, bash, glob, grep) or state "
                         "your plan in text."
+                        + (f" {_generic_suffix}" if _generic_suffix else "")
                     )
             elif _stall_attempt == 1:
                 if _tool_stop_injected:
@@ -1532,11 +1554,12 @@ class AgentLoop:
                     )
                 elif _prev_was_read:
                     _tool_name_str = prev_tool_name or "read_file"
+                    _generic_suffix = os.environ.get("DRYDOCK_STOP_NOW_SUFFIX", "")
                     note = (
                         f"You sent an empty response after calling {_tool_name_str}. "
-                        f"Call write_file or search_replace NOW to apply "
-                        f"what you read — OR state in one sentence why you "
-                        f"cannot proceed. Do NOT call {_tool_name_str} again."
+                        f"Respond in text now — write your answer or apply what you read. "
+                        f"Do NOT call {_tool_name_str} again."
+                        + (f" {_generic_suffix}" if _generic_suffix else "")
                     )
                 elif _prev_was_write:
                     _tool_name_str = prev_tool_name or "write_file"
@@ -1560,10 +1583,12 @@ class AgentLoop:
                         "Do NOT re-run the same command."
                     )
                 else:
+                    _generic_suffix = os.environ.get("DRYDOCK_STOP_NOW_SUFFIX", "")
                     note = (
                         "You sent an empty response. Call a tool now "
                         "(write_file, search_replace, bash, read_file, glob) "
                         "OR explicitly say you are done with this task."
+                        + (f" {_generic_suffix}" if _generic_suffix else "")
                     )
             else:
                 if _tool_stop_injected:
@@ -1585,11 +1610,12 @@ class AgentLoop:
                     )
                 elif prev_tool_name in _readonly_tools:
                     _tool_name_str = prev_tool_name or "read_file"
+                    _generic_suffix = os.environ.get("DRYDOCK_STOP_NOW_SUFFIX", "")
                     note = (
                         f"THIRD empty response after {_tool_name_str}. "
-                        "Stop reading — call write_file or search_replace NOW to apply "
-                        "the change, or respond in text explaining why you cannot proceed. "
+                        "Stop — respond in text with your analysis or best answer. "
                         f"Do NOT call {_tool_name_str} again."
+                        + (f" {_generic_suffix}" if _generic_suffix else "")
                     )
                 elif _prev_was_write:
                     _tool_name_str = prev_tool_name or "write_file"
@@ -1614,11 +1640,13 @@ class AgentLoop:
                         "Do NOT re-run the same command."
                     )
                 else:
+                    _generic_suffix = os.environ.get("DRYDOCK_STOP_NOW_SUFFIX", "")
                     note = (
                         "You have sent 3 empty responses in a row for "
                         "this user request. Respond with either (a) a "
                         "tool call to make progress, or (b) one "
                         "sentence explaining why you cannot proceed."
+                        + (f" {_generic_suffix}" if _generic_suffix else "")
                     )
             self._inject_system_note(note)
             logger.info(
@@ -2503,11 +2531,6 @@ class AgentLoop:
                 for tc in msg.tool_calls:
                     if not tc.function or not tc.function.arguments:
                         continue
-                    # search_replace args contain SEARCH/REPLACE blocks the model
-                    # NEEDS to see in history (to know what edits it already applied).
-                    # Only write_file carries full file content worth truncating.
-                    if tc.function.name == "search_replace":
-                        continue
                     args = tc.function.arguments
                     if len(args) <= SOFT_CAP_BYTES:
                         continue
@@ -3353,7 +3376,8 @@ class AgentLoop:
                       'total_count: 0', 'retrieved 0 todos',
                       'no todos', '0 tasks', 'no tasks',
                       'no results', 'no matches', '0 matches',
-                      'no relevant information found'):
+                      'no relevant information found',
+                      '<tool_error>', 'tool_error'):
                 if p in s:
                     return True
             return False
@@ -3477,6 +3501,14 @@ class AgentLoop:
             len(sigs) >= REPEAT_WARNING_THRESHOLD
             and all(s == sigs[-1] for s in sigs[-REPEAT_WARNING_THRESHOLD:])
         ):
+            if last_tool in ("bash", "run_command"):
+                # Bash identical-call loops (e.g. repeated import checks) are
+                # never legitimate — escalate to FORCE_STOP (text-only for 1
+                # turn) so the model must summarise instead of looping.
+                # Temperature bump alone doesn't break these; the model needs
+                # to be unable to call bash.
+                self._hot_tool_path = None
+                return "FORCE_STOP"
             return f"WARNING|{last_tool}"
 
         # Check 2: Same tool called N+ times consecutively with different args
@@ -3636,9 +3668,23 @@ class AgentLoop:
         # corpus at /data3/arxiv_corpus/graphrag.sqlite (1.18M chunks)
         # has much better recall. The fallback path is operator-tunable
         # via DRYDOCK_GRAPHRAG_FALLBACK_DB; set to empty to disable.
-        primary_db = os.environ.get("DRYDOCK_GRAPHRAG_DB") or str(
-            Path.home() / ".drydock" / "graphrag.sqlite"
-        )
+        # Primary DB selection mirrors retrieve._resolve_db_path so the
+        # auto-prefetch and the model-issued retrieve calls always agree
+        # on which corpus to search:
+        #   1. DRYDOCK_GRAPHRAG_DB env override
+        #   2. <cwd>/.drydock/graphrag.sqlite (per-project index)
+        #   3. ~/.drydock/graphrag.sqlite (home fallback)
+        # Without #2, a user with a populated home DB never saw their
+        # own project's chunks because home always won.
+        env_db = os.environ.get("DRYDOCK_GRAPHRAG_DB")
+        if env_db:
+            primary_db = env_db
+        else:
+            project_db = Path.cwd() / ".drydock" / "graphrag.sqlite"
+            if project_db.is_file():
+                primary_db = str(project_db)
+            else:
+                primary_db = str(Path.home() / ".drydock" / "graphrag.sqlite")
         fallback_default = "/data3/arxiv_corpus/graphrag.sqlite"
         fallback_db_raw = os.environ.get(
             "DRYDOCK_GRAPHRAG_FALLBACK_DB", fallback_default

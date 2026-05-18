@@ -1,6 +1,4 @@
-"""
-Path based methods, e.g., which, zpath, etc.
-"""
+"""Path based methods, e.g., which, zpath, etc."""
 
 from __future__ import annotations
 
@@ -11,26 +9,31 @@ from monty.fnmatch import WildCard
 from monty.string import list_strings
 
 if TYPE_CHECKING:
-    from typing import Callable, Literal, Optional, Union
+    from collections.abc import Callable
+    from typing import Literal, Optional, Union
 
     from monty.shutil import PathLike
 
 
 def zpath(filename: PathLike) -> str:
-    """
-    Returns an existing (zipped or unzipped) file path given the unzipped
-    version. If no path exists, returns the filename unmodified.
+    """Return an existing (zipped or unzipped) path for ``filename``.
+
+    Probes for ``filename`` and the common compressed variants. If none
+    exist, the input is returned unchanged.
 
     Args:
-        filename: filename without zip extension
+        filename: Filename without a zip extension.
 
     Returns:
-        str: filename with a zip extension (unless an unzipped version exists).
-            If filename is not found, the same filename is returned unchanged.
+        str: Filename with a zip extension if such a file exists, otherwise
+        the unzipped name (returned unchanged if no variant is found).
+
     """
     filename = str(filename)  # ensure we work with strings
+    # First entry is empty so we probe the unzipped form below; skip it when
+    # stripping suffixes since ``removesuffix("")`` is a no-op.
     exts = ("", ".gz", ".GZ", ".bz2", ".BZ2", ".z", ".Z")
-    for ext in exts:
+    for ext in exts[1:]:
         filename = filename.removesuffix(ext)
 
     for ext in exts:
@@ -42,15 +45,14 @@ def zpath(filename: PathLike) -> str:
 
 def find_exts(
     top: str,
-    exts: Union[str, list[str]],
-    exclude_dirs: Optional[str] = None,
-    include_dirs: Optional[str] = None,
+    exts: str | list[str],
+    exclude_dirs: str | None = None,
+    include_dirs: str | None = None,
     match_mode: Literal["basename", "abspath"] = "basename",
 ) -> list[str]:
-    """
-    Find all files with the extension listed in `exts` that are located within
-    the directory tree rooted at `top` (including top itself, but excluding
-    '.' and '..')
+    """Find all files matching ``exts`` under the directory tree rooted at ``top``.
+
+    Includes ``top`` itself but excludes ``.`` and ``..``.
 
     Args:
         top (str): Root directory
@@ -76,12 +78,15 @@ def find_exts(
         # Find all ps files, in the directories whose basename starts with
         # output.
         find_exts(".", "ps", include_dirs="output*"))
+
     """
-    exts = list_strings(exts)
+    # ``str.endswith`` accepts a tuple at the C level, which is several times
+    # faster than the equivalent ``any(... for ext in exts)`` comprehension.
+    _exts: tuple[str, ...] = tuple(list_strings(exts))
 
     # Handle file!
     if os.path.isfile(top):
-        return [os.path.abspath(top)] if any(top.endswith(ext) for ext in exts) else []
+        return [os.path.abspath(top)] if top.endswith(_exts) else []
 
     # Build shell-style wildcards.
     if exclude_dirs is not None:
@@ -97,7 +102,7 @@ def find_exts(
     mangle: Callable[..., str] = mangle_functions[match_mode]
 
     # Assume directory
-    paths = []
+    paths: list[str] = []
     for dirpath, _dirnames, filenames in os.walk(top):
         dirpath = os.path.abspath(dirpath)
 
@@ -106,8 +111,10 @@ def find_exts(
         if include_dirs and not _include_dirs.match(mangle(dirpath)):
             continue
 
-        for filename in filenames:
-            if any(filename.endswith(ext) for ext in exts):
-                paths.append(os.path.join(dirpath, filename))
+        paths.extend(
+            os.path.join(dirpath, filename)
+            for filename in filenames
+            if filename.endswith(_exts)
+        )
 
     return paths

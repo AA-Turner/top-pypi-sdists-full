@@ -1,7 +1,4 @@
-"""
-This module implements serialization support for common formats such as json
-and yaml.
-"""
+"""Serialization helpers for common formats (JSON, JSONL, YAML, msgpack)."""
 
 from __future__ import annotations
 
@@ -22,21 +19,38 @@ except ImportError:
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Any, Literal, TextIO
+    from typing import Any
 
     from monty.shutil import PathLike
 
 _FILE_TYPE = Literal["json", "jsonl", "yaml", "mpk"]
 
+# A single ``YAML()`` instance is reusable across calls and avoids per-call
+# construction cost (the constructor walks ruamel.yaml resolver tables).
+_YAML = YAML()
+
 
 def _identify_format(file_name: str | Path) -> _FILE_TYPE:
-    """Identify the format of a file with name `file_name`."""
-    basename = os.path.basename(file_name).lower()
-    if ".mpk" in basename:
+    """Identify the format of a file with name ``file_name``.
+
+    Detection is based on extension (suffix) rather than substring match so a
+    file called ``"myjsonlist.json"`` is not mis-classified as JSON-lines and
+    ``"data.mpkfoo"`` is not classified as msgpack.
+    """
+    # ``os.path.basename`` is fast and avoids a ``Path`` allocation. We strip
+    # one layer of common compression suffixes so e.g. ``foo.json.gz`` is
+    # detected as JSON.
+    basename = os.path.basename(str(file_name)).lower()
+    for compressed_ext in (".gz", ".bz2", ".xz", ".lzma", ".z"):
+        if basename.endswith(compressed_ext):
+            basename = basename[: -len(compressed_ext)]
+            break
+
+    if basename.endswith(".mpk"):
         return "mpk"
-    elif any(ext in basename for ext in (".yaml", ".yml")):
+    if basename.endswith((".yaml", ".yml")):
         return "yaml"
-    elif "jsonl" in basename:
+    if basename.endswith(".jsonl"):
         return "jsonl"
     return "json"
 
@@ -47,28 +61,25 @@ def loadfn(
     fmt: _FILE_TYPE | None = None,
     **kwargs,
 ) -> Any:
-    """
-    Loads json/yaml/msgpack directly from a filename instead of a
-    File-like object. File may also be a BZ2 (".BZ2") or GZIP (".GZ", ".Z")
-    compressed file.
-    For YAML, ruamel.yaml must be installed. The file type is automatically
-    detected from the file extension (case insensitive).
-    YAML is assumed if the filename contains ".yaml" or ".yml".
-    Msgpack is assumed if the filename contains ".mpk".
-    JSON lines is assumed if the filename contains "jsonl".
-    JSON is otherwise assumed.
+    """Load JSON/JSONL/YAML/msgpack from a filename.
+
+    Supports BZ2 (``.bz2``), GZIP (``.gz``, ``.z``), XZ (``.xz``, ``.lzma``)
+    compressed inputs transparently. YAML support requires ``ruamel.yaml``.
+    Format is auto-detected from the (case-insensitive) extension: ``.yaml``
+    / ``.yml`` → YAML; ``.mpk`` → msgpack; ``.jsonl`` → JSON lines; otherwise
+    JSON.
 
     Args:
-        fn (str/Path): filename or pathlib.Path.
-        *args: Any of the args supported by json/yaml.load.
-        fmt ("json" | "jsonl" | "yaml" | "mpk"): If specified, the fmt
-            specified would be used instead of autodetection from filename.
-        **kwargs: Any of the kwargs supported by json/yaml.load.
+        fn (str | Path): Filename or ``pathlib.Path``.
+        *args: Any of the args supported by ``json``/``yaml``/``msgpack.load``.
+        fmt ("json" | "jsonl" | "yaml" | "mpk"): If provided, overrides the
+            auto-detected format.
+        **kwargs: Any of the kwargs supported by ``json``/``yaml``/``msgpack.load``.
 
     Returns:
-        object: Result of json/yaml/msgpack.load.
-    """
+        object: Result of ``json``/``yaml``/``msgpack.load``.
 
+    """
     fmt = fmt or _identify_format(fn)
 
     if fmt == "mpk":
@@ -85,8 +96,7 @@ def loadfn(
             if fmt == "yaml":
                 if YAML is None:
                     raise RuntimeError("Loading of YAML files requires ruamel.yaml.")
-                yaml = YAML()
-                return yaml.load(fp, *args, **kwargs)
+                return _YAML.load(fp, *args, **kwargs)
 
             if fmt in {"json", "jsonl"}:
                 if "cls" not in kwargs:
@@ -106,27 +116,22 @@ def dumpfn(
     fmt: _FILE_TYPE | None = None,
     **kwargs,
 ) -> None:
-    """
-    Dump to a json/yaml directly by filename instead of a
-    File-like object. File may also be a BZ2 (".BZ2") or GZIP (".GZ", ".Z")
-    compressed file.
-    For YAML, ruamel.yaml must be installed. The file type is automatically
-    detected from the file extension (case insensitive). YAML is assumed if the
-    filename contains ".yaml" or ".yml".
-    Msgpack is assumed if the filename contains ".mpk".
-    JSON lines is assumed if the filename contains "jsonl".
-    JSON is otherwise assumed.
+    """Dump an object to a JSON/JSONL/YAML/msgpack file by filename.
+
+    Supports BZ2 (``.bz2``), GZIP (``.gz``, ``.z``), XZ (``.xz``, ``.lzma``)
+    compressed outputs transparently. YAML support requires ``ruamel.yaml``.
+    Format is auto-detected from the (case-insensitive) extension: ``.yaml``
+    / ``.yml`` → YAML; ``.mpk`` → msgpack; ``.jsonl`` → JSON lines; otherwise
+    JSON.
 
     Args:
         obj (object): Object to dump.
-        fn (str/Path): filename or pathlib.Path.
-        fmt ("json" | "jsonl" | "yaml" | "mpk"): If specified, the fmt specified would
-            be used instead of autodetection from filename.
-        *args: Any of the args supported by json/yaml.dump.
-        **kwargs: Any of the kwargs supported by json/yaml.dump.
+        fn (str | Path): Filename or ``pathlib.Path``.
+        fmt ("json" | "jsonl" | "yaml" | "mpk"): If provided, overrides the
+            auto-detected format.
+        *args: Any of the args supported by ``json``/``yaml``/``msgpack.dump``.
+        **kwargs: Any of the kwargs supported by ``json``/``yaml``/``msgpack.dump``.
 
-    Returns:
-        (object) Result of json.load.
     """
     fmt = fmt or _identify_format(fn)
 
@@ -146,14 +151,17 @@ def dumpfn(
             if fmt == "yaml":
                 if YAML is None:
                     raise RuntimeError("Loading of YAML files requires ruamel.yaml.")
-                yaml = YAML()
-                yaml.dump(obj, fp, *args, **kwargs)
+                _YAML.dump(obj, fp, *args, **kwargs)
             elif fmt in {"json", "jsonl"}:
                 if "cls" not in kwargs:
                     kwargs["cls"] = MontyEncoder
                 if fmt == "jsonl":
+                    write = fp.write
                     for jobj in obj:  # type: ignore[var-annotated,attr-defined]
-                        fp.write(json.dumps(jobj, *args, **kwargs) + "\n")
+                        # Two writes avoid creating an intermediate ``str + "\n"``
+                        # for every record.
+                        write(json.dumps(jobj, *args, **kwargs))
+                        write("\n")
                 else:
                     fp.write(json.dumps(obj, *args, **kwargs))
             else:

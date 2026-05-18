@@ -1,4 +1,5 @@
 import os
+import platform
 from typing import Optional
 
 from webdriver_manager.core.download_manager import DownloadManager
@@ -22,7 +23,8 @@ class GeckoDriverManager(DriverManager):
     ):
         super(GeckoDriverManager, self).__init__(
             download_manager=download_manager,
-            cache_manager=cache_manager
+            cache_manager=cache_manager,
+            os_system_manager=os_system_manager
         )
 
         self.driver = GeckoDriver(
@@ -42,10 +44,23 @@ class GeckoDriverManager(DriverManager):
 
     def get_os_type(self):
         os_type = super().get_os_type()
-        if not self._os_system_manager.is_mac_os(os_type):
-            return os_type
+        if self._is_linux_aarch64():
+            return "linux-aarch64"
+        if self._os_system_manager.is_arch():
+            return f'{self._os_system_manager.get_os_name()}{"os" if self._os_system_manager.is_mac_os(os_type) else ""}-aarch{self._os_system_manager.get_os_architecture()}'
+        if self._os_system_manager.is_mac_os(os_type):
+            return 'macos'
+        return os_type
 
-        macos = 'macos'
-        if self._os_system_manager.is_arch(os_type):
-            return f"{macos}-aarch64"
-        return macos
+    def _is_linux_aarch64(self) -> bool:
+        if self._os_system_manager.get_os_name() != "linux":
+            return False
+
+        machine_candidates = [platform.machine(), platform.uname().machine, platform.processor()]
+        try:
+            machine_candidates.append(os.uname().machine)
+        except AttributeError:
+            pass
+
+        machine_info = " ".join(value.lower() for value in machine_candidates if value)
+        return any(arch in machine_info for arch in ("aarch64", "arm64"))

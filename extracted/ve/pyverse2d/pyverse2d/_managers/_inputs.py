@@ -59,7 +59,7 @@ class Listener:
         self.up: bool = up
         self.condition: Callable[[], bool] = condition
         self.once: bool = once
-        self.repea: bool = repeat
+        self.repeat: bool = repeat
         self.give_key: bool = give_key
         self.exclude: set = exclude or set()
         self.any_of: set = any_of or set()

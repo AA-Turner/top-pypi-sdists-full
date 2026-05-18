@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import os
 import re
 import textwrap
 import warnings
@@ -57,7 +56,8 @@ class CifBlock:
         loops: list[list[str]],
         header: str,
     ) -> None:
-        """
+        """Initialize a CifBlock.
+
         Args:
             data: dict of data to go into the CIF. Values should be convertible to string,
                 or lists of these if the key is in a loop
@@ -248,7 +248,8 @@ class CifFile:
         orig_string: str | None = None,
         comment: str | None = None,
     ) -> None:
-        """
+        """Initialize a CifFile.
+
         Args:
             data (dict): Of CifBlock objects.
             orig_string (str): The original CIF.
@@ -321,7 +322,8 @@ class CifParser:
         check_cif: bool = True,
         comp_tol: float = 0.01,
     ) -> None:
-        """
+        """Initialize a CifParser.
+
         Args:
             filename (PathLike): CIF file, gzipped or bzipped CIF files are fine too.
             occupancy_tolerance (float): If total occupancy of a site is between
@@ -809,13 +811,7 @@ class CifParser:
                         pass
 
                     try:
-                        cod_data = loadfn(
-                            os.path.join(
-                                os.path.dirname(os.path.dirname(__file__)),
-                                "symmetry",
-                                "symm_ops.json",
-                            )
-                        )
+                        cod_data = loadfn(Path(__file__).parents[1] / "symmetry" / "symm_ops.json")
                         for _data in cod_data:
                             if sg == re.sub(r"\s+", "", _data["hermann_mauguin"]):
                                 xyz = _data["symops"]
@@ -1571,7 +1567,8 @@ class CifWriter:
         refine_struct: bool = True,
         write_site_properties: bool = False,
     ) -> None:
-        """
+        """Initialize a CifWriter.
+
         Args:
             struct (Structure): structure to write.
             symprec (float): If not none, finds the symmetry of the structure

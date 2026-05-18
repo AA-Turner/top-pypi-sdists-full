@@ -17178,7 +17178,8 @@ class AgentAssistant(sgqlc.types.Type):
 
 class AgentCapabilities(sgqlc.types.Type):
     """Per-capability state for the agent attached to a domain. Each
-    field reports the current enabled-flag and cadence.
+    field reports the current enabled-flag, cadence, credit budget,
+    and live consumption.
     """
 
     __schema__ = schema
@@ -17198,12 +17199,13 @@ class AgentCapabilities(sgqlc.types.Type):
 
 
 class AgentCapability(sgqlc.types.Type):
-    """Resolved enabled-flag, cadence, and credit budget for one agent-
-    assistance capability (monitoring, triage, monitor tuning).
+    """Resolved enabled-flag, cadence, credit budget, and live
+    consumption for one agent-assistance capability (monitoring,
+    triage, monitor tuning).
     """
 
     __schema__ = schema
-    __field_names__ = ("enabled", "rate_seconds", "credit_budget")
+    __field_names__ = ("enabled", "rate_seconds", "credit_budget", "consumption")
     enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
     """True when the capability is currently active for the domain."""
 
@@ -17219,6 +17221,16 @@ class AgentCapability(sgqlc.types.Type):
     supports a credit budget in v1.1.1.
     """
 
+    consumption = sgqlc.types.Field("AgentCapabilityCreditConsumption", graphql_name="consumption")
+    """Today's running credit consumption for this capability, or null
+    when the capability has no spend-bearing items to attribute. Only
+    the monitoring capability surfaces a consumption snapshot in
+    v1.1.1 — it aggregates spend across the agent-authored monitors
+    assigned to this domain (customer-authored monitors live in the
+    general billing pool and are excluded). Resolution is lazy — the
+    per-item rollup runs only when the client selects this field.
+    """
+
 
 class AgentCapabilityCreditBudget(sgqlc.types.Type):
     """Per-day credit cap configured for one agent-capability pipeline.
@@ -17230,6 +17242,35 @@ class AgentCapabilityCreditBudget(sgqlc.types.Type):
     __field_names__ = ("credits",)
     credits = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="credits")
     """The configured per-day credit cap for this capability's agent."""
+
+
+class AgentCapabilityCreditConsumption(sgqlc.types.Type):
+    """Today's running credit consumption attributable to one agent-
+    assistance capability. ``creditsConsumed`` is zero when the
+    capability has spent nothing today, distinguishing 'capability
+    active but no spend yet' from 'capability not surfaced' (where the
+    field on the parent ``AgentCapability`` is null — see
+    ``AgentCapability.consumption``).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("credits_consumed", "day", "as_of")
+    credits_consumed = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="creditsConsumed"
+    )
+    """Credits consumed today by this capability. Aggregated live from
+    today's per-item usage, not from the historical daily rollup
+    (which lags by a day).
+    """
+
+    day = sgqlc.types.Field(sgqlc.types.non_null(Date), graphql_name="day")
+    """The calendar day this snapshot represents, in UTC. Spend is
+    attributed to the day in which the consuming item was evaluated;
+    credits per item are amortized as a per-day rate.
+    """
+
+    as_of = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="asOf")
+    """The moment the snapshot was computed."""
 
 
 class AgentCustomConnectors(sgqlc.types.Type):

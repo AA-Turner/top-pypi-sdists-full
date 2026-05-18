@@ -16,7 +16,7 @@ class SoundSystem(System):
     Ce système est automatiquement ajouté à la scène.
 
     Args:
-        origin: référentiel de position pour les sons (généralement la caméra)
+        origin: référentiel de position pour les sons *(généralement la caméra)*
     """
     __slots__ = ("_origin",)
 
@@ -90,3 +90,8 @@ class SoundSystem(System):
                 if handle is not None:
                     se._add_handle(handle)
             se._to_play.clear()
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "SoundSystem",
+]

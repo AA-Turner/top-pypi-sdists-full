@@ -240,7 +240,7 @@ class StockScreener:
             if "RUNNER" not in os.environ.keys() and backtestDuration == 0 and configManager.calculatersiintraday:
                 if (intraday_data is not None and not intraday_data.empty):
                     intraday_fullData, intraday_processedData = screener.preprocessData(
-                        intraday_data, daysToLookback=configManager.effectiveDaysToLookback
+                        intraday_data, daysToLookback=configManager.effectiveDaysToLookback, recentDaysToDiscard=backtestDuration
                     )
                     # Match the index length and values length
                     fullData = fullData.head(len(intraday_fullData))
@@ -1031,7 +1031,7 @@ class StockScreener:
         
         if backtestDuration == 0:
             fullData, processedData = screener.preprocessData(
-                data, daysToLookback=configManager.effectiveDaysToLookback
+                data, daysToLookback=configManager.effectiveDaysToLookback, recentDaysToDiscard=backtestDuration
             )
             if processedData.empty:
                 raise StockDataEmptyException(f"Empty processedData with data length ({len(data)})")
@@ -1060,7 +1060,7 @@ class StockScreener:
                     )
                 
                 fullData, processedData = screener.preprocessData(
-                    inputData, daysToLookback=configManager.daysToLookback
+                    inputData, daysToLookback=configManager.daysToLookback, recentDaysToDiscard=backtestDuration
                 )
                 
                 data = data_descending

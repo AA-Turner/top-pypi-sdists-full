@@ -61,3 +61,8 @@ class PhysicsSystem(System):
             # Reset accélération et vérification du sleep
             rb.reset_acceleration()
             rb._tick_sleep(dt)
+
+# ======================================== EXPORTS ========================================
+__all__ = [
+    "PhysicsSystem",
+]

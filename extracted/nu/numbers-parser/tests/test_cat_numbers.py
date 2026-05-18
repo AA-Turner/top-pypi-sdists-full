@@ -1,4 +1,7 @@
 import csv
+import runpy
+import sys
+from unittest.mock import patch
 
 import pytest
 import pytest_check as check
@@ -38,11 +41,11 @@ def test_no_documents(script_runner):
     assert ret.stderr == ""
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_version(script_runner):
     ret = script_runner.run(["cat-numbers", "--version"], print_result=False)
     assert ret.success
-    assert ret.stdout == __version__ + "\n"
+    assert ret.stdout.replace("\r\n", "\n") == __version__ + "\n"
     assert ret.stderr == ""
 
 
@@ -97,7 +100,7 @@ def test_brief_contents(script_runner):
     assert ret.stderr == ""
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_select_sheet(script_runner):
     ref = ""
     for row in ZZZ_TABLE_1_REF:
@@ -109,11 +112,11 @@ def test_select_sheet(script_runner):
         print_result=False,
     )
     assert ret.success
-    assert ret.stdout == ref
+    assert ret.stdout.replace("\r\n", "\n") == ref
     assert ret.stderr == ""
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_select_table(script_runner):
     ref = ""
     for row in XXX_TABLE_1_REF:
@@ -123,11 +126,11 @@ def test_select_table(script_runner):
         print_result=False,
     )
     assert ret.success
-    assert ret.stdout == ref
+    assert ret.stdout.replace("\r\n", "\n") == ref
     assert ret.stderr == ""
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_list_sheets(script_runner):
     ret = script_runner.run(["cat-numbers", "-S", DOCUMENT], print_result=False)
     assert ret.success
@@ -135,7 +138,7 @@ def test_list_sheets(script_runner):
     assert ret.stderr == ""
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_list_tables(script_runner):
     ret = script_runner.run(["cat-numbers", "-T", DOCUMENT], print_result=False)
     assert ret.success
@@ -202,7 +205,7 @@ def test_with_formulas(script_runner):
     ]
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_duration_formatting(script_runner):
     ret = script_runner.run(
         ["cat-numbers", "-b", "--formatting", "tests/data/duration_112.numbers"],
@@ -216,7 +219,7 @@ def test_duration_formatting(script_runner):
             check.equal(row[6], row[13])
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_date_formatting(script_runner):
     ret = script_runner.run(
         ["cat-numbers", "-b", "--formatting", "tests/data/date_formats.numbers"],
@@ -230,7 +233,7 @@ def test_date_formatting(script_runner):
             check.equal(row[6], row[7])
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_debug(script_runner):
     ret = script_runner.run(
         [
@@ -246,19 +249,24 @@ def test_debug(script_runner):
     assert "enabling ExperimentalFeatures.TESTING" in rows[0]
 
 
-@pytest.mark.script_launch_mode("subprocess")
-def test_main(script_runner):
-    ret = script_runner.run(
-        ["python3", "-m", "numbers_parser._cat_numbers", "--help"],
-        print_result=False,
-    )
-    assert ret.success
-    assert "List the names of tables" in ret.stdout
-    assert "Names of sheet" in ret.stdout
-    assert ret.stderr == ""
+@pytest.mark.filterwarnings(
+    "ignore:'numbers_parser._cat_numbers' found in sys.modules:RuntimeWarning",
+)
+def test_main(capsys):
+    with patch.object(sys, "argv", ["_cat_numbers.py", "--help"]):
+        with pytest.raises(SystemExit) as excinfo:
+            # Use runpy instead of script_runner to ensure coverage
+            runpy.run_module("numbers_parser._cat_numbers", run_name="__main__")
+
+        assert excinfo.value.code == 0
+
+    captured = capsys.readouterr()
+    assert "List the names of tables" in captured.out
+    assert "Names of sheet" in captured.out
+    assert captured.err == ""
 
 
-@pytest.mark.script_launch_mode("subprocess")
+@pytest.mark.script_launch_mode("inprocess")
 def test_errors(script_runner):
     ret = script_runner.run(["cat-numbers", "tests/data/corrupted.numbers"], print_result=False)
     assert not ret.success

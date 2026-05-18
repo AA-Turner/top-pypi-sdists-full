@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import os
 import socket
-import time
 import unittest
 from threading import Event
 from typing import Any
@@ -34,6 +33,7 @@ def teardown_module():
 
 
 class ListenerTest(unittest.TestCase):
+    @pytest.mark.usefixtures("quick_timing")
     def test_integration_with_listener_class(self):
         sub_service_added = Event()
         service_added = Event()
@@ -112,8 +112,10 @@ class ListenerTest(unittest.TestCase):
             service_added.wait(1)
             assert service_added.is_set()
 
-            # short pause to allow multicast timers to expire
-            time.sleep(3)
+            # Drain pending multicast announces from the registrar instead
+            # of sleeping for them — same pattern as PR #1701.
+            zeroconf_registrar.out_queue.queue.clear()
+            zeroconf_registrar.out_delay_queue.queue.clear()
 
             zeroconf_browser.add_service_listener(type_, DuplicateListener())
             duplicate_service_added.wait(

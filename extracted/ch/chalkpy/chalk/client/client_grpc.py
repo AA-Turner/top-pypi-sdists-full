@@ -143,10 +143,12 @@ from chalk.client.client_headers import (
 )
 from chalk.client.client_impl import _validate_context_dict  # pyright: ignore[reportPrivateUsage]
 from chalk.client.model_image import (
+    build_chalk_model_handler_image,
     build_inferred_image,
     chalk_handler_volume_exists,
     chalk_handler_volume_name,
     generate_volume_name,
+    upload_chalk_handler_artifacts,
     upload_model_to_volume,
 )
 from chalk.client.models import (
@@ -193,7 +195,7 @@ from chalk.features.tag import DeploymentId
 from chalk.importer import CHALK_IMPORT_FLAG
 from chalk.ml import LocalSourceConfig, ModelEncoding, ModelRunCriterion, ModelType, SourceConfig
 from chalk.ml.model_file_transfer import ModelFileUploader
-from chalk.ml.model_handler import CHALK_HANDLER_ARTIFACT_PATH
+from chalk.ml.model_handler import CHALK_HANDLER_ARTIFACT_PATH, is_model_handler
 from chalk.ml.utils import ModelClass, model_class_from_proto, model_encoding_from_proto, model_type_from_proto
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.scalinggroup.spec import (
@@ -2832,7 +2834,94 @@ class ChalkGRPCClient:
         ...     model_image="ghcr.io/my-org/ner-model:latest",
         ... )
 
+        Register from a `@model_handler`-decorated class (one-call deploy):
+
+        >>> from chalk.client import ChalkClient
+        >>> from chalk.ml import model_handler
+        >>> import pyarrow as pa
+        >>>
+        >>> @model_handler
+        ... class RFModel:
+        ...     def handler(self, input: pa.RecordBatch) -> pa.RecordBatch:
+        ...         preds = self.model.predict(input.to_pandas())
+        ...         return pa.RecordBatch.from_arrays([pa.array(preds)], names=["prediction"])
+        ...
+        >>> client = ChalkClient()
+        >>> client.register_model_version(
+        ...     name="rf",
+        ...     model=RFModel(model=trained_rf, files=["./scaler.pkl"]),
+        ... )
+
+        The framework is auto-inferred from ``trained_rf``; chalkpy deserializes
+        it into ``self.model`` before ``handler`` runs. ``self.files["scaler.pkl"]``
+        resolves to a ``Path`` inside the deployed container. ``input_schema``
+        and ``output_schema`` are inferred from the wrapped model when
+        possible (sklearn, PyTorch, XGBoost, CatBoost); pass them explicitly
+        if your framework isn't supported by auto-inference or you want to
+        override the inferred shape:
+
+        >>> client.register_model_version(
+        ...     name="rf",
+        ...     model=RFModel(model=trained_rf),
+        ...     input_schema={"feature1": pa.float64(), "feature2": pa.float64()},
+        ...     output_schema={"prediction": pa.float64()},
+        ... )
+
         """
+        if is_model_handler(model):
+            if additional_files:
+                raise ValueError(
+                    "Pass artifact files via the `files=` argument on your @model_handler class, not `additional_files=` on register_model_version."
+                )
+            if model_paths:
+                raise ValueError(
+                    "`model_paths=` is not used when `model` is a @model_handler instance. Pass file paths via the instance's `files=` argument."
+                )
+            if model_image is not None:
+                raise ValueError(
+                    "`model_image=` cannot be combined with a @model_handler instance. chalkpy builds the image for you from the decorated class."
+                )
+            (
+                image_uri,
+                artifact_uploads,
+                _serialized_name,
+                owned_tmp_paths,
+                inferred_input_schema,
+                inferred_output_schema,
+            ) = build_chalk_model_handler_image(
+                handler_instance=model,
+                model_type=model_type,
+                dependencies=list(dependencies or []),
+            )
+            if input_schema is None and inferred_input_schema is not None:
+                input_schema = inferred_input_schema
+            if output_schema is None and inferred_output_schema is not None:
+                output_schema = inferred_output_schema
+            try:
+                response = self._register_model_with_image(
+                    name=name,
+                    model_image=image_uri,
+                    input_schema=input_schema,
+                    output_schema=output_schema,
+                    aliases=aliases,
+                    metadata=metadata,
+                )
+                # Upload the artifact files to a volume named deterministically
+                # from (model_name, version) so the deploy path can reconstruct
+                # the name without the registry proto carrying a volumes field.
+                if artifact_uploads:
+                    upload_chalk_handler_artifacts(
+                        volume_name=chalk_handler_volume_name(name, response.model_version),
+                        uploads=artifact_uploads,
+                    )
+                return response
+            finally:
+                for p in owned_tmp_paths:
+                    try:
+                        os.unlink(p)
+                    except OSError:
+                        pass
+
         if model_image is not None and not isinstance(model_image, str):
             model_image = self._build_model_image(model_image)
 
@@ -2887,9 +2976,21 @@ class ChalkGRPCClient:
     ) -> RegisterModelVersionResponse:
         """Register a model with a Docker image (no model serialization needed)."""
         if input_schema is None:
-            raise ValueError("input_schema is required when registering with model_image")
+            raise ValueError(
+                "input_schema is required when registering with a model_image."
+                + ' Pass it as a dict (e.g. `input_schema={"feature": pa.float64()}`)'
+                + " or a list of (shape, dtype) tuples for tensor inputs."
+                + " If you wrapped a @model_handler around a Python model, chalkpy"
+                + " attempted to infer the schema from the wrapped object — pass"
+                + " input_schema explicitly if your framework isn't supported by"
+                + " auto-inference (currently ONNX, LightGBM, and TensorFlow have no introspector)."
+            )
         if output_schema is None:
-            raise ValueError("output_schema is required when registering with model_image")
+            raise ValueError(
+                "output_schema is required when registering with a model_image."
+                + ' Pass it as a dict (e.g. `output_schema={"prediction": pa.float64()}`)'
+                + " or a list of (shape, dtype) tuples for tensor outputs."
+            )
 
         from chalk.client.serialization.model_serialization import ModelSerializer
 
@@ -3818,9 +3919,9 @@ class ChalkGRPCClient:
             # Image-only registration. The deploy proto has no field for a
             # caller-supplied volume name, so we probe for a deterministic
             # name derived from (model_name, version). If the caller pre-
-            # uploaded artifacts to that volume, mount it at the canonical
-            # artifact path; otherwise return no mounts (legacy
-            # `model_image=<uri>` registrations work unchanged).
+            # uploaded artifacts to that volume (the @model_handler path), mount
+            # it at the canonical artifact path; otherwise return no mounts
+            # (legacy `model_image=<uri>` registrations work unchanged).
             volume_name = chalk_handler_volume_name(model_name, model_version)
             volume_mounts: List[Dict[str, str]] = []
             if chalk_handler_volume_exists(volume_name):

@@ -11,21 +11,23 @@ import pyglet
 import pyglet.sprite
 from pyglet.graphics import Group
 
+import math
+
 # ======================================== CONSTANTS ========================================
 _UNSET: object = object()
 
 # ======================================== TEXTURE RENDERER ========================================
 class PygletTextureRenderer:
-    """Renderer pyglet unifié pour une texture brute (ex: frame vidéo
+    """Renderer pyglet unifié pour une texture brute
 
     Args:
         texture: texture pyglet brute
         transform: transformation monde
         offset: décalage par rapport au transform
-        width: largeur d'affichage en pixels
-        height: hauteur d'affichage en pixels)
+        width: largeur d'affichage
+        height: hauteur d'affichage
         color: teinte multiplicative
-        opacity: opacité [0, 1]
+        opacity: opacité *[0, 1]*
         z: z-order
         pipeline: pipeline de rendu
         parent: groupe parent
@@ -260,23 +262,26 @@ class PygletTextureRenderer:
             return
 
         img = self._sprite.image
+        sx, sy = self._effective_scales(img)
 
-        # Anchor
-        img.anchor_x = int(self._transform.anchor_x * img.width)
-        img.anchor_y = int(self._transform.anchor_y * img.height)
+        ax = self._transform.anchor_x * img.width  * sx
+        ay = self._transform.anchor_y * img.height * sy
 
-        # Position
-        if self._offset is None:
-            self._sprite.x, self._sprite.y = self._transform.position
-        else:
-            self._sprite.x = self._transform.x + self._offset.x
-            self._sprite.y = self._transform.y + self._offset.y
+        angle = math.radians(self._transform.rotation)
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
+        rotated_ax = ax * cos_a - ay * sin_a
+        rotated_ay = ax * sin_a + ay * cos_a
 
-        # Échelle
-        self._sprite.scale_x, self._sprite.scale_y = self._effective_scales(img)
+        base_x = self._transform.x if self._offset is None else self._transform.x + self._offset.x
+        base_y = self._transform.y if self._offset is None else self._transform.y + self._offset.y
 
-        # Rotation
-        self._sprite.rotation = -self._transform.rotation
+        self._sprite.x = base_x - rotated_ax
+        self._sprite.y = base_y - rotated_ay
+
+        self._sprite.scale_x = sx
+        self._sprite.scale_y = sy
+        self._sprite.rotation = -self._transform.rotation  # pyglet = sens horaire
 
     def _effective_scales(self, img) -> tuple[float, float]:
         """Calcule les échelles effectives selon width/height demandés"""

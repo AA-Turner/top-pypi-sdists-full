@@ -129,7 +129,7 @@ def create_tab(data, outlook_root=None):
                     y=mape_col, bins=20,
                     height=300, responsive=True,
                     title="MAPE Distribution Across Regions",
-                    xlabel="MAPE (%)", ylabel="Count",
+                    xlabel="Mean Absolute Percentage Error (%)", ylabel="Count",
                     color="#2ca02c",
                 )
             else:
