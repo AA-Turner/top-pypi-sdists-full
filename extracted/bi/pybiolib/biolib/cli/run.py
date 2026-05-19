@@ -3,8 +3,8 @@ import sys
 from biolib import biolib_errors, utils
 from biolib._experiment.experiment import Experiment
 from biolib._internal import cli
+from biolib._shared.types.typing import Optional, Tuple
 from biolib.app import BioLibApp
-from biolib.typing_utils import Optional, Tuple
 
 
 @cli.command(

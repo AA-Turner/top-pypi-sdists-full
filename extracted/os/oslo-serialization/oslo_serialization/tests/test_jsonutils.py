@@ -16,6 +16,7 @@
 import collections
 import collections.abc
 import datetime
+import decimal
 import functools
 import io
 import ipaddress
@@ -27,7 +28,7 @@ from xmlrpc import client as xmlrpclib
 
 import netaddr
 from oslo_i18n import fixture
-from oslotest import base as test_base  # type: ignore
+from oslotest import base as test_base
 
 from oslo_serialization import jsonutils
 
@@ -330,6 +331,16 @@ class ToPrimitiveTestCase(test_base.BaseTestCase):
         thing = {'ip_net': netaddr.IPNetwork('1.2.3.0/24')}
         ret = jsonutils.to_primitive(thing)
         self.assertEqual({'ip_net': '1.2.3.0/24'}, ret)
+
+    def test_iprange_using_netaddr(self):
+        thing = {'ip_range': netaddr.IPRange("aaaa::1", "aaaa::ffff")}
+        ret = jsonutils.to_primitive(thing)
+        self.assertEqual({'ip_range': 'aaaa::1-aaaa::ffff'}, ret)
+
+    def test_decimal(self):
+        thing = {"decimal": decimal.Decimal('1.0')}
+        ret = jsonutils.to_primitive(thing)
+        self.assertEqual({'decimal': '1.0'}, ret)
 
     def test_message_with_param(self):
         msg = self.trans_fixture.lazy('A message with param: %s')

@@ -80,11 +80,7 @@ class ChemistryArgs(BaseModel):
     )
     formula: str = Field(
         default="",
-        description=(
-            "Chemical formula. Subscripts as plain digits, groups in "
-            "parentheses. Examples: H2O, Ca(OH)2, C6H12O6, "
-            "Fe2(SO4)3, NH4NO3, K3Fe(CN)6."
-        ),
+        description="Chemical formula (H2O, Ca(OH)2, C6H12O6, Fe2(SO4)3).",
     )
     grams: str = Field(
         default="",
@@ -100,10 +96,7 @@ class ChemistryArgs(BaseModel):
     )
     percents: str = Field(
         default="",
-        description=(
-            "Comma-separated 'element=percent' for empirical_formula. "
-            "Example: 'C=40.0, H=6.7, O=53.3' → CH2O."
-        ),
+        description="Comma-separated 'element=percent' for empirical_formula (e.g. 'C=40,H=6.7,O=53.3').",
     )
 
 
@@ -477,13 +470,10 @@ class Chemistry(
     ToolUIData[ChemistryArgs, ChemistryResult],
 ):
     description: ClassVar[str] = (
-        "Chemistry — periodic-table lookup, molar mass of a formula, "
-        "mole / gram / particle conversions, percent composition, "
-        "empirical formula determination. Formula syntax: standard "
-        "chemistry notation with nested parens (H2O, Ca(OH)2, "
-        "Fe2(SO4)3, CuSO4·5H2O). Element lookup accepts symbol, "
-        "name, or atomic number. Use INSTEAD of looking up atomic "
-        "weights and INSTEAD of doing mole calculations by hand."
+        "Chemistry: periodic table lookup, molar mass, mole/gram "
+        "conversions, percent composition, empirical formula. Formula "
+        "syntax: H2O, Ca(OH)2, Fe2(SO4)3. Element lookup by symbol, "
+        "name, or atomic number."
     )
 
     @classmethod

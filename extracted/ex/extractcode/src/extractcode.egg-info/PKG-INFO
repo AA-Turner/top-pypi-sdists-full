@@ -1,35 +1,57 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: extractcode
-Version: 31.0.0
+Version: 31.1.0
 Summary: A mostly universal archive extractor using 7zip, libarchive and the Python standard library for reliable archive extraction.
 Home-page: https://github.com/nexB/extractcode
 Author: nexB. Inc. and others
 Author-email: info@aboutcode.org
 License: Apache-2.0
 Keywords: utilities,archive,extraction,libarchive,7zip,7z,gzip,bzip2,xz,lzma,lz4,lzip,zstd,Z,tar,xar,ar,cpio,vmdk,qcow2,vhd,iso,deb,cab,rpm,patch,scancode-toolkit
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
-Requires-Python: >=3.6.*
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
-Provides-Extra: full
-Provides-Extra: patch
-Provides-Extra: testing
-Provides-Extra: docs
 License-File: apache-2.0.LICENSE
 License-File: NOTICE
 License-File: AUTHORS.rst
 License-File: CHANGELOG.rst
 License-File: CODE_OF_CONDUCT.rst
+License-File: README.rst
+Requires-Dist: attrs!=20.1.0,>=18.1; python_version < "3.11"
+Requires-Dist: attrs>=22.1.0; python_version >= "3.11"
+Requires-Dist: commoncode>=31.0.2
+Requires-Dist: plugincode>=32.0.0
+Requires-Dist: typecode>=30.2.0
+Provides-Extra: full
+Requires-Dist: extractcode-7z>=16.5.210525; extra == "full"
+Requires-Dist: extractcode_libarchive>=3.5.1.210525; extra == "full"
+Requires-Dist: typecode[full]>=30.2.0; extra == "full"
+Provides-Extra: system-provided
+Requires-Dist: extractcode-7z_system_provided>=32.0.0; extra == "system-provided"
+Requires-Dist: extractcode_libarchive_system_provided>=32.0.0; extra == "system-provided"
+Requires-Dist: typecode[system_provided]>=30.2.0; extra == "system-provided"
+Provides-Extra: patch
+Requires-Dist: patch>=1.16; extra == "patch"
+Provides-Extra: dev
+Requires-Dist: pytest!=7.0.0,>=6; extra == "dev"
+Requires-Dist: pytest-xdist>=2; extra == "dev"
+Requires-Dist: aboutcode-toolkit>=7.0.2; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: Sphinx>=5.0.2; extra == "dev"
+Requires-Dist: sphinx-rtd-theme>=1.0.0; extra == "dev"
+Requires-Dist: sphinx-reredirects>=0.1.2; extra == "dev"
+Requires-Dist: doc8>=0.11.2; extra == "dev"
+Requires-Dist: sphinx-autobuild; extra == "dev"
+Requires-Dist: sphinx-rtd-dark-mode>=1.3.0; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
+Dynamic: license-file
 
 ============
 ExtractCode
@@ -74,7 +96,7 @@ long  `List of supported archive formats`_ found at the bottom of this document.
 - Or the extracted files are such permissions that you cannot read them and are
   not owned by you.
 
-- Or the archive may contain weird paths inluding relative paths that may be
+- Or the archive may contain weird paths including relative paths that may be
   problematic to extract.
 
 - Or the archive may contain special file types (character/device files) that
@@ -94,7 +116,7 @@ It can also extract recursively any type of (nested) archives-in-archives.
 As a downside, the extracted content may not be exactly what would be extracted
 for a typical usage of the contained files: for instance some file may be
 renamed, special files and symlinks are skipped, permissions and owners are
-changed but this it is fine for prmary the use case which is analysis of file
+changed but this it is fine for primary the use case which is analysis of file
 content for software composition or forensic analysis.
 
 Behind the scene, ExtractCode uses multiple tools such as:
@@ -235,7 +257,7 @@ Adding support for VM images extraction
 ---------------------------------------
 
 Adding support for VM images requires the manual installation of the
-libguestfs-tools system package. This is suported only on Linux.
+libguestfs-tools system package. This is supported only on Linux.
 On Debian and Ubuntu you can use this command::
 
     sudo apt-get install libguestfs-tools
@@ -300,14 +322,20 @@ similar to ExtractCode but with different goals:
 List of supported archive formats
 -------------------------------------
 
-ExtractCode can extract the folowing archives formats:
+ExtractCode can extract the following archives formats:
 
 Archive format kind: docs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   name: Office doc
-     - extensions: .docx, .dotx, .docm, .xlsx, .xltx, .xlsm, .xltm, .pptx, .ppsx, .potx, .pptm, .potm, .ppsm, .odt, .odf, .sxw, .stw, .ods, .ots, .sxc, .stc, .odp, .otp, .odg, .otg, .sxi, .sti, .sxd, .sxg, .std, .sdc, .sda, .sdd, .smf, .sdw, .sxm, .stw, .oxt, .sldx, .epub
-     - filetypes : zip archive, microsoft word 2007+, microsoft excel 2007+, microsoft powerpoint 2007+
+     - extensions:
+         .docx, .dotx, .docm, .xlsx, .xltx, .xlsm, .xltm, .pptx, .ppsx, .potx,
+         .pptm, .potm, .ppsm, .odt, .odf, .sxw, .stw, .ods, .ots, .sxc, .stc,
+         .odp, .otp, .odg, .otg, .sxi, .sti, .sxd, .sxg, .std,
+         .sdc, .sda, .sdd, .smf, .sdw, .sxm, .stw, .oxt, .sldx, .epub
+     - filetypes :
+         zip archive, microsoft word 2007+,
+         microsoft excel 2007+, microsoft powerpoint 2007+
      - mimetypes : application/zip, application/vnd.openxmlformats
 
   name: Dia diagram doc
@@ -537,7 +565,7 @@ Archive format kind: package
 
   name: RPM package
      - extensions: .rpm, .srpm, .mvl, .vip
-     - filetypes : rpm 
+     - filetypes : rpm
      - mimetypes : application/x-rpm
 
   name: Apple dmg
@@ -554,9 +582,9 @@ Archive format kind: file_system
      - mimetypes : application/x-iso9660-image
 
   name: SquashFS disk image
-     - extensions: 
+     - extensions:
      - filetypes : squashfs
-     - mimetypes : 
+     - mimetypes :
 
   name: QEMU QCOW2 disk image
      - extensions: .qcow2, .qcow, .qcow2c, .img
@@ -593,7 +621,5 @@ Archive format kind: special_package
      - extensions: .exe
      - filetypes : nullsoft installer
      - mimetypes : application/x-dosexec
-
-
 
 

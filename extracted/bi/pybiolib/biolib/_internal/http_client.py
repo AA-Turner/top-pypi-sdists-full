@@ -10,8 +10,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from biolib._shared.types.typing import Dict, Literal, Optional, Union, cast
 from biolib.biolib_logging import logger_no_user_data
-from biolib.typing_utils import Dict, Literal, Optional, Union, cast
 
 _HttpMethod = Literal['GET', 'POST', 'PATCH', 'PUT', 'DELETE']
 

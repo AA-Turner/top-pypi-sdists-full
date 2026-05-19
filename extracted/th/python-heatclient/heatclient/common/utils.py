@@ -16,6 +16,7 @@
 import base64
 import logging
 import os
+from pathlib import Path
 import textwrap
 import uuid
 
@@ -238,8 +239,8 @@ class EventLogContext:
 def event_log_formatter(events, event_log_context=None):
     """Return the events in log format."""
     event_log = []
-    log_format = ("%(event_time)s "
-                  "[%(rsrc_name)s]: %(rsrc_status)s  %(rsrc_status_reason)s")
+    log_format = ("%(event_time)s %(event_id)s [%(rsrc_name)s]: "
+                  "%(rsrc_status)s  %(rsrc_status_reason)s")
 
     # It is preferable for a context to be passed in, but there might be enough
     # events in this call to build a better resource name, so create a context
@@ -251,12 +252,15 @@ def event_log_formatter(events, event_log_context=None):
         rsrc_name = event_log_context.build_resource_name(event)
 
         event_time = getattr(event, 'event_time', '')
-        log = log_format % {
+        log_data = {
             'event_time': event_time.replace('T', ' '),
             'rsrc_name': rsrc_name,
             'rsrc_status': getattr(event, 'resource_status', ''),
-            'rsrc_status_reason': getattr(event, 'resource_status_reason', '')
+            'rsrc_status_reason': getattr(event, 'resource_status_reason', ''),
+            'event_id': getattr(event, 'id', '')
         }
+
+        log = log_format % log_data
         event_log.append(log)
 
     return "\n".join(event_log)
@@ -426,8 +430,7 @@ def base_url_for_url(url):
 def normalise_file_path_to_url(path):
     if parse.urlparse(path).scheme:
         return path
-    path = os.path.abspath(path)
-    return parse.urljoin('file:', request.pathname2url(path))
+    return Path(path).resolve().as_uri()
 
 
 def get_response_body(resp):

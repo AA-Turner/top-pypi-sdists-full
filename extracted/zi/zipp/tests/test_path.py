@@ -117,7 +117,7 @@ class TestPath(unittest.TestCase):
     def test_iterdir_on_file(self, alpharep):
         root = zipfile.Path(alpharep)
         a, n, b, g, j = root.iterdir()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(NotADirectoryError):
             a.iterdir()
 
     @pass_alpharep
@@ -182,6 +182,10 @@ class TestPath(unittest.TestCase):
     @unittest.skipIf(
         not getattr(sys.flags, 'warn_default_encoding', 0),
         "Requires warn_default_encoding",
+    )
+    @unittest.skipIf(
+        sys.implementation.name == 'pypy' and sys.pypy_version_info < (7, 3, 18),
+        "Older PyPy versions set the wrong stacklevel in text_encoding()",
     )
     @pass_alpharep
     def test_encoding_warnings(self, alpharep):

@@ -49,6 +49,7 @@ _ENVIRON_HEADERS: dict[str, list[str]] = {
     'user_id': ['HTTP_X_USER_ID', 'HTTP_X_USER'],
     'project_id': ['HTTP_X_PROJECT_ID', 'HTTP_X_TENANT_ID', 'HTTP_X_TENANT'],
     'domain_id': ['HTTP_X_DOMAIN_ID'],
+    'domain_name': ['HTTP_X_DOMAIN_NAME'],
     'system_scope': ['HTTP_OPENSTACK_SYSTEM_SCOPE'],
     'user_domain_id': ['HTTP_X_USER_DOMAIN_ID'],
     'project_domain_id': ['HTTP_X_PROJECT_DOMAIN_ID'],
@@ -232,11 +233,14 @@ class RequestContext:
         if overwrite or not get_current():
             self.update_store()
 
+    def check_is_admin(self) -> bool | None:
+        """The interface to implement is_admin check according to policy."""
+        return self._is_admin
+
     @property
     def is_admin(self) -> bool | None:
-        # NOTE(tkajinam): Provide the property interface so that additional
-        # mechanism to detect its value from Context instance can be
-        # implemented by override
+        if self._is_admin is None:
+            self._is_admin = self.check_is_admin()
         return self._is_admin
 
     @is_admin.setter

@@ -53,7 +53,11 @@ from crewai.tasks.task_output import TaskOutput
 from crewai.tools.base_tool import BaseTool
 from crewai.utilities.config import process_config
 from crewai.utilities.constants import NOT_SPECIFIED, _NotSpecified
-from crewai.utilities.converter import Converter, convert_to_model
+from crewai.utilities.converter import (
+    Converter,
+    async_convert_to_model,
+    convert_to_model,
+)
 from crewai.utilities.file_store import (
     clear_task_files,
     get_all_files,
@@ -73,6 +77,8 @@ except ImportError:
         return []
 
 
+from crewai_core.printer import PRINTER
+
 from crewai.types.callback import SerializableCallable
 from crewai.utilities.guardrail import (
     process_guardrail,
@@ -85,7 +91,6 @@ from crewai.utilities.guardrail_types import (
     GuardrailsType,
 )
 from crewai.utilities.i18n import I18N_DEFAULT
-from crewai.utilities.printer import PRINTER
 from crewai.utilities.string_utils import interpolate_only
 
 
@@ -681,7 +686,7 @@ class Task(BaseModel):
                     json_output = None
             elif not self._guardrails and not self._guardrail:
                 raw = result
-                pydantic_output, json_output = self._export_output(result)
+                pydantic_output, json_output = await self._aexport_output(result)
             else:
                 raw = result
                 pydantic_output, json_output = None, None
@@ -1110,7 +1115,7 @@ Follow these guidelines:
         )
 
     def _export_output(
-        self, result: str
+        self, result: str | BaseModel
     ) -> tuple[BaseModel | None, dict[str, Any] | None]:
         pydantic_output: BaseModel | None = None
         json_output: dict[str, Any] | None = None
@@ -1123,18 +1128,43 @@ Follow these guidelines:
                 self.agent,
                 self.converter_cls,
             )
-
-            if isinstance(model_output, BaseModel):
-                pydantic_output = model_output
-            elif isinstance(model_output, dict):
-                json_output = model_output
-            elif isinstance(model_output, str):
-                try:
-                    json_output = json.loads(model_output)
-                except json.JSONDecodeError:
-                    json_output = None
+            pydantic_output, json_output = self._unpack_model_output(model_output)
 
         return pydantic_output, json_output
+
+    async def _aexport_output(
+        self, result: str | BaseModel
+    ) -> tuple[BaseModel | None, dict[str, Any] | None]:
+        """Async equivalent of ``_export_output`` — uses ``acall`` so the event loop is not blocked."""
+        pydantic_output: BaseModel | None = None
+        json_output: dict[str, Any] | None = None
+
+        if self.output_pydantic or self.output_json:
+            model_output = await async_convert_to_model(
+                result,
+                self.output_pydantic,
+                self.output_json,
+                self.agent,
+                self.converter_cls,
+            )
+            pydantic_output, json_output = self._unpack_model_output(model_output)
+
+        return pydantic_output, json_output
+
+    @staticmethod
+    def _unpack_model_output(
+        model_output: dict[str, Any] | BaseModel | str,
+    ) -> tuple[BaseModel | None, dict[str, Any] | None]:
+        if isinstance(model_output, BaseModel):
+            return model_output, None
+        if isinstance(model_output, dict):
+            return None, model_output
+        if isinstance(model_output, str):
+            try:
+                return None, json.loads(model_output)
+            except json.JSONDecodeError:
+                return None, None
+        return None, None
 
     def _get_output_format(self) -> OutputFormat:
         if self.output_json:
@@ -1364,7 +1394,7 @@ Follow these guidelines:
 
                 if isinstance(guardrail_result.result, str):
                     task_output.raw = guardrail_result.result
-                    pydantic_output, json_output = self._export_output(
+                    pydantic_output, json_output = await self._aexport_output(
                         guardrail_result.result
                     )
                     task_output.pydantic = pydantic_output
@@ -1421,7 +1451,7 @@ Follow these guidelines:
                     json_output = None
             else:
                 raw = result
-                pydantic_output, json_output = self._export_output(result)
+                pydantic_output, json_output = await self._aexport_output(result)
 
             task_output = TaskOutput(
                 name=self.name or self.description,

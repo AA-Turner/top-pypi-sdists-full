@@ -11,6 +11,7 @@
 #    under the License.
 
 import random
+from typing import ClassVar
 import uuid
 
 from openstackclient.tests.functional.network.v2 import common
@@ -18,6 +19,11 @@ from openstackclient.tests.functional.network.v2 import common
 
 class FloatingIpTests(common.NetworkTests):
     """Functional tests for floating ip"""
+
+    EXTERNAL_NETWORK_NAME: ClassVar[str]
+    EXTERNAL_NETWORK_ID: ClassVar[str]
+    PRIVATE_NETWORK_NAME: ClassVar[str]
+    PRIVATE_NETWORK_ID: ClassVar[str]
 
     @classmethod
     def setUpClass(cls):
@@ -32,14 +38,14 @@ class FloatingIpTests(common.NetworkTests):
                 'network create ' + '--external ' + cls.EXTERNAL_NETWORK_NAME,
                 parse_output=True,
             )
-            cls.external_network_id = json_output["id"]
+            cls.EXTERNAL_NETWORK_ID = json_output["id"]
 
             # Create a private network for the port
             json_output = cls.openstack(
                 'network create ' + cls.PRIVATE_NETWORK_NAME,
                 parse_output=True,
             )
-            cls.private_network_id = json_output["id"]
+            cls.PRIVATE_NETWORK_ID = json_output["id"]
 
     @classmethod
     def tearDownClass(cls):
@@ -59,8 +65,8 @@ class FloatingIpTests(common.NetworkTests):
         super().setUp()
 
         # Verify setup
-        self.assertIsNotNone(self.external_network_id)
-        self.assertIsNotNone(self.private_network_id)
+        self.assertIsNotNone(self.EXTERNAL_NETWORK_ID)
+        self.assertIsNotNone(self.PRIVATE_NETWORK_ID)
 
     def _create_subnet(self, network_name, subnet_name):
         subnet_id = None

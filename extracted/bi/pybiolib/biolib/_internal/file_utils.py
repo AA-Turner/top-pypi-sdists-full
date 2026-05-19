@@ -5,7 +5,7 @@ import posixpath
 import zipfile as zf
 from pathlib import Path
 
-from biolib.typing_utils import Dict, Iterator, List, Sequence, Tuple, Union
+from biolib._shared.types.typing import Dict, Iterator, List, Sequence, Tuple, Union
 
 
 def copy_file_with_replacements(

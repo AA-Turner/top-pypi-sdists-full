@@ -226,6 +226,22 @@ class ToolManager:
         except (ValueError, AttributeError):
             pass
 
+        # 2026-05-18: if no MCP servers are enabled, hide the
+        # MCP-resource tools so the model doesn't waste turns trying
+        # them and getting "no servers configured" errors.
+        # Operator-observed pattern after disabling their `ralph`
+        # server: the model still called read_mcp_resource on every
+        # local file path before falling back to read_file.
+        has_enabled_mcp = any(
+            getattr(s, "enabled", True)
+            for s in (self._config.mcp_servers or [])
+        )
+        if not has_enabled_mcp:
+            runtime_available = {
+                name: cls for name, cls in runtime_available.items()
+                if name not in ("read_mcp_resource", "list_mcp_resources")
+            }
+
         if self._config.enabled_tools:
             return {
                 name: cls

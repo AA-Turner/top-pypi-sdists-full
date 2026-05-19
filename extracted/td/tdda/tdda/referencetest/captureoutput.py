@@ -4,9 +4,11 @@ captureoutput.py: CaptureOutput
 """
 
 import sys
+from contextlib import contextmanager
+from tdda.utils import TDDAError
 
 
-class CaptureOutput(object):
+class CaptureOutput:
     """
     Class for capturing a stream (typically) stdout.
 
@@ -17,6 +19,7 @@ class CaptureOutput(object):
         c.restore()
         printed = str(c)
     """
+
     def __init__(self, echo=False, stream='stdout'):
         self.stream = stream
         if stream == 'stdout':
@@ -26,7 +29,7 @@ class CaptureOutput(object):
             self.saved = sys.stderr
             sys.stderr = self
         else:
-            raise Exception('Unsupported capture stream %s' % stream)
+            raise TDDAError('Unsupported capture stream %s' % stream)
         self.out = []
         self.echo = echo
 
@@ -49,3 +52,12 @@ class CaptureOutput(object):
         return ''.join(self.out)
 
 
+@contextmanager
+def capture_output(*args, **kw):
+    # Code to acquire resource, e.g.:
+    c = CaptureOutput(*args, **kw)
+    try:
+        yield c
+    finally:
+        # Code to release resource, e.g.:
+        c.restore()

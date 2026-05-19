@@ -37,6 +37,51 @@ def test_deploy_with_env():
     assert args.env == "dev"
 
 
+def test_execute_prepared_deployment_reuses_result_handler_for_build_by_default():
+    from fal.api.deploy import PreparedDeployment, execute_prepared_deployment
+    from fal.sdk import (
+        RegisterApplicationResult,
+        RegisterApplicationResultType,
+        ServiceURLs,
+    )
+
+    host = MagicMock()
+    isolated_function = MagicMock()
+    isolated_function.options = Options()
+    isolated_function.func = lambda: None
+    isolated_function.run_entrypoint = None
+    isolated_function.endpoints = ["/"]
+    isolated_function.build_metadata.return_value = {}
+
+    host.register.return_value = RegisterApplicationResult(
+        result=RegisterApplicationResultType(application_id="app-id"),
+        service_urls=ServiceURLs(
+            playground="https://playground.example",
+            run="https://run.example",
+            queue="https://queue.example",
+            ws="wss://ws.example",
+            log="https://log.example",
+        ),
+    )
+    prepared = PreparedDeployment(
+        host=host,
+        loaded=SimpleNamespace(
+            function=isolated_function,
+            app_name="my-app",
+            app_auth="public",
+            source_code=None,
+        ),
+        app_data=AppData(deployment_strategy="rolling"),
+        display_name="MyApp",
+    )
+
+    result_handler = MagicMock()
+    execute_prepared_deployment(prepared, result_handler=result_handler)
+
+    _, build_kwargs = host.build_environment.call_args
+    assert build_kwargs["result_handler"] is result_handler
+
+
 def test_deploy_with_env_and_other_options():
     args = parse_args(
         [
@@ -937,6 +982,52 @@ def test_get_app_data_from_toml_with_app_files(
         "app_files_context_dir": ".",
     }
     assert toml_data.options.environment == {}
+
+
+@patch("fal.cli._utils.find_pyproject_toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_resolves_app_files_context_dir_from_pyproject(
+    mock_parse_toml, mock_find_toml, tmp_path
+):
+    from fal.cli._utils import get_app_data_from_toml
+
+    mock_find_toml.return_value = str(tmp_path / "pyproject.toml")
+    mock_parse_toml.return_value = {
+        "apps": {
+            "app-with-files": {
+                "ref": "src/app.py::App",
+                "app_files": ["assets"],
+                "app_files_context_dir": ".",
+            }
+        }
+    }
+
+    toml_data = get_app_data_from_toml("app-with-files")
+
+    assert toml_data.options.host["app_files_context_dir"] == str(tmp_path)
+
+
+@patch("fal.cli._utils.find_pyproject_toml")
+@patch("fal.cli._utils.parse_pyproject_toml")
+def test_get_app_data_from_toml_preserves_empty_app_files_context_dir(
+    mock_parse_toml, mock_find_toml, tmp_path
+):
+    from fal.cli._utils import get_app_data_from_toml
+
+    mock_find_toml.return_value = str(tmp_path / "pyproject.toml")
+    mock_parse_toml.return_value = {
+        "apps": {
+            "app-with-files": {
+                "ref": "src/app.py::App",
+                "app_files": ["assets"],
+                "app_files_context_dir": "",
+            }
+        }
+    }
+
+    toml_data = get_app_data_from_toml("app-with-files")
+
+    assert toml_data.options.host["app_files_context_dir"] == ""
 
 
 @patch("fal.cli._utils.find_pyproject_toml", return_value="pyproject.toml")

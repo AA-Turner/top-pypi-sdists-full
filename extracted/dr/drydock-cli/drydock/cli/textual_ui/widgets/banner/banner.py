@@ -35,7 +35,10 @@ class Banner(Static):
         self._initial_state = BannerState(
             active_model=config.active_model,
             models_count=len(config.models),
-            mcp_servers_count=len(config.mcp_servers),
+            mcp_servers_count=sum(
+                1 for s in (config.mcp_servers or [])
+                if getattr(s, "enabled", True)
+            ),
             skills_count=len(skill_manager.available_skills),
             plan_description=None,
         )
@@ -82,7 +85,10 @@ class Banner(Static):
         self.state = BannerState(
             active_model=config.active_model,
             models_count=len(config.models),
-            mcp_servers_count=len(config.mcp_servers),
+            mcp_servers_count=sum(
+                1 for s in (config.mcp_servers or [])
+                if getattr(s, "enabled", True)
+            ),
             skills_count=len(skill_manager.available_skills),
             plan_description=plan_description,
         )

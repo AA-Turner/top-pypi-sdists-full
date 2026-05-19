@@ -170,6 +170,27 @@ export ANSIBLE_DISPLAY_OK_HOSTS=0
 
 run_test hide_ok test.yml
 
+# Hide include
+export ANSIBLE_DISPLAY_SKIPPED_HOSTS=1
+export ANSIBLE_DISPLAY_OK_HOSTS=1
+export ANSIBLE_DISPLAY_INCLUDED_HOSTS=0
+
+run_test hide_included test.yml
+
+# Hide skipped/ok/included
+export ANSIBLE_DISPLAY_SKIPPED_HOSTS=0
+export ANSIBLE_DISPLAY_OK_HOSTS=0
+export ANSIBLE_DISPLAY_INCLUDED_HOSTS=0
+
+run_test hide_skipped_ok_included test.yml
+
+# Hide ok
+export ANSIBLE_DISPLAY_SKIPPED_HOSTS=1
+export ANSIBLE_DISPLAY_OK_HOSTS=0
+export ANSIBLE_DISPLAY_INCLUDED_HOSTS=1
+
+run_test hide_ok test.yml
+
 # Failed to stderr
 export ANSIBLE_DISPLAY_SKIPPED_HOSTS=1
 export ANSIBLE_DISPLAY_OK_HOSTS=1
@@ -207,6 +228,14 @@ export ANSIBLE_CALLBACK_RESULT_INDENTATION=2
 run_test result_format_yaml_indent_2 test.yml
 export ANSIBLE_CALLBACK_RESULT_FORMAT=json
 unset ANSIBLE_CALLBACK_RESULT_INDENTATION
+
+export ANSIBLE_CALLBACK_RESULT_FORMAT=yaml
+export ANSIBLE_CALLBACK_YAML_LINE_WIDTH=default
+run_test result_format_yaml_default_break test_long_line.yml
+export ANSIBLE_CALLBACK_YAML_LINE_WIDTH=no-break
+run_test result_format_yaml_no_break test_long_line.yml
+export ANSIBLE_CALLBACK_RESULT_FORMAT=json
+unset ANSIBLE_CALLBACK_YAML_LINE_WIDTH
 
 export ANSIBLE_CALLBACK_RESULT_FORMAT=yaml
 export ANSIBLE_CALLBACK_FORMAT_PRETTY=1

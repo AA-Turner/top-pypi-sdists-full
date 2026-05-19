@@ -25,6 +25,9 @@ __all__ = [
     "crypto_cbom",
     "plan_split_by_bookmarks",
     "split_by_bookmarks",
+    "prefetch_models",
+    "model_manifest",
+    "prefetch_available",
     "PdfDocument",
     "Pdf",
     "PdfPage",
@@ -312,6 +315,32 @@ def split_by_bookmarks(
     Returns ``list[tuple[dict, bytes]]`` — each segment's metadata
     (see :func:`plan_split_by_bookmarks`) paired with its PDF bytes.
     The source is not modified. Raises ``RuntimeError`` on failure.
+    """
+
+def prefetch_models(languages: list[str]) -> str:
+    """
+    #519: Build-time OCR model provisioning. Downloads the shared
+    detector + the recognition model/dict for each requested language
+    into the model cache dir (``$PDF_OXIDE_MODEL_DIR`` / the platform
+    cache) and returns that dir as a string. ``languages`` is a list of
+    language codes (e.g. ``["english", "chinese", "arabic"]``); empty →
+    English. Unknown codes are skipped. Idempotent. Actual download
+    requires the wheel built with the ``ocr`` feature; without it the
+    cache dir is still created (no fetch) — query
+    :func:`prefetch_available`.
+    """
+
+def model_manifest() -> str:
+    """
+    #519: Air-gapped OCR model manifest — JSON (detector + every
+    supported language's cache filenames and source URLs). Never errors.
+    """
+
+def prefetch_available() -> bool:
+    """
+    #519: Whether this build can actually download models (compiled
+    with the ``ocr`` feature). ``True`` = downloads work; ``False`` =
+    :func:`prefetch_models` only creates the cache dir (no fetch).
     """
 
 @t.final
@@ -937,6 +966,33 @@ class PdfDocument:
         self, page: int, region: tuple[float, float, float, float] | None = None
     ) -> t.Any:
         """Extract lines."""
+
+    def classify_page(self, page: int) -> str:
+        """
+        #517: cheap per-page text-vs-OCR classification → JSON
+        `PageClassification` (the frozen cross-binding envelope —
+        `json.loads` it). No OCR/rasterisation.
+        """
+
+    def classify_document(self) -> str:
+        """
+        #517: cheap whole-document classification → JSON
+        `DocumentClassification` (per-page kinds + `pages_needing_ocr`).
+        """
+
+    def extract_text_auto(self, page: int) -> str:
+        """
+        #517: one-shot auto text extraction — auto-routes text-vs-OCR
+        with graceful native fallback (never the opaque OCR error #513).
+        """
+
+    def extract_page_auto(self, page: int, options_json: str | None = None) -> str:
+        """
+        #517: rich per-page extraction → JSON `PageExtraction`
+        (per-region bbox + typed reason; never bare-empty).
+        `options_json` is `{}`-tolerant `AutoExtractOptions`; None/empty
+        → defaults.
+        """
 
     def extract_text_ocr(self, page: int, engine: t.Any | None = None) -> str:
         """Extract text using OCR."""

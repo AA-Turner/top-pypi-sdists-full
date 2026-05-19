@@ -1,6 +1,6 @@
 from biolib import utils
+from biolib._shared.types.typing import Optional
 from biolib.api.client import ApiClient
-from biolib.typing_utils import Optional
 
 
 def upload_module_input(

@@ -1,8 +1,8 @@
 from biolib import api
 from biolib._shared.types import ResourceDetailedDict
+from biolib._shared.types.typing import Optional
 from biolib._shared.utils import is_uuid
 from biolib.api.client import ApiClient
-from biolib.typing_utils import Optional
 
 
 def fetch_experiment_by_uri(uri: str, api_client: Optional[ApiClient] = None) -> ResourceDetailedDict:

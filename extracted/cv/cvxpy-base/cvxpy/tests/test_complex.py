@@ -427,6 +427,13 @@ class TestComplex(BaseTest):
         normalization = max(abs(result), abs(value))
         self.assertAlmostEqual(result / normalization, value / normalization)
 
+        P_nsd = -P
+        x_nsd = cp.Variable(3, complex=True)
+        expr_nsd = cp.quad_form(x_nsd, P_nsd)
+        prob = cp.Problem(cp.Maximize(expr_nsd), [cp.norm(x_nsd) <= 1])
+        prob.solve(solver="CLARABEL")
+        self.assertEqual(prob.status, cp.OPTIMAL)
+
     def test_matrix_frac(self) -> None:
         """Test matrix_frac atom.
         """
@@ -696,7 +703,7 @@ class TestComplex(BaseTest):
         assert cp.quad_form(x, P2).is_dcp()
 
     @pytest.mark.skipif(
-        "HIGHS" not in INSTALLED_MI_SOLVERS, 
+        "HIGHS" not in INSTALLED_MI_SOLVERS,
         reason='HiGHS solver is not installed.'
     )
     def test_bool(self) -> None:

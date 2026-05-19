@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.26.0
+Version: 1.27.0
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -80,6 +80,7 @@ Provides-Extra: databricks
 Requires-Dist: databricks-sdk>=0.38.0; extra == 'databricks'
 Requires-Dist: databricks-sql-connector>=2.9.3; (python_version <= '3.12') and extra == 'databricks'
 Requires-Dist: databricks-sql-connector>=3.6.0; (python_version >= '3.13') and extra == 'databricks'
+Requires-Dist: databricks-zerobus-ingest-sdk>=1.2.0; ((platform_system == 'Linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (platform_system == 'Windows' and (platform_machine == 'AMD64' or platform_machine == 'x86_64'))) and extra == 'databricks'
 Provides-Extra: dbml
 Requires-Dist: pydbml; extra == 'dbml'
 Provides-Extra: deltalake
@@ -112,8 +113,8 @@ Requires-Dist: pyarrow>=21.0.0; extra == 'hf'
 Provides-Extra: http
 Requires-Dist: aiohttp>3.9.0; extra == 'http'
 Provides-Extra: hub
-Requires-Dist: dlt-runtime<0.27,>=0.24.0; (python_version >= '3.10') and extra == 'hub'
-Requires-Dist: dlthub<0.27,>=0.22.1; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlthub-client<0.28,>=0.27.0; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlthub<0.28,>=0.27.0; (python_version >= '3.10') and extra == 'hub'
 Provides-Extra: lance
 Requires-Dist: duckdb>=1.4.3; extra == 'lance'
 Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'lance'
@@ -134,6 +135,8 @@ Provides-Extra: oracle
 Requires-Dist: oracledb>=3.4.1; extra == 'oracle'
 Provides-Extra: parquet
 Requires-Dist: pyarrow>=16.0.0; extra == 'parquet'
+Provides-Extra: polars
+Requires-Dist: polars>=1.0.0; extra == 'polars'
 Provides-Extra: postgis
 Requires-Dist: psycopg2-binary>=2.9.1; extra == 'postgis'
 Provides-Extra: postgres
@@ -165,16 +168,6 @@ Requires-Dist: pyarrow>=16.0.0; extra == 'synapse'
 Requires-Dist: pyodbc>=4.0.39; extra == 'synapse'
 Provides-Extra: weaviate
 Requires-Dist: weaviate-client<5.0.0,>=4.0.0; extra == 'weaviate'
-Provides-Extra: workspace
-Requires-Dist: croniter>=6.0.0; extra == 'workspace'
-Requires-Dist: duckdb>=0.9; extra == 'workspace'
-Requires-Dist: fastmcp>=3.0.0; (python_version >= '3.10') and extra == 'workspace'
-Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'workspace'
-Requires-Dist: marimo>=0.14.5; extra == 'workspace'
-Requires-Dist: mowidgets>=0.2.1; (python_version >= '3.11') and extra == 'workspace'
-Requires-Dist: pathspec>=0.11.2; extra == 'workspace'
-Requires-Dist: pyarrow>=16.0.0; extra == 'workspace'
-Requires-Dist: pydbml>=1.2.0; extra == 'workspace'
 Description-Content-Type: text/markdown
 
 <h1 align="center">
@@ -294,6 +287,16 @@ Please read [CONTRIBUTING](CONTRIBUTING.md) before you make a PR.
 - 📣 **New destinations are unlikely to be merged** due to high maintenance cost (but we are happy to improve SQLAlchemy destination to handle more dialects)
 - Significant changes require tests and docs and in many cases writing tests will be more laborious than writing code
 - Bugfixes and improvements are welcome! You'll get help with writing tests and docs + a decent review.
+
+## Sponsors
+
+<p>
+  <a href="https://blacksmith.sh/?utm_source=dlt&utm_medium=readme&utm_campaign=sponsorship" target="_blank">
+    <img src=".github/assets/blacksmith-logo.svg" alt="Blacksmith" width="240" />
+  </a>
+</p>
+
+[Blacksmith](https://blacksmith.sh/?utm_source=dlt&utm_medium=readme&utm_campaign=sponsorship) is a CI/CD platform that accelerates GitHub Actions by reducing queue times and improving build performance. It helps teams run workflows faster and more efficiently, making it easier to maintain a smooth development pipeline. We're grateful to Blacksmith for sponsoring dlt with free CI/CD minutes, which helps us keep builds fast and our costs lower.
 
 ## License
 

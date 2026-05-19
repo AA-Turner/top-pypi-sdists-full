@@ -27,6 +27,9 @@ from .layers import (
 )
 from .builder import PromptBuilder
 from .presets import get_preset, register_preset, list_presets
+# ── FEAT-181: Provider-Agnostic Prompt Caching ───────────────────
+from .segments import CacheableSegment
+from .agent_context import AGENT_CONTEXT_LAYER
 from .domain_layers import (
     DATAFRAME_CONTEXT_LAYER,
     SQL_DIALECT_LAYER,
@@ -107,12 +110,7 @@ Focus on answering the question directly but in detail.
 # Conversational style only — formality, length, register.
 # Grounding/knowledge-scope policy belongs in domain layers
 # (e.g. RAG_GROUNDING_LAYER, STRICT_GROUNDING_LAYER), not here.
-DEFAULT_RATIONALE = """
-** Your Style: **
-- Be clear, concise, and conversational.
-- Match the level of formality and detail to the user's question.
-- Avoid filler; prefer direct, well-structured answers.
-"""
+DEFAULT_RATIONALE = "Match the level of formality and detail to the user's question."
 
 # Deprecated: use PromptBuilder with COMPANY_CONTEXT_LAYER instead
 COMPANY_SYSTEM_PROMPT = """

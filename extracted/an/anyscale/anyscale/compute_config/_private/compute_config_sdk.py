@@ -33,6 +33,10 @@ from anyscale.sdk.anyscale_client.models import ClusterComputeConfig
 # We can't leave resources empty because the backend will fill in CPU and GPU
 # to match the instance type hardware.
 UNSCHEDULABLE_RESOURCES = Resources(cpu=0, gpu=0)
+# UNSCHEDULABLE_RESOURCES after _convert_api_model_to_resource_dict; used as a
+# fingerprint on the load path to recognize the SDK-injected default and
+# collapse it back to None.
+_UNSCHEDULABLE_RESOURCES_AS_DICT = {"CPU": 0, "GPU": 0}
 
 # Label key for accelerator type (used by Ray for GPU/TPU scheduling)
 RAY_ACCELERATOR_TYPE_LABEL = "ray.io/accelerator-type"
@@ -544,9 +548,17 @@ class PrivateComputeConfigSDK(BaseSDK):
                 api_model.required_resources.to_dict()
             )
 
+        resources = self._convert_api_model_to_resource_dict(api_model.resources)
+        # Collapse the SDK-injected UNSCHEDULABLE_RESOURCES default back to None
+        # so dumps don't show zeros the user never wrote. Any other zero-resource
+        # shape is preserved so explicit unschedulable-with-pinning configs
+        # round-trip losslessly.
+        if resources == _UNSCHEDULABLE_RESOURCES_AS_DICT:
+            resources = None
+
         return HeadNodeConfig(
             instance_type=api_model.instance_type,
-            resources=self._convert_api_model_to_resource_dict(api_model.resources),
+            resources=resources,
             required_resources=required_resources,
             labels=api_model.labels,
             required_labels=api_model.required_labels,

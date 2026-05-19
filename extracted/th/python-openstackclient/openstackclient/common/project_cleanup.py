@@ -13,13 +13,15 @@
 #   under the License.
 #
 
+import argparse
 import getpass
 import logging
 import os
 import queue
-import typing as ty
+from typing import Any
 
 from cliff.formatters import table
+from openstack import utils as sdk_utils
 
 from openstackclient import command
 from openstackclient.i18n import _
@@ -29,7 +31,7 @@ from openstackclient.identity import common as identity_common
 LOG = logging.getLogger(__name__)
 
 
-def ask_user_yesno(msg):
+def ask_user_yesno(msg: str) -> bool:
     """Ask user Y/N question
 
     :param str msg: question text
@@ -46,7 +48,7 @@ def ask_user_yesno(msg):
 class ProjectCleanup(command.Command):
     _description = _("Clean resources associated with a project")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         action_group = parser.add_mutually_exclusive_group()
         action_group.add_argument(
@@ -89,7 +91,7 @@ class ProjectCleanup(command.Command):
         identity_common.add_project_domain_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         connection = self.app.client_manager.sdk_connection
 
         if parsed_args.auth_project:
@@ -97,13 +99,17 @@ class ProjectCleanup(command.Command):
             # as-is
             pass
         elif parsed_args.project:
-            project = connection.identity.find_project(
+            identity_client = sdk_utils.ensure_service_version(
+                connection.identity, '3'
+            )
+            project = identity_client.find_project(
                 name_or_id=parsed_args.project, ignore_missing=False
             )
-            connection = connection.connect_as_project(project)
+            # FIXME(stephenfin): The type in SDK is wrong
+            connection = connection.connect_as_project(project)  # type: ignore
 
         if connection:
-            status_queue: queue.Queue[ty.Any] = queue.Queue()
+            status_queue: queue.Queue[Any] = queue.Queue()
             parsed_args.max_width = int(
                 os.environ.get('CLIFF_MAX_TERM_WIDTH', 0)
             )

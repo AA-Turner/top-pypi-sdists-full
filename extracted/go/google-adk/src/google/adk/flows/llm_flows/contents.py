@@ -57,7 +57,7 @@ class _ContentLlmRequestProcessor(BaseLlmRequestProcessor):
         # ids must survive replay.
         try:
           from ...models.anthropic_llm import AnthropicLlm
-        except ImportError:
+        except (ImportError, OSError):
           AnthropicLlm = None
         if AnthropicLlm is not None and isinstance(
             canonical_model, AnthropicLlm

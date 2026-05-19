@@ -48,13 +48,10 @@ def test_unsupported_openapi_version(version, expected):
         schemathesis.openapi.from_dict({"openapi": version})
 
 
-def test_number_deserializing(testdir):
-    # When numbers in a schema are written in scientific notation but without a dot
-    # (achieved by dumping the schema with json.dumps)
-    schema = {
-        "openapi": "3.0.2",
-        "info": {"title": "Test", "description": "Test", "version": "0.1.0"},
-        "paths": {
+def test_number_deserializing(ctx, testdir):
+    # Scientific-notation numbers without a dot (via json.dumps) must round-trip through the YAML loader.
+    schema = ctx.openapi.build_schema(
+        {
             "/teapot": {
                 "get": {
                     "summary": "Test",
@@ -70,7 +67,7 @@ def test_number_deserializing(testdir):
                 }
             }
         },
-    }
+    )
 
     schema_path = testdir.makefile(".yaml", schema=json.dumps(schema))
     # Then yaml loader should parse them without schema validation errors
@@ -78,6 +75,40 @@ def test_number_deserializing(testdir):
     # and the value should be a number
     value = parsed.raw_schema["paths"]["/teapot"]["get"]["parameters"][0]["schema"]["multipleOf"]
     assert isinstance(value, float)
+
+
+def test_split_file_schema_with_uri_reserved_path_chars(tmp_path):
+    # Split-file OpenAPI layouts mirror path templates; refs like './paths/{id}/op.yaml' must resolve.
+    target_dir = tmp_path / "paths" / "{id}"
+    target_dir.mkdir(parents=True)
+    (target_dir / "op.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        )
+    )
+    root = tmp_path / "openapi.yaml"
+    root.write_text(
+        yaml.safe_dump(
+            {
+                "openapi": "3.0.0",
+                "info": {"title": "repro", "version": "1.0"},
+                "paths": {"/items/{id}": {"$ref": "./paths/{id}/op.yaml"}},
+            }
+        )
+    )
+
+    schema = schemathesis.openapi.from_path(str(root))
+    operation = schema["/items/{id}"]["GET"]
+
+    assert operation.label == "GET /items/{id}"
+    assert operation.definition.raw["operationId"] == "getItem"
+    assert [(p.name, p.location) for p in operation.iter_parameters()] == [("id", "path")]
 
 
 def test_unsupported_type():

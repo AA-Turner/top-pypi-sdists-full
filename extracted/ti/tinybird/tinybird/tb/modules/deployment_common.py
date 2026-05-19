@@ -347,6 +347,7 @@ def create_deployment(
     env: Optional[str] = "cloud",
     return_check_result: bool = False,
     validate_forward_workspace: bool = True,
+    is_classic_migration: bool = False,
 ) -> Optional[Dict[str, Any]]:
     # TODO: This code is duplicated in build_server.py
     # Should be refactored to be shared
@@ -404,6 +405,8 @@ def create_deployment(
             params["allow_destructive_operations"] = "true"
         if not validate_forward_workspace:
             params["validate_forward_workspace"] = "false"
+        if is_classic_migration:
+            params["is_classic_migration"] = "true"
 
         deployment_request_sent = True
         result = api_post(

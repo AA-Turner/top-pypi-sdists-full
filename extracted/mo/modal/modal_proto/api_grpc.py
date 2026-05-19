@@ -260,6 +260,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def EndpointCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EndpointCreateRequest, modal_proto.api_pb2.EndpointCreateResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def EnvironmentCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentCreateRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
@@ -1172,6 +1176,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.DomainListRequest,
                 modal_proto.api_pb2.DomainListResponse,
+            ),
+            '/modal.client.ModalClient/EndpointCreate': grpclib.const.Handler(
+                self.EndpointCreate,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EndpointCreateRequest,
+                modal_proto.api_pb2.EndpointCreateResponse,
             ),
             '/modal.client.ModalClient/EnvironmentCreate': grpclib.const.Handler(
                 self.EnvironmentCreate,
@@ -2366,6 +2376,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/DomainList',
             modal_proto.api_pb2.DomainListRequest,
             modal_proto.api_pb2.DomainListResponse,
+        )
+        self.EndpointCreate = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EndpointCreate',
+            modal_proto.api_pb2.EndpointCreateRequest,
+            modal_proto.api_pb2.EndpointCreateResponse,
         )
         self.EnvironmentCreate = grpclib.client.UnaryUnaryMethod(
             channel,

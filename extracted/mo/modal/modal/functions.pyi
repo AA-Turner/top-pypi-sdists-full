@@ -1,5 +1,6 @@
 import collections.abc
 import google.protobuf.message
+import modal._function_variants
 import modal._functions
 import modal._load_context
 import modal._utils.async_utils
@@ -55,6 +56,8 @@ class Function(
     _class_parameter_info: typing.Optional[modal_proto.api_pb2.ClassParameterInfo]
     _method_handle_metadata: typing.Optional[dict[str, modal_proto.api_pb2.FunctionHandleMetadata]]
     _metadata: typing.Optional[modal_proto.api_pb2.FunctionHandleMetadata]
+    _options: modal._function_variants._FunctionOptions
+    _base_function: typing.Optional[Function]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -94,6 +97,7 @@ class Function(
         batch_wait_ms: typing.Optional[int] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        routing_region: typing.Optional[str] = None,
         nonpreemptible: bool = False,
         is_builder_function: bool = False,
         is_auto_snapshot: bool = False,
@@ -114,19 +118,6 @@ class Function(
         """mdmd:hidden
 
         Note: This is not intended to be public API.
-        """
-        ...
-
-    def _bind_parameters(
-        self,
-        obj: modal.cls.Obj,
-        options: typing.Optional[modal.cls._ServiceOptions],
-        args: collections.abc.Sized,
-        kwargs: dict[str, typing.Any],
-    ) -> Function:
-        """mdmd:hidden
-
-        Binds a class-function to a specific instance of (init params, options) or a new workspace
         """
         ...
 
@@ -263,11 +254,17 @@ class Function(
 
     class __get_web_url_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[str]:
-            """URL of a Function running as a web endpoint."""
+            """URL for addressing a Web Function via HTTP.
+
+            Returns None when this is not a Web Function.
+            """
             ...
 
         async def aio(self, /) -> typing.Optional[str]:
-            """URL of a Function running as a web endpoint."""
+            """URL for addressing a Web Function via HTTP.
+
+            Returns None when this is not a Web Function.
+            """
             ...
 
     get_web_url: __get_web_url_spec
@@ -282,6 +279,83 @@ class Function(
             ...
 
     _experimental_get_flash_urls: ___experimental_get_flash_urls_spec
+
+    def _apply_dynamic_config(
+        self, new_options: modal._function_variants._FunctionOptions, config_method_name: str
+    ) -> Function[modal._functions.P, modal._functions.ReturnType, modal._functions.OriginalReturnType]: ...
+    def with_options(
+        self,
+        *,
+        cpu: typing.Union[float, tuple[float, float], None] = None,
+        memory: typing.Union[int, tuple[int, int], None] = None,
+        gpu: typing.Optional[str] = None,
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+        volumes: dict[
+            typing.Union[str, pathlib.PurePosixPath],
+            typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
+        ] = {},
+        retries: typing.Union[int, modal.retries.Retries, None] = None,
+        max_containers: typing.Optional[int] = None,
+        buffer_containers: typing.Optional[int] = None,
+        scaledown_window: typing.Optional[int] = None,
+        timeout: typing.Optional[int] = None,
+        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        cloud: typing.Optional[str] = None,
+    ) -> Function[modal._functions.P, modal._functions.ReturnType, modal._functions.OriginalReturnType]:
+        """Dynamically override the static Function configuration with invocation-specific values.
+
+        This method returns a new Function instance with the dynamic configuration. Invocations of
+        the new Function will run in a distinct container pool and autoscale independently from the
+        base Function (and from other dynamic configurations).
+
+        Note that options cannot be "unset" with this method (i.e., if a GPU is configured in the
+        `@app.cls()` decorator, passing `gpu=None` here will not create a CPU-only instance).
+        Additionally, container arguments like `volumes` and `secrets` will _replace_ the base
+        configuration or any previous use of this method rather than extending it.
+
+        **Usage:**
+
+        You can use this method after looking up a deployed Function:
+
+        ```python notest
+        fn = modal.Function.from_name("my_app", "fn").with_options(gpu="H100")
+        fn.remote()  # will run on a H100 GPU
+        ```
+
+        Or by referencing another Function defined in the same App:
+
+        ```python notest
+        @app.function()
+        def fn():
+            ...
+
+        # From a local entrypoint or another Function
+        fn.with_options(gpu="H100").remote()  # Uses an H100 GPU
+        fn.remote()  # Uses the static configuration with no GPU
+        ```
+        """
+        ...
+
+    def with_concurrency(
+        self, *, max_inputs: int, target_inputs: typing.Optional[int] = None
+    ) -> Function[modal._functions.P, modal._functions.ReturnType, modal._functions.OriginalReturnType]:
+        """Override the static Function configuration with invocation-specific input concurrency.
+
+        Returns a new Function instance that is dynamically configured to behave like a Function using
+        the `@modal.concurrent` decorator. This instance will autoscale independently from the base Function.
+        """
+        ...
+
+    def with_batching(
+        self, *, max_batch_size: int, wait_ms: int
+    ) -> Function[modal._functions.P, modal._functions.ReturnType, modal._functions.OriginalReturnType]:
+        """Override the static Function configuration with invocation-specific dynamic batching.
+
+        Returns a new Function instance that is dynamically configured to behave like a Function using
+        the `@modal.batched` decorator. This instance will autoscale independently from the base Function.
+        """
+        ...
 
     @property
     def is_generator(self) -> bool:
@@ -347,7 +421,7 @@ class Function(
 
     _call_generator: ___call_generator_spec
 
-    class __remote_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class __remote_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER:
             """Calls the function remotely, executing it with the given arguments and returning the execution's result."""
             ...
@@ -356,7 +430,7 @@ class Function(
             """Calls the function remotely, executing it with the given arguments and returning the execution's result."""
             ...
 
-    remote: __remote_spec[modal._functions.ReturnType, modal._functions.P]
+    remote: __remote_spec[modal._functions.P, modal._functions.ReturnType]
 
     class __remote_gen_spec(typing_extensions.Protocol):
         def __call__(self, /, *args, **kwargs) -> typing.Generator[typing.Any, None, None]:
@@ -383,7 +457,7 @@ class Function(
         """
         ...
 
-    class ___experimental_spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class ___experimental_spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """[Experimental] Calls the function with the given arguments, without waiting for the results.
 
@@ -406,7 +480,7 @@ class Function(
             """
             ...
 
-    _experimental_spawn: ___experimental_spawn_spec[modal._functions.ReturnType, modal._functions.P]
+    _experimental_spawn: ___experimental_spawn_spec[modal._functions.P, modal._functions.ReturnType]
 
     class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> None: ...
@@ -414,7 +488,7 @@ class Function(
 
     _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P]
 
-    class __spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class __spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """Calls the function with the given arguments, without waiting for the results.
 
@@ -435,7 +509,7 @@ class Function(
             """
             ...
 
-    spawn: __spawn_spec[modal._functions.ReturnType, modal._functions.P]
+    spawn: __spawn_spec[modal._functions.P, modal._functions.ReturnType]
 
     def get_raw_f(self) -> collections.abc.Callable[..., typing.Any]:
         """Return the inner Python object wrapped by this Modal Function."""

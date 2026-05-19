@@ -545,7 +545,7 @@ class TestAtoms(BaseTest):
 
     def test_multiply_hermitian(self) -> None:
         """Test that Hermitian property is preserved in multiplication."""
-        
+
         # Test real scalar multiplication
         X = cp.Variable((3, 3), hermitian=True)
         self.assertTrue((1 * X).is_hermitian())
@@ -593,14 +593,14 @@ class TestAtoms(BaseTest):
         atom = cp.hstack([self.A, self.B])
         self.assertEqual(atom.name(), "Hstack(A, B)")
         self.assertEqual(atom.shape, (2, 4))
-        
+
         # Extracting columns produces 1D arrays, so hstack concatenates to (4,)
         entries = []
         for i in range(self.A.shape[1]):
             entries.append(self.A[:, i])
         atom = cp.hstack(entries)
         self.assertEqual(atom.shape, (4,))
-        
+
         with self.assertRaises(ValueError):
             cp.hstack([self.C, self.A])
 
@@ -857,7 +857,7 @@ class TestAtoms(BaseTest):
         with self.assertRaises(Exception) as cm:
             cp.trace(self.C)
         self.assertEqual(str(cm.exception),
-                         "Argument to trace must be a 2-d square array.")
+                         "Argument to trace must have ndim >= 2 with equal last two dimensions.")
 
     def test_trace_sign_psd(self) -> None:
         """Test sign of trace for psd/nsd inputs.
@@ -955,8 +955,11 @@ class TestAtoms(BaseTest):
     def test_upper_tri(self) -> None:
         with self.assertRaises(Exception) as cm:
             cp.upper_tri(self.C)
-        self.assertEqual(str(cm.exception),
-                         "Argument to upper_tri must be a 2-d square array.")
+        self.assertEqual(
+            str(cm.exception),
+            "Argument to upper_tri must have ndim >= 2"
+            " with equal last two dimensions."
+        )
 
     def test_vec_to_upper_tri(self) -> None:
         x = Variable(shape=(3,))
@@ -1164,6 +1167,147 @@ class TestAtoms(BaseTest):
         expr = cp.sum_largest(x, 0.3)
         expected = 0.3 * 8.0
         self.assertAlmostEqual(expr.value, expected)
+
+    def test_sum_largest_axis(self) -> None:
+        """Test sum_largest with axis parameter."""
+        rng = np.random.default_rng(42)
+
+        # --- 2D numeric tests ---
+        X = rng.standard_normal((3, 4))
+        c = Constant(X)
+
+        # axis=0: reduce over rows, output shape (4,)
+        expr0 = cp.sum_largest(c, 2, axis=0)
+        self.assertEqual(expr0.shape, (4,))
+        expected0 = np.sort(X, axis=0)[-2:].sum(axis=0)
+        self.assertItemsAlmostEqual(expr0.value, expected0)
+
+        # axis=1: reduce over cols, output shape (3,)
+        expr1 = cp.sum_largest(c, 2, axis=1)
+        self.assertEqual(expr1.shape, (3,))
+        expected1 = np.sort(X, axis=1)[:, -2:].sum(axis=1)
+        self.assertItemsAlmostEqual(expr1.value, expected1)
+
+        # axis=None: scalar (same as no axis)
+        expr_none = cp.sum_largest(c, 2, axis=None)
+        self.assertEqual(expr_none.shape, ())
+        flat = X.flatten()
+        expected_none = np.sort(flat)[-2:].sum()
+        self.assertAlmostEqual(expr_none.value, expected_none)
+
+        # keepdims=True
+        expr_kd = cp.sum_largest(c, 2, axis=0, keepdims=True)
+        self.assertEqual(expr_kd.shape, (1, 4))
+        self.assertItemsAlmostEqual(expr_kd.value, expected0.reshape(1, 4))
+
+        # fractional k with axis
+        expr_frac = cp.sum_largest(c, 1.5, axis=0)
+        self.assertEqual(expr_frac.shape, (4,))
+        for j in range(4):
+            col = X[:, j]
+            sorted_col = np.sort(col)[::-1]
+            expected_val = sorted_col[0] + 0.5 * sorted_col[1]
+            self.assertAlmostEqual(expr_frac.value[j], expected_val)
+
+        # --- 3D with tuple axis ---
+        Y = rng.standard_normal((2, 3, 4))
+        c3 = Constant(Y)
+        expr_tuple = cp.sum_largest(c3, 3, axis=(0, 2))
+        self.assertEqual(expr_tuple.shape, (3,))
+        for j in range(3):
+            fiber = Y[:, j, :].flatten()
+            expected_val = np.sort(fiber)[-3:].sum()
+            self.assertAlmostEqual(expr_tuple.value[j], expected_val)
+
+        # --- DCP properties ---
+        x = cp.Variable((3, 4))
+        atom = cp.sum_largest(x, 2, axis=0)
+        self.assertTrue(atom.is_convex())
+        self.assertFalse(atom.is_concave())
+        self.assertTrue(atom.is_pwl())
+
+        # --- Copy ---
+        copy = atom.copy()
+        self.assertTrue(type(copy) is type(atom))
+        self.assertEqual(copy.get_data(), atom.get_data())
+        copy2 = atom.copy(args=[cp.Variable((3, 4))])
+        self.assertEqual(copy2.get_data(), atom.get_data())
+
+        # --- Solve ---
+        x = cp.Variable((3, 4))
+        prob = cp.Problem(cp.Minimize(cp.sum(cp.sum_largest(x, 2, axis=0))),
+                          [x == X])
+        prob.solve(solver=cp.CLARABEL)
+        self.assertItemsAlmostEqual(
+            cp.sum_largest(x, 2, axis=0).value, expected0, places=4
+        )
+
+        # sum_smallest with axis
+        expr_sm = cp.sum_smallest(c, 2, axis=1)
+        self.assertEqual(expr_sm.shape, (3,))
+        expected_sm = np.sort(X, axis=1)[:, :2].sum(axis=1)
+        self.assertItemsAlmostEqual(expr_sm.value, expected_sm)
+
+    def test_lambda_sum_largest_nd(self) -> None:
+        """Test lambda_sum_largest and lambda_sum_smallest with nd (batch) input."""
+        # 3D constant input
+        A1 = np.array([[2.0, 0.0], [0.0, 1.0]])  # eigs: [1, 2]
+        A2 = np.array([[3.0, 0.0], [0.0, 4.0]])  # eigs: [3, 4]
+        A3d = np.array([A1, A2])  # shape (2, 2, 2)
+
+        # lambda_sum_largest shape and value
+        expr = cp.lambda_sum_largest(A3d, 1)
+        self.assertEqual(expr.shape, (2,))
+        np.testing.assert_allclose(expr.value, [2.0, 4.0])
+
+        expr = cp.lambda_sum_largest(A3d, 2)
+        np.testing.assert_allclose(expr.value, [3.0, 7.0])
+
+        expr = cp.lambda_sum_largest(A3d, 1.5)
+        np.testing.assert_allclose(expr.value, [2.0 + 0.5 * 1.0, 4.0 + 0.5 * 3.0])
+
+        # lambda_sum_smallest shape and value (gets nd for free)
+        expr = cp.lambda_sum_smallest(A3d, 1)
+        self.assertEqual(expr.shape, (2,))
+        np.testing.assert_allclose(expr.value, [1.0, 3.0])
+
+        expr = cp.lambda_sum_smallest(A3d, 2)
+        np.testing.assert_allclose(expr.value, [3.0, 7.0])
+
+        # lambda_max nd
+        expr = cp.lambda_max(A3d)
+        self.assertEqual(expr.shape, (2,))
+        np.testing.assert_allclose(expr.value, [2.0, 4.0])
+
+    def test_lambda_sum_largest_nd_solve(self) -> None:
+        """Test solving optimization problems with nd lambda_sum_largest."""
+        n = 2
+        X = cp.Variable((n, n), symmetric=True)
+        Y = cp.Variable((n, n), symmetric=True)
+
+        batch = cp.vstack([
+            cp.reshape(X, (1, n, n), order='C'),
+            cp.reshape(Y, (1, n, n), order='C'),
+        ])
+
+        # Minimize sum of lambda_max over batch
+        prob = cp.Problem(
+            cp.Minimize(cp.sum(cp.lambda_max(batch))),
+            [X >> np.eye(n), Y >> 2 * np.eye(n)]
+        )
+        prob.solve(solver=cp.CLARABEL)
+        self.assertEqual(prob.status, cp.OPTIMAL)
+        np.testing.assert_allclose(prob.value, 3.0, atol=1e-5)
+
+        # Minimize sum of lambda_sum_largest(batch, 2)
+        prob = cp.Problem(
+            cp.Minimize(cp.sum(cp.lambda_sum_largest(batch, 2))),
+            [X >> np.eye(n), Y >> 2 * np.eye(n)]
+        )
+        prob.solve(solver=cp.CLARABEL)
+        self.assertEqual(prob.status, cp.OPTIMAL)
+        # sum of all eigenvalues = trace: trace(I) + trace(2I) = 2 + 4 = 6
+        np.testing.assert_allclose(prob.value, 6.0, atol=1e-5)
 
     def test_sum_smallest(self) -> None:
         """Test the sum_smallest atom and related atoms.

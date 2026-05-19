@@ -222,6 +222,12 @@ class ClaudeCodeAdapter:
         if not path_str:
             return None
 
+        # The untrusted-`.env` trust boundary is enforced upstream in
+        # config.loader (OUROBOROS_CLI_PATH and aliases are stripped from a
+        # cloned repo's .env), so any path that reaches here came from a
+        # trusted source — an explicit caller, the real environment, or
+        # ~/.ouroboros config. No source-blind path rejection here: that
+        # would break legitimate relative wrapper overrides.
         resolved = Path(path_str).expanduser().resolve()
 
         if not resolved.exists():
@@ -933,6 +939,22 @@ class ClaudeCodeAdapter:
                             # Callback for tool usage
                             if self._on_message:
                                 self._on_message("tool", tool_info)
+                            if self._allowed_tools is not None and not self._allowed_tools:
+                                error_result = ProviderError(
+                                    message=(
+                                        "Claude Agent SDK emitted a ToolUseBlock despite "
+                                        "allowed_tools=[]"
+                                    ),
+                                    details={
+                                        "session_id": session_id,
+                                        "error_type": "ToolUseBlockViolation",
+                                        "tool_name": tool_name,
+                                        "tool_input": tool_input,
+                                        "allowed_tools": [],
+                                        "max_turns": options_kwargs["max_turns"],
+                                        "cwd": self._cwd,
+                                    },
+                                )
 
                 elif class_name == "ResultMessage":
                     # Check for structured output first (from json_schema output_format)

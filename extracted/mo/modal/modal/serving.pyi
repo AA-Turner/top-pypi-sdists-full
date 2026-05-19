@@ -29,6 +29,7 @@ def _serve_app(
     app: modal.app._App,
     import_ref: modal.cli.import_refs.ImportRef,
     *,
+    name: typing.Optional[str] = None,
     _watcher: typing.Optional[collections.abc.AsyncGenerator[set[str], None]] = None,
     environment_name: typing.Optional[str] = None,
 ) -> typing.AsyncContextManager[modal.app._App]: ...
@@ -40,6 +41,7 @@ class __serve_app_spec(typing_extensions.Protocol):
         app: modal.app.App,
         import_ref: modal.cli.import_refs.ImportRef,
         *,
+        name: typing.Optional[str] = None,
         _watcher: typing.Optional[typing.Generator[set[str], None, None]] = None,
         environment_name: typing.Optional[str] = None,
     ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[modal.app.App]: ...
@@ -49,6 +51,7 @@ class __serve_app_spec(typing_extensions.Protocol):
         app: modal.app.App,
         import_ref: modal.cli.import_refs.ImportRef,
         *,
+        name: typing.Optional[str] = None,
         _watcher: typing.Optional[collections.abc.AsyncGenerator[set[str], None]] = None,
         environment_name: typing.Optional[str] = None,
     ) -> typing.AsyncContextManager[modal.app.App]: ...

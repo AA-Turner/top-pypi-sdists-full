@@ -3,19 +3,21 @@ from __future__ import annotations  # noqa: I001
 import queue
 import time
 import unittest
-from typing import Any
-from warnings import catch_warnings
+from typing import TYPE_CHECKING, Any
+from warnings import catch_warnings, filterwarnings
 
 import hypothesis
 import requests
 from hypothesis import reject
 from hypothesis.control import current_build_context
-from hypothesis.errors import Flaky, Unsatisfiable, UnsatisfiedAssumption
+from hypothesis.errors import Flaky, HypothesisWarning, Unsatisfiable, UnsatisfiedAssumption
 from hypothesis.stateful import Rule
 from requests.exceptions import ChunkedEncodingError
 
 from schemathesis.checks import CheckContext, CheckFunction, run_checks
-from schemathesis.core.error_feedback.collector import record_response
+from schemathesis.core.cache import Kind, request_from_case
+from schemathesis.core.error_feedback import observation_fingerprint
+from schemathesis.core.error_feedback.collector import parse_observations
 from schemathesis.core.failures import Failure, FailureGroup
 from schemathesis.core.transport import Response
 from schemathesis.engine import Status, events
@@ -43,6 +45,33 @@ from schemathesis.generation.stateful.state_machine import (
     StepOutput,
 )
 from schemathesis.generation.metrics import MetricCollector
+from schemathesis.specs.openapi.stateful.link_calibration import record_link_outcome
+
+if TYPE_CHECKING:
+    from schemathesis.core.error_feedback.store import Observation
+    from schemathesis.resources import ExtraDataSource
+
+
+def _replay_recorders_into_pool(extra_data_source: ExtraDataSource, recorders: list[ScenarioRecorder]) -> None:
+    """Feed every captured interaction from this suite into the pool.
+
+    Mirrors `record_extra_data_from_recorder` in the unit phase: the pool stays frozen during
+    Hypothesis runs (shrinking sees a stable strategy) and is refreshed at suite boundaries.
+    """
+    for recorder in recorders:
+        for case_id, interaction in recorder.interactions.items():
+            response = interaction.response
+            if response is None:
+                continue
+            case = recorder.cases[case_id].value
+            operation = case.operation
+            if extra_data_source.should_record(operation=operation.label):
+                extra_data_source.record_response(operation=operation, response=response, case=case)
+            if extra_data_source.should_record_request(operation=operation.label):
+                extra_data_source.record_request(operation=operation, case=case, status_code=response.status_code)
+            if 200 <= response.status_code < 300 or response.status_code == 404:
+                extra_data_source.record_successful_delete(operation=operation, case=case)
+            response.clear_cache()
 
 
 def _get_hypothesis_settings_kwargs_override(settings: hypothesis.settings) -> dict[str, Any]:
@@ -76,6 +105,10 @@ def execute_state_machine_loop(
     state = TestingState()
 
     check_context_cache = CheckContextCache()
+    # Recorders from every scenario in the current suite. The pool stays frozen during the
+    # suite (so Hypothesis shrinking sees a stable strategy); writes are replayed once the
+    # suite finishes, before the next iteration's strategies are built.
+    suite_recorders: list[ScenarioRecorder] = []
 
     class _InstrumentedStateMachine(state_machine):  # type: ignore[valid-type,misc]
         """State machine with additional hooks for emitting events."""
@@ -90,6 +123,7 @@ def execute_state_machine_loop(
             self.control.supervisor = engine.supervisor
 
         def setup(self) -> None:
+            self._current_input: StepInput | None = None
             scenario_started = events.ScenarioStarted(label=None, phase=PhaseName.STATEFUL_TESTING, suite_id=suite_id)
             self._start_time = time.monotonic()
             self._scenario_id = scenario_started.id
@@ -112,6 +146,9 @@ def execute_state_machine_loop(
             return super().before_call(case)
 
         def step(self, input: StepInput) -> StepOutput | None:
+            # _current_input is set here and consumed once in validate_response(), then cleared.
+            # validate_response() is called at most once per step by the Hypothesis state machine.
+            self._current_input = input
             # Checking the stop event once inside `step` is sufficient as it is called frequently
             # The idea is to stop the execution as soon as possible
             if engine.has_to_stop:
@@ -190,21 +227,38 @@ def execute_state_machine_loop(
             self, response: Response, case: Case, additional_checks: tuple[CheckFunction, ...] = (), **kwargs: Any
         ) -> None:
             ctx.collect_metric(case, response)
+            current_input = self._current_input
+            self._current_input = None
+
+            # Parse 4xx body once — reused by calibration and error-feedback.
+            observations: tuple[Observation, ...] = ()
+            if engine.error_feedback is not None or engine.link_calibration is not None:
+                observations = parse_observations(case.operation, case, response)
+
+            # Record this step's outcome against the link's score.
+            if current_input is not None and engine.link_calibration is not None:
+                record_link_outcome(engine.link_calibration, response, observations, current_input, self.recorder)
             ctx.current_response = response
 
             if engine.error_feedback is not None:
-                record_response(
-                    store=engine.error_feedback,
-                    operation=case.operation,
-                    case=case,
-                    response=response,
-                )
+                # Field-level observations steer subsequent positive-mode generation.
+                if observations:
+                    for observation in observations:
+                        engine.error_feedback.record(observation)
+                    engine.cache.record(
+                        Kind.ERROR_FEEDBACK,
+                        case.operation.label,
+                        request_from_case(case),
+                        observation_keys=[observation_fingerprint(observation) for observation in observations],
+                    )
+                # Schema-level cross-cutting observations (e.g. auth retries).
                 case.operation.schema.record_runtime_observations(
                     store=engine.error_feedback,
                     recorder=self.recorder,
                     case=case,
                     response=response,
                     transport_kwargs=engine.get_transport_kwargs(operation=case.operation),
+                    cache_writer=engine.cache.writer,
                 )
 
             cached = check_context_cache.get_or_create(operation=case.operation, ctx=engine, phase="stateful")
@@ -243,6 +297,8 @@ def execute_state_machine_loop(
                     is_final=build_ctx.is_final,
                 )
             )
+            if engine.extra_data_source is not None:
+                suite_recorders.append(self.recorder)
             ctx.maximize_metrics()
             ctx.reset_scenario()
             super().teardown()
@@ -250,6 +306,10 @@ def execute_state_machine_loop(
     seed = engine.config.seed
 
     while True:
+        # Promote observations from the previous run into the stable read state.
+        if engine.link_calibration is not None:
+            engine.link_calibration.begin_iteration()
+        suite_recorders.clear()
         # This loop is running until no new failures are found in a single iteration
         if engine.error_feedback is not None:
             engine.error_feedback.checkpoint()
@@ -273,6 +333,7 @@ def execute_state_machine_loop(
         seed += 1
         try:
             with catch_warnings(), ignore_hypothesis_output():
+                filterwarnings("ignore", category=HypothesisWarning, message="Generating overly large repr")
                 InstrumentedStateMachine.run(settings=hypothesis_settings)
         except KeyboardInterrupt:
             # Raised in the state machine when the stop event is set or it is raised by the user's code
@@ -333,6 +394,10 @@ def execute_state_machine_loop(
             )
             break
         finally:
+            # Drain this suite's recorders into the pool before the next iteration's strategies
+            # are built; mirrors `record_extra_data_from_recorder` in the unit phase.
+            if engine.extra_data_source is not None and suite_recorders:
+                _replay_recorders_into_pool(engine.extra_data_source, suite_recorders)
             event_queue.put(
                 events.SuiteFinished(
                     id=suite_started.id,

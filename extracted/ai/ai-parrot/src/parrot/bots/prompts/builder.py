@@ -15,6 +15,7 @@ from copy import deepcopy
 from typing import Optional, Dict, Any, List
 
 from .layers import PromptLayer, LayerPriority, RenderPhase
+from .segments import CacheableSegment
 
 
 class PromptBuilder:
@@ -32,9 +33,16 @@ class PromptBuilder:
         prompt = builder.build({"knowledge_content": "...", ...})
     """
 
-    def __init__(self, layers: Optional[List[PromptLayer]] = None):
+    def __init__(
+        self,
+        layers: Optional[List[PromptLayer]] = None,
+        *,
+        prompt_caching: bool = False,
+    ):
         self._layers: Dict[str, PromptLayer] = {}
         self._configured: bool = False
+        # FEAT-181: store prompt_caching flag for AbstractBot to inspect.
+        self.prompt_caching: bool = prompt_caching
         if layers:
             for layer in layers:
                 self._layers[layer.name] = layer
@@ -111,6 +119,34 @@ $rationale
         builder.add(RAG_GROUNDING_LAYER)
         return builder
 
+    @classmethod
+    def from_system_prompt(cls, system_prompt: str) -> PromptBuilder:
+        """Default stack with the identity layer replaced by ``system_prompt``.
+
+        Targets YAML-defined agents whose ``system_prompt`` already declares
+        the agent's identity ("You are an assistant for X...") and would
+        therefore conflict with the canned IDENTITY_LAYER. The user's text
+        takes over the identity slot; the rest of the default stack
+        (security, knowledge, user_session, tools, output, behavior) wraps
+        around it unchanged.
+
+        Args:
+            system_prompt: Raw system prompt text. ``$variable`` placeholders
+                are still substituted via ``string.Template`` at render time.
+
+        Returns:
+            A fresh PromptBuilder with the identity layer overridden.
+        """
+        from .layers import PromptLayer, LayerPriority, RenderPhase
+        builder = cls.default()
+        builder.add(PromptLayer(
+            name="identity",
+            priority=LayerPriority.IDENTITY,
+            phase=RenderPhase.CONFIGURE,
+            template=system_prompt,
+        ))
+        return builder
+
     # ── Mutation API ────────────────────────────────────────────
 
     def add(self, layer: PromptLayer) -> PromptBuilder:
@@ -175,7 +211,10 @@ $rationale
         Returns:
             A new independent PromptBuilder with the same layers.
         """
-        new_builder = PromptBuilder(list(deepcopy(self._layers).values()))
+        new_builder = PromptBuilder(
+            list(deepcopy(self._layers).values()),
+            prompt_caching=self.prompt_caching,
+        )
         new_builder._configured = self._configured
         return new_builder
 
@@ -229,6 +268,43 @@ $rationale
                     parts.append(stripped)
 
         return "\n\n".join(parts)
+
+    def build_segments(self, context: Dict[str, Any]) -> List[CacheableSegment]:
+        """Phase 2 (caching): Produce a list of CacheableSegment objects.
+
+        FEAT-181 — Provider-Agnostic Prompt Caching.
+
+        Mirrors the iteration in :meth:`build` but produces
+        :class:`~parrot.bots.prompts.segments.CacheableSegment` objects tagged
+        with ``layer.cacheable`` instead of joining strings. Empty rendered
+        layers are excluded (same behaviour as :meth:`build`).
+
+        This method can be called regardless of the ``prompt_caching`` flag
+        value. The flag is inspected by ``AbstractBot`` to decide whether to
+        call ``build()`` or ``build_segments()``.
+
+        Args:
+            context: Dictionary of dynamic variable values (same as
+                :meth:`build`).
+
+        Returns:
+            Ordered list of :class:`CacheableSegment` objects corresponding
+            to non-empty rendered layers, preserving priority order.
+        """
+        sorted_layers = sorted(self._layers.values(), key=lambda lyr: lyr.priority)
+        segments: List[CacheableSegment] = []
+        for layer in sorted_layers:
+            rendered = layer.render(context)
+            if rendered is not None:
+                stripped = rendered.strip()
+                if stripped:
+                    segments.append(
+                        CacheableSegment(
+                            text=stripped,
+                            cacheable=bool(layer.cacheable),
+                        )
+                    )
+        return segments
 
     @property
     def is_configured(self) -> bool:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: audio-separator
-Version: 0.44.1
+Version: 0.44.2
 Summary: Easy to use audio stem separation, using various models from UVR trained primarily by @Anjok07
 License: MIT
 License-File: LICENSE

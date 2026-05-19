@@ -15,8 +15,12 @@
 
 """Identity v3 Service action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -28,7 +32,7 @@ from openstackclient.identity import common
 LOG = logging.getLogger(__name__)
 
 
-def _format_service(service):
+def _format_service(service: Any) -> tuple[tuple[str, ...], Any]:
     columns = (
         'id',
         'name',
@@ -56,7 +60,7 @@ def _format_service(service):
 class CreateService(command.ShowOne):
     _description = _("Create new service")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'type',
@@ -90,8 +94,12 @@ class CreateService(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         service = identity_client.create_service(
             name=parsed_args.name,
@@ -106,7 +114,7 @@ class CreateService(command.ShowOne):
 class DeleteService(command.Command):
     _description = _("Delete service(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'service',
@@ -116,8 +124,10 @@ class DeleteService(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         result = 0
         for i in parsed_args.service:
             try:
@@ -145,7 +155,7 @@ class DeleteService(command.Command):
 class ListService(command.Lister):
     _description = _("List services")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--long',
@@ -155,8 +165,12 @@ class ListService(command.Lister):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         columns: tuple[str, ...] = ('id', 'name', 'type')
         column_headers: tuple[str, ...] = ('ID', 'Name', 'Type')
@@ -175,7 +189,7 @@ class ListService(command.Lister):
 class SetService(command.Command):
     _description = _("Set service properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'service',
@@ -214,8 +228,10 @@ class SetService(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         service = common.find_service_sdk(identity_client, parsed_args.service)
         kwargs = {}
@@ -234,7 +250,7 @@ class SetService(command.Command):
 class ShowService(command.ShowOne):
     _description = _("Display service details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'service',
@@ -243,8 +259,12 @@ class ShowService(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         service = common.find_service_sdk(identity_client, parsed_args.service)
 

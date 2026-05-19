@@ -53,10 +53,20 @@ class ADEngine:
     ----------
     knowledge_dir : str or None
         Path to knowledge base directory. If None, uses bundled.
+    random_state : int or None, optional
+        Random seed forwarded to every detector that declares an
+        explicit ``random_state`` parameter when the engine instantiates
+        it from a plan. Detectors without ``random_state`` in their
+        signature (e.g., ABOD, KNN, LOF, SOD) are unaffected and remain
+        deterministic-up-to-numpy-module-state. Set this to a fixed
+        integer for reproducible flagged sets across re-runs on the
+        same input.
     """
 
-    def __init__(self, knowledge_dir: str | None = None) -> None:
+    def __init__(self, knowledge_dir: str | None = None,
+                 random_state: int | None = None) -> None:
         self.kb = KnowledgeBase(knowledge_dir=knowledge_dir)
+        self.random_state = random_state
 
     def profile_data(self, X: Any, data_type: str | None = None) -> dict:
         """Profile the input data.
@@ -278,7 +288,8 @@ class ADEngine:
         -------
         detector : BaseDetector
         """
-        return build_detector_from_plan(plan, self.kb)
+        return build_detector_from_plan(plan, self.kb,
+                                        random_state=self.random_state)
 
     # ------------------------------------------------------------------
     # One-shot detection

@@ -11,6 +11,7 @@ requires = [
   "rich >= 13.3",
   "regex >= 2.5.148",
   "tomli_w >= 1.2.0",
+  "tomli >= 2.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -19,9 +20,10 @@ requires-python = ">=3.8"
 name = "tdda"
 authors = [
     { name = "Nick Radcliffe", email = "njr@stochasticsolutions.com" },
-    { name = "Simon Brown" },
 ]
 dynamic=["version", "scripts", "dependencies", "keywords", "license", "readme"]
+
+description = "Test-driven data analysis: command-line tools and Python APIs for data validation, testing analytical pipelines, automatic test generation and more."
 
 
 [tool.pytest.ini_options]
@@ -36,6 +38,7 @@ pythonpath = [
 norecursedirs = [
     'constraints',
     'deprecated',
+    'doc',
     'pd',
     'gentest',
     'rexpy',
@@ -48,3 +51,21 @@ norecursedirs = [
 line-length = 79
 skip-string-normalization = true
 include = '\.pyi?$'
+
+[tool.ruff]
+line-length = 79
+exclude = [
+    "tdda/serial/testdata",
+    "tdda/serial/examples",
+    "tdda/serial/examples2",
+    "tdda/referencetest/testdata",
+    "tdda/referencetest/examples",
+    "tdda/referencetest/diffexamples",
+    "tdda/constraints/testexamples",
+    "tdda/constraints/examples",
+    "tdda/rexpy/examples",
+]
+
+[tool.ruff.format]
+line-ending = "auto"
+quote-style = "single"

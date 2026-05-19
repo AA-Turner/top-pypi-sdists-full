@@ -17,12 +17,12 @@ from pathlib import Path
 from typing import ClassVar
 
 from securesystemslib import exceptions as sslib_exceptions
-from securesystemslib import hash as sslib_hash
 from securesystemslib.signer import (
     CryptoSigner,
     Key,
     SecretsHandler,
     Signer,
+    SSlibKey,
 )
 
 from tests import utils
@@ -245,11 +245,11 @@ class TestMetadata(unittest.TestCase):
             @classmethod
             def from_priv_key_uri(
                 cls,
-                priv_key_uri: str,
-                public_key: Key,
-                secrets_handler: SecretsHandler | None = None,
+                _priv_key_uri: str,
+                _public_key: Key,
+                _secrets_handler: SecretsHandler | None = None,
             ) -> Signer:
-                pass
+                raise RuntimeError("Not a real signer")
 
             @property
             def public_key(self) -> Key:
@@ -470,43 +470,45 @@ class TestMetadata(unittest.TestCase):
         )
 
     def test_verification_result(self) -> None:
-        vr = VerificationResult(3, {"a": None}, {"b": None})
+        key = SSlibKey("", "", "", {"public": ""})
+        vr = VerificationResult(3, {"a": key}, {"b": key})
         self.assertEqual(vr.missing, 2)
         self.assertFalse(vr.verified)
         self.assertFalse(vr)
 
         # Add a signature
-        vr.signed["c"] = None
+        vr.signed["c"] = key
         self.assertEqual(vr.missing, 1)
         self.assertFalse(vr.verified)
         self.assertFalse(vr)
 
         # Add last missing signature
-        vr.signed["d"] = None
+        vr.signed["d"] = key
         self.assertEqual(vr.missing, 0)
         self.assertTrue(vr.verified)
         self.assertTrue(vr)
 
         # Add one more signature
-        vr.signed["e"] = None
+        vr.signed["e"] = key
         self.assertEqual(vr.missing, 0)
         self.assertTrue(vr.verified)
         self.assertTrue(vr)
 
     def test_root_verification_result(self) -> None:
-        vr1 = VerificationResult(3, {"a": None}, {"b": None})
-        vr2 = VerificationResult(1, {"c": None}, {"b": None})
+        key = SSlibKey("", "", "", {"public": ""})
+        vr1 = VerificationResult(3, {"a": key}, {"b": key})
+        vr2 = VerificationResult(1, {"c": key}, {"b": key})
 
         vr = RootVerificationResult(vr1, vr2)
-        self.assertEqual(vr.signed, {"a": None, "c": None})
-        self.assertEqual(vr.unsigned, {"b": None})
+        self.assertEqual(vr.signed, {"a": key, "c": key})
+        self.assertEqual(vr.unsigned, {"b": key})
         self.assertFalse(vr.verified)
         self.assertFalse(vr)
 
-        vr1.signed["c"] = None
-        vr1.signed["f"] = None
-        self.assertEqual(vr.signed, {"a": None, "c": None, "f": None})
-        self.assertEqual(vr.unsigned, {"b": None})
+        vr1.signed["c"] = key
+        vr1.signed["f"] = key
+        self.assertEqual(vr.signed, {"a": key, "c": key, "f": key})
+        self.assertEqual(vr.unsigned, {"b": key})
         self.assertTrue(vr.verified)
         self.assertTrue(vr)
 
@@ -679,7 +681,7 @@ class TestMetadata(unittest.TestCase):
 
         # Assert that add_key with old argument order will raise an error
         with self.assertRaises(ValueError):
-            root.signed.add_key(Root.type, key)
+            root.signed.add_key(Root.type, key)  # type: ignore [arg-type]
 
         # Add new root key
         root.signed.add_key(key, Root.type)
@@ -744,6 +746,8 @@ class TestMetadata(unittest.TestCase):
             ("foo-version-alpha.tgz", "foo-version-?.tgz"),
             ("foo//bar", "*/bar"),
             ("foo/bar", "f?/bar"),
+            ("FOO.tgz", "foo.tgz"),
+            ("foo/bar", "Foo/*"),
         ]
         for targetpath, pathpattern in invalid_use_cases:
             self.assertFalse(
@@ -779,7 +783,7 @@ class TestMetadata(unittest.TestCase):
 
         # Assert that add_key with old argument order will raise an error
         with self.assertRaises(ValueError):
-            targets.add_key("role1", key)
+            targets.add_key(Root.type, key)  # type: ignore [arg-type]
 
         # Assert that delegated role "role1" does not contain the new key
         self.assertNotIn(key.keyid, targets.delegations.roles["role1"].keyids)
@@ -896,6 +900,12 @@ class TestMetadata(unittest.TestCase):
             # test with data as bytes
             snapshot_metafile.verify_length_and_hashes(data)
 
+            # test with custom blake algorithm
+            snapshot_metafile.hashes = {
+                "blake2b-256": "963a3c31aad8e2a91cfc603fdba12555e48dd0312674ac48cce2c19c243236a1"
+            }
+            snapshot_metafile.verify_length_and_hashes(data)
+
             # test exceptions
             expected_length = snapshot_metafile.length
             snapshot_metafile.length = 2345
@@ -958,9 +968,7 @@ class TestMetadata(unittest.TestCase):
         # Test with a non-existing file
         file_path = os.path.join(self.repo_dir, Targets.type, "file123.txt")
         with self.assertRaises(FileNotFoundError):
-            TargetFile.from_file(
-                file_path, file_path, [sslib_hash.DEFAULT_HASH_ALGORITHM]
-            )
+            TargetFile.from_file(file_path, file_path, ["sha256"])
 
         # Test with an unsupported algorithm
         file_path = os.path.join(self.repo_dir, Targets.type, "file1.txt")
@@ -990,6 +998,12 @@ class TestMetadata(unittest.TestCase):
         targetfile_from_data = TargetFile.from_data(target_file_path, data)
         targetfile_from_data.verify_length_and_hashes(data)
 
+        # Test with custom blake hash algorithm
+        targetfile_from_data = TargetFile.from_data(
+            target_file_path, data, ["blake2b-256"]
+        )
+        targetfile_from_data.verify_length_and_hashes(data)
+
     def test_metafile_from_data(self) -> None:
         data = b"Inline test content"
 
@@ -1012,6 +1026,10 @@ class TestMetadata(unittest.TestCase):
                 },
             ),
         )
+
+        # Test with custom blake hash algorithm
+        metafile = MetaFile.from_data(1, data, ["blake2b-256"])
+        metafile.verify_length_and_hashes(data)
 
     def test_targetfile_get_prefixed_paths(self) -> None:
         target = TargetFile(100, {"sha256": "abc", "md5": "def"}, "a/b/f.ext")
@@ -1165,7 +1183,7 @@ class TestSimpleEnvelope(unittest.TestCase):
             self.assertEqual(metadata.signed, payload)
 
     def test_fail_envelope_serialization(self) -> None:
-        envelope = SimpleEnvelope(b"foo", "bar", ["baz"])
+        envelope = SimpleEnvelope(b"foo", "bar", [])  # type: ignore[arg-type]
         with self.assertRaises(SerializationError):
             envelope.to_bytes()
 
@@ -1180,7 +1198,7 @@ class TestSimpleEnvelope(unittest.TestCase):
     def test_fail_payload_deserialization(self) -> None:
         payloads = [b"[", b'{"_type": "foo"}']
         for payload in payloads:
-            envelope = SimpleEnvelope(payload, "bar", [])
+            envelope = SimpleEnvelope(payload, "bar", {})
             with self.assertRaises(DeserializationError):
                 envelope.get_signed()
 

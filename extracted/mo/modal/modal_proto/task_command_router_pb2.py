@@ -17,14 +17,18 @@ from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 from modal_proto import api_pb2 as modal__proto_dot_api__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%modal_proto/task_command_router.proto\x12\x19modal.task_command_router\x1a\x1bgoogle/protobuf/empty.proto\x1a\x15modal_proto/api.proto\"\x83\x02\n\x1aTaskContainerCreateRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\x12\x10\n\x08image_id\x18\x03 \x01(\t\x12\x0c\n\x04\x61rgs\x18\x05 \x03(\t\x12K\n\x03\x65nv\x18\x06 \x03(\x0b\x32>.modal.task_command_router.TaskContainerCreateRequest.EnvEntry\x12\x0f\n\x07workdir\x18\x07 \x01(\t\x12\x12\n\nsecret_ids\x18\x08 \x03(\t\x1a*\n\x08\x45nvEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"K\n\x1bTaskContainerCreateResponse\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\"^\n\x17TaskContainerGetRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\x12\x1a\n\x12include_terminated\x18\x03 \x01(\x08\"[\n\x18TaskContainerGetResponse\x12?\n\tcontainer\x18\x01 \x01(\x0b\x32,.modal.task_command_router.TaskContainerInfo\"~\n\x11TaskContainerInfo\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\x12\x0e\n\x06status\x18\x03 \x01(\t\x12+\n\x06result\x18\x04 \x01(\x0b\x32\x1b.modal.client.GenericResult\"G\n\x18TaskContainerListRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x1a\n\x12include_terminated\x18\x02 \x01(\x08\"]\n\x19TaskContainerListResponse\x12@\n\ncontainers\x18\x01 \x03(\x0b\x32,.modal.task_command_router.TaskContainerInfo\"F\n\x1dTaskContainerTerminateRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontainer_id\x18\x02 \x01(\t\" \n\x1eTaskContainerTerminateResponse\"R\n\x18TaskContainerWaitRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontainer_id\x18\x02 \x01(\t\x12\x0f\n\x07timeout\x18\x03 \x01(\x02\"H\n\x19TaskContainerWaitResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\"7\n\x13TaskExecPollRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\"G\n\x14TaskExecPollResponse\x12\x0e\n\x04\x63ode\x18\x01 \x01(\x05H\x00\x12\x10\n\x06signal\x18\x02 \x01(\x05H\x00\x42\r\n\x0b\x65xit_status\"\x9b\x04\n\x14TaskExecStartRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\x12\x14\n\x0c\x63ommand_args\x18\x03 \x03(\t\x12\x46\n\rstdout_config\x18\x04 \x01(\x0e\x32/.modal.task_command_router.TaskExecStdoutConfig\x12\x46\n\rstderr_config\x18\x05 \x01(\x0e\x32/.modal.task_command_router.TaskExecStderrConfig\x12\x19\n\x0ctimeout_secs\x18\x06 \x01(\rH\x00\x88\x01\x01\x12\x14\n\x07workdir\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x12\n\nsecret_ids\x18\x08 \x03(\t\x12,\n\x08pty_info\x18\t \x01(\x0b\x32\x15.modal.client.PTYInfoH\x02\x88\x01\x01\x12\x15\n\rruntime_debug\x18\n \x01(\x08\x12\x14\n\x0c\x63ontainer_id\x18\x0b \x01(\t\x12\x45\n\x03\x65nv\x18\x0c \x03(\x0b\x32\x38.modal.task_command_router.TaskExecStartRequest.EnvEntry\x1a*\n\x08\x45nvEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0f\n\r_timeout_secsB\n\n\x08_workdirB\x0b\n\t_pty_info\"\x17\n\x15TaskExecStartResponse\"h\n\x19TaskExecStdinWriteRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\x12\x0c\n\x04\x64\x61ta\x18\x04 \x01(\x0c\x12\x0b\n\x03\x65of\x18\x05 \x01(\x08\"\x1c\n\x1aTaskExecStdinWriteResponse\"\x9d\x01\n\x18TaskExecStdioReadRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\x12O\n\x0f\x66ile_descriptor\x18\x04 \x01(\x0e\x32\x36.modal.task_command_router.TaskExecStdioFileDescriptor\")\n\x19TaskExecStdioReadResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\"7\n\x13TaskExecWaitRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\"G\n\x14TaskExecWaitResponse\x12\x0e\n\x04\x63ode\x18\x01 \x01(\x05H\x00\x12\x10\n\x06signal\x18\x02 \x01(\x05H\x00\x42\r\n\x0b\x65xit_status\"L\n\x19TaskMountDirectoryRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\x0c\x12\x10\n\x08image_id\x18\x03 \x01(\t\"=\n\x1cTaskSnapshotDirectoryRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\x0c\"1\n\x1dTaskSnapshotDirectoryResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\"<\n\x1bTaskUnmountDirectoryRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\x0c*\x81\x01\n\x14TaskExecStderrConfig\x12#\n\x1fTASK_EXEC_STDERR_CONFIG_DEVNULL\x10\x00\x12 \n\x1cTASK_EXEC_STDERR_CONFIG_PIPE\x10\x01\x12\"\n\x1eTASK_EXEC_STDERR_CONFIG_STDOUT\x10\x02*u\n\x1bTaskExecStdioFileDescriptor\x12*\n&TASK_EXEC_STDIO_FILE_DESCRIPTOR_STDOUT\x10\x00\x12*\n&TASK_EXEC_STDIO_FILE_DESCRIPTOR_STDERR\x10\x01*]\n\x14TaskExecStdoutConfig\x12#\n\x1fTASK_EXEC_STDOUT_CONFIG_DEVNULL\x10\x00\x12 \n\x1cTASK_EXEC_STDOUT_CONFIG_PIPE\x10\x01\x32\xdd\x0c\n\x11TaskCommandRouter\x12\x84\x01\n\x13TaskContainerCreate\x12\x35.modal.task_command_router.TaskContainerCreateRequest\x1a\x36.modal.task_command_router.TaskContainerCreateResponse\x12{\n\x10TaskContainerGet\x12\x32.modal.task_command_router.TaskContainerGetRequest\x1a\x33.modal.task_command_router.TaskContainerGetResponse\x12~\n\x11TaskContainerList\x12\x33.modal.task_command_router.TaskContainerListRequest\x1a\x34.modal.task_command_router.TaskContainerListResponse\x12\x8d\x01\n\x16TaskContainerTerminate\x12\x38.modal.task_command_router.TaskContainerTerminateRequest\x1a\x39.modal.task_command_router.TaskContainerTerminateResponse\x12~\n\x11TaskContainerWait\x12\x33.modal.task_command_router.TaskContainerWaitRequest\x1a\x34.modal.task_command_router.TaskContainerWaitResponse\x12o\n\x0cTaskExecPoll\x12..modal.task_command_router.TaskExecPollRequest\x1a/.modal.task_command_router.TaskExecPollResponse\x12r\n\rTaskExecStart\x12/.modal.task_command_router.TaskExecStartRequest\x1a\x30.modal.task_command_router.TaskExecStartResponse\x12\x81\x01\n\x12TaskExecStdinWrite\x12\x34.modal.task_command_router.TaskExecStdinWriteRequest\x1a\x35.modal.task_command_router.TaskExecStdinWriteResponse\x12\x80\x01\n\x11TaskExecStdioRead\x12\x33.modal.task_command_router.TaskExecStdioReadRequest\x1a\x34.modal.task_command_router.TaskExecStdioReadResponse0\x01\x12o\n\x0cTaskExecWait\x12..modal.task_command_router.TaskExecWaitRequest\x1a/.modal.task_command_router.TaskExecWaitResponse\x12\x62\n\x12TaskMountDirectory\x12\x34.modal.task_command_router.TaskMountDirectoryRequest\x1a\x16.google.protobuf.Empty\x12\x8a\x01\n\x15TaskSnapshotDirectory\x12\x37.modal.task_command_router.TaskSnapshotDirectoryRequest\x1a\x38.modal.task_command_router.TaskSnapshotDirectoryResponse\x12\x66\n\x14TaskUnmountDirectory\x12\x36.modal.task_command_router.TaskUnmountDirectoryRequest\x1a\x16.google.protobuf.EmptyB&Z$github.com/modal-labs/modal/go/protob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%modal_proto/task_command_router.proto\x12\x19modal.task_command_router\x1a\x1bgoogle/protobuf/empty.proto\x1a\x15modal_proto/api.proto\"X\n\x1aSandboxStdinWriteV2Request\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06offset\x18\x02 \x01(\x04\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\x12\x0b\n\x03\x65of\x18\x04 \x01(\x08\"\x1d\n\x1bSandboxStdinWriteV2Response\"\x8c\x01\n\x19SandboxStdioReadV2Request\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06offset\x18\x02 \x01(\x04\x12N\n\x0f\x66ile_descriptor\x18\x03 \x01(\x0e\x32\x35.modal.task_command_router.SandboxStdioFileDescriptor\"*\n\x1aSandboxStdioReadV2Response\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\"\x83\x02\n\x1aTaskContainerCreateRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\x12\x10\n\x08image_id\x18\x03 \x01(\t\x12\x0c\n\x04\x61rgs\x18\x05 \x03(\t\x12K\n\x03\x65nv\x18\x06 \x03(\x0b\x32>.modal.task_command_router.TaskContainerCreateRequest.EnvEntry\x12\x0f\n\x07workdir\x18\x07 \x01(\t\x12\x12\n\nsecret_ids\x18\x08 \x03(\t\x1a*\n\x08\x45nvEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"K\n\x1bTaskContainerCreateResponse\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\"^\n\x17TaskContainerGetRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\x12\x1a\n\x12include_terminated\x18\x03 \x01(\x08\"[\n\x18TaskContainerGetResponse\x12?\n\tcontainer\x18\x01 \x01(\x0b\x32,.modal.task_command_router.TaskContainerInfo\"~\n\x11TaskContainerInfo\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63ontainer_name\x18\x02 \x01(\t\x12\x0e\n\x06status\x18\x03 \x01(\t\x12+\n\x06result\x18\x04 \x01(\x0b\x32\x1b.modal.client.GenericResult\"G\n\x18TaskContainerListRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x1a\n\x12include_terminated\x18\x02 \x01(\x08\"]\n\x19TaskContainerListResponse\x12@\n\ncontainers\x18\x01 \x03(\x0b\x32,.modal.task_command_router.TaskContainerInfo\"F\n\x1dTaskContainerTerminateRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontainer_id\x18\x02 \x01(\t\" \n\x1eTaskContainerTerminateResponse\"R\n\x18TaskContainerWaitRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x14\n\x0c\x63ontainer_id\x18\x02 \x01(\t\x12\x0f\n\x07timeout\x18\x03 \x01(\x02\"H\n\x19TaskContainerWaitResponse\x12+\n\x06result\x18\x01 \x01(\x0b\x32\x1b.modal.client.GenericResult\"7\n\x13TaskExecPollRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\"G\n\x14TaskExecPollResponse\x12\x0e\n\x04\x63ode\x18\x01 \x01(\x05H\x00\x12\x10\n\x06signal\x18\x02 \x01(\x05H\x00\x42\r\n\x0b\x65xit_status\"\x9b\x04\n\x14TaskExecStartRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\x12\x14\n\x0c\x63ommand_args\x18\x03 \x03(\t\x12\x46\n\rstdout_config\x18\x04 \x01(\x0e\x32/.modal.task_command_router.TaskExecStdoutConfig\x12\x46\n\rstderr_config\x18\x05 \x01(\x0e\x32/.modal.task_command_router.TaskExecStderrConfig\x12\x19\n\x0ctimeout_secs\x18\x06 \x01(\rH\x00\x88\x01\x01\x12\x14\n\x07workdir\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x12\n\nsecret_ids\x18\x08 \x03(\t\x12,\n\x08pty_info\x18\t \x01(\x0b\x32\x15.modal.client.PTYInfoH\x02\x88\x01\x01\x12\x15\n\rruntime_debug\x18\n \x01(\x08\x12\x14\n\x0c\x63ontainer_id\x18\x0b \x01(\t\x12\x45\n\x03\x65nv\x18\x0c \x03(\x0b\x32\x38.modal.task_command_router.TaskExecStartRequest.EnvEntry\x1a*\n\x08\x45nvEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x0f\n\r_timeout_secsB\n\n\x08_workdirB\x0b\n\t_pty_info\"\x17\n\x15TaskExecStartResponse\">\n\x1aTaskExecStdinStatusRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\"H\n\x1bTaskExecStdinStatusResponse\x12\x19\n\x11num_bytes_written\x18\x01 \x01(\x04\x12\x0e\n\x06\x63losed\x18\x02 \x01(\x08\"h\n\x19TaskExecStdinWriteRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\x12\x0c\n\x04\x64\x61ta\x18\x04 \x01(\x0c\x12\x0b\n\x03\x65of\x18\x05 \x01(\x08\"\x1c\n\x1aTaskExecStdinWriteResponse\"\x87\x01\n\x1fTaskExecStdinWriteStreamRequest\x12I\n\x05start\x18\x01 \x01(\x0b\x32\x38.modal.task_command_router.TaskExecStdinWriteStreamStartH\x00\x12\x0e\n\x04\x64\x61ta\x18\x02 \x01(\x0cH\x00\x42\t\n\x07payload\"\"\n TaskExecStdinWriteStreamResponse\"Q\n\x1dTaskExecStdinWriteStreamStart\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\"\x9d\x01\n\x18TaskExecStdioReadRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x04\x12O\n\x0f\x66ile_descriptor\x18\x04 \x01(\x0e\x32\x36.modal.task_command_router.TaskExecStdioFileDescriptor\")\n\x19TaskExecStdioReadResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\"7\n\x13TaskExecWaitRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65xec_id\x18\x02 \x01(\t\"G\n\x14TaskExecWaitResponse\x12\x0e\n\x04\x63ode\x18\x01 \x01(\x05H\x00\x12\x10\n\x06signal\x18\x02 \x01(\x05H\x00\x42\r\n\x0b\x65xit_status\"L\n\x19TaskMountDirectoryRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\x0c\x12\x10\n\x08image_id\x18\x03 \x01(\t\"|\n\x1cTaskSnapshotDirectoryRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\x0c\x12\x13\n\x0bsnapshot_id\x18\x03 \x01(\t\x12\x18\n\x0bttl_seconds\x18\x04 \x01(\x03H\x00\x88\x01\x01\x42\x0e\n\x0c_ttl_seconds\"1\n\x1dTaskSnapshotDirectoryResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\"o\n\x1dTaskSnapshotFilesystemRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x13\n\x0bsnapshot_id\x18\x02 \x01(\t\x12\x18\n\x0bttl_seconds\x18\x03 \x01(\x03H\x00\x88\x01\x01\x42\x0e\n\x0c_ttl_seconds\"2\n\x1eTaskSnapshotFilesystemResponse\x12\x10\n\x08image_id\x18\x01 \x01(\t\"<\n\x1bTaskUnmountDirectoryRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\x0c*p\n\x1aSandboxStdioFileDescriptor\x12(\n$SANDBOX_STDIO_FILE_DESCRIPTOR_STDOUT\x10\x00\x12(\n$SANDBOX_STDIO_FILE_DESCRIPTOR_STDERR\x10\x01*\x81\x01\n\x14TaskExecStderrConfig\x12#\n\x1fTASK_EXEC_STDERR_CONFIG_DEVNULL\x10\x00\x12 \n\x1cTASK_EXEC_STDERR_CONFIG_PIPE\x10\x01\x12\"\n\x1eTASK_EXEC_STDERR_CONFIG_STDOUT\x10\x02*u\n\x1bTaskExecStdioFileDescriptor\x12*\n&TASK_EXEC_STDIO_FILE_DESCRIPTOR_STDOUT\x10\x00\x12*\n&TASK_EXEC_STDIO_FILE_DESCRIPTOR_STDERR\x10\x01*]\n\x14TaskExecStdoutConfig\x12#\n\x1fTASK_EXEC_STDOUT_CONFIG_DEVNULL\x10\x00\x12 \n\x1cTASK_EXEC_STDOUT_CONFIG_PIPE\x10\x01\x32\x99\x12\n\x11TaskCommandRouter\x12\x84\x01\n\x13SandboxStdinWriteV2\x12\x35.modal.task_command_router.SandboxStdinWriteV2Request\x1a\x36.modal.task_command_router.SandboxStdinWriteV2Response\x12\x83\x01\n\x12SandboxStdioReadV2\x12\x34.modal.task_command_router.SandboxStdioReadV2Request\x1a\x35.modal.task_command_router.SandboxStdioReadV2Response0\x01\x12\x84\x01\n\x13TaskContainerCreate\x12\x35.modal.task_command_router.TaskContainerCreateRequest\x1a\x36.modal.task_command_router.TaskContainerCreateResponse\x12{\n\x10TaskContainerGet\x12\x32.modal.task_command_router.TaskContainerGetRequest\x1a\x33.modal.task_command_router.TaskContainerGetResponse\x12~\n\x11TaskContainerList\x12\x33.modal.task_command_router.TaskContainerListRequest\x1a\x34.modal.task_command_router.TaskContainerListResponse\x12\x8d\x01\n\x16TaskContainerTerminate\x12\x38.modal.task_command_router.TaskContainerTerminateRequest\x1a\x39.modal.task_command_router.TaskContainerTerminateResponse\x12~\n\x11TaskContainerWait\x12\x33.modal.task_command_router.TaskContainerWaitRequest\x1a\x34.modal.task_command_router.TaskContainerWaitResponse\x12o\n\x0cTaskExecPoll\x12..modal.task_command_router.TaskExecPollRequest\x1a/.modal.task_command_router.TaskExecPollResponse\x12r\n\rTaskExecStart\x12/.modal.task_command_router.TaskExecStartRequest\x1a\x30.modal.task_command_router.TaskExecStartResponse\x12\x84\x01\n\x13TaskExecStdinStatus\x12\x35.modal.task_command_router.TaskExecStdinStatusRequest\x1a\x36.modal.task_command_router.TaskExecStdinStatusResponse\x12\x81\x01\n\x12TaskExecStdinWrite\x12\x34.modal.task_command_router.TaskExecStdinWriteRequest\x1a\x35.modal.task_command_router.TaskExecStdinWriteResponse\x12\x95\x01\n\x18TaskExecStdinWriteStream\x12:.modal.task_command_router.TaskExecStdinWriteStreamRequest\x1a;.modal.task_command_router.TaskExecStdinWriteStreamResponse(\x01\x12\x80\x01\n\x11TaskExecStdioRead\x12\x33.modal.task_command_router.TaskExecStdioReadRequest\x1a\x34.modal.task_command_router.TaskExecStdioReadResponse0\x01\x12o\n\x0cTaskExecWait\x12..modal.task_command_router.TaskExecWaitRequest\x1a/.modal.task_command_router.TaskExecWaitResponse\x12\x62\n\x12TaskMountDirectory\x12\x34.modal.task_command_router.TaskMountDirectoryRequest\x1a\x16.google.protobuf.Empty\x12\x8a\x01\n\x15TaskSnapshotDirectory\x12\x37.modal.task_command_router.TaskSnapshotDirectoryRequest\x1a\x38.modal.task_command_router.TaskSnapshotDirectoryResponse\x12\x8d\x01\n\x16TaskSnapshotFilesystem\x12\x38.modal.task_command_router.TaskSnapshotFilesystemRequest\x1a\x39.modal.task_command_router.TaskSnapshotFilesystemResponse\x12\x66\n\x14TaskUnmountDirectory\x12\x36.modal.task_command_router.TaskUnmountDirectoryRequest\x1a\x16.google.protobuf.EmptyB&Z$github.com/modal-labs/modal/go/protob\x06proto3')
 
+_SANDBOXSTDIOFILEDESCRIPTOR = DESCRIPTOR.enum_types_by_name['SandboxStdioFileDescriptor']
+SandboxStdioFileDescriptor = enum_type_wrapper.EnumTypeWrapper(_SANDBOXSTDIOFILEDESCRIPTOR)
 _TASKEXECSTDERRCONFIG = DESCRIPTOR.enum_types_by_name['TaskExecStderrConfig']
 TaskExecStderrConfig = enum_type_wrapper.EnumTypeWrapper(_TASKEXECSTDERRCONFIG)
 _TASKEXECSTDIOFILEDESCRIPTOR = DESCRIPTOR.enum_types_by_name['TaskExecStdioFileDescriptor']
 TaskExecStdioFileDescriptor = enum_type_wrapper.EnumTypeWrapper(_TASKEXECSTDIOFILEDESCRIPTOR)
 _TASKEXECSTDOUTCONFIG = DESCRIPTOR.enum_types_by_name['TaskExecStdoutConfig']
 TaskExecStdoutConfig = enum_type_wrapper.EnumTypeWrapper(_TASKEXECSTDOUTCONFIG)
+SANDBOX_STDIO_FILE_DESCRIPTOR_STDOUT = 0
+SANDBOX_STDIO_FILE_DESCRIPTOR_STDERR = 1
 TASK_EXEC_STDERR_CONFIG_DEVNULL = 0
 TASK_EXEC_STDERR_CONFIG_PIPE = 1
 TASK_EXEC_STDERR_CONFIG_STDOUT = 2
@@ -34,6 +38,10 @@ TASK_EXEC_STDOUT_CONFIG_DEVNULL = 0
 TASK_EXEC_STDOUT_CONFIG_PIPE = 1
 
 
+_SANDBOXSTDINWRITEV2REQUEST = DESCRIPTOR.message_types_by_name['SandboxStdinWriteV2Request']
+_SANDBOXSTDINWRITEV2RESPONSE = DESCRIPTOR.message_types_by_name['SandboxStdinWriteV2Response']
+_SANDBOXSTDIOREADV2REQUEST = DESCRIPTOR.message_types_by_name['SandboxStdioReadV2Request']
+_SANDBOXSTDIOREADV2RESPONSE = DESCRIPTOR.message_types_by_name['SandboxStdioReadV2Response']
 _TASKCONTAINERCREATEREQUEST = DESCRIPTOR.message_types_by_name['TaskContainerCreateRequest']
 _TASKCONTAINERCREATEREQUEST_ENVENTRY = _TASKCONTAINERCREATEREQUEST.nested_types_by_name['EnvEntry']
 _TASKCONTAINERCREATERESPONSE = DESCRIPTOR.message_types_by_name['TaskContainerCreateResponse']
@@ -51,8 +59,13 @@ _TASKEXECPOLLRESPONSE = DESCRIPTOR.message_types_by_name['TaskExecPollResponse']
 _TASKEXECSTARTREQUEST = DESCRIPTOR.message_types_by_name['TaskExecStartRequest']
 _TASKEXECSTARTREQUEST_ENVENTRY = _TASKEXECSTARTREQUEST.nested_types_by_name['EnvEntry']
 _TASKEXECSTARTRESPONSE = DESCRIPTOR.message_types_by_name['TaskExecStartResponse']
+_TASKEXECSTDINSTATUSREQUEST = DESCRIPTOR.message_types_by_name['TaskExecStdinStatusRequest']
+_TASKEXECSTDINSTATUSRESPONSE = DESCRIPTOR.message_types_by_name['TaskExecStdinStatusResponse']
 _TASKEXECSTDINWRITEREQUEST = DESCRIPTOR.message_types_by_name['TaskExecStdinWriteRequest']
 _TASKEXECSTDINWRITERESPONSE = DESCRIPTOR.message_types_by_name['TaskExecStdinWriteResponse']
+_TASKEXECSTDINWRITESTREAMREQUEST = DESCRIPTOR.message_types_by_name['TaskExecStdinWriteStreamRequest']
+_TASKEXECSTDINWRITESTREAMRESPONSE = DESCRIPTOR.message_types_by_name['TaskExecStdinWriteStreamResponse']
+_TASKEXECSTDINWRITESTREAMSTART = DESCRIPTOR.message_types_by_name['TaskExecStdinWriteStreamStart']
 _TASKEXECSTDIOREADREQUEST = DESCRIPTOR.message_types_by_name['TaskExecStdioReadRequest']
 _TASKEXECSTDIOREADRESPONSE = DESCRIPTOR.message_types_by_name['TaskExecStdioReadResponse']
 _TASKEXECWAITREQUEST = DESCRIPTOR.message_types_by_name['TaskExecWaitRequest']
@@ -60,7 +73,37 @@ _TASKEXECWAITRESPONSE = DESCRIPTOR.message_types_by_name['TaskExecWaitResponse']
 _TASKMOUNTDIRECTORYREQUEST = DESCRIPTOR.message_types_by_name['TaskMountDirectoryRequest']
 _TASKSNAPSHOTDIRECTORYREQUEST = DESCRIPTOR.message_types_by_name['TaskSnapshotDirectoryRequest']
 _TASKSNAPSHOTDIRECTORYRESPONSE = DESCRIPTOR.message_types_by_name['TaskSnapshotDirectoryResponse']
+_TASKSNAPSHOTFILESYSTEMREQUEST = DESCRIPTOR.message_types_by_name['TaskSnapshotFilesystemRequest']
+_TASKSNAPSHOTFILESYSTEMRESPONSE = DESCRIPTOR.message_types_by_name['TaskSnapshotFilesystemResponse']
 _TASKUNMOUNTDIRECTORYREQUEST = DESCRIPTOR.message_types_by_name['TaskUnmountDirectoryRequest']
+SandboxStdinWriteV2Request = _reflection.GeneratedProtocolMessageType('SandboxStdinWriteV2Request', (_message.Message,), {
+  'DESCRIPTOR' : _SANDBOXSTDINWRITEV2REQUEST,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.SandboxStdinWriteV2Request)
+  })
+_sym_db.RegisterMessage(SandboxStdinWriteV2Request)
+
+SandboxStdinWriteV2Response = _reflection.GeneratedProtocolMessageType('SandboxStdinWriteV2Response', (_message.Message,), {
+  'DESCRIPTOR' : _SANDBOXSTDINWRITEV2RESPONSE,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.SandboxStdinWriteV2Response)
+  })
+_sym_db.RegisterMessage(SandboxStdinWriteV2Response)
+
+SandboxStdioReadV2Request = _reflection.GeneratedProtocolMessageType('SandboxStdioReadV2Request', (_message.Message,), {
+  'DESCRIPTOR' : _SANDBOXSTDIOREADV2REQUEST,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.SandboxStdioReadV2Request)
+  })
+_sym_db.RegisterMessage(SandboxStdioReadV2Request)
+
+SandboxStdioReadV2Response = _reflection.GeneratedProtocolMessageType('SandboxStdioReadV2Response', (_message.Message,), {
+  'DESCRIPTOR' : _SANDBOXSTDIOREADV2RESPONSE,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.SandboxStdioReadV2Response)
+  })
+_sym_db.RegisterMessage(SandboxStdioReadV2Response)
+
 TaskContainerCreateRequest = _reflection.GeneratedProtocolMessageType('TaskContainerCreateRequest', (_message.Message,), {
 
   'EnvEntry' : _reflection.GeneratedProtocolMessageType('EnvEntry', (_message.Message,), {
@@ -182,6 +225,20 @@ TaskExecStartResponse = _reflection.GeneratedProtocolMessageType('TaskExecStartR
   })
 _sym_db.RegisterMessage(TaskExecStartResponse)
 
+TaskExecStdinStatusRequest = _reflection.GeneratedProtocolMessageType('TaskExecStdinStatusRequest', (_message.Message,), {
+  'DESCRIPTOR' : _TASKEXECSTDINSTATUSREQUEST,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.TaskExecStdinStatusRequest)
+  })
+_sym_db.RegisterMessage(TaskExecStdinStatusRequest)
+
+TaskExecStdinStatusResponse = _reflection.GeneratedProtocolMessageType('TaskExecStdinStatusResponse', (_message.Message,), {
+  'DESCRIPTOR' : _TASKEXECSTDINSTATUSRESPONSE,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.TaskExecStdinStatusResponse)
+  })
+_sym_db.RegisterMessage(TaskExecStdinStatusResponse)
+
 TaskExecStdinWriteRequest = _reflection.GeneratedProtocolMessageType('TaskExecStdinWriteRequest', (_message.Message,), {
   'DESCRIPTOR' : _TASKEXECSTDINWRITEREQUEST,
   '__module__' : 'modal_proto.task_command_router_pb2'
@@ -195,6 +252,27 @@ TaskExecStdinWriteResponse = _reflection.GeneratedProtocolMessageType('TaskExecS
   # @@protoc_insertion_point(class_scope:modal.task_command_router.TaskExecStdinWriteResponse)
   })
 _sym_db.RegisterMessage(TaskExecStdinWriteResponse)
+
+TaskExecStdinWriteStreamRequest = _reflection.GeneratedProtocolMessageType('TaskExecStdinWriteStreamRequest', (_message.Message,), {
+  'DESCRIPTOR' : _TASKEXECSTDINWRITESTREAMREQUEST,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.TaskExecStdinWriteStreamRequest)
+  })
+_sym_db.RegisterMessage(TaskExecStdinWriteStreamRequest)
+
+TaskExecStdinWriteStreamResponse = _reflection.GeneratedProtocolMessageType('TaskExecStdinWriteStreamResponse', (_message.Message,), {
+  'DESCRIPTOR' : _TASKEXECSTDINWRITESTREAMRESPONSE,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.TaskExecStdinWriteStreamResponse)
+  })
+_sym_db.RegisterMessage(TaskExecStdinWriteStreamResponse)
+
+TaskExecStdinWriteStreamStart = _reflection.GeneratedProtocolMessageType('TaskExecStdinWriteStreamStart', (_message.Message,), {
+  'DESCRIPTOR' : _TASKEXECSTDINWRITESTREAMSTART,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.TaskExecStdinWriteStreamStart)
+  })
+_sym_db.RegisterMessage(TaskExecStdinWriteStreamStart)
 
 TaskExecStdioReadRequest = _reflection.GeneratedProtocolMessageType('TaskExecStdioReadRequest', (_message.Message,), {
   'DESCRIPTOR' : _TASKEXECSTDIOREADREQUEST,
@@ -245,6 +323,20 @@ TaskSnapshotDirectoryResponse = _reflection.GeneratedProtocolMessageType('TaskSn
   })
 _sym_db.RegisterMessage(TaskSnapshotDirectoryResponse)
 
+TaskSnapshotFilesystemRequest = _reflection.GeneratedProtocolMessageType('TaskSnapshotFilesystemRequest', (_message.Message,), {
+  'DESCRIPTOR' : _TASKSNAPSHOTFILESYSTEMREQUEST,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.TaskSnapshotFilesystemRequest)
+  })
+_sym_db.RegisterMessage(TaskSnapshotFilesystemRequest)
+
+TaskSnapshotFilesystemResponse = _reflection.GeneratedProtocolMessageType('TaskSnapshotFilesystemResponse', (_message.Message,), {
+  'DESCRIPTOR' : _TASKSNAPSHOTFILESYSTEMRESPONSE,
+  '__module__' : 'modal_proto.task_command_router_pb2'
+  # @@protoc_insertion_point(class_scope:modal.task_command_router.TaskSnapshotFilesystemResponse)
+  })
+_sym_db.RegisterMessage(TaskSnapshotFilesystemResponse)
+
 TaskUnmountDirectoryRequest = _reflection.GeneratedProtocolMessageType('TaskUnmountDirectoryRequest', (_message.Message,), {
   'DESCRIPTOR' : _TASKUNMOUNTDIRECTORYREQUEST,
   '__module__' : 'modal_proto.task_command_router_pb2'
@@ -261,66 +353,90 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _TASKCONTAINERCREATEREQUEST_ENVENTRY._serialized_options = b'8\001'
   _TASKEXECSTARTREQUEST_ENVENTRY._options = None
   _TASKEXECSTARTREQUEST_ENVENTRY._serialized_options = b'8\001'
-  _TASKEXECSTDERRCONFIG._serialized_start=2629
-  _TASKEXECSTDERRCONFIG._serialized_end=2758
-  _TASKEXECSTDIOFILEDESCRIPTOR._serialized_start=2760
-  _TASKEXECSTDIOFILEDESCRIPTOR._serialized_end=2877
-  _TASKEXECSTDOUTCONFIG._serialized_start=2879
-  _TASKEXECSTDOUTCONFIG._serialized_end=2972
-  _TASKCONTAINERCREATEREQUEST._serialized_start=121
-  _TASKCONTAINERCREATEREQUEST._serialized_end=380
-  _TASKCONTAINERCREATEREQUEST_ENVENTRY._serialized_start=338
-  _TASKCONTAINERCREATEREQUEST_ENVENTRY._serialized_end=380
-  _TASKCONTAINERCREATERESPONSE._serialized_start=382
-  _TASKCONTAINERCREATERESPONSE._serialized_end=457
-  _TASKCONTAINERGETREQUEST._serialized_start=459
-  _TASKCONTAINERGETREQUEST._serialized_end=553
-  _TASKCONTAINERGETRESPONSE._serialized_start=555
-  _TASKCONTAINERGETRESPONSE._serialized_end=646
-  _TASKCONTAINERINFO._serialized_start=648
-  _TASKCONTAINERINFO._serialized_end=774
-  _TASKCONTAINERLISTREQUEST._serialized_start=776
-  _TASKCONTAINERLISTREQUEST._serialized_end=847
-  _TASKCONTAINERLISTRESPONSE._serialized_start=849
-  _TASKCONTAINERLISTRESPONSE._serialized_end=942
-  _TASKCONTAINERTERMINATEREQUEST._serialized_start=944
-  _TASKCONTAINERTERMINATEREQUEST._serialized_end=1014
-  _TASKCONTAINERTERMINATERESPONSE._serialized_start=1016
-  _TASKCONTAINERTERMINATERESPONSE._serialized_end=1048
-  _TASKCONTAINERWAITREQUEST._serialized_start=1050
-  _TASKCONTAINERWAITREQUEST._serialized_end=1132
-  _TASKCONTAINERWAITRESPONSE._serialized_start=1134
-  _TASKCONTAINERWAITRESPONSE._serialized_end=1206
-  _TASKEXECPOLLREQUEST._serialized_start=1208
-  _TASKEXECPOLLREQUEST._serialized_end=1263
-  _TASKEXECPOLLRESPONSE._serialized_start=1265
-  _TASKEXECPOLLRESPONSE._serialized_end=1336
-  _TASKEXECSTARTREQUEST._serialized_start=1339
-  _TASKEXECSTARTREQUEST._serialized_end=1878
-  _TASKEXECSTARTREQUEST_ENVENTRY._serialized_start=338
-  _TASKEXECSTARTREQUEST_ENVENTRY._serialized_end=380
-  _TASKEXECSTARTRESPONSE._serialized_start=1880
-  _TASKEXECSTARTRESPONSE._serialized_end=1903
-  _TASKEXECSTDINWRITEREQUEST._serialized_start=1905
-  _TASKEXECSTDINWRITEREQUEST._serialized_end=2009
-  _TASKEXECSTDINWRITERESPONSE._serialized_start=2011
-  _TASKEXECSTDINWRITERESPONSE._serialized_end=2039
-  _TASKEXECSTDIOREADREQUEST._serialized_start=2042
-  _TASKEXECSTDIOREADREQUEST._serialized_end=2199
-  _TASKEXECSTDIOREADRESPONSE._serialized_start=2201
-  _TASKEXECSTDIOREADRESPONSE._serialized_end=2242
-  _TASKEXECWAITREQUEST._serialized_start=2244
-  _TASKEXECWAITREQUEST._serialized_end=2299
-  _TASKEXECWAITRESPONSE._serialized_start=2301
-  _TASKEXECWAITRESPONSE._serialized_end=2372
-  _TASKMOUNTDIRECTORYREQUEST._serialized_start=2374
-  _TASKMOUNTDIRECTORYREQUEST._serialized_end=2450
-  _TASKSNAPSHOTDIRECTORYREQUEST._serialized_start=2452
-  _TASKSNAPSHOTDIRECTORYREQUEST._serialized_end=2513
-  _TASKSNAPSHOTDIRECTORYRESPONSE._serialized_start=2515
-  _TASKSNAPSHOTDIRECTORYRESPONSE._serialized_end=2564
-  _TASKUNMOUNTDIRECTORYREQUEST._serialized_start=2566
-  _TASKUNMOUNTDIRECTORYREQUEST._serialized_end=2626
-  _TASKCOMMANDROUTER._serialized_start=2975
-  _TASKCOMMANDROUTER._serialized_end=4604
+  _SANDBOXSTDIOFILEDESCRIPTOR._serialized_start=3559
+  _SANDBOXSTDIOFILEDESCRIPTOR._serialized_end=3671
+  _TASKEXECSTDERRCONFIG._serialized_start=3674
+  _TASKEXECSTDERRCONFIG._serialized_end=3803
+  _TASKEXECSTDIOFILEDESCRIPTOR._serialized_start=3805
+  _TASKEXECSTDIOFILEDESCRIPTOR._serialized_end=3922
+  _TASKEXECSTDOUTCONFIG._serialized_start=3924
+  _TASKEXECSTDOUTCONFIG._serialized_end=4017
+  _SANDBOXSTDINWRITEV2REQUEST._serialized_start=120
+  _SANDBOXSTDINWRITEV2REQUEST._serialized_end=208
+  _SANDBOXSTDINWRITEV2RESPONSE._serialized_start=210
+  _SANDBOXSTDINWRITEV2RESPONSE._serialized_end=239
+  _SANDBOXSTDIOREADV2REQUEST._serialized_start=242
+  _SANDBOXSTDIOREADV2REQUEST._serialized_end=382
+  _SANDBOXSTDIOREADV2RESPONSE._serialized_start=384
+  _SANDBOXSTDIOREADV2RESPONSE._serialized_end=426
+  _TASKCONTAINERCREATEREQUEST._serialized_start=429
+  _TASKCONTAINERCREATEREQUEST._serialized_end=688
+  _TASKCONTAINERCREATEREQUEST_ENVENTRY._serialized_start=646
+  _TASKCONTAINERCREATEREQUEST_ENVENTRY._serialized_end=688
+  _TASKCONTAINERCREATERESPONSE._serialized_start=690
+  _TASKCONTAINERCREATERESPONSE._serialized_end=765
+  _TASKCONTAINERGETREQUEST._serialized_start=767
+  _TASKCONTAINERGETREQUEST._serialized_end=861
+  _TASKCONTAINERGETRESPONSE._serialized_start=863
+  _TASKCONTAINERGETRESPONSE._serialized_end=954
+  _TASKCONTAINERINFO._serialized_start=956
+  _TASKCONTAINERINFO._serialized_end=1082
+  _TASKCONTAINERLISTREQUEST._serialized_start=1084
+  _TASKCONTAINERLISTREQUEST._serialized_end=1155
+  _TASKCONTAINERLISTRESPONSE._serialized_start=1157
+  _TASKCONTAINERLISTRESPONSE._serialized_end=1250
+  _TASKCONTAINERTERMINATEREQUEST._serialized_start=1252
+  _TASKCONTAINERTERMINATEREQUEST._serialized_end=1322
+  _TASKCONTAINERTERMINATERESPONSE._serialized_start=1324
+  _TASKCONTAINERTERMINATERESPONSE._serialized_end=1356
+  _TASKCONTAINERWAITREQUEST._serialized_start=1358
+  _TASKCONTAINERWAITREQUEST._serialized_end=1440
+  _TASKCONTAINERWAITRESPONSE._serialized_start=1442
+  _TASKCONTAINERWAITRESPONSE._serialized_end=1514
+  _TASKEXECPOLLREQUEST._serialized_start=1516
+  _TASKEXECPOLLREQUEST._serialized_end=1571
+  _TASKEXECPOLLRESPONSE._serialized_start=1573
+  _TASKEXECPOLLRESPONSE._serialized_end=1644
+  _TASKEXECSTARTREQUEST._serialized_start=1647
+  _TASKEXECSTARTREQUEST._serialized_end=2186
+  _TASKEXECSTARTREQUEST_ENVENTRY._serialized_start=646
+  _TASKEXECSTARTREQUEST_ENVENTRY._serialized_end=688
+  _TASKEXECSTARTRESPONSE._serialized_start=2188
+  _TASKEXECSTARTRESPONSE._serialized_end=2211
+  _TASKEXECSTDINSTATUSREQUEST._serialized_start=2213
+  _TASKEXECSTDINSTATUSREQUEST._serialized_end=2275
+  _TASKEXECSTDINSTATUSRESPONSE._serialized_start=2277
+  _TASKEXECSTDINSTATUSRESPONSE._serialized_end=2349
+  _TASKEXECSTDINWRITEREQUEST._serialized_start=2351
+  _TASKEXECSTDINWRITEREQUEST._serialized_end=2455
+  _TASKEXECSTDINWRITERESPONSE._serialized_start=2457
+  _TASKEXECSTDINWRITERESPONSE._serialized_end=2485
+  _TASKEXECSTDINWRITESTREAMREQUEST._serialized_start=2488
+  _TASKEXECSTDINWRITESTREAMREQUEST._serialized_end=2623
+  _TASKEXECSTDINWRITESTREAMRESPONSE._serialized_start=2625
+  _TASKEXECSTDINWRITESTREAMRESPONSE._serialized_end=2659
+  _TASKEXECSTDINWRITESTREAMSTART._serialized_start=2661
+  _TASKEXECSTDINWRITESTREAMSTART._serialized_end=2742
+  _TASKEXECSTDIOREADREQUEST._serialized_start=2745
+  _TASKEXECSTDIOREADREQUEST._serialized_end=2902
+  _TASKEXECSTDIOREADRESPONSE._serialized_start=2904
+  _TASKEXECSTDIOREADRESPONSE._serialized_end=2945
+  _TASKEXECWAITREQUEST._serialized_start=2947
+  _TASKEXECWAITREQUEST._serialized_end=3002
+  _TASKEXECWAITRESPONSE._serialized_start=3004
+  _TASKEXECWAITRESPONSE._serialized_end=3075
+  _TASKMOUNTDIRECTORYREQUEST._serialized_start=3077
+  _TASKMOUNTDIRECTORYREQUEST._serialized_end=3153
+  _TASKSNAPSHOTDIRECTORYREQUEST._serialized_start=3155
+  _TASKSNAPSHOTDIRECTORYREQUEST._serialized_end=3279
+  _TASKSNAPSHOTDIRECTORYRESPONSE._serialized_start=3281
+  _TASKSNAPSHOTDIRECTORYRESPONSE._serialized_end=3330
+  _TASKSNAPSHOTFILESYSTEMREQUEST._serialized_start=3332
+  _TASKSNAPSHOTFILESYSTEMREQUEST._serialized_end=3443
+  _TASKSNAPSHOTFILESYSTEMRESPONSE._serialized_start=3445
+  _TASKSNAPSHOTFILESYSTEMRESPONSE._serialized_end=3495
+  _TASKUNMOUNTDIRECTORYREQUEST._serialized_start=3497
+  _TASKUNMOUNTDIRECTORYREQUEST._serialized_end=3557
+  _TASKCOMMANDROUTER._serialized_start=4020
+  _TASKCOMMANDROUTER._serialized_end=6349
 # @@protoc_insertion_point(module_scope)

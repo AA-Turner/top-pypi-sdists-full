@@ -761,7 +761,7 @@ class ApplicationRunner:
         # else:
         #     print("[DEBUG] Step 2: args is already a Namespace or has side_effect, skipping parse")
         # print(f"[DEBUG] Step 3: Checking conditions: args is {args} (type {type(args)})")
-        if args is not None and not args.exit and not args.monitor and not args.backtestdaysago:
+        if args is not None and not args.exit and not args.monitor and not args.backtestdaysago and not args.fname:
             # print("[DEBUG] Step 3: Condition met (not exit and not monitor and not backtestdaysago) - re-parsing from sys.argv")
             argsv = self.arg_parser.parse_known_args()
             args = argsv[0]

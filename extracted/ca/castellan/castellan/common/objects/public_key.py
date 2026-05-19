@@ -25,47 +25,35 @@ from castellan.common.objects import key
 class PublicKey(key.Key):
     """This class represents public keys."""
 
-    def __init__(self, algorithm, bit_length, key,
-                 name=None, created=None, id=None, consumers=[]):
-        """Create a new PublicKey object.
-
-        The arguments specify the algorithm and bit length for the asymmetric
-        encryption and the bytes for the key. The bytes should be in a
-        bytestring.
-        """
-        self._alg = algorithm
-        self._bit_length = bit_length
-        self._key = key
-        super().__init__(name=name, created=created, id=id,
-                         consumers=consumers)
-
     @classmethod
-    def managed_type(cls):
+    def managed_type(cls) -> str:
         return "public"
 
     @property
-    def algorithm(self):
+    def algorithm(self) -> str:
         return self._alg
 
     @property
-    def format(self):
+    def format(self) -> str:
         return "SubjectPublicKeyInfo"
 
-    def get_encoded(self):
+    def get_encoded(self) -> bytes | None:
         return self._key
 
     @property
-    def bit_length(self):
+    def bit_length(self) -> int:
         return self._bit_length
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, PublicKey):
-            return (self._alg == other._alg and
-                    self._bit_length == other._bit_length and
-                    self._key == other._key)
+            return (
+                self._alg == other._alg
+                and self._bit_length == other._bit_length
+                and self._key == other._key
+            )
         else:
             return False
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         result = self.__eq__(other)
         return not result

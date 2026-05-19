@@ -11,11 +11,13 @@
 # under the License.
 
 import os
+from unittest import mock
 
 from oslotest import base
 from requests import HTTPError
 import requests_mock
 import testtools
+from typing import Any, TypedDict
 
 from oslo_config import _list_opts
 from oslo_config import cfg
@@ -37,7 +39,7 @@ class TestProcessingSources(base.BaseTestCase):
         self.conf_fixture = self.useFixture(fixture.Config(self.conf))
 
     def test_no_sources_default(self):
-        with base.mock.patch.object(
+        with mock.patch.object(
             self.conf, '_open_source_from_opt_group'
         ) as open_source:
             open_source.side_effect = AssertionError('should not be called')
@@ -47,7 +49,7 @@ class TestProcessingSources(base.BaseTestCase):
         self.conf_fixture.config(
             config_source=[],
         )
-        with base.mock.patch.object(
+        with mock.patch.object(
             self.conf, '_open_source_from_opt_group'
         ) as open_source:
             open_source.side_effect = AssertionError('should not be called')
@@ -57,7 +59,7 @@ class TestProcessingSources(base.BaseTestCase):
         self.conf_fixture.config(
             config_source=['missing_source'],
         )
-        with base.mock.patch.object(
+        with mock.patch.object(
             self.conf, '_open_source_from_opt_group'
         ) as open_source:
             self.conf([])
@@ -67,14 +69,14 @@ class TestProcessingSources(base.BaseTestCase):
         self.conf_fixture.config(
             config_source=['source1', 'source2'],
         )
-        with base.mock.patch.object(
+        with mock.patch.object(
             self.conf, '_open_source_from_opt_group'
         ) as open_source:
             self.conf([])
             open_source.assert_has_calls(
                 [
-                    base.mock.call('source1'),
-                    base.mock.call('source2'),
+                    mock.call('source1'),
+                    mock.call('source2'),
                 ]
             )
 
@@ -187,7 +189,12 @@ def make_uri(name):
     return f"https://oslo.config/{name}.conf"
 
 
-_extra_configs = {
+class ExtraConfig(TypedDict):
+    name: str
+    data: dict[str, dict[str, tuple[type[cfg.Opt], Any]]]
+
+
+_extra_configs: dict[str, ExtraConfig] = {
     make_uri("types"): {
         "name": "types",
         "data": {
@@ -282,7 +289,7 @@ class URISourceTestCase(base.BaseTestCase):
             "bar", source.get("DEFAULT", "foo", cfg.StrOpt("foo"))[0]
         )
 
-    @base.mock.patch(
+    @mock.patch(
         "oslo_config.sources._uri.URIConfigurationSource._fetch_uri",
         side_effect=opts_to_ini,
     )
@@ -320,7 +327,7 @@ class URISourceTestCase(base.BaseTestCase):
                     v, self.conf[g][o] if g != "DEFAULT" else self.conf[o]
                 )
 
-    @base.mock.patch(
+    @mock.patch(
         "oslo_config.sources._uri.URIConfigurationSource._fetch_uri",
         side_effect=opts_to_ini,
     )
@@ -354,6 +361,7 @@ class URISourceTestCase(base.BaseTestCase):
                     break
 
         self.assertIsNotNone(discovered_group)
+        assert discovered_group is not None
 
         self.assertEqual(
             _uri.URIConfigurationSourceDriver().list_options_for_discovery(),

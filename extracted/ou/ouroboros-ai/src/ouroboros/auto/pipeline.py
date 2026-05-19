@@ -15,11 +15,13 @@ from ouroboros.auto.adapters import EvaluateResult, LateralResult
 from ouroboros.auto.answerer import AutoAnswerer
 from ouroboros.auto.blocker_attribution import record_authoring_backend
 from ouroboros.auto.domain_profile import DEFAULT_REGISTRY
+from ouroboros.auto.execution_acceptance import normalize_execution_acceptance
 from ouroboros.auto.grading import GradeGate, deterministic_floor
 from ouroboros.auto.handoff_contract import (
     IDEMPOTENCY_KEY_FIELD,
     IDEMPOTENCY_KWARG_NAME,
     RETRY_GUIDANCE_PHRASE,
+    RUN_HANDOFF_STARTED_STATUS,
     UNKNOWN_HANDOFF_STATUSES,
     UNKNOWN_NO_HANDLE_STATUS,
     UNKNOWN_TIMEOUT_STATUS,
@@ -175,6 +177,9 @@ class AutoPipelineResult:
     execution_id: str | None = None
     job_id: str | None = None
     run_session_id: str | None = None
+    execution_job_status: str | None = None
+    execution_job_error: str | None = None
+    execution_job_message: str | None = None
     run_subagent: dict[str, Any] | None = None
     current_round: int = 0
     pending_question: str | None = None
@@ -546,6 +551,7 @@ class AutoPipeline:
                     )
                     self._save(state)
                     return self._result(state, ledger, blocker=state.last_error)
+                seed = self._normalize_execution_seed(state, seed)
                 state.transition(AutoPhase.REVIEW, "resuming review from persisted Seed")
                 self._save(state)
             else:
@@ -578,6 +584,7 @@ class AutoPipeline:
                                 ),
                             }
                         )
+                    seed = normalize_execution_acceptance(seed)
                     state.seed_id = seed.metadata.seed_id
                     state.seed_artifact = seed.to_dict()
                     state.seed_origin = SeedOrigin.AUTO_PIPELINE
@@ -625,6 +632,7 @@ class AutoPipeline:
                 )
                 self._save(state)
                 return self._result(state, ledger, blocker=state.last_error)
+            seed = self._normalize_execution_seed(state, seed)
         elif self.seed_loader is not None and state.seed_path:
             seed = self._load_seed(state, state.seed_path)
             if seed is None:
@@ -742,6 +750,7 @@ class AutoPipeline:
                     asyncio.to_thread(repairer.converge, seed, **converge_kwargs),
                     timeout=bounded_repair_timeout,
                 )
+                seed = normalize_execution_acceptance(seed)
             except TimeoutError:
                 cancel_event.set()
                 if self._enforce_deadline(state):
@@ -753,6 +762,7 @@ class AutoPipeline:
                 self._save(state)
                 return self._result(state, ledger, blocker=state.last_error)
             state.seed_artifact = seed.to_dict()
+            state.seed_id = seed.metadata.seed_id
             state.repair_round = len(repairs)
             state.last_grade = review.grade_result.grade.value
             state.findings = [asdict(finding) for finding in review.findings]
@@ -804,7 +814,7 @@ class AutoPipeline:
                 blocker = transient_blocker or state.last_error
                 return self._result(state, ledger, review=review, blocker=blocker)
             if any((state.job_id, state.execution_id, state.run_session_id)):
-                state.run_handoff_status = "started"
+                state.run_handoff_status = RUN_HANDOFF_STARTED_STATUS
                 state.run_handoff_guidance = None
                 # Q00/ouroboros#773 (review-5 finding 2): honor the durable
                 # ``complete_product`` intent on RUN resume. Without this
@@ -1013,7 +1023,7 @@ class AutoPipeline:
                 )
                 state.run_subagent = run_subagent or {}
                 if any((state.job_id, state.execution_id, state.run_session_id)):
-                    state.run_handoff_status = "started"
+                    state.run_handoff_status = RUN_HANDOFF_STARTED_STATUS
                     state.run_handoff_guidance = None
                     # Q00/ouroboros#773: when ``--complete-product`` is set
                     # and a ralph starter is configured, chain RUN →
@@ -2157,7 +2167,7 @@ class AutoPipeline:
             return await self._poll_ralph_job(state, ledger, seed, review=review)
 
         if not state.ralph_job_id and state.ralph_lineage_id and self.ralph_starter is not None:
-            seed = Seed.from_dict(state.seed_artifact)
+            seed = self._normalize_execution_seed(state, Seed.from_dict(state.seed_artifact))
             return await self._handoff_to_ralph(
                 state,
                 ledger,
@@ -2442,6 +2452,15 @@ class AutoPipeline:
         self._save(state)
         return True
 
+    def _normalize_execution_seed(
+        self, state: AutoPipelineState, seed: Seed, *, persist: bool = True
+    ) -> Seed:
+        normalized = normalize_execution_acceptance(seed)
+        if normalized is not seed and persist:
+            state.seed_artifact = normalized.to_dict()
+            self._save(state)
+        return normalized
+
     def _load_seed(self, state: AutoPipelineState, seed_path: str) -> Seed | None:
         if self.seed_loader is None:
             state.mark_failed("seed loader is not configured", tool_name="seed_loader")
@@ -2469,6 +2488,9 @@ class AutoPipeline:
         # resumed sessions. Existing non-default values are preserved.
         if state.seed_origin is SeedOrigin.NONE:
             state.seed_origin = SeedOrigin.AUTO_PIPELINE
+        seed = self._normalize_execution_seed(state, seed, persist=False)
+        state.seed_id = seed.metadata.seed_id
+        state.seed_artifact = seed.to_dict()
         return seed
 
     def _result(

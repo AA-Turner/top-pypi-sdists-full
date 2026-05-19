@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opendataloader-pdf
-Version: 2.4.3
+Version: 2.4.4
 Summary: A Python wrapper for the opendataloader-pdf Java CLI.
 Project-URL: Homepage, https://github.com/opendataloader-project/opendataloader-pdf
 Author-email: opendataloader-project <open.dataloader@hancom.com>
@@ -11,7 +11,7 @@ Requires-Python: >=3.10
 Provides-Extra: hybrid
 Requires-Dist: docling[easyocr]>=2.91.0; extra == 'hybrid'
 Requires-Dist: fastapi>=0.136.1; extra == 'hybrid'
-Requires-Dist: python-multipart>=0.0.26; extra == 'hybrid'
+Requires-Dist: python-multipart>=0.0.28; extra == 'hybrid'
 Requires-Dist: uvicorn>=0.46.0; extra == 'hybrid'
 Description-Content-Type: text/markdown
 
@@ -344,6 +344,8 @@ Combine formats: `format="json,markdown"`
 ### Tagged PDF Support
 
 When a PDF has structure tags, OpenDataLoader extracts the **exact layout** the author intended — no guessing, no heuristics. Headings, lists, tables, and reading order are preserved from the source.
+
+> **Output quality depends on tag quality.** Not all tagged PDFs are well-tagged. For PDFs with sparse or incorrect tags, the default heuristic mode or `--hybrid docling-fast` often produces better results.
 
 ```python
 # Batch all files in one call — each convert() spawns a JVM process, so repeated calls are slow

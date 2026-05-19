@@ -123,7 +123,71 @@ impl Rule for MD049EmphasisStyle {
 
         // Filter out emphasis markers that are inside links or MkDocs markup
         let lines = ctx.raw_lines();
+        // Math byte ranges, computed once for the whole document. The
+        // line-level `skip_math_blocks` filter drops whole math-only lines,
+        // but a line that mixes a display span with lintable prose (e.g.
+        // `$$ _x_ $$ $$ _y_ $$`) stays lintable so trailing prose is checked;
+        // this byte-level guard then exempts only the underscores that fall
+        // inside the line-start `$$...$$` span, matching MD037/MD050.
+        // `math_byte_ranges` has no code-block awareness, so a `$$` inside a
+        // fenced code block would wrongly open a span that swallows real
+        // prose up to the next `$$`. Neutralize `$` bytes inside code-block
+        // ranges first (replacing only the ASCII `$` keeps every byte offset
+        // and UTF-8 validity intact) so the byte model agrees with the
+        // code-block-aware line-level math map.
+        // Sort and merge so membership is a binary search rather than a
+        // per-span linear scan: a math-heavy document (many `$x$` spans
+        // alternating with emphasis) would otherwise be O(spans x ranges).
+        // Ranges may overlap (e.g. a `$b$` inside a `$$...$$` block), so the
+        // merge collapses them into disjoint, ascending intervals.
+        let math_ranges: Vec<(usize, usize)> = {
+            // A `$` inside fenced code or an inline code span is never a math
+            // delimiter, but `math_byte_ranges` does not know that. Neutralize
+            // those `$` first so the byte model agrees with the code-block-
+            // aware line-level math map and inline code cannot synthesize a
+            // span around real emphasis.
+            let code_spans = ctx.code_spans();
+            let math_source: std::borrow::Cow<'_, str> = if ctx.code_blocks.is_empty() && code_spans.is_empty() {
+                std::borrow::Cow::Borrowed(ctx.content)
+            } else {
+                let mut bytes = ctx.content.as_bytes().to_vec();
+                let len = bytes.len();
+                let mut mask = |start: usize, end: usize| {
+                    for b in &mut bytes[start.min(len)..end.min(len)] {
+                        if *b == b'$' {
+                            *b = b' ';
+                        }
+                    }
+                };
+                for &(start, end) in &ctx.code_blocks {
+                    mask(start, end);
+                }
+                for span in code_spans.iter() {
+                    mask(span.byte_offset, span.byte_end);
+                }
+                // Only ASCII `$` was replaced with ASCII space, so the
+                // buffer is still valid UTF-8 and the same length.
+                std::borrow::Cow::Owned(String::from_utf8(bytes).expect("ASCII-only substitution"))
+            };
+            let mut r = crate::utils::skip_context::math_byte_ranges(&math_source);
+            r.sort_unstable_by_key(|&(start, _)| start);
+            let mut merged: Vec<(usize, usize)> = Vec::with_capacity(r.len());
+            for (start, end) in r {
+                match merged.last_mut() {
+                    Some(last) if start <= last.1 => last.1 = last.1.max(end),
+                    _ => merged.push((start, end)),
+                }
+            }
+            merged
+        };
         emphasis_info.retain(|(line_num, col, abs_pos, _, _)| {
+            // Skip emphasis inside math. `math_ranges` is disjoint and sorted
+            // by start, so the only interval that can contain `abs_pos` is
+            // the last one whose start is <= `abs_pos`.
+            let idx = math_ranges.partition_point(|&(start, _)| start <= *abs_pos);
+            if idx > 0 && *abs_pos < math_ranges[idx - 1].1 {
+                return false;
+            }
             // Skip emphasis inside Obsidian comments
             if ctx.is_in_obsidian_comment(*abs_pos) {
                 return false;

@@ -8,32 +8,15 @@ import typing_extensions
 def _sandbox_logs_iterator(
     sandbox_id: str, file_descriptor: int, last_entry_id: str, client: modal.client._Client
 ) -> collections.abc.AsyncGenerator[tuple[typing.Optional[bytes], str], None]: ...
-def _container_process_logs_iterator(
-    process_id: str,
-    file_descriptor: int,
-    client: modal.client._Client,
-    last_index: int,
-    deadline: typing.Optional[float] = None,
-) -> collections.abc.AsyncGenerator[tuple[typing.Optional[bytes], int], None]: ...
 
 T = typing.TypeVar("T")
 
 class _StreamReaderThroughServer(typing.Generic[T]):
-    """A StreamReader implementation that reads from the server."""
+    """A StreamReader implementation that reads sandbox logs from the server."""
 
     _stream: typing.Optional[collections.abc.AsyncGenerator[T, None]]
 
-    def __init__(
-        self,
-        file_descriptor: int,
-        object_id: str,
-        object_type: typing.Literal["sandbox", "container_process"],
-        client: modal.client._Client,
-        stream_type: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
-        text: bool = True,
-        by_line: bool = False,
-        deadline: typing.Optional[float] = None,
-    ) -> None:
+    def __init__(self, params: _StreamReaderThroughServerParams, text: bool = True, by_line: bool = False) -> None:
         """mdmd:hidden"""
         ...
 
@@ -46,16 +29,8 @@ class _StreamReaderThroughServer(typing.Generic[T]):
         """Fetch the entire contents of the stream until EOF."""
         ...
 
-    async def _consume_container_process_stream(self):
-        """Consume the container process stream and store messages in the buffer."""
-        ...
-
-    def _stream_container_process(self) -> collections.abc.AsyncGenerator[tuple[typing.Optional[bytes], str], None]:
-        """Streams the container process buffer to the reader."""
-        ...
-
     def _get_logs(self, skip_empty_messages: bool = True) -> collections.abc.AsyncGenerator[bytes, None]:
-        """Streams sandbox or process logs from the server to the reader.
+        """Streams sandbox logs from the server to the reader.
 
         Logs returned by this method may contain partial or multiple lines at a time.
 
@@ -92,8 +67,41 @@ def _stream_by_line(stream: collections.abc.AsyncGenerator[bytes, None]) -> coll
     """
     ...
 
+class _StreamReaderThroughServerParams:
+    """Parameters for a ``_StreamReader`` that reads sandbox logs through the server."""
+
+    file_descriptor: int
+    object_id: str
+    client: modal.client._Client
+
+    def __init__(self, file_descriptor: int, object_id: str, client: modal.client._Client) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
 class _StreamReaderThroughCommandRouterParams:
-    """_StreamReaderThroughCommandRouterParams(file_descriptor: 'api_pb2.FileDescriptor.ValueType', task_id: str, object_id: str, command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient, deadline: Optional[float])"""
+    """Parameters for a ``_StreamReader`` that reads container-process stdio
+    directly from the worker via the task command router.
+    """
 
     file_descriptor: int
     task_id: str
@@ -118,6 +126,18 @@ class _StreamReaderThroughCommandRouterParams:
 
     def __eq__(self, other):
         """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
         ...
 
 def _stdio_stream_from_command_router(
@@ -215,16 +235,11 @@ class _StreamReader(typing.Generic[T]):
 
     def __init__(
         self,
-        file_descriptor: int,
-        object_id: str,
-        object_type: typing.Literal["sandbox", "container_process"],
-        client: modal.client._Client,
+        params: typing.Union[_StreamReaderThroughServerParams, _StreamReaderThroughCommandRouterParams],
+        *,
         stream_type: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         text: bool = True,
         by_line: bool = False,
-        deadline: typing.Optional[float] = None,
-        command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient] = None,
-        task_id: typing.Optional[str] = None,
     ) -> None:
         """mdmd:hidden"""
         ...
@@ -251,11 +266,77 @@ class _StreamReader(typing.Generic[T]):
         """mdmd:hidden"""
         ...
 
-class _StreamWriterThroughServer:
-    """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
+class _StreamWriterThroughServerParams:
+    """Parameters for a ``_StreamWriter`` that writes sandbox stdin through the server."""
+
+    object_id: str
+    client: modal.client._Client
+
+    def __init__(self, object_id: str, client: modal.client._Client) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
+class _StreamWriterThroughCommandRouterParams:
+    """Parameters for a ``_StreamWriter`` that writes container-process stdin
+    directly to the worker via the task command router.
+    """
+
+    task_id: str
+    object_id: str
+    command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient
+
     def __init__(
-        self, object_id: str, object_type: typing.Literal["sandbox", "container_process"], client: modal.client._Client
+        self,
+        task_id: str,
+        object_id: str,
+        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
     ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
+class _StreamWriterThroughServer:
+    """Provides an interface to buffer and write to a sandbox stream (`stdin`) via the server."""
+    def __init__(self, params: _StreamWriterThroughServerParams) -> None:
         """mdmd:hidden"""
         ...
 
@@ -286,12 +367,7 @@ class _StreamWriterThroughServer:
         ...
 
 class _StreamWriterThroughCommandRouter:
-    def __init__(
-        self,
-        object_id: str,
-        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
-        task_id: str,
-    ) -> None:
+    def __init__(self, params: _StreamWriterThroughCommandRouterParams) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -302,12 +378,7 @@ class _StreamWriterThroughCommandRouter:
 class _StreamWriter:
     """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
     def __init__(
-        self,
-        object_id: str,
-        object_type: typing.Literal["sandbox", "container_process"],
-        client: modal.client._Client,
-        command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient] = None,
-        task_id: typing.Optional[str] = None,
+        self, params: typing.Union[_StreamWriterThroughServerParams, _StreamWriterThroughCommandRouterParams]
     ) -> None:
         """mdmd:hidden"""
         ...
@@ -384,16 +455,11 @@ class StreamReader(typing.Generic[T]):
 
     def __init__(
         self,
-        file_descriptor: int,
-        object_id: str,
-        object_type: typing.Literal["sandbox", "container_process"],
-        client: modal.client.Client,
+        params: typing.Union[_StreamReaderThroughServerParams, _StreamReaderThroughCommandRouterParams],
+        *,
         stream_type: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         text: bool = True,
         by_line: bool = False,
-        deadline: typing.Optional[float] = None,
-        command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient] = None,
-        task_id: typing.Optional[str] = None,
     ) -> None:
         """mdmd:hidden"""
         ...
@@ -443,12 +509,7 @@ class StreamReader(typing.Generic[T]):
 class StreamWriter:
     """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
     def __init__(
-        self,
-        object_id: str,
-        object_type: typing.Literal["sandbox", "container_process"],
-        client: modal.client.Client,
-        command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient] = None,
-        task_id: typing.Optional[str] = None,
+        self, params: typing.Union[_StreamWriterThroughServerParams, _StreamWriterThroughCommandRouterParams]
     ) -> None:
         """mdmd:hidden"""
         ...

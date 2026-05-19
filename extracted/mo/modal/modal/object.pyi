@@ -24,7 +24,7 @@ class Object:
         ]
     ]
     _rep: str
-    _is_another_app: bool
+    _skip_reload: bool
     _hydrate_lazily: bool
     _deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]]
     _deduplication_key: typing.Optional[
@@ -60,7 +60,6 @@ class Object:
                     None,
                 ]
             ] = None,
-            is_another_app: bool = False,
             preload: typing.Optional[
                 collections.abc.Callable[
                     [
@@ -73,6 +72,7 @@ class Object:
                 ]
             ] = None,
             hydrate_lazily: bool = False,
+            skip_reload: bool = False,
             deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
             deduplication_key: typing.Optional[collections.abc.Callable[[], collections.abc.Hashable]] = None,
             name: typing.Optional[str] = None,
@@ -94,7 +94,6 @@ class Object:
                     collections.abc.Awaitable[None],
                 ]
             ] = None,
-            is_another_app: bool = False,
             preload: typing.Optional[
                 collections.abc.Callable[
                     [
@@ -107,6 +106,7 @@ class Object:
                 ]
             ] = None,
             hydrate_lazily: bool = False,
+            skip_reload: bool = False,
             deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
             deduplication_key: typing.Optional[
                 collections.abc.Callable[[], collections.abc.Awaitable[collections.abc.Hashable]]
@@ -148,7 +148,7 @@ class Object:
                 None,
             ],
             rep: str,
-            is_another_app: bool = False,
+            skip_reload: bool = False,
             preload: typing.Optional[
                 collections.abc.Callable[
                     [
@@ -180,7 +180,7 @@ class Object:
                 collections.abc.Awaitable[None],
             ],
             rep: str,
-            is_another_app: bool = False,
+            skip_reload: bool = False,
             preload: typing.Optional[
                 collections.abc.Callable[
                     [
@@ -216,7 +216,7 @@ class Object:
         object_id: str,
         client: modal.client.Client,
         handle_metadata: typing.Optional[google.protobuf.message.Message],
-        is_another_app: bool = False,
+        skip_reload: bool = False,
         rep: typing.Optional[str] = None,
     ) -> typing_extensions.Self: ...
     def _hydrate_from_other(self, other: typing_extensions.Self): ...

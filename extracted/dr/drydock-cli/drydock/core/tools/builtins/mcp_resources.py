@@ -68,7 +68,8 @@ class ListMcpResources(
         try:
             if ctx and hasattr(ctx, 'agent_manager') and ctx.agent_manager:
                 config = ctx.agent_manager.config
-                servers = config.mcp_servers or []
+                servers = [s for s in (config.mcp_servers or [])
+                           if getattr(s, "enabled", True)]
 
                 from drydock.core.tools.mcp.tools import (
                     list_resources_http, list_resources_stdio,
@@ -87,7 +88,7 @@ class ListMcpResources(
                         ))
                     elif isinstance(srv, MCPStdio):
                         tasks.append(list_resources_stdio(
-                            srv.command,
+                            srv.argv(),
                             env=srv.env,
                             startup_timeout_sec=srv.startup_timeout_sec,
                         ))
@@ -149,11 +150,12 @@ class ReadMcpResource(
             raise ToolError("No agent manager available for MCP resource reading")
 
         config = ctx.agent_manager.config
-        servers = config.mcp_servers or []
+        servers = [s for s in (config.mcp_servers or [])
+                   if getattr(s, "enabled", True)]
 
         if not servers:
             raise ToolError(
-                "No MCP servers configured. "
+                "No MCP servers configured (or all are disabled). "
                 "For local files use read_file; for shell commands use bash."
             )
 
@@ -174,7 +176,7 @@ class ReadMcpResource(
                     )
                 elif isinstance(srv, MCPStdio):
                     content = await read_resource_stdio(
-                        srv.command, args.uri,
+                        srv.argv(), args.uri,
                         env=srv.env,
                         startup_timeout_sec=srv.startup_timeout_sec,
                     )

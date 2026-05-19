@@ -19,15 +19,9 @@ MAKEFLAGS += --no-builtin-rules
 VERSION:=$(shell grep "Version:" patoolib/configuration.py | cut -d '"' -f2)
 AUTHOR:=$(shell grep "MyName:" patoolib/configuration.py | cut -d '"' -f2)
 APPNAME:=$(shell grep "AppName:" patoolib/configuration.py | cut -d '"' -f2)
-ARCHIVE_SOURCE:=$(APPNAME)-$(VERSION).tar.gz
-ARCHIVE_WHEEL:=$(APPNAME)-$(VERSION)-py2.py3-none-any.whl
-GITRELEASETAG:=$(VERSION)
-GITUSER:=wummel
-GITREPO:=$(APPNAME)
-HOMEPAGE:=$(HOME)/public_html/patool-webpage.git
-WEBMETA:=doc/web/source/conf.py
-CHANGELOG:=doc/changelog.txt
-GIT_MAIN_BRANCH:=master
+
+# exclude packages that are newer than this
+EXCLUDE_NEWER:="7 days"
 # Pytest options:
 # -s: do not capture stdout/stderr (some tests fail otherwise)
 # --full-trace: print full stacktrace on keyboard interrupts
@@ -40,6 +34,17 @@ TESTS ?= tests/
 TESTOPTS=
 # python files and directories
 PY_FILES_DIRS:=setup.py patoolib tests doc/web/source
+
+# Release configuration
+ARCHIVE_SOURCE:=$(APPNAME)-$(VERSION).tar.gz
+ARCHIVE_WHEEL:=$(APPNAME)-$(VERSION)-py2.py3-none-any.whl
+GITRELEASETAG:=$(VERSION)
+GITUSER:=wummel
+GITREPO:=$(APPNAME)
+HOMEPAGE:=$(HOME)/public_html/patool-webpage.git
+WEBMETA:=doc/web/source/conf.py
+CHANGELOG:=doc/changelog.txt
+GIT_MAIN_BRANCH:=main
 
 ############ Default target ############
 
@@ -147,7 +152,11 @@ github-issues: ## close github issues mentioned in changelog
 
 ############ Versioning ############
 
-bumpversion-%: ## shortcut target for bumpversion: bumpversion-{major,minor,patch}
+bumpversion-major: _bumpversion-major	## bump major version
+bumpversion-minor: _bumpversion-minor	## bump minor version
+bumpversion-patch: _bumpversion-patch	## bump patch version
+
+_bumpversion-%:	## shortcut target for bumpversion
 	bumpversion $*
 	$(MAKE) bumpchangelog
 
@@ -178,8 +187,8 @@ lint: ## lint python code
 
 .PHONY: audit
 audit: ## run audit checks
-	zizmor --config .zizmor.yml .github/workflows/python-package.yml
-	pip-audit
+	zizmor --pedantic .github/workflows/python-package.yml
+	uv audit
 
 .PHONY: reformat
 reformat: ## format the python code
@@ -190,16 +199,10 @@ reformat: ## format the python code
 checkoutdated: checkoutdated-py checkoutdated-gh
 
 checkoutdated-py:	## Check for outdated package requirements
-# Assumes all packages in requirements have pinned versions with "==".
-# Compare the output of "uv pip list" (the current versions) with the result of "uv pip compile" (available versions).
-# Then filter only for upgrades of direct dependencies with grep.
-# When grep does not find any match, all direct dependencies are uptodate.
-# In this case, grep exits with exitcode 1. Test for this after running grep.
-	@set +e; \
-	echo "Check for outdated Python packages"; \
-	uv pip list --format=freeze |sed 's/==.*//' | uv pip compile - --color=never --quiet --no-deps --no-header --no-annotate |diff <(uv pip list --format=freeze) - --side-by-side --suppress-common-lines | \
-	grep -iE "($(shell grep == pyproject.toml  | cut -f1 -d= | tr -d "\"\' "| sed -e 's/\[.*\]//' |sort | paste -sd '|'))"; \
-	test $$? = 1
+	puc \
+	  --exclude-newer $(EXCLUDE_NEWER) \
+	  --exclude-newer-package "python-update-checker=1 minute" \
+	  check pyproject.toml uv.lock
 
 checkoutdated-gh:	## check for outdated github projects
 # github-check-outdated is a local tool which compares a given version with the latest available github release version
@@ -216,23 +219,27 @@ upgradeoutdated:	upgradeoutdated-gh upgradeoutdated-py
 upgradeoutdated-gh:
 	sed -i -e 's/uv_version_dev = ".*"/uv_version_dev = "$(shell github-check-outdated astral-sh uv 0 | cut -f4 -d" ")"/' pyproject.toml
 	sed -i -e 's/ version: ".*"/ version: "$(shell github-check-outdated astral-sh uv 0 | cut -f4 -d" ")"/' .github/workflows/python-package.yml
+	sed -i -e 's/python_version_dev = ".*"/python_version_dev = "$(shell github-check-outdated python cpython 0 '^v3\.14\.[0-9]+$$' | cut -f4 -d" " | cut -b2-)"/' pyproject.toml
+	scripts/install_dev.sh
 
 .PHONY: upgradeoutdated-py
-upgradeoutdated-py:	## upgrade dependencies in uv.lock
-	uv lock --upgrade
+upgradeoutdated-py:	## upgrade dependencies in pyproject.toml and uv.lock
+	puc \
+	  --exclude-newer $(EXCLUDE_NEWER) \
+	  --exclude-newer-package "python-update-checker=1 minute" \
+	  update pyproject.toml
+	uv lock \
+	  --exclude-newer $(EXCLUDE_NEWER) \
+	  --exclude-newer-package "python-update-checker=1 minute" \
+	  --upgrade
+	$(MAKE) init
 
 
 ############ Testing ############
 
 .PHONY: test
 test: ## run tests
-	uv run pytest $(PYTESTOPTS) $(TESTOPTS) $(TESTS)
-
-# Needs https://nektosact.com/ and docker
-# Uses https://github.com/catthehacker/docker_images
-.PHONY: test-github
-test-github: ## run github workflow actions
-	act -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest --matrix os:ubuntu-latest
+	uv run --isolated -- pytest $(PYTESTOPTS) $(TESTOPTS) $(TESTS)
 
 .PHONY: typecheck
 typecheck:	## run the ty type checker

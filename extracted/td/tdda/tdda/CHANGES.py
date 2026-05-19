@@ -913,9 +913,39 @@ Add DB data initialization files to setup.py
 3.03.2025 2.2.15
 Avoid extra DB open in SQLite3 tests
 
-4.03.2025 2.2.16
-Removed feather and pmmif
+---------------------------- dev -------------------------------
+Added state.py with global params and ability to turn off
+during testing.
 
-5.03.2025 2.2.17
-Add rexutils.py; tweak utils.py.
+Changed everything (currently using TDDAParams) to use StateParams
+instead.
+
+Removed feather tests; replaced with "equivalent" parquet tests.
+
+Started tests for discover reporting.
+
+Changed parquet load to use nullable types by default.
+
+Added grouping to regular expressions.
+
+Removed all feather and pmmif code except in the testexamples,
+where they should be replaced with parquet.
+
+Also added Makefile with entry to build coverage report.
+
+Tables --- discover html, text, and markdown tables for now.
+Includes multimarkdown or GitHub
+
+Change constraint back ends to use filter_out_nulls.
+(Previously, back ends supplied values to ignore in allowed_values,
+which doesn't really work with Pandas and doesn't feel altogether
+safe.)
+
+Database detect starting to work
+
+Refactored config and state.
+
+Database detection appears to be fully working (though more
+to test and write tests for).
+----------------------- end of dev -----------------------------
 """

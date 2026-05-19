@@ -15,7 +15,11 @@ limitations under the License.
 """
 from __future__ import annotations
 
-from typing import Any, Iterable, Optional, Tuple
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from cvxpy.expressions.constants.parameter import Parameter
 
 import scipy.sparse as sp
 
@@ -24,10 +28,20 @@ from cvxpy import settings as s
 from cvxpy.constraints.constraint import Constraint
 from cvxpy.expressions.expression import Expression
 from cvxpy.expressions.leaf import Leaf
+from cvxpy.utilities import scopes
 
 
 class Variable(Leaf):
-    """The optimization variables in a problem."""
+    """The optimization variables in a problem.
+
+    Attributes
+    ----------
+    sample_bounds : tuple[np.ndarray, np.ndarray] | None
+        Explicit bounds ``(low, high)`` for random initial point sampling in
+        ``best_of`` NLP solves.  When set, overrides the variable's ``value``
+        during random initialization.  When ``None`` and finite ``bounds`` are
+        present, those are used instead.
+    """
 
     def __init__(
         self, shape: int | Iterable[int] = (), name: str | None = None,
@@ -44,10 +58,10 @@ class Variable(Leaf):
         else:
             raise TypeError("Variable name %s must be a string." % name)
 
-        self._variable_with_attributes: Variable | None = None
         self._value = None
         self.delta = None
         self.gradient = None
+        self.sample_bounds = None
         super(Variable, self).__init__(shape, **kwargs)
 
     def name(self) -> str:
@@ -58,7 +72,7 @@ class Variable(Leaf):
         return False
 
     @property
-    def grad(self) -> Optional[dict[Variable, sp.csc_array]]:
+    def grad(self) -> dict[Variable, sp.csc_array] | None:
         """Gives the (sub/super)gradient of the expression w.r.t. each variable.
 
         Matrix expressions are vectorized, so the gradient is a matrix.
@@ -70,22 +84,47 @@ class Variable(Leaf):
         """Returns itself as a variable."""
         return [self]
 
-    def canonicalize(self) -> Tuple[Expression, list[Constraint]]:
+    def parameters(self) -> list[Parameter]:
+        """Returns parameters present in expression bounds, if any."""
+        params = []
+        if self.attributes.get('bounds') is not None:
+            for b in self.attributes['bounds']:
+                if isinstance(b, Expression):
+                    params.extend(b.parameters())
+        return params
+
+    def is_dcp(self, dpp: bool = False) -> bool:
+        """Check DCP compliance, including parameter-affine bounds."""
+        if dpp and self.attributes.get('bounds') is not None:
+            with scopes.dpp_scope():
+                for b in self.attributes['bounds']:
+                    if isinstance(b, Expression) and not b.is_affine():
+                        return False
+        return True
+
+    def is_dgp(self, dpp: bool = False) -> bool:
+        """Check DGP compliance, including log-log-affine bounds."""
+        if dpp and self.attributes.get('bounds') is not None:
+            with scopes.dpp_scope():
+                for b in self.attributes['bounds']:
+                    if isinstance(b, Expression) and not b.is_log_log_affine():
+                        return False
+        # Use base class logic: check log-log convexity/concavity
+        return self.is_log_log_convex() or self.is_log_log_concave()
+
+    def is_dpp(self, context: str = 'dcp') -> bool:
+        """Check that the variable is DPP in the given context."""
+        if context == 'dcp':
+            return self.is_dcp(dpp=True)
+        elif context == 'dgp':
+            return self.is_dgp(dpp=True)
+        else:
+            raise ValueError(f'Unsupported context {context}')
+
+    def canonicalize(self) -> tuple[Expression, list[Constraint]]:
         """Returns the graph implementation of the object."""
         obj = lu.create_var(self.shape, self.id)
         return (obj, [])
-
-    def attributes_were_lowered(self) -> bool:
-        """True iff variable generated when lowering a variable with attributes."""
-        return self._variable_with_attributes is not None
-
-    def set_variable_of_provenance(self, variable: Variable) -> None:
-        assert variable.attributes
-        self._variable_with_attributes = variable
-
-    def variable_of_provenance(self) -> Optional[Variable]:
-        """Returns a variable with attributes from which this variable was generated."""
-        return self._variable_with_attributes
 
     def __repr__(self) -> str:
         """String to recreate the variable."""

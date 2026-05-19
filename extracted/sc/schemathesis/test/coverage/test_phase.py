@@ -21,6 +21,7 @@ from schemathesis.config._projects import ProjectConfig
 from schemathesis.core import NOT_SET
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData
+from schemathesis.core.jsonschema import make_validator_for
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.core.result import Ok
 from schemathesis.generation import GenerationMode
@@ -3256,6 +3257,63 @@ def test_additional_properties_without_type_positive(ctx):
     )
 
 
+def test_items_without_type_positive(ctx):
+    # Swagger 2.0 schemas commonly omit `type: array` on properties carrying only `items`
+    # (clearblade.com et al.). Without an array-typed positive case, the items sub-schema
+    # never gets a valid value and referenced definitions stay uncovered.
+    loaded = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "change": {
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "add": {"type": "string"},
+                                        "remove": {"type": "string"},
+                                    },
+                                }
+                            }
+                        },
+                    }
+                }
+            },
+        },
+    )
+    operation = loaded["/foo"]["post"]
+
+    cases = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    with_valid_array = [
+        c
+        for c in cases
+        if isinstance(c.body, dict)
+        and isinstance(c.body.get("change"), list)
+        and c.body["change"]
+        and all(
+            isinstance(item, dict)
+            and (isinstance(item.get("add"), str) or "add" not in item)
+            and (isinstance(item.get("remove"), str) or "remove" not in item)
+            for item in c.body["change"]
+        )
+    ]
+    assert with_valid_array, (
+        f"Expected a positive case with 'change' as a non-empty array of valid items. "
+        f"Got bodies: {[c.body for c in cases]}"
+    )
+
+
 def test_additional_properties_with_schema_negative(ctx):
     loaded = load_schema(
         ctx,
@@ -4067,6 +4125,178 @@ def test_required_outside_allof_propagated_into_canonicalised_branches(ctx):
     assert not bad, f"Generated nested object missing outer-required properties. Got: {bad}"
 
 
+def test_positive_body_under_allof_with_optional_outer_property_only(ctx):
+    # Base's `additionalProperties: false` forbids the outer's only optional property in positive cases.
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "components": {
+                "schemas": {
+                    "Base": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {"etag": {"type": "string"}},
+                    }
+                }
+            },
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "allOf": [{"$ref": "#/components/schemas/Base"}],
+                                        "properties": {"properties": {"properties": {"x": {"type": "string"}}}},
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    validator = make_validator_for(operation.body[0].optimized_schema)
+    cases: list = []
+
+    def collect(case):
+        if (
+            case.meta.phase.name == TestPhase.COVERAGE
+            and case.meta.components[ParameterLocation.BODY].mode == GenerationMode.POSITIVE
+        ):
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    invalid = [c.body for c in cases if not validator.is_valid(c.body)]
+    assert not invalid, f"Positive coverage produced bodies invalid per the strict schema: {invalid}"
+
+
+def test_positive_body_under_unsatisfiable_allof_chain(ctx):
+    # Outer's `required` key is absent from a base with `additionalProperties: false`,
+    # so the strict canonical schema is unsatisfiable.
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "components": {
+                "schemas": {
+                    "Base": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {"baseField": {"type": "string"}},
+                    },
+                    "Wrapper": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "allOf": [{"$ref": "#/components/schemas/Base"}],
+                        "properties": {
+                            "first": {"type": "string"},
+                            "second": {"type": "string"},
+                        },
+                        "required": ["first", "second"],
+                    },
+                }
+            },
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"payload": {"$ref": "#/components/schemas/Wrapper"}},
+                                        "required": ["payload"],
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    validator = make_validator_for(operation.body[0].optimized_schema)
+    cases: list = []
+
+    def collect(case):
+        if (
+            case.meta.phase.name == TestPhase.COVERAGE
+            and case.meta.components[ParameterLocation.BODY].mode == GenerationMode.POSITIVE
+        ):
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    invalid = [c.body for c in cases if not validator.is_valid(c.body)]
+    assert not invalid, f"Positive coverage produced bodies invalid per the strict schema: {invalid}"
+
+
+def test_positive_body_with_sibling_oneof_required_via_ref(ctx):
+    # Sibling `oneOf: [{required: [a]}, {required: [b]}]` makes a and b mutually exclusive;
+    # the combinator filter needs the root bundle attached to resolve sub-refs and apply it.
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"inner": {"$ref": "#/components/schemas/Inner"}},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "Inner": {
+                    "type": "object",
+                    "properties": {
+                        "a": {"$ref": "#/components/schemas/Leaf"},
+                        "b": {"$ref": "#/components/schemas/Leaf"},
+                    },
+                    "oneOf": [{"required": ["a"]}, {"required": ["b"]}],
+                },
+                "Leaf": {"type": "array", "items": {"type": "string"}},
+            }
+        },
+    )
+    operation = schema["/x"]["POST"]
+    validator = make_validator_for(operation.body[0].optimized_schema)
+    cases: list = []
+
+    def collect(case):
+        if (
+            case.meta.phase.name == TestPhase.COVERAGE
+            and case.meta.components[ParameterLocation.BODY].mode == GenerationMode.POSITIVE
+        ):
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    invalid = [c.body for c in cases if not validator.is_valid(c.body)]
+    assert not invalid, f"Positive coverage produced bodies invalid per the strict schema: {invalid}"
+
+
 def test_ref_with_type_sibling_dropped_in_openapi_3_0(ctx):
     schema = ctx.openapi.from_full_schema(
         {
@@ -4516,6 +4746,23 @@ def test_hostname_negative_format_respects_validator_draft(monkeypatch, validato
     else:
         with pytest.raises(Unsatisfiable):
             next(generator)
+
+
+def test_negative_format_serves_cached_value(nctx):
+    # Random strings almost never look like IPv4, so the violation filter accepts and the
+    # strategy returns immediately. The second call must yield the same value, served from cache.
+    schema = {"type": "string", "format": "ipv4"}
+    assert next(_negative_format(nctx, schema, "ipv4")).value == next(_negative_format(nctx, schema, "ipv4")).value
+
+
+def test_negative_format_serves_cached_unsatisfiable(nctx):
+    # Lowercase-letter strings are valid single-label hostnames, so the violation filter
+    # rejects every draw. The second call must raise from the cached sentinel.
+    schema = {"type": "string", "format": "hostname", "pattern": "^[a-z]+$"}
+    with pytest.raises(Unsatisfiable):
+        next(_negative_format(nctx, schema, "hostname"))
+    with pytest.raises(Unsatisfiable):
+        next(_negative_format(nctx, schema, "hostname"))
 
 
 @pytest.mark.parametrize(

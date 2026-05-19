@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.33.0
+Version: 1.34.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -85,7 +85,7 @@ Requires-Dist: jinja2>=3.1.4,<4 ; extra == "eval"
 Requires-Dist: pandas>=2.2.3 ; extra == "eval"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "eval"
 Requires-Dist: tabulate>=0.9 ; extra == "eval"
-Requires-Dist: anthropic>=0.43 ; extra == "extensions"
+Requires-Dist: anthropic>=0.78 ; extra == "extensions"
 Requires-Dist: beautifulsoup4>=3.2.2 ; extra == "extensions"
 Requires-Dist: crewai[tools] ; extra == "extensions" and ( python_version>='3.11' and python_version<'3.12')
 Requires-Dist: docker>=7 ; extra == "extensions"
@@ -103,7 +103,7 @@ Requires-Dist: toolbox-adk>=1,<2 ; extra == "extensions"
 Requires-Dist: opentelemetry-instrumentation-google-genai>=0.6b0,<1 ; extra == "otel-gcp"
 Requires-Dist: slack-bolt>=1.22 ; extra == "slack"
 Requires-Dist: a2a-sdk>=0.3,<0.4 ; extra == "test"
-Requires-Dist: anthropic>=0.43 ; extra == "test"
+Requires-Dist: anthropic>=0.78 ; extra == "test"
 Requires-Dist: crewai[tools] ; extra == "test" and ( python_version>='3.11' and python_version<'3.12')
 Requires-Dist: google-cloud-firestore>=2.11,<3 ; extra == "test"
 Requires-Dist: google-cloud-iamconnectorcredentials>=0.1,<0.2 ; extra == "test"

@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from enum import Enum
 from humps import decamelize
-from typing import Optional, List, Dict, Callable
+from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from requests_toolbelt.sessions import BaseUrlSession
@@ -20,13 +20,18 @@ from .query import (
     QueryOptions,
     QueryLegacyResult,
     QueryKind,
+    MplResult,
 )
 from .annotations import AnnotationsClient
 from .users import UsersClient
 from .version import __version__
-from .util import from_dict, handle_json_serialization, is_personal_token
+from .util import (
+    from_dict,
+    format_datetime_rfc3339_utc,
+    handle_json_serialization,
+    is_personal_token,
+)
 from .tokens import TokensClient
-
 
 AXIOM_URL = "https://api.axiom.co"
 
@@ -39,6 +44,12 @@ class PersonalTokenNotSupportedForEdgeError(Exception):
             "personal tokens (xapt-) are not supported for edge endpoints; "
             "use an API token (xaat-) instead"
         )
+
+
+class EdgeResolutionError(Exception):
+    """Raised when the edge domain for a dataset cannot be resolved."""
+
+    pass
 
 
 @dataclass
@@ -124,6 +135,21 @@ class AplOptions:
     limit: Optional[int] = field(default=None)
 
 
+@dataclass
+class MplOptions:
+    """Options for an MPL (Metrics Processing Language) query."""
+
+    # Start time for the query range (required by the API).
+    start_time: datetime
+    # End time for the query range (required by the API).
+    end_time: datetime
+    # Additional parameters forwarded to MetricsDB (e.g. filterbar bindings).
+    params: Optional[Dict[str, str]] = field(default=None)
+    # Optional metrics query options passed through to the API payload.
+    query_options: Optional[Dict[str, str]] = field(default=None)
+    nocache: bool = field(default=False)
+
+
 class AxiomError(Exception):
     """This exception is raised on request errors."""
 
@@ -171,6 +197,7 @@ class Client:  # pylint: disable=R0903
         org_id: Optional[str] = None,
         url: Optional[str] = None,
         edge_url: Optional[str] = None,
+        edge: Optional[str] = None,
     ):
         """
         Initialize the Axiom client.
@@ -186,6 +213,12 @@ class Client:  # pylint: disable=R0903
                 "https://eu-central-1.aws.edge.axiom.co"). When set, ingest
                 requests use `/v1/ingest/{dataset}` and query requests use
                 `/v1/query/_apl`.
+                Takes precedence over `edge`.
+                Must be passed explicitly (not read from environment).
+            edge: Edge domain for ingest/query operations (e.g.,
+                "eu-central-1.aws.edge.axiom.co"). When set, ingest
+                requests use `https://{edge}/v1/ingest/{dataset}` and query
+                requests use `https://{edge}/v1/query/_apl`.
                 Must be passed explicitly (not read from environment).
         """
         # fallback to env variables if not provided
@@ -195,19 +228,21 @@ class Client:  # pylint: disable=R0903
             org_id = os.getenv("AXIOM_ORG_ID")
         if url is None:
             url = os.getenv("AXIOM_URL")
-        # Note: edge_url is NOT auto-read from environment.
+        # Note: edge_url and edge are NOT auto-read from environment.
         # Edge configuration must be explicit to avoid accidentally routing
-        # all requests through edge when AXIOM_EDGE_URL is set for
-        # edge-specific tests. Create a separate Client with edge_url
+        # all requests through edge when AXIOM_EDGE_URL/AXIOM_EDGE are set
+        # for edge-specific tests. Create a separate Client with edge params
         # for edge operations.
 
         # Normalize empty strings to None for edge config
         edge_url = edge_url or None
+        edge = edge or None
 
         # Store for building ingest/query endpoints
         self._token = token
         self._url = url
         self._edge_url = edge_url
+        self._edge = edge
 
         # Determine API base URL (for non-ingest/query operations)
         # This always uses AXIOM_URL (api.axiom.co) unless a custom url is set
@@ -218,8 +253,16 @@ class Client:  # pylint: disable=R0903
             api_base = f"{parsed.scheme}://{parsed.netloc}"
 
         # set exponential retries
+        # allowed_methods includes POST so that connection errors
+        # (e.g. RemoteDisconnected from stale keep-alive connections)
+        # are retried on ingest calls, not just GET requests.
         retries = Retry(
-            total=3, backoff_factor=2, status_forcelist=[500, 502, 503, 504]
+            total=3,
+            backoff_factor=2,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=frozenset(
+                ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "TRACE"]
+            ),
         )
 
         # Create session for all API operations
@@ -250,45 +293,51 @@ class Client:  # pylint: disable=R0903
 
     def is_edge_configured(self) -> bool:
         """Check if edge is configured."""
-        return self._edge_url is not None
+        return self._edge_url is not None or self._edge is not None
+
+    def _resolve_edge_url(self, path_suffix: str) -> Optional[str]:
+        """
+        Resolve an edge URL for the given path suffix.
+
+        If edge_url includes a custom path, it is used as-is.
+        If edge_url is just a host/base URL, the suffix is appended.
+        If only edge domain is configured, https://{edge}/{suffix} is used.
+        """
+        if self._edge_url is not None:
+            url = self._edge_url.rstrip("/")
+            parsed = urlparse(url)
+            path = parsed.path
+
+            if path == "" or path == "/":
+                return f"{parsed.scheme}://{parsed.netloc}/{path_suffix}"
+
+            return url
+
+        if self._edge is not None:
+            return f"https://{self._edge.rstrip('/')}/{path_suffix}"
+
+        return None
 
     def _get_edge_ingest_url(self, dataset: str) -> Optional[str]:
         """
         Get the full edge ingest URL for a dataset.
         Returns None if edge is not configured.
         """
-        if self._edge_url is None:
-            return None
-
-        url = self._edge_url.rstrip("/")
-        parsed = urlparse(url)
-        path = parsed.path
-
-        # If path is empty or just "/", append edge ingest format
-        if path == "" or path == "/":
-            return f"{parsed.scheme}://{parsed.netloc}/v1/ingest/{dataset}"
-
-        # edge_url has a custom path, use as-is
-        return url
+        return self._resolve_edge_url(f"v1/ingest/{dataset}")
 
     def _get_edge_query_url(self) -> Optional[str]:
         """
         Get the full edge query URL.
         Returns None if edge is not configured.
         """
-        if self._edge_url is None:
-            return None
+        return self._resolve_edge_url("v1/query/_apl")
 
-        url = self._edge_url.rstrip("/")
-        parsed = urlparse(url)
-        path = parsed.path
-
-        # If path is empty or just "/", append edge query format
-        if path == "" or path == "/":
-            return f"{parsed.scheme}://{parsed.netloc}/v1/query/_apl"
-
-        # edge_url has a custom path, use as-is
-        return url
+    def _get_edge_mpl_url(self) -> Optional[str]:
+        """
+        Get the full edge MPL query URL.
+        Returns None if edge is not configured.
+        """
+        return self._resolve_edge_url("v1/query/_mpl")
 
     def before_shutdown(self, func: Callable):
         self.before_shutdown_funcs.append(func)
@@ -428,6 +477,61 @@ class Client:  # pylint: disable=R0903
         result.savedQueryID = query_id
 
         return result
+
+    def mpl_query(self, mpl: str, opts: MplOptions) -> MplResult:
+        """
+        Execute an MPL (Metrics Processing Language) query.
+
+        MPL queries are edge-only. Configure the client with edge_url or
+        edge to specify the endpoint. Edge endpoints require API tokens
+        (xaat-), not personal tokens.
+
+        Args:
+            mpl: MPL query string (e.g.
+                "`my-dataset`:`http.requests` | align to 5m using avg")
+            opts: Query options including required start_time and end_time.
+
+        Returns:
+            MplResult containing the time-series data.
+        """
+        url = self._get_edge_mpl_url()
+        if url is None:
+            raise EdgeResolutionError(
+                "MPL queries require an edge endpoint; "
+                "set edge_url or edge when creating the Client"
+            )
+        if is_personal_token(self._token):
+            raise PersonalTokenNotSupportedForEdgeError()
+
+        payload = ujson.dumps(
+            self._prepare_mpl_payload(mpl, opts),
+            default=handle_json_serialization,
+        )
+        params = self._prepare_mpl_params(opts)
+        res = self.session.post(url, data=payload, params=params)
+        result = from_dict(MplResult, res.json())
+        result.savedQueryID = res.headers.get("X-Axiom-History-Query-Id")
+        return result
+
+    def _prepare_mpl_payload(
+        self, mpl: str, opts: MplOptions
+    ) -> Dict[str, object]:
+        payload: Dict[str, object] = {
+            "mpl": mpl,
+            "startTime": format_datetime_rfc3339_utc(opts.start_time),
+            "endTime": format_datetime_rfc3339_utc(opts.end_time),
+        }
+        if opts.params:
+            payload["params"] = opts.params
+        if opts.query_options:
+            payload["queryOptions"] = opts.query_options
+        return payload
+
+    def _prepare_mpl_params(self, opts: MplOptions) -> Dict[str, object]:
+        params: Dict[str, object] = {"format": "metrics-v2"}
+        if opts.nocache:
+            params["nocache"] = "true"
+        return params
 
     def _prepare_query_options(self, opts: QueryOptions) -> Dict[str, object]:
         """returns the query options as a Dict, handles any renaming for key

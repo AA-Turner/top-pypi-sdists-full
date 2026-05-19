@@ -8,10 +8,12 @@ from schemathesis.core.error_feedback.store import (
     Observation,
     ObservationKind,
     ObservationPayload,
+    ParameterPath,
     PatternPayload,
     RequiresAuthPayload,
     SizeBoundPayload,
     TypeMismatchPayload,
+    observation_fingerprint,
 )
 
 __all__ = [
@@ -24,8 +26,10 @@ __all__ = [
     "Observation",
     "ObservationKind",
     "ObservationPayload",
+    "ParameterPath",
     "PatternPayload",
     "RequiresAuthPayload",
     "SizeBoundPayload",
     "TypeMismatchPayload",
+    "observation_fingerprint",
 ]

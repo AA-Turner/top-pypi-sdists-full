@@ -340,7 +340,7 @@ def add_source(
         fmt.echo("Using %s as destination for example script" % fmt.bold(destination_type))
 
     # handle core and verified sources with oss-init
-    files_to_write, source_category, _ = init_pipeline_at_destination(
+    files_to_write, source_category = init_pipeline_at_destination(
         # oss_init doesnt know about the name, so we pass the type
         source_name=source_type,
         destination_type=destination_type,

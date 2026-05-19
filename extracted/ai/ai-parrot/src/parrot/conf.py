@@ -4,7 +4,6 @@ import base64
 from pathlib import Path
 from navconfig import config, BASE_DIR
 from navconfig.logging import logging
-from navigator.conf import default_dsn, CACHE_HOST, CACHE_PORT
 
 
 # # disable debug on some libraries:
@@ -67,6 +66,17 @@ else:
     default_dsn = None
     async_default_dsn = None
     sqlalchemy_url = None
+
+# Redis:
+CACHE_HOST = config.get('CACHE_HOST', fallback='localhost')
+CACHE_PORT = config.get('CACHE_PORT', fallback=6379)
+CACHE_DB = config.get('CACHEDB', fallback=2)
+CACHE_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}/{CACHE_DB}"
+
+REDIS_HOST = config.get('REDIS_HOST', fallback='localhost')
+REDIS_PORT = config.get('REDIS_PORT', fallback=6379)
+REDIS_DB = config.get('REDIS_DB', fallback=1)
+REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
 
 
 # Environment
@@ -163,6 +173,20 @@ if isinstance(MCP_SERVER_DIR, str):
     MCP_SERVER_DIR = Path(MCP_SERVER_DIR).resolve()
 if not MCP_SERVER_DIR.exists():
     MCP_SERVER_DIR.mkdir(parents=True, exist_ok=True)
+
+# Agent Context Directory (FEAT-181: per-agent context files for prompt caching)
+# Each agent can have a Markdown context file at <AGENT_CONTEXT_DIR>/<agent_id>.md.
+# AgentContextLoader reads and mtime-caches these files for injection into the
+# CONFIGURE-phase prompt layer when prompt_caching=True.
+# NOTE: The directory is NOT created here at import time to avoid side effects in
+# read-only container filesystems and test environments. Creation is deferred to
+# load_agent_context() in parrot/bots/prompts/agent_context.py.
+AGENT_CONTEXT_DIR = config.get(
+    'AGENT_CONTEXT_DIR',
+    fallback=BASE_DIR.joinpath('agent_context')
+)
+if isinstance(AGENT_CONTEXT_DIR, str):
+    AGENT_CONTEXT_DIR = Path(AGENT_CONTEXT_DIR).resolve()
 
 # Docker file location (for generated docker-compose files, Dockerfiles, etc.)
 DOCKER_FILE_LOCATION = config.get(
@@ -529,6 +553,15 @@ MS_TEAMS_PASSWORD = config.get('TEAMS_NOTIFY_PASSWORD')
 O365_CLIENT_ID = config.get('O365_CLIENT_ID')
 O365_CLIENT_SECRET = config.get('O365_CLIENT_SECRET')
 O365_TENANT_ID = config.get('O365_TENANT_ID')
+# Delegated OAuth2 (3LO) for the Office365Toolkit / OperatorAgent flow.
+O365_REDIRECT_URI = config.get(
+    'O365_REDIRECT_URI',
+    fallback='http://localhost:5000/api/auth/oauth2/o365/callback',
+)
+OAUTH2_REDIS_URL = config.get(
+    'OAUTH2_REDIS_URL',
+    fallback='redis://localhost:6379/4',
+)
 
 # Sharepoint:
 SHAREPOINT_APP_ID = config.get('SHAREPOINT_APP_ID')
@@ -658,6 +691,76 @@ JIRA_ALLOWED_REPORTERS: list[str] = config.getlist(
 JIRA_DEFAULT_REPORTER: str | None = config.get(
     "JIRA_DEFAULT_REPORTER",
     fallback="jesuslarag@gmail.com",
+)
+
+# ── GitHub Reviewer Agent ──
+# Comma-separated list of Telegram chat IDs notified when a PR review finds
+# discrepancies against the linked Jira ticket. Integers only.
+_raw_pr_chat_ids = config.getlist(
+    "GITHUB_REVIEW_TELEGRAM_CHAT_IDS", fallback=[]
+) or []
+GITHUB_REVIEW_TELEGRAM_CHAT_IDS: list[int] = []
+for _chat_id in _raw_pr_chat_ids:
+    try:
+        GITHUB_REVIEW_TELEGRAM_CHAT_IDS.append(int(str(_chat_id).strip()))
+    except (TypeError, ValueError):
+        continue
+# Telegram chat / channel ID receiving the daily stale-PR summary. Accepts
+# either a numeric chat_id (e.g. -1001234567890) or a public @username.
+GITHUB_REVIEW_PUBLIC_CHANNEL_ID: str | None = config.get(
+    "GITHUB_REVIEW_PUBLIC_CHANNEL_ID", fallback=None
+)
+# Shared secret used by GitHub to sign webhook deliveries. Required when
+# HMAC verification is enabled on the GitHubWebhookHook.
+GITHUB_REVIEW_WEBHOOK_SECRET: str | None = config.get(
+    "GITHUB_REVIEW_WEBHOOK_SECRET", fallback=None
+)
+# Public HTTPS URL of the GitHubWebhookHook endpoint, used by the agent to
+# auto-subscribe via the GitHub API when the PAT has admin:repo_hook scope.
+GITHUB_REVIEW_WEBHOOK_PUBLIC_URL: str | None = config.get(
+    "GITHUB_REVIEW_WEBHOOK_PUBLIC_URL", fallback=None
+)
+# Default GitHub repository in 'owner/name' format watched by the default
+# GitHubReviewer subclass. Multiple repositories = multiple subclasses.
+GITHUB_REVIEW_REPOSITORY: str | None = config.get(
+    "GITHUB_REVIEW_REPOSITORY", fallback=None
+)
+# Hours an open PR must remain unattended before the daily report announces
+# it to the public Telegram channel.
+GITHUB_REVIEW_STALE_AFTER_HOURS: int = config.getint(
+    "GITHUB_REVIEW_STALE_AFTER_HOURS", fallback=24
+)
+# Jira project key whose tickets the watched repository references. Drives
+# the `<PROJECT>-\d+` regex that extracts ticket keys from PR titles/bodies.
+GITHUB_REVIEW_JIRA_PROJECT: str = config.get(
+    "GITHUB_REVIEW_JIRA_PROJECT", fallback="NAV"
+)
+# Per-prompt clamp on the diff fed to the reviewer LLM. Larger diffs are
+# truncated and the prompt notes the truncation so the model accounts for it.
+GITHUB_REVIEW_MAX_DIFF_BYTES: int = config.getint(
+    "GITHUB_REVIEW_MAX_DIFF_BYTES", fallback=50_000
+)
+# Per-field clamp on the Jira description and acceptance-criteria text
+# spliced into the LLM prompt. Prevents a single oversized ticket from
+# blowing the model's context window.
+GITHUB_REVIEW_MAX_TICKET_BYTES: int = config.getint(
+    "GITHUB_REVIEW_MAX_TICKET_BYTES", fallback=20_000
+)
+
+# Number of past weeks to consider when computing "silent contributors".
+GITHUB_REVIEW_WEEKLY_LOOKBACK_WEEKS: int = config.getint(
+    "GITHUB_REVIEW_WEEKLY_LOOKBACK_WEEKS", fallback=4
+)
+# A contributor with zero commits across this many consecutive recent
+# weeks is flagged in the weekly activity report as silent.
+GITHUB_REVIEW_SILENT_WEEKS_THRESHOLD: int = config.getint(
+    "GITHUB_REVIEW_SILENT_WEEKS_THRESHOLD", fallback=3
+)
+# When True, the weekly report prose is generated by the agent's LLM.
+# Numbers always come from the structured summary; only the wording varies.
+# Falls back to the templated body on any LLM failure.
+GITHUB_REVIEW_USE_LLM_SUMMARY: bool = config.getboolean(
+    "GITHUB_REVIEW_USE_LLM_SUMMARY", fallback=False
 )
 
 ## Vector Store Handler:

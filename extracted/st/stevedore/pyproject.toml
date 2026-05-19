@@ -9,14 +9,13 @@ authors = [
     {name = "OpenStack", email = "openstack-discuss@lists.openstack.org"},
 ]
 readme = {file = "README.rst", content-type = "text/x-rst"}
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 dynamic = ["version", "dependencies"]
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -42,18 +41,16 @@ t2 = "stevedore.tests.test_extension:FauxExtension"
 e1 = "stevedore.tests.test_extension:BrokenExtension"
 e2 = "stevedore.tests.notfound:UnimportableExtension"
 
-[tool.setuptools]
-packages = [
-    "stevedore"
-]
+[tool.setuptools.packages.find]
+include = ["stevedore"]
 
 [tool.mypy]
 python_version = "3.10"
 show_column_numbers = true
 show_error_context = true
 strict = true
-ignore_missing_imports = true
-exclude = '(?x)(doc | examples | releasenotes)'
+disable_error_code = ["import-untyped"]
+exclude = "(?x)(doc | releasenotes)"
 
 [[tool.mypy.overrides]]
 module = ["stevedore.tests.*"]
@@ -65,8 +62,14 @@ disallow_any_generics = false
 [tool.ruff]
 line-length = 79
 
+[tool.ruff.format]
+quote-style = "preserve"
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
 [tool.ruff.lint]
 select = ["C4", "E4", "E5", "E7", "E9", "F", "G", "LOG", "S", "U"]
+external = ["H"]
 ignore = [
     # we only use asserts for type narrowing
     "S101",
@@ -74,8 +77,3 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "stevedore/tests/*" = ["S"]
-
-[tool.ruff.format]
-quote-style = "preserve"
-docstring-code-format = true
-skip-magic-trailing-comma = true

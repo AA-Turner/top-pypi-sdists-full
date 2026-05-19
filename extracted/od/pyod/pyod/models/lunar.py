@@ -22,25 +22,27 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_is_fitted
 
 from .base import BaseDetector
 
 
 # negative samples for training
-def generate_negative_samples(x, sample_type, proportion, epsilon):
+def generate_negative_samples(x, sample_type, proportion, epsilon,
+                              random_state=None):
+    random_state = check_random_state(random_state)
     n_samples = int(proportion * (len(x)))
     n_dim = x.shape[-1]
 
     # uniform samples in range [x.min(),x.max()]
-    rand_unif = x.min() + (x.max() - x.min()) * np.random.rand(n_samples,
-                                                               n_dim).astype(
-        'float32')
+    rand_unif = x.min() + (x.max() - x.min()) * random_state.rand(
+        n_samples, n_dim).astype('float32')
     # subspace perturbation samples
-    x_temp = x[np.random.choice(np.arange(len(x)), size=n_samples)]
-    randmat = np.random.rand(n_samples, n_dim) < 0.3
+    x_temp = x[random_state.choice(np.arange(len(x)), size=n_samples)]
+    randmat = random_state.rand(n_samples, n_dim) < 0.3
     rand_sub = x_temp + randmat * (
-            epsilon * np.random.randn(n_samples, n_dim)).astype('float32')
+            epsilon * random_state.randn(n_samples, n_dim)).astype('float32')
 
     if sample_type == 'UNIFORM':
         neg_x = rand_unif
@@ -49,7 +51,8 @@ def generate_negative_samples(x, sample_type, proportion, epsilon):
     if sample_type == 'MIXED':
         # randomly sample from uniform and gaussian negative samples
         neg_x = np.concatenate((rand_unif, rand_sub), 0)
-        neg_x = neg_x[np.random.choice(np.arange(len(neg_x)), size=n_samples)]
+        neg_x = neg_x[random_state.choice(np.arange(len(neg_x)),
+                                          size=n_samples)]
 
     neg_y = np.ones(len(neg_x))
 
@@ -186,6 +189,19 @@ class LUNAR(BaseDetector):
         Number of parallel jobs for nearest-neighbor search.
         If ``-1``, all available CPU cores are used.
 
+    random_state : int, RandomState instance or None, optional (default=None)
+        Controls all stochastic parts of LUNAR: ``torch`` network
+        initialization (and CUDA seeding when GPUs are present) before
+        ``SCORE_MODEL`` / ``WEIGHT_MODEL`` is built, the SGD path through
+        a re-seeded ``torch.manual_seed`` in ``fit()``, the
+        ``train_test_split`` validation split, and the
+        ``generate_negative_samples`` synthetic anomaly generator. If
+        int, it is used as the seed. If ``RandomState`` instance, that
+        generator is used and advanced (sklearn convention). If ``None``,
+        randomness follows the library default (numpy module state).
+        When ``ADEngine(random_state=...)`` builds a LUNAR plan, the
+        engine seed flows here automatically.
+
     Attributes
     ----------
     """
@@ -196,7 +212,7 @@ class LUNAR(BaseDetector):
                  proportion=1.0,
                  n_epochs=200, lr=0.001, wd=0.1, verbose=0, contamination=0.1,
                  algorithm='auto', leaf_size=30, metric='minkowski', p=2,
-                 metric_params=None, n_jobs=1, **kwargs):
+                 metric_params=None, n_jobs=1, random_state=None):
         super(LUNAR, self).__init__(contamination=contamination)
 
         self.model_type = model_type
@@ -221,9 +237,24 @@ class LUNAR(BaseDetector):
         self.p = p
         self.metric_params = metric_params
         self.n_jobs = n_jobs
-        self.kwargs = kwargs
+        self.random_state = random_state
         self.device = torch.device(
             'cuda' if torch.cuda.is_available() else 'cpu')
+
+        # Seed torch BEFORE building the network so the random initial
+        # weights of SCORE_MODEL / WEIGHT_MODEL are reproducible. The same
+        # seed is set again in fit() to cover the SGD / shuffling path.
+        # Accept either int or numpy RandomState (sklearn convention).
+        # check_random_state normalizes both into a RandomState; we draw
+        # a single int from it to pass to torch.manual_seed, which only
+        # accepts ints.
+        if random_state is not None:
+            torch_seed = int(
+                check_random_state(random_state).randint(
+                    0, np.iinfo(np.int32).max))
+            torch.manual_seed(torch_seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(torch_seed)
 
         if model_type == "SCORE":
             self.network = SCORE_MODEL(n_neighbours).to(self.device)
@@ -265,9 +296,23 @@ class LUNAR(BaseDetector):
         X = X.astype('float32')
         y = np.zeros(len(X))
 
+        # Seed torch when the user pinned random_state, so the SGD /
+        # shuffle path is reproducible. The numpy random stream lives on
+        # the rng returned by check_random_state below and is threaded
+        # through train_test_split and generate_negative_samples.
+        # Accept int or numpy RandomState; check_random_state normalizes.
+        if self.random_state is not None:
+            torch_seed = int(
+                check_random_state(self.random_state).randint(
+                    0, np.iinfo(np.int32).max))
+            torch.manual_seed(torch_seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(torch_seed)
+        rng = check_random_state(self.random_state)
+
         # split training and validation sets
-        train_x, val_x, train_y, val_y = train_test_split(X, y,
-                                                          test_size=self.val_size)
+        train_x, val_x, train_y, val_y = train_test_split(
+            X, y, test_size=self.val_size, random_state=rng)
 
         # Materialise a fresh, instance-private scaler before fitting it.
         # ``self.scaler`` (the constructor argument) is left untouched so
@@ -289,15 +334,13 @@ class LUNAR(BaseDetector):
             train_x = self.scaler_.transform(train_x)
             val_x = self.scaler_.transform(val_x)
 
-        # generate negative samples for training and validation set seperately 
-        neg_train_x, neg_train_y = generate_negative_samples(train_x,
-                                                             self.negative_sampling,
-                                                             self.proportion,
-                                                             self.epsilon)
-        neg_val_x, neg_val_y = generate_negative_samples(val_x,
-                                                         self.negative_sampling,
-                                                         self.proportion,
-                                                         self.epsilon)
+        # generate negative samples for training and validation set seperately
+        neg_train_x, neg_train_y = generate_negative_samples(
+            train_x, self.negative_sampling, self.proportion,
+            self.epsilon, random_state=rng)
+        neg_val_x, neg_val_y = generate_negative_samples(
+            val_x, self.negative_sampling, self.proportion,
+            self.epsilon, random_state=rng)
 
         train_x = np.vstack((train_x, neg_train_x))
         train_y = np.hstack((train_y, neg_train_y))
@@ -310,8 +353,7 @@ class LUNAR(BaseDetector):
                                       metric=self.metric,
                                       p=self.p,
                                       metric_params=self.metric_params,
-                                      n_jobs=self.n_jobs,
-                                      **self.kwargs)
+                                      n_jobs=self.n_jobs)
         self.neigh.fit(train_x)
 
         # nearest neighbours of training set

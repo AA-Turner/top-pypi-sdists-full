@@ -19,6 +19,7 @@ WRITE_TOOLS: frozenset[str] = frozenset({"write_file", "search_replace", "edit_f
 class Finding:
     code: str          # stable ID used for dedup, e.g. "loop:write_file:/p/x.py"
     directive: str     # text to inject into the conversation
+    force_stop: bool = False  # True → interventions.apply also sets FORCE_STOP on the loop
 
 
 def _tool_sig(tc) -> str:  # ToolCall — keep loose to avoid circular import
@@ -90,7 +91,8 @@ def detect_struggle(messages: Sequence[LLMMessage], threshold: int = 20) -> Find
     # Previously included the count, which caused 33 identical interventions
     # in a single session (each with a unique key that bypassed dedup).
     code = f"struggle:{last_write_tool or 'none'}"
-    if calls_since_write >= 30:
+    severe = calls_since_write >= 30
+    if severe:
         if last_write_tool is None:
             directive = (
                 f"Admiral: you have made {calls_since_write} tool calls without "
@@ -115,7 +117,7 @@ def detect_struggle(messages: Sequence[LLMMessage], threshold: int = 20) -> Find
             f"Admiral: you have made {calls_since_write} tool calls without "
             f"writing or editing any file. {hint}"
         )
-    return Finding(code=code, directive=directive)
+    return Finding(code=code, directive=directive, force_stop=severe)
 
 
 def run_all(messages: Sequence[LLMMessage]) -> list[Finding]:

@@ -1,10 +1,25 @@
+import os
 from typing import Optional, Type
 
 from dlt.common.configuration import plugins as _plugins
+from dlt.common.configuration.plugins import only_host
+from dlt.common.configuration.specs.pluggable_run_context import ProfilesRunContext
 from dlt.common.runtime.run_context import active as run_context_active
 
 from dlt._workspace.cli import SupportsCliCommand
 from dlthub.common.license.decorators import is_scope_active
+
+
+_LEGACY_COMMANDS_ENABLED_ENV = "DLTHUB_LEGACY_COMMANDS_ENABLED"
+
+
+def _legacy_commands_enabled() -> bool:
+    return os.environ.get(_LEGACY_COMMANDS_ENABLED_ENV, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 __all__ = [
@@ -28,13 +43,20 @@ def is_project_active() -> bool:
     return ctx.__class__.__name__ == "ProjectRunContext"
 
 
+def supports_profiles() -> bool:
+    return isinstance(run_context_active(), ProfilesRunContext)
+
+
 #
 # legacy transformation commands
 #
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_transformation() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_transformation(host: str) -> Optional[Type[SupportsCliCommand]]:
+    if not _legacy_commands_enabled():
+        return None
     if not is_scope_active("dlthub.project"):
         return None
 
@@ -57,7 +79,10 @@ def _plug_cli_transformation() -> Optional[Type[SupportsCliCommand]]:
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_cache() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_cache(host: str) -> Optional[Type[SupportsCliCommand]]:
+    if not _legacy_commands_enabled():
+        return None
     if not is_scope_active("dlthub.project"):
         return None
 
@@ -78,7 +103,10 @@ def _plug_cli_cache() -> Optional[Type[SupportsCliCommand]]:
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_project() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_project(host: str) -> Optional[Type[SupportsCliCommand]]:
+    if not _legacy_commands_enabled():
+        return None
     if not is_scope_active("dlthub.project"):
         return None
 
@@ -88,7 +116,8 @@ def _plug_cli_project() -> Optional[Type[SupportsCliCommand]]:
 
 
 @_plugins.hookimpl(specname="plug_cli", tryfirst=True)
-def _plug_cli_pipeline() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_pipeline(host: str) -> Optional[Type[SupportsCliCommand]]:
     if not is_scope_active("dlthub.project"):
         return None
 
@@ -101,7 +130,8 @@ def _plug_cli_pipeline() -> Optional[Type[SupportsCliCommand]]:
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_dataset() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_dataset(host: str) -> Optional[Type[SupportsCliCommand]]:
     if not is_scope_active("dlthub.project"):
         return None
 
@@ -113,7 +143,8 @@ def _plug_cli_dataset() -> Optional[Type[SupportsCliCommand]]:
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_source() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_source(host: str) -> Optional[Type[SupportsCliCommand]]:
     if not is_scope_active("dlthub.project"):
         return None
 
@@ -125,7 +156,8 @@ def _plug_cli_source() -> Optional[Type[SupportsCliCommand]]:
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_destination() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_destination(host: str) -> Optional[Type[SupportsCliCommand]]:
     if not is_scope_active("dlthub.project"):
         return None
 
@@ -137,7 +169,8 @@ def _plug_cli_destination() -> Optional[Type[SupportsCliCommand]]:
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_profile() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_profile(host: str) -> Optional[Type[SupportsCliCommand]]:
     if not is_scope_active("dlthub.project"):
         return None
 
@@ -149,15 +182,25 @@ def _plug_cli_profile() -> Optional[Type[SupportsCliCommand]]:
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_license() -> Type[SupportsCliCommand]:
+@only_host("dlthub")
+def _plug_cli_license(host: str) -> Optional[Type[SupportsCliCommand]]:
+    from dlthub.common.license.decorators import _license_enabled
+
+    if not _license_enabled():
+        return None
+
     from dlthub.common.license.cli import LicenseCommand
 
     return LicenseCommand
 
 
 @_plugins.hookimpl(specname="plug_cli")
-def _plug_cli_dbt() -> Optional[Type[SupportsCliCommand]]:
+@only_host("dlthub")
+def _plug_cli_dbt(host: str) -> Optional[Type[SupportsCliCommand]]:
     if not is_scope_active("dlthub.dbt_generator"):
+        return None
+
+    if not supports_profiles():
         return None
 
     from dlthub.dbt_generator.cli import DbtCommand

@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from typing import Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sp
@@ -25,6 +24,7 @@ from cvxpy.atoms.affine.reshape import reshape
 from cvxpy.atoms.affine.vec import vec
 from cvxpy.constraints.constraint import Constraint
 from cvxpy.expressions.expression import Expression
+from cvxpy.utilities import bounds as bounds_utils
 from cvxpy.utilities import key_utils as ku
 
 
@@ -41,7 +41,7 @@ class index(AffAtom):
         The expression indexed/sliced into.
     key :
         The index/slicing key (i.e. expr[key[0],key[1]])
-    
+
     Examples
     --------
     >>> import cvxpy as cp
@@ -73,6 +73,11 @@ class index(AffAtom):
         """Is the atom log-log concave?"""
         return True
 
+    def bounds_from_args(self) -> tuple[np.ndarray, np.ndarray]:
+        """Returns bounds for indexed expression."""
+        lb, ub = self.args[0].get_bounds()
+        return bounds_utils.index_bounds(lb, ub, self._orig_key)
+
     def name(self):
         """String representation of the index expression."""
         inner_str = "[%s" + ", %s"*(len(self.key)-1) + "]"
@@ -89,7 +94,7 @@ class index(AffAtom):
         """Returns the index/slice into the given value."""
         return values[0][self._orig_key]
 
-    def shape_from_args(self) -> Tuple[int, ...]:
+    def shape_from_args(self) -> tuple[int, ...]:
         """Returns the shape of the index expression."""
         return ku.shape(self.key, self._orig_key, self.args[0].shape)
 
@@ -98,8 +103,8 @@ class index(AffAtom):
         return [self.key, self._orig_key]
 
     def graph_implementation(
-        self, arg_objs, shape: Tuple[int, ...], data=None
-    ) -> Tuple[lo.LinOp, list[Constraint]]:
+        self, arg_objs, shape: tuple[int, ...], data=None
+    ) -> tuple[lo.LinOp, list[Constraint]]:
         """Index/slice into the expression.
 
         Parameters
@@ -125,6 +130,11 @@ class special_index(AffAtom):
     key : tuple
         ndarrays or lists.
     """
+
+    def bounds_from_args(self) -> tuple[np.ndarray, np.ndarray]:
+        """Returns bounds for special indexed expression."""
+        lb, ub = self.args[0].get_bounds()
+        return bounds_utils.index_bounds(lb, ub, self.key)
 
     def __init__(self, expr: Expression, key) -> None:
         self.key = key
@@ -162,7 +172,7 @@ class special_index(AffAtom):
         """
         return values[0][self.key]
 
-    def shape_from_args(self) -> Tuple[int, ...]:
+    def shape_from_args(self) -> tuple[int, ...]:
         """Returns the shape of the index expression."""
         return self._shape
 
@@ -171,7 +181,7 @@ class special_index(AffAtom):
         return [self.key]
 
     @property
-    def grad(self) -> Optional[list[sp.csc_array]]:
+    def grad(self) -> list[sp.csc_array] | None:
         """Gives the (sub/super)gradient of the expression w.r.t. each variable.
 
         Matrix expressions are vectorized, so the gradient is a matrix.
@@ -188,8 +198,8 @@ class special_index(AffAtom):
 
     def graph_implementation(self,
                             arg_objs: list,
-                            shape: Tuple[int, ...],
-                            data=None) -> Tuple[lo.LinOp, list[Constraint]]:
+                            shape: tuple[int, ...],
+                            data=None) -> tuple[lo.LinOp, list[Constraint]]:
         """Index/slice into the expression.
 
         Parameters

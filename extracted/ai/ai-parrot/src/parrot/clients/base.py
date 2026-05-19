@@ -46,6 +46,7 @@ from ..memory import (
 )
 from ..tools.pythonrepl import PythonREPLTool
 from ..models import (
+    AIMessage,
     StructuredOutputConfig,
     OutputFormat
 )
@@ -57,6 +58,15 @@ from ..tools.manager import (
     ToolManager,
     ToolFormat,
     ToolDefinition
+)
+# FEAT-176: Lifecycle Events System
+import hashlib
+from parrot.core.events.lifecycle.mixin import EventEmitterMixin
+from parrot.core.events.lifecycle.trace import TraceContext
+from parrot.core.events.lifecycle.events import (
+    BeforeClientCallEvent,
+    AfterClientCallEvent,
+    ClientCallFailedEvent,
 )
 
 
@@ -229,7 +239,7 @@ class _LoopClientEntry:
     metadata: dict = field(default_factory=dict)
 
 
-class AbstractClient(ABC):
+class AbstractClient(EventEmitterMixin, ABC):
     """Abstract base Class for LLM models."""
     version: str = "0.1.0"
     base_headers: Dict[str, str] = {
@@ -242,6 +252,12 @@ class AbstractClient(ABC):
     # Lightweight model used by invoke() — subclasses override this.
     # None means fall back to self.model.
     _lightweight_model: Optional[str] = None
+
+    # FEAT-181: minimum token count for provider-side prompt caching.
+    # Subclasses override this (e.g., AnthropicClient sets 1024, GoogleGenAIClient 4096).
+    # 0 means "provider does not support explicit caching" (the base AbstractClient no-op);
+    # the value is not a real threshold but a sentinel indicating caching is unsupported here.
+    _min_cache_tokens: int = 0
 
     # Default system prompt template used when no system_prompt is passed to invoke().
     BASIC_SYSTEM_PROMPT: str = """Your name is $name Agent.
@@ -318,6 +334,202 @@ $backstory
         if use_tools and tools:
             self._tool_manager.default_tools(tools)
             self.enable_tools = True
+        # FEAT-176: initialise per-instance lifecycle event registry.
+        # forward_to_global=False so client events stay isolated unless the
+        # owning bot wires them up via a parent trace.
+        self._init_events(forward_to_global=False)
+
+    # ------------------------------------------------------------------
+    # FEAT-176: Lifecycle emission helpers
+    # ------------------------------------------------------------------
+
+    def _system_prompt_hash(self, system_prompt: "Optional[Union[str, list]]") -> str:
+        """Return SHA-256 hex of *system_prompt*, or empty string.
+
+        Privacy-safe: the raw prompt is never stored or emitted.
+        Accepts both plain strings and lists of CacheableSegment objects.
+
+        Args:
+            system_prompt: The system prompt string, list of
+                :class:`~parrot.bots.prompts.segments.CacheableSegment` objects,
+                or ``None``.
+
+        Returns:
+            SHA-256 hex digest string, or ``""`` if *system_prompt* is falsy.
+        """
+        resolved = self._resolve_system_prompt(system_prompt)
+        if not resolved:
+            return ""
+        return hashlib.sha256(resolved.encode()).hexdigest()
+
+    # ------------------------------------------------------------------
+    # FEAT-181: Provider-Agnostic Prompt Caching
+    # ------------------------------------------------------------------
+
+    def _resolve_system_prompt(
+        self,
+        system_prompt: "Optional[Union[str, list]]",
+    ) -> "Optional[str]":
+        """Collapse a list of CacheableSegment objects to a plain string.
+
+        Used internally to produce a string suitable for hashing or logging
+        when ``system_prompt`` may be a list of segments.
+
+        Args:
+            system_prompt: Either a plain string, a list of
+                :class:`~parrot.bots.prompts.segments.CacheableSegment` objects,
+                or ``None``.
+
+        Returns:
+            Plain string (segments joined by ``"\\n\\n"``), the original
+            string, or ``None`` if the input is ``None``.
+        """
+        if system_prompt is None:
+            return None
+        if isinstance(system_prompt, list):
+            return "\n\n".join(s.text for s in system_prompt)
+        return system_prompt
+
+    def _apply_cache_hints(
+        self,
+        payload: "Dict[str, Any]",
+        segments: "list",
+        trace_context: "Optional[TraceContext]" = None,
+    ) -> "Dict[str, Any]":
+        """Translate CacheableSegments to provider-native cache hints.
+
+        FEAT-181 — default no-op. Subclasses override for their provider:
+        - :class:`~parrot.clients.claude.AnthropicClient` — ``cache_control`` blocks.
+        - :class:`~parrot.clients.gpt.OpenAIClient` — automatic (pass-through).
+        - :class:`~parrot.clients.google.client.GoogleGenAIClient` — ``CachedContent``.
+
+        Args:
+            payload: The request payload dict to mutate or replace.
+            segments: List of
+                :class:`~parrot.bots.prompts.segments.CacheableSegment` objects
+                produced by :meth:`~parrot.bots.prompts.builder.PromptBuilder.build_segments`.
+            trace_context: Optional W3C trace context for event correlation.
+                When provided it is forwarded to cache lifecycle events.
+                If ``None``, a new root trace is created internally.
+
+        Returns:
+            The ``payload`` dict, unchanged in the base implementation.
+        """
+        return payload
+
+    def _emit_before_call(
+        self,
+        *,
+        client_name: str,
+        model: str,
+        temperature: "Optional[float]" = None,
+        system_prompt: "Optional[str]" = None,
+        has_tools: bool = False,
+        parent_trace: "Optional[TraceContext]" = None,
+    ) -> "TraceContext":
+        """Emit ``BeforeClientCallEvent`` and return the child ``TraceContext``.
+
+        Note:
+            ``BeforeClientCallEvent`` is dispatched as a fire-and-forget task
+            via ``emit_nowait()``; it may run after the LLM call begins if the
+            event loop is busy.  This is intentional — do not rely on
+            subscribers to ``BeforeClientCallEvent`` completing before the LLM
+            call starts.
+
+        The returned ``TraceContext`` must be stored by the caller and passed
+        to :meth:`_emit_after_call` or :meth:`_emit_failed_call`.
+
+        Args:
+            client_name: Provider identifier (``"anthropic"``, ``"openai"``, etc.).
+            model: Model name/identifier being called.
+            temperature: Sampling temperature (``None`` if not configured).
+            system_prompt: Raw system prompt (hashed before emission).
+            has_tools: ``True`` if tool definitions were included.
+            parent_trace: If provided, a child span is created; otherwise a
+                new root trace is started.
+
+        Returns:
+            A ``TraceContext`` for the current call span.
+        """
+        tc = parent_trace.child() if parent_trace else TraceContext.new_root()
+        self.events.emit_nowait(BeforeClientCallEvent(
+            trace_context=tc,
+            client_name=client_name,
+            model=model or "",
+            temperature=temperature,
+            system_prompt_hash=self._system_prompt_hash(system_prompt),
+            has_tools=has_tools,
+            source_type="client",
+            source_name=client_name,
+        ))
+        return tc
+
+    async def _emit_after_call(
+        self,
+        tc: "TraceContext",
+        *,
+        client_name: str,
+        model: str,
+        duration_ms: float,
+        input_tokens: "Optional[int]" = None,
+        output_tokens: "Optional[int]" = None,
+        finish_reason: "Optional[str]" = None,
+    ) -> None:
+        """Emit ``AfterClientCallEvent`` for a successful call.
+
+        Must NOT be called when :meth:`_emit_failed_call` was called.
+
+        Args:
+            tc: The ``TraceContext`` returned by :meth:`_emit_before_call`.
+            client_name: Provider identifier.
+            model: Model name/identifier.
+            duration_ms: Wall-clock time in milliseconds.
+            input_tokens: Input token count (provider-dependent; may be ``None``).
+            output_tokens: Output token count (provider-dependent; may be ``None``).
+            finish_reason: Stop reason from the provider.
+        """
+        await self.events.emit(AfterClientCallEvent(
+            trace_context=tc,
+            client_name=client_name,
+            model=model or "",
+            duration_ms=duration_ms,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            finish_reason=finish_reason,
+            source_type="client",
+            source_name=client_name,
+        ))
+
+    async def _emit_failed_call(
+        self,
+        tc: "TraceContext",
+        *,
+        client_name: str,
+        model: str,
+        duration_ms: float,
+        exc: "Exception",
+    ) -> None:
+        """Emit ``ClientCallFailedEvent`` when a call raises.
+
+        ``AfterClientCallEvent`` is NOT emitted when this is called.
+
+        Args:
+            tc: The ``TraceContext`` returned by :meth:`_emit_before_call`.
+            client_name: Provider identifier.
+            model: Model name/identifier.
+            duration_ms: Wall-clock time in milliseconds until failure.
+            exc: The exception that was raised.
+        """
+        await self.events.emit(ClientCallFailedEvent(
+            trace_context=tc,
+            client_name=client_name,
+            model=model or "",
+            duration_ms=duration_ms,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            source_type="client",
+            source_name=client_name,
+        ))
 
     @property
     def tool_manager(self) -> ToolManager:
@@ -1334,8 +1546,18 @@ $backstory
         deep_research: bool = False,
         agent_config: Optional[Dict[str, Any]] = None,
         lazy_loading: bool = False,
-    ) -> AsyncIterator[str]:
-        """Stream the model's response."""
+    ) -> AsyncIterator[Union[str, AIMessage]]:
+        """Stream the model's response.
+
+        Yields successive string chunks of the model response followed by a
+        single final :class:`~parrot.models.responses.AIMessage` carrying full
+        response metadata (token usage, stop reason, model, provider, turn_id,
+        etc.).
+
+        Implementors MUST yield at least one ``str`` chunk before the final
+        ``AIMessage``.  Consumers can detect the end-of-stream sentinel via
+        ``isinstance(chunk, AIMessage)``.
+        """
         raise NotImplementedError("Subclasses must implement this method.")
 
     @abstractmethod

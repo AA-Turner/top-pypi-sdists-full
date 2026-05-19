@@ -78,6 +78,7 @@ class ModalClientModal:
         self.DomainCertificateVerify = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.DomainCertificateVerify, client, server_url)
         self.DomainCreate = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.DomainCreate, client, server_url)
         self.DomainList = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.DomainList, client, server_url)
+        self.EndpointCreate = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.EndpointCreate, client, server_url)
         self.EnvironmentCreate = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.EnvironmentCreate, client, server_url)
         self.EnvironmentDelete = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.EnvironmentDelete, client, server_url)
         self.EnvironmentGetManaged = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.EnvironmentGetManaged, client, server_url)

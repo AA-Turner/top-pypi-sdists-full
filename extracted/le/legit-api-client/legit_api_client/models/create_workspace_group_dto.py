@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -27,7 +28,7 @@ class CreateWorkspaceGroupDto(BaseModel):
     """
     CreateWorkspaceGroupDto
     """ # noqa: E501
-    name: Optional[StrictStr] = None
+    name: Annotated[str, Field(min_length=1, strict=True)]
     description: Optional[StrictStr] = None
     parent_group_id: Optional[StrictStr] = Field(default=None, alias="parentGroupId")
     child_group_ids: Optional[List[StrictStr]] = Field(default=None, alias="childGroupIds")
@@ -73,11 +74,6 @@ class CreateWorkspaceGroupDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if name (nullable) is None
-        # and model_fields_set contains the field
-        if self.name is None and "name" in self.model_fields_set:
-            _dict['name'] = None
-
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:

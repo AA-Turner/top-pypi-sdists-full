@@ -5,8 +5,8 @@ against the vendored JSON Schema under `src/ouroboros/plugin/schemas/<major>/`.
 
 The locked spec (Q00/ouroboros#728) requires:
 
-  - `PluginManifest` is a frozen dataclass with 8 required + 2 optional fields
-    (per Q00/ouroboros-plugins#6 lock).
+  - `PluginManifest` is a frozen dataclass with 8 required + optional fields
+    selected by the manifest schema version.
   - `load_manifest(path)` returns a frozen, validated manifest.
   - On any schema violation, raise `PluginManifestError` with structured
     fields: `path`, `json_pointer`, `expected`, `got`. A reviewer can match
@@ -30,6 +30,14 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ouroboros.plugin.hooks import (
+    HOOK_LIFECYCLE_READ_SCOPE,
+    is_deferred_hook_kind,
+    is_excluded_hook_kind,
+    is_v1_failure_policy,
+    is_v1_hook_kind,
+)
+
 try:
     from jsonschema import Draft202012Validator
 except ImportError as exc:  # pragma: no cover
@@ -39,9 +47,10 @@ except ImportError as exc:  # pragma: no cover
 
 
 # Support window per Q00/ouroboros-plugins#11 lock: current MAJOR + previous MAJOR.
-# Today we only ship 0.1; once 1.0 ships, both "0.1" and "1.0" are accepted, "0.x"
-# below the latest is unsupported.
-SUPPORTED_SCHEMA_VERSIONS: tuple[str, ...] = ("0.1",)
+# v0.1 is the archived base manifest contract; v0.2 is the local extension
+# that adds optional hook declarations; v0.3 narrows hooks[].name to the
+# v1 ``HookKind`` vocabulary at the JSON Schema layer.
+SUPPORTED_SCHEMA_VERSIONS: tuple[str, ...] = ("0.1", "0.2", "0.3")
 
 # Source types whose `path` must be a sandboxed relative slug — no absolute
 # paths and no parent-directory traversal. `local_path` resolves relative to
@@ -130,6 +139,16 @@ class Entrypoint:
 
 
 @dataclass(frozen=True)
+class HookSpec:
+    name: str
+    entrypoint: Entrypoint
+    failure_policy: str
+    timeout_seconds: int | None = None
+    permissions: tuple[str, ...] = ()
+    description: str = ""
+
+
+@dataclass(frozen=True)
 class AuditSpec:
     events: tuple[str, ...]
 
@@ -149,9 +168,8 @@ class AuditSpec:
 class PluginManifest:
     """Frozen representation of a validated plugin manifest.
 
-    Field shape matches Q00/ouroboros-plugins/schemas/0.1/plugin.schema.json
-    after the locked Q00/ouroboros-plugins#6 (8 required + 2 optional)
-    decision is applied.
+    Field shape matches the selected plugin manifest schema. v0.1 manifests
+    do not accept hooks; v0.2 manifests may declare optional hooks.
     """
 
     schema_version: str
@@ -168,6 +186,7 @@ class PluginManifest:
     entrypoint: Entrypoint
     description: str = ""
     audit: AuditSpec = field(default_factory=AuditSpec.standard_four_events)
+    hooks: tuple[HookSpec, ...] = ()
 
 
 def _load_schema(schema_version: str, *, manifest_path: str | Path) -> dict[str, Any]:
@@ -332,6 +351,184 @@ def _build_command(raw: dict[str, Any]) -> CommandSpec:
     )
 
 
+def _build_hook(
+    raw: dict[str, Any],
+    *,
+    declared_permission_scopes: frozenset[str],
+    hook_index: int,
+    manifest_path: str | Path,
+    schema_version: str,
+) -> HookSpec:
+    hook_name = raw["name"]
+    _validate_hook_name(
+        hook_name,
+        hook_index=hook_index,
+        manifest_path=manifest_path,
+        schema_version=schema_version,
+    )
+
+    failure_policy = raw["failure_policy"]
+    _validate_failure_policy(
+        failure_policy,
+        hook_index=hook_index,
+        manifest_path=manifest_path,
+    )
+
+    for permission_index, scope in enumerate(raw.get("permissions", ())):
+        if scope not in declared_permission_scopes:
+            raise PluginManifestError(
+                "hook permission must be declared in top-level permissions",
+                path=str(manifest_path),
+                json_pointer=f"/hooks/{hook_index}/permissions/{permission_index}",
+                expected=(
+                    "permission scope declared in top-level permissions[].scope "
+                    f"({sorted(declared_permission_scopes)!r})"
+                ),
+                got=scope,
+            )
+
+    _validate_hook_lifecycle_permission(
+        raw,
+        hook_index=hook_index,
+        manifest_path=manifest_path,
+        schema_version=schema_version,
+    )
+
+    entrypoint_raw = raw["entrypoint"]
+    return HookSpec(
+        name=hook_name,
+        entrypoint=Entrypoint(
+            type=entrypoint_raw["type"],
+            command=entrypoint_raw["command"],
+        ),
+        failure_policy=failure_policy,
+        timeout_seconds=raw.get("timeout_seconds"),
+        permissions=tuple(raw.get("permissions", ())),
+        description=raw.get("description", ""),
+    )
+
+
+def _validate_hook_lifecycle_permission(
+    raw: dict[str, Any],
+    *,
+    hook_index: int,
+    manifest_path: str | Path,
+    schema_version: str,
+) -> None:
+    """Require v0.3 lifecycle hooks to declare the v1 read permission.
+
+    Earlier slices introduced ``plugin:lifecycle:read`` as the permission
+    boundary for v1 observability hooks. Enforce it only for the tightened
+    v0.3 hook contract so supported v0.2 manifests keep their compatibility
+    behavior until that schema version is retired deliberately.
+    """
+
+    if schema_version != "0.3" or not is_v1_hook_kind(raw["name"]):
+        return
+    permissions = raw.get("permissions", ())
+    if HOOK_LIFECYCLE_READ_SCOPE in permissions:
+        return
+    raise PluginManifestError(
+        "v0.3 lifecycle hook must declare plugin:lifecycle:read",
+        path=str(manifest_path),
+        json_pointer=f"/hooks/{hook_index}/permissions",
+        expected=f"{HOOK_LIFECYCLE_READ_SCOPE!r} in hooks[].permissions",
+        got=permissions,
+    )
+
+
+def _validate_hook_name(
+    name: Any,
+    *,
+    hook_index: int,
+    manifest_path: str | Path,
+    schema_version: str,
+) -> None:
+    """Reject v0.3 hook names that are not in the v1 vocabulary.
+
+    v0.2 remains a supported manifest schema and its JSON Schema already
+    defines the accepted hook-name enum for that version. Preserve that
+    compatibility boundary here: v0.2 manifests keep their schema-level
+    contract, while v0.3 gets the tightened v1-only Python guard.
+    """
+    json_pointer = f"/hooks/{hook_index}/name"
+    if not isinstance(name, str) or not name:
+        raise PluginManifestError(
+            "hook name must be a non-empty string",
+            path=str(manifest_path),
+            json_pointer=json_pointer,
+            expected="non-empty string drawn from the schema hook vocabulary",
+            got=repr(name),
+        )
+
+    if schema_version != "0.3" or is_v1_hook_kind(name):
+        return
+
+    if is_deferred_hook_kind(name):
+        raise PluginManifestError(
+            "hook name is deferred to a follow-up RFC slice",
+            path=str(manifest_path),
+            json_pointer=json_pointer,
+            expected="v1 hook name (see ouroboros.plugin.hooks.HookKind)",
+            got=name,
+        )
+
+    if is_excluded_hook_kind(name):
+        raise PluginManifestError(
+            "hook name is excluded from the v1 plugin lifecycle contract",
+            path=str(manifest_path),
+            json_pointer=json_pointer,
+            expected="v1 hook name (see ouroboros.plugin.hooks.HookKind)",
+            got=name,
+        )
+
+    raise PluginManifestError(
+        "unknown hook name",
+        path=str(manifest_path),
+        json_pointer=json_pointer,
+        expected="v1 hook name (see ouroboros.plugin.hooks.HookKind)",
+        got=name,
+    )
+
+
+def _validate_failure_policy(
+    failure_policy: Any,
+    *,
+    hook_index: int,
+    manifest_path: str | Path,
+) -> None:
+    """Reject failure_policy values outside the v1 vocabulary."""
+    if isinstance(failure_policy, str) and is_v1_failure_policy(failure_policy):
+        return
+    raise PluginManifestError(
+        "hook failure_policy must be a v1 policy",
+        path=str(manifest_path),
+        json_pointer=f"/hooks/{hook_index}/failure_policy",
+        expected="'fail_open' or 'fail_closed'",
+        got=repr(failure_policy),
+    )
+
+
+def _escape_json_pointer_token(token: str) -> str:
+    return token.replace("~", "~0").replace("/", "~1")
+
+
+def _validation_error_pointer(error: Any) -> str:
+    """Return the most useful manifest pointer for a jsonschema error."""
+    if error.validator == "additionalProperties" and isinstance(error.instance, dict):
+        allowed = set(error.schema.get("properties", ()))
+        unexpected = [key for key in error.instance if key not in allowed]
+        if unexpected:
+            path = [*error.absolute_path, unexpected[0]]
+            return "/" + "/".join(_escape_json_pointer_token(str(p)) for p in path)
+
+    return (
+        "/" + "/".join(_escape_json_pointer_token(str(p)) for p in error.absolute_path)
+        if error.absolute_path
+        else ""
+    )
+
+
 def load_manifest(path: str | Path) -> PluginManifest:
     """Load and validate a plugin manifest from `path`.
 
@@ -424,7 +621,7 @@ def load_manifest(path: str | Path) -> PluginManifest:
     )
     if errors:
         err = errors[0]
-        pointer = "/" + "/".join(str(p) for p in err.absolute_path) if err.absolute_path else ""
+        pointer = _validation_error_pointer(err)
         raise PluginManifestError(
             err.message,
             path=str(manifest_path),
@@ -469,6 +666,18 @@ def load_manifest(path: str | Path) -> PluginManifest:
     else:
         audit = AuditSpec(events=tuple(audit_raw["events"]))
 
+    declared_permission_scopes = frozenset(p.scope for p in permissions)
+    hooks = tuple(
+        _build_hook(
+            h,
+            declared_permission_scopes=declared_permission_scopes,
+            hook_index=index,
+            manifest_path=manifest_path,
+            schema_version=schema_version,
+        )
+        for index, h in enumerate(raw.get("hooks", ()))
+    )
+
     return PluginManifest(
         schema_version=schema_version,
         name=raw["name"],
@@ -480,6 +689,7 @@ def load_manifest(path: str | Path) -> PluginManifest:
         entrypoint=entrypoint,
         description=raw.get("description", ""),
         audit=audit,
+        hooks=hooks,
     )
 
 
@@ -488,6 +698,7 @@ __all__ = [
     "CommandArgument",
     "CommandSpec",
     "Entrypoint",
+    "HookSpec",
     "Permission",
     "PluginManifest",
     "PluginManifestError",

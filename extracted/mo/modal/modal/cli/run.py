@@ -10,19 +10,19 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional, get_args
 
 import click
-import typer
 from click import ClickException
 from typing_extensions import TypedDict
 
+from .._environments import ensure_env
 from ..app import App, LocalEntrypoint
 from ..cls import _get_class_constructor_signature
 from ..config import config
-from ..environments import ensure_env
 from ..exception import ExecutionError, InvalidError, _CliUserExecutionError
 from ..functions import Function
 from ..output import OutputManager
 from ..runner import DEPLOYMENT_STRATEGY_TYPE, deploy_app, run_app
 from ..serving import serve_app
+from ._help import ModalCommand, ModalGroup
 from .import_refs import (
     CLICommand,
     MethodReference,
@@ -31,7 +31,7 @@ from .import_refs import (
     import_app_from_ref,
     parse_import_ref,
 )
-from .utils import ENV_OPTION, ENV_OPTION_HELP, stream_app_logs
+from .utils import ENV_OPTION_HELP, stream_app_logs
 
 
 class ParameterMetadata(TypedDict):
@@ -235,6 +235,7 @@ def _make_click_function(app, signature: CliRunnableSignature, inner: Callable[[
         output_mgr.set_timestamps(ctx.obj["show_timestamps"])
         with run_app(
             app,
+            name=ctx.obj["name"],
             detach=ctx.obj["detach"],
             environment_name=ctx.obj["env"],
             interactive=ctx.obj["interactive"],
@@ -276,11 +277,11 @@ def _get_click_command_for_function(app: App, function: Function, ctx: click.Con
     with_click_options = _add_click_options(f, signature.parameters)
 
     if signature.has_variadic_args:
-        return click.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})(
-            with_click_options
-        )
+        return click.command(
+            cls=ModalCommand, context_settings={"ignore_unknown_options": True, "allow_extra_args": True}
+        )(with_click_options)
     else:
-        return click.command(with_click_options)
+        return click.command(cls=ModalCommand)(with_click_options)
 
 
 def _get_click_command_for_cls(app: App, method_ref: MethodReference, ctx: click.Context):
@@ -333,11 +334,11 @@ def _get_click_command_for_cls(app: App, method_ref: MethodReference, ctx: click
     with_click_options = _add_click_options(f, parameters)
 
     if fun_signature.has_variadic_args:
-        return click.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})(
-            with_click_options
-        )
+        return click.command(
+            cls=ModalCommand, context_settings={"ignore_unknown_options": True, "allow_extra_args": True}
+        )(with_click_options)
     else:
-        return click.command(with_click_options)
+        return click.command(cls=ModalCommand)(with_click_options)
 
 
 def _get_click_command_for_local_entrypoint(app: App, entrypoint: LocalEntrypoint):
@@ -365,6 +366,7 @@ def _get_click_command_for_local_entrypoint(app: App, entrypoint: LocalEntrypoin
         output_mgr.set_timestamps(ctx.obj["show_timestamps"])
         with run_app(
             app,
+            name=ctx.obj["name"],
             detach=ctx.obj["detach"],
             environment_name=ctx.obj["env"],
             interactive=ctx.obj["interactive"],
@@ -383,11 +385,11 @@ def _get_click_command_for_local_entrypoint(app: App, entrypoint: LocalEntrypoin
     with_click_options = _add_click_options(f, signature.parameters)
 
     if signature.has_variadic_args:
-        return click.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})(
-            with_click_options
-        )
+        return click.command(
+            cls=ModalCommand, context_settings={"ignore_unknown_options": True, "allow_extra_args": True}
+        )(with_click_options)
     else:
-        return click.command(with_click_options)
+        return click.command(cls=ModalCommand)(with_click_options)
 
 
 def _get_runnable_list(all_usable_commands: list[CLICommand]) -> str:
@@ -399,7 +401,9 @@ def _get_runnable_list(all_usable_commands: list[CLICommand]) -> str:
     return "\n".join(usable_command_lines)
 
 
-class RunGroup(click.Group):
+class RunGroup(ModalGroup):
+    """Click group that resolves subcommands dynamically from a file/module ref."""
+
     def get_command(self, ctx, func_ref):
         # note: get_command here is run before the "group logic" in the `run` logic below
         # so to ensure that `env` has been globally populated before user code is loaded, it
@@ -446,6 +450,7 @@ class RunGroup(click.Group):
     cls=RunGroup,
     subcommand_metavar="FUNC_REF",
 )
+@click.option("-n", "--name", help="Name for this run of the App.")
 @click.option("-w", "--write-result", help="Write return value (which must be str or bytes) to this local path.")
 @click.option("-q", "--quiet", is_flag=True, help="Don't show Modal progress indicators.")
 @click.option("-d", "--detach", is_flag=True, help="Don't stop the app if the local process dies or disconnects.")
@@ -454,7 +459,17 @@ class RunGroup(click.Group):
 @click.option("-m", is_flag=True, help="Interpret argument as a Python module path instead of a file/script path")
 @click.option("--timestamps", is_flag=True, help="Show timestamps for each log line.")
 @click.pass_context
-def run(ctx, write_result, detach, quiet, interactive, env, m, timestamps):
+def run(
+    ctx: click.Context,
+    name: Optional[str],
+    write_result: Optional[str],
+    detach: bool,
+    quiet: bool,
+    interactive: bool,
+    env: Optional[str],
+    m: bool,
+    timestamps: bool,
+):
     """Run a Modal function or local entrypoint.
 
     `FUNC_REF` should be of the format `{file or module}::{function name}`.
@@ -487,6 +502,7 @@ def run(ctx, write_result, detach, quiet, interactive, env, m, timestamps):
     ```
     """
     ctx.ensure_object(dict)
+    ctx.obj["name"] = name
     ctx.obj["result_path"] = write_result
     ctx.obj["detach"] = detach  # if subcommand would be a click command...
     ctx.obj["show_progress"] = False if quiet else True
@@ -494,19 +510,35 @@ def run(ctx, write_result, detach, quiet, interactive, env, m, timestamps):
     ctx.obj["show_timestamps"] = timestamps
 
 
+@click.command("deploy", cls=ModalCommand, no_args_is_help=True)
+@click.argument("app_ref")
+@click.option("--name", default="", help="Name of the deployment.")
+@click.option("-e", "--env", default=None, help=ENV_OPTION_HELP)
+@click.option("--stream-logs", is_flag=True, default=False, help="Stream logs from the app upon deployment.")
+@click.option("--tag", default="", help="Tag the deployment with a version.")
+@click.option(
+    "-m",
+    "use_module_mode",
+    is_flag=True,
+    default=False,
+    help="Interpret argument as a Python module path instead of a file/script path",
+)
+@click.option("--timestamps", is_flag=True, default=False, help="Show timestamps for each log line.")
+@click.option(
+    "--strategy",
+    default="rolling",
+    help="Deployment strategy",
+    type=click.Choice(get_args(DEPLOYMENT_STRATEGY_TYPE)),
+)
 def deploy(
-    app_ref: str = typer.Argument(..., help="Path to a Python file with an app to deploy"),
-    name: str = typer.Option("", help="Name of the deployment."),
-    env: str = ENV_OPTION,
-    stream_logs: bool = typer.Option(False, help="Stream logs from the app upon deployment."),
-    tag: str = typer.Option("", help="Tag the deployment with a version."),
-    use_module_mode: bool = typer.Option(
-        False, "-m", help="Interpret argument as a Python module path instead of a file/script path"
-    ),
-    timestamps: bool = typer.Option(False, "--timestamps", help="Show timestamps for each log line."),
-    strategy: str = typer.Option(
-        "rolling", help="Deployment strategy", click_type=click.Choice(get_args(DEPLOYMENT_STRATEGY_TYPE))
-    ),
+    app_ref: str,
+    name: str = "",
+    env: Optional[str] = None,
+    stream_logs: bool = False,
+    tag: str = "",
+    use_module_mode: bool = False,
+    timestamps: bool = False,
+    strategy: str = "rolling",
 ):
     """Deploy a Modal application.
 
@@ -544,16 +576,28 @@ def deploy(
         )
 
 
+@click.command("serve", cls=ModalCommand, no_args_is_help=True)
+@click.argument("app_ref")
+@click.option("-n", "--name", help="Name for this run of the App.")
+@click.option("--timeout", default=None, type=float)
+@click.option("-e", "--env", default=None, help=ENV_OPTION_HELP)
+@click.option(
+    "-m",
+    "use_module_mode",
+    is_flag=True,
+    default=False,
+    help="Interpret argument as a Python module path instead of a file/script path",
+)
+@click.option("--timestamps", is_flag=True, default=False, help="Show timestamps for each log line.")
 def serve(
-    app_ref: str = typer.Argument(..., help="Path to a Python file with an app."),
+    app_ref: str,
+    name: Optional[str] = None,
     timeout: Optional[float] = None,
-    env: str = ENV_OPTION,
-    use_module_mode: bool = typer.Option(
-        False, "-m", help="Interpret argument as a Python module path instead of a file/script path"
-    ),
-    timestamps: bool = typer.Option(False, "--timestamps", help="Show timestamps for each log line."),
+    env: Optional[str] = None,
+    use_module_mode: bool = False,
+    timestamps: bool = False,
 ):
-    """Run a web endpoint(s) associated with a Modal app and hot-reload code.
+    """Expose Web Functions with hot-reloading on code changes.
 
     **Examples:**
 
@@ -574,7 +618,7 @@ def serve(
     app = import_app_from_ref(import_ref, base_cmd="modal serve")
     if app.description is None:
         app.set_description(_get_clean_app_description(app_ref))
-    with serve_app(app, import_ref, environment_name=env):
+    with serve_app(app, import_ref, name=name, environment_name=env):
         if timeout is None:
             timeout = config["serve_timeout"]
         if timeout is None:

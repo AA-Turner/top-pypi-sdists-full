@@ -1,4 +1,5 @@
 import os
+from importlib.metadata import PackageNotFoundError
 
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.main import MainController
@@ -21,9 +22,11 @@ from abstra_internals.utils.packages import get_local_package_version
 def run():
     SignalHandlers.init()
     AbstraLogger.init("cloud")
-    AbstraLogger.warning(
-        f"[web-editor-worker] Running abstra version {get_local_package_version()}"
-    )
+    try:
+        abstra_version = str(get_local_package_version())
+    except PackageNotFoundError:
+        abstra_version = "0.0.0"
+    AbstraLogger.warning(f"[web-editor-worker] Running abstra version {abstra_version}")
     if WORKER_LOG_TO_QUEUE:
         AbstraLogger.warning(
             "[web-editor-worker] ABSTRA_WORKER_LOG_TO_QUEUE=true, execution logs will be sent via RabbitMQ"

@@ -13,13 +13,13 @@ from biolib._internal.data_record.push_data import (
 from biolib._internal.errors import AuthenticationError
 from biolib._internal.file_utils import get_files_and_size_of_directory, get_iterable_zip_stream
 from biolib._shared.types import PushResponseDict
+from biolib._shared.types.typing import Dict, Iterable, List, Optional, Set, TypedDict, Union
 from biolib._shared.utils import parse_resource_uri
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_api_client.biolib_app_api import BiolibAppApi
 from biolib.biolib_docker_client import BiolibDockerClient
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Dict, Iterable, List, Optional, Set, TypedDict, Union
 
 REGEX_MARKDOWN_INLINE_IMAGE = re.compile(r'!\[(?P<alt>.*?)\]\((?P<src>[^\s)]+)\)')
 

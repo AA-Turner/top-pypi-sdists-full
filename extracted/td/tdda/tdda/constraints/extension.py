@@ -12,7 +12,7 @@ and verification for other kinds of data, via its Python extension framework.
 The framework will automatically use any extension implementations that
 have been declared using the ``TDDA_EXTENSIONS`` environment variable. This
 should be set to a list of class names, for Python classes that extend the
-:py:class:`ExtensionBase` base class.
+``ExtensionBase`` base class.
 
 The class names in the ``TDDA_EXTENSIONS`` environment variable should be
 colon-separated for Unix systems, or semicolon-separated for Microsoft
@@ -29,22 +29,22 @@ With these in place, the ``tdda`` command will include constraint discovery
 and verification using the ``MySpecialExtension`` implementation class
 provided in the Python file ``/my/python/sources/mytdda.py``.
 
-An  example of a simple extension is included with the set of standard
-examples. See :ref:`examples`.
+An example of a simple extension is included with the set of standard
+examples (see ``tdda examples``).
 
 Extension Overview
 ------------------
 
 An extension should provide:
 
- - an implementation (subclass) of :py:class:`ExtensionBase`, to
+ - an implementation (subclass) of ``ExtensionBase``, to
    provide a command-line interface, extending the ``tdda`` command
    to support a particular type of input data.
 
- - an implementation (subclass) of :py:class:`BaseConstraintCalculator`,
+ - an implementation (subclass) of ``BaseConstraintCalculator``,
    to provide methods for computing individual constraint results.
 
- - an implementation (subclass) of :py:class:`BaseConstraintDetector`,
+ - an implementation (subclass) of ``BaseConstraintDetector``,
    to provide methods for generating detection results.
 
 
@@ -113,104 +113,78 @@ import sys
 
 
 class ExtensionBase:
+    """Base class for tdda command-line extensions.
+
+    Subclass this to add support for new data sources to the ``tdda``
+    command. The subclass must implement ``applicable()``, and should
+    implement ``discover()``, ``verify()``, and ``detect()``.
+
+    Args:
+        argv: List of command-line argument strings (e.g. ``sys.argv``).
+        verbose: If ``True``, enable verbose output. Default is
+            ``False``.
     """
-    An extension must provide a class that is based on the
-    :py:class:`ExtensionBase` class, providing implementations for its
-    :py:meth:`applicable`, :py:meth:`help`, :py:meth:`discover` and
-    :py:meth:`verify` methods.
-    """
+
     def __init__(self, argv, verbose=False):
-        """
-        A subclass of :py:class:`ExtensionBase` should call its superclass
-        :py:meth:`__init__` initialisation method with a list of argument
-        strings (such as ``sys.path``).
-        """
         self.argv = argv
         self.verbose = verbose
 
     def applicable(self):
-        """
-        The :py:meth:`applicable` method should return ``True`` if the
-        :py:attr:`argv` property contains command-line parameters that
-        can be used by this implementation.
+        """Return ``True`` if this extension can handle the given arguments.
 
-        For example, if the extension can handle data stored in Excel
-        ``.xlsx`` files, then its :py:meth:`applicable` method should
-        return ``True`` if any of its parameters are filenames that have
-        a ``.xlsx`` suffix.
+        For example, an extension for Excel files should return ``True``
+        if any of the ``argv`` strings have a ``.xlsx`` suffix.
         """
         return False
 
     def help(self, stream=sys.stdout):
-        """
-        help(self, stream=sys.stdout)
-        The :py:meth:`help` method should document itself by writing
-        lines to the given output stream.
+        """Write help text for this extension to ``stream``.
 
-        This is used by the ``tdda`` command's ``help`` option.
+        Args:
+            stream: Output stream. Default is ``sys.stdout``.
         """
         pass
 
     def spec(self):
-        """
-        The :py:meth:`spec` method should return a short one-line string
-        describing, briefly, how to specify the input source.
+        """Return a brief one-line string describing how to specify the
+        input source.
         """
         return ''
 
     def discover(self):
-        """
-        The :py:meth:`discover` method should implement constraint
-        discovery.
+        """Implement constraint discovery.
 
-        It should use the ``self.argv`` variable to get whatever other
-        optional or mandatory flags or parameters are required to specify
-        the data from which constraints are to be discovered, and the name
-        of the file to which the constraints are to be written.
+        Use ``self.argv`` to obtain the data source and output path for
+        the discovered constraints.
         """
         pass
 
     def verify(self):
-        """
-        The :py:meth:`verify` method should implement constraint
-        verification.
+        """Implement constraint verification.
 
-        It should read constraints from a ``.tdda`` file specified on
-        the command line, and verify these constraints on the data
-        specified.
-
-        It should use the ``self.argv`` variable to get whatever other
-        optional or mandatory flags or parameters are required to specify
-        the data on which the constraints are to be verified.
+        Read constraints from a ``.tdda`` file specified in ``self.argv``
+        and verify them against the specified data.
         """
         pass
 
     def detect(self):
-        """
-        The :py:meth:`detect` method should implement constraint
-        detection.
+        """Implement constraint detection.
 
-        It should read constraints from a ``.tdda`` file specified on
-        the command line, and verify these constraints on the data
-        specified, and produce detection output.
-
-        It should use the ``self.argv`` variable to get whatever other
-        optional or mandatory flags or parameters are required to specify
-        the data on which the constraints are to be verified, where the
-        output detection data should be written, and detection-specific
-        flags.
+        Read constraints from a ``.tdda`` file specified in ``self.argv``,
+        verify them against the specified data, and write detection output.
+        Use ``self.argv`` to get the data source, where the detection
+        output should be written, and any detection-specific flags.
         """
         pass
 
 
 class BaseConstraintCalculator:
     """
-    The :py:mod:`BaseConstraintCalculator` class defines a default or dummy
-    implementation of all of the methods that are required in order
-    to implement a constraint discoverer or verifier via subclasses of the
-    base :py:mod:`BaseConstraintDiscoverer` and :py:mod:`BaseConstraintVerifier`
-    classes.
+    Default or dummy implementation of all methods required to implement
+    a constraint discoverer or verifier via subclasses of
+    ``BaseConstraintDiscoverer`` and ``BaseConstraintVerifier``.
     """
+
     def is_null(self, value):
         """
         Determine whether a value is null
@@ -247,11 +221,14 @@ class BaseConstraintCalculator:
         """
         raise NotImplementedError('types_compatible')
 
-    def allowed_values_exclusions(self):
-        """
-        Get list of values to ignore when computing allowed values
-        """
-        return [None]
+    # def allowed_values_exclusions(self):
+    #     """
+    #     Get list of values to ignore when computing allowed values
+    #     """
+    #     return [None]
+
+    def filter_out_nulls(self, values):
+        return {v for v in values if not v is None}
 
     def calc_tdda_type(self, colname):
         """
@@ -340,23 +317,22 @@ class BaseConstraintCalculator:
         expression constraint (by matching at least one of the regular
         expressions given).
 
-        Returns a 'truthy' value (typically the set of the strings that do
-        not match any of the regular expressions) on failure, and a 'falsy'
-        value (typically False or None or an empty set) if there are no
-        failures. Any contents of the returned value are used in the case
-        where detect is set, by the corresponding extension method for
-        recording detection results.
+        Returns:
+            A truthy value (typically the set of strings that do not
+            match any of the regular expressions) on failure, or a falsy
+            value (False, None, or empty set) if there are no failures.
+            Any contents are used when detect is set, by the corresponding
+            extension method for recording detection results.
         """
         raise NotImplementedError('verify_rex')
 
 
 class BaseConstraintDetector:
     """
-    The :py:mod:`BaseConstraintDetector` class defines a default or dummy
-    implementation of all of the methods that are required in order
-    to implement constraint detection via the a subclass of the base
-    :py:mod:`BaseConstraintVerifier` class.
+    Default or dummy implementation of all methods required to implement
+    constraint detection via a subclass of ``BaseConstraintVerifier``.
     """
+
     def detect_min_constraint(self, colname, value, precision, epsilon):
         """
         Detect failures for a min constraint.
@@ -411,27 +387,28 @@ class BaseConstraintDetector:
         """
         pass
 
-    def detect_rex_constraint(self, colname, value, violations):
+    def detect_rex_constraint(self, colname, violations):
         """
         Detect failures for a rex constraint.
         """
         pass
 
-    def write_detected_records(self,
-                               detect_outpath=None,
-                               detect_write_all=False,
-                               detect_per_constraint=False,
-                               detect_output_fields=None,
-                               detect_index=False,
-                               detect_in_place=False,
-                               rownumber_is_index=True,
-                               boolean_ints=False,
-                               **kwargs):
+    def write_detected_records(
+        self,
+        outpath=None,
+        write_all_records=False,
+        per_constraint=False,
+        output_fields=None,
+        index=False,
+        in_place=False,
+        rownumber_is_index=True,
+        boolean_ints=False,
+        **kwargs,
+    ):
         """
         Write out a detection dataset.
 
-        Returns a :py:class:``~tdda.constraints.base.Detection`` object
-        (or ``None``).
+        Returns:
+            ``tdda.constraints.base.Detection`` object, or ``None``.
         """
         pass
-

@@ -1,4 +1,5 @@
 import webbrowser
+from importlib.metadata import PackageNotFoundError
 from typing import List
 
 from abstra_internals.environment import EDITOR_MODE, RABBITMQ_CONNECTION_URI
@@ -84,7 +85,10 @@ class NewVersionOfAbstraAvailable(LinterRule):
     type = "info"
 
     def find_issues(self) -> List[LinterIssue]:
-        package_version = PackageVersionManager("abstra")
+        try:
+            package_version = PackageVersionManager("abstra")
+        except PackageNotFoundError:
+            return []
         version_status = package_version.get_version_status()
         is_there_a_new_version = version_status == VersionStatus.OUT_OF_DATE
 

@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from typing import List, Tuple
 
 import numpy as np
 
@@ -107,7 +106,7 @@ class PowCone3D(Cone):
     def num_cones(self):
         return self.x.size
 
-    def cone_sizes(self) -> List[int]:
+    def cone_sizes(self) -> list[int]:
         return [3]*self.num_cones()
 
     def is_dcp(self, dpp: bool = False) -> bool:
@@ -125,7 +124,7 @@ class PowCone3D(Cone):
         return self.is_dcp()
 
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def shape(self) -> tuple[int, ...]:
         s = (3,) + self.x.shape
         # Note: this can be a 3-tuple of x.ndim == 2.
         return s
@@ -156,6 +155,17 @@ class PowCone3D(Cone):
             assert args_shapes == instance_args_shapes
             return PowCone3D(args[0]/self.alpha, args[1]/(1-self.alpha),
                              args[2], self.alpha)
+
+
+class PowCone3DApprox(PowCone3D):
+    """PowCone3D with SOC-based rational approximation.
+
+    Identical semantics to PowCone3D, but the solving chain will
+    convert this constraint to second-order cone (SOC) constraints
+    via rational approximation of the exponent, following the same
+    pattern as PowerApprox / PnormApprox for atoms.
+    """
+    pass
 
 
 class PowConeND(Cone):
@@ -230,9 +240,9 @@ class PowConeND(Cone):
 
     def get_data(self):
         return [self.alpha, self.axis, self.id]
-    
+
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         # The shape property is a tuple (m, n) where each
         # column/row is a separate power cone depending on axis.
         # This constitutes the shape of the hypograph variable z
@@ -246,7 +256,7 @@ class PowConeND(Cone):
             m, n = self.W.shape[1], self.W.shape[0]
         s = (m + 1, n)
         return s
-    
+
     @property
     def residual(self):
         # TODO: The projection should be implemented directly.
@@ -257,7 +267,7 @@ class PowConeND(Cone):
         z = Variable(self.z.shape)
         constr = [PowConeND(W, z, self.alpha, axis=self.axis)]
         obj = Minimize(norm2(hstack([W.flatten(order='F'), z.flatten(order='F')]) -
-                             hstack([self.W.flatten(order='F').value, 
+                             hstack([self.W.flatten(order='F').value,
                                      self.z.flatten(order='F').value])))
         problem = Problem(obj, constr)
         return problem.solve(solver='SCS', eps=1e-8)
@@ -270,7 +280,7 @@ class PowConeND(Cone):
         cone_size = 1 + self.args[0].shape[self.axis]
         return cone_size * self.num_cones()
 
-    def cone_sizes(self) -> List[int]:
+    def cone_sizes(self) -> list[int]:
         cone_size = 1 + self.args[0].shape[self.axis]
         return [cone_size] * self.num_cones()
 

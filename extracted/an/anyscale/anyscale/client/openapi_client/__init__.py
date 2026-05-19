@@ -473,6 +473,7 @@ from openapi_client.models.internal_production_job import InternalProductionJob
 from openapi_client.models.internalproductionjob_response import InternalproductionjobResponse
 from openapi_client.models.job_access import JobAccess
 from openapi_client.models.job_config_response import JobConfigResponse
+from openapi_client.models.job_config_response_metadata import JobConfigResponseMetadata
 from openapi_client.models.job_details import JobDetails
 from openapi_client.models.job_event_fields import JobEventFields
 from openapi_client.models.job_queue import JobQueue
@@ -494,7 +495,7 @@ from openapi_client.models.job_run_summary import JobRunSummary
 from openapi_client.models.job_run_type import JobRunType
 from openapi_client.models.job_state_log_level_types import JobStateLogLevelTypes
 from openapi_client.models.job_with_report import JobWithReport
-from openapi_client.models.jobconfigresponse_response import JobconfigresponseResponse
+from openapi_client.models.jobconfigresponse_with_metadata_response import JobconfigresponseWithMetadataResponse
 from openapi_client.models.jobqueue_response import JobqueueResponse
 from openapi_client.models.jobqueuejob_list_response import JobqueuejobListResponse
 from openapi_client.models.jobqueueterminationresponse_response import JobqueueterminationresponseResponse
@@ -594,6 +595,7 @@ from openapi_client.models.node_registration_gcp import NodeRegistrationGCP
 from openapi_client.models.node_registration_k8_s import NodeRegistrationK8S
 from openapi_client.models.node_registration_provisioned import NodeRegistrationProvisioned
 from openapi_client.models.node_registration_v2 import NodeRegistrationV2
+from openapi_client.models.node_sort_field import NodeSortField
 from openapi_client.models.node_status import NodeStatus
 from openapi_client.models.node_type import NodeType
 from openapi_client.models.nodemetricsresponse_response import NodemetricsresponseResponse
@@ -806,6 +808,7 @@ from openapi_client.models.sessioncommandid_response import SessioncommandidResp
 from openapi_client.models.sessions_sort_field import SessionsSortField
 from openapi_client.models.sessionsshkey_response import SessionsshkeyResponse
 from openapi_client.models.set_organization_roles import SetOrganizationRoles
+from openapi_client.models.set_user_group_roles import SetUserGroupRoles
 from openapi_client.models.show_otp_source_return_api_model import ShowOTPSourceReturnApiModel
 from openapi_client.models.showotpsourcereturnapimodel_response import ShowotpsourcereturnapimodelResponse
 from openapi_client.models.skills_manifest_response import SkillsManifestResponse
@@ -907,6 +910,7 @@ from openapi_client.models.use_work_os_response import UseWorkOSResponse
 from openapi_client.models.user_cloud_permissions import UserCloudPermissions
 from openapi_client.models.user_group import UserGroup
 from openapi_client.models.user_group_member import UserGroupMember
+from openapi_client.models.user_group_organization_permissions import UserGroupOrganizationPermissions
 from openapi_client.models.user_group_with_members import UserGroupWithMembers
 from openapi_client.models.user_info import UserInfo
 from openapi_client.models.user_migration_result import UserMigrationResult

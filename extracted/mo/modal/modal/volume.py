@@ -31,7 +31,15 @@ from synchronicity.async_wrap import asynccontextmanager
 
 import modal.exception
 import modal_proto.api_pb2
-from modal.exception import AlreadyExistsError, ConflictError, InvalidError, NotFoundError, VolumeUploadTimeoutError
+from modal.exception import (
+    AlreadyExistsError,
+    ConflictError,
+    ExecutionError,
+    InvalidError,
+    NotFoundError,
+    ServiceError,
+    VolumeUploadTimeoutError,
+)
 from modal_proto import api_pb2
 
 from ._load_context import LoadContext
@@ -57,6 +65,7 @@ from ._utils.blob_utils import (
     BLOCK_SIZE,
     FileUploadSpec,
     FileUploadSpec2,
+    _ByteBudget,
     blob_upload_file,
     get_file_upload_spec_from_fileobj,
     get_file_upload_spec_from_path,
@@ -72,6 +81,26 @@ from .config import logger
 # Max duration for uploading to volumes files
 # As a guide, files >40GiB will take >10 minutes to upload.
 VOLUME_PUT_FILE_CLIENT_TIMEOUT = 60 * 60
+
+
+async def _raise_on_block_response_error(response) -> None:
+    """Raise a picklable Modal exception on error.
+
+    We avoid `aiohttp.ClientResponse.raise_for_status()` because the resulting
+    `ClientResponseError` is not picklable, which breaks result serialization
+    when raised from within a Modal function.
+    """
+    if response.status < 400:
+        return
+
+    try:
+        body = await response.text()
+    except Exception:
+        body = "<unavailable>"
+
+    if response.status == 503:
+        raise ServiceError(f"Service temporarily unavailable: {body}")
+    raise ExecutionError(f"Request failed with status {response.status} {response.reason}: {body}")
 
 
 def _validate_volume_version(
@@ -263,7 +292,7 @@ class _VolumeManager:
                 item.volume_id,
                 client,
                 item.metadata,
-                is_another_app=True,
+                skip_reload=True,
                 rep=_Volume._repr(item.label, environment_name),
             )
             for item in items
@@ -311,6 +340,24 @@ class _VolumeManager:
 VolumeManager = synchronize_api(_VolumeManager)
 
 
+@dataclass(frozen=True)
+class _VolumeMountOptions:
+    read_only: bool = False
+    sub_path: Optional[str] = None
+
+
+def _volume_to_mount_proto(path: str, volume: "_Volume") -> api_pb2.VolumeMount:
+    """Convert a Volume to a VolumeMount proto for use in Function/Sandbox definitions."""
+    mount_options = volume._mount_options or _VolumeMountOptions()
+    return api_pb2.VolumeMount(
+        mount_path=path,
+        volume_id=volume.object_id,
+        allow_background_commits=True,
+        read_only=mount_options.read_only,
+        sub_path=mount_options.sub_path,
+    )
+
+
 class _Volume(_Object, type_prefix="vo"):
     """A writeable volume that can be used to share files between one or more Modal functions.
 
@@ -355,7 +402,23 @@ class _Volume(_Object, type_prefix="vo"):
 
     _lock: Optional[asyncio.Lock] = None
     _metadata: "typing.Optional[api_pb2.VolumeMetadata]"
+    _mount_options: Optional[_VolumeMountOptions] = None
+    # Client-side read-only flag from the deprecated .read_only() method. Unlike
+    # _mount_options.read_only (which only configures the server-side mount), this
+    # flag triggers client-side InvalidError on mutating calls like batch_upload().
     _read_only: bool = False
+
+    def _initialize_from_empty(self):
+        self._metadata = None
+        self._mount_options = None
+        self._read_only = False
+
+    def _initialize_from_other(self, other):
+        super()._initialize_from_other(other)
+        self._metadata = other._metadata
+        self._mount_options = other._mount_options
+        self._read_only = other._read_only
+        self._name = other._name
 
     @classproperty
     @classmethod
@@ -367,41 +430,105 @@ class _Volume(_Object, type_prefix="vo"):
         return self._name
 
     def read_only(self) -> "_Volume":
-        """Configure Volume to mount as read-only.
+        """mdmd:hidden"""
 
-        **Example**
-
-        ```python
-        import modal
-
-        volume = modal.Volume.from_name("my-volume", create_if_missing=True)
-
-        @app.function(volumes={"/mnt/items": volume.read_only()})
-        def f():
-            with open("/mnt/items/my-file.txt") as f:
-                return f.read()
-        ```
-
-        The Volume is mounted as a read-only volume in a function. Any file system write operation into the
-        mounted volume will result in an error.
-
-        Added in v1.0.5.
-        """
+        # Silently deprecated in favor of `with_mount_options(read_only=True)`.
+        if self._mount_options is not None:
+            raise InvalidError(
+                "Cannot call read_only() on a Volume that has with_mount_options() applied. "
+                "Use with_mount_options(read_only=True, ...) instead. Note that with_mount_options(read_only=True) "
+                "only configures the server-side mount and does not block client-side Volume SDK methods."
+            )
+        mount_options = _VolumeMountOptions(read_only=True)
 
         async def _load(
             new_volume: _Volume, resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
         ):
             new_volume._initialize_from_other(self)
+            new_volume._mount_options = mount_options
             new_volume._read_only = True
 
-        obj = _Volume._from_loader(
+        new_volume = _Volume._from_loader(
             _load,
             "Volume()",
             hydrate_lazily=True,
             deps=lambda: [self],
             load_context_overrides=self._load_context_overrides,
         )
-        return obj
+        new_volume._initialize_from_other(self)
+        new_volume._mount_options = mount_options
+        new_volume._read_only = True
+        return new_volume
+
+    def with_mount_options(
+        self,
+        *,
+        read_only: Optional[bool] = None,
+        sub_path: Optional[Union[str, PurePosixPath]] = None,
+    ) -> "_Volume":
+        """Configure options used when mounting this Volume.
+
+        Note that these options are not properties stored with the Volume itself - they can be individually configured
+        for each Volume - container association.
+
+        read_only: bool (optional) - set this to True to make the Volume read only from within containers
+        sub_path: str | PurePosixPath (optional) - only mount this sub_path directory from the Volume.
+            If the directory doesn't exist in the Volume, it will be created when the container starts up
+
+
+        **Mount Volume in read-only mode**
+        ```python
+        import modal
+
+        volume = modal.Volume.from_name("my-volume")
+
+        @app.function(volumes={"/mnt": volume.with_mount_options(read_only=True)})
+        def f():
+            return os.mkdir("/mnt/foo")  # not possible!
+        ```
+
+        **Mount only part of a Volume using sub_path**
+        ```python
+        import modal
+
+        volume = modal.Volume.from_name("my-volume")
+
+        @app.function(volumes={"/user_data": volume.with_mount_options(sub_path="/users/my_user")})
+        def f():
+            return os.listdir("/user_data")  # lists data from /users/my_user
+        ```
+        """
+        if self._read_only:
+            raise InvalidError(
+                "Cannot call with_mount_options() on a Volume that has .read_only() applied. "
+                "Use with_mount_options(read_only=True, ...) instead. Note that with_mount_options(read_only=True) "
+                "only configures the server-side mount and does not block client-side Volume SDK methods."
+            )
+        current_mount_options = self._mount_options or _VolumeMountOptions()
+        normalized_sub_path = current_mount_options.sub_path
+        if sub_path is not None:
+            # Normalize sub_path: "/" means whole volume (same as None)
+            path_str = PurePosixPath(sub_path).as_posix()
+            normalized_sub_path = None if path_str == "/" else path_str
+        read_only = current_mount_options.read_only if read_only is None else read_only
+        mount_options = _VolumeMountOptions(read_only=read_only, sub_path=normalized_sub_path)
+
+        async def _load(
+            new_volume: _Volume, resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
+        ):
+            new_volume._initialize_from_other(self)
+            new_volume._mount_options = mount_options
+
+        new_volume = _Volume._from_loader(
+            _load,
+            "Volume()",
+            hydrate_lazily=True,
+            deps=lambda: [self],
+            load_context_overrides=self._load_context_overrides,
+        )
+        new_volume._initialize_from_other(self)
+        new_volume._mount_options = mount_options
+        return new_volume
 
     def _hydrate_metadata(self, metadata: Optional[Message]):
         if metadata:
@@ -480,7 +607,7 @@ class _Volume(_Object, type_prefix="vo"):
         return _Volume._from_loader(
             _load,
             rep,
-            is_another_app=True,
+            skip_reload=True,
             hydrate_lazily=True,
             name=name,
             load_context_overrides=LoadContext(client=client, environment_name=environment_name),
@@ -525,7 +652,7 @@ class _Volume(_Object, type_prefix="vo"):
         return _Volume._from_loader(
             _load,
             rep,
-            is_another_app=True,
+            skip_reload=True,
             hydrate_lazily=True,
             load_context_overrides=LoadContext(client=client),
         )
@@ -568,7 +695,7 @@ class _Volume(_Object, type_prefix="vo"):
                 response.volume_id,
                 client,
                 response.metadata,
-                is_another_app=True,
+                skip_reload=True,
                 rep="modal.Volume.ephemeral()",
             )
 
@@ -741,7 +868,7 @@ class _Volume(_Object, type_prefix="vo"):
         @retry(n_attempts=5, base_delay=0.1, attempt_timeout=None)
         async def read_block(block_url: str) -> bytes:
             async with ClientSessionRegistry.get_session().get(block_url) as get_response:
-                get_response.raise_for_status()
+                await _raise_on_block_response_error(get_response)
                 return await get_response.content.read()
 
         async def iter_urls() -> AsyncGenerator[str]:
@@ -810,7 +937,7 @@ class _Volume(_Object, type_prefix="vo"):
             num_bytes_written = 0
 
             async with download_semaphore, ClientSessionRegistry.get_session().get(url) as get_response:
-                get_response.raise_for_status()
+                await _raise_on_block_response_error(get_response)
                 async for chunk in get_response.content.iter_any():
                     num_chunk_bytes_written = 0
 
@@ -1024,6 +1151,7 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
         self._upload_generators = []
         self._progress_cb = progress_cb or (lambda *_, **__: None)
         self._force = force
+        self._byte_budget = _ByteBudget.from_system_memory()
 
     async def __aenter__(self):
         return self
@@ -1131,6 +1259,7 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
                         functools.partial(self._progress_cb, progress_task_id),
                         sha256_hex=file_spec.sha256_hex,
                         md5_hex=file_spec.md5_hex,
+                        byte_budget=self._byte_budget,
                     )
                 logger.debug(f"Uploading blob file {file_spec.source_description} as {remote_filename}")
                 request2 = api_pb2.MountPutFileRequest(data_blob_id=blob_id, sha256_hex=file_spec.sha256_hex)
@@ -1374,7 +1503,7 @@ async def _put_missing_blocks(
                     missing_block.put_url,
                     data=payload,
                 ) as response:
-                    response.raise_for_status()
+                    await _raise_on_block_response_error(response)
                     return await response.content.read()
 
         async with put_semaphore:

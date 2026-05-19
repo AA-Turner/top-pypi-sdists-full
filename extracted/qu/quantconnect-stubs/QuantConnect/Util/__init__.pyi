@@ -26,6 +26,8 @@ import System.Threading
 QuantConnect_Util_MarketHoursDatabaseJsonConverter_MarketHoursDatabaseJson = typing.Any
 Expression = typing.Any
 
+QuantConnect_Util_CastingEnumerable_TDerived = typing.TypeVar("QuantConnect_Util_CastingEnumerable_TDerived")
+QuantConnect_Util_CastingEnumerable_TBase = typing.TypeVar("QuantConnect_Util_CastingEnumerable_TBase")
 QuantConnect_Util_SingleValueListConverter_T = typing.TypeVar("QuantConnect_Util_SingleValueListConverter_T")
 QuantConnect_Util_FixedSizeQueue_T = typing.TypeVar("QuantConnect_Util_FixedSizeQueue_T")
 QuantConnect_Util_CircularQueue_T = typing.TypeVar("QuantConnect_Util_CircularQueue_T")
@@ -150,6 +152,45 @@ class FuncTextWriter(System.IO.TextWriter):
         Writes the string value using the delegate provided at construction
         
         :param value: 
+        """
+        ...
+
+
+class CastingEnumerable(typing.Generic[QuantConnect_Util_CastingEnumerable_TBase, QuantConnect_Util_CastingEnumerable_TDerived], System.Object, typing.Sequence[QuantConnect_Util_CastingEnumerable_TDerived], typing.Iterable[QuantConnect_Util_CastingEnumerable_TDerived]):
+    """
+    Defines a list that casts the elements of a source list to a derived type.
+    This is useful to avoid materializing another list after using, for example, the Enumerable.Cast{TResult}(IEnumerable) LINQ method.
+    """
+
+    @property
+    def count(self) -> int:
+        """Gets the count of items in the enumerable."""
+        ...
+
+    def __getitem__(self, index: int) -> QuantConnect_Util_CastingEnumerable_TDerived:
+        """
+        Gets the element at the specified index.
+        
+        :param index: The zero-based index of the element to get.
+        :returns: The element at the specified index.
+        """
+        ...
+
+    def __init__(self, data: typing.Sequence[QuantConnect_Util_CastingEnumerable_TBase]) -> None:
+        """Initializes a new instance of the CastingEnumerable{TBase, TDerived} class"""
+        ...
+
+    def __iter__(self) -> typing.Iterator[QuantConnect_Util_CastingEnumerable_TDerived]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Util_CastingEnumerable_TDerived]:
+        """
+        Returns an enumerator that iterates through the collection.
+        
+        :returns: An enumerator that can be used to iterate through the collection.
         """
         ...
 

@@ -1,6 +1,6 @@
 from biolib import api
+from biolib._shared.types.typing import Literal, TypedDict
 from biolib.biolib_api_client.api_client import UserTokens
-from biolib.typing_utils import Literal, TypedDict
 
 
 class AuthChallengeCreate(TypedDict):

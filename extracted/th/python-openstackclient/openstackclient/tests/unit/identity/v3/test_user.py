@@ -1716,7 +1716,7 @@ class TestUserSetPassword(identity_fakes.TestIdentityv3):
         conn = self.app.client_manager.sdk_connection
         user_id = conn.config.get_auth().get_user_id(conn.identity)
 
-        self.identity_sdk_client.update_user.assert_called_with(
+        self.identity_sdk_client.update_password.assert_called_with(
             user=user_id, current_password=current_pass, password=new_pass
         )
 
@@ -1733,7 +1733,7 @@ class TestUserSetPassword(identity_fakes.TestIdentityv3):
         conn = self.app.client_manager.sdk_connection
         user_id = conn.config.get_auth().get_user_id(conn.identity)
 
-        self.identity_sdk_client.update_user.assert_called_with(
+        self.identity_sdk_client.update_password.assert_called_with(
             user=user_id, current_password=current_pass, password=new_pass
         )
 
@@ -1758,7 +1758,7 @@ class TestUserSetPassword(identity_fakes.TestIdentityv3):
         conn = self.app.client_manager.sdk_connection
         user_id = conn.config.get_auth().get_user_id(conn.identity)
 
-        self.identity_sdk_client.update_user.assert_called_with(
+        self.identity_sdk_client.update_password.assert_called_with(
             user=user_id, current_password=current_pass, password=new_pass
         )
 
@@ -1773,7 +1773,7 @@ class TestUserShow(identity_fakes.TestIdentityv3):
 
         # Get the command object to test
         self.cmd = user.ShowUser(self.app, None)
-        self.identity_client.auth.client.get_user_id.return_value = (  # noqa: E501
+        self.identity_client.auth.client.get_user_id.return_value = (
             self.user.id
         )
         self.identity_client.tokens.get_token_data.return_value = {

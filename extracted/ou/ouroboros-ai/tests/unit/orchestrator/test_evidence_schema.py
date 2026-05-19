@@ -7,6 +7,7 @@ import pytest
 from ouroboros.orchestrator.evidence_schema import (
     EvidenceError,
     EvidenceRecord,
+    ProfileEvidenceConfigError,
     extract_evidence,
     validate_evidence,
 )
@@ -38,9 +39,116 @@ class TestExtractEvidence:
         record = extract_evidence(text)
         assert record.data == {"x": 1}
 
+    def test_prefers_json_evidence_fence_after_non_json_code_fence(self) -> None:
+        text = (
+            "Implemented `hello.py`:\n\n"
+            "```python\n"
+            "def hello():\n"
+            '    return "hello"\n'
+            "```\n\n"
+            "Validation evidence:\n\n"
+            "```json\n"
+            "{\n"
+            '  "files_touched": ["hello.py", "test_hello.py"],\n'
+            '  "commands_run": ["pytest test_hello.py"],\n'
+            '  "tests_passed": ["test_hello.py::test_hello"]\n'
+            "}\n"
+            "```\n"
+        )
+
+        record = extract_evidence(text)
+
+        assert record.data == {
+            "files_touched": ["hello.py", "test_hello.py"],
+            "commands_run": ["pytest test_hello.py"],
+            "tests_passed": ["test_hello.py::test_hello"],
+        }
+
+    def test_ignores_json_fence_literal_inside_earlier_code_block(self) -> None:
+        text = (
+            "Implemented markdown emitter:\n\n"
+            "```python\n"
+            "def example():\n"
+            '    return "```json"\n'
+            "```\n\n"
+            "Validation evidence:\n\n"
+            "```json\n"
+            "{\n"
+            '  "files_touched": ["emitter.py"],\n'
+            '  "commands_run": ["pytest tests/test_emitter.py"],\n'
+            '  "tests_passed": ["tests/test_emitter.py::test_example"]\n'
+            "}\n"
+            "```\n"
+        )
+
+        record = extract_evidence(text)
+
+        assert record.data == {
+            "files_touched": ["emitter.py"],
+            "commands_run": ["pytest tests/test_emitter.py"],
+            "tests_passed": ["tests/test_emitter.py::test_example"],
+        }
+
+    def test_matches_closing_fence_length_before_later_json_evidence(self) -> None:
+        text = (
+            "Documented an embedded markdown example:\n\n"
+            "````markdown\n"
+            "Example evidence shape:\n"
+            "```json\n"
+            '{"not": "top-level evidence"}\n'
+            "```\n"
+            "````\n\n"
+            "Validation evidence:\n\n"
+            "```json\n"
+            "{\n"
+            '  "files_touched": ["docs/example.md"],\n'
+            '  "commands_run": ["pytest tests/test_docs.py"],\n'
+            '  "tests_passed": ["tests/test_docs.py::test_example"]\n'
+            "}\n"
+            "```\n"
+        )
+
+        record = extract_evidence(text)
+
+        assert record.data == {
+            "files_touched": ["docs/example.md"],
+            "commands_run": ["pytest tests/test_docs.py"],
+            "tests_passed": ["tests/test_docs.py::test_example"],
+        }
+
+    def test_accepts_crlf_closing_fence_before_later_json_evidence(self) -> None:
+        text = (
+            "Implemented Windows output:\r\n\r\n"
+            "```python\r\n"
+            "print('hello')\r\n"
+            "```\r\n\r\n"
+            "Validation evidence:\r\n\r\n"
+            "```json\r\n"
+            "{\r\n"
+            '  "files_touched": ["windows.py"],\r\n'
+            '  "commands_run": ["pytest tests/test_windows.py"],\r\n'
+            '  "tests_passed": ["tests/test_windows.py::test_example"]\r\n'
+            "}\r\n"
+            "```\r\n"
+        )
+
+        record = extract_evidence(text)
+
+        assert record.data == {
+            "files_touched": ["windows.py"],
+            "commands_run": ["pytest tests/test_windows.py"],
+            "tests_passed": ["tests/test_windows.py::test_example"],
+        }
+
     def test_fenced_block_without_lang_tag(self) -> None:
         record = extract_evidence('prelude\n```\n{"y": 2}\n```\n')
         assert record.data == {"y": 2}
+
+    def test_bare_non_json_fence_still_rejected_without_later_json_fence(self) -> None:
+        text = 'summary\n```python\ndef hello():\n    return "hello"\n```\n'
+
+        with pytest.raises(EvidenceError, match="not valid JSON"):
+            extract_evidence(text)
 
     def test_empty_text_rejected(self) -> None:
         with pytest.raises(EvidenceError, match="empty"):
@@ -207,7 +315,7 @@ class TestRejectionGrammar:
             }
         )
         record = EvidenceRecord(data={"tests_passed": [1]})
-        with pytest.raises(EvidenceError, match="Unsupported rejected_if"):
+        with pytest.raises(ProfileEvidenceConfigError, match="Unsupported rejected_if"):
             validate_evidence(broken, record)
 
     def test_unsupported_literal_raises(self, code_profile) -> None:
@@ -222,7 +330,7 @@ class TestRejectionGrammar:
             }
         )
         record = EvidenceRecord(data={"tests_passed": []})
-        with pytest.raises(EvidenceError, match="Unsupported literal"):
+        with pytest.raises(ProfileEvidenceConfigError, match="Unsupported literal"):
             validate_evidence(broken, record)
 
     def test_missing_field_compared_to_none_triggers(self) -> None:
@@ -301,3 +409,72 @@ class TestJsonYamlLiteralSpellings:
         profile = self._profile_with_rule('status == "blocked"')
         record = EvidenceRecord(data={"status": "blocked"})
         assert validate_evidence(profile, record).ok is False
+
+
+class TestBlockedEvidence:
+    def test_blocked_record_is_typed_not_missing_evidence(self, code_profile) -> None:
+        record = EvidenceRecord(
+            data={
+                "status": "blocked",
+                "blocker": {
+                    "code": "MISSING_TOOL",
+                    "reason": "pytest is not installed in the execution image",
+                    "required_by": "AC-1 test verification",
+                },
+            }
+        )
+        result = validate_evidence(code_profile, record)
+        assert result.ok is False
+        assert result.missing_fields == ()
+        assert result.rejected_by == ()
+        assert result.blocker is not None
+        assert result.blocker.code.value == "MISSING_TOOL"
+        assert result.reasons() == (
+            "blocked[MISSING_TOOL]: pytest is not installed in the execution image "
+            "(required_by: AC-1 test verification)",
+        )
+
+    @pytest.mark.parametrize(
+        ("payload", "message"),
+        [
+            ({"status": "blocked", "blocker": "nope"}, "blocker must be an object"),
+            ({"status": "blocked", "blocker": {"reason": "x"}}, "blocker.code"),
+            (
+                {"status": "blocked", "blocker": {"code": "MYSTERY", "reason": "x"}},
+                "Unknown blocker.code",
+            ),
+            (
+                {"status": "blocked", "blocker": {"code": "MISSING_TOOL", "reason": ""}},
+                "blocker.reason",
+            ),
+        ],
+    )
+    def test_malformed_blocked_record_is_schema_error(
+        self, code_profile, payload, message: str
+    ) -> None:
+        with pytest.raises(EvidenceError, match=message):
+            validate_evidence(code_profile, EvidenceRecord(data=payload))
+
+    def test_blocked_record_still_surfaces_malformed_profile_rule(self, code_profile) -> None:
+        from ouroboros.orchestrator.profile_loader import EvidenceSchema
+
+        broken = code_profile.model_copy(
+            update={
+                "evidence_schema": EvidenceSchema(
+                    required=(),
+                    rejected_if=("len(tests_passed) < 1",),
+                )
+            }
+        )
+        record = EvidenceRecord(
+            data={
+                "status": "blocked",
+                "blocker": {
+                    "code": "MISSING_TOOL",
+                    "reason": "pytest is not installed",
+                },
+            }
+        )
+
+        with pytest.raises(ProfileEvidenceConfigError, match="Unsupported rejected_if"):
+            validate_evidence(broken, record)

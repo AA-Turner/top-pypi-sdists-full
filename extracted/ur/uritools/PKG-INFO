@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uritools
-Version: 6.1.0
+Version: 6.1.1
 Summary: URI parsing, classification and composition
 Author-email: Thomas Kemmer <tkemmer@computer.org>
 Maintainer-email: Thomas Kemmer <tkemmer@computer.org>
@@ -46,18 +46,9 @@ uritools
    :target: https://codecov.io/gh/tkem/uritools
    :alt: Test coverage
 
-.. image:: https://img.shields.io/librariesio/sourcerank/pypi/uritools
-   :target: https://libraries.io/pypi/uritools
-   :alt: Libraries.io SourceRank
-
 .. image:: https://img.shields.io/github/license/tkem/uritools
    :target: https://raw.github.com/tkem/uritools/master/LICENSE
    :alt: License
-
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-   :alt: Code style: black
-
 
 This module provides RFC 3986 compliant functions for parsing,
 classifying and composing URIs and URI references, largely replacing
@@ -86,10 +77,9 @@ the Python Standard Library's ``urllib.parse`` module.
     >>> urijoin(uriunsplit(parts), '/right/here?name=swallow#beak')
     'foo://example.com:8042/right/here?name=swallow#beak'
 
-For various reasons, ``urllib.parse`` and its Python 2 predecessor
-``urlparse`` are not compliant with current Internet standards.  As
-stated in `Lib/urllib/parse.py
-<https://github.com/python/cpython/blob/main/Lib/urllib/parse.py#L22>`_:
+For various reasons, ``urllib.parse`` is not compliant with current
+Internet standards.  As stated in `Lib/urllib/parse.py
+<https://github.com/python/cpython/blob/3.14/Lib/urllib/parse.py#L22>`_:
 
     RFC 3986 is considered the current standard and any future changes
     to urlparse module should conform with it.  The urlparse module is

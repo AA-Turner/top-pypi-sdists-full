@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymammotion
-Version: 0.7.113
+Version: 0.7.115
 Author: jLynx
 Author-email: Michael Arthur <michael@jumblesoft.co.nz>
 License-Expression: GPL-3.0
@@ -13,7 +13,6 @@ Requires-Dist: alibabacloud-iot-api-gateway<0.0.5,>=0.0.4
 Requires-Dist: betterproto2==0.9.1
 Requires-Dist: bleak-retry-connector>=3.5.0
 Requires-Dist: bleak>=0.21.0
-Requires-Dist: bluetooth-adapters>=2.0.0
 Requires-Dist: crcmod~=1.7
 Requires-Dist: cryptography>=43.0.1
 Requires-Dist: mashumaro~=3.13
@@ -47,6 +46,9 @@ Description-Content-Type: text/markdown
 💬 [Join us on Discord](https://discord.gg/vpZdWhJX8x)
 
 PyMammotion is a Python API for controlling and monitoring Mammotion devices (Luba, Yuka, spino etc) via MQTT, Cloud, and Bluetooth.
+
+> [!WARNING]
+> **Use at your own risk.** Mammotion's Terms of Service prohibit unofficial API access. Using this library may result in a **permanent ban of your Mammotion account**. The authors are not responsible for any consequences, including loss of access to your device or account.
 
 ⚠️ **Please note:** This API is still under active development. You may encounter unfinished features or bugs. If you come across any issues, please open an issue on the GitHub repository. 🐛
 

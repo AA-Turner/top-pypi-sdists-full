@@ -1166,6 +1166,15 @@ class CodexCliRuntime:
 
         return None
 
+    def _update_last_content(self, last_content: str, message: AgentMessage) -> str:
+        """Return the fallback final content after a streamed message.
+
+        Codex-style events normally carry complete assistant messages, so the
+        latest content remains the fallback.  Delta-oriented runtimes can
+        override this hook to accumulate chunks.
+        """
+        return message.content if message.content else last_content
+
     def _extract_text(self, value: object) -> str:
         """Extract text recursively from a nested JSON-like structure."""
         if isinstance(value, str):
@@ -1233,8 +1242,8 @@ class CodexCliRuntime:
                 return candidate
         return {}
 
-    def _extract_path(self, item: dict[str, Any]) -> str:
-        """Extract a file path from a file change event."""
+    def _extract_paths(self, item: dict[str, Any]) -> tuple[str, ...]:
+        """Extract all file paths from a file change event."""
         candidates: list[object] = [
             item.get("path"),
             item.get("file_path"),
@@ -1248,13 +1257,59 @@ class CodexCliRuntime:
                         [
                             change.get("path"),
                             change.get("file_path"),
+                            change.get("target_file"),
                         ]
                     )
 
+        paths: list[str] = []
+        seen: set[str] = set()
         for candidate in candidates:
             if isinstance(candidate, str) and candidate.strip():
-                return candidate.strip()
-        return ""
+                path = candidate.strip()
+                if path not in seen:
+                    seen.add(path)
+                    paths.append(path)
+        return tuple(paths)
+
+    def _extract_path(self, item: dict[str, Any]) -> str:
+        """Extract the first file path from a file change event."""
+        paths = self._extract_paths(item)
+        return paths[0] if paths else ""
+
+    def _extract_command_metadata(self, item: dict[str, Any]) -> dict[str, Any]:
+        """Extract command result fields that can support verifier evidence."""
+        data: dict[str, Any] = {}
+        self._merge_command_metadata(data, item)
+        for container_key in ("output", "result", "metadata", "data"):
+            nested = item.get(container_key)
+            if isinstance(nested, dict):
+                self._merge_command_metadata(data, nested)
+        return data
+
+    def _merge_command_metadata(self, data: dict[str, Any], source: dict[str, Any]) -> None:
+        """Merge known command-result fields from one Codex event object."""
+        text_key_map = {
+            "output": "output",
+            "stdout": "stdout",
+            "stderr": "stderr",
+            "result_preview": "result_preview",
+            "resultPreview": "result_preview",
+            "text": "output",
+            "status": "status",
+        }
+        for key, target_key in text_key_map.items():
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                data.setdefault(target_key, value.strip())
+        for key in ("exit_code", "exitCode", "returncode", "return_code"):
+            value = source.get(key)
+            if isinstance(value, int):
+                data.setdefault("exit_code", value)
+                break
+        if source.get("success") is True:
+            data.setdefault("subtype", "success")
+        if source.get("ok") is True:
+            data.setdefault("subtype", "success")
 
     def _build_tool_message(
         self,
@@ -1338,6 +1393,7 @@ class CodexCliRuntime:
                         tool_input={"command": command},
                         content=f"Calling tool: Bash: {command}",
                         handle=current_handle,
+                        extra_data=self._extract_command_metadata(item),
                     )
                 ]
 
@@ -1354,8 +1410,8 @@ class CodexCliRuntime:
                 ]
 
             if item_type == "file_change":
-                file_path = self._extract_path(item)
-                if not file_path:
+                file_paths = self._extract_paths(item)
+                if not file_paths:
                     return []
                 return [
                     self._build_tool_message(
@@ -1364,6 +1420,7 @@ class CodexCliRuntime:
                         content=f"Calling tool: Edit: {file_path}",
                         handle=current_handle,
                     )
+                    for file_path in file_paths
                 ]
 
             if item_type == "web_search":
@@ -1687,8 +1744,7 @@ class CodexCliRuntime:
                                 control_state=control_state,
                             )
                             message = replace(message, resume_handle=current_handle)
-                        if message.content:
-                            last_content = message.content
+                        last_content = self._update_last_content(last_content, message)
                         yield message
 
                     for message in self._convert_event(event, current_handle):
@@ -1700,8 +1756,7 @@ class CodexCliRuntime:
                                 control_state=control_state,
                             )
                             message = replace(message, resume_handle=current_handle)
-                        if message.content:
-                            last_content = message.content
+                        last_content = self._update_last_content(last_content, message)
                         if message.is_final:
                             yielded_final = True
                         yield message

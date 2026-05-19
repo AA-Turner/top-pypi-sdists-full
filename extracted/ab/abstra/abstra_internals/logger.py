@@ -70,6 +70,10 @@ class AbstraLogger:
         logging.getLogger("pika").setLevel(NOISY_LOGLEVEL())
         logging.getLogger("werkzeug").setLevel(NOISY_LOGLEVEL())
 
+        # DevSDK.init is a no-op, but `release=` below is evaluated eagerly and raises when running from source.
+        if cls.get_sdk() is DevSDK:
+            return
+
         try:
             cls.get_sdk().init(
                 dsn="https://9bbccd1a46ddb8a563483c6afc61ca35@o1317386.ingest.us.sentry.io/4507024713383936",

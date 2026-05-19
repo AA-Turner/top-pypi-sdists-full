@@ -58,25 +58,23 @@ class MockKeyManager(key_manager.KeyManager):
         self.conf = configuration
         self.keys = {}
 
-    def _generate_hex_key(self, key_length):
+    def _generate_hex_key(self, length):
         # hex digit => 4 bits
-        length = int(key_length / 4)
-        hex_encoded = self._generate_password(length=length,
-                                              symbolgroups='0123456789ABCDEF')
+        length = int(length / 4)
+        hex_encoded = self._generate_password(
+            length=length, symbolgroups='0123456789ABCDEF'
+        )
         return hex_encoded
 
-    def _generate_key(self, **kwargs):
-        name = kwargs.get('name', None)
-        algorithm = kwargs.get('algorithm', 'AES')
-        key_length = kwargs.get('length', 256)
-        _hex = self._generate_hex_key(key_length)
+    def _generate_key(self, *, algorithm, length, name):
+        _hex = self._generate_hex_key(length)
         return sym_key.SymmetricKey(
-            algorithm,
-            key_length,
-            bytes(binascii.unhexlify(_hex)),
-            name)
+            algorithm, length, bytes(binascii.unhexlify(_hex)), name
+        )
 
-    def create_key(self, context, **kwargs):
+    def create_key(
+        self, context, algorithm, length, expiration=None, name=None
+    ):
         """Creates a symmetric key.
 
         This implementation returns a UUID for the created key. The algorithm
@@ -86,42 +84,52 @@ class MockKeyManager(key_manager.KeyManager):
         if context is None:
             raise exception.Forbidden()
 
-        key = self._generate_key(**kwargs)
+        key = self._generate_key(
+            algorithm=algorithm,
+            length=length,
+            name=name,
+        )
         return self.store(context, key)
 
     def _generate_public_and_private_key(self, length, name):
         crypto_private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=length,
-            backend=backends.default_backend())
+            backend=backends.default_backend(),
+        )
 
         private_der = crypto_private_key.private_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption())
+            encryption_algorithm=serialization.NoEncryption(),
+        )
 
         crypto_public_key = crypto_private_key.public_key()
 
         public_der = crypto_public_key.public_bytes(
             encoding=serialization.Encoding.DER,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo)
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
 
         private_key = pri_key.PrivateKey(
             algorithm='RSA',
             bit_length=length,
-            key=bytearray(private_der),
-            name=name)
+            key=bytes(private_der),
+            name=name,
+        )
 
         public_key = pub_key.PublicKey(
             algorithm='RSA',
             bit_length=length,
-            key=bytearray(public_der),
-            name=name)
+            key=bytes(public_der),
+            name=name,
+        )
 
         return private_key, public_key
 
-    def create_key_pair(self, context, algorithm, length,
-                        expiration=None, name=None):
+    def create_key_pair(
+        self, context, algorithm, length, expiration=None, name=None
+    ):
         """Creates an asymmetric key pair.
 
         This implementation returns UUIDs for the created keys in the order:
@@ -132,18 +140,20 @@ class MockKeyManager(key_manager.KeyManager):
             raise exception.Forbidden()
 
         if algorithm.lower() != 'rsa':
-            msg = 'Invalid algorithm: {}, only RSA supported'.format(algorithm)
+            msg = f'Invalid algorithm: {algorithm}, only RSA supported'
             raise ValueError(msg)
 
         valid_lengths = [2048, 3072, 4096]
 
         if length not in valid_lengths:
-            msg = 'Invalid bit length: {}, only {} supported'.format(
-                length, valid_lengths)
+            msg = (
+                f'Invalid bit length: {length}, only {valid_lengths} supported'
+            )
             raise ValueError(msg)
 
-        private_key, public_key = self._generate_public_and_private_key(length,
-                                                                        name)
+        private_key, public_key = self._generate_public_and_private_key(
+            length, name
+        )
 
         private_key_uuid = self.store(context, private_key)
         public_key_uuid = self.store(context, public_key)
@@ -157,7 +167,7 @@ class MockKeyManager(key_manager.KeyManager):
 
         return key_id
 
-    def store(self, context, managed_object, **kwargs):
+    def store(self, context, managed_object, expiration=None):
         """Stores (i.e., registers) a key with the key manager."""
         if context is None:
             raise exception.Forbidden()
@@ -168,7 +178,7 @@ class MockKeyManager(key_manager.KeyManager):
 
         return key_id
 
-    def get(self, context, managed_object_id, metadata_only=False, **kwargs):
+    def get(self, context, managed_object_id, metadata_only=False):
         """Retrieves the key identified by the specified id.
 
         This implementation returns the key that is associated with the
@@ -192,7 +202,7 @@ class MockKeyManager(key_manager.KeyManager):
                 obj._passphrase = None
         return obj
 
-    def delete(self, context, managed_object_id, **kwargs):
+    def delete(self, context, managed_object_id, force=False):
         """Deletes the object identified by the specified id.
 
         A Forbidden exception is raised if the context is None and a
@@ -219,8 +229,10 @@ class MockKeyManager(key_manager.KeyManager):
         if managed_object_id not in self.keys:
             raise exception.ManagedObjectNotFoundError(managed_object_id)
         self.keys[managed_object_id].consumers = [
-            c for c in self.keys[managed_object_id].consumers
-            if c != consumer_data]
+            c
+            for c in self.keys[managed_object_id].consumers
+            if c != consumer_data
+        ]
 
     def _generate_password(self, length, symbolgroups):
         """Generate a random password from the supplied symbol groups.

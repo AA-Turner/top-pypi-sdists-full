@@ -40,6 +40,7 @@ class ScheduleAPIModel(object):
         'job_queue_config': 'CreateJobQueueConfig',
         'tags': 'dict(str, str)',
         'schedule': 'ScheduleConfig',
+        'job_tags': 'dict(str, str)',
         'id': 'str',
         'created_at': 'datetime',
         'updated_at': 'datetime',
@@ -57,6 +58,7 @@ class ScheduleAPIModel(object):
         'job_queue_config': 'job_queue_config',
         'tags': 'tags',
         'schedule': 'schedule',
+        'job_tags': 'job_tags',
         'id': 'id',
         'created_at': 'created_at',
         'updated_at': 'updated_at',
@@ -66,7 +68,7 @@ class ScheduleAPIModel(object):
         'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, schedule=None, id=None, created_at=None, updated_at=None, creator_id=None, next_trigger_at=None, controller_user_id=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, schedule=None, job_tags=None, id=None, created_at=None, updated_at=None, creator_id=None, next_trigger_at=None, controller_user_id=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """ScheduleAPIModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -79,6 +81,7 @@ class ScheduleAPIModel(object):
         self._job_queue_config = None
         self._tags = None
         self._schedule = None
+        self._job_tags = None
         self._id = None
         self._created_at = None
         self._updated_at = None
@@ -98,6 +101,8 @@ class ScheduleAPIModel(object):
         if tags is not None:
             self.tags = tags
         self.schedule = schedule
+        if job_tags is not None:
+            self.job_tags = job_tags
         self.id = id
         self.created_at = created_at
         self.updated_at = updated_at
@@ -276,6 +281,29 @@ class ScheduleAPIModel(object):
             raise ValueError("Invalid value for `schedule`, must not be `None`")  # noqa: E501
 
         self._schedule = schedule
+
+    @property
+    def job_tags(self):
+        """Gets the job_tags of this ScheduleAPIModel.  # noqa: E501
+
+        Tags applied to every job spawned from this schedule.  # noqa: E501
+
+        :return: The job_tags of this ScheduleAPIModel.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._job_tags
+
+    @job_tags.setter
+    def job_tags(self, job_tags):
+        """Sets the job_tags of this ScheduleAPIModel.
+
+        Tags applied to every job spawned from this schedule.  # noqa: E501
+
+        :param job_tags: The job_tags of this ScheduleAPIModel.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._job_tags = job_tags
 
     @property
     def id(self):

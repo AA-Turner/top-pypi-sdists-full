@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: kubernetes-stubs-elephant-fork
-Version: 35.0.0.post2
+Version: 35.0.0.post3
 Summary: Type stubs for the Kubernetes Python API client
 Home-page: https://github.com/lexdene/kubernetes-stubs
 License: Apache-2.0

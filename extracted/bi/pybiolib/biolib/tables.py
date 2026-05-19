@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from biolib.typing_utils import Any, List
+from biolib._shared.types.typing import Any, List
 
 
 class BioLibTable:

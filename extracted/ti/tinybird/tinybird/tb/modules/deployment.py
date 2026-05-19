@@ -474,23 +474,12 @@ def migrate_to_forward(ctx: click.Context, allow_destructive_operations: bool) -
         show_migrate_to_forward_hint=False,
         return_check_result=True,
         validate_forward_workspace=False,
+        is_classic_migration=True,
     )
     if not check_result:
         message = "Deployment check did not complete. Migration cancelled."
         click.echo(FeedbackManager.error(message=message))
         sys_exit("migration_error", message)
-
-    if check_result and check_result.get("status") == "no_changes":
-        click.echo(
-            FeedbackManager.warning(
-                message=(
-                    "No deployment changes were detected. Add this dummy pipe to your workspace and run "
-                    "`tb migrate-to-forward` again:"
-                )
-            )
-        )
-        click.echo("NODE n\nSQL >\n    select 'Forward'")
-        return
 
     if not click.confirm(
         "Do you want to continue with the migration? This will also delete your branches, releases and switch your workspace from Classic to Forward.",
@@ -514,6 +503,7 @@ def migrate_to_forward(ctx: click.Context, allow_destructive_operations: bool) -
         output=output,
         env=env,
         validate_forward_workspace=False,
+        is_classic_migration=True,
     )
 
 

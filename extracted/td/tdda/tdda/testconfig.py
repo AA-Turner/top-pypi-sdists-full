@@ -1,46 +1,66 @@
 import os
-import sys
-import unittest
+import shutil
+import tempfile
+
+from tdda.config import Config
+from tdda.referencetest import ReferenceTestCase
 
 
-class TestSystemConfig(unittest.TestCase):
-    def test_01_tdda_path(self):
-        print('\ntype tdda')
-        with os.popen('type tdda') as f:
-            path = f.read()
-        print(path)
-        print('which tdda')
-        with os.popen('which tdda') as f:
-            path = f.read()
-        print(path)
+class TestConfig(ReferenceTestCase):
+    def testSerialInMetadataPath(self):
+        config = Config(testing=True)  # empty, no load
+        cwd = os.getcwd()
 
-    def test_02_path(self):
-        path = os.environ.get('PATH')
-        print('\nPATH=%s' % path)
-        print('COMPONENTS:')
-        for p in path.split(':'):
-            print(p)
-        print()
+        csvfile = '/any/old/dirpath/a.csv'
+        default_in_d = '/any/old/dirpath/_write.serial'
+        default_in_cwd = './_write.serial'
 
-    def test_03_pythonpath(self):
-        print('\nPYTHON PATH:')
-        for p in sys.path:
-            print(p)
+        sc = config.serial
 
-    def test_04_numpy_pandas_versions(self):
-        try:
-            import numpy
-            print('\nnumpy version:', numpy.__version__)
-        except ImportError:
-            print('numpy not found.')
+        # default: should be _write.serial in the temporary directory
+        # where a (nominally) is.
+        self.assertEqual(sc._get_inpath_list(csvfile), [default_in_d])
+        self.assertEqual(sc._get_inpath_list(), [default_in_cwd])
 
-        try:
-            import pandas
-            print('\npandas version:', pandas.__version__)
-        except ImportError:
-            print('pandas not found.')
+        homedir_file = '~/write.serial'
+        abspath_file = '/any/old/dirpath/abs_write.serial'
+
+        sc.md_inpath.extend([homedir_file, abspath_file])
+
+        homedir = os.path.expanduser('~')
+        abs_homedir_file = os.path.join(homedir, 'write.serial')
+
+        # as before, plus the homedir file as an absolute path.
+        # plus the absolute path given.
+        self.assertEqual(
+            sc._get_inpath_list(csvfile),
+            [
+                default_in_d,
+                abs_homedir_file,
+                abspath_file,
+            ],
+        )
+
+        # as previous, but with default as ./_write_serial
+        self.assertEqual(
+            sc._get_inpath_list(),
+            [
+                default_in_cwd,
+                abs_homedir_file,
+                abspath_file,
+            ],
+        )
+
+        # No default
+        sc.md_inpath = []
+        self.assertEqual(sc._get_inpath_list(csvfile), [])
+        self.assertEqual(sc._get_inpath_list(), [])
+
+        # None default
+        sc.md_inpath = None
+        self.assertEqual(sc._get_inpath_list(csvfile), [])
+        self.assertEqual(sc._get_inpath_list(), [])
 
 
 if __name__ == '__main__':
-    unittest.main()
-
+    ReferenceTestCase.main(testtdda=True)

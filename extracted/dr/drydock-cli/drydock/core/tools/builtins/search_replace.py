@@ -759,6 +759,55 @@ class SearchReplace(
             new_lines = len(modified_content.splitlines())
             lines_changed = new_lines - original_lines
 
+            # 2026-05-18: refuse to commit edits that break Python syntax
+            # for files that PARSED CLEAN before the edit. Without this
+            # rollback the operator hit Selenium-Login-Bot-style loops
+            # (14+ repeated edits, each making things worse). Only block
+            # the regression case — if the file was already broken
+            # (e.g. the model is editing to FIX a syntax error), we ship
+            # the edit so progress isn't blocked.
+            if file_path.suffix == ".py":
+                try:
+                    import ast as _ast
+                    _ast.parse(original_content)
+                    original_parses = True
+                except SyntaxError:
+                    original_parses = False
+                if original_parses:
+                    try:
+                        import ast as _ast
+                        _ast.parse(modified_content)
+                    except SyntaxError as e:
+                        snippet = "\n".join(
+                            modified_content.splitlines()[
+                                max(0, (e.lineno or 1) - 3):
+                                ((e.lineno or 1) + 2)
+                            ]
+                        )
+                        yield SearchReplaceResult(
+                            file=str(file_path),
+                            blocks_applied=0,
+                            lines_changed=0,
+                            warnings=[
+                                f"REJECTED — would introduce SyntaxError at "
+                                f"line {e.lineno}: {e.msg}. Original file "
+                                f"parsed clean; this edit did not. Common "
+                                f"causes: tabs-vs-spaces mismatch in the "
+                                f"REPLACE block, missing colon/paren, "
+                                f"unbalanced brackets, indentation drift. "
+                                f"File NOT modified.\n\nContext around the "
+                                f"broken line:\n{snippet}"
+                            ],
+                            content=(
+                                f"{file_path.name}: edit REJECTED "
+                                f"(would break syntax at line {e.lineno}: "
+                                f"{e.msg}). File NOT modified. Re-read "
+                                f"the file, fix the REPLACE block's "
+                                f"indentation/syntax, and retry."
+                            ),
+                        )
+                        return
+
             try:
                 if self.config.create_backup:
                     await self._backup_file(file_path)
@@ -780,17 +829,6 @@ class SearchReplace(
                     "offset": 0,
                     "limit": None,
                 }
-
-            # Auto-verify syntax for Python files
-            if file_path.suffix == ".py":
-                try:
-                    import ast
-                    ast.parse(modified_content)
-                except SyntaxError as e:
-                    block_result.warnings.append(
-                        f"⚠ SYNTAX ERROR after edit at line {e.lineno}: {e.msg}. "
-                        f"Fix this before continuing."
-                    )
 
         # Terse success content (Claude Code pattern) — don't echo the
         # SEARCH/REPLACE payload back. Model already has it in history;

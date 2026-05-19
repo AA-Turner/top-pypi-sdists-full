@@ -3,7 +3,6 @@
 import os
 from urllib.parse import urlparse as _urlparse
 
-from biolib import typing_utils as _typing_utils
 from biolib.app import BioLibApp as _BioLibApp
 
 # TODO: Fix ignore of type
@@ -14,7 +13,7 @@ from biolib._experiment.experiment import Experiment
 from biolib.biolib_api_client import BiolibApiClient as _BioLibApiClient, App
 from biolib._result.result import Result as _Result
 from biolib import user as _user
-from biolib.typing_utils import List, Optional, cast as _cast
+from biolib._shared.types.typing import List, Optional, Union, cast as _cast
 from biolib._data_record.data_record import DataRecord as _DataRecord
 from biolib._internal.utils.job_url import parse_result_id_or_url as _parse_result_id_or_url
 
@@ -335,7 +334,7 @@ def set_api_token(api_token: str) -> None:
     api_client.sign_in_with_api_token(api_token)
 
 
-def set_log_level(level: _typing_utils.Union[str, int]) -> None:
+def set_log_level(level: Union[str, int]) -> None:
     r"""Set the logging level for BioLib.
 
     Args:

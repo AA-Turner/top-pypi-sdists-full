@@ -24,8 +24,6 @@ class MapFetchSaga(Saga):
 
     Execution order:
       1. Area names (non-Luba1) — re-requested on every run including retries.
-         If the device returns no names, fallback labels are generated from
-         known area hashes (``existing_area_hashes`` or post-step-4 area data).
       2-3. Root hash list frames (all sub_cmd=0 hashes)
       4. Boundary/obstacle/path data for every hash ID in the list
 
@@ -48,7 +46,10 @@ class MapFetchSaga(Saga):
 
     name = "map_fetch"
     max_attempts = 2
-    step_timeout = 1.0  # map fetch steps can be slow
+    # 5 s matches the APK's HandlerType.handlerType_12333 timeout (5000 ms).
+    # SVG tile responses can take ~4 s over MQTT, and the device may broadcast
+    # stale frames for already-complete hashes between the request and the reply.
+    step_timeout = 5.0
 
     def __init__(
         self,
@@ -59,8 +60,6 @@ class MapFetchSaga(Saga):
         command_builder: Any,  # Navigation instance — typed as Any to avoid tight coupling
         send_command: Callable[[bytes], Awaitable[None]],
         get_map: Callable[[], HashList],
-        area_names_only: bool = False,
-        existing_area_hashes: list[int] | None = None,
     ) -> None:
         """Initialise the saga with device info and transport helpers.
 
@@ -68,15 +67,6 @@ class MapFetchSaga(Saga):
         ``lambda: handle.snapshot.raw.map``).  The saga never creates its
         own HashList — it operates directly on the device state so that
         partial data is preserved across retries without any extra bookkeeping.
-
-        When *area_names_only* is True the saga only executes step 1 (area
-        name fetch) and skips the expensive hash-list + chunk steps.  Use this
-        when the map data is already valid but area names were not populated.
-
-        *existing_area_hashes* is used in *area_names_only* mode: if the device
-        returns no names (user has never named their areas), fallback names
-        "area 1", "area 2", … are generated from these hash IDs so that HA
-        always has something to display.
         """
         self._device_id = device_id
         self._device_name = device_name
@@ -84,8 +74,6 @@ class MapFetchSaga(Saga):
         self._command_builder = command_builder
         self._send_command = send_command
         self._get_map = get_map
-        self._area_names_only = area_names_only
-        self._existing_area_hashes: list[int] = existing_area_hashes or []
 
         # Result — set on success, None until then
         self.result: HashList | None = None
@@ -103,13 +91,12 @@ class MapFetchSaga(Saga):
         cmd = self._command_builder.send_todev_ble_sync(sync_type=3)
         await self._send_command(cmd)
 
-        if not self._area_names_only:
-            partial_root = next((r for r in self._get_map().root_hash_lists if r.sub_cmd == 0), None)
-            root_list_complete = (
-                partial_root is not None
-                and partial_root.total_frame > 0
-                and len(partial_root.data) >= partial_root.total_frame
-            )
+        partial_root = next((r for r in self._get_map().root_hash_lists if r.sub_cmd == 0), None)
+        root_list_complete = (
+            partial_root is not None
+            and partial_root.total_frame > 0
+            and len(partial_root.data) >= partial_root.total_frame
+        )
 
         # ------------------------------------------------------------------
         # Step 1: Fetch area names (non-Luba1 only).
@@ -139,28 +126,12 @@ class MapFetchSaga(Saga):
                 self._get_map().area_name = [
                     AreaHashNameList(name=item.name, hash=item.hash) for item in area_hash_name_msg.hashnames
                 ]
-            elif self._existing_area_hashes:
-                # Device returned no names — generate fallbacks from known area hashes
-                self._get_map().area_name = [
-                    AreaHashNameList(name=f"area {i + 1}", hash=h)
-                    for i, h in enumerate(sorted(self._existing_area_hashes))
-                ]
-                _logger.debug(
-                    "MapFetchSaga[%s]: device returned no area names — generated %d fallback name(s)",
-                    self._device_name,
-                    len(self._get_map().area_name),
-                )
             _logger.debug("MapFetchSaga[%s]: got %d area names", self._device_name, len(self._get_map().area_name))
         elif not self._is_luba1:
             _logger.debug(
                 "MapFetchSaga[%s]: root hash list already complete — skipping area name re-fetch",
                 self._device_name,
             )
-
-        if self._area_names_only:
-            _logger.debug("MapFetchSaga[%s]: area-names-only mode — skipping hash list fetch", self._device_name)
-            self.result = self._get_map()
-            return
 
         # ------------------------------------------------------------------
         # Steps 2-3: Root hash list frames.
@@ -280,6 +251,14 @@ class MapFetchSaga(Saga):
                 if _comm_frame is None:
                     continue
                 leaf_name, leaf_val = _comm_frame
+
+                # APK guard: ignore frames for hashes we are not currently
+                # waiting on (device replays old data while processing our
+                # request, which would reset the step_timeout without making
+                # any progress — see HashDataManager.setRegionalData line 1267).
+                frame_hash = int(leaf_val.data_hash) if leaf_name == "toapp_svg_msg" else int(leaf_val.hash)
+                if frame_hash not in missing_hashes and frame_hash != current_hash:
+                    continue
 
                 current_map = self._get_map()
                 missing_frames = current_map.missing_frame(leaf_val)

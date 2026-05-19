@@ -72,6 +72,7 @@ class TestAiUploadRoutes(unittest.TestCase):
                 content_type="multipart/form-data",
             )
         self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.json, {"error": "File too large (max 300MB)"})
         self.mock_ai_controller.save_uploaded_file.assert_not_called()
 
     def test_upload_route_400_when_file_missing(self):
@@ -81,6 +82,9 @@ class TestAiUploadRoutes(unittest.TestCase):
             content_type="multipart/form-data",
         )
         self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json, {"error": "file and conversationId are required"}
+        )
 
     def test_upload_route_400_when_conversation_id_missing(self):
         response = self.client.post(
@@ -89,6 +93,22 @@ class TestAiUploadRoutes(unittest.TestCase):
             content_type="multipart/form-data",
         )
         self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json, {"error": "file and conversationId are required"}
+        )
+
+    def test_upload_route_500_when_controller_raises(self):
+        self.mock_ai_controller.save_uploaded_file.side_effect = OSError("disk full")
+        response = self.client.post(
+            "/ai/upload",
+            data={
+                "conversationId": "conv-1",
+                "file": (io.BytesIO(b"hi!"), "foo.txt"),
+            },
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.json, {"error": "Failed to save attachment"})
 
     def test_delete_route_calls_controller(self):
         self.mock_ai_controller.delete_uploaded_file.return_value = None
@@ -105,11 +125,25 @@ class TestAiUploadRoutes(unittest.TestCase):
     def test_delete_route_400_when_file_path_missing(self):
         response = self.client.delete("/ai/upload", json={})
         self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json, {"error": "filePath is required"})
 
-    def test_delete_route_400_when_controller_raises_value_error(self):
-        self.mock_ai_controller.delete_uploaded_file.side_effect = ValueError("nope")
+    def test_delete_route_400_when_controller_raises_invalid_path(self):
+        from abstra_internals.controllers.ai import InvalidUploadPathError
+
+        self.mock_ai_controller.delete_uploaded_file.side_effect = (
+            InvalidUploadPathError()
+        )
         response = self.client.delete("/ai/upload", json={"filePath": "../escape.txt"})
         self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json, {"error": "Invalid path"})
+
+    def test_delete_route_500_when_controller_raises_unexpected(self):
+        self.mock_ai_controller.delete_uploaded_file.side_effect = OSError("nope")
+        response = self.client.delete(
+            "/ai/upload", json={"filePath": ".abstra/ai_uploads/conv-1/foo.txt"}
+        )
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.json, {"error": "Failed to delete attachment"})
 
 
 if __name__ == "__main__":

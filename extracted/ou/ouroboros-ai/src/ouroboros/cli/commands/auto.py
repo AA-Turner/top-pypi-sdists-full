@@ -21,6 +21,7 @@ from ouroboros.auto.adapters import (
     save_seed,
 )
 from ouroboros.auto.domain_profile import DEFAULT_REGISTRY
+from ouroboros.auto.handoff_contract import RUN_HANDOFF_STARTED_STATUS
 from ouroboros.auto.interview_driver import AutoInterviewDriver
 from ouroboros.auto.pipeline import AutoPipeline, AutoPipelineResult
 
@@ -46,6 +47,33 @@ from ouroboros.mcp.tools.authoring_handlers import GenerateSeedHandler, Intervie
 from ouroboros.mcp.tools.execution_handlers import ExecuteSeedHandler, StartExecuteSeedHandler
 from ouroboros.mcp.tools.ralph_handlers import RalphHandler
 from ouroboros.orchestrator import resolve_agent_runtime_backend
+
+_STALE_COMPLETED_RALPH_HANDOFF_STATUSES = frozenset(
+    {RUN_HANDOFF_STARTED_STATUS, "ralph_retry_after_blocker"}
+)
+
+
+def _build_configured_ralph_handler(
+    *, runtime: str | None, opencode_mode: str | None
+) -> RalphHandler:
+    """Build the same fully wired Ralph handler used by the MCP composition root.
+
+    The plain ``RalphHandler(...)`` constructor intentionally supports tests and
+    plugin-only dispatch, but for in-process/job dispatch it creates a handler
+    whose ``EvolveStepHandler`` has no ``EvolutionaryLoop``. That leaks through
+    the direct CLI ``ooo auto --complete-product`` path as a background Ralph
+    failure: ``EvolutionaryLoop not configured``. Reuse the production MCP
+    composition root so CLI and MCP auto handoffs get the same executor,
+    evaluator, validator, event store, and job manager wiring.
+    """
+    from ouroboros.mcp.server.adapter import create_ouroboros_server
+
+    server = create_ouroboros_server(runtime_backend=runtime, opencode_mode=opencode_mode)
+    handler = server._tool_handlers["ouroboros_ralph"]  # noqa: SLF001
+    if not isinstance(handler, RalphHandler):
+        msg = "MCP composition root returned non-Ralph handler for ouroboros_ralph"
+        raise TypeError(msg)
+    return handler
 
 
 class AgentRuntimeBackend(str, Enum):  # noqa: UP042
@@ -451,11 +479,17 @@ async def _run_auto(
         # ``ralph_opencode_mode`` so an OpenCode plugin session can take the
         # plugin ``_subagent`` dispatch path. ``opencode_mode`` (demoted) is
         # still correct for the authoring/run-handoff handlers above.
-        RalphHandler(agent_runtime_backend=runtime, opencode_mode=ralph_opencode_mode)
+        # Q00/ouroboros#1090: use the full MCP composition root rather than a
+        # bare RalphHandler so job-mode Ralph has an EvolutionaryLoop.
+        _build_configured_ralph_handler(runtime=runtime, opencode_mode=ralph_opencode_mode)
         if complete_product
         else None
     )
-    ralph_starter = HandlerRalphStarter(ralph_handler) if ralph_handler is not None else None
+    ralph_starter = (
+        HandlerRalphStarter(ralph_handler, project_dir=state.cwd)
+        if ralph_handler is not None
+        else None
+    )
     # Q00/ouroboros#773 (review-5 finding 1): wire a poller backed by the same
     # ``RalphHandler`` so a session interrupted in ``RALPH_HANDOFF`` (e.g.
     # client disconnects while the background Ralph job keeps running) can
@@ -623,15 +657,60 @@ def _print_status(state: AutoPipelineState) -> None:
         console.print(line)
 
 
+def _is_run_handoff_only_completion(result: AutoPipelineResult) -> bool:
+    """True when auto completed only by handing off execution work.
+
+    The persisted pipeline marks this state COMPLETE to avoid duplicate run
+    starts on resume, but it is not verified product completion yet.
+    """
+    return (
+        result.status == "complete"
+        and result.run_handoff_status == RUN_HANDOFF_STARTED_STATUS
+        and result.execution_job_status != "completed"
+        and not result.ralph_job_id
+        and not result.ralph_lineage_id
+    )
+
+
+def _is_completed_ralph_product(result: AutoPipelineResult) -> bool:
+    """True when ``--complete-product`` reached a terminal Ralph completion."""
+    return (
+        result.status == "complete"
+        and result.ralph_dispatch_mode != "plugin"
+        and bool(result.ralph_job_id or result.ralph_lineage_id)
+    )
+
+
+def _is_external_ralph_plugin_completion(result: AutoPipelineResult) -> bool:
+    """True when auto is complete but product work lives in an OpenCode child."""
+    return result.status == "complete" and result.ralph_dispatch_mode == "plugin"
+
+
 def _print_result(result: AutoPipelineResult, *, show_ledger: bool) -> None:
-    if result.status == "complete":
+    handoff_only = _is_run_handoff_only_completion(result)
+    completed_ralph_product = _is_completed_ralph_product(result)
+    external_ralph_plugin = _is_external_ralph_plugin_completion(result)
+    if handoff_only:
+        print_info("Auto run handoff started")
+    elif result.status == "complete":
         print_success("Auto pipeline completed")
     elif result.status in {"blocked", "failed"}:
         print_error("Auto pipeline did not complete")
     else:
         print_info("Auto pipeline status")
     console.print(f"Auto session: [cyan]{result.auto_session_id}[/]")
-    console.print(f"Status: [bold]{result.status}[/]")
+    displayed_status = "run_handoff_started" if handoff_only else result.status
+    console.print(f"Status: [bold]{displayed_status}[/]")
+    if handoff_only:
+        console.print(
+            "Product status: [yellow]not verified complete; execution is still external/pending[/]"
+        )
+    elif completed_ralph_product:
+        console.print("Product status: [green]completed by Ralph loop[/]")
+    elif external_ralph_plugin:
+        console.print(
+            "Product status: [yellow]not verified complete; Ralph loop is external/pending[/]"
+        )
     authoring, run_label = _format_runtime_labels(result.runtime_backend, result.opencode_mode)
     console.print(f"Authoring backend: [bold]{authoring}[/]")
     console.print(f"Run backend: [bold]{run_label}[/]")
@@ -650,7 +729,10 @@ def _print_result(result: AutoPipelineResult, *, show_ledger: bool) -> None:
         console.print(f"  Job ID: {result.job_id}")
         console.print(f"  Execution ID: {result.execution_id}")
         console.print(f"  Session ID: {result.run_session_id}")
-    if result.run_handoff_status:
+    if result.run_handoff_status and not (
+        completed_ralph_product
+        and result.run_handoff_status in _STALE_COMPLETED_RALPH_HANDOFF_STATUSES
+    ):
         console.print(f"Run handoff status: [bold]{result.run_handoff_status}[/]")
     if result.run_handoff_guidance:
         console.print(f"Run handoff guidance: [yellow]{result.run_handoff_guidance}[/]")

@@ -43,6 +43,7 @@ In general, for Graphviz-based visualizations, if you provide a format extension
 """
 
 import os
+import re
 import sys
 from typing import Optional, Union, List, Dict, Any, Tuple, Set
 
@@ -68,9 +69,10 @@ from pm4py.util import constants
 
 
 def _extract_format(format_or_path: str) -> str:
-    if "." in format_or_path:
-        return os.path.splitext(format_or_path)[1][1:].lower()
-    return str(format_or_path).lower()
+    format_or_path = str(format_or_path)
+    ext = os.path.splitext(format_or_path)[1][1:].lower()
+    fmt = ext if ext else format_or_path.lower()
+    return fmt if re.fullmatch(r"[a-z0-9_+-]+", fmt) else ""
 
 
 def _setup_parameters(

@@ -17,7 +17,7 @@ from drydock.core.tools.base import (
     ToolPermission,
 )
 from drydock.core.tools.ui import ToolCallDisplay, ToolResultDisplay, ToolUIData
-from drydock.core.types import ToolStreamEvent
+from drydock.core.types import ToolStreamEvent, ToolCallEvent, ToolResultEvent
 
 
 class WebSearchSource(BaseModel):
@@ -93,8 +93,11 @@ class WebSearch(
             if title_tag and snippet_tag:
                 title = title_tag.text.strip()
                 snippet = snippet_tag.text.strip()
-                raw_url = title_tag.get("href", "")
-                
+                raw_url = title_tag.get("href", "") or ""
+                # BS4's .get() returns AttributeValue | None; coerce to str
+                if not isinstance(raw_url, str):
+                    raw_url = str(raw_url)
+
                 # Clean up DuckDuckGo's redirect URLs
                 if "uddg=" in raw_url:
                     clean_url = urllib.parse.unquote(raw_url.split("uddg=")[1].split("&")[0])

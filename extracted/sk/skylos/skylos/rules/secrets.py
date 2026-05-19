@@ -64,20 +64,29 @@ PROVIDER_PATTERNS = [
     ),
 ]
 
-GENERIC_VALUE = re.compile(r"""(?ix)
+GENERIC_KEYED_VALUE = re.compile(
+    r"""(?ix)
+    (token|api[_-]?key|secret|password|passwd|pwd|bearer|auth[_-]?token|access[_-]?token)
+    \s*[:=]\s*(?P<q>['"])(?P<val>[^'"]{16,})(?P=q)
+"""
+)
+
+BARE_GENERIC_VALUE = re.compile(
+    r"(?P<bare>(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-]))"
+)
+
+# Public compatibility pattern used by MCP diff validation. Keep this linear:
+# charset requirements for bare tokens are checked in Python by scan_ctx.
+GENERIC_VALUE = re.compile(
+    r"""(?ix)
     (?:
       (token|api[_-]?key|secret|password|passwd|pwd|bearer|auth[_-]?token|access[_-]?token)
       \s*[:=]\s*(?P<q>['"])(?P<val>[^'"]{16,})(?P=q)
     )
     |
-    (?P<bare>
-      (?=[A-Za-z0-9_-]{32,}\b)
-      (?=.*[A-Z])
-      (?=.*[a-z])
-      (?=.*\d)
-      [A-Za-z0-9_-]+
-    )
-""")
+    (?P<bare>(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-]))
+"""
+)
 
 SAFE_TEST_HINTS = {
     "example",
@@ -97,15 +106,18 @@ SAFE_TEST_HINTS = {
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-KNOWN_HASH_RE = re.compile(
+KNOWN_HASH_VALUE_RE = re.compile(
     r"(?i)"
-    r"(?:sha(?:1|224|256|384|512)[-:])"  # sha256-..., sha512:...
-    r"|(?:\b[0-9a-f]{40}\b)"  # git SHA-1 (exactly 40 hex)
-    r"|(?:\b[0-9a-f]{64}\b)"  # SHA-256 hex digest (exactly 64 hex)
-    r"|(?:\"integrity\"\s*:)"  # npm integrity field
-    r"|(?:\"hash\"\s*:\s*\")"  # generic hash field in JSON
-    r"|(?:\"checksum\"\s*:)"  # checksum field
-    r"|(?:\"resolved\"\s*:\s*\"https?://)"  # npm resolved URL
+    r"(?:sha(?:1|224|256|384|512)[-:].+)"
+    r"|(?:[0-9a-f]{40})"
+    r"|(?:[0-9a-f]{64})"
+)
+KNOWN_HASH_FIELD_PREFIX_RE = re.compile(
+    r"""(?ix)
+    (?:^|[\s,{])
+    ['"]?(?:integrity|hash|checksum|resolved)['"]?
+    \s*[:=]\s*['"]?$
+"""
 )
 
 IGNORE_DIRECTIVE = "skylos: ignore[SKY-S101]"
@@ -149,6 +161,51 @@ def _mask(tok):
 
 def _looks_like_identifier(s):
     return bool(_IDENTIFIER.fullmatch(s))
+
+
+def _has_bare_token_charset_mix(s):
+    has_upper = False
+    has_lower = False
+    has_digit = False
+    for char in s:
+        if char.isupper():
+            has_upper = True
+        elif char.islower():
+            has_lower = True
+        elif char.isdigit():
+            has_digit = True
+        if has_upper and has_lower and has_digit:
+            return True
+    return False
+
+
+def _find_generic_value(line_content):
+    keyed_match = GENERIC_KEYED_VALUE.search(line_content)
+    if keyed_match:
+        keyed_token = keyed_match.group("val")
+        keyed_start = keyed_match.start("val")
+        if not _is_known_hash_candidate(keyed_token, line_content, keyed_start):
+            return keyed_token, False, keyed_start
+
+    for bare_match in BARE_GENERIC_VALUE.finditer(line_content):
+        bare_token = bare_match.group("bare")
+        bare_start = bare_match.start("bare")
+        if not _has_bare_token_charset_mix(bare_token):
+            continue
+        if _is_known_hash_candidate(bare_token, line_content, bare_start):
+            continue
+        return bare_token, True, bare_start
+
+    return None
+
+
+def _is_known_hash_candidate(token: str, line_content: str, start: int) -> bool:
+    clean_token = token.strip()
+    if KNOWN_HASH_VALUE_RE.fullmatch(clean_token):
+        return True
+
+    prefix = line_content[:start]
+    return bool(KNOWN_HASH_FIELD_PREFIX_RE.search(prefix))
 
 
 def _docstring_lines(tree):
@@ -324,24 +381,13 @@ def scan_ctx(
 
         in_tests = bool(IS_TEST_PATH.search(rel_path.replace("\\", "/")))
 
-        if in_tests or KNOWN_HASH_RE.search(line_content):
-            generic_match = None
+        if in_tests:
+            generic_value = None
         else:
-            generic_match = GENERIC_VALUE.search(line_content)
+            generic_value = _find_generic_value(line_content)
 
-        if generic_match:
-            val_group = generic_match.group("val")
-            bare_group = generic_match.group("bare")
-
-            is_bare = False
-            if val_group:
-                extracted_token = val_group
-            elif bare_group:
-                extracted_token = bare_group
-                is_bare = True
-            else:
-                extracted_token = ""
-
+        if generic_value:
+            extracted_token, is_bare, col_pos = generic_value
             clean_token = extracted_token.strip()
 
             if clean_token:
@@ -360,8 +406,6 @@ def scan_ctx(
                     tok_entropy = _entropy(clean_token)
 
                     if tok_entropy >= min_entropy and len(clean_token) >= 20:
-                        col_pos = line_content.find(clean_token)
-
                         generic_finding = {
                             "rule_id": "SKY-S101",
                             "severity": "CRITICAL",

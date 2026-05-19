@@ -15,8 +15,12 @@
 
 """Identity v3 Endpoint action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -28,7 +32,9 @@ from openstackclient.identity import common
 LOG = logging.getLogger(__name__)
 
 
-def _format_endpoint(endpoint, service):
+def _format_endpoint(
+    endpoint: Any, service: Any
+) -> tuple[tuple[str, ...], Any]:
     columns = (
         'is_enabled',
         'id',
@@ -58,7 +64,7 @@ def _format_endpoint(endpoint, service):
 class AddProjectToEndpoint(command.Command):
     _description = _("Associate a project to an endpoint")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'endpoint',
@@ -75,7 +81,7 @@ class AddProjectToEndpoint(command.Command):
         common.add_project_domain_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         client = self.app.client_manager.identity
 
         endpoint = utils.find_resource(client.endpoints, parsed_args.endpoint)
@@ -92,7 +98,7 @@ class AddProjectToEndpoint(command.Command):
 class CreateEndpoint(command.ShowOne):
     _description = _("Create new endpoint")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'service',
@@ -131,8 +137,12 @@ class CreateEndpoint(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         service = common.find_service_sdk(identity_client, parsed_args.service)
 
         kwargs = {}
@@ -154,7 +164,7 @@ class CreateEndpoint(command.ShowOne):
 class DeleteEndpoint(command.Command):
     _description = _("Delete endpoint(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'endpoint',
@@ -164,8 +174,10 @@ class DeleteEndpoint(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         result = 0
         for i in parsed_args.endpoint:
             try:
@@ -195,7 +207,7 @@ class DeleteEndpoint(command.Command):
 class ListEndpoint(command.Lister):
     _description = _("List endpoints")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--service',
@@ -227,8 +239,12 @@ class ListEndpoint(command.Lister):
         common.add_project_domain_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         endpoint = None
         if parsed_args.endpoint:
@@ -318,7 +334,7 @@ class ListEndpoint(command.Lister):
 class RemoveProjectFromEndpoint(command.Command):
     _description = _("Dissociate a project from an endpoint")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'endpoint',
@@ -337,7 +353,7 @@ class RemoveProjectFromEndpoint(command.Command):
         common.add_project_domain_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         client = self.app.client_manager.identity
 
         endpoint = utils.find_resource(client.endpoints, parsed_args.endpoint)
@@ -354,7 +370,7 @@ class RemoveProjectFromEndpoint(command.Command):
 class SetEndpoint(command.Command):
     _description = _("Set endpoint properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'endpoint',
@@ -397,8 +413,10 @@ class SetEndpoint(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         endpoint = identity_client.find_endpoint(
             parsed_args.endpoint, ignore_missing=False
         )
@@ -434,7 +452,7 @@ class SetEndpoint(command.Command):
 class ShowEndpoint(command.ShowOne):
     _description = _("Display endpoint details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'endpoint',
@@ -446,8 +464,12 @@ class ShowEndpoint(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         endpoint = identity_client.find_endpoint(
             parsed_args.endpoint, ignore_missing=False
         )

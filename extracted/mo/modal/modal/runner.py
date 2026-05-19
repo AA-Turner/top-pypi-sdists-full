@@ -22,6 +22,7 @@ from modal._load_context import LoadContext
 from modal._utils.grpc_utils import Retry
 from modal_proto import api_pb2
 
+from ._environments import _get_environment_cached
 from ._functions import _Function
 from ._object import _get_environment_name, _Object
 from ._output.pty import get_app_logs_loop, get_pty_info
@@ -33,7 +34,6 @@ from ._utils.name_utils import check_object_name, is_valid_tag
 from .client import HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT, _Client
 from .cls import _Cls
 from .config import config, logger
-from .environments import _get_environment_cached
 from .exception import (
     ConnectionError,
     InteractiveTimeoutError,
@@ -360,6 +360,7 @@ async def _status_based_disconnect(client: _Client, app_id: str, exc_info: Optio
 async def _run_app(
     app: "modal.app._App",
     *,
+    name: Optional[str] = None,
     client: Optional[_Client] = None,
     detach: bool = False,
     environment_name: Optional[str] = None,
@@ -380,7 +381,9 @@ async def _run_app(
             "You should not use `app.run` or `run_app` within a Modal `local_entrypoint`"
         )
 
-    if app.description is None:
+    if name:
+        app.set_description(name)
+    elif app.description is None:
         import __main__
 
         if "__file__" in dir(__main__):

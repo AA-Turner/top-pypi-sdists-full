@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator, Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+import jsonschema_rs
 from jsonschema_rs import Validator
 
 from schemathesis import hooks, transport
@@ -13,7 +14,7 @@ from schemathesis.core.errors import IncorrectUsage
 from schemathesis.core.failures import Failure, FailureGroup, failure_report_title, format_failures
 from schemathesis.core.jsonschema import make_validator
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
-from schemathesis.core.transport import Response, prepare_urlencoded
+from schemathesis.core.transport import HttpMethod, Response, prepare_urlencoded
 from schemathesis.core.validation import has_invalid_characters, is_latin_1_encodable
 from schemathesis.engine import Status
 from schemathesis.generation import generate_random_case_id
@@ -61,12 +62,15 @@ def _contains_bytes(value: Body) -> bool:
     return False
 
 
+OperationT = TypeVar("OperationT", bound="APIOperation")
+
+
 @dataclass
-class Case:
+class Case(Generic[OperationT]):
     """Generated test case data for a single API operation."""
 
-    operation: APIOperation
-    method: str
+    operation: OperationT
+    method: HttpMethod
     """HTTP verb (`GET`, `POST`, etc.)"""
     path: str
     """Path template from schema (e.g., `/users/{user_id}`)"""
@@ -117,8 +121,8 @@ class Case:
 
     def __init__(
         self,
-        operation: APIOperation,
-        method: str,
+        operation: OperationT,
+        method: HttpMethod,
         path: str,
         *,
         id: str | None = None,
@@ -268,6 +272,15 @@ class Case:
 
         Recursively hashes nested dicts/lists/tuples and primitives to detect modifications.
         """
+        if isinstance(value, NotSet):
+            return _NOTSET_HASH
+        # Plain JSON-shaped containers (the common case for bodies) go through canonical JSON in
+        # Rust; deeply-nested schemas like Kubernetes Pods are ~10x faster than recursive hashing.
+        if type(value) is dict or type(value) is list:
+            try:
+                return hash((type(value), jsonschema_rs.canonical.json.to_string(value)))
+            except (TypeError, ValueError):
+                pass
         if isinstance(value, Mapping):
             return hash(
                 (
@@ -275,10 +288,8 @@ class Case:
                     tuple(sorted(((k, self._hash_container(v)) for k, v in value.items()), key=lambda x: str(x[0]))),
                 )
             )
-        elif isinstance(value, list | tuple):
+        if isinstance(value, list | tuple):
             return hash((type(value), tuple(self._hash_container(item) for item in value)))
-        elif isinstance(value, NotSet):
-            return _NOTSET_HASH
         return hash((type(value), value))
 
     @property

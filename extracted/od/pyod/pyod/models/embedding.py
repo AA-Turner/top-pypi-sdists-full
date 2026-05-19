@@ -51,7 +51,7 @@ _DETECTOR_SHORTCUTS = {
 }
 
 
-def resolve_detector(detector, contamination=0.1):
+def resolve_detector(detector, contamination=0.1, random_state=None):
     """Resolve a detector from a string name or BaseDetector instance.
 
     Parameters
@@ -62,6 +62,13 @@ def resolve_detector(detector, contamination=0.1):
 
     contamination : float, optional (default=0.1)
         Contamination parameter passed to newly created detectors.
+
+    random_state : int or None, optional
+        Seed forwarded to the resolved detector when it declares an
+        explicit ``random_state`` parameter in its ``__init__``
+        signature (verified via ``inspect.signature``). This keeps
+        ``EmbeddingOD(..., random_state=42)`` bit-stable when the
+        inner detector (e.g., LUNAR) is itself stochastic.
 
     Returns
     -------
@@ -78,6 +85,10 @@ def resolve_detector(detector, contamination=0.1):
         module_path, class_name, kwargs = _DETECTOR_SHORTCUTS[detector]
         mod = importlib.import_module(module_path)
         cls = getattr(mod, class_name)
+        from pyod.utils._detector_factory import _accepts_random_state
+        if random_state is not None and _accepts_random_state(cls):
+            return cls(contamination=contamination,
+                       random_state=random_state, **kwargs)
         return cls(contamination=contamination, **kwargs)
 
     raise TypeError("detector must be str or BaseDetector, got %s"
@@ -128,6 +139,18 @@ class EmbeddingOD(BaseDetector):
         Apply StandardScaler to embeddings before detection.
         Matches the preprocessing pipeline in NLP-ADBench.
 
+    random_state : int, RandomState instance or None, optional (default=None)
+        Controls stochastic parts of EmbeddingOD. The seed is forwarded
+        to (a) the dimensionality-reduction PCA when ``reduce_dim`` is
+        set (PCA may pick a randomized SVD solver on high-dimensional
+        embeddings) and (b) the string-resolved inner detector when that
+        detector class declares an explicit ``random_state`` parameter
+        (e.g., the default ``'LUNAR'`` preset, or ``'IForest'``). It does
+        NOT control the external encoder's own inference (e.g.,
+        sentence-transformers, DINOv2), which is treated as deterministic
+        given fixed weights. When ``ADEngine(random_state=...)`` builds
+        a preset plan, the engine seed flows here automatically.
+
     Attributes
     ----------
     decision_scores_ : numpy array of shape (n_samples,)
@@ -156,7 +179,7 @@ class EmbeddingOD(BaseDetector):
 
     def __init__(self, encoder, detector='LUNAR', contamination=0.1,
                  batch_size=32, cache_embeddings=False,
-                 reduce_dim=None, standardize=True):
+                 reduce_dim=None, standardize=True, random_state=None):
         super(EmbeddingOD, self).__init__(contamination=contamination)
         self.encoder = encoder
         self.detector = detector
@@ -164,6 +187,7 @@ class EmbeddingOD(BaseDetector):
         self.cache_embeddings = cache_embeddings
         self.reduce_dim = reduce_dim
         self.standardize = standardize
+        self.random_state = random_state
 
     def fit(self, X, y=None):
         """Fit detector on raw input data.
@@ -186,7 +210,9 @@ class EmbeddingOD(BaseDetector):
             Fitted estimator.
         """
         self.encoder_ = resolve_encoder(self.encoder)
-        self.detector_ = resolve_detector(self.detector, self.contamination)
+        self.detector_ = resolve_detector(
+            self.detector, self.contamination,
+            random_state=self.random_state)
 
         # Encode (use fit_encode for MultiModalEncoder to store means)
         from ..utils.encoders import MultiModalEncoder
@@ -242,7 +268,12 @@ class EmbeddingOD(BaseDetector):
             X_emb = self.scaler_.fit_transform(X_emb)
 
         if self.reduce_dim is not None:
-            self.pca_ = PCA(n_components=self.reduce_dim)
+            # PCA can pick a randomized solver under svd_solver='auto' on
+            # high-dimensional embeddings; pass the engine seed through so
+            # `EmbeddingOD(random_state=...)` covers the preprocessing
+            # step alongside the inner detector.
+            self.pca_ = PCA(n_components=self.reduce_dim,
+                            random_state=self.random_state)
             X_emb = self.pca_.fit_transform(X_emb)
 
         return X_emb.astype(np.float32)

@@ -7,6 +7,7 @@
 
 """Tests for CTable.to_arrow() and CTable.from_arrow()."""
 
+import datetime
 from dataclasses import dataclass
 
 import numpy as np
@@ -157,6 +158,37 @@ def test_from_arrow_bool_values():
     np.testing.assert_array_equal(t2["active"][:], t["active"][:])
 
 
+def test_from_arrow_column_cparams(tmp_path):
+    at = pa.table(
+        {
+            "x": pa.array([1.1, 2.2, 3.3], type=pa.float64()),
+            "y": pa.array([1, 2, 3], type=pa.int64()),
+        }
+    )
+    urlpath = tmp_path / "trunc.b2d"
+    t = CTable.from_arrow(
+        at.schema,
+        at.to_batches(),
+        urlpath=str(urlpath),
+        column_cparams={
+            "x": {
+                "codec": blosc2.Codec.ZSTD.value,
+                "clevel": 5,
+                "filters": [blosc2.Filter.TRUNC_PREC.value, blosc2.Filter.SHUFFLE.value],
+                "filters_meta": [32, 0],
+            }
+        },
+    )
+
+    assert t._cols["x"].cparams.filters[:2] == [blosc2.Filter.TRUNC_PREC, blosc2.Filter.SHUFFLE]
+    assert t._cols["x"].cparams.filters_meta[:2] == [32, 0]
+    assert t._cols["y"].cparams.filters[-1] == blosc2.Filter.SHUFFLE
+    t.close()
+
+    reopened = CTable.open(str(urlpath), mode="r")
+    assert reopened._cols["x"].cparams.filters[:2] == [blosc2.Filter.TRUNC_PREC, blosc2.Filter.SHUFFLE]
+
+
 def test_from_arrow_string_values():
     # Without string_max_length, scalar strings become vlstring columns.
     # Accessing [:] on a vlstring column returns a Python list, not an ndarray.
@@ -177,6 +209,29 @@ def test_from_arrow_empty_table():
     t = CTable.from_arrow(at.schema, at.to_batches())
     assert len(t) == 0
     assert t.col_names == ["id", "val"]
+
+
+def test_from_arrow_timestamp_roundtrip_and_query():
+    arr = pa.array(
+        [np.datetime64("2025-01-01T00:00:00", "us"), None, np.datetime64("2025-01-02T00:00:00", "us")],
+        type=pa.timestamp("us"),
+    )
+    at = pa.Table.from_arrays([arr], names=["ts"])
+
+    t = CTable.from_arrow(at.schema, at.to_batches())
+
+    assert isinstance(t._schema.columns_by_name["ts"].spec, blosc2.schema.timestamp)
+    assert t.ts[0] == np.datetime64("2025-01-01T00:00:00", "us")
+    np.testing.assert_array_equal(
+        t.ts[:],
+        np.array(["2025-01-01T00:00:00", "NaT", "2025-01-02T00:00:00"], dtype="datetime64[us]"),
+    )
+    assert len(t[t.ts >= np.datetime64("2025-01-02", "us")]) == 1
+
+    out = t.to_arrow()
+    assert out.schema.field("ts").type == pa.timestamp("us")
+    assert out.column("ts").null_count == 1
+    assert out.column("ts").to_pylist()[0] == arr.to_pylist()[0]
 
 
 def test_from_arrow_roundtrip():
@@ -256,8 +311,36 @@ def test_from_arrow_list_struct_nullable_values_roundtrip():
     assert t[2].nutriments == [{"name": "energy", "value": 42.0}]
 
 
+def test_from_arrow_list_struct_timestamp_roundtrip():
+    event_type = pa.struct(
+        [
+            pa.field("when", pa.timestamp("ms")),
+            pa.field("value", pa.float64()),
+        ]
+    )
+    at = pa.table(
+        {
+            "events": pa.array(
+                [
+                    [{"when": datetime.datetime(2020, 1, 1), "value": 1.5}],
+                    None,
+                ],
+                type=pa.list_(event_type),
+            )
+        }
+    )
+
+    t = CTable.from_arrow(at.schema, at.to_batches())
+    assert t[0].events == [{"when": 1577836800000, "value": 1.5}]
+    assert t[1].events is None
+
+    out = t.to_arrow()
+    assert out.schema.field("events").type == pa.list_(event_type)
+    assert out.column("events").to_pylist()[0][0]["when"].isoformat() == "2020-01-01T00:00:00"
+
+
 def test_from_arrow_unsupported_type_raises():
-    at = pa.table({"ts": pa.array([1, 2, 3], type=pa.timestamp("s"))})
+    at = pa.table({"duration": pa.array([1, 2, 3], type=pa.duration("s"))})
     with pytest.raises(TypeError, match="No blosc2 spec"):
         CTable.from_arrow(at.schema, at.to_batches())
 

@@ -1386,23 +1386,39 @@ class SessionWatcher:
     def find_session(self) -> Path | None:
         if self.session_dir is not None:
             return self.session_dir
-        # Fast path (added 2026-05-17 with v2.8.58): drydock now
-        # publishes the active session_dir to ~/.drydock/current_session.txt
-        # at session init and on every reset_session. This avoids the
-        # post-/clear race where mtime-scan returned the stale OLD dir
-        # because reset_session's mkdir hadn't flushed yet.
-        pub_path = Path.home() / ".drydock" / "current_session.txt"
-        try:
-            published = pub_path.read_text().strip()
-            if published:
-                p = Path(published)
-                # Only accept the published path if it's recent enough —
-                # protects against a leftover file from a previous run.
-                if p.is_dir() and p.stat().st_mtime >= self.since - 5:
-                    self.session_dir = p
-                    return p
-        except (FileNotFoundError, OSError):
-            pass
+        # Fast path A (per-project, v2.8.62+): drydock writes the active
+        # session_dir to `<cwd>/.drydock/current_session.txt` so
+        # concurrent drydocks in different folders don't clobber each
+        # other. This is the right path for watchers that know their
+        # target cwd — like this one.
+        for pub_path in (
+            self.cwd / ".drydock" / "current_session.txt",
+            # Fast path B (legacy, v2.8.58): global single-writer path.
+            # Kept only as fallback for projects that don't yet have a
+            # per-project drydock dir. Last-writer-wins across drydocks.
+            Path.home() / ".drydock" / "current_session.txt",
+        ):
+            try:
+                published = pub_path.read_text().strip()
+                if published:
+                    p = Path(published)
+                    # Only accept if it's recent enough — protects against
+                    # a leftover file from a previous run.
+                    if p.is_dir() and p.stat().st_mtime >= self.since - 5:
+                        # Also verify the session belongs to OUR cwd via
+                        # meta.json if available — guards against the
+                        # global path returning some other project's dir.
+                        try:
+                            meta = json.loads((p / "meta.json").read_text())
+                            wd = meta.get("environment", {}).get("working_directory", "")
+                            if wd and str(self.cwd) != wd:
+                                continue  # different project, skip
+                        except (FileNotFoundError, json.JSONDecodeError):
+                            pass  # meta.json not yet written → accept
+                        self.session_dir = p
+                        return p
+            except (FileNotFoundError, OSError):
+                continue
         # Fallback: meta.json is only written at session EXIT (CLAUDE.md
         # learning #37). For active sessions we fall back to: new dir
         # (mtime > since) that has messages.jsonl. meta.json match is

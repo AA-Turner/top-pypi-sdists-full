@@ -1,7 +1,7 @@
 from enum import Enum
 
+from biolib._shared.types.typing import Dict, List, Literal, Optional, TypedDict
 from biolib.biolib_api_client.common_types import SemanticVersion
-from biolib.typing_utils import Dict, List, Literal, Optional, TypedDict
 
 
 class AppVersionSlim(SemanticVersion):

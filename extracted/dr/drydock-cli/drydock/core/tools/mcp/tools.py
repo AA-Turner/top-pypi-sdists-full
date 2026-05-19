@@ -30,6 +30,25 @@ if TYPE_CHECKING:
     from drydock.core.types import ToolResultEvent
 
 
+def _split_command(command: list[str] | str) -> tuple[str, list[str]]:
+    """Normalize a stdio MCP command spec into (executable, args).
+
+    Defensive against callers that pass a bare string (e.g. ``srv.command``
+    when MCPStdio.command was set as ``str``). Without this,
+    ``command[0], command[1:]`` on the string ``"python3"`` produces
+    ``("p", "ython3")`` and pydantic rejects ``args="ython3"`` with
+    list_type ("Input should be a valid list").
+    """
+    if isinstance(command, str):
+        import shlex
+        parts = shlex.split(command)
+    else:
+        parts = list(command or [])
+    if not parts:
+        raise ToolError("MCP stdio command is empty.")
+    return parts[0], parts[1:]
+
+
 def _stderr_logger_thread(read_fd: int) -> None:
     with open(read_fd, "rb") as f:
         for line in iter(f.readline, b""):
@@ -279,7 +298,8 @@ async def list_tools_stdio(
     env: dict[str, str] | None = None,
     startup_timeout_sec: float | None = None,
 ) -> list[RemoteTool]:
-    params = StdioServerParameters(command=command[0], args=command[1:], env=env)
+    cmd_exe, cmd_args = _split_command(command)
+    params = StdioServerParameters(command=cmd_exe, args=cmd_args, env=env)
     timeout = timedelta(seconds=startup_timeout_sec) if startup_timeout_sec else None
     async with (
         _mcp_stderr_capture() as errlog,
@@ -301,7 +321,8 @@ async def call_tool_stdio(
     tool_timeout_sec: float | None = None,
     sampling_callback: MCPSamplingHandler | None = None,
 ) -> MCPToolResult:
-    params = StdioServerParameters(command=command[0], args=command[1:], env=env)
+    cmd_exe, cmd_args = _split_command(command)
+    params = StdioServerParameters(command=cmd_exe, args=cmd_args, env=env)
     init_timeout = (
         timedelta(seconds=startup_timeout_sec) if startup_timeout_sec else None
     )
@@ -452,7 +473,8 @@ async def list_resources_stdio(
     env: dict[str, str] | None = None,
     startup_timeout_sec: float | None = None,
 ) -> list[MCPResource]:
-    params = StdioServerParameters(command=command[0], args=command[1:], env=env)
+    cmd_exe, cmd_args = _split_command(command)
+    params = StdioServerParameters(command=cmd_exe, args=cmd_args, env=env)
     timeout = timedelta(seconds=startup_timeout_sec) if startup_timeout_sec else None
     async with (
         _mcp_stderr_capture() as errlog,
@@ -500,7 +522,8 @@ async def read_resource_stdio(
     env: dict[str, str] | None = None,
     startup_timeout_sec: float | None = None,
 ) -> str:
-    params = StdioServerParameters(command=command[0], args=command[1:], env=env)
+    cmd_exe, cmd_args = _split_command(command)
+    params = StdioServerParameters(command=cmd_exe, args=cmd_args, env=env)
     timeout = timedelta(seconds=startup_timeout_sec) if startup_timeout_sec else None
     async with (
         _mcp_stderr_capture() as errlog,

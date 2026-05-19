@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from schemathesis.core.cache import CacheWriter, Kind, request_from_case
 from schemathesis.core.error_feedback.pipeline import get_pipeline
-from schemathesis.core.error_feedback.store import ErrorFeedbackStore
+from schemathesis.core.error_feedback.store import ErrorFeedbackStore, Observation, observation_fingerprint
 
 if TYPE_CHECKING:
     from schemathesis.core.transport import Response
@@ -11,14 +12,15 @@ if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation
 
 
-def record_response(
-    *,
-    store: ErrorFeedbackStore,
+def parse_observations(
     operation: APIOperation,
     case: Case,
     response: Response,
-) -> None:
-    """Route a response through the parser pipeline into the store."""
+) -> tuple[Observation, ...]:
+    """Parse a 4xx response into structured observations without storing them.
+
+    Returns `()` for non-4xx, 401/403, and negative-mode cases.
+    """
     status = response.status_code
     if (
         # Only 4xx is actionable: 5xx is already a check finding; 401/403 are auth noise.
@@ -28,7 +30,23 @@ def record_response(
         # Negative-mode is meant to fail — recording it would poison the signal.
         or (case.meta is not None and case.meta.generation.mode.is_negative)
     ):
-        return
-    pipeline = get_pipeline()
-    for observation in pipeline.parse(operation=operation, case=case, response=response):
+        return ()
+    return tuple(get_pipeline().parse(operation=operation, case=case, response=response))
+
+
+def record_response(
+    *,
+    store: ErrorFeedbackStore,
+    operation: APIOperation,
+    case: Case,
+    response: Response,
+    cache_writer: CacheWriter | None = None,
+) -> None:
+    """Route a response through the parser pipeline into the store; buffer one cache entry per response."""
+    keys: list[str] = []
+    for observation in parse_observations(operation=operation, case=case, response=response):
         store.record(observation)
+        if cache_writer is not None:
+            keys.append(observation_fingerprint(observation))
+    if cache_writer is not None and keys:
+        cache_writer.record(Kind.ERROR_FEEDBACK, operation.label, request_from_case(case), observation_keys=keys)

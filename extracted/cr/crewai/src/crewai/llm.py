@@ -688,7 +688,9 @@ class LLM(BaseLLM):
             "temperature": self.temperature,
             "top_p": self.top_p,
             "n": self.n,
-            "stop": (self.stop or None) if self.supports_stop_words() else None,
+            "stop": (self.stop_sequences or None)
+            if self.supports_stop_words()
+            else None,
             "max_tokens": self.max_tokens or self.max_completion_tokens,
             "presence_penalty": self.presence_penalty,
             "frequency_penalty": self.frequency_penalty,
@@ -937,6 +939,21 @@ class LLM(BaseLLM):
             if usage_info:
                 self._track_token_usage_internal(usage_info)
             self._handle_streaming_callbacks(callbacks, usage_info, last_chunk)
+
+            if accumulated_tool_args and not available_functions:
+                tool_calls_list: list[ChatCompletionDeltaToolCall] = [
+                    ChatCompletionDeltaToolCall(
+                        index=idx,
+                        function=Function(
+                            name=tool_arg.function.name,
+                            arguments=tool_arg.function.arguments,
+                        ),
+                    )
+                    for idx, tool_arg in sorted(accumulated_tool_args.items())
+                    if tool_arg.function.name
+                ]
+                if tool_calls_list:
+                    return tool_calls_list
 
             if not tool_calls or not available_functions:
                 if response_model and self.is_litellm:
@@ -1533,8 +1550,7 @@ class LLM(BaseLLM):
             if usage_info:
                 self._track_token_usage_internal(usage_info)
 
-            if accumulated_tool_args and available_functions:
-                # Convert accumulated tool args to ChatCompletionDeltaToolCall objects
+            if accumulated_tool_args:
                 tool_calls_list: list[ChatCompletionDeltaToolCall] = [
                     ChatCompletionDeltaToolCall(
                         index=idx,
@@ -1543,21 +1559,24 @@ class LLM(BaseLLM):
                             arguments=tool_arg.function.arguments,
                         ),
                     )
-                    for idx, tool_arg in accumulated_tool_args.items()
+                    for idx, tool_arg in sorted(accumulated_tool_args.items())
                     if tool_arg.function.name
                 ]
 
                 if tool_calls_list:
-                    result = self._handle_streaming_tool_calls(
-                        tool_calls=tool_calls_list,
-                        accumulated_tool_args=accumulated_tool_args,
-                        available_functions=available_functions,
-                        from_task=from_task,
-                        from_agent=from_agent,
-                        response_id=response_id,
-                    )
-                    if result is not None:
-                        return result
+                    if available_functions:
+                        result = self._handle_streaming_tool_calls(
+                            tool_calls=tool_calls_list,
+                            accumulated_tool_args=accumulated_tool_args,
+                            available_functions=available_functions,
+                            from_task=from_task,
+                            from_agent=from_agent,
+                            response_id=response_id,
+                        )
+                        if result is not None:
+                            return result
+                    else:
+                        return tool_calls_list
 
             usage_dict = self._usage_to_dict(usage_info)
             self._handle_emit_call_events(

@@ -15,8 +15,12 @@
 
 """Identity v3 Credential action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -28,7 +32,7 @@ from openstackclient.identity import common
 LOG = logging.getLogger(__name__)
 
 
-def _format_credential(credential):
+def _format_credential(credential: Any) -> tuple[tuple[str, ...], Any]:
     columns = (
         'blob',
         'id',
@@ -48,7 +52,7 @@ def _format_credential(credential):
 class CreateCredential(command.ShowOne):
     _description = _("Create new credential")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'user',
@@ -75,8 +79,12 @@ class CreateCredential(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         user_id = identity_client.find_user(
             parsed_args.user, ignore_missing=False
         ).id
@@ -99,7 +107,7 @@ class CreateCredential(command.ShowOne):
 class DeleteCredential(command.Command):
     _description = _("Delete credential(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'credential',
@@ -109,8 +117,10 @@ class DeleteCredential(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         result = 0
         for i in parsed_args.credential:
             try:
@@ -137,7 +147,7 @@ class DeleteCredential(command.Command):
 class ListCredential(command.Lister):
     _description = _("List credentials")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--user',
@@ -152,8 +162,12 @@ class ListCredential(command.Lister):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         kwargs = {}
         if parsed_args.user:
@@ -190,7 +204,7 @@ class ListCredential(command.Lister):
 class SetCredential(command.Command):
     _description = _("Set credential properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'credential',
@@ -224,8 +238,10 @@ class SetCredential(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         user_id = identity_client.find_user(
             parsed_args.user, ignore_missing=False
@@ -250,7 +266,7 @@ class SetCredential(command.Command):
 class ShowCredential(command.ShowOne):
     _description = _("Display credential details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'credential',
@@ -259,8 +275,12 @@ class ShowCredential(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         credential = identity_client.get_credential(parsed_args.credential)
 
         return _format_credential(credential)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: redis-entraid
-Version: 1.1.2
+Version: 1.2.0
 Summary: Entra ID credentials provider implementation for Redis-py client
 Author-email: "Redis Inc." <oss@redis.com>
 Requires-Python: >=3.10
@@ -8,8 +8,9 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: redis>=5.3.0
 Requires-Dist: PyJWT~=2.12.0
-Requires-Dist: msal~=1.33.0
-Requires-Dist: azure-identity~=1.24.0
+Requires-Dist: msal~=1.33
+Requires-Dist: azure-identity~=1.24
+Requires-Dist: requests~=2.32
 Dynamic: license-file
 
 **Note:** redis-py-entraid 1.0.0 is the last version of redis-py that supports Python 3.9, as it has reached [end of life](https://devguide.python.org/versions/). redis-py-entraid 1.1.0 supports Python 3.9+.

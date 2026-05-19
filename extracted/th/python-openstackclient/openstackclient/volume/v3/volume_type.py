@@ -13,9 +13,11 @@
 
 """Volume v3 Type action implementations"""
 
+import argparse
+from collections.abc import Iterable, MutableMapping, Sequence
 import functools
 import logging
-import typing as ty
+from typing import Any
 
 from cinderclient import api_versions
 from cliff import columns as cliff_columns
@@ -32,7 +34,7 @@ from openstackclient.identity import common as identity_common
 LOG = logging.getLogger(__name__)
 
 
-class EncryptionInfoColumn(cliff_columns.FormattableColumn[ty.Any]):
+class EncryptionInfoColumn(cliff_columns.FormattableColumn[Any]):
     """Formattable column for encryption info column.
 
     Unlike the parent FormattableColumn class, the initializer of the
@@ -43,26 +45,30 @@ class EncryptionInfoColumn(cliff_columns.FormattableColumn[ty.Any]):
     ``functools.partial(EncryptionInfoColumn encryption_data)``.
     """
 
-    def __init__(self, value, encryption_data=None):
+    def __init__(
+        self, value: Any, encryption_data: dict[str, Any] | None = None
+    ) -> None:
         super().__init__(value)
         self._encryption_data = encryption_data or {}
 
-    def _get_encryption_info(self):
+    def _get_encryption_info(self) -> Any:
         type_id = self._value
         return self._encryption_data.get(type_id)
 
-    def human_readable(self):
+    def human_readable(self) -> str:
         encryption_info = self._get_encryption_info()
         if encryption_info:
             return utils.format_dict(encryption_info)
         else:
             return '-'
 
-    def machine_readable(self):
+    def machine_readable(self) -> Any:
         return self._get_encryption_info()
 
 
-def _create_encryption_type(volume_client, volume_type, parsed_args):
+def _create_encryption_type(
+    volume_client: Any, volume_type: Any, parsed_args: argparse.Namespace
+) -> Any:
     if not parsed_args.encryption_provider:
         msg = _(
             "'--encryption-provider' should be specified while "
@@ -85,7 +91,9 @@ def _create_encryption_type(volume_client, volume_type, parsed_args):
     return encryption
 
 
-def _set_encryption_type(volume_client, volume_type, parsed_args):
+def _set_encryption_type(
+    volume_client: Any, volume_type: Any, parsed_args: argparse.Namespace
+) -> None:
     # update the existing encryption type
     body = {}
     for attr in ['provider', 'cipher', 'key_size', 'control_location']:
@@ -109,7 +117,7 @@ def _set_encryption_type(volume_client, volume_type, parsed_args):
 class CreateVolumeType(command.ShowOne):
     _description = _("Create new volume type")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             "name",
@@ -243,7 +251,9 @@ class CreateVolumeType(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
         identity_client = self.app.client_manager.identity
         volume_client = self.app.client_manager.volume
 
@@ -325,13 +335,14 @@ class CreateVolumeType(command.ShowOne):
 
         volume_type._info.pop("os-volume-type-access:is_public", None)
 
-        return zip(*sorted(volume_type._info.items()))
+        col_headers, col_data = zip(*sorted(volume_type._info.items()))
+        return col_headers, col_data
 
 
 class DeleteVolumeType(command.Command):
     _description = _("Delete volume type(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             "volume_types",
@@ -341,7 +352,7 @@ class DeleteVolumeType(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         volume_client = self.app.client_manager.volume
         result = 0
 
@@ -373,7 +384,7 @@ class DeleteVolumeType(command.Command):
 class ListVolumeType(command.Lister):
     _description = _("List volume types")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--long',
@@ -467,7 +478,9 @@ class ListVolumeType(command.Lister):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[tuple[Any, ...]]]:
         volume_client = self.app.client_manager.volume
 
         if parsed_args.long:
@@ -522,7 +535,9 @@ class ListVolumeType(command.Lister):
                 is_public=parsed_args.is_public,
             )
 
-        formatters = {'Extra Specs': format_columns.DictColumn}
+        formatters: MutableMapping[str, Any] = {
+            'Extra Specs': format_columns.DictColumn
+        }
 
         if parsed_args.encryption_type:
             encryption = {}
@@ -549,7 +564,7 @@ class ListVolumeType(command.Lister):
             _EncryptionInfoColumn = functools.partial(
                 EncryptionInfoColumn, encryption_data=encryption
             )
-            formatters['id'] = _EncryptionInfoColumn  # type: ignore
+            formatters['id'] = _EncryptionInfoColumn
 
         return (
             column_headers,
@@ -567,7 +582,7 @@ class ListVolumeType(command.Lister):
 class SetVolumeType(command.Command):
     _description = _("Set volume type properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'volume_type',
@@ -706,7 +721,7 @@ class SetVolumeType(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         volume_client = self.app.client_manager.volume
         identity_client = self.app.client_manager.identity
 
@@ -802,7 +817,7 @@ class SetVolumeType(command.Command):
 class ShowVolumeType(command.ShowOne):
     _description = _("Display volume type details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             "volume_type",
@@ -819,7 +834,9 @@ class ShowVolumeType(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
         volume_client = self.app.client_manager.volume
         volume_type = utils.find_resource(
             volume_client.volume_types, parsed_args.volume_type
@@ -867,13 +884,14 @@ class ShowVolumeType(command.ShowOne):
                     e,
                 )
         volume_type._info.pop("os-volume-type-access:is_public", None)
-        return zip(*sorted(volume_type._info.items()))
+        col_headers, col_data = zip(*sorted(volume_type._info.items()))
+        return col_headers, col_data
 
 
 class UnsetVolumeType(command.Command):
     _description = _("Unset volume type properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'volume_type',
@@ -908,7 +926,7 @@ class UnsetVolumeType(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         volume_client = self.app.client_manager.volume
         identity_client = self.app.client_manager.identity
 

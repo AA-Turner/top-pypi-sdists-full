@@ -36,10 +36,10 @@ class TestAiControllerUploads(unittest.TestCase):
 
         result = self.controller.save_uploaded_file(fs, "conv-1")
 
-        self.assertEqual(
-            result["filePath"],
-            os.path.join(".abstra/ai_uploads", "conv-1", "report.txt"),
+        self.assertTrue(
+            result["filePath"].startswith(os.path.join(".abstra/ai_uploads", "conv-1"))
         )
+        self.assertTrue(result["filePath"].endswith("report.txt"))
         self.assertEqual(result["fileName"], "report.txt")
         self.assertEqual(result["fileSize"], 5)
         self.assertEqual(result["mimeType"], "text/plain")
@@ -47,6 +47,22 @@ class TestAiControllerUploads(unittest.TestCase):
         full = Path(self.tempdir.name) / result["filePath"]
         self.assertTrue(full.exists())
         self.assertEqual(full.read_bytes(), b"hello")
+
+    def test_save_uploaded_file_does_not_overwrite_same_filename(self):
+        first = self.controller.save_uploaded_file(
+            self._make_file_storage(b"first", "report.txt", "text/plain"), "conv-1"
+        )
+        second = self.controller.save_uploaded_file(
+            self._make_file_storage(b"second", "report.txt", "text/plain"), "conv-1"
+        )
+
+        self.assertNotEqual(first["filePath"], second["filePath"])
+        self.assertEqual(
+            (Path(self.tempdir.name) / first["filePath"]).read_bytes(), b"first"
+        )
+        self.assertEqual(
+            (Path(self.tempdir.name) / second["filePath"]).read_bytes(), b"second"
+        )
 
     def test_save_uploaded_file_strips_path_components_in_name(self):
         fs = self._make_file_storage(b"x", "../../../etc/passwd", "text/plain")

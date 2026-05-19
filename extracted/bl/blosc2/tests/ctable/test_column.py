@@ -26,6 +26,12 @@ class StrRow:
     label: str = blosc2.field(blosc2.string(max_length=16))
 
 
+@dataclass
+class DictRow:
+    vendor: str = blosc2.field(blosc2.dictionary())
+    fare: float = blosc2.field(blosc2.float64())
+
+
 DATA20 = [(i, float(i * 10), True) for i in range(20)]
 
 
@@ -48,6 +54,54 @@ def test_column_metadata():
     # mask is None by default
     assert tabla.id._mask is None
     assert tabla.score._mask is None
+
+
+def test_column_float32_repr_uses_numpy_formatting():
+    """Column/table repr uses compact NumPy-style formatting for float32 previews."""
+
+    @dataclass
+    class Float32Row:
+        value: float = blosc2.field(blosc2.float32())
+
+    tabla = CTable(Float32Row, new_data=[(222.22,), (210.8,)])
+    col_text = repr(tabla.value)
+    table_text = str(tabla)
+
+    assert "222.22" in col_text
+    assert "222.22000122070312" not in col_text
+    assert "222.22" in table_text
+    assert "222.22000122070312" not in table_text
+
+
+def test_column_info():
+    """Column.info reports logical shape plus physical storage details."""
+    tabla = CTable(Row, new_data=DATA20)
+    info = tabla.score.info
+    text = repr(info)
+    items = dict(tabla.score.info_items)
+
+    assert len(info) == len(tabla.score.info_items)
+    assert ("type", "Column") in tabla.score.info_items
+    assert ("name", "score") in tabla.score.info_items
+    assert items["nrows"] == 20
+    assert items["shape"] == (20,)
+    assert "chunks" in items
+    assert "blocks" in items
+    assert "logical_length" not in text
+    assert "physical_length" not in text
+    assert "logical_shape" not in text
+    assert "table_physical_length" not in text
+    assert "storage" in text
+
+
+def test_dictionary_column_info():
+    """Dictionary Column.info reports dictionary-specific details without code-shape duplication."""
+    tabla = CTable(DictRow, new_data=[("Uber", 10.5), ("Lyft", 7.2), ("Uber", 15.0)])
+    text = repr(tabla.vendor.info)
+
+    assert "dictionary_size" in text
+    assert "dictionary[str]" in text
+    assert "codes_shape" not in text
 
 
 def test_column_getitem_no_holes():
@@ -374,10 +428,27 @@ def test_sum_skips_deleted_rows():
     assert t["id"].sum() == sum(range(1, 20))
 
 
-def test_sum_empty_raises():
+def test_sum_empty_returns_zero():
     t = CTable(Row)
-    with pytest.raises(ValueError, match="empty"):
-        t["id"].sum()
+    assert t["id"].sum() == 0
+
+
+def test_sum_empty_filtered_view_returns_zero():
+    t = CTable(Row, new_data=DATA20)
+    assert t[t.id < 0]["id"].sum() == 0
+
+
+def test_sum_where_skips_valid_rows_mask_when_all_rows_visible():
+    t = CTable(Row, new_data=DATA20, expected_size=len(DATA20))
+    mask = t["id"]._lazy_nonnull_mask(where=t["score"] < 100)
+    assert mask.expression == "(o0 < 100)"
+    assert len(mask.operands) == 1
+    assert t["id"].sum(where=t["score"] < 100) == sum(range(10))
+
+
+def test_sum_where_accepts_jit_backend():
+    t = CTable(Row, new_data=DATA20, expected_size=len(DATA20))
+    assert t["id"].sum(where=t["score"] < 100, jit_backend="cc") == sum(range(10))
 
 
 def test_sum_wrong_type_raises():
@@ -440,6 +511,24 @@ def test_max_complex_raises():
 
 
 # -------------------------------------------------------------------
+# Aggregates: argmin / argmax
+# -------------------------------------------------------------------
+
+
+def test_argmin_argmax_scalar_columns():
+    t = CTable(Row, new_data=DATA20)
+    assert t["id"].argmin() == 0
+    assert t["id"].argmax() == 19
+
+
+def test_argmin_argmax_skip_deleted_rows():
+    t = CTable(Row, new_data=DATA20)
+    t.delete([0, 19])
+    assert t["id"].argmin() == 0  # logical position of id=1 in the filtered live view
+    assert t["id"].argmax() == 17  # logical position of id=18 in the filtered live view
+
+
+# -------------------------------------------------------------------
 # Aggregates: mean
 # -------------------------------------------------------------------
 
@@ -464,6 +553,11 @@ def test_mean_empty_raises():
     t = CTable(Row)
     with pytest.raises(ValueError, match="empty"):
         t["id"].mean()
+
+
+def test_mean_empty_filtered_view_is_nan():
+    t = CTable(Row, new_data=DATA20)
+    assert np.isnan(t[t.id < 0]["id"].mean())
 
 
 # -------------------------------------------------------------------
@@ -497,6 +591,11 @@ def test_std_empty_raises():
     t = CTable(Row)
     with pytest.raises(ValueError, match="empty"):
         t["id"].std()
+
+
+def test_std_empty_filtered_view_is_nan():
+    t = CTable(Row, new_data=DATA20)
+    assert np.isnan(t[t.id < 0]["id"].std())
 
 
 # -------------------------------------------------------------------
@@ -722,7 +821,7 @@ def test_info_shows_open_mode_for_persistent_table(tmp_path):
 def test_info_schema_expands_unicode_dtype_labels():
     t = CTable(StrRow, new_data=[("alpha",), ("beta",)])
     info = repr(t.info)
-    assert "U16 (Unicode, max 16 chars)" in info
+    assert "U16 (Unicode)" in info
 
 
 def test_info_valid_rows_mask_only_reports_cbytes():

@@ -38,6 +38,8 @@ from .paginator import (
     ListTasksPaginator,
 )
 from .type_defs import (
+    ContinueServiceDeploymentRequestTypeDef,
+    ContinueServiceDeploymentResponseTypeDef,
     CreateCapacityProviderRequestTypeDef,
     CreateCapacityProviderResponseTypeDef,
     CreateClusterRequestTypeDef,
@@ -277,6 +279,17 @@ class ECSClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/generate_presigned_url.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#generate_presigned_url)
+        """
+
+    def continue_service_deployment(
+        self, **kwargs: Unpack[ContinueServiceDeploymentRequestTypeDef]
+    ) -> ContinueServiceDeploymentResponseTypeDef:
+        """
+        Continues or rolls back an Amazon ECS service deployment that is paused at a
+        lifecycle hook.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/continue_service_deployment.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#continue_service_deployment)
         """
 
     def create_capacity_provider(

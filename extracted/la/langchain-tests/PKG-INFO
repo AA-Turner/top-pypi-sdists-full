@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: langchain-tests
-Version: 1.1.7
+Version: 1.1.8
 Summary: Standard tests for LangChain implementations
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://docs.langchain.com/
 Project-URL: Repository, https://github.com/langchain-ai/langchain
 Project-URL: Issues, https://github.com/langchain-ai/langchain/issues
 Project-URL: Changelog, https://github.com/langchain-ai/langchain/releases?q=%22langchain-tests%3D%3D1%22
-Project-URL: Twitter, https://x.com/LangChain
+Project-URL: Twitter, https://x.com/langchain_oss
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
@@ -24,7 +24,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: httpx<1.0.0,>=0.28.1
-Requires-Dist: langchain-core<2.0.0,>=1.3.2
+Requires-Dist: langchain-core<2.0.0,>=1.4.0
 Requires-Dist: numpy>=1.26.2; python_version < '3.13'
 Requires-Dist: numpy>=2.1.0; python_version >= '3.13'
 Requires-Dist: pytest-asyncio<2.0.0,>=1.3.0
@@ -42,7 +42,7 @@ Description-Content-Type: text/markdown
 [![PyPI - Version](https://img.shields.io/pypi/v/langchain-tests?label=%20)](https://pypi.org/project/langchain-tests/#history)
 [![PyPI - License](https://img.shields.io/pypi/l/langchain-tests)](https://opensource.org/licenses/MIT)
 [![PyPI - Downloads](https://img.shields.io/pepy/dt/langchain-tests)](https://pypistats.org/packages/langchain-tests)
-[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchain.svg?style=social&label=Follow%20%40LangChain)](https://x.com/langchain)
+[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchain_oss.svg?style=social&label=Follow%20%40LangChain)](https://x.com/langchain_oss)
 
 Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langchain-ai/langchainjs).
 

@@ -1,5 +1,5 @@
 from typing import Any, Dict, Optional, List, Union
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
 
 
 from dlt.common.schema.typing import TWriteDisposition
@@ -28,8 +28,8 @@ class CacheConfig(TypedDict, total=False):
     pipeline_name: Optional[str]
     dataset_name: Optional[str]
     transformed_dataset_name: Optional[str]
-    inputs: List[CacheInputBinding]
-    outputs: List[CacheOutputBinding]
+    inputs: Required[List[CacheInputBinding]]
+    outputs: Required[List[CacheOutputBinding]]
 
 
 def set_defaults_and_validate(config: CacheConfig) -> CacheConfig:

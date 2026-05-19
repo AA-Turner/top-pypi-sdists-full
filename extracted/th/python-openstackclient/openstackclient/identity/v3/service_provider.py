@@ -13,8 +13,12 @@
 
 """Service Provider action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -25,7 +29,7 @@ from openstackclient.i18n import _
 LOG = logging.getLogger(__name__)
 
 
-def _format_service_provider(sp):
+def _format_service_provider(sp: Any) -> tuple[tuple[str, ...], Any]:
     column_headers = (
         'id',
         'enabled',
@@ -51,7 +55,7 @@ def _format_service_provider(sp):
 class CreateServiceProvider(command.ShowOne):
     _description = _("Create new service provider")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'service_provider_id',
@@ -98,8 +102,12 @@ class CreateServiceProvider(command.ShowOne):
 
         return parser
 
-    def take_action(self, parsed_args):
-        service_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        service_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         kwargs = {}
 
@@ -125,7 +133,7 @@ class CreateServiceProvider(command.ShowOne):
 class DeleteServiceProvider(command.Command):
     _description = _("Delete service provider(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'service_provider',
@@ -135,8 +143,10 @@ class DeleteServiceProvider(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        service_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        service_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         result = 0
         for i in parsed_args.service_provider:
             try:
@@ -162,8 +172,12 @@ class DeleteServiceProvider(command.Command):
 class ListServiceProvider(command.Lister):
     _description = _("List service providers")
 
-    def take_action(self, parsed_args):
-        service_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        service_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         data = service_client.service_providers()
 
         column_headers = (
@@ -191,7 +205,7 @@ class ListServiceProvider(command.Lister):
 class SetServiceProvider(command.ShowOne):
     _description = _("Set service provider properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'service_provider',
@@ -233,8 +247,12 @@ class SetServiceProvider(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        service_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        service_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         kwargs = {}
 
@@ -261,7 +279,7 @@ class SetServiceProvider(command.ShowOne):
 class ShowServiceProvider(command.ShowOne):
     _description = _("Display service provider details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'service_provider',
@@ -270,8 +288,12 @@ class ShowServiceProvider(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        service_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        service_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         service_provider = service_client.find_service_provider(
             parsed_args.service_provider,
             ignore_missing=False,

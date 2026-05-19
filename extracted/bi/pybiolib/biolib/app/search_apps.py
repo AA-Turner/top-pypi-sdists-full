@@ -1,7 +1,7 @@
 # TODO: Fix ignore of type
 # type: ignore
 from biolib import api, utils
-from biolib.typing_utils import List, Optional
+from biolib._shared.types.typing import List, Optional
 
 
 def search_apps(

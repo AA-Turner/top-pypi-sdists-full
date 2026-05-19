@@ -3,7 +3,7 @@ import os
 from shutil import copyfile,copytree,rmtree
 from platform import system
 import pathlib
-from Cython.Distutils import build_ext 
+from Cython.Distutils import build_ext
 from Cython.Build import cythonize
 
 
@@ -45,7 +45,7 @@ cython_ext = Extension('daqp',
         include_dirs=[str(csrc_dir / 'include')])
 
 setup(name='daqp',
-        version='0.8.5',
+        version='0.8.6',
         description='DAQP: A dual active-set QP solver',
         url='http://github.com/darnstrom/daqp',
         author='Daniel Arnström',

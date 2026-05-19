@@ -1,7 +1,7 @@
+from biolib._shared.types.typing import List, Optional, TypedDict
 from biolib.biolib_binary_format import BioLibBinaryFormatBasePackage
 from biolib.biolib_binary_format.file_in_container import FileInContainer
 from biolib.biolib_binary_format.utils import IndexableBuffer, InMemoryIndexableBuffer, LazyLoadedFile
-from biolib.typing_utils import List, Optional, TypedDict
 
 
 class Metadata(TypedDict):

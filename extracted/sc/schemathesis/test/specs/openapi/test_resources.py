@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 import requests
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 
 from schemathesis.config import GenerationConfig
 from schemathesis.core import deserialization
@@ -10,6 +10,7 @@ from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.generation.meta import TestPhase
 from schemathesis.generation.modes import GenerationMode
+from schemathesis.generation.value import GeneratedValue
 from schemathesis.resources import PoolPick
 from schemathesis.resources.descriptors import Cardinality, ResourceDescriptor
 from schemathesis.resources.repository import (
@@ -19,7 +20,6 @@ from schemathesis.resources.repository import (
 )
 from schemathesis.specs.openapi._hypothesis import openapi_cases
 from schemathesis.specs.openapi.extra_data_source import ParameterRequirement
-from schemathesis.specs.openapi.negative import GeneratedValue
 
 USER_RESOURCE = "User"
 POST_USERS = "POST /users"
@@ -1256,7 +1256,7 @@ def test_negative_aware_strategy_with_captured_values(ctx):
     results = []
 
     @given(strategy)
-    @settings(max_examples=20, database=None)
+    @settings(max_examples=20, database=None, suppress_health_check=list(HealthCheck))
     def collect_samples(value):
         results.append(value)
 
@@ -1569,7 +1569,7 @@ def test_negative_aware_strategy_with_captured_values_body(ctx):
     results = []
 
     @given(strategy)
-    @settings(max_examples=20, database=None)
+    @settings(max_examples=20, database=None, suppress_health_check=list(HealthCheck))
     def collect_samples(value):
         results.append(value)
 

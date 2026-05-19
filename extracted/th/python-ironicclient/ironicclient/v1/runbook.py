@@ -10,6 +10,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import annotations
+
+import builtins
+from typing import Any
+
 from ironicclient.common import base
 from ironicclient.common.i18n import _
 from ironicclient.common import utils
@@ -17,19 +22,71 @@ from ironicclient import exc
 
 
 class Runbook(base.Resource):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Runbook %s>" % self._info
 
 
-class RunbookManager(base.CreateManager):
-    resource_class = Runbook
-    _creation_attributes = ['extra', 'name', 'owner', 'public', 'steps',
-                            'uuid']
-    _resource_name = 'runbooks'
+class RunbookManager(base.CreateManager[Runbook]):
+    resource_class: type[Runbook] = Runbook
+    _creation_attributes: list[str] = [
+        'description', 'extra', 'name', 'owner', 'public', 'steps',
+        'traits', 'uuid',
+    ]
+    _resource_name: str = 'runbooks'
 
-    def list(self, limit=None, marker=None, sort_key=None, sort_dir=None,
-             detail=False, fields=None, os_ironic_api_version=None,
-             global_request_id=None, project=None, public=None):
+    def get(
+        self,
+        runbook_id: str,
+        fields: list[str] | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> base.Resource | None:
+        return self._get(
+            resource_id=runbook_id,
+            fields=fields,
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id,
+        )
+
+    def delete(
+        self,
+        runbook_id: str,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> None:
+        return self._delete(
+            resource_id=runbook_id,
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id,
+        )
+
+    def update(
+        self,
+        runbook_id: str,
+        patch: list[dict[str, Any]],
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> base.Resource | None:
+        return self._update(
+            resource_id=runbook_id,
+            patch=patch,
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id,
+        )
+
+    def list(
+        self,
+        limit: int | None = None,
+        marker: str | None = None,
+        sort_key: str | None = None,
+        sort_dir: str | None = None,
+        detail: bool = False,
+        fields: list[str] | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+        project: str | None = None,
+        public: bool | None = None,
+    ) -> list[Runbook]:
         """Retrieve a list of runbooks.
 
         :param marker: Optional, the UUID of a deploy template, eg the last
@@ -69,38 +126,155 @@ class RunbookManager(base.CreateManager):
             limit = int(limit)
 
         if detail and fields:
-            raise exc.InvalidAttribute(_("Can't fetch a subset of fields "
-                                         "with 'detail' set"))
+            raise exc.InvalidAttribute(
+                _("Can't fetch a subset of fields "
+                  "with 'detail' set"))
 
-        filters = utils.common_filters(marker, limit, sort_key, sort_dir,
-                                       fields, detail=detail, public=public,
-                                       project=project)
+        filters = utils.common_filters(
+            marker, limit, sort_key, sort_dir,
+            fields, detail=detail, public=public,
+            project=project)
         path = ''
         if filters:
             path += '?' + '&'.join(filters)
-        header_values = {"os_ironic_api_version": os_ironic_api_version,
-                         "global_request_id": global_request_id}
         if limit is None:
-            return self._list(self._path(path), "runbooks",
-                              **header_values)
+            return self._list(
+                self._path(path),
+                "runbooks",
+                os_ironic_api_version=os_ironic_api_version,
+                global_request_id=global_request_id,
+            )
         else:
-            return self._list_pagination(self._path(path), "runbooks",
-                                         limit=limit, **header_values)
+            return self._list_pagination(
+                self._path(path),
+                "runbooks",
+                limit=limit,
+                os_ironic_api_version=os_ironic_api_version,
+                global_request_id=global_request_id,
+            )
 
-    def get(self, runbook_id, fields=None, os_ironic_api_version=None,
-            global_request_id=None):
-        return self._get(resource_id=runbook_id, fields=fields,
-                         os_ironic_api_version=os_ironic_api_version,
-                         global_request_id=global_request_id)
+    def get_traits(
+        self,
+        runbook_ident: str,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> builtins.list[str]:
+        """Get traits for a runbook.
 
-    def delete(self, runbook_id, os_ironic_api_version=None,
-               global_request_id=None):
-        return self._delete(resource_id=runbook_id,
-                            os_ironic_api_version=os_ironic_api_version,
-                            global_request_id=global_request_id)
+        Requires API version 1.112 or later.
 
-    def update(self, runbook_id, patch, os_ironic_api_version=None,
-               global_request_id=None):
-        return self._update(resource_id=runbook_id, patch=patch,
-                            os_ironic_api_version=os_ironic_api_version,
-                            global_request_id=global_request_id)
+        :param runbook_ident: runbook UUID or name.
+        :param os_ironic_api_version: String version (e.g. "1.112") to use for
+            the request.  If not specified, the client's default is used.
+        :param global_request_id: String containing global request ID header
+            value (in form "req-<UUID>") to use for the request.
+        """
+        version_to_check = (os_ironic_api_version
+                            or self.api.os_ironic_api_version)
+        if version_to_check and not utils.check_api_version_support(
+                version_to_check, "1.112"):
+            raise exc.UnsupportedVersion(
+                _("Runbook trait operations require API version 1.112 or "
+                  "later."))
+
+        path = f"{runbook_ident}/traits"
+        return self._list_primitives(
+            self._path(path), 'traits',
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id)
+
+    def add_trait(
+        self,
+        runbook_ident: str,
+        trait: str,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> Runbook | None:
+        """Add a trait to a runbook.
+
+        Requires API version 1.112 or later.
+
+        :param runbook_ident: runbook UUID or name.
+        :param trait: trait to add to the runbook.
+        :param os_ironic_api_version: String version (e.g. "1.112") to use for
+            the request.  If not specified, the client's default is used.
+        :param global_request_id: String containing global request ID header
+            value (in form "req-<UUID>") to use for the request.
+        """
+        version_to_check = (os_ironic_api_version
+                            or self.api.os_ironic_api_version)
+        if version_to_check and not utils.check_api_version_support(
+                version_to_check, "1.112"):
+            raise exc.UnsupportedVersion(
+                _("Runbook trait operations require API version 1.112 or "
+                  "later."))
+
+        path = "%s/traits/%s" % (runbook_ident, trait)
+        return self._update(
+            resource_id=path,
+            patch=None,
+            method='PUT',
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id)
+
+    def remove_trait(
+        self,
+        runbook_ident: str,
+        trait: str,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> None:
+        """Remove a trait from a runbook.
+
+        Requires API version 1.112 or later.
+
+        :param runbook_ident: runbook UUID or name.
+        :param trait: trait to remove from the runbook.
+        :param os_ironic_api_version: String version (e.g. "1.112") to use for
+            the request.  If not specified, the client's default is used.
+        :param global_request_id: String containing global request ID header
+            value (in form "req-<UUID>") to use for the request.
+        """
+        version_to_check = (os_ironic_api_version
+                            or self.api.os_ironic_api_version)
+        if version_to_check and not utils.check_api_version_support(
+                version_to_check, "1.112"):
+            raise exc.UnsupportedVersion(
+                _("Runbook trait operations require API version 1.112 or "
+                  "later."))
+
+        path = "%s/traits/%s" % (runbook_ident, trait)
+        self._delete(
+            resource_id=path,
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id)
+
+    def remove_all_traits(
+        self,
+        runbook_ident: str,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> None:
+        """Remove all traits from a runbook.
+
+        Requires API version 1.112 or later.
+
+        :param runbook_ident: runbook UUID or name.
+        :param os_ironic_api_version: String version (e.g. "1.112") to use for
+            the request.  If not specified, the client's default is used.
+        :param global_request_id: String containing global request ID header
+            value (in form "req-<UUID>") to use for the request.
+        """
+        version_to_check = (os_ironic_api_version
+                            or self.api.os_ironic_api_version)
+        if version_to_check and not utils.check_api_version_support(
+                version_to_check, "1.112"):
+            raise exc.UnsupportedVersion(
+                _("Runbook trait operations require API version 1.112 or "
+                  "later."))
+
+        path = "%s/traits" % runbook_ident
+        self._delete(
+            resource_id=path,
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id)

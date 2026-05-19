@@ -74,6 +74,7 @@ System_Collections_Generic_CollectionExtensions_AddRange_T = typing.TypeVar("Sys
 System_Collections_Generic_CollectionExtensions_InsertRange_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_InsertRange_T")
 System_Collections_Generic_CollectionExtensions_CopyTo_T = typing.TypeVar("System_Collections_Generic_CollectionExtensions_CopyTo_T")
 System_Collections_Generic_List_ConvertAll_TOutput = typing.TypeVar("System_Collections_Generic_List_ConvertAll_TOutput")
+System_Collections_Generic_EqualityComparer_Create_TKey = typing.TypeVar("System_Collections_Generic_EqualityComparer_Create_TKey")
 System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_GetAlternateLookup_TAlternate")
 System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate = typing.TypeVar("System_Collections_Generic_HashSet_TryGetAlternateLookup_TAlternate")
 System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Generic_Dictionary_GetAlternateLookup_TAlternateKey")
@@ -556,14 +557,31 @@ class IEqualityComparer(typing.Generic[System_Collections_Generic_IEqualityCompa
         ...
 
 
+class _Typed_EqualityComparer_Create(typing.Generic[System_Collections_Generic_EqualityComparer_Create_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, key_selector: typing.Callable[[System_Collections_Generic_EqualityComparer_T], System_Collections_Generic_EqualityComparer_Create_TKey], key_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Generic_EqualityComparer_Create_TKey] = None) -> System.Collections.Generic.EqualityComparer[System_Collections_Generic_EqualityComparer_T]:
+        ...
+
+
+class _EqualityComparer_Create:
+    """"""
+
+    @overload
+    def __call__(self, equals: typing.Callable[[System_Collections_Generic_EqualityComparer_T, System_Collections_Generic_EqualityComparer_T], bool], get_hash_code: typing.Callable[[System_Collections_Generic_EqualityComparer_T], int] = None) -> System.Collections.Generic.EqualityComparer[System_Collections_Generic_EqualityComparer_T]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Generic_EqualityComparer_Create_TKey]) -> System.Collections.Generic._Typed_EqualityComparer_Create[System_Collections_Generic_EqualityComparer_Create_TKey]:
+        ...
+
+
 class EqualityComparer(typing.Generic[System_Collections_Generic_EqualityComparer_T], System.Object, System.Collections.IEqualityComparer, System.Collections.Generic.IEqualityComparer[System_Collections_Generic_EqualityComparer_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     DEFAULT: System.Collections.Generic.EqualityComparer[System_Collections_Generic_EqualityComparer_T]
 
-    @staticmethod
-    def create(equals: typing.Callable[[System_Collections_Generic_EqualityComparer_T, System_Collections_Generic_EqualityComparer_T], bool], get_hash_code: typing.Callable[[System_Collections_Generic_EqualityComparer_T], int] = None) -> System.Collections.Generic.EqualityComparer[System_Collections_Generic_EqualityComparer_T]:
-        ...
+    create: System.Collections.Generic._EqualityComparer_Create
 
     def equals(self, x: System_Collections_Generic_EqualityComparer_T, y: System_Collections_Generic_EqualityComparer_T) -> bool:
         ...

@@ -140,8 +140,7 @@ class KNN(BaseDetector):
 
     def __init__(self, contamination=0.1, n_neighbors=5, method='largest',
                  radius=1.0, algorithm='auto', leaf_size=30,
-                 metric='minkowski', p=2, metric_params=None, n_jobs=1,
-                 **kwargs):
+                 metric='minkowski', p=2, metric_params=None, n_jobs=1):
         super(KNN, self).__init__(contamination=contamination)
         self.n_neighbors = n_neighbors
         self.method = method
@@ -165,8 +164,7 @@ class KNN(BaseDetector):
                                        metric=self.metric,
                                        p=self.p,
                                        metric_params=self.metric_params,
-                                       n_jobs=self.n_jobs,
-                                       **kwargs)
+                                       n_jobs=self.n_jobs)
 
     def fit(self, X, y=None):
         """Fit detector. y is ignored in unsupervised methods.

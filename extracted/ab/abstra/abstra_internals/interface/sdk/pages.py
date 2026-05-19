@@ -3,7 +3,16 @@ from __future__ import annotations
 import inspect
 import math
 import os
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Optional,
+    TypeVar,
+    Union,
+    overload,
+)
 
 if TYPE_CHECKING:
     from abstra_internals.services.jwt import UserClaims
@@ -40,14 +49,17 @@ def _validate_cache_value(cache: object) -> float:
     return cache_float
 
 
+F = TypeVar("F", bound=Callable[..., Any])
+
+
 @overload
-def register_function(func: Callable) -> Callable: ...
+def register_function(func: F) -> F: ...
 
 
 @overload
 def register_function(
     *, cache: Optional[Union[int, float]] = None
-) -> Callable[[Callable], Callable]: ...
+) -> Callable[[F], F]: ...
 
 
 def register_function(

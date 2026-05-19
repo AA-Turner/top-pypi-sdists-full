@@ -61,6 +61,7 @@ from .enums import (
     NotificationLevel,
     NSFWLevel,
     OnboardingMode,
+    RoleType,
     ScheduledEventLocationType,
     ScheduledEventPrivacyLevel,
     SortOrder,
@@ -125,8 +126,8 @@ if TYPE_CHECKING:
     from .types.guild import ModifyIncidents as ModifyIncidentsPayload
     from .types.member import Member as MemberPayload
     from .types.threads import Thread as ThreadPayload
-    from .types.voice import GuildVoiceState
-    from .voice_client import VoiceClient
+    from .types.voice import VoiceState as GuildVoiceState
+    from .voice import VoiceClient
     from .webhook import Webhook
 
     VocalGuildChannel = Union[VoiceChannel, StageChannel]
@@ -1250,7 +1251,7 @@ class Guild(Hashable):
         .. versionadded:: 1.6
         """
         for role in self._roles.values():
-            if role.is_premium_subscriber():
+            if role.type is RoleType.BOOSTER:
                 return role
         return None
 
@@ -2082,43 +2083,6 @@ class Guild(Hashable):
         """
         await self._state.http.leave_guild(self.id)
 
-    async def delete(self) -> None:
-        """|coro|
-
-        Deletes the guild. You must be the guild owner to delete the
-        guild.
-
-        Raises
-        ------
-        HTTPException
-            Deleting the guild failed.
-        Forbidden
-            You do not have permissions to delete the guild.
-        """
-        await self._state.http.delete_guild(self.id)
-
-    async def set_mfa_required(self, required: bool, *, reason: str = None) -> None:
-        """|coro|
-
-        Set whether it is required to have MFA enabled on your account
-        to perform moderation actions. You must be the guild owner to do this.
-
-        Parameters
-        ----------
-        required: :class:`bool`
-            Whether MFA should be required to perform moderation actions.
-        reason: :class:`str`
-            The reason to show up in the audit log.
-
-        Raises
-        ------
-        HTTPException
-            The operation failed.
-        Forbidden
-            You are not the owner of the guild.
-        """
-        await self._state.http.edit_guild_mfa(self.id, required, reason=reason)
-
     async def edit(
         self,
         *,
@@ -2131,7 +2095,6 @@ class Guild(Hashable):
         discovery_splash: bytes | None = MISSING,
         community: bool = MISSING,
         afk_channel: VoiceChannel | None = MISSING,
-        owner: Snowflake = MISSING,
         afk_timeout: int = MISSING,
         default_notifications: NotificationLevel = MISSING,
         verification_level: VerificationLevel = MISSING,
@@ -2195,9 +2158,6 @@ class Guild(Hashable):
             The new channel that is the AFK channel. Could be ``None`` for no AFK channel.
         afk_timeout: :class:`int`
             The number of seconds until someone is moved to the AFK channel.
-        owner: :class:`Member`
-            The new owner of the guild to transfer ownership to. Note that you must
-            be owner of the guild to do this.
         verification_level: :class:`VerificationLevel`
             The new verification level for the guild.
         default_notifications: :class:`NotificationLevel`
@@ -2240,8 +2200,7 @@ class Guild(Hashable):
             Editing the guild failed.
         InvalidArgument
             The image format passed in to ``icon`` is invalid. It must be
-            PNG or JPG. This is also raised if you are not the owner of the
-            guild and request an ownership transfer.
+            PNG or JPG.
 
         Returns
         --------
@@ -2317,14 +2276,6 @@ class Guild(Hashable):
                 fields["public_updates_channel_id"] = public_updates_channel
             else:
                 fields["public_updates_channel_id"] = public_updates_channel.id
-
-        if owner is not MISSING:
-            if self.owner_id != self._state.self_id:
-                raise InvalidArgument(
-                    "To transfer ownership you must be the owner of the guild."
-                )
-
-            fields["owner_id"] = owner.id
 
         if verification_level is not MISSING:
             if not isinstance(verification_level, VerificationLevel):
@@ -3854,7 +3805,7 @@ class Guild(Hashable):
 
         You must have the :attr:`~Permissions.view_audit_log` permission to use this.
 
-        See `API documentation <https://discord.com/developers/docs/resources/audit-log#get-guild-audit-log>`_
+        See `API documentation <https://docs.discord.com/developers/resources/audit-log#get-guild-audit-log>`_
         for more information about the `before` and `after` parameters.
 
         Parameters

@@ -1,31 +1,35 @@
 # Copyright Modal Labs 2022
+import uuid
 from typing import Optional, Union
 
-import typer
+import click
 from rich.table import Column
 from rich.text import Text
 
+from modal._environments import ensure_env
 from modal._object import _get_environment_name
 from modal._output.pty import get_pty_info
 from modal._utils.async_utils import synchronizer
+from modal._utils.task_command_router_client import TaskCommandRouterClient
 from modal._utils.time_utils import timestamp_to_localized_str
-from modal.cli.utils import ENV_OPTION, display_table, is_tty
+from modal.cli.utils import display_table, env_option, is_tty
 from modal.client import _Client
 from modal.config import config
 from modal.container_process import _ContainerProcess
-from modal.environments import ensure_env
 from modal.output import OutputManager
 from modal.stream_type import StreamType
-from modal_proto import api_pb2
+from modal_proto import api_pb2, task_command_router_pb2 as sr_pb2
 
-cluster_cli = typer.Typer(
-    name="cluster", help="Manage and connect to running multi-node clusters.", no_args_is_help=True
-)
+from ._help import ModalGroup
+
+cluster_cli = ModalGroup(name="cluster", help="Manage and connect to running multi-node clusters.")
 
 
 @cluster_cli.command("list")
+@env_option
+@click.option("--json", is_flag=True, default=False)
 @synchronizer.create_blocking
-async def list_(env: Optional[str] = ENV_OPTION, json: bool = False):
+async def list_(env: Optional[str] = None, json: bool = False):
     """List all clusters that are currently running."""
     env = ensure_env(env)
     client = await _Client.from_env()
@@ -57,16 +61,15 @@ async def list_(env: Optional[str] = ENV_OPTION, json: bool = False):
 
 
 @cluster_cli.command("shell")
+@click.argument("cluster_id")
+@click.option("--rank", default=0, help="Rank of the node to shell into")
 @synchronizer.create_blocking
-async def shell(
-    cluster_id: str = typer.Argument(help="Cluster ID"),
-    rank: int = typer.Option(default=0, help="Rank of the node to shell into"),
-):
+async def shell(cluster_id: str, rank: int = 0):
     """Open a shell to a multi-node cluster node."""
     client = await _Client.from_env()
     res: api_pb2.ClusterGetResponse = await client.stub.ClusterGet(api_pb2.ClusterGetRequest(cluster_id=cluster_id))
     if len(res.cluster.task_ids) <= rank:
-        raise typer.Abort(f"No node with rank {rank} in cluster {cluster_id}")
+        raise click.ClickException(f"No node with rank {rank} in cluster {cluster_id}")
     task_id = res.cluster.task_ids[rank]
     is_main = "(main)" if rank == 0 else ""
     OutputManager.get().print(
@@ -74,17 +77,42 @@ async def shell(
     )
 
     pty = is_tty()
-    req = api_pb2.ContainerExecRequest(
+
+    command_router_client = await TaskCommandRouterClient.init(client, task_id)
+
+    process_id = str(uuid.uuid4())
+
+    start_req = sr_pb2.TaskExecStartRequest(
         task_id=task_id,
-        command=["/bin/bash"],
+        exec_id=process_id,
+        command_args=["/bin/bash"],
+        stdout_config=sr_pb2.TaskExecStdoutConfig.TASK_EXEC_STDOUT_CONFIG_PIPE,
+        stderr_config=sr_pb2.TaskExecStderrConfig.TASK_EXEC_STDERR_CONFIG_PIPE,
         pty_info=get_pty_info(shell=True) if pty else None,
         runtime_debug=config.get("function_runtime_debug"),
     )
-    exec_res: api_pb2.ContainerExecResponse = await client.stub.ContainerExec(req)
+    await command_router_client.exec_start(start_req)
+
     if pty:
-        await _ContainerProcess(exec_res.exec_id, task_id, client).attach()
-    else:
-        # TODO: redirect stderr to its own stream?
+        # PTY output is raw terminal bytes (control sequences, mouse events,
+        # glyphs in non-UTF-8 locales, etc.) — not text. Strict UTF-8 decode on
+        # this stream crashes the shell as soon as anything emits a byte that
+        # isn't valid UTF-8, e.g. vim drawing a Latin-1 file under LC_CTYPE=C.
+        # Pass bytes through unmodified; `attach()` writes them straight to the
+        # local fd.
         await _ContainerProcess(
-            exec_res.exec_id, task_id, client, stdout=StreamType.STDOUT, stderr=StreamType.STDOUT
+            process_id,
+            task_id,
+            client,
+            command_router_client=command_router_client,
+            text=False,
+        ).attach()
+    else:
+        await _ContainerProcess(
+            process_id,
+            task_id,
+            client,
+            command_router_client=command_router_client,
+            stdout=StreamType.STDOUT,
+            stderr=StreamType.STDOUT,
         ).wait()

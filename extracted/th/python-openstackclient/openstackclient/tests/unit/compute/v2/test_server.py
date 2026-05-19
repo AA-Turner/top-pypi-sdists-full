@@ -341,61 +341,7 @@ class TestServerAddFixedIP(TestServer):
             )
 
 
-class TestServerAddFloatingIPCompute(compute_fakes.TestComputev2):
-    def setUp(self):
-        super().setUp()
-
-        self.app.client_manager.network_endpoint_enabled = False
-        self.server = compute_fakes.create_one_server()
-        self.compute_client.find_server.return_value = self.server
-
-        self.cmd = server.AddFloatingIP(self.app, None)
-
-    def test_server_add_floating_ip_default(self):
-        arglist = [
-            self.server.name,
-            '1.2.3.4',
-        ]
-        verifylist = [
-            ('server', self.server.name),
-            ('ip_address', '1.2.3.4'),
-        ]
-
-        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
-        self.cmd.take_action(parsed_args)
-
-        self.compute_client.find_server.assert_called_once_with(
-            self.server.name, ignore_missing=False
-        )
-        self.compute_client.add_floating_ip_to_server.assert_called_once_with(
-            self.server, '1.2.3.4', fixed_address=None
-        )
-
-    def test_server_add_floating_ip_fixed(self):
-        arglist = [
-            '--fixed-ip-address',
-            '5.6.7.8',
-            self.server.name,
-            '1.2.3.4',
-        ]
-        verifylist = [
-            ('fixed_ip_address', '5.6.7.8'),
-            ('server', self.server.name),
-            ('ip_address', '1.2.3.4'),
-        ]
-
-        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
-        self.cmd.take_action(parsed_args)
-
-        self.compute_client.find_server.assert_called_once_with(
-            self.server.name, ignore_missing=False
-        )
-        self.compute_client.add_floating_ip_to_server.assert_called_once_with(
-            self.server, '1.2.3.4', fixed_address='5.6.7.8'
-        )
-
-
-class TestServerAddFloatingIPNetwork(
+class TestServerAddFloatingIP(
     TestServer,
     network_fakes.TestNetworkV2,
 ):
@@ -1608,8 +1554,8 @@ class TestServerCreate(TestServer):
                 port_port2.id: port_port2,
             }[name_or_id]
 
-        self.app.client_manager.network.find_network.side_effect = find_network
-        self.app.client_manager.network.find_port.side_effect = find_port
+        self.network_client.find_network.side_effect = find_network
+        self.network_client.find_port.side_effect = find_port
 
         arglist = [
             '--image',
@@ -1728,7 +1674,7 @@ class TestServerCreate(TestServer):
         self.set_compute_api_version('2.43')
 
         network = network_fakes.create_one_network()
-        self.app.client_manager.network.find_network.return_value = network
+        self.network_client.find_network.return_value = network
 
         arglist = [
             '--image',
@@ -4865,7 +4811,7 @@ class TestServerList(_TestServerList):
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        columns, data = self.cmd.take_action(parsed_args)
+        columns, _data = self.cmd.take_action(parsed_args)
 
         self.compute_client.servers.assert_called_with(**self.kwargs)
         self.assertIn('Project ID', columns)
@@ -5329,7 +5275,7 @@ class TestServerList(_TestServerList):
         ]
 
         # Add the expected host_status column and data.
-        columns_long = self.columns_long + ('Host Status',)
+        columns_long = (*self.columns_long, 'Host Status')
         self.data2 = tuple(
             (
                 s.id,
@@ -5560,7 +5506,7 @@ class TestServerListV273(_TestServerList):
         }
         fake_server = _server.Server(**server_dict)
         self.servers.append(fake_server)
-        columns, data = self.cmd.take_action(parsed_args)
+        _columns, data = self.cmd.take_action(parsed_args)
         # get the first three servers out since our interest is in the partial
         # server.
         next(data)
@@ -5708,7 +5654,7 @@ class TestServerListV296(_TestServerList):
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        columns, data = self.cmd.take_action(parsed_args)
+        columns, _data = self.cmd.take_action(parsed_args)
 
         self.compute_client.servers.assert_called_with(**self.kwargs)
         self.assertIn('Project ID', columns)
@@ -5860,7 +5806,7 @@ class TestServerListV2100(_TestServerList):
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        columns, data = self.cmd.take_action(parsed_args)
+        columns, _data = self.cmd.take_action(parsed_args)
 
         self.compute_client.servers.assert_called_with(**self.kwargs)
         self.assertIn('Project ID', columns)
@@ -7648,38 +7594,7 @@ class TestServerRescue(compute_fakes.TestComputev2):
         self.assertIsNone(result)
 
 
-class TestServerRemoveFloatingIPCompute(compute_fakes.TestComputev2):
-    def setUp(self):
-        super().setUp()
-
-        self.app.client_manager.network_endpoint_enabled = False
-        self.server = compute_fakes.create_one_server()
-        self.compute_client.find_server.return_value = self.server
-
-        self.cmd = server.RemoveFloatingIP(self.app, None)
-
-    def test_server_remove_floating_ip(self):
-        arglist = [
-            self.server.name,
-            '1.2.3.4',
-        ]
-        verifylist = [
-            ('server', self.server.name),
-            ('ip_address', '1.2.3.4'),
-        ]
-
-        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
-        self.cmd.take_action(parsed_args)
-
-        self.compute_client.find_server.assert_called_once_with(
-            self.server.name, ignore_missing=False
-        )
-        self.compute_client.remove_floating_ip_from_server.assert_called_once_with(
-            self.server, '1.2.3.4'
-        )
-
-
-class TestServerRemoveFloatingIPNetwork(network_fakes.TestNetworkV2):
+class TestServerRemoveFloatingIP(network_fakes.TestNetworkV2):
     def setUp(self):
         super().setUp()
 
@@ -8896,7 +8811,7 @@ class TestServerShow(TestServer):
             None,  # OS-EXT-SRV-ATTR:user_data
             server.PowerStateColumn(
                 self.server.power_state
-            ),  # OS-EXT-STS:power_state  # noqa: E501
+            ),  # OS-EXT-STS:power_state
             None,  # OS-EXT-STS:task_state
             None,  # OS-EXT-STS:vm_state
             None,  # OS-SRV-USG:launched_at

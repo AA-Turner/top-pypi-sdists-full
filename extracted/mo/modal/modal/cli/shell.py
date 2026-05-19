@@ -1,16 +1,15 @@
 # Copyright Modal Labs 2022
-import inspect
 import platform
 import shlex
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterable, Optional
 
-import typer
+import click
 from click import ClickException
 
+from .._environments import ensure_env
 from .._functions import _FunctionSpec
 from ..app import App
-from ..environments import ensure_env
 from ..exception import InvalidError, NotFoundError
 from ..functions import Function
 from ..image import Image
@@ -20,44 +19,60 @@ from ..sandbox import Sandbox
 from ..secret import Secret
 from ..stream_type import StreamType
 from ..volume import Volume
-from .container import exec
+from ._help import ModalCommand
+from .container import _exec_impl
 from .import_refs import (
     MethodReference,
     import_and_filter,
     parse_import_ref,
 )
 from .run import _get_runnable_list
-from .utils import ENV_OPTION, is_tty
-
-
-def _params_from_signature(
-    func: Callable[..., Any],
-) -> dict[str, typer.models.ParameterInfo]:
-    sig = inspect.signature(func)
-    params = {param_name: param.default for param_name, param in sig.parameters.items()}
-    assert all(isinstance(param, typer.models.ParameterInfo) for param in params.values()), (
-        f"All params to {func.__name__} must be of type typer.models.ParameterInfo."
-    )
-    return params
+from .utils import ENV_OPTION_HELP, is_tty
 
 
 def _passed_forbidden_args(
-    param_objs: dict[str, typer.models.ParameterInfo],
+    params: Iterable[click.Parameter],
+    ctx: click.Context,
     passed_args: dict[str, Any],
     allowed: Callable[[str], bool],
 ) -> list[str]:
-    """Check which forbidden arguments were passed with non-default values."""
+    """Return the CLI spelling of any parameter that was set without being allowed.
+
+    Assumes every param has a concrete default that survives `process_value`
+    (either via an explicit `default=` kwarg, or via `multiple=True` which
+    click normalizes to `()`). `test_shell_params_have_concrete_defaults`
+    enforces this invariant on the `shell` command itself.
+    """
     passed_forbidden: list[str] = []
-    for param_name, param_obj in param_objs.items():
-        if allowed(param_name):
+    for param in params:
+        name = param.name
+        if name is None or allowed(name):
             continue
-
-        assert param_obj.param_decls is not None, "All params must be typer.models.ParameterInfo, and have param_decls."
-
-        if passed_args.get(param_name) != param_obj.default:
-            passed_forbidden.append("/".join(param_obj.param_decls))
-
+        default = param.process_value(ctx, param.get_default(ctx))
+        if passed_args.get(name) != default:
+            if isinstance(param, click.Argument):
+                cli_names = [name.upper()]
+            else:
+                cli_names = [*param.opts, *param.secondary_opts]
+            passed_forbidden.append("/".join(cli_names))
     return passed_forbidden
+
+
+def _parse_experimental_options(options: Iterable[str]) -> dict[str, bool]:
+    parsed: dict[str, bool] = {}
+    for option in options:
+        key, sep, raw_value = option.partition("=")
+        if not key or not sep:
+            raise click.BadParameter("must use KEY=VALUE")
+
+        value = raw_value.lower()
+        if value in {"1", "true"}:
+            parsed[key] = True
+        elif value in {"0", "false"}:
+            parsed[key] = False
+        else:
+            raise click.BadParameter("BOOL must be one of true, false, 1, or 0")
+    return parsed
 
 
 def _is_valid_modal_id(ref: str, prefix: str) -> bool:
@@ -102,7 +117,10 @@ def _start_shell_in_sandbox_container(sandbox_id: str, container_name: str, cmd:
     try:
         sandbox_container = sandbox._experimental_containers.get(name=container_name)
         if pty:
-            process = sandbox_container.exec(*shlex.split(cmd), pty=pty)
+            # PTY output is raw terminal bytes, not text; strict UTF-8 decode
+            # crashes on the first non-UTF-8 byte (e.g. vim drawing a Latin-1
+            # file under LC_CTYPE=C). See the matching call in `_exec_impl`.
+            process = sandbox_container.exec(*shlex.split(cmd), pty=pty, text=False)
             process.attach()
         else:
             process = sandbox_container.exec(
@@ -132,7 +150,7 @@ def _start_shell_in_running_container(ref: str, cmd: str, pty: bool) -> None:
 
     assert _is_valid_modal_id(ref, "ta-")
     try:
-        exec(container_id=ref, command=shlex.split(cmd), pty=pty)
+        _exec_impl(container_id=ref, command=shlex.split(cmd), pty=pty)
     except NotFoundError:
         raise ClickException(f"Container '{ref}' not found (is it still running?)")
     except Exception as e:
@@ -179,6 +197,7 @@ def _start_shell_from_function_spec(
     timeout: int,
     function_spec: _FunctionSpec,
     pty: bool,
+    experimental_options: dict[str, bool],
 ) -> None:
     interactive_shell(
         app,
@@ -197,6 +216,7 @@ def _start_shell_from_function_spec(
         region=function_spec.scheduler_placement.regions if function_spec.scheduler_placement else None,
         pty=pty,
         proxy=function_spec.proxy,
+        experimental_options=experimental_options,
     )
 
 
@@ -215,6 +235,7 @@ def _start_shell_from_image(
     cloud: Optional[str],
     region: Optional[str],
     pty: bool,
+    experimental_options: dict[str, bool],
 ) -> None:
     volumes = {f"/mnt/{vol}": Volume.from_name(vol) for vol in volume}
     secrets = [Secret.from_name(s) for s in secret]
@@ -245,74 +266,84 @@ def _start_shell_from_image(
         secrets=secrets,
         region=region.split(",") if region else [],
         pty=pty,
+        experimental_options=experimental_options,
     )
 
 
+@click.command("shell", cls=ModalCommand)
+@click.argument("ref", default=None, required=False)
+@click.option("-c", "--cmd", default="/bin/bash", help="Command to run inside the Modal image.")
+@click.option("-e", "--env", default=None, help=ENV_OPTION_HELP)
+@click.option("--image", default=None, help="Container image tag for inside the shell (if not using REF).")
+@click.option("--add-python", default=None, help="Add Python to the image (if not using REF).")
+@click.option(
+    "--volume",
+    multiple=True,
+    help="Name of a modal.Volume to mount inside the shell at /mnt/{name} (if not using REF). "
+    "Can be used multiple times.",
+)
+@click.option(
+    "--add-local",
+    multiple=True,
+    help="Local file or directory to mount inside the shell at /mnt/{basename} (if not using REF). "
+    "Can be used multiple times.",
+)
+@click.option(
+    "--secret",
+    multiple=True,
+    help="Name of a modal.Secret to mount inside the shell (if not using REF). Can be used multiple times.",
+)
+@click.option("--cpu", default=None, type=int, help="Number of CPUs to allocate to the shell (if not using REF).")
+@click.option("--memory", default=None, type=int, help="Memory to allocate for the shell, in MiB (if not using REF).")
+@click.option(
+    "--gpu",
+    default=None,
+    help="GPUs to request for the shell, if any. Examples are `any`, `a10g`, `a100:4` (if not using REF).",
+)
+@click.option(
+    "--cloud",
+    default=None,
+    help="Cloud provider to run the shell on. Possible values are `aws`, `gcp`, `oci`, `auto` (if not using REF).",
+)
+@click.option(
+    "--region",
+    default=None,
+    help="Region(s) to run the container on. "
+    "Can be a single region or a comma-separated list to choose from (if not using REF).",
+)
+@click.option("--pty/--no-pty", default=None, help="Run the command using a PTY.")
+@click.option(
+    "-m",
+    "use_module_mode",
+    is_flag=True,
+    default=False,
+    help="Interpret argument as a Python module path instead of a file/script path",
+)
+@click.option(
+    "--experimental-option",
+    "experimental_options",
+    multiple=True,
+    default=(),
+    hidden=True,
+    metavar="KEY=VALUE",
+)
 def shell(
-    ref: Optional[str] = typer.Argument(
-        default=None,
-        help=(
-            "ID of running container or Sandbox, or path to a Python file containing an App."
-            " Can also include a Function specifier, like `module.py::func`, if the file defines multiple Functions."
-        ),
-    ),
-    cmd: str = typer.Option("/bin/bash", "-c", "--cmd", help="Command to run inside the Modal image."),
-    env: Optional[str] = ENV_OPTION,
-    image: Optional[str] = typer.Option(
-        None, "--image", help="Container image tag for inside the shell (if not using REF)."
-    ),
-    add_python: Optional[str] = typer.Option(None, "--add-python", help="Add Python to the image (if not using REF)."),
-    volume: Optional[list[str]] = typer.Option(
-        None,
-        "--volume",
-        help=(
-            "Name of a `modal.Volume` to mount inside the shell at `/mnt/{name}` (if not using REF)."
-            " Can be used multiple times."
-        ),
-    ),
-    add_local: Optional[list[str]] = typer.Option(
-        None,
-        "--add-local",
-        help=(
-            "Local file or directory to mount inside the shell at `/mnt/{basename}` (if not using REF)."
-            " Can be used multiple times."
-        ),
-    ),
-    secret: Optional[list[str]] = typer.Option(
-        None,
-        "--secret",
-        help=("Name of a `modal.Secret` to mount inside the shell (if not using REF). Can be used multiple times."),
-    ),
-    cpu: Optional[int] = typer.Option(
-        None, "--cpu", help="Number of CPUs to allocate to the shell (if not using REF)."
-    ),
-    memory: Optional[int] = typer.Option(
-        None, "--memory", help="Memory to allocate for the shell, in MiB (if not using REF)."
-    ),
-    gpu: Optional[str] = typer.Option(
-        None,
-        "--gpu",
-        help="GPUs to request for the shell, if any. Examples are `any`, `a10g`, `a100:4` (if not using REF).",
-    ),
-    cloud: Optional[str] = typer.Option(
-        None,
-        "--cloud",
-        help=(
-            "Cloud provider to run the shell on. Possible values are `aws`, `gcp`, `oci`, `auto` (if not using REF)."
-        ),
-    ),
-    region: Optional[str] = typer.Option(
-        None,
-        "--region",
-        help=(
-            "Region(s) to run the container on. "
-            "Can be a single region or a comma-separated list to choose from (if not using REF)."
-        ),
-    ),
-    pty: Optional[bool] = typer.Option(None, "--pty", help="Run the command using a PTY."),
-    use_module_mode: bool = typer.Option(
-        False, "-m", help="Interpret argument as a Python module path instead of a file/script path"
-    ),
+    ref: Optional[str] = None,
+    cmd: str = "/bin/bash",
+    env: Optional[str] = None,
+    image: Optional[str] = None,
+    add_python: Optional[str] = None,
+    volume: tuple[str, ...] = (),
+    add_local: tuple[str, ...] = (),
+    secret: tuple[str, ...] = (),
+    cpu: Optional[int] = None,
+    memory: Optional[int] = None,
+    gpu: Optional[str] = None,
+    cloud: Optional[str] = None,
+    region: Optional[str] = None,
+    pty: Optional[bool] = None,
+    use_module_mode: bool = False,
+    experimental_options: tuple[str, ...] = (),
 ):
     """Run a command or interactive shell inside a Modal container.
 
@@ -362,12 +393,11 @@ def shell(
     if platform.system() == "Windows":
         raise InvalidError("`modal shell` is currently not supported on Windows")
 
-    param_objs = _params_from_signature(shell)
-
     if ref is not None and _is_running_container_ref(ref):
         # We're attaching to an already running container or Sandbox.
+        ctx = click.get_current_context()
         if passed_forbidden := _passed_forbidden_args(
-            param_objs, locals(), allowed=lambda p: p in {"cmd", "pty", "ref"}
+            shell.params, ctx, locals(), allowed=lambda p: p in {"cmd", "pty", "ref"}
         ):
             raise ClickException(
                 f"Cannot specify container configuration arguments ({', '.join(passed_forbidden)}) "
@@ -384,11 +414,16 @@ def shell(
     # NB: invoking under bash makes --cmd a lot more flexible.
     cmds = shlex.split(f'/bin/bash -c "{cmd}"')
     timeout = 3600
+    parsed_experimental_options = _parse_experimental_options(experimental_options)
 
     if ref is not None and not _is_valid_modal_id(ref, "im-"):
         # If ref it not a Modal Image ID, then it's a function reference, and we'll start a new container from its spec.
+        ctx = click.get_current_context()
         if passed_forbidden := _passed_forbidden_args(
-            param_objs, locals(), allowed=lambda p: p in {"cmd", "env", "pty", "ref", "use_module_mode"}
+            shell.params,
+            ctx,
+            locals(),
+            allowed=lambda p: p in {"cmd", "env", "pty", "ref", "use_module_mode", "experimental_options"},
         ):
             raise ClickException(
                 f"Cannot specify container configuration arguments ({', '.join(passed_forbidden)}) "
@@ -396,12 +431,13 @@ def shell(
             )
 
         function_spec = _function_spec_from_ref(ref, use_module_mode)
-        _start_shell_from_function_spec(app, cmds, env, timeout, function_spec, pty)
+        _start_shell_from_function_spec(app, cmds, env, timeout, function_spec, pty, parsed_experimental_options)
         return
 
     if ref is not None and _is_valid_modal_id(ref, "im-"):
+        ctx = click.get_current_context()
         if passed_forbidden := _passed_forbidden_args(
-            param_objs, locals(), allowed=lambda p: p not in {"add_python", "image"}
+            shell.params, ctx, locals(), allowed=lambda p: p not in {"add_python", "image"}
         ):
             raise ClickException(
                 f"Cannot specify {', '.join(passed_forbidden)} argument(s) "
@@ -417,13 +453,14 @@ def shell(
         env,
         timeout,
         modal_image,
-        volume or [],
-        secret or [],
-        add_local or [],
+        list(volume),
+        list(secret),
+        list(add_local),
         cpu,
         memory,
         gpu,
         cloud,
         region,
         pty,
+        parsed_experimental_options,
     )

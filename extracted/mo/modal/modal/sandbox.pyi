@@ -172,7 +172,8 @@ class _Sandbox(modal._object._Object):
         mounts: collections.abc.Sequence[modal.mount._Mount] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
         block_network: bool = False,
-        cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
             typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
@@ -185,6 +186,7 @@ class _Sandbox(modal._object._Object):
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         readiness_probe: typing.Optional[Probe] = None,
         experimental_options: typing.Optional[dict[str, bool]] = None,
+        tags: typing.Optional[dict[str, str]] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
         custom_domain: typing.Optional[str] = None,
@@ -198,6 +200,7 @@ class _Sandbox(modal._object._Object):
         *args: str,
         app: typing.Optional[modal.app._App] = None,
         name: typing.Optional[str] = None,
+        tags: typing.Optional[dict[str, str]] = None,
         image: typing.Optional[modal.image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
@@ -211,7 +214,8 @@ class _Sandbox(modal._object._Object):
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         block_network: bool = False,
-        cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
             typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
@@ -230,6 +234,7 @@ class _Sandbox(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
     ) -> _Sandbox:
         """Create a new Sandbox to run untrusted, arbitrary code.
 
@@ -251,6 +256,7 @@ class _Sandbox(modal._object._Object):
         *args: str,
         app: typing.Optional[modal.app._App] = None,
         name: typing.Optional[str] = None,
+        tags: typing.Optional[dict[str, str]] = None,
         image: typing.Optional[modal.image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
@@ -265,7 +271,8 @@ class _Sandbox(modal._object._Object):
         cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         block_network: bool = False,
-        cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
             typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
@@ -304,10 +311,12 @@ class _Sandbox(modal._object._Object):
         idle_timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
         cpu: typing.Optional[float] = None,
+        memory: typing.Optional[int] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         block_network: bool = False,
         cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         pty: bool = False,
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
@@ -318,7 +327,6 @@ class _Sandbox(modal._object._Object):
     ) -> _Sandbox:
         """Create a sandbox using the V2 backend.
 
-        Only CPU is configurable; memory is derived as a fixed ratio of CPU.
         Features like tags, snapshots, exec, volumes, network file systems,
         GPUs, custom domains, and proxies are not supported.
         """
@@ -378,9 +386,13 @@ class _Sandbox(modal._object._Object):
 
         Returns an [`Image`](https://modal.com/docs/reference/modal.Image) object which
         can be used to spawn a new Sandbox with the same filesystem.
+
+        `timeout` If the snapshot does not return within that window, the call is cancelled
+        and `modal.exception.TimeoutError` is raised.
         """
         ...
 
+    async def _legacy_snapshot_filesystem(self, timeout: int = 55) -> modal.image._Image: ...
     async def mount_image(self, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image._Image):
         """Mount an Image at a specified path in a running Sandbox.
 
@@ -418,7 +430,7 @@ class _Sandbox(modal._object._Object):
     async def snapshot_directory(self, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image._Image:
         """Snapshot a directory in a running Sandbox, creating a new Image with its content.
 
-        Directory snapshots are currently persisted for 30 days after they were last created or used.
+        Directory snapshots are currently persisted for 30 days after they were created.
 
         Usage:
         ```py notest
@@ -497,7 +509,7 @@ class _Sandbox(modal._object._Object):
     async def _get_task_id(self, raise_if_task_complete=False) -> str: ...
     async def _get_command_router_client(
         self, task_id: str
-    ) -> typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]: ...
+    ) -> modal._utils.task_command_router_client.TaskCommandRouterClient: ...
     @property
     def _experimental_containers(self) -> _SandboxContainerManager:
         """Manage additional containers running in this Sandbox."""
@@ -555,24 +567,6 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    async def _exec_through_server(
-        self,
-        *args: str,
-        task_id: str,
-        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-        stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
-        stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
-        timeout: typing.Optional[int] = None,
-        workdir: typing.Optional[str] = None,
-        secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
-        text: bool = True,
-        bufsize: typing.Literal[-1, 1] = -1,
-        runtime_debug: bool = False,
-        container_id: typing.Optional[str] = None,
-    ) -> typing.Union[modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]]:
-        """Execute a command through the Modal server."""
-        ...
-
     async def _exec_through_command_router(
         self,
         *args: str,
@@ -613,22 +607,23 @@ class _Sandbox(modal._object._Object):
     @typing.overload
     async def open(self, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io._FileIO[bytes]: ...
     async def ls(self, path: str) -> list[str]:
-        """[Alpha] List the contents of a directory in the Sandbox."""
+        """[Alpha] List the contents of a directory in the Sandbox.
+
+        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead.
+        """
         ...
 
     async def mkdir(self, path: str, parents: bool = False) -> None:
         """[Alpha] Create a new directory in the Sandbox.
 
-        .. deprecated:: 2026-04-15
-            Use `Sandbox.filesystem.make_directory()` instead.
+        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead.
         """
         ...
 
     async def rm(self, path: str, recursive: bool = False) -> None:
         """[Alpha] Remove a file or directory in the Sandbox.
 
-        .. deprecated:: 2026-04-15
-            Use `Sandbox.filesystem.remove()` instead.
+        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead.
         """
         ...
 
@@ -704,7 +699,7 @@ class _SandboxContainer:
         sandbox: _Sandbox, container_info: modal_proto.task_command_router_pb2.TaskContainerInfo
     ) -> _SandboxContainer: ...
     async def _get_command_router(self) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
-        """Get task ID and command router client, raising if unavailable."""
+        """Get task ID and command router client."""
         ...
 
     async def exec(
@@ -736,7 +731,7 @@ class _SandboxContainerManager:
         ...
 
     async def _get_command_router(self) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
-        """Get task ID and command router client, raising if unavailable."""
+        """Get task ID and command router client."""
         ...
 
     async def create(
@@ -774,11 +769,11 @@ class SandboxContainer:
 
     class ___get_command_router_spec(typing_extensions.Protocol):
         def __call__(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
-            """Get task ID and command router client, raising if unavailable."""
+            """Get task ID and command router client."""
             ...
 
         async def aio(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
-            """Get task ID and command router client, raising if unavailable."""
+            """Get task ID and command router client."""
             ...
 
     _get_command_router: ___get_command_router_spec
@@ -849,11 +844,11 @@ class SandboxContainerManager:
 
     class ___get_command_router_spec(typing_extensions.Protocol):
         def __call__(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
-            """Get task ID and command router client, raising if unavailable."""
+            """Get task ID and command router client."""
             ...
 
         async def aio(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
-            """Get task ID and command router client, raising if unavailable."""
+            """Get task ID and command router client."""
             ...
 
     _get_command_router: ___get_command_router_spec
@@ -936,7 +931,8 @@ class Sandbox(modal.object.Object):
         mounts: collections.abc.Sequence[modal.mount.Mount] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem] = {},
         block_network: bool = False,
-        cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike], typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount]
         ] = {},
@@ -948,6 +944,7 @@ class Sandbox(modal.object.Object):
         proxy: typing.Optional[modal.proxy.Proxy] = None,
         readiness_probe: typing.Optional[Probe] = None,
         experimental_options: typing.Optional[dict[str, bool]] = None,
+        tags: typing.Optional[dict[str, str]] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
         custom_domain: typing.Optional[str] = None,
@@ -963,6 +960,7 @@ class Sandbox(modal.object.Object):
             *args: str,
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
+            tags: typing.Optional[dict[str, str]] = None,
             image: typing.Optional[modal.image.Image] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
@@ -978,7 +976,8 @@ class Sandbox(modal.object.Object):
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
             block_network: bool = False,
-            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
@@ -997,6 +996,7 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         ) -> Sandbox:
             """Create a new Sandbox to run untrusted, arbitrary code.
 
@@ -1019,6 +1019,7 @@ class Sandbox(modal.object.Object):
             *args: str,
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
+            tags: typing.Optional[dict[str, str]] = None,
             image: typing.Optional[modal.image.Image] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
@@ -1034,7 +1035,8 @@ class Sandbox(modal.object.Object):
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
             block_network: bool = False,
-            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
@@ -1053,6 +1055,7 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         ) -> Sandbox:
             """Create a new Sandbox to run untrusted, arbitrary code.
 
@@ -1078,6 +1081,7 @@ class Sandbox(modal.object.Object):
             *args: str,
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
+            tags: typing.Optional[dict[str, str]] = None,
             image: typing.Optional[modal.image.Image] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
@@ -1094,7 +1098,8 @@ class Sandbox(modal.object.Object):
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
             block_network: bool = False,
-            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
@@ -1127,6 +1132,7 @@ class Sandbox(modal.object.Object):
             *args: str,
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
+            tags: typing.Optional[dict[str, str]] = None,
             image: typing.Optional[modal.image.Image] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
@@ -1143,7 +1149,8 @@ class Sandbox(modal.object.Object):
             cpu: typing.Union[float, tuple[float, float], None] = None,
             memory: typing.Union[int, tuple[int, int], None] = None,
             block_network: bool = False,
-            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
@@ -1186,10 +1193,12 @@ class Sandbox(modal.object.Object):
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
             cpu: typing.Optional[float] = None,
+            memory: typing.Optional[int] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
             cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             pty: bool = False,
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
@@ -1200,7 +1209,6 @@ class Sandbox(modal.object.Object):
         ) -> Sandbox:
             """Create a sandbox using the V2 backend.
 
-            Only CPU is configurable; memory is derived as a fixed ratio of CPU.
             Features like tags, snapshots, exec, volumes, network file systems,
             GPUs, custom domains, and proxies are not supported.
             """
@@ -1219,10 +1227,12 @@ class Sandbox(modal.object.Object):
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
             cpu: typing.Optional[float] = None,
+            memory: typing.Optional[int] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
             cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             pty: bool = False,
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
@@ -1233,7 +1243,6 @@ class Sandbox(modal.object.Object):
         ) -> Sandbox:
             """Create a sandbox using the V2 backend.
 
-            Only CPU is configurable; memory is derived as a fixed ratio of CPU.
             Features like tags, snapshots, exec, volumes, network file systems,
             GPUs, custom domains, and proxies are not supported.
             """
@@ -1353,6 +1362,9 @@ class Sandbox(modal.object.Object):
 
             Returns an [`Image`](https://modal.com/docs/reference/modal.Image) object which
             can be used to spawn a new Sandbox with the same filesystem.
+
+            `timeout` If the snapshot does not return within that window, the call is cancelled
+            and `modal.exception.TimeoutError` is raised.
             """
             ...
 
@@ -1361,10 +1373,19 @@ class Sandbox(modal.object.Object):
 
             Returns an [`Image`](https://modal.com/docs/reference/modal.Image) object which
             can be used to spawn a new Sandbox with the same filesystem.
+
+            `timeout` If the snapshot does not return within that window, the call is cancelled
+            and `modal.exception.TimeoutError` is raised.
             """
             ...
 
     snapshot_filesystem: __snapshot_filesystem_spec
+
+    class ___legacy_snapshot_filesystem_spec(typing_extensions.Protocol):
+        def __call__(self, /, timeout: int = 55) -> modal.image.Image: ...
+        async def aio(self, /, timeout: int = 55) -> modal.image.Image: ...
+
+    _legacy_snapshot_filesystem: ___legacy_snapshot_filesystem_spec
 
     class __mount_image_spec(typing_extensions.Protocol):
         def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image.Image):
@@ -1444,7 +1465,7 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
             """Snapshot a directory in a running Sandbox, creating a new Image with its content.
 
-            Directory snapshots are currently persisted for 30 days after they were last created or used.
+            Directory snapshots are currently persisted for 30 days after they were created.
 
             Usage:
             ```py notest
@@ -1461,7 +1482,7 @@ class Sandbox(modal.object.Object):
         async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
             """Snapshot a directory in a running Sandbox, creating a new Image with its content.
 
-            Directory snapshots are currently persisted for 30 days after they were last created or used.
+            Directory snapshots are currently persisted for 30 days after they were created.
 
             Usage:
             ```py notest
@@ -1630,12 +1651,8 @@ class Sandbox(modal.object.Object):
     _get_task_id: ___get_task_id_spec
 
     class ___get_command_router_client_spec(typing_extensions.Protocol):
-        def __call__(
-            self, /, task_id: str
-        ) -> typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]: ...
-        async def aio(
-            self, /, task_id: str
-        ) -> typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]: ...
+        def __call__(self, /, task_id: str) -> modal._utils.task_command_router_client.TaskCommandRouterClient: ...
+        async def aio(self, /, task_id: str) -> modal._utils.task_command_router_client.TaskCommandRouterClient: ...
 
     _get_command_router_client: ___get_command_router_client_spec
 
@@ -1765,51 +1782,6 @@ class Sandbox(modal.object.Object):
 
     _exec: ___exec_spec
 
-    class ___exec_through_server_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            *args: str,
-            task_id: str,
-            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
-            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
-            timeout: typing.Optional[int] = None,
-            workdir: typing.Optional[str] = None,
-            secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
-            text: bool = True,
-            bufsize: typing.Literal[-1, 1] = -1,
-            runtime_debug: bool = False,
-            container_id: typing.Optional[str] = None,
-        ) -> typing.Union[
-            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
-        ]:
-            """Execute a command through the Modal server."""
-            ...
-
-        async def aio(
-            self,
-            /,
-            *args: str,
-            task_id: str,
-            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
-            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
-            timeout: typing.Optional[int] = None,
-            workdir: typing.Optional[str] = None,
-            secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
-            text: bool = True,
-            bufsize: typing.Literal[-1, 1] = -1,
-            runtime_debug: bool = False,
-            container_id: typing.Optional[str] = None,
-        ) -> typing.Union[
-            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
-        ]:
-            """Execute a command through the Modal server."""
-            ...
-
-    _exec_through_server: ___exec_through_server_spec
-
     class ___exec_through_command_router_spec(typing_extensions.Protocol):
         def __call__(
             self,
@@ -1908,11 +1880,17 @@ class Sandbox(modal.object.Object):
 
     class __ls_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str) -> list[str]:
-            """[Alpha] List the contents of a directory in the Sandbox."""
+            """[Alpha] List the contents of a directory in the Sandbox.
+
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead.
+            """
             ...
 
         async def aio(self, /, path: str) -> list[str]:
-            """[Alpha] List the contents of a directory in the Sandbox."""
+            """[Alpha] List the contents of a directory in the Sandbox.
+
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead.
+            """
             ...
 
     ls: __ls_spec
@@ -1921,16 +1899,14 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, path: str, parents: bool = False) -> None:
             """[Alpha] Create a new directory in the Sandbox.
 
-            .. deprecated:: 2026-04-15
-                Use `Sandbox.filesystem.make_directory()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead.
             """
             ...
 
         async def aio(self, /, path: str, parents: bool = False) -> None:
             """[Alpha] Create a new directory in the Sandbox.
 
-            .. deprecated:: 2026-04-15
-                Use `Sandbox.filesystem.make_directory()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead.
             """
             ...
 
@@ -1940,16 +1916,14 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, path: str, recursive: bool = False) -> None:
             """[Alpha] Remove a file or directory in the Sandbox.
 
-            .. deprecated:: 2026-04-15
-                Use `Sandbox.filesystem.remove()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead.
             """
             ...
 
         async def aio(self, /, path: str, recursive: bool = False) -> None:
             """[Alpha] Remove a file or directory in the Sandbox.
 
-            .. deprecated:: 2026-04-15
-                Use `Sandbox.filesystem.remove()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead.
             """
             ...
 

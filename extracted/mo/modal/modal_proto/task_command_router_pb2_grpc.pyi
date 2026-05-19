@@ -10,6 +10,14 @@ import modal_proto.task_command_router_pb2
 
 class TaskCommandRouterStub:
     def __init__(self, channel: grpc.Channel) -> None: ...
+    SandboxStdinWriteV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.SandboxStdinWriteV2Request,
+        modal_proto.task_command_router_pb2.SandboxStdinWriteV2Response,
+    ]
+    SandboxStdioReadV2: grpc.UnaryStreamMultiCallable[
+        modal_proto.task_command_router_pb2.SandboxStdioReadV2Request,
+        modal_proto.task_command_router_pb2.SandboxStdioReadV2Response,
+    ]
     TaskContainerCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskContainerCreateRequest,
         modal_proto.task_command_router_pb2.TaskContainerCreateResponse,
@@ -45,11 +53,25 @@ class TaskCommandRouterStub:
         modal_proto.task_command_router_pb2.TaskExecStartResponse,
     ]
     """Execute a command in the task."""
+    TaskExecStdinStatus: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskExecStdinStatusRequest,
+        modal_proto.task_command_router_pb2.TaskExecStdinStatusResponse,
+    ]
+    """Get the current stdin write status for an exec'd command. Used to resume
+    a TaskExecStdinWriteStream after a stream failure.
+    """
     TaskExecStdinWrite: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskExecStdinWriteRequest,
         modal_proto.task_command_router_pb2.TaskExecStdinWriteResponse,
     ]
     """Write to the stdin stream of an exec'd command."""
+    TaskExecStdinWriteStream: grpc.StreamUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamRequest,
+        modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamResponse,
+    ]
+    """Stream stdin bytes to an exec'd command. First message carries the
+    start envelope (task_id, exec_id, offset); subsequent messages carry data.
+    """
     TaskExecStdioRead: grpc.UnaryStreamMultiCallable[
         modal_proto.task_command_router_pb2.TaskExecStdioReadRequest,
         modal_proto.task_command_router_pb2.TaskExecStdioReadResponse,
@@ -70,6 +92,11 @@ class TaskCommandRouterStub:
         modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
     ]
     """Snapshot a directory with a mounted image, including any local changes, into a new image."""
+    TaskSnapshotFilesystem: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskSnapshotFilesystemRequest,
+        modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse,
+    ]
+    """Snapshot the full task filesystem into a new image."""
     TaskUnmountDirectory: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest,
         google.protobuf.empty_pb2.Empty,
@@ -77,6 +104,18 @@ class TaskCommandRouterStub:
     """Unmount an image previously mounted at a directory in the container."""
 
 class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def SandboxStdinWriteV2(
+        self,
+        request: modal_proto.task_command_router_pb2.SandboxStdinWriteV2Request,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.SandboxStdinWriteV2Response: ...
+    @abc.abstractmethod
+    def SandboxStdioReadV2(
+        self,
+        request: modal_proto.task_command_router_pb2.SandboxStdioReadV2Request,
+        context: grpc.ServicerContext,
+    ) -> collections.abc.Iterator[modal_proto.task_command_router_pb2.SandboxStdioReadV2Response]: ...
     @abc.abstractmethod
     def TaskContainerCreate(
         self,
@@ -127,12 +166,30 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
     ) -> modal_proto.task_command_router_pb2.TaskExecStartResponse:
         """Execute a command in the task."""
     @abc.abstractmethod
+    def TaskExecStdinStatus(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskExecStdinStatusRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskExecStdinStatusResponse:
+        """Get the current stdin write status for an exec'd command. Used to resume
+        a TaskExecStdinWriteStream after a stream failure.
+        """
+    @abc.abstractmethod
     def TaskExecStdinWrite(
         self,
         request: modal_proto.task_command_router_pb2.TaskExecStdinWriteRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.task_command_router_pb2.TaskExecStdinWriteResponse:
         """Write to the stdin stream of an exec'd command."""
+    @abc.abstractmethod
+    def TaskExecStdinWriteStream(
+        self,
+        request_iterator: collections.abc.Iterator[modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamRequest],
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamResponse:
+        """Stream stdin bytes to an exec'd command. First message carries the
+        start envelope (task_id, exec_id, offset); subsequent messages carry data.
+        """
     @abc.abstractmethod
     def TaskExecStdioRead(
         self,
@@ -161,6 +218,13 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse:
         """Snapshot a directory with a mounted image, including any local changes, into a new image."""
+    @abc.abstractmethod
+    def TaskSnapshotFilesystem(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskSnapshotFilesystemRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse:
+        """Snapshot the full task filesystem into a new image."""
     @abc.abstractmethod
     def TaskUnmountDirectory(
         self,

@@ -12,6 +12,8 @@ from modal.config import config
 try:
     import cbor2  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
+    # cbor2 is a required dependency of modal as a library, but it won't
+    # be available in containers using a legacy (pre 2025.06) image builder version
     cbor2 = None
 
 import google.protobuf.message
@@ -374,7 +376,7 @@ def serialize_data_format(obj: Any, data_format: int) -> bytes:
             raise InvalidError("CBOR support requires the 'cbor2' package to be installed.")
         try:
             return cbor2.dumps(obj)
-        except cbor2.CBOREncodeTypeError:
+        except cbor2.CBOREncodeError:
             try:
                 typename = f"{type(obj).__module__}.{type(obj).__name__}"
             except Exception:
@@ -590,7 +592,7 @@ def get_callable_schema(
 ) -> typing.Optional[api_pb2.FunctionSchema]:
     # ignore_first_argument can be used in case of unbound methods where we want to ignore the first (self) argument
     if is_web_endpoint:
-        # we don't support schemas on web endpoints for now
+        # we don't support schemas on Web Functions for now
         return None
 
     try:

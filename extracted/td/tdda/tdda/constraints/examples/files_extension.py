@@ -47,8 +47,6 @@
 #   tdda detect some_other_directory /tmp/directoryconstraints.tdda bad.csv
 #
 
-from __future__ import print_function
-
 import csv
 import os
 import re
@@ -288,21 +286,21 @@ class FilesConstraintDetector(BaseConstraintDetector):
         self.rex_ok[colname] = [v not in violations for v in vals]
 
     def write_detected_records(self,
-                               detect_outpath=None,
-                               detect_write_all=False,
-                               detect_per_constraint=False,
-                               detect_output_fields=None,
-                               detect_index=False,
-                               detect_in_place=False,
+                               outpath=None,
+                               write_all_records=False,
+                               per_constraint=False,
+                               output_fields=None,
+                               index=False,
+                               in_place=False,
                                **kwargs):
         input_fields = ['name', 'size']
-        if detect_outpath:
-            if detect_output_fields is None:
-                detect_output_fields = []
-            elif len(detect_output_fields) == 0:
-                detect_output_fields = input_fields
+        if outpath:
+            if output_fields is None:
+                output_fields = []
+            elif len(output_fields) == 0:
+                output_fields = input_fields
             else:
-                for k in detect_output_fields:
+                for k in output_fields:
                     if k not in input_fields:
                         raise Exception('Unknown column %s' % k)
             cnames = ('min', 'max', 'min_length', 'max_length',
@@ -315,21 +313,21 @@ class FilesConstraintDetector(BaseConstraintDetector):
                                for cname, v in zip(cnames, cvalues)
                                    if fname in v]
             bad_output_names = []
-            if len(detect_output_fields) == 0:
+            if len(output_fields) == 0:
                 bad_output_names.append('RowNumber')
-            for k in detect_output_fields:
+            for k in output_fields:
                 bad_output_names.append(k)
             for k in ok_output_names:
                 bad_output_names.append(k)
 
-            with open(detect_outpath, 'w') as csvfile:
+            with open(outpath, 'w') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=bad_output_names)
                 writer.writeheader()
                 for i, (name, size) in enumerate(zip(self.names, self.sizes)):
                     record = OrderedDict()
-                    if len(detect_output_fields) == 0:
+                    if len(output_fields) == 0:
                         record['RowNumber'] = i + 1
-                    for k in detect_output_fields:
+                    for k in output_fields:
                         record[k] = name if k == 'name' else size
                     bad = False
                     for field in input_fields:
@@ -339,7 +337,7 @@ class FilesConstraintDetector(BaseConstraintDetector):
                                 record[ok_field_name] = ok[field][i]
                                 if ok[field][i] is False:
                                     bad = True
-                    if bad or detect_write_all:
+                    if bad or write_all_records:
                         writer.writerow(record)
         return None
 

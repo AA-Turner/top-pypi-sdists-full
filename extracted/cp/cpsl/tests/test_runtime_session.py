@@ -1064,6 +1064,83 @@ class ShowTableTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(blocks[0]["payload"]["close"])
 
 
+class ShowUiTests(unittest.IsolatedAsyncioTestCase):
+    def new_session(self) -> Session:
+        return Session(
+            id="sess-ui",
+            user=UserInfo(id="u-1"),
+            channel=SessionChannel(type="chat"),
+            history=[],
+            data={},
+        )
+
+    async def capture_blocks(self, session: Session) -> list[dict]:
+        blocks: list[dict] = []
+
+        async def block_cb(block_json: str):
+            blocks.append(json.loads(block_json))
+
+        session._block_callback = block_cb
+        return blocks
+
+    async def test_show_ui_accepts_widget(self):
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+
+        await session.show_ui(
+            cpsl.ui.Card(title="Summary", children=[cpsl.ui.Text("Ready")]),
+            title="Inspector",
+            key="inspector",
+            mode="preview",
+        )
+
+        self.assertEqual(blocks[0]["type"], "ui_preview")
+        payload = blocks[0]["payload"]
+        self.assertEqual(payload["kind"], "widget")
+        self.assertEqual(payload["title"], "Inspector")
+        self.assertEqual(payload["key"], "inspector")
+        self.assertEqual(payload["mode"], "preview")
+        self.assertEqual(payload["widget"]["type"], "card")
+
+    async def test_show_ui_accepts_component(self):
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+
+        await session.show_ui(
+            component="components/PaperPanel.tsx",
+            props={"paper_id": 123},
+            packages=["@visx/xychart@3.12.0"],
+            title="Paper",
+        )
+
+        payload = blocks[0]["payload"]
+        self.assertEqual(payload["kind"], "component")
+        self.assertEqual(payload["component"], "components/PaperPanel.tsx")
+        self.assertEqual(payload["props"], {"paper_id": 123})
+        self.assertEqual(payload["packages"], ["@visx/xychart@3.12.0"])
+
+    async def test_show_ui_accepts_page(self):
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+
+        await session.show_ui(page="Paper Inspector")
+
+        payload = blocks[0]["payload"]
+        self.assertEqual(payload["kind"], "page")
+        self.assertEqual(payload["page"], "Paper Inspector")
+        self.assertEqual(payload["title"], "Paper Inspector")
+
+    async def test_hide_ui_emits_close_block(self):
+        session = self.new_session()
+        blocks = await self.capture_blocks(session)
+
+        await session.hide_ui("inspector")
+
+        self.assertEqual(blocks[0]["type"], "ui_preview")
+        self.assertTrue(blocks[0]["payload"]["close"])
+        self.assertEqual(blocks[0]["payload"]["key"], "inspector")
+
+
 class NotifyTests(unittest.IsolatedAsyncioTestCase):
     def new_session(self) -> Session:
         return Session(

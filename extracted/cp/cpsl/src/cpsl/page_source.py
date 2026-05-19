@@ -22,6 +22,20 @@ def component_entry(component_path: str) -> Path:
     return (Path.cwd() / component_path).resolve()
 
 
+def safe_component_path(component_path: str) -> str | None:
+    if not component_path:
+        return None
+    entry = component_entry(component_path)
+    cwd = Path.cwd().resolve()
+    if not is_within(entry, cwd):
+        return None
+    if entry.suffix not in SOURCE_EXTENSIONS or not entry.is_file():
+        return None
+    if any(part in IGNORED_DIRS for part in entry.relative_to(cwd).parts):
+        return None
+    return entry.relative_to(cwd).as_posix()
+
+
 def is_within(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root)

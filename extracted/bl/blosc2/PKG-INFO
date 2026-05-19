@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blosc2
-Version: 4.2.0
+Version: 4.3.0
 Summary: A fast & compressed ndarray library with a flexible compute engine.
 Author-Email: Blosc Development Team <blosc@blosc.org>
 Maintainer-Email: Blosc Development Team <blosc@blosc.org>

@@ -62,13 +62,15 @@ class LogsController(BaseController):
         # spam the CLI output when users have had multiple sessions.
         self._unpack_log_sent = False
 
-    def get_cluster_id_for_last_prodjob_run(self, prodjob_id: str):
+    def get_cluster_id_and_last_job_run_id_for_prodjob(
+        self, prodjob_id: str
+    ) -> Tuple[str, str]:
         last_job_run_id = _get_job_run_id(self.anyscale_api_client, job_id=prodjob_id)
         last_job_run = self.api_client.get_decorated_job_api_v2_decorated_jobs_job_id_get(
             job_id=last_job_run_id
         )
         job_run = last_job_run.result
-        return job_run.cluster_id
+        return job_run.cluster_id, last_job_run_id
 
     def get_cluster_id_for_workspace(self, workspace_id: str):
         try:
@@ -268,6 +270,14 @@ class LogsController(BaseController):
         log_group = self._group_log_chunk_list(chunks, bearer_token)
         return log_group
 
+    def get_job_log_group(
+        self, job_run_id: str, page_size: Optional[int], timeout: timedelta,
+    ) -> LogGroup:
+        chunks, bearer_token = self._list_job_log_chunks(
+            job_run_id=job_run_id, page_size=page_size, timeout=timeout,
+        )
+        return self._group_log_chunk_list(chunks, bearer_token)
+
     def download_logs(  # noqa: PLR0913
         self,
         # Provide filters
@@ -285,6 +295,36 @@ class LogsController(BaseController):
         resource_id: Optional[str] = None,
     ) -> None:
         log_group = self.get_log_group(filter, page_size, ttl_seconds, timeout)
+        self.console.log(
+            f"Discovered {len(log_group.get_files())} log files across {len(log_group.get_chunks())} chunks."
+        )
+
+        self._download_or_stdout(
+            download_dir=download_dir,
+            read_timeout=read_timeout,
+            parallelism=parallelism,
+            log_group=log_group,
+            show_progress_bar=True,
+            write_to_stdout=write_to_stdout,
+            unpack=unpack,
+            resource_id=resource_id,
+        )
+
+    def download_job_logs(  # noqa: PLR0913
+        self,
+        job_run_id: str,
+        # List files config
+        page_size: int = DEFAULT_PAGE_SIZE,
+        timeout: timedelta = timedelta(seconds=DEFAULT_TIMEOUT),
+        read_timeout: timedelta = timedelta(seconds=DEFAULT_READ_TIMEOUT),
+        # Download config
+        parallelism: int = DEFAULT_PARALLELISM,
+        download_dir: Optional[str] = None,
+        write_to_stdout: bool = False,
+        unpack: bool = True,
+        resource_id: Optional[str] = None,
+    ) -> None:
+        log_group = self.get_job_log_group(job_run_id, page_size, timeout)
         self.console.log(
             f"Discovered {len(log_group.get_files())} log files across {len(log_group.get_chunks())} chunks."
         )
@@ -470,6 +510,38 @@ class LogsController(BaseController):
                 result: LogDownloadResult = (
                     self.api_client.get_log_files_api_v2_logs_get_log_files_post(
                         log_download_request=request, _request_timeout=timeout
+                    ).result
+                )
+                bearer_token = result.bearer_token
+                all_log_chunks.extend(result.log_chunks)
+                if status:
+                    status.update(
+                        f"Scanning available logs...discovered {len(all_log_chunks)} log file chunks."
+                    )
+                if (
+                    result.next_page_token is None
+                    or result.next_page_token == next_page_token
+                ):
+                    break
+                next_page_token = result.next_page_token
+
+        return all_log_chunks, bearer_token
+
+    def _list_job_log_chunks(
+        self, job_run_id: str, page_size: Optional[int], timeout: timedelta,
+    ) -> Tuple[List[LogFileChunk], Optional[str]]:
+        next_page_token: Optional[str] = None
+        all_log_chunks: List[LogFileChunk] = []
+        bearer_token = None
+
+        with self.console.status("Scanning available logs...") as status:
+            while True:
+                result: LogDownloadResult = (
+                    self.api_client.get_job_logs_download_v2_api_v2_logs_job_logs_download_v2_job_id_get(
+                        job_id=job_run_id,
+                        page_size=page_size,
+                        next_page_token=next_page_token,
+                        _request_timeout=timeout,
                     ).result
                 )
                 bearer_token = result.bearer_token

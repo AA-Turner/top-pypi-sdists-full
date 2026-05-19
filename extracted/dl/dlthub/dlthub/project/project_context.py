@@ -78,7 +78,7 @@ class ProjectRunContext(ProfilesRunContext):
 
     @property
     def local_dir(self) -> str:
-        """Destination local files, by default it is within run_dir/_local"""
+        """Destination local files, by default at `.dlt/data/<profile>` under `run_dir`"""
         return self._project.settings["local_dir"]
 
     def initial_providers(self) -> List[ConfigProvider]:

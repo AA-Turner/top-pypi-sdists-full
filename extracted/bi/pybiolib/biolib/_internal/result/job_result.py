@@ -3,6 +3,7 @@ from pathlib import Path
 
 import biolib.api
 from biolib._internal.utils import PathFilter, filter_lazy_loaded_files
+from biolib._shared.types.typing import Dict, List, Optional
 from biolib.api.client import ApiClient
 from biolib.biolib_binary_format import ModuleOutputV2
 from biolib.biolib_binary_format.remote_endpoints import RemoteJobStorageEndpoint
@@ -10,7 +11,6 @@ from biolib.biolib_binary_format.remote_stream_seeker import StreamSeeker
 from biolib.biolib_binary_format.utils import LazyLoadedFile, RemoteIndexableBuffer
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Dict, List, Optional
 
 
 class JobResult:

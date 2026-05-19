@@ -1,14 +1,15 @@
 import duckdb
 from urllib.parse import urlparse
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from datetime import datetime  # noqa: TID251
 
 from dlt.common import logger
 from dlt.common.destination.typing import PreparedTableSchema
+from dlt.common.schema import Schema
 from dlt.common.storages.fsspec_filesystem import fsspec_from_config
 
 from dlt.destinations.sql_client import raise_database_error
-from dlt.destinations.impl.filesystem.sql_client import WithTableScanners
+from dlt.destinations.impl.duckdb.sql_client import WithTableScanners
 from dlt.destinations.impl.duckdb.configuration import DuckDbCredentials
 from dlt.sources.credentials import (
     AwsCredentials,
@@ -76,12 +77,16 @@ class IcebergSqlClient(WithTableScanners):
         super().create_views_for_tables(tables)
 
     @raise_database_error
-    def create_view(self, view_name: str, table_schema: PreparedTableSchema) -> None:
+    def create_view_select(
+        self, table_schema: PreparedTableSchema, schema: Schema = None
+    ) -> Optional[Tuple[str, str]]:
         if (
             self.remote_client.config.is_aws_rest_catalog
             and self.remote_client.config.capabilities.duckdb_attach_catalog
         ):
             return None
+
+        schema = schema or self.schema
 
         # get snapshot and io from catalog
         table_name = table_schema["name"]
@@ -133,16 +138,9 @@ class IcebergSqlClient(WithTableScanners):
 
         from_statement = f"iceberg_scan('{last_metadata_file}'{compression}, union_by_name=true)"
 
-        # create view
-        view_name = self.make_qualified_table_name(view_name)
-        columns = [
-            self.escape_column_name(c) for c in self.schema.get_table_columns(table_name).keys()
-        ]
-        create_table_sql_base = (
-            f"CREATE OR REPLACE VIEW {view_name} AS SELECT {', '.join(columns)} "
-            f"FROM {from_statement}"
-        )
-        self._conn.execute(create_table_sql_base)
+        columns = [self.escape_column_name(c) for c in schema.get_table_columns(table_name).keys()]
+        select_sql = f"SELECT {', '.join(columns)} FROM {from_statement}"
+        return (table_location, select_sql)
 
     def _register_file_io_secret(self, iceberg_table: IcebergTable) -> bool:
         """Register FileIO as duckdb secret if possible"""
@@ -265,7 +263,7 @@ class IcebergSqlClient(WithTableScanners):
 
         if first_connection and self.filesystem_config and self.filesystem_config.is_resolved():
             # NOTE: hopefully duckdb will implement REST catalog connection working with all
-            #   main bucket. see create_view to see how we deal with vended credentials.
+            #   main bucket. see create_view_select to see how we deal with vended credentials.
             #   Current best option (performance) is to pass credentials via filesystem or use STS
             if self.filesystem_config.protocol != "file":
                 # create single authentication for the whole client if filesystem is specified

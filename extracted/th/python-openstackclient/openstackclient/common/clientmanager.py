@@ -20,14 +20,14 @@ from collections.abc import Callable
 import importlib
 import logging
 import sys
-import typing as ty
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 from osc_lib.cli import client_config
 from osc_lib import clientmanager
 from osc_lib import shell
 import stevedore
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from keystoneauth1 import access as ksa_access
     from openstack.compute.v2 import _proxy as compute_proxy
     from openstack.image.v2 import _proxy as image_proxy
@@ -37,7 +37,7 @@ if ty.TYPE_CHECKING:
 
 LOG = logging.getLogger(__name__)
 
-PLUGIN_MODULES: list[ty.Any] = []
+PLUGIN_MODULES: list[Any] = []
 
 USER_AGENT = 'python-openstackclient'
 
@@ -50,7 +50,7 @@ class ClientManager(clientmanager.ClientManager):
     in osc-lib so we need to maintain a transition period.
     """
 
-    if ty.TYPE_CHECKING:
+    if TYPE_CHECKING:
         # we know this will be set by us and will not be nullable
         auth_ref: ksa_access.AccessInfo
 
@@ -62,18 +62,18 @@ class ClientManager(clientmanager.ClientManager):
         # services...
         # TODO(stephenfin): We also need to migrate object storage...
         compute: compute_proxy.Proxy
-        identity: ty.Any
+        identity: Any
         image: image_proxy.Proxy
         network: network_proxy.Proxy
         object_store: object_store_v1.APIv1
-        volume: ty.Any
+        volume: Any
 
     def __init__(
         self,
-        cli_options=None,
-        api_version=None,
-        pw_func=None,
-    ):
+        cli_options: Any = None,
+        api_version: Any = None,
+        pw_func: Any = None,
+    ) -> None:
         super().__init__(
             cli_options=cli_options,
             api_version=api_version,
@@ -89,7 +89,7 @@ class ClientManager(clientmanager.ClientManager):
         # store original auth_type
         self._original_auth_type = cli_options.auth_type
 
-    def setup_auth(self):
+    def setup_auth(self) -> None:
         """Set up authentication"""
 
         if self._auth_setup_completed:
@@ -125,7 +125,7 @@ class ClientManager(clientmanager.ClientManager):
 
         return super().setup_auth()
 
-    def _fallback_load_auth_plugin(self, e):
+    def _fallback_load_auth_plugin(self, e: Exception) -> None:
         # NOTES(RuiChen): Hack to avoid auth plugins choking on data they don't
         #                 expect, delete fake token and endpoint, then try to
         #                 load auth plugin again with user specified options.
@@ -150,52 +150,77 @@ class ClientManager(clientmanager.ClientManager):
         else:
             raise e
 
-    def is_network_endpoint_enabled(self):
+    def is_network_endpoint_enabled(self) -> bool:
         """Check if the network endpoint is enabled"""
         # NOTE(dtroyer): is_service_available() can also return None if
         #                there is no Service Catalog, callers here are
         #                not expecting that so fold None into True to
         #                use Network API by default
-        return self.is_service_available('network') is not False
+        return (
+            self.is_service_available(
+                'network', self.region_name, self.interface
+            )
+            is not False
+        )
 
-    def is_compute_endpoint_enabled(self):
+    def is_compute_endpoint_enabled(self) -> bool:
         """Check if Compute endpoint is enabled"""
-        return self.is_service_available('compute') is not False
+        return (
+            self.is_service_available(
+                'compute', self.region_name, self.interface
+            )
+            is not False
+        )
 
     # TODO(stephenfin): Drop volume_client argument in OSC 8.0 or later.
-    def is_volume_endpoint_enabled(self, volume_client=None):
+    def is_volume_endpoint_enabled(self, volume_client: Any = None) -> bool:
         """Check if volume endpoint is enabled"""
         # We check against the service type and all aliases defined by the
         # Service Types Authority
         # https://service-types.openstack.org/service-types.json
         return (
-            self.is_service_available('block-storage') is not False
-            or self.is_service_available('volume') is not False
-            or self.is_service_available('volumev3') is not False
-            or self.is_service_available('volumev2') is not False
-            or self.is_service_available('block-store') is not False
+            self.is_service_available(
+                'block-storage', self.region_name, self.interface
+            )
+            is not False
+            or self.is_service_available(
+                'volume', self.region_name, self.interface
+            )
+            is not False
+            or self.is_service_available(
+                'volumev3', self.region_name, self.interface
+            )
+            is not False
+            or self.is_service_available(
+                'volumev2', self.region_name, self.interface
+            )
+            is not False
+            or self.is_service_available(
+                'block-store', self.region_name, self.interface
+            )
+            is not False
         )
 
 
 # Plugin Support
 
-ArgumentParserT = ty.TypeVar('ArgumentParserT', bound=argparse.ArgumentParser)
+ArgumentParserT = TypeVar('ArgumentParserT', bound=argparse.ArgumentParser)
 
 
-@ty.runtime_checkable  # Optional: allows usage with isinstance()
-class PluginModule(ty.Protocol):
+@runtime_checkable  # Optional: allows usage with isinstance()
+class PluginModule(Protocol):
     DEFAULT_API_VERSION: str
     API_VERSION_OPTION: str
     API_NAME: str
     API_VERSIONS: tuple[str]
 
-    make_client: Callable[..., ty.Any]
+    make_client: Callable[..., Any]
     build_option_parser: Callable[[ArgumentParserT], ArgumentParserT]
     check_api_version: Callable[[str], bool]
 
 
 def _on_load_failure_callback(
-    manager: stevedore.ExtensionManager,
+    manager: stevedore.ExtensionManager[PluginModule],
     ep: importlib.metadata.EntryPoint,
     err: BaseException,
 ) -> None:
@@ -204,7 +229,7 @@ def _on_load_failure_callback(
     )
 
 
-def get_plugin_modules(group):
+def get_plugin_modules(group: str) -> list[Any]:
     """Find plugin entry points"""
     mod_list = []
     mgr: stevedore.ExtensionManager[PluginModule]
@@ -238,7 +263,9 @@ def get_plugin_modules(group):
     return mod_list
 
 
-def build_plugin_option_parser(parser):
+def build_plugin_option_parser(
+    parser: ArgumentParserT,
+) -> ArgumentParserT:
     """Add plugin options to the parser"""
 
     # Loop through extensions to get parser additions

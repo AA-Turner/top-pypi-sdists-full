@@ -116,6 +116,7 @@ class CodexCliLLMAdapter:
     _log_namespace = "codex_cli_adapter"
     _max_ouroboros_depth = DEFAULT_MAX_OUROBOROS_DEPTH
     _child_session_env_keys = DEFAULT_CODEX_CHILD_SESSION_ENV_KEYS
+    _completion_profile_backend = "codex"
 
     def __init__(
         self,
@@ -764,6 +765,15 @@ class CodexCliLLMAdapter:
             shutdown_timeout=self._process_shutdown_timeout_seconds,
         )
 
+    def _update_last_content(self, last_content: str, event_content: str) -> str:
+        """Return the fallback completion content after a streamed event.
+
+        Codex-style events normally contain complete assistant messages, so the
+        latest content remains the fallback.  Delta-oriented adapters can
+        override this hook to accumulate chunks.
+        """
+        return event_content if event_content else last_content
+
     def _read_output_message(self, output_path: Path) -> str:
         """Read the output-last-message file if the backend wrote one."""
         try:
@@ -813,8 +823,7 @@ class CodexCliLLMAdapter:
                 continue
             self._emit_callback_for_event(event)
             event_content = self._extract_text(event.get("item") or event)
-            if event_content:
-                last_content = event_content
+            last_content = self._update_last_content(last_content, event_content)
 
         return stdout_lines, stderr_lines, session_id, last_content
 
@@ -840,7 +849,9 @@ class CodexCliLLMAdapter:
         config: CompletionConfig,
     ) -> Result[CompletionResponse, ProviderError]:
         """Execute a single Codex CLI completion request."""
-        profile_result = resolve_completion_profile_result(config, backend="codex")
+        profile_result = resolve_completion_profile_result(
+            config, backend=self._completion_profile_backend
+        )
         if profile_result.is_err:
             return Result.err(profile_result.error)
         resolved = profile_result.value
@@ -882,7 +893,11 @@ class CodexCliLLMAdapter:
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env=self._build_child_env(),
+                env=(
+                    self._build_env_for_instance()
+                    if hasattr(self, "_build_env_for_instance")
+                    else self._build_child_env()
+                ),
             )
         except FileNotFoundError as exc:
             output_path.unlink(missing_ok=True)
@@ -1000,8 +1015,7 @@ class CodexCliLLMAdapter:
 
                 self._emit_callback_for_event(event)
                 event_content = self._extract_text(event.get("item") or event)
-                if event_content:
-                    last_content = event_content
+                last_content = self._update_last_content(last_content, event_content)
 
         stdout_task = asyncio.create_task(_read_stdout())
 

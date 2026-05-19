@@ -296,6 +296,7 @@ __all__ = (
     "ActionConnectorTypeDef",
     "ActiveIAMPolicyAssignmentTypeDef",
     "AdHocFilteringOptionTypeDef",
+    "AdditionalNotesTypeDef",
     "AggFunctionOutputTypeDef",
     "AggFunctionTypeDef",
     "AggFunctionUnionTypeDef",
@@ -554,6 +555,8 @@ __all__ = (
     "ColumnLevelPermissionRuleTypeDef",
     "ColumnLevelPermissionRuleUnionTypeDef",
     "ColumnSchemaTypeDef",
+    "ColumnSemanticPropertyTypeDef",
+    "ColumnSemanticTypeTypeDef",
     "ColumnSortTypeDef",
     "ColumnTagTypeDef",
     "ColumnToUnpivotTypeDef",
@@ -669,6 +672,7 @@ __all__ = (
     "CustomFilterConfigurationTypeDef",
     "CustomFilterListConfigurationOutputTypeDef",
     "CustomFilterListConfigurationTypeDef",
+    "CustomInstructionTypeDef",
     "CustomInstructionsTypeDef",
     "CustomNarrativeOptionsTypeDef",
     "CustomParameterValuesOutputTypeDef",
@@ -750,6 +754,9 @@ __all__ = (
     "DataSetSchemaOutputTypeDef",
     "DataSetSchemaTypeDef",
     "DataSetSearchFilterTypeDef",
+    "DataSetSemanticDescriptionTypeDef",
+    "DataSetSemanticMetadataOutputTypeDef",
+    "DataSetSemanticMetadataTypeDef",
     "DataSetStringComparisonFilterConditionTypeDef",
     "DataSetStringFilterConditionOutputTypeDef",
     "DataSetStringFilterConditionTypeDef",
@@ -1305,6 +1312,7 @@ __all__ = (
     "ImportTableOperationTypeDef",
     "IncrementalRefreshTypeDef",
     "IngestionTypeDef",
+    "InlineCustomInstructionTypeDef",
     "InnerFilterOutputTypeDef",
     "InnerFilterTypeDef",
     "InputColumnTypeDef",
@@ -1866,6 +1874,8 @@ __all__ = (
     "SetParameterValueConfigurationTypeDef",
     "ShapeConditionalFormatOutputTypeDef",
     "ShapeConditionalFormatTypeDef",
+    "SharedColumnSemanticMetadataOutputTypeDef",
+    "SharedColumnSemanticMetadataTypeDef",
     "SharedViewConfigurationsTypeDef",
     "SheetBackgroundStyleTypeDef",
     "SheetControlInfoIconLabelOptionsTypeDef",
@@ -2000,6 +2010,8 @@ __all__ = (
     "TablePinnedFieldOptionsTypeDef",
     "TableRowConditionalFormattingOutputTypeDef",
     "TableRowConditionalFormattingTypeDef",
+    "TableSemanticMetadataOutputTypeDef",
+    "TableSemanticMetadataTypeDef",
     "TableSideBorderOptionsTypeDef",
     "TableSortConfigurationOutputTypeDef",
     "TableSortConfigurationTypeDef",
@@ -2263,6 +2275,7 @@ __all__ = (
     "UpdateVPCConnectionRequestTypeDef",
     "UpdateVPCConnectionResponseTypeDef",
     "UploadSettingsTypeDef",
+    "UploadedDocumentMetadataTypeDef",
     "UserIdentifierTypeDef",
     "UserTypeDef",
     "VPCConnectionSummaryTypeDef",
@@ -2368,6 +2381,13 @@ class ActiveIAMPolicyAssignmentTypeDef(TypedDict):
 
 class AdHocFilteringOptionTypeDef(TypedDict):
     AvailabilityStatus: NotRequired[DashboardBehaviorType]
+
+AdditionalNotesTypeDef = TypedDict(
+    "AdditionalNotesTypeDef",
+    {
+        "Text": NotRequired[str],
+    },
+)
 
 class AggFunctionOutputTypeDef(TypedDict):
     Aggregation: NotRequired[AggTypeType]
@@ -3140,6 +3160,9 @@ class ColumnSchemaTypeDef(TypedDict):
     DataType: NotRequired[str]
     GeographicRole: NotRequired[str]
 
+class ColumnSemanticTypeTypeDef(TypedDict):
+    GeographicalRole: NotRequired[GeoSpatialDataRoleType]
+
 class ColumnToUnpivotTypeDef(TypedDict):
     ColumnName: NotRequired[str]
     NewValue: NotRequired[str]
@@ -3497,6 +3520,13 @@ class DataSetSearchFilterTypeDef(TypedDict):
     Operator: FilterOperatorType
     Name: DataSetFilterAttributeType
     Value: str
+
+DataSetSemanticDescriptionTypeDef = TypedDict(
+    "DataSetSemanticDescriptionTypeDef",
+    {
+        "Text": str,
+    },
+)
 
 class DataSetStringFilterValueTypeDef(TypedDict):
     StaticValue: NotRequired[str]
@@ -4464,6 +4494,9 @@ class RowInfoTypeDef(TypedDict):
     RowsIngested: NotRequired[int]
     RowsDropped: NotRequired[int]
     TotalRowsInDataset: NotRequired[int]
+
+class UploadedDocumentMetadataTypeDef(TypedDict):
+    Name: NotRequired[str]
 
 class IntegerDatasetParameterDefaultValuesOutputTypeDef(TypedDict):
     StaticValues: NotRequired[list[int]]
@@ -6881,6 +6914,11 @@ class DataSetSchemaOutputTypeDef(TypedDict):
 class DataSetSchemaTypeDef(TypedDict):
     ColumnSchemaList: NotRequired[Sequence[ColumnSchemaTypeDef]]
 
+class ColumnSemanticPropertyTypeDef(TypedDict):
+    Description: NotRequired[ColumnDescriptionTypeDef]
+    AdditionalNotes: NotRequired[AdditionalNotesTypeDef]
+    SemanticType: NotRequired[ColumnSemanticTypeTypeDef]
+
 class ComboChartDefaultSeriesSettingsTypeDef(TypedDict):
     LineStyleSettings: NotRequired[LineChartLineStyleSettingsTypeDef]
     MarkerStyleSettings: NotRequired[LineChartMarkerStyleSettingsTypeDef]
@@ -7832,6 +7870,10 @@ class IngestionTypeDef(TypedDict):
     RequestSource: NotRequired[IngestionRequestSourceType]
     RequestType: NotRequired[IngestionRequestTypeType]
 
+class InlineCustomInstructionTypeDef(TypedDict):
+    InstructionText: str
+    UploadedDocumentMetadata: NotRequired[UploadedDocumentMetadataTypeDef]
+
 class IntegerDatasetParameterOutputTypeDef(TypedDict):
     Id: str
     Name: str
@@ -8529,6 +8571,14 @@ class DataSetConfigurationTypeDef(TypedDict):
     DataSetSchema: NotRequired[DataSetSchemaTypeDef]
     ColumnGroupSchemaList: NotRequired[Sequence[ColumnGroupSchemaTypeDef]]
 
+class SharedColumnSemanticMetadataOutputTypeDef(TypedDict):
+    ColumnProperties: list[ColumnSemanticPropertyTypeDef]
+    ColumnNames: NotRequired[list[str]]
+
+class SharedColumnSemanticMetadataTypeDef(TypedDict):
+    ColumnProperties: Sequence[ColumnSemanticPropertyTypeDef]
+    ColumnNames: NotRequired[Sequence[str]]
+
 class DataFieldComboSeriesItemTypeDef(TypedDict):
     FieldId: str
     FieldValue: NotRequired[str]
@@ -8997,6 +9047,9 @@ class ListIngestionsResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class CustomInstructionTypeDef(TypedDict):
+    InlineCustomInstruction: NotRequired[InlineCustomInstructionTypeDef]
 
 class IntegerDatasetParameterTypeDef(TypedDict):
     Id: str
@@ -9635,6 +9688,12 @@ class TopicIRFilterOptionTypeDef(TypedDict):
 
 TagColumnOperationUnionTypeDef = Union[TagColumnOperationTypeDef, TagColumnOperationOutputTypeDef]
 
+class TableSemanticMetadataOutputTypeDef(TypedDict):
+    ColumnMetadata: NotRequired[list[SharedColumnSemanticMetadataOutputTypeDef]]
+
+class TableSemanticMetadataTypeDef(TypedDict):
+    ColumnMetadata: NotRequired[Sequence[SharedColumnSemanticMetadataTypeDef]]
+
 class ComboSeriesItemTypeDef(TypedDict):
     FieldComboSeriesItem: NotRequired[FieldComboSeriesItemTypeDef]
     DataFieldComboSeriesItem: NotRequired[DataFieldComboSeriesItemTypeDef]
@@ -9952,6 +10011,14 @@ class DataSetRefreshPropertiesTypeDef(TypedDict):
     RefreshConfiguration: NotRequired[RefreshConfigurationTypeDef]
     FailureConfiguration: NotRequired[RefreshFailureConfigurationTypeDef]
 
+class DataSetSemanticMetadataOutputTypeDef(TypedDict):
+    Description: NotRequired[DataSetSemanticDescriptionTypeDef]
+    CustomInstructions: NotRequired[list[CustomInstructionTypeDef]]
+
+class DataSetSemanticMetadataTypeDef(TypedDict):
+    Description: NotRequired[DataSetSemanticDescriptionTypeDef]
+    CustomInstructions: NotRequired[Sequence[CustomInstructionTypeDef]]
+
 IntegerDatasetParameterUnionTypeDef = Union[
     IntegerDatasetParameterTypeDef, IntegerDatasetParameterOutputTypeDef
 ]
@@ -10039,16 +10106,6 @@ class ListRefreshSchedulesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 RefreshScheduleUnionTypeDef = Union[RefreshScheduleTypeDef, RefreshScheduleOutputTypeDef]
-
-class SemanticTableOutputTypeDef(TypedDict):
-    Alias: str
-    DestinationTableId: str
-    RowLevelPermissionConfiguration: NotRequired[RowLevelPermissionConfigurationOutputTypeDef]
-
-class SemanticTableTypeDef(TypedDict):
-    Alias: str
-    DestinationTableId: str
-    RowLevelPermissionConfiguration: NotRequired[RowLevelPermissionConfigurationTypeDef]
 
 class SnapshotJobResultFileGroupTypeDef(TypedDict):
     Files: NotRequired[list[SnapshotFileOutputTypeDef]]
@@ -10192,6 +10249,18 @@ class AuthConfigTypeDef(TypedDict):
 TopicIRFilterOptionUnionTypeDef = Union[
     TopicIRFilterOptionTypeDef, TopicIRFilterOptionOutputTypeDef
 ]
+
+class SemanticTableOutputTypeDef(TypedDict):
+    Alias: str
+    DestinationTableId: str
+    RowLevelPermissionConfiguration: NotRequired[RowLevelPermissionConfigurationOutputTypeDef]
+    SemanticMetadata: NotRequired[TableSemanticMetadataOutputTypeDef]
+
+class SemanticTableTypeDef(TypedDict):
+    Alias: str
+    DestinationTableId: str
+    RowLevelPermissionConfiguration: NotRequired[RowLevelPermissionConfigurationTypeDef]
+    SemanticMetadata: NotRequired[TableSemanticMetadataTypeDef]
 
 class CustomActionSetParametersOperationOutputTypeDef(TypedDict):
     ParameterValueConfigurations: list[SetParameterValueConfigurationOutputTypeDef]
@@ -10751,12 +10820,6 @@ class UpdateRefreshScheduleRequestTypeDef(TypedDict):
     AwsAccountId: str
     Schedule: RefreshScheduleUnionTypeDef
 
-class SemanticModelConfigurationOutputTypeDef(TypedDict):
-    TableMap: NotRequired[dict[str, SemanticTableOutputTypeDef]]
-
-class SemanticModelConfigurationTypeDef(TypedDict):
-    TableMap: NotRequired[Mapping[str, SemanticTableTypeDef]]
-
 class AnonymousUserSnapshotJobResultTypeDef(TypedDict):
     FileGroups: NotRequired[list[SnapshotJobResultFileGroupTypeDef]]
 
@@ -10858,6 +10921,14 @@ class UpdateActionConnectorRequestTypeDef(TypedDict):
 class ContributionAnalysisTimeRangesTypeDef(TypedDict):
     StartRange: NotRequired[TopicIRFilterOptionUnionTypeDef]
     EndRange: NotRequired[TopicIRFilterOptionUnionTypeDef]
+
+class SemanticModelConfigurationOutputTypeDef(TypedDict):
+    TableMap: NotRequired[dict[str, SemanticTableOutputTypeDef]]
+    SemanticMetadata: NotRequired[list[DataSetSemanticMetadataOutputTypeDef]]
+
+class SemanticModelConfigurationTypeDef(TypedDict):
+    TableMap: NotRequired[Mapping[str, SemanticTableTypeDef]]
+    SemanticMetadata: NotRequired[Sequence[DataSetSemanticMetadataTypeDef]]
 
 class ImageCustomActionOperationOutputTypeDef(TypedDict):
     NavigationOperation: NotRequired[CustomActionNavigationOperationTypeDef]
@@ -11498,9 +11569,6 @@ class AssetBundleImportJobDataSourceOverrideParametersTypeDef(TypedDict):
 DataSourceParametersUnionTypeDef = Union[
     DataSourceParametersTypeDef, DataSourceParametersOutputTypeDef
 ]
-SemanticModelConfigurationUnionTypeDef = Union[
-    SemanticModelConfigurationTypeDef, SemanticModelConfigurationOutputTypeDef
-]
 
 class SnapshotJobResultTypeDef(TypedDict):
     AnonymousUsers: NotRequired[list[AnonymousUserSnapshotJobResultTypeDef]]
@@ -11557,6 +11625,9 @@ DataSetDateFilterConditionUnionTypeDef = Union[
 DatasetParameterUnionTypeDef = Union[DatasetParameterTypeDef, DatasetParameterOutputTypeDef]
 ContributionAnalysisTimeRangesUnionTypeDef = Union[
     ContributionAnalysisTimeRangesTypeDef, ContributionAnalysisTimeRangesOutputTypeDef
+]
+SemanticModelConfigurationUnionTypeDef = Union[
+    SemanticModelConfigurationTypeDef, SemanticModelConfigurationOutputTypeDef
 ]
 
 class ImageCustomActionOutputTypeDef(TypedDict):

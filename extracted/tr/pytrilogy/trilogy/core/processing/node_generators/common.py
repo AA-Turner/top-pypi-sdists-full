@@ -1,4 +1,3 @@
-from collections import defaultdict
 from itertools import combinations
 from typing import Callable, Dict, Iterable, List, Set, Tuple, cast
 
@@ -10,15 +9,24 @@ from trilogy.core.models.build import (
     BuildAggregateWrapper,
     BuildComparison,
     BuildConcept,
+    BuildConditional,
     BuildDatasource,
     BuildFilterItem,
     BuildFunction,
     BuildGrain,
+    BuildParenthetical,
     BuildUnionDatasource,
     BuildWhereClause,
     LooseBuildConceptList,
+    concept_is_relevant,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
+from trilogy.core.processing.condition_utility import (
+    combine_condition_atoms,
+    condition_implies,
+    condition_required_addresses,
+    decompose_condition,
+)
 from trilogy.core.processing.nodes import (
     History,
     NodeJoin,
@@ -29,6 +37,91 @@ from trilogy.utility import unique
 
 AGGREGATE_TYPES = (BuildAggregateWrapper,)
 FUNCTION_TYPES = (BuildFunction,)
+ConditionExpression = BuildComparison | BuildConditional | BuildParenthetical
+PROPERTY_PURPOSES = (Purpose.PROPERTY, Purpose.UNIQUE_PROPERTY)
+
+
+def _node_has_preexisting_conditions(
+    node: StrategyNode,
+    condition: ConditionExpression,
+) -> bool:
+    return node.preexisting_conditions == condition or (
+        node.preexisting_conditions is not None
+        and condition_implies(node.preexisting_conditions, condition)
+    )
+
+
+def _preexisting_conditions_from_parents(
+    parents: list[StrategyNode],
+    conditions: BuildWhereClause | None,
+) -> ConditionExpression | None:
+    if conditions is None or not parents:
+        return None
+    if all(
+        _node_has_preexisting_conditions(parent, conditions.conditional)
+        for parent in parents
+    ):
+        return conditions.conditional
+    return None
+
+
+def _condition_available_from_parents(
+    parents: list[StrategyNode],
+    condition: ConditionExpression,
+) -> bool:
+    available = {
+        concept.canonical_address
+        for parent in parents
+        for concept in parent.usable_outputs
+    }
+    return condition_required_addresses(condition).issubset(available)
+
+
+def _local_property_conditions(
+    conditions: BuildWhereClause | None,
+    required: list[BuildConcept],
+    key_addresses: set[str],
+) -> tuple[BuildWhereClause | None, list[BuildConcept]]:
+    if conditions is None:
+        return None, []
+    available = {c.canonical_address for c in required}
+    condition_concepts: list[BuildConcept] = []
+    atoms: list[ConditionExpression] = []
+    for atom in decompose_condition(conditions.conditional):
+        atom_concepts = [
+            c for c in atom.row_arguments if c.derivation != Derivation.CONSTANT
+        ]
+        extra_concepts = [
+            c
+            for c in atom_concepts
+            if c.canonical_address not in available
+            and c.keys
+            and c.keys.issubset(key_addresses)
+        ]
+        lineage_concepts = [
+            c
+            for c in atom_concepts
+            if c.canonical_address not in available
+            and any(
+                required_concept.derivation
+                not in (Derivation.ROOT, Derivation.CONSTANT)
+                and concept_is_relevant(required_concept, [c])
+                for required_concept in required
+            )
+        ]
+        atom_addresses = {c.canonical_address for c in atom_concepts}
+        extra_addresses = {c.canonical_address for c in extra_concepts}
+        lineage_addresses = {c.canonical_address for c in lineage_concepts}
+        if atom_addresses.issubset(available | extra_addresses | lineage_addresses):
+            atoms.append(atom)
+            condition_concepts.extend(extra_concepts + lineage_concepts)
+            available.update(extra_addresses | lineage_addresses)
+    condition = combine_condition_atoms(atoms)
+    if condition is None:
+        return None, []
+    return BuildWhereClause(conditional=condition), unique(
+        condition_concepts, "address"
+    )
 
 
 def _walk_aggregate_grain_inputs(
@@ -165,6 +258,67 @@ def resolve_filter_parent_concepts(
     return unique(base_rows, "address"), []
 
 
+def _base_lookup_keys(base_node: StrategyNode) -> list[BuildConcept]:
+    return unique(
+        [c for c in base_node.usable_outputs if c.purpose == Purpose.KEY],
+        "address",
+    )
+
+
+def _lookup_closure(
+    roots: list[BuildConcept],
+    environment: BuildEnvironment,
+) -> dict[str, tuple[set[str], set[str]]]:
+    closure: dict[str, tuple[set[str], set[str]]] = {
+        root.address: ({root.address}, {root.address}) for root in roots
+    }
+    changed = True
+    while changed:
+        changed = False
+        for concept in sorted(environment.concepts.values(), key=lambda x: x.address):
+            if concept.address in closure:
+                continue
+            if concept.purpose not in (Purpose.KEY, *PROPERTY_PURPOSES):
+                continue
+            if not concept.keys or not concept.keys.issubset(closure):
+                continue
+            roots_for_concept: set[str] = set()
+            path_for_concept: set[str] = {concept.address}
+            for key in concept.keys:
+                key_roots, key_path = closure[key]
+                roots_for_concept.update(key_roots)
+                path_for_concept.update(key_path)
+            closure[concept.address] = (roots_for_concept, path_for_concept)
+            changed = True
+    return closure
+
+
+def _condition_key_addresses(required: list[BuildConcept]) -> set[str]:
+    key_addresses = {c.address for c in required}
+    for concept in required:
+        key_addresses.update(concept.keys or set())
+    return key_addresses
+
+
+def _property_lookup_groups(
+    extra_properties: list[BuildConcept],
+    closure: dict[str, tuple[set[str], set[str]]],
+) -> dict[tuple[str, ...], tuple[set[str], set[str]]]:
+    groups: dict[tuple[str, ...], tuple[set[str], set[str]]] = {}
+    for prop in extra_properties:
+        if not prop.keys:
+            raise SyntaxError(f"Property {prop.address} missing keys in lookup")
+        if prop.address not in closure:
+            return {}
+        roots, path = closure[prop.address]
+        key = tuple(sorted(roots))
+        group_props, group_path = groups.get(key, (set(), set()))
+        group_props.add(prop.address)
+        group_path.update(path)
+        groups[key] = (group_props, group_path)
+    return groups
+
+
 def gen_property_enrichment_node(
     base_node: StrategyNode,
     extra_properties: list[BuildConcept],
@@ -175,41 +329,44 @@ def gen_property_enrichment_node(
     source_concepts,
     log_lambda: Callable,
     conditions: BuildWhereClause | None = None,
-):
-    required_keys: dict[str, set[str]] = defaultdict(set)
-    for x in extra_properties:
-        if not x.keys:
-            raise SyntaxError(f"Property {x.address} missing keys in lookup")
-        keys = "-".join([y for y in x.keys])
-        required_keys[keys].add(x.address)
-    final_nodes = []
-    for _k, vs in required_keys.items():
-        log_lambda(f"Generating enrichment node for {_k} with {vs}")
-        ks = _k.split("-")
-        enrich_node: StrategyNode = source_concepts(
-            mandatory_list=[environment.concepts[k] for k in ks]
-            + [environment.concepts[v] for v in vs],
+) -> StrategyNode | None:
+    roots = _base_lookup_keys(base_node)
+    if not roots or not extra_properties:
+        return None
+    closure = _lookup_closure(roots, environment)
+    lookup_groups = _property_lookup_groups(extra_properties, closure)
+    if not lookup_groups:
+        return None
+
+    final_nodes: list[StrategyNode] = []
+    input_concepts = list(base_node.output_concepts)
+    for root_key, (properties, path) in lookup_groups.items():
+        required = [environment.concepts[address] for address in sorted(path)]
+        log_lambda(
+            f"Generating property enrichment node for {root_key} with {sorted(properties)}"
+        )
+        local_conditions, local_condition_concepts = _local_property_conditions(
+            conditions,
+            required,
+            _condition_key_addresses(required),
+        )
+        enrich_node: StrategyNode | None = source_concepts(
+            mandatory_list=unique(required + local_condition_concepts, "address"),
             environment=environment,
             g=g,
             depth=depth + 1,
             history=history,
-            conditions=conditions,
+            conditions=local_conditions,
         )
         if not enrich_node:
             return None
         final_nodes.append(enrich_node)
+        input_concepts.extend(required)
+        input_concepts.extend(local_condition_concepts)
+
     return MergeNode(
-        input_concepts=unique(
-            base_node.output_concepts
-            + extra_properties
-            + [
-                environment.concepts[v]
-                for k, values in required_keys.items()
-                for v in values
-            ],
-            "address",
-        ),
-        output_concepts=base_node.output_concepts + extra_properties,
+        input_concepts=unique(input_concepts, "address"),
+        output_concepts=unique(base_node.output_concepts + extra_properties, "address"),
         environment=environment,
         parents=[
             base_node,
@@ -252,28 +409,23 @@ def gen_enrichment_node(
         if x not in base_node.output_lcl or x in base_node.partial_lcl
     ]
 
-    # property lookup optimization
-    # this helps create ergonomic merge nodes when evaluating a normalized star schema
-    # as we only want to lookup the missing properties based on the relevant keys
-    if all([x.purpose == Purpose.PROPERTY for x in extra_required]):
-        if all(
-            x.keys and all([key in base_node.output_lcl for key in x.keys])
-            for x in extra_required
-        ):
+    if extra_required and all(x.purpose in PROPERTY_PURPOSES for x in extra_required):
+        property_node = gen_property_enrichment_node(
+            base_node,
+            extra_required,
+            environment=environment,
+            g=g,
+            depth=depth,
+            source_concepts=source_concepts,
+            history=history,
+            conditions=conditions,
+            log_lambda=log_lambda,
+        )
+        if property_node:
             log_lambda(
-                f"{str(type(base_node).__name__)} returning property optimized enrichment node for {extra_required[0].keys}"
+                f"{str(type(base_node).__name__)} returning property enrichment node"
             )
-            return gen_property_enrichment_node(
-                base_node,
-                extra_required,
-                environment=environment,
-                g=g,
-                depth=depth,
-                source_concepts=source_concepts,
-                history=history,
-                conditions=conditions,
-                log_lambda=log_lambda,
-            )
+            return property_node
     log_lambda(
         f"{str(type(base_node).__name__)} searching for join keys {LooseBuildConceptList(concepts=join_keys)} and extra required {local_opts}"
     )
@@ -527,7 +679,7 @@ def reinject_common_join_keys_v2(
             final.add_edge(ds1, cnode)
             final.add_edge(ds2, cnode)
 
-            logger.info(
+            logger.debug(
                 f"{LOGGER_PREFIX} reinjecting common join key {cnode} "
                 f"between {ds1} and {ds2}, existing {existing}"
             )

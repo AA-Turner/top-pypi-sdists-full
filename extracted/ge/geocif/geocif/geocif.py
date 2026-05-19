@@ -141,9 +141,17 @@ class Geocif:
         self.spatial_autocorrelation = self.parser.getboolean("ML", "spatial_autocorrelation")
         self.sa_method = self.parser.get("ML", "sa_method")
         self.last_year_yield_as_feature = self.parser.getboolean("ML", "last_year_yield_as_feature")
-        self.use_yield_trend_as_feature = self.parser.getboolean(
-            "ML", "use_yield_trend_as_feature", fallback=False
-        )
+        # Tri-state: "all" = full training set, "past" = past years only
+        # (Harvest Year < forecast_season), None = disabled.
+        _tyf_raw = self.parser.get(
+            "ML", "use_yield_trend_as_feature", fallback="False"
+        ).strip().lower()
+        if _tyf_raw in ("true", "1", "yes", "all"):
+            self.use_yield_trend_as_feature = "all"
+        elif _tyf_raw in ("past", "causal"):
+            self.use_yield_trend_as_feature = "past"
+        else:
+            self.use_yield_trend_as_feature = None
         self.panel_model = self.parser.getboolean("ML", "panel_model")
         self.panel_model_region = self.parser.get("ML", "panel_model_region")
         self.use_outlook_as_feature = self.parser.getboolean("ML", "use_outlook_as_feature")
@@ -1280,6 +1288,22 @@ class Geocif:
         self.df_test["Yield Trend"] = np.nan
 
         for region_name, group in self.df_train.groupby("Region"):
+            # "past" mode: restrict to years strictly before the forecast
+            # year so the trend used for predicting Y(forecast) is fit only
+            # on data that would be available at deployment time (no leak
+            # from LOOCV's future training years).
+            if self.use_yield_trend_as_feature == "past":
+                group = group[
+                    group["Harvest Year"].astype(float) < float(self.forecast_season)
+                ]
+                if len(group) < 5:
+                    self.logger.warning(
+                        f"  Yield Trend [{region_name}]: only {len(group)} "
+                        f"past training rows for forecast_season="
+                        f"{self.forecast_season}; skipping (need >= 5 for OLS)"
+                    )
+                    continue
+
             # .astype(float) is required: Harvest Year may be a pandas
             # Categorical (used by tree models that treat it as a cat
             # feature), and ``slope * Categorical`` raises TypeError.
@@ -2187,6 +2211,45 @@ class Geocif:
             y_pred = np.full(len(X_test), df_region[f"Median {self.target}"].values)
         elif self.model_name == "last_year":
             y_pred = np.full(len(X_test), df_region[f"Last Year {self.target}"].values)
+        elif self.model_name == "null":
+            # Per-region mean observed yield across training years
+            # (paper-conformant Null baseline; arxiv:2506.19046 sec 3.2).
+            region_id = df_region["Region_ID"].iloc[0]
+            tmask = self.df_train["Region_ID"] == region_id
+            mean_obs = float(self.df_train.loc[tmask, self.target].mean())
+            y_pred = np.full(len(X_test), mean_obs)
+        elif self.model_name == "trend":
+            # Theil-Sen linear trend on the previous 12 training years
+            # (Harvest Year < forecast_season). arxiv:2506.19046 sec 2.
+            from scipy.stats import theilslopes
+            region_id = df_region["Region_ID"].iloc[0]
+            tmask = self.df_train["Region_ID"] == region_id
+            past_mask = (
+                tmask
+                & (self.df_train["Harvest Year"].astype(float)
+                   < float(self.forecast_season))
+            )
+            past = (
+                self.df_train.loc[past_mask, ["Harvest Year", self.target]]
+                .dropna()
+                .sort_values("Harvest Year")
+                .tail(12)
+            )
+            if len(past) < 3:
+                fallback = (
+                    float(past[self.target].mean())
+                    if not past.empty else np.nan
+                )
+                y_pred = np.full(len(X_test), fallback)
+            else:
+                slope, intercept, _lo, _hi = theilslopes(
+                    past[self.target].astype(float).values,
+                    past["Harvest Year"].astype(float).values,
+                )
+                y_pred = np.full(
+                    len(X_test),
+                    float(intercept + slope * float(self.forecast_season)),
+                )
         else:
             raise ValueError(f"Unknown baseline model: {self.model_name}")
         
@@ -2834,6 +2897,11 @@ class Geocif:
         elif self.model_name == "median":
             self.feature_names = [f"Median {self.target}"]
             self.last_year_yield_as_feature = False
+            self.analogous_year_yield_as_feature = False
+        elif self.model_name in ("null", "trend"):
+            self.feature_names = []
+            self.last_year_yield_as_feature = False
+            self.median_yield_as_feature = False
             self.analogous_year_yield_as_feature = False
         elif self.model_name == "analog":
             self.feature_names = ["Analogous Year", "Analogous Year Yield"]

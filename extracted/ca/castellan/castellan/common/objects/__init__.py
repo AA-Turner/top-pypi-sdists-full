@@ -10,7 +10,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from typing import Any
+
 from castellan.common import exception
+from castellan.common.objects import managed_object
 from castellan.common.objects import opaque_data
 from castellan.common.objects import passphrase
 from castellan.common.objects import private_key
@@ -18,19 +21,23 @@ from castellan.common.objects import public_key
 from castellan.common.objects import symmetric_key
 from castellan.common.objects import x_509
 
-_managed_objects_by_type = {
-    cls.managed_type(): cls for cls in [
-        opaque_data.OpaqueData,
-        passphrase.Passphrase,
-        private_key.PrivateKey,
-        public_key.PublicKey,
-        symmetric_key.SymmetricKey,
-        x_509.X509,
-    ]
+_managed_object_classes: list[type[managed_object.ManagedObject]] = [
+    opaque_data.OpaqueData,
+    passphrase.Passphrase,
+    private_key.PrivateKey,
+    public_key.PublicKey,
+    symmetric_key.SymmetricKey,
+    x_509.X509,
+]
+
+_managed_objects_by_type: dict[str, type[managed_object.ManagedObject]] = {
+    cls.managed_type(): cls for cls in _managed_object_classes
 }
 
 
-def from_dict(obj, id=None):
+def from_dict(
+    obj: dict[str, Any], id: str | None = None
+) -> managed_object.ManagedObject:
     try:
         managed_object_type = obj["type"]
     except KeyError:
@@ -42,8 +49,8 @@ def from_dict(obj, id=None):
         raise exception.UnknownManagedObjectTypeError(type=managed_object_type)
 
     try:
-        managed_object = cls.from_dict(obj, id)
+        result = cls.from_dict(obj, id)
     except KeyError as e:
         raise exception.InvalidManagedObjectDictError(field=str(e))
 
-    return managed_object
+    return result

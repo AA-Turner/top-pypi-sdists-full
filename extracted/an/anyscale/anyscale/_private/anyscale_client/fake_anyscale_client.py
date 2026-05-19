@@ -1942,6 +1942,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             project_id=model.project_id,
             config=model.config,
             schedule=model.schedule,
+            job_tags=model.job_tags,
             # Fill in dummy time to represent schedule is enabled.
             next_trigger_at=self.SCHEDULE_NEXT_TRIGGER_AT_TIME,
             local_vars_configuration=OPENAPI_NO_VALIDATION,

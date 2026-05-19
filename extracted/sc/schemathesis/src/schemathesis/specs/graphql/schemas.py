@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass
 from difflib import get_close_matches
+from functools import cached_property
 from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
@@ -60,7 +62,9 @@ if TYPE_CHECKING:
     from schemathesis.config import GenerationConfig
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.spec import ApiSchema
+    from schemathesis.core.transport import HttpMethod, Response
     from schemathesis.engine.context import EngineContext
+    from schemathesis.engine.link_calibration import LinkCalibrationState
     from schemathesis.engine.run import Phase
     from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
     from schemathesis.engine.run.unit._pool import DefaultScheduler
@@ -168,11 +172,22 @@ class GraphQLSchema(BaseSchema):
         return False
 
     @override
-    def as_state_machine(self, *, error_feedback: ErrorFeedbackStore | None = None) -> type[APIStateMachine]:
-        # `error_feedback` is OpenAPI-specific; `hypothesis-graphql` strategies have no hook to consume it.
+    def as_state_machine(self) -> type[APIStateMachine]:
         from schemathesis.specs.graphql.stateful import create_state_machine
 
         return create_state_machine(self)
+
+    @override
+    def _build_state_machine(
+        self,
+        *,
+        error_feedback: ErrorFeedbackStore | None,
+        link_calibration: LinkCalibrationState | None,
+        extra_data_source: ExtraDataSource | None,
+    ) -> type[APIStateMachine]:
+        # `error_feedback`, `link_calibration` and `extra_data_source` are OpenAPI-specific;
+        # GraphQL strategies and stateful transitions don't consume them.
+        return self.as_state_machine()
 
     @override
     def apply_stateful_inference(self, ctx: EngineContext) -> int:
@@ -230,13 +245,11 @@ class GraphQLSchema(BaseSchema):
 
         return LayeredScheduler(layers, errors=errors)
 
-    @property
+    @cached_property
     def client_schema(self) -> graphql.GraphQLSchema:
         import graphql
 
-        if not hasattr(self, "_client_schema"):
-            self._client_schema = graphql.build_client_schema(self.raw_schema)
-        return self._client_schema
+        return graphql.build_client_schema(self.raw_schema)
 
     @property
     @override
@@ -257,7 +270,7 @@ class GraphQLSchema(BaseSchema):
             base_url=self.get_base_url(),
             path=self.base_path,
             label="",
-            method="POST",
+            method="post",
             schema=self,
             responses=GraphQLResponses(),
             security=None,
@@ -311,7 +324,7 @@ class GraphQLSchema(BaseSchema):
             base_url=self.get_base_url(),
             path=self.base_path,
             label=f"{operation_type.name}.{field_name}",
-            method="POST",
+            method="post",
             app=self.app,
             schema=self,
             responses=GraphQLResponses(),
@@ -351,7 +364,7 @@ class GraphQLSchema(BaseSchema):
         self,
         *,
         operation: APIOperation,
-        method: str | None = None,
+        method: HttpMethod | None = None,
         path: str | None = None,
         path_parameters: dict[str, Any] | None = None,
         headers: dict[str, Any] | CaseInsensitiveDict | None = None,
@@ -364,7 +377,7 @@ class GraphQLSchema(BaseSchema):
     ) -> Case:
         return Case(
             operation=operation,
-            method=method or operation.method.upper(),
+            method=method or cast("HttpMethod", operation.method.upper()),
             path=path or operation.path,
             path_parameters=path_parameters or {},
             headers=CaseInsensitiveDict() if headers is None else CaseInsensitiveDict(headers),
@@ -383,6 +396,36 @@ class GraphQLSchema(BaseSchema):
     @override
     def validate(self) -> None:
         return None
+
+    @override
+    def evaluate_server_error(self, case: Case, response: Response) -> None:
+        from schemathesis.core.failures import AcceptedNegativeData, MalformedJson
+        from schemathesis.graphql.checks import GraphQLClientError
+        from schemathesis.specs.graphql.validation import is_client_error, validate_graphql_response
+
+        is_negative_mode = case.meta is not None and case.meta.generation.mode.is_negative
+        try:
+            data = response.json()
+            if is_negative_mode:
+                errors = data.get("errors")
+                if errors is None or len(errors) == 0:
+                    description = ""
+                    if case.meta and case.meta.phase.data.description:
+                        description = f"\n{case.meta.phase.data.description}"
+                    raise AcceptedNegativeData(
+                        operation=case.operation.label,
+                        message=f"Invalid data should have been rejected by GraphQL schema validation{description}",
+                        status_code=response.status_code,
+                        expected_statuses=[],
+                    )
+                if is_client_error(data):
+                    return
+            validate_graphql_response(case, data)
+        except GraphQLClientError:
+            if not is_negative_mode:
+                raise
+        except json.JSONDecodeError as exc:
+            raise MalformedJson.from_exception(operation=case.operation.label, exc=exc) from None
 
 
 @dataclass
@@ -459,7 +502,7 @@ def graphql_cases(
     gql_mode = GqlMode.NEGATIVE if generation_mode == GenerationMode.NEGATIVE else GqlMode.POSITIVE
     effective_mode = generation_mode
     strategy = strategy_factory(
-        operation.schema.client_schema,  # type: ignore[attr-defined]
+        operation.schema.client_schema,
         fields=[definition.field_name],
         custom_scalars=custom_scalars,
         print_ast=_noop,
@@ -478,7 +521,7 @@ def graphql_cases(
         # Fall back to positive mode when both modes are enabled
         effective_mode = GenerationMode.POSITIVE
         fallback_strategy = strategy_factory(
-            operation.schema.client_schema,  # type: ignore[attr-defined]
+            operation.schema.client_schema,
             fields=[definition.field_name],
             custom_scalars=custom_scalars,
             print_ast=_noop,
@@ -500,7 +543,7 @@ def graphql_cases(
             if random_source.random() < SUBSTITUTION_PROBABILITY:
                 substitute_pool_values(
                     operation_node=operation_node,
-                    client_schema=operation.schema.client_schema,  # type: ignore[attr-defined]
+                    client_schema=operation.schema.client_schema,
                     pool=extra_data_source,
                     random=random_source,
                 )

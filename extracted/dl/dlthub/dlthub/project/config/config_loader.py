@@ -83,7 +83,7 @@ class ConfigLoader:
                 project_dir,
                 settings["name"],
                 profile_name,
-                DEFAULT_LOCAL_FOLDER,
+                os.path.join(DOT_DLT, DEFAULT_LOCAL_FOLDER),  # settings dir
             ),
         )
 

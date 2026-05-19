@@ -424,15 +424,11 @@ class Logic(
     ToolUIData[LogicArgs, LogicResult],
 ):
     description: ClassVar[str] = (
-        "Symbolic propositional logic via sympy — when you need to apply "
-        "contrapositive, De Morgan, check if two expressions are "
-        "equivalent, generate a truth table, or sanity-check a Modus "
-        "Ponens step. Operations: evaluate, truth_table, equivalent, "
+        "Propositional logic via sympy: truth tables, equivalence, "
+        "tautology, satisfiability, De Morgan negation, contrapositive, "
+        "modus ponens. Ops: evaluate, truth_table, equivalent, "
         "tautology, contradiction, satisfiable, cnf, dnf, simplify, "
-        "negate, contrapositive, modus_ponens. Use INSTEAD of reasoning "
-        "in your head — small models get implication direction wrong "
-        "and miss negations under nested AND/OR. Expression syntax: "
-        "`p & q | ~r >> s` (AND=&, OR=|, NOT=~, IMPLIES=>>, IFF=Equivalent(a,b))."
+        "negate, contrapositive, modus_ponens. Syntax: p & q | ~r >> s."
     )
 
     @classmethod

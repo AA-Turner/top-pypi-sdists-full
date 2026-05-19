@@ -36,7 +36,6 @@ Highlights:
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import uuid
@@ -463,9 +462,21 @@ class ClaudeAgentClient(AbstractClient):
             session_id=session_id,
         )
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent
+        import time as _lc_time_ca
+        _lc_tc_ca = self._emit_before_call(
+            client_name="claude-agent",
+            model=resolved_model or "",
+            temperature=temperature,
+            system_prompt=system_prompt,
+            has_tools=False,
+            parent_trace=None,
+        )
+        _lc_t0_ca = _lc_time_ca.perf_counter()
+
         messages = await self._collect_messages(prompt, options=options)
 
-        return AIMessageFactory.from_claude_agent(
+        ai_message = AIMessageFactory.from_claude_agent(
             messages=messages,
             input_text=prompt,
             model=resolved_model,
@@ -474,6 +485,16 @@ class ClaudeAgentClient(AbstractClient):
             turn_id=turn_id,
             structured_output=structured_output,
         )
+        # FEAT-176: lifecycle event — AfterClientCallEvent
+        _lc_ca_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc_ca, client_name="claude-agent", model=resolved_model or "",
+            duration_ms=(_lc_time_ca.perf_counter() - _lc_t0_ca) * 1000,
+            input_tokens=getattr(_lc_ca_usage, 'input_tokens', None) if _lc_ca_usage else None,
+            output_tokens=getattr(_lc_ca_usage, 'output_tokens', None) if _lc_ca_usage else None,
+            finish_reason=None,
+        )
+        return ai_message
 
     async def stream_messages(
         self,
@@ -539,13 +560,17 @@ class ClaudeAgentClient(AbstractClient):
         lazy_loading: bool = False,
         *,
         run_options: Optional[ClaudeAgentRunOptions] = None,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[Union[str, AIMessage]]:
         """Yield the agent's text output incrementally as ``TextBlock``s arrive.
 
         The agent SDK does not expose a token-by-token streaming primitive
         equivalent to Anthropic's ``messages.stream``; instead we yield each
         ``TextBlock.text`` payload as soon as the corresponding
         ``AssistantMessage`` is received.
+
+        After all text chunks are yielded, yields a final
+        :class:`~parrot.models.responses.AIMessage` with full metadata via
+        :py:meth:`AIMessageFactory.from_claude_agent`.
 
         Tool-use blocks are not yielded (they have no user-facing text); the
         full tool-call list is recoverable via ``ask`` if needed.
@@ -556,11 +581,14 @@ class ClaudeAgentClient(AbstractClient):
             run_options: Optional :class:`ClaudeAgentRunOptions` for this call.
 
         Yields:
-            ``str`` chunks corresponding to consecutive ``TextBlock``s.
+            ``str`` chunks corresponding to consecutive ``TextBlock``s, then
+            a final :class:`AIMessage` with metadata.
 
         Raises:
             ImportError: When ``claude_agent_sdk`` is not installed.
         """
+        # Save user_id before del (needed for final AIMessage)
+        saved_user_id = user_id
         del max_tokens, temperature, files, user_id, tools, deep_research
         del agent_config, lazy_loading
         query, _, _ = _import_sdk()
@@ -573,12 +601,30 @@ class ClaudeAgentClient(AbstractClient):
             session_id=session_id,
         )
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent for stream
+        import time as _lc_time_cas
+        from parrot.core.events.lifecycle.events import ClientStreamChunkEvent as _CAsStreamChunkEvent
+        _lc_tc_cas = self._emit_before_call(
+            client_name="claude-agent",
+            model=resolved_model or "",
+            temperature=None,
+            system_prompt=system_prompt,
+            has_tools=False,
+            parent_trace=None,
+        )
+        _lc_t0_cas = _lc_time_cas.perf_counter()
+        _lc_has_chunk_subs_cas = self.events.has_subscribers(_CAsStreamChunkEvent)
+        _lc_chunk_idx_cas = 0
+
         try:
             from claude_agent_sdk.types import AssistantMessage, TextBlock
         except ImportError as exc:  # pragma: no cover
             raise ImportError(_INSTALL_HINT) from exc
 
+        all_messages = []
+        turn_id = str(uuid.uuid4())
         async for msg in query(prompt=prompt, options=options):
+            all_messages.append(msg)
             # Duck-typed defensive checks in case the SDK introduces new
             # subclasses or aliases.
             if isinstance(msg, AssistantMessage) or type(msg).__name__ == "AssistantMessage":
@@ -589,7 +635,36 @@ class ClaudeAgentClient(AbstractClient):
                     ):
                         text = getattr(block, "text", "") or ""
                         if text:
+                            # FEAT-176: per-chunk event
+                            if _lc_has_chunk_subs_cas:
+                                await self.events.emit(_CAsStreamChunkEvent(
+                                    trace_context=_lc_tc_cas, client_name="claude-agent",
+                                    model=resolved_model or "", chunk_index=_lc_chunk_idx_cas,
+                                    chunk_size_bytes=len(text.encode("utf-8")),
+                                    source_type="client", source_name="claude-agent",
+                                ))
+                                _lc_chunk_idx_cas += 1
                             yield text
+
+        # Build and yield final AIMessage using accumulated messages
+        ai_message = AIMessageFactory.from_claude_agent(
+            messages=all_messages,
+            input_text=prompt,
+            model=resolved_model,
+            user_id=saved_user_id,
+            session_id=session_id,
+            turn_id=turn_id,
+        )
+        # FEAT-176: lifecycle event — AfterClientCallEvent
+        _lc_cas_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc_cas, client_name="claude-agent", model=resolved_model or "",
+            duration_ms=(_lc_time_cas.perf_counter() - _lc_t0_cas) * 1000,
+            input_tokens=getattr(_lc_cas_usage, 'input_tokens', None) if _lc_cas_usage else None,
+            output_tokens=getattr(_lc_cas_usage, 'output_tokens', None) if _lc_cas_usage else None,
+            finish_reason=None,
+        )
+        yield ai_message
 
     async def resume(
         self,

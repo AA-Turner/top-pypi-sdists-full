@@ -1,6 +1,6 @@
 """Main package for Chonkie."""
 
-from .chef import BaseChef, MarkdownChef, TableChef, TextChef
+from .chef import BaseChef, MarkdownChef, MistralOCR, TableChef, TextChef
 from .chunker import (
     BaseChunker,
     CodeChunker,
@@ -77,6 +77,7 @@ __all__ = (
     # chef
     "BaseChef",
     "MarkdownChef",
+    "MistralOCR",
     "TableChef",
     "TextChef",
     # chunker
@@ -168,6 +169,6 @@ __all__ = (
 )
 
 # This hippo grows with every release 🦛✨~
-__version__ = "1.6.6"
+__version__ = "1.6.7"
 __name__ = "chonkie"
 __author__ = "🦛 Chonkie Inc"

@@ -1,4 +1,4 @@
-from biolib.typing_utils import TypedDict
+from biolib._shared.types.typing import TypedDict
 
 
 class DataRecordVersion(TypedDict):

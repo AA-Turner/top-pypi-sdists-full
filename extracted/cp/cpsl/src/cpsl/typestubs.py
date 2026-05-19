@@ -82,6 +82,7 @@ declare module "@capsule/page" {
 
   interface CapsuleContext {
     appId: string;
+    props: Record<string, unknown>;
     user: { email: string } | null;
     pages: CapsulePage[];
     login: () => void;

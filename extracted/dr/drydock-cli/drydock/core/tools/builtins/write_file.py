@@ -747,6 +747,7 @@ class WriteFile(
         file_path = file_path.resolve()
 
         if file_path.is_dir():
+            children: list[str] = []
             try:
                 children = sorted(p.name for p in file_path.iterdir())[:20]
                 listing = ", ".join(children) if children else "(empty)"

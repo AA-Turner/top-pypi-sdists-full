@@ -3,7 +3,7 @@ Chatbot Manager.
 
 Tool for instanciate, managing and interacting with Chatbot through APIs.
 """
-from typing import Any, Dict, Type, Optional, Tuple, List
+from typing import Any, Dict, Type, Optional, Tuple, List, TYPE_CHECKING
 from importlib import import_module
 import contextlib
 import time
@@ -29,6 +29,7 @@ from ..handlers.agent import AgentTalk
 from ..handlers.integrations import IntegrationsHandler
 from ..handlers.infographic import InfographicTalk
 from ..handlers.agents.data import DataAnalystHandler
+from ..handlers.agents.factory import AgentFactoryHandler
 from ..handlers.print_pdf import PrintPDFHandler
 from ..handlers.datasets import DatasetManagerHandler
 from ..handlers.database import (
@@ -79,8 +80,11 @@ from ..handlers.mcp_helper import setup_mcp_helper_routes
 # FEAT-146: Web HITL response endpoint + bootstrap
 from ..handlers.web_hitl import HITLResponseHandler, setup_web_hitl
 # Telegram integration
-# Integrations (Telegram, MS Teams)
-from ..integrations import IntegrationBotManager
+# Integrations (Telegram, MS Teams) — imported lazily inside on_startup
+# because IntegrationBotManager pulls aiogram (~1.5s); we only need it
+# when the app starts serving traffic.
+if TYPE_CHECKING:
+    from ..integrations import IntegrationBotManager
 
 
 class BotManager:
@@ -133,7 +137,7 @@ class BotManager:
         # Initialize Redis persistence for crews — keyed off instance attr
         self.crew_redis = CrewRedis() if self.enable_crews else None
         # Integration manager
-        self._integration_manager: Optional[IntegrationBotManager] = None
+        self._integration_manager: Optional["IntegrationBotManager"] = None
         # Shared Redis client published at app['redis'] during setup(). True
         # when BotManager created it (and must close it during on_cleanup);
         # False when another component had already set app['redis'] and
@@ -1434,6 +1438,12 @@ class BotManager:
             '/api/v1/agents/analyst',
             DataAnalystHandler
         )
+        # AgentFactory: meta-agent that drafts and registers new agents
+        # from a natural-language description (RAG / tool-agent / clone).
+        router.add_view(
+            '/api/v1/agents/factory',
+            AgentFactoryHandler
+        )
         # InfographicTalk routes (FEAT-095) — literal resource routes MUST
         # come before the {agent_id} catch-all so aiohttp resolves
         # /templates and /themes before matching them as agent IDs.
@@ -1691,7 +1701,8 @@ Available documentation UIs:
         if ENABLE_DASHBOARDS:
             await _ensure_dashboard_indexes(app)
         app['chat_storage'] = chat_storage
-        # Start Integration bots
+        # Start Integration bots (deferred aiogram import — see top of file)
+        from ..integrations import IntegrationBotManager
         self._integration_manager = IntegrationBotManager(self)
         await self._integration_manager.startup()
 

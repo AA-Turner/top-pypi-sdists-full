@@ -1,6 +1,9 @@
-from trilogy.core.enums import BooleanOperator, Derivation
+from enum import Enum, auto
+
+from trilogy.core.enums import ComparisonOperator
 from trilogy.core.models.build import (
     BuildComparison,
+    BuildConcept,
     BuildConditional,
     BuildDatasource,
     BuildParenthetical,
@@ -8,9 +11,12 @@ from trilogy.core.models.build import (
 )
 from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.processing.condition_utility import (
+    combine_condition_atoms,
     condition_implies,
+    condition_required_addresses,
     decompose_condition,
     flatten_conditions,
+    is_null_literal,
     is_scalar_condition,
     merge_conditions_and_dedup,
 )
@@ -18,12 +24,41 @@ from trilogy.core.processing.condition_utility import (
 ConditionExpression = BuildComparison | BuildConditional | BuildParenthetical
 
 
-def condition_atom_addresses(atom: ConditionExpression) -> set[str]:
-    return {
-        c.canonical_address
-        for c in atom.row_arguments
-        if c.derivation != Derivation.CONSTANT
+class DatasourceConditionAtomState(Enum):
+    KEEP = auto()
+    ALWAYS_TRUE = auto()
+    ALWAYS_FALSE = auto()
+
+
+def datasource_condition_atom_state(
+    datasource: BuildDatasource,
+    atom: ConditionExpression,
+) -> DatasourceConditionAtomState:
+    if not isinstance(atom, BuildComparison):
+        return DatasourceConditionAtomState.KEEP
+    if atom.operator not in (ComparisonOperator.IS, ComparisonOperator.IS_NOT):
+        return DatasourceConditionAtomState.KEEP
+    if isinstance(atom.left, BuildConcept) and is_null_literal(atom.right):
+        concept = atom.left
+    elif isinstance(atom.right, BuildConcept) and is_null_literal(atom.left):
+        concept = atom.right
+    else:
+        return DatasourceConditionAtomState.KEEP
+
+    non_nullable = {
+        address
+        for column in datasource.columns
+        if not column.is_nullable
+        for address in (column.concept.address, column.concept.canonical_address)
     }
+    if (
+        concept.address not in non_nullable
+        and concept.canonical_address not in non_nullable
+    ):
+        return DatasourceConditionAtomState.KEEP
+    if atom.operator == ComparisonOperator.IS_NOT:
+        return DatasourceConditionAtomState.ALWAYS_TRUE
+    return DatasourceConditionAtomState.ALWAYS_FALSE
 
 
 def datasource_conditions(
@@ -49,13 +84,16 @@ def datasource_conditions(
             for atom in decompose_condition(datasource.non_partial_for.conditional)
         }
     for atom in decompose_condition(conditions.conditional):
+        atom_state = datasource_condition_atom_state(datasource, atom)
+        if atom_state == DatasourceConditionAtomState.ALWAYS_TRUE:
+            continue
         if (
             str(atom) in covered_atoms
-            or atom.existence_arguments
+            or any(arg for group in atom.existence_arguments for arg in group)
             or not is_scalar_condition(atom)
         ):
             continue
-        if condition_atom_addresses(atom).issubset(ds_outputs):
+        if condition_required_addresses(atom).issubset(ds_outputs):
             datasource_conditions = (
                 merge_conditions_and_dedup(atom, datasource_conditions)
                 if datasource_conditions
@@ -100,9 +138,7 @@ def covered_conditions(
             if key in atom_str_map and key not in seen:
                 preserved.append(atom_str_map[key])
                 seen.add(key)
-    if not preserved:
+    cond = combine_condition_atoms(preserved)
+    if cond is None:
         return None
-    cond = preserved[0]
-    for a in preserved[1:]:
-        cond = BuildConditional(left=cond, right=a, operator=BooleanOperator.AND)
     return BuildWhereClause(conditional=cond)

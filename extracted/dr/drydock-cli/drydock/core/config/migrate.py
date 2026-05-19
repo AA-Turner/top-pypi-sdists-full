@@ -97,6 +97,35 @@ def migrate_user_config(config_file: Path) -> None:
                     extra["repeat_penalty"] = extra.pop("frequency_penalty")
                     fixed.append(f"models.{label}.extra_params: frequency_penalty → repeat_penalty")
 
+            # Gemma 4 anti-loop recipe (ai.plainenglish.io 2026 article,
+            # confirmed in this codebase 2026-05-18). The article's #1
+            # finding: temperature MUST be 1.0 for Gemma 4 — lower
+            # values reinforce looping on quantized GGUF. The historic
+            # default in pre-v2.7 configs was 0.2; if the file still
+            # carries that stale value AND the model is Gemma-family,
+            # bump it. We only touch 0.2 specifically so any deliberate
+            # override (0.5, 0.7) is preserved.
+            model_name = (model.get("name") or "").lower()
+            if "gemma" in model_name and model.get("temperature") == 0.2:
+                model["temperature"] = 1.0
+                fixed.append(
+                    f"models.{label}.temperature: 0.2 → 1.0 (Gemma 4 anti-loop)"
+                )
+
+            # If the gemma-family model has no extra_params block at
+            # all, seed the article-recommended sampling. Skip when the
+            # user has set their own — their choice wins.
+            if "gemma" in model_name and not model.get("extra_params"):
+                model["extra_params"] = {
+                    "top_k": 40,
+                    "top_p": 0.95,
+                    "repeat_penalty": 1.1,
+                    "max_tokens": 2048,
+                }
+                fixed.append(
+                    f"models.{label}.extra_params: seeded Gemma 4 anti-loop recipe"
+                )
+
     if not added and not fixed:
         return
 

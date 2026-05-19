@@ -17,8 +17,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, ClassVar, Dict, List
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -27,8 +28,8 @@ class SetProductUnitTicketTemplateDto(BaseModel):
     """
     SetProductUnitTicketTemplateDto
     """ # noqa: E501
-    product_unit_name: Optional[StrictStr] = Field(default=None, alias="productUnitName")
-    template_name: Optional[StrictStr] = Field(default=None, alias="templateName")
+    product_unit_name: Annotated[str, Field(min_length=1, strict=True)] = Field(alias="productUnitName")
+    template_name: Annotated[str, Field(min_length=1, strict=True)] = Field(alias="templateName")
     __properties: ClassVar[List[str]] = ["productUnitName", "templateName"]
 
     model_config = ConfigDict(
@@ -70,16 +71,6 @@ class SetProductUnitTicketTemplateDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if product_unit_name (nullable) is None
-        # and model_fields_set contains the field
-        if self.product_unit_name is None and "product_unit_name" in self.model_fields_set:
-            _dict['productUnitName'] = None
-
-        # set to None if template_name (nullable) is None
-        # and model_fields_set contains the field
-        if self.template_name is None and "template_name" in self.model_fields_set:
-            _dict['templateName'] = None
-
         return _dict
 
     @classmethod

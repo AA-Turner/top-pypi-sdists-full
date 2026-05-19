@@ -186,8 +186,7 @@ def with_checks(
 
     if source_or_resource is None and not checks:
         raise ValueError(
-            "`with_checks()` requires at least one check definition or a source/resource "
-            "argument."
+            "`with_checks()` requires at least one check definition or a source/resource argument."
         )
 
     # if first argument is not a check, we have adapter pattern where we assume source or resource

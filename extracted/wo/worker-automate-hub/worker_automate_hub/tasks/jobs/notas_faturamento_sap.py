@@ -243,6 +243,7 @@ class NotasFaturamentoSAP:
         """
         console.print(f"[CLICK] Preparando clique em: {descricao}")
 
+
         self.wait_sap_loading_sumir(timeout=timeout)
 
         try:
@@ -547,7 +548,66 @@ class NotasFaturamentoSAP:
 
     async def login(self) -> bool:
         try:
+            console.print("[LOGIN] Verificando se já existe sessão ativa no SAP.")
+
+            # ============================================================
+            # 1) PRIMEIRO: VERIFICA SE JÁ ESTÁ LOGADO
+            # ============================================================
+            for tentativa in range(20):
+                current_url = self.driver.current_url or ""
+                page_source = self.driver.page_source or ""
+
+                console.print(
+                    f"[LOGIN] Verificação sessão ativa {tentativa + 1}/20 | URL atual: {current_url}"
+                )
+
+                # Sinais comuns de que já está logado no SAP/Fiori
+                ja_logado_por_url = (
+                    "sap/bc/ui2/flp" in current_url.lower()
+                    or "fiori" in current_url.lower()
+                    or "shell" in current_url.lower()
+                    or "#BillingDocument" in current_url
+                    or "#SalesOrder" in current_url
+                )
+
+                ja_logado_por_html = (
+                    "sap-ushell" in page_source.lower()
+                    or "sapUshell" in page_source
+                    or "Launchpad" in page_source
+                    or "Meus Apps" in page_source
+                    or "Home" in page_source
+                )
+
+                # Se não existem campos de login e há sinais de página SAP carregada,
+                # considera sessão ativa.
+                inputs_login = self.driver.find_elements(By.CLASS_NAME, "loginInputField")
+
+                if len(inputs_login) < 2 and (ja_logado_por_url or ja_logado_por_html):
+                    console.print("[LOGIN] Sessão SAP já estava ativa. Login não será executado novamente.")
+                    return True
+
+                # Também verifica se algum iframe de relatório já existe
+                for relatorio, view_conf in SAP_VIEWS.items():
+                    iframes = self.driver.find_elements(By.ID, view_conf["iframe_id"])
+                    if iframes:
+                        console.print(
+                            f"[LOGIN] Iframe do relatório {relatorio} encontrado. Sessão já está ativa."
+                        )
+                        return True
+
+                # Se encontrou campos de login, sai da verificação e faz login normalmente
+                if len(inputs_login) >= 2:
+                    console.print("[LOGIN] Campos de login encontrados. Será feito login normal.")
+                    break
+
+                await worker_sleep(1)
+
+            # ============================================================
+            # 2) SEGUNDO: TENTA FAZER LOGIN NORMAL
+            # ============================================================
             console.print("[LOGIN] Iniciando login no SAP.")
+
+            inputs = []
 
             for i in range(30):
                 inputs = self.driver.find_elements(By.CLASS_NAME, "loginInputField")
@@ -560,23 +620,64 @@ class NotasFaturamentoSAP:
                     console.print("[LOGIN] Campos de entrada de login encontrados.")
                     break
 
+                # Durante a espera, pode ser que a página termine de carregar já logada
+                current_url = self.driver.current_url or ""
+                page_source = self.driver.page_source or ""
+
+                if (
+                    "sap/bc/ui2/flp" in current_url.lower()
+                    or "fiori" in current_url.lower()
+                    or "sap-ushell" in page_source.lower()
+                    or "sapUshell" in page_source
+                ):
+                    console.print("[LOGIN] Sessão ficou ativa durante a espera. Login ignorado.")
+                    return True
+
                 await worker_sleep(1)
 
             inputs = self.driver.find_elements(By.CLASS_NAME, "loginInputField")
 
             if len(inputs) < 2:
-                console.print("[LOGIN][ERRO] Não encontrou campos de login.")
+                console.print("[LOGIN] Campos de login não encontrados.")
+
+                # Última validação antes de retornar erro
+                current_url = self.driver.current_url or ""
+                page_source = self.driver.page_source or ""
+
+                if (
+                    "sap/bc/ui2/flp" in current_url.lower()
+                    or "fiori" in current_url.lower()
+                    or "sap-ushell" in page_source.lower()
+                    or "sapUshell" in page_source
+                ):
+                    console.print("[LOGIN] Apesar de não encontrar campos, sessão parece ativa. Continuando.")
+                    return True
+
+                console.print("[LOGIN][ERRO] Não encontrou campos de login e não identificou sessão ativa.")
                 return False
+
+            # Limpa antes de preencher para evitar duplicar usuário/senha
+            try:
+                inputs[0].clear()
+            except Exception:
+                pass
 
             inputs[0].send_keys(self.user)
             console.print("[LOGIN] Usuário inserido no campo de login.")
 
             await worker_sleep(2)
 
+            try:
+                inputs[1].clear()
+            except Exception:
+                pass
+
             inputs[1].send_keys(self.password)
             console.print("[LOGIN] Senha inserida no campo de login.")
 
             await worker_sleep(1)
+
+            clicou_login = False
 
             for i in range(10):
                 login_btn = self.driver.find_elements(By.ID, "LOGIN_SUBMIT_BLOCK")
@@ -588,14 +689,52 @@ class NotasFaturamentoSAP:
                 if login_btn:
                     login_btn[0].click()
                     console.print("[LOGIN] Botão de login clicado.")
+                    clicou_login = True
                     break
 
                 await worker_sleep(1)
 
-            await worker_sleep(3)
+            if not clicou_login:
+                console.print("[LOGIN][ERRO] Botão de login não encontrado.")
+                return False
 
-            console.print("[LOGIN] Login finalizado sem exceção.")
-            return True
+            await worker_sleep(5)
+
+            # ============================================================
+            # 3) VALIDA SE LOGIN DEU CERTO
+            # ============================================================
+            console.print("[LOGIN] Validando login após submit.")
+
+            for i in range(30):
+                current_url = self.driver.current_url or ""
+                page_source = self.driver.page_source or ""
+
+                inputs_login = self.driver.find_elements(By.CLASS_NAME, "loginInputField")
+
+                if (
+                    len(inputs_login) < 2
+                    and (
+                        "sap/bc/ui2/flp" in current_url.lower()
+                        or "fiori" in current_url.lower()
+                        or "sap-ushell" in page_source.lower()
+                        or "sapUshell" in page_source
+                        or "Launchpad" in page_source
+                    )
+                ):
+                    console.print("[LOGIN] Login validado com sucesso.")
+                    return True
+
+                # Às vezes a URL ainda não muda, mas o login já passou.
+                # Como depois o processo acessa a URL do relatório diretamente,
+                # basta não estar mais claramente na tela de login.
+                if len(inputs_login) < 2:
+                    console.print("[LOGIN] Campos de login sumiram. Considerando login bem-sucedido.")
+                    return True
+
+                await worker_sleep(1)
+
+            console.print("[LOGIN][ERRO] Login não foi validado dentro do timeout.")
+            return False
 
         except Exception as e:
             console.print("[LOGIN][ERRO] Exceção ao realizar login.")
@@ -603,7 +742,7 @@ class NotasFaturamentoSAP:
             console.print(f"[LOGIN][ERRO] str(e): {str(e)}")
             console.print("[LOGIN][ERRO] Traceback:")
             console.print(traceback.format_exc())
-            return False
+            return False    
 
     async def download_files(self, company: str, file_type: str):
         console.print(

@@ -21,15 +21,17 @@ from schemathesis.transport.prepare import get_default_headers
 if TYPE_CHECKING:
     import requests
 
+    from schemathesis.core.spec import SchemaMetadata
     from schemathesis.engine.context import EngineContext
     from schemathesis.engine.events import EventGenerator
     from schemathesis.engine.run import Phase
-    from schemathesis.schemas import BaseSchema
+    from schemathesis.engine.run.cache import CacheReport
 
 
 @dataclass(slots=True)
 class ProbePayload:
     probes: list[ProbeRun]
+    cache: CacheReport | None = None
 
 
 def execute(ctx: EngineContext, phase: Phase) -> EventGenerator:
@@ -43,6 +45,9 @@ def execute(ctx: EngineContext, phase: Phase) -> EventGenerator:
         elif isinstance(result.probe, UnsafePathDecoder) and result.is_failure:
             ctx.schema.adapt_to_path_decoder_rejection()
         payload = Ok(ProbePayload(probes=probes))
+    cache_report = ctx.cache.run()
+    if cache_report is not None:
+        payload = Ok(ProbePayload(probes=probes, cache=cache_report))
     yield events.PhaseFinished(phase=phase, status=status, payload=payload)
 
 
@@ -61,7 +66,7 @@ class Probe:
     name: str
 
     def prepare_request(
-        self, session: requests.Session, request: requests.Request, schema: BaseSchema
+        self, session: requests.Session, request: requests.Request, schema: SchemaMetadata
     ) -> requests.PreparedRequest:
         raise NotImplementedError
 
@@ -115,7 +120,7 @@ class NullByteInHeader(Probe):
         self.name = "Supports NULL byte in headers"
 
     def prepare_request(
-        self, session: requests.Session, request: requests.Request, schema: BaseSchema
+        self, session: requests.Session, request: requests.Request, schema: SchemaMetadata
     ) -> requests.PreparedRequest:
         request.method = "GET"
         request.url = schema.get_base_url()
@@ -144,7 +149,7 @@ class UnsafePathDecoder(Probe):
         self.name = "Accepts backslash and control characters in URL paths"
 
     def prepare_request(
-        self, session: requests.Session, request: requests.Request, schema: BaseSchema
+        self, session: requests.Session, request: requests.Request, schema: SchemaMetadata
     ) -> requests.PreparedRequest:
         base_url = schema.get_base_url()
         request.method = "GET"

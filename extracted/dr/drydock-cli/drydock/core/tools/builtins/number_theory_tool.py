@@ -82,25 +82,15 @@ class NumberTheoryArgs(BaseModel):
     )
     n: str = Field(
         default="",
-        description=(
-            "Primary integer (or expression evaluating to one). Used by "
-            "single-arg ops: is_prime, next_prime, prev_prime, factor, "
-            "divisors, divisor_count, totient, mobius."
-        ),
+        description="Primary integer or expression. For single-arg ops (is_prime, factor, divisors, totient, mobius).",
     )
-    a: str = Field(default="", description="Left/first arg (gcd, lcm, mod_inverse base, prime_count, primes_in).")
-    b: str = Field(default="", description="Right/second arg (gcd, lcm, prime_count, primes_in, mod_pow exponent).")
+    a: str = Field(default="", description="First arg (gcd, lcm, mod_inverse base, prime_count, primes_in).")
+    b: str = Field(default="", description="Second arg (gcd, lcm, prime_count, primes_in, mod_pow exp).")
     m: str = Field(default="", description="Modulus (mod_inverse, mod_pow).")
     e: str = Field(default="", description="Exponent (mod_pow).")
-    k: str = Field(default="1", description="Power for divisor_sum (default 1 = standard σ).")
-    remainders: str = Field(
-        default="",
-        description="Comma-separated remainders for crt. Example: '2,3,2'",
-    )
-    moduli: str = Field(
-        default="",
-        description="Comma-separated moduli for crt. Example: '3,5,7'",
-    )
+    k: str = Field(default="1", description="Power for divisor_sum (default 1 = σ).")
+    remainders: str = Field(default="", description="Comma-separated remainders for crt (e.g. '2,3,2').")
+    moduli: str = Field(default="", description="Comma-separated moduli for crt (e.g. '3,5,7').")
 
 
 class NumberTheoryResult(BaseModel):
@@ -368,12 +358,9 @@ class NumberTheory(
     ToolUIData[NumberTheoryArgs, NumberTheoryResult],
 ):
     description: ClassVar[str] = (
-        "Number theory via sympy.ntheory + stdlib — primes, factoring, "
-        "divisors, gcd/lcm, Euler totient, Möbius, modular inverse/"
-        "exponentiation, Chinese Remainder Theorem. Integer args parse "
-        "expressions so `n='2**100 - 1'` and `n='factorial(20)'` work. "
-        "Use INSTEAD of guessing primes or trying to factor large "
-        "numbers by hand. Sandboxed."
+        "Number theory (sympy.ntheory + stdlib): primes, factoring, "
+        "divisors, gcd/lcm, totient, modular inverse/exponentiation, CRT. "
+        "Integer args parse expressions like '2**100 - 1'."
     )
 
     @classmethod

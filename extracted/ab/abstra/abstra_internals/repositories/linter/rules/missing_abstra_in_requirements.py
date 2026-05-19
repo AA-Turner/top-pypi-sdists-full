@@ -1,3 +1,4 @@
+from importlib.metadata import PackageNotFoundError
 from typing import List
 
 from abstra_internals.repositories.linter.models import (
@@ -63,7 +64,10 @@ class MissingAbstraInRequirements(LinterRule):
 
     def find_issues(self) -> List[LinterIssue]:
         requirements = RequirementsRepository.load()
-        local_version = pkg_utils.get_local_package_version()
+        try:
+            local_version = pkg_utils.get_local_package_version()
+        except PackageNotFoundError:
+            return []
 
         if not requirements.has("abstra"):
             return [AbstraNotInRequirementsFound()]

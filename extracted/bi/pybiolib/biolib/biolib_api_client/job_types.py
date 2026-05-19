@@ -1,7 +1,7 @@
 from enum import Enum
 
+from biolib._shared.types.typing import Dict, List, Optional, TypedDict
 from biolib.biolib_api_client.app_types import AppVersionOnJob, RemoteHost
-from biolib.typing_utils import Dict, List, Optional, TypedDict
 
 
 class JobState(Enum):

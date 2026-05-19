@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: holidays
-Version: 0.96
+Version: 0.97
 Summary: Open World Holidays Framework
 Author: Vacanza Team
 Maintainer: Arkadii Yakovets, Panpakorn Siripanich, Serhii Murza
@@ -327,7 +327,7 @@ any) in brackets, available languages and additional holiday categories. All cou
 <td>Bangladesh</td>
 <td>BD</td>
 <td></td>
-<td>ar, <strong>bn</strong>, en_US</td>
+<td>ar, <strong>bn</strong>, en_BD, en_US</td>
 <td></td>
 </tr>
 <tr>
@@ -1279,7 +1279,7 @@ any) in brackets, available languages and additional holiday categories. All cou
 <td>Nepal</td>
 <td>NP</td>
 <td></td>
-<td>en_US, <strong>ne</strong></td>
+<td>en_US, kn, <strong>ne</strong></td>
 <td>WORKDAY</td>
 </tr>
 <tr>

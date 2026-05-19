@@ -3,7 +3,7 @@ import random
 import time
 from copy import deepcopy
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from instagrapi.exceptions import (
@@ -313,32 +313,6 @@ class MediaMixin:
                 return self.media_pk_from_url(location)
         return self.media_pk_from_code(parts.pop())
 
-    def media_info_a1(self, media_pk: str, max_id: str = None) -> Media:
-        """
-        Get Media from PK by Public Web API
-
-        Parameters
-        ----------
-        media_pk: str
-            Unique identifier of the media
-        max_id: str, optional
-            Max ID, default value is None
-
-        Returns
-        -------
-        Media
-            An object of Media type
-        """
-        media_pk = self.media_pk(media_pk)
-        shortcode = self.media_code_from_pk(media_pk)
-        """Use Client.media_info
-        """
-        params = {"max_id": max_id} if max_id else None
-        data = self.public_a1_request("/p/{shortcode!s}/".format(**{"shortcode": shortcode}), params=params)
-        if not data.get("shortcode_media"):
-            raise MediaNotFound(media_pk=media_pk, **data)
-        return extract_media_gql(data["shortcode_media"])
-
     def media_info_gql(self, media_pk: str) -> Media:
         """
         Get Media from PK by Public Graphql API
@@ -373,14 +347,11 @@ class MediaMixin:
             ClientNotFoundError,
             ClientUnauthorizedError,
         ):
-            try:
-                data = self.public_doc_id_graphql_request(
-                    MEDIA_INFO_DOC_ID,
-                    {"shortcode": shortcode},
-                    referer=f"https://www.instagram.com/p/{shortcode}/",
-                )
-            except (ClientForbiddenError, ClientLoginRequired, ClientUnauthorizedError):
-                return self.media_info_a1(media_pk)
+            data = self.public_doc_id_graphql_request(
+                MEDIA_INFO_DOC_ID,
+                {"shortcode": shortcode},
+                referer=f"https://www.instagram.com/p/{shortcode}/",
+            )
             media = data.get("xdt_shortcode_media") or data.get("shortcode_media")
             if not media:
                 raise MediaNotFound(media_pk=media_pk, **data)
@@ -612,12 +583,19 @@ class MediaMixin:
             A boolean value
         """
         assert self.user_id, "Login required"
-        media_id = self.media_pk(media_id)
+        media_id = str(media_id)
         data = {
             "inventory_source": "media_or_ad",
             "media_id": media_id,
+            "_uid": str(self.user_id),
             "radio_type": "wifi-none",
+            "delivery_class": "organic",
+            "tap_source": "button",
+            "is_2m_enabled": "false",
+            "is_from_swipe": "false",
             "is_carousel_bumped_post": "false",
+            "floating_context_items": "[]",
+            "media_pct_watched": "0",
             "container_module": "feed_timeline",
             "feed_position": str(random.randint(0, 6)),
         }
@@ -640,6 +618,88 @@ class MediaMixin:
             A boolean value
         """
         return self.media_like(media_id, revert=True)
+
+    def media_note_create(
+        self,
+        media_id: str,
+        text: str = "",
+        audience: int = 7,
+        note_style: int = 13,
+        extra_data: Optional[Dict] = None,
+    ) -> Dict:
+        """
+        Create a note attached to a media item.
+
+        This is separate from Direct inbox Notes created by
+        :meth:`create_note`; it mirrors the Android app's
+        ``media/create_note/v2/`` flow for notes attached to posts/Reels.
+
+        Parameters
+        ----------
+        media_id: str
+            Full media id, for example ``"3884795301060104481_52448022913"``.
+        text: str, optional
+            Note text.
+        audience: int, optional
+            Raw media-note audience value. The Android app sends ``7``.
+        note_style: int, optional
+            Raw media-note style value. The Android app sends ``13``.
+        extra_data: Dict, optional
+            Additional app-surface fields such as ``tracking_token``,
+            ``ranking_info_token`` or ``nav_chain`` when the caller has them.
+
+        Returns
+        -------
+        Dict
+            Raw created note response.
+        """
+        assert self.user_id, "Login required"
+        data = {
+            "inventory_source": "recommended_clips_chaining_model",
+            "media_client_position": "0",
+            "media_id": str(media_id),
+            "note_style": str(note_style),
+            "carousel_index": "-1",
+            "text": text,
+            "_uuid": self.uuid,
+            "audience": str(audience),
+            "event_source": "ufi",
+            "container_module": "clips_viewer_clips_tab",
+        }
+        if extra_data:
+            data.update(extra_data)
+        return self.private_request("media/create_note/v2/", data=data, with_signature=False)
+
+    def media_note_delete(self, note_id: str, extra_data: Optional[Dict] = None) -> bool:
+        """
+        Delete a note attached to a media item.
+
+        Parameters
+        ----------
+        note_id: str
+            ID of the media note to delete.
+        extra_data: Dict, optional
+            Additional app-surface fields such as ``tracking_token``,
+            ``ranking_info_token`` or ``nav_chain`` when the caller has them.
+
+        Returns
+        -------
+        bool
+            A boolean value.
+        """
+        assert self.user_id, "Login required"
+        data = {
+            "inventory_source": "recommended_clips_chaining_model",
+            "carousel_index": "-1",
+            "_uuid": self.uuid,
+            "event_source": "ufi",
+            "container_module": "clips_viewer_clips_tab",
+            "note_id": str(note_id),
+        }
+        if extra_data:
+            data.update(extra_data)
+        result = self.private_request("media/delete_note/", data=data, with_signature=False)
+        return result.get("status", "") == "ok"
 
     def user_medias_paginated_gql(
         self, user_id: str, amount: int = 0, sleep: int = 2, end_cursor=None

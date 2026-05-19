@@ -1646,7 +1646,7 @@ GALAXY_COLLECTION_IMPORT_POLL_FACTOR:
     - name: ANSIBLE_GALAXY_COLLECTION_IMPORT_POLL_FACTOR
   version_added: "2.18"
 HOST_KEY_CHECKING:
-  # NOTE: constant not in use by ssh/paramiko plugins anymore, but they do support the same configuration sources
+  # NOTE: constant not in use by ssh plugin anymore, but it does support the same configuration sources
   # TODO: check non ssh connection plugins for use/migration
   name: Toggle host/key check
   default: True
@@ -1667,6 +1667,21 @@ HOST_PATTERN_MISMATCH:
   choices:
     <<: *basic_error
   version_added: "2.8"
+INJECT_INVOCATION:
+  name: Control task result injection of ``invocation``
+  description:
+    - When enabled, an ``invocation`` key will be added to the task result with the module/action arguments used.
+      Most callback plugins mask the ``invocation`` key from task result display by default.
+  type: boolean
+  default: false
+  env:
+    - name: ANSIBLE_INJECT_INVOCATION
+  ini:
+    - key: interpreter_python
+      section: defaults
+  vars:
+    - name: ansible_inject_invocation
+  version_added: "2.21"
 INTERPRETER_PYTHON:
   name: Python interpreter path (or automatic discovery behavior) used for module execution
   default: auto
@@ -1678,11 +1693,11 @@ INTERPRETER_PYTHON:
   version_added: "2.8"
   description:
   - Path to the Python interpreter to be used for module execution on remote targets, or an automatic discovery mode.
-    Supported discovery modes are ``auto`` (the default), ``auto_silent``, ``auto_legacy``, and ``auto_legacy_silent``.
+    Supported discovery modes are ``auto`` (the default), and ``auto_silent``.
     All discovery modes match against an ordered list of well-known Python interpreter locations. 
     The fallback behavior will issue a warning that the interpreter should be set explicitly (since interpreters
     installed later may change which one is used). This warning behavior can be disabled by setting ``auto_silent``.
-    The ``auto_legacy`` modes are deprecated and behave the same as their respective ``auto`` modes.
+    The ``auto_legacy*`` modes are removed.
     They exist for backward-compatibility with older Ansible releases that always defaulted to ``/usr/bin/python3``,
     which will use that interpreter if present.
 INTERPRETER_PYTHON_FALLBACK:
@@ -2109,6 +2124,22 @@ _TEMPLAR_UNTRUSTED_TEMPLATE_BEHAVIOR:
   choices: *basic_error
   env: [{name: _ANSIBLE_TEMPLAR_UNTRUSTED_TEMPLATE_BEHAVIOR}]
   version_added: '2.19'
+WORKER_SESSION_ISOLATION:
+  name: Control worker session isolation
+  description:
+    - Ansible forked workers run session-isolated by default to avoid contention on shared TTYs.
+    - If access to the inherited parent TTY is required, set this option to ``false`` to disable session isolation.
+    - Disabling session isolation should be limited to the smallest possible scope by setting the ``ansible_worker_session_isolation`` variable on individual tasks, blocks, plays, roles, or hosts as needed.
+  default: true
+  env:
+  - name: ANSIBLE_WORKER_SESSION_ISOLATION
+  ini:
+    - key: worker_session_isolation
+      section: defaults
+  vars:
+  - { name: ansible_worker_session_isolation }
+  type: boolean
+  version_added: '2.21'
 WORKER_SHUTDOWN_POLL_COUNT:
   name: Worker Shutdown Poll Count
   default: 0

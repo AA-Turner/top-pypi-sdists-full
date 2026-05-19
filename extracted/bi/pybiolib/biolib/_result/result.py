@@ -15,6 +15,7 @@ from biolib._internal.result.types import CloudJobDict, CloudJobStartedDict, Job
 from biolib._internal.tree_utils import build_tree_from_files, build_tree_str
 from biolib._internal.utils import PathFilter, filter_lazy_loaded_files, open_browser_window_from_notebook
 from biolib._shared.system_exception_codes import SystemExceptionCodeMap, SystemExceptionCodes
+from biolib._shared.types.typing import Dict, Generator, List, Optional, Tuple, Union, cast
 from biolib._shared.utils import parse_resource_uri
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client import BiolibApiClient, CreatedJobDict
@@ -27,7 +28,6 @@ from biolib.biolib_binary_format.utils import InMemoryIndexableBuffer
 from biolib.biolib_errors import BioLibError, CloudJobFinishedError, WaitTimeoutError
 from biolib.biolib_logging import logger, logger_no_user_data
 from biolib.tables import BioLibTable
-from biolib.typing_utils import Dict, Generator, List, Optional, Tuple, Union, cast
 from biolib.utils import IS_RUNNING_IN_NOTEBOOK
 
 

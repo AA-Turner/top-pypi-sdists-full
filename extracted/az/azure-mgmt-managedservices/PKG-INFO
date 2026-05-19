@@ -1,102 +1,157 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-managedservices
-Version: 6.0.0
-Summary: Microsoft Azure Managed Services Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
-Description: ## Microsoft Azure SDK for Python
-        
-        This is the Microsoft Azure Managed Services Client Library.
-        
-        Azure Resource Manager (ARM) is the next generation of management APIs
-        that replace the old Azure Service Management (ASM).
-        
-        This package has been tested with Python 2.7, 3.5, 3.6 and 3.7.
-        
-        For the older Azure Service Management (ASM) libraries, see
-        [azure-servicemanagement-legacy](https://pypi.python.org/pypi/azure-servicemanagement-legacy)
-        library.
-        
-        For a more complete set of Azure libraries, see the
-        [azure sdk python release](https://aka.ms/azsdk/python/all).
-        
-        ## Usage
-        
-        
-        To learn how to use this package, see the [quickstart guide](https://aka.ms/azsdk/python/mgmt)
-        
-        
-        
-        For docs and references, see [Python SDK References](https://docs.microsoft.com/python/api/overview/azure/)
-        Code samples for this package can be found at [Managed Services Management](https://docs.microsoft.com/samples/browse/?languages=python&term=Getting%20started%20-%20Managing&terms=Getting%20started%20-%20Managing) on docs.microsoft.com.
-        Additional code samples for different Azure services are available at [Samples Repo](https://aka.ms/azsdk/python/mgmt/samples)
-        
-        
-        ## Provide Feedback
-        
-        If you encounter any bugs or have suggestions, please file an issue in
-        the [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
-        section of the project.
-        
-        ![image](https://azure-sdk-impressions.azurewebsites.net/api/impressions/azure-sdk-for-python%2Fazure-mgmt-managedservices%2FREADME.png)
-        
-        
-        # Release History
-        
-        ## 6.0.0 (2021-04-22)
-        
-        **Features**
-        
-          - Added operation group MarketplaceRegistrationDefinitionsWithoutScopeOperations
-        
-        ## 6.0.0b1 (2020-12-07)
-        
-        This is beta preview version.
-        
-        This version uses a next-generation code generator that introduces important breaking changes, but also important new features (like unified authentication and async programming).
-        
-        **General breaking changes**
-        
-        - Credential system has been completly revamped:
-        
-          - `azure.common.credentials` or `msrestazure.azure_active_directory` instances are no longer supported, use the `azure-identity` classes instead: https://pypi.org/project/azure-identity/
-          - `credentials` parameter has been renamed `credential`
-        
-        - The `config` attribute no longer exists on a client, configuration should be passed as kwarg. Example: `MyClient(credential, subscription_id, enable_logging=True)`. For a complete set of
-          supported options, see the [parameters accept in init documentation of azure-core](https://github.com/Azure/azure-sdk-for-python/blob/master/sdk/core/azure-core/CLIENT_LIBRARY_DEVELOPER.md#available-policies)
-        - You can't import a `version` module anymore, use `__version__` instead
-        - Operations that used to return a `msrest.polling.LROPoller` now returns a `azure.core.polling.LROPoller` and are prefixed with `begin_`.
-        - Exceptions tree have been simplified and most exceptions are now `azure.core.exceptions.HttpResponseError` (`CloudError` has been removed).
-        - Most of the operation kwarg have changed. Some of the most noticeable:
-        
-          - `raw` has been removed. Equivalent feature can be found using `cls`, a callback that will give access to internal HTTP response for advanced user
-          - For a complete set of
-          supported options, see the [parameters accept in Request documentation of azure-core](https://github.com/Azure/azure-sdk-for-python/blob/master/sdk/core/azure-core/CLIENT_LIBRARY_DEVELOPER.md#available-policies)
-        
-        **General new features**
-        
-        - Type annotations support using `typing`. SDKs are mypy ready.
-        - This client has now stable and official support for async. Check the `aio` namespace of your package to find the async client.
-        - This client now support natively tracing library like OpenCensus or OpenTelemetry. See this [tracing quickstart](https://github.com/Azure/azure-sdk-for-python/tree/master/sdk/core/azure-core-tracing-opentelemetry) for an overview.
-        
-        ## 1.0.0 (2019-07-05)
-        
-          - GA Release
-        
-        ## 0.1.0 (2019-05-14)
-        
-          - Initial Release
-        
-Platform: UNKNOWN
-Classifier: Development Status :: 4 - Beta
+Version: 6.0.1
+Summary: Microsoft Azure Managedservices Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
+Keywords: azure,azure sdk
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
+Requires-Dist: typing-extensions>=4.6.0
+Dynamic: license-file
+
+# Microsoft Azure SDK for Python
+
+This is the Microsoft Azure Managed Services Client Library.
+This package has been tested with Python 3.10+.
+For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
+
+## _Disclaimer_
+
+_Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For more information and questions, please refer to https://github.com/Azure/azure-sdk-for-python/issues/20691_
+
+## Getting started
+
+### Prerequisites
+
+- Python 3.10+ is required to use this package.
+- [Azure subscription](https://azure.microsoft.com/free/)
+
+### Install the package
+
+```bash
+pip install azure-mgmt-managedservices
+pip install azure-identity
+```
+
+### Authentication
+
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+
+- `AZURE_CLIENT_ID` for Azure client ID.
+- `AZURE_TENANT_ID` for Azure tenant ID.
+- `AZURE_CLIENT_SECRET` for Azure client secret.
+
+With above configuration, client can be authenticated by following code:
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.managedservices import ManagedServicesClient
+
+client = ManagedServicesClient(credential=DefaultAzureCredential())
+```
+
+## Examples
+
+Code samples for this package can be found at:
+- [Search Managed Services](https://docs.microsoft.com/samples/browse/?languages=python&term=Getting%20started%20-%20Managing&terms=Getting%20started%20-%20Managing) on docs.microsoft.com
+- [Azure Python Mgmt SDK Samples Repo](https://aka.ms/azsdk/python/mgmt/samples)
+
+
+## Troubleshooting
+
+## Next steps
+
+## Provide Feedback
+
+If you encounter any bugs or have suggestions, please file an issue in the
+[Issues](https://github.com/Azure/azure-sdk-for-python/issues)
+section of the project. 
+
+# Release History
+
+## 6.0.1 (2026-05-18)
+
+### Other Changes
+
+  - Regenerated with latest code generator tool
+
+## 7.0.0b2 (2024-11-05)
+
+### Other Changes
+
+  - Update dependencies
+
+## 7.0.0b1 (2022-10-31)
+
+### Features Added
+
+  - Added operation group OperationsWithScopeOperations
+  - Model JustInTimeAccessPolicy has a new parameter managed_by_tenant_approvers
+  - Model RegistrationAssignment has a new parameter system_data
+  - Model RegistrationAssignmentPropertiesRegistrationDefinition has a new parameter system_data
+  - Model RegistrationDefinition has a new parameter system_data
+  - Model RegistrationDefinitionProperties has a new parameter managee_tenant_id
+  - Model RegistrationDefinitionProperties has a new parameter managee_tenant_name
+
+### Breaking Changes
+
+  - Operation RegistrationAssignmentsOperations.list has a new parameter filter
+  - Operation RegistrationDefinitionsOperations.list has a new parameter filter
+
+## 6.0.0 (2021-04-22)
+
+**Features**
+
+  - Added operation group MarketplaceRegistrationDefinitionsWithoutScopeOperations
+
+## 6.0.0b1 (2020-12-07)
+
+This is beta preview version.
+
+This version uses a next-generation code generator that introduces important breaking changes, but also important new features (like unified authentication and async programming).
+
+**General breaking changes**
+
+- Credential system has been completly revamped:
+
+  - `azure.common.credentials` or `msrestazure.azure_active_directory` instances are no longer supported, use the `azure-identity` classes instead: https://pypi.org/project/azure-identity/
+  - `credentials` parameter has been renamed `credential`
+
+- The `config` attribute no longer exists on a client, configuration should be passed as kwarg. Example: `MyClient(credential, subscription_id, enable_logging=True)`. For a complete set of
+  supported options, see the [parameters accept in init documentation of azure-core](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/core/azure-core/CLIENT_LIBRARY_DEVELOPER.md#available-policies)
+- You can't import a `version` module anymore, use `__version__` instead
+- Operations that used to return a `msrest.polling.LROPoller` now returns a `azure.core.polling.LROPoller` and are prefixed with `begin_`.
+- Exceptions tree have been simplified and most exceptions are now `azure.core.exceptions.HttpResponseError` (`CloudError` has been removed).
+- Most of the operation kwarg have changed. Some of the most noticeable:
+
+  - `raw` has been removed. Equivalent feature can be found using `cls`, a callback that will give access to internal HTTP response for advanced user
+  - For a complete set of
+  supported options, see the [parameters accept in Request documentation of azure-core](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/core/azure-core/CLIENT_LIBRARY_DEVELOPER.md#available-policies)
+
+**General new features**
+
+- Type annotations support using `typing`. SDKs are mypy ready.
+- This client has now stable and official support for async. Check the `aio` namespace of your package to find the async client.
+- This client now support natively tracing library like OpenCensus or OpenTelemetry. See this [tracing quickstart](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/core/azure-core-tracing-opentelemetry) for an overview.
+
+## 1.0.0 (2019-07-05)
+
+  - GA Release
+
+## 0.1.0 (2019-05-14)
+
+  - Initial Release

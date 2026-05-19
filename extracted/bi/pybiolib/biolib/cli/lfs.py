@@ -7,9 +7,9 @@ from typing import Dict, List
 from biolib import biolib_errors
 from biolib._data_record.data_record import DataRecord
 from biolib._internal import cli
+from biolib._shared.types.typing import Optional
 from biolib.biolib_errors import FileMaxCountExceededError
 from biolib.biolib_logging import logger, logger_no_user_data
-from biolib.typing_utils import Optional
 
 
 @cli.group(help='Manage Large File Systems', hidden=True)

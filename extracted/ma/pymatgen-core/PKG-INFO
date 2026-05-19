@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymatgen-core
-Version: 2026.5.17
+Version: 2026.5.18
 Summary: Python Materials Genomics is a robust materials analysis code that defines core object representations for structures and molecules with support for many electronic structure codes. It is currently the core analysis code powering the Materials Project (https://materialsproject.org). This repository is for pymatgen-core, which implements the core data structures and algorithms.
 Author-email: Pymatgen Development Team <shyue@nus.edu.sg>
 Maintainer-email: Matthew Horton <m.k.horton@gmail.com>, Shyue Ping Ong <shyue@nus.edu.sg>
@@ -31,7 +31,7 @@ Requires-Dist: bibtexparser
 Requires-Dist: joblib>=1.3.2
 Requires-Dist: lxml>=6.1.0
 Requires-Dist: matplotlib>=3.8
-Requires-Dist: monty>=2026.2.18
+Requires-Dist: monty>=2026.5.18
 Requires-Dist: networkx>=2.7
 Requires-Dist: numpy<3,>=1.25.0; python_version < "3.13"
 Requires-Dist: numpy<3,>=2.1.0; python_version >= "3.13"

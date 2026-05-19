@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: oslo.limit
-Version: 2.10.0
+Version: 2.11.0
 Summary: Limit enforcement library to assist with quota calculation.
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://docs.openstack.org/oslo.limit
 Project-URL: Repository, https://opendev.org/openstack/oslo.limit
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -17,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
@@ -27,7 +27,7 @@ Requires-Dist: keystoneauth1>=3.9.0
 Requires-Dist: oslo.config>=5.2.0
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: oslo.log>=3.44.0
-Requires-Dist: openstacksdk>=0.47.0
+Requires-Dist: openstacksdk>=4.11.0
 Dynamic: license-file
 Dynamic: requires-dist
 

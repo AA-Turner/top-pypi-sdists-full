@@ -8,7 +8,7 @@ and registering agents from the agents/ directory.
 from __future__ import annotations
 import sys
 import asyncio
-from typing import Dict, Iterable, List, Type, Set, Union, Optional, Any, Protocol
+from typing import Dict, Iterable, List, Literal, Type, Set, Union, Optional, Any, Protocol
 from pathlib import Path
 import hashlib
 from types import ModuleType
@@ -58,6 +58,7 @@ class BotMetadata:
     dependencies: List[str] = field(default_factory=list)
     startup_config: Dict[str, Any] = field(default_factory=dict)  # Config for startup instantiation
     bot_config: Optional[Any] = None  # Optional[BotConfig] – declarative agent configuration
+    events_block: Optional[Dict[str, Any]] = None  # FEAT-176: parsed 'events:' YAML block
     _instance: Optional[AbstractBot] = None
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
@@ -180,6 +181,20 @@ class BotMetadata:
             # Configure instance if needed:
             if not self.at_startup:
                 await instance.configure()
+
+            # FEAT-176: wire YAML-declared lifecycle subscribers onto the bot's
+            # event registry.  Must run AFTER configure() so all bot attributes
+            # are initialised before the first event may fire.
+            if self.events_block:
+                try:
+                    from parrot.core.events.lifecycle.yaml_loader import wire_events
+                    wire_events(instance, self.events_block)
+                except Exception as _wire_exc:
+                    logging.error(
+                        "Failed to wire lifecycle events for bot '%s': %s",
+                        self.name, _wire_exc,
+                    )
+
             # Store instance if singleton
             if self.singleton:
                 self._instance = instance
@@ -204,6 +219,9 @@ class BotConfig(BaseModel):
     class_name: str
     module: str
     enabled: bool = True
+    # "repo": curated YAML committed to the repo. "factory": written at runtime
+    # by AgentFactory and deletable via DELETE /api/v1/bots/{id}.
+    origin: Literal["repo", "factory"] = "repo"
     config: Dict[str, Any] = Field(default_factory=dict)
     # New attributes
     tools: Optional[ToolConfig] = Field(default=None)
@@ -597,6 +615,17 @@ class AgentRegistry:
     def has(self, name: str) -> bool:
         return name in self._registered_agents
 
+    def get_metadata(self, name: str) -> Optional[BotMetadata]:
+        """Return the :class:`BotMetadata` for ``name`` or ``None`` if absent.
+
+        Public read-only accessor — prefer this over reaching into
+        ``_registered_agents`` directly. Useful for callers that need to
+        inspect non-instance attributes (``bot_config``, ``file_path``,
+        ``tags``, …) without paying the lazy-instantiation cost of
+        :meth:`get_instance`.
+        """
+        return self._registered_agents.get(name)
+
     async def get_instance(
         self,
         name: str,
@@ -830,6 +859,16 @@ class AgentRegistry:
                      # Pass other keys as prompt vars?
                      merged_args.update(config.system_prompt)
 
+                # When no explicit `prompt:` block is declared, route the
+                # YAML system_prompt through PromptBuilder.from_system_prompt
+                # so the agent picks up the security/knowledge/tools/output/
+                # behavior layers without colliding with IDENTITY_LAYER.
+                if not config.prompt:
+                    from ..bots.prompts.builder import PromptBuilder
+                    merged_args['prompt_builder'] = PromptBuilder.from_system_prompt(
+                        merged_args['system_prompt']
+                    )
+
             # 2. Handle ModelConfig
             if config.model:
                 # Convert ModelConfig to llm args
@@ -969,6 +1008,9 @@ class AgentRegistry:
                 if not config.enabled:
                     continue
 
+                # FEAT-176: parse optional top-level 'events:' block
+                events_block = content.get('events') or None
+
                 # Create Factory
                 factory = self.create_agent_factory(config)
 
@@ -984,6 +1026,7 @@ class AgentRegistry:
                     tags=config.tags,
                     priority=config.priority,
                     bot_config=config,
+                    events_block=events_block,
                 )
 
                 count += 1
@@ -1016,6 +1059,7 @@ class AgentRegistry:
                 "module": config.module,
                 "description": config.config.get('description', ''),
                 "enabled": config.enabled,
+                "origin": config.origin,
                 "version": "1.0.0"
             }
         }
@@ -1033,6 +1077,47 @@ class AgentRegistry:
             yaml.dump(data, f)
 
         return file_path
+
+    def delete_factory_agent(self, name: str) -> tuple[bool, str]:
+        """Delete a factory-created agent: remove its YAML file and unregister.
+
+        Refuses to delete agents whose ``origin`` is not ``"factory"`` so that
+        repo-committed YAMLs cannot be wiped via HTTP. The on-disk YAML path
+        is read from the agent's ``BotMetadata.file_path`` to avoid guessing
+        the category subdirectory.
+
+        Args:
+            name: Registered agent name.
+
+        Returns:
+            A ``(deleted, reason)`` tuple. ``deleted`` is True only when both
+            the YAML file was removed and the agent was popped from
+            ``_registered_agents``.
+        """
+        metadata = self.get_metadata(name)
+        if metadata is None:
+            return False, f"Agent '{name}' is not registered"
+
+        bot_config = getattr(metadata, "bot_config", None)
+        origin = getattr(bot_config, "origin", "repo") if bot_config else "repo"
+        if origin != "factory":
+            return False, (
+                f"Agent '{name}' has origin='{origin}'; only factory-created "
+                "agents can be deleted via this API"
+            )
+
+        yaml_path = metadata.file_path
+        try:
+            if yaml_path and Path(yaml_path).exists():
+                Path(yaml_path).unlink()
+        except OSError as exc:
+            return False, f"Failed to remove YAML at {yaml_path}: {exc}"
+
+        self._registered_agents.pop(name, None)
+        self.logger.info(
+            "Deleted factory agent '%s' (yaml=%s)", name, yaml_path
+        )
+        return True, "deleted"
 
     def _import_module_from_path(
         self,

@@ -106,7 +106,22 @@ _PROJECT_MARKERS = (
 
 
 def _looks_like_project(path: Path) -> bool:
-    return any((path / marker).exists() for marker in _PROJECT_MARKERS)
+    if any((path / marker).exists() for marker in _PROJECT_MARKERS):
+        return True
+    # Looser fallback (2026-05-18): a directory containing at least one
+    # Python source file is treated as a project. Without this, scratch
+    # corpora like /data3/100-python-projects/Web_Scraping (which has
+    # main.py + readme.md but no .git) had retrieve falling back to the
+    # HOME GraphRAG DB — which is contaminated with /data3/drydock's
+    # own design docs. The model then "learned" about drydock instead
+    # of the project being worked on.
+    try:
+        for entry in path.iterdir():
+            if entry.is_file() and entry.suffix in (".py", ".md", ".rst"):
+                return True
+    except OSError:
+        pass
+    return False
 
 
 class Retrieve(

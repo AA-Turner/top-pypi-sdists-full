@@ -710,6 +710,81 @@ fn test_md037_multiple_math_same_line_with_empty() {
     assert!(result[0].message.contains("bad"));
 }
 
+/// Test: a display-math block whose closing `$$` shares its line with LaTeX
+/// content (`\end{cases}$$`) must end the block. Emphasis in the prose that
+/// follows is then a real MD037 violation and must be flagged.
+#[test]
+fn test_md037_flags_emphasis_after_content_sharing_math_close() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "$$\nf(x) = x\n\\end{cases}$$\n\nThen * bad emphasis * here.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "emphasis after a content-sharing math close must flag, got: {result:?}"
+    );
+    assert_eq!(result[0].line, 5);
+}
+
+/// Test: a self-contained single-line `$$...$$` does not turn the rest of the
+/// line into math. Emphasis in the trailing prose must still be flagged.
+#[test]
+fn test_md037_flags_emphasis_after_inline_display_math_on_same_line() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "$$E = mc^2$$ and then * bad emphasis * here.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "prose after a self-contained single-line $$...$$ must be linted, got: {result:?}"
+    );
+    assert_eq!(result[0].line, 1);
+}
+
+/// Test: a multi-line block whose closing `$$` is followed by prose on the
+/// same line. The prose after the closing fence must still be linted.
+#[test]
+fn test_md037_flags_emphasis_after_closing_fence_on_same_line() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "$$\nx = y\n$$ and then * bad emphasis * here.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "prose after a same-line closing fence must be linted, got: {result:?}"
+    );
+    assert_eq!(result[0].line, 3);
+}
+
+/// Test: a closing fence whose trailing prose itself contains a literal `$$`.
+/// That mid-line `$$` cannot open a new multi-line block, so following lines
+/// must stay lintable (the line-level map must not re-enter math state).
+#[test]
+fn test_md037_lints_after_closing_fence_with_dollar_in_prose() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "$$\nx = y\n$$ note the $$ symbol\nprose with * spaced emphasis * here\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "prose after a closed block must stay lintable even when the closing \
+         fence line carries a literal `$$`, got: {result:?}"
+    );
+    assert_eq!(result[0].line, 4);
+}
+
 /// Test: Display math ($$...$$) with content spanning patterns
 #[test]
 fn test_md037_display_math_protection() {

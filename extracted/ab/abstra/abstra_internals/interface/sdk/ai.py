@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union, overload
 
 from abstra_internals.contracts_generated import (
     CloudApiCliModelsBankStatementResponse,
@@ -43,6 +43,21 @@ def normalize_format(format: Dict[str, object]) -> Dict[str, object]:
     return format
 
 
+@overload
+def prompt(
+    prompt: Union["Prompt", List["Prompt"]],
+    instructions: Union[str, List[str]] = ...,
+    format: None = ...,
+    temperature: float = ...,
+) -> str: ...
+@overload
+def prompt(
+    prompt: Union["Prompt", List["Prompt"]],
+    instructions: Union[str, List[str]] = ...,
+    *,
+    format: "Format",
+    temperature: float = ...,
+) -> Dict[str, Any]: ...
 def prompt(
     prompt: Union["Prompt", List["Prompt"]],
     instructions: Union[str, List[str]] = [],

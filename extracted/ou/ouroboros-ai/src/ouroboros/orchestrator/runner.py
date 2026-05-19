@@ -36,7 +36,10 @@ from rich.text import Text
 from ouroboros.backends import backend_supports_tool_envelope
 from ouroboros.core.errors import OuroborosError
 from ouroboros.core.seed_contract import SeedContract
-from ouroboros.core.seed_contract_prompt import render_seed_contract_for_execution
+from ouroboros.core.seed_contract_prompt import (
+    render_auto_recursion_guard,
+    render_seed_contract_for_execution,
+)
 from ouroboros.core.types import Result
 from ouroboros.core.worktree import TaskWorkspace, heartbeat_lock, release_lock
 from ouroboros.observability.drift import DriftMeasurement
@@ -88,6 +91,7 @@ from ouroboros.orchestrator.policy import (
     evaluate_capability_policy,
 )
 from ouroboros.orchestrator.profile_loader import ExecutionProfile, ProfileError, load_profile
+from ouroboros.orchestrator.profile_strategy import ProfileBackedStrategy
 from ouroboros.orchestrator.runtime_message_projection import (
     message_tool_input,
     message_tool_name,
@@ -267,6 +271,15 @@ def _execution_profile_for_seed(seed: Seed) -> ExecutionProfile | None:
         return None
 
 
+def _strategy_for_seed(seed: Seed, *, fat_harness_mode: bool = False) -> ExecutionStrategy:
+    """Resolve the prompt/tool strategy for the active execution mode."""
+    if fat_harness_mode:
+        profile = _execution_profile_for_seed(seed)
+        if profile is not None:
+            return ProfileBackedStrategy(profile)
+    return get_strategy(seed.task_type)
+
+
 def build_system_prompt(
     seed: Seed,
     strategy: ExecutionStrategy | None = None,
@@ -327,6 +340,8 @@ def build_task_prompt(
 
 ## Acceptance Criteria
 {ac_list}
+
+{render_auto_recursion_guard()}
 
 {suffix}
 """
@@ -415,6 +430,7 @@ class OrchestratorRunner:
         checkpoint_store: CheckpointStore | None = None,
         max_decomposition_depth: int = DEFAULT_MAX_DECOMPOSITION_DEPTH,
         max_parallel_workers: int = 3,
+        fat_harness_mode: bool = False,
     ) -> None:
         """Initialize orchestrator runner.
 
@@ -439,6 +455,12 @@ class OrchestratorRunner:
                         and recovery. When provided, enables per-level state snapshots.
             max_decomposition_depth: Maximum recursive AC decomposition depth.
             max_parallel_workers: Maximum concurrent AC workers for parallel execution.
+            fat_harness_mode: Enforce profile typed-evidence validation plus
+                verifier PASS at atomic AC acceptance. Public entrypoints that
+                can support the gate (for example CLI `ooo run`) pass this
+                explicitly; the low-level constructor default stays False so
+                direct runner/resume callers are not silently converted to a
+                stricter contract they cannot satisfy.
         """
         self._adapter = adapter
         self._event_store = event_store
@@ -455,6 +477,7 @@ class OrchestratorRunner:
         self._task_workspace = task_workspace
         self._max_decomposition_depth = max(0, max_decomposition_depth)
         self._max_parallel_workers = max(1, max_parallel_workers)
+        self._fat_harness_mode = fat_harness_mode
         # Track active session for external cancellation by execution_id
         self._active_sessions: dict[str, str] = {}  # execution_id -> session_id
 
@@ -1955,6 +1978,7 @@ class OrchestratorRunner:
         session_id: str | None = None,
         parallel: bool = True,
         externally_satisfied_acs: dict[int, dict[str, Any]] | None = None,
+        force_sequential_levels: bool = False,
     ) -> Result[OrchestratorResult, OrchestratorError]:
         """Execute seed via Claude Agent.
 
@@ -1970,6 +1994,8 @@ class OrchestratorRunner:
                      run concurrently. Default: True (parallel execution).
             externally_satisfied_acs: Top-level ACs already satisfied by the
                 current working tree and therefore skipped for re-execution.
+            force_sequential_levels: Preserve --sequential ordering while still
+                using the AC executor, primarily for temporary fat-harness opt-in.
 
         Returns:
             Result containing OrchestratorResult on success.
@@ -1985,6 +2011,8 @@ class OrchestratorRunner:
         }
         if externally_satisfied_acs:
             execute_kwargs["externally_satisfied_acs"] = externally_satisfied_acs
+        if force_sequential_levels:
+            execute_kwargs["force_sequential_levels"] = True
 
         return await self.execute_precreated_session(**execute_kwargs)
 
@@ -2018,19 +2046,45 @@ class OrchestratorRunner:
             )
 
         tracker = session_result.value
+        initial_progress: dict[str, Any] = {
+            "fat_harness_mode": self._fat_harness_mode,
+            "messages_processed": 0,
+        }
         if self._task_workspace is not None:
-            progress_result = await self._session_repo.track_progress(
+            initial_progress["workspace"] = self._task_workspace.to_progress_dict()
+        progress_result = await self._session_repo.track_progress(
+            tracker.session_id,
+            initial_progress,
+        )
+        if progress_result.is_err:
+            fail_result = await self._session_repo.mark_failed(
                 tracker.session_id,
-                {"workspace": self._task_workspace.to_progress_dict()},
+                "Failed to persist initial session contract",
+                {
+                    "execution_id": tracker.execution_id,
+                    "fat_harness_mode": self._fat_harness_mode,
+                    "cause": str(progress_result.error),
+                },
             )
-            if progress_result.is_err:
-                log.warning(
-                    "orchestrator.runner.workspace_progress_seed_failed",
-                    session_id=tracker.session_id,
-                    error=str(progress_result.error),
-                )
+            if self._task_workspace is not None:
+                release_lock(self._task_workspace.lock_path)
 
-        return Result.ok(tracker)
+            details: dict[str, Any] = {
+                "session_id": tracker.session_id,
+                "execution_id": tracker.execution_id,
+                "fat_harness_mode": self._fat_harness_mode,
+                "cause": str(progress_result.error),
+            }
+            if fail_result.is_err:
+                details["terminal_mark_error"] = str(fail_result.error)
+            return Result.err(
+                OrchestratorError(
+                    message="Failed to persist initial session contract",
+                    details=details,
+                )
+            )
+
+        return Result.ok(tracker.with_progress(initial_progress))
 
     async def execute_precreated_session(
         self,
@@ -2038,6 +2092,7 @@ class OrchestratorRunner:
         tracker: SessionTracker,
         parallel: bool = True,
         externally_satisfied_acs: dict[int, dict[str, Any]] | None = None,
+        force_sequential_levels: bool = False,
     ) -> Result[OrchestratorResult, OrchestratorError]:
         """Execute a seed using an already-persisted orchestrator session."""
         exec_id = tracker.execution_id
@@ -2069,8 +2124,10 @@ class OrchestratorRunner:
                     start_time=start_time,
                 )
 
-            # Build prompts with strategy
-            strategy = get_strategy(seed.task_type)
+            # Build prompts with strategy. The fat-harness default path must use
+            # the profile-backed prompt contract so leaf agents are told to emit
+            # schema-valid evidence before the acceptance gate parses it.
+            strategy = _strategy_for_seed(seed, fat_harness_mode=self._fat_harness_mode)
             system_prompt = build_system_prompt(seed, strategy=strategy)
             task_prompt = build_task_prompt(seed, strategy=strategy)
 
@@ -2096,8 +2153,14 @@ class OrchestratorRunner:
                 activity_map=strategy.get_activity_map(),
             )
 
-            # Check for parallel execution mode
-            if parallel and len(seed.acceptance_criteria) > 1:
+            # Check for fat-harness / parallel execution mode. Fat-harness
+            # uses the AC executor even for single-AC or --sequential runs so
+            # the evidence gate is never silently bypassed.
+            if (
+                self._fat_harness_mode
+                or force_sequential_levels
+                or (parallel and len(seed.acceptance_criteria) > 1)
+            ):
                 parallel_kwargs: dict[str, Any] = {
                     "seed": seed,
                     "exec_id": exec_id,
@@ -2109,6 +2172,8 @@ class OrchestratorRunner:
                 }
                 if externally_satisfied_acs:
                     parallel_kwargs["externally_satisfied_acs"] = externally_satisfied_acs
+                if force_sequential_levels or (self._fat_harness_mode and not parallel):
+                    parallel_kwargs["force_sequential_levels"] = True
 
                 return await self._execute_parallel(**parallel_kwargs)
         except asyncio.CancelledError:
@@ -2607,6 +2672,7 @@ class OrchestratorRunner:
         system_prompt: str,
         start_time: datetime,
         externally_satisfied_acs: dict[int, dict[str, Any]] | None = None,
+        force_sequential_levels: bool = False,
     ) -> Result[OrchestratorResult, OrchestratorError]:
         """Execute seed with parallel AC execution.
 
@@ -2622,11 +2688,13 @@ class OrchestratorRunner:
             start_time: Execution start time.
             externally_satisfied_acs: Top-level ACs already satisfied by the
                 current working tree and therefore skipped for re-execution.
+            force_sequential_levels: Preserve --sequential ordering while still
+                using the AC executor, primarily for temporary fat-harness opt-in.
 
         Returns:
             Result containing OrchestratorResult on success.
         """
-        from ouroboros.orchestrator.dependency_analyzer import ACNode
+        from ouroboros.orchestrator.dependency_analyzer import ACNode, DependencyGraph
         from ouroboros.orchestrator.parallel_executor import (
             ParallelACExecutor,
             render_parallel_completion_message,
@@ -2641,30 +2709,38 @@ class OrchestratorRunner:
         )
 
         # Analyze dependencies
-        self._console.print("\n[cyan]Analyzing AC dependencies...[/cyan]")
-
-        analyzer = self._build_dependency_analyzer()
-        dep_result = await analyzer.analyze(seed.acceptance_criteria)
-
-        if dep_result.is_err:
-            log.warning(
-                "orchestrator.runner.dependency_analysis_failed",
-                execution_id=exec_id,
-                error=str(dep_result.error),
-            )
-            # Fallback: run all ACs in a single parallel level
-            from ouroboros.orchestrator.dependency_analyzer import DependencyGraph
-
-            all_indices = tuple(range(len(seed.acceptance_criteria)))
+        if force_sequential_levels:
+            self._console.print("\n[cyan]Preparing sequential AC execution plan...[/cyan]")
             dependency_graph = DependencyGraph(
                 nodes=tuple(
-                    ACNode(index=i, content=ac, depends_on=())
+                    ACNode(index=i, content=ac, depends_on=tuple(range(i)))
                     for i, ac in enumerate(seed.acceptance_criteria)
                 ),
-                execution_levels=(all_indices,) if all_indices else (),
+                execution_levels=tuple((i,) for i in range(len(seed.acceptance_criteria))),
             )
         else:
-            dependency_graph = dep_result.value
+            self._console.print("\n[cyan]Analyzing AC dependencies...[/cyan]")
+
+            analyzer = self._build_dependency_analyzer()
+            dep_result = await analyzer.analyze(seed.acceptance_criteria)
+
+            if dep_result.is_err:
+                log.warning(
+                    "orchestrator.runner.dependency_analysis_failed",
+                    execution_id=exec_id,
+                    error=str(dep_result.error),
+                )
+                # Fallback: run all ACs in a single parallel level
+                all_indices = tuple(range(len(seed.acceptance_criteria)))
+                dependency_graph = DependencyGraph(
+                    nodes=tuple(
+                        ACNode(index=i, content=ac, depends_on=())
+                        for i, ac in enumerate(seed.acceptance_criteria)
+                    ),
+                    execution_levels=(all_indices,) if all_indices else (),
+                )
+            else:
+                dependency_graph = dep_result.value
 
         execution_plan = dependency_graph.to_execution_plan()
 
@@ -2700,6 +2776,7 @@ class OrchestratorRunner:
             task_cwd=self._effective_cwd(),
             checkpoint_store=self._checkpoint_store,
             execution_profile=execution_profile,
+            fat_harness_mode=self._fat_harness_mode,
         )
 
         # Check for cancellation before starting parallel execution
@@ -2954,6 +3031,28 @@ class OrchestratorRunner:
                 OrchestratorError(
                     message=f"Session is in terminal state {tracker.status.value}, cannot resume",
                     details={"session_id": session_id, "status": tracker.status.value},
+                )
+            )
+
+        if self._fat_harness_mode:
+            self._cleanup_pre_execution_state(
+                tracker.execution_id,
+                session_id,
+                session_registered=False,
+            )
+            return Result.err(
+                OrchestratorError(
+                    message=(
+                        "Resume is blocked because this resume path cannot enforce "
+                        "typed evidence plus verifier PASS; restart the "
+                        "run so each AC goes through the fat-harness acceptance gate."
+                    ),
+                    details={
+                        "session_id": session_id,
+                        "execution_id": tracker.execution_id,
+                        "fat_harness_mode": True,
+                        "resume_blocked": "typed_evidence_gate_required",
+                    },
                 )
             )
 

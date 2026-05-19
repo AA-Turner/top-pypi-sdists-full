@@ -97,6 +97,7 @@ class PrivateScheduleSDK(BaseSDK):
                 schedule=BackendScheduleConfig(
                     cron_expression=config.cron_expression, timezone=config.timezone,
                 ),
+                job_tags=job_config.tags,
             )
         )
 
@@ -254,12 +255,15 @@ class PrivateScheduleSDK(BaseSDK):
                 else None,
                 project=project,
                 connections=connections,
+                tags=model.job_tags,
             )
         else:
             # Fallback to existing behavior (makes API calls for build_id and compute_config_id)
             job_config = self._job_sdk.prod_job_config_to_job_config(
                 prod_job_config=prod_job_config, name=model.name, project=project
             )
+            if model.job_tags is not None:
+                job_config = job_config.options(tags=model.job_tags)
 
         config = ScheduleConfig(
             job_config=job_config,

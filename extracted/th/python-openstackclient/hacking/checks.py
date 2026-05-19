@@ -30,17 +30,28 @@ Guidelines for writing new hacking checks
 def assert_no_oslo(logical_line):
     """Check for use of oslo libraries.
 
-    O400
+    Okay: import os
+    Okay: from os import path
+    O400: import oslo_messaging
+    O400: from oslo_log import log
     """
-    if re.match(r'(from|import) oslo_.*', logical_line):
-        yield (0, "0400: oslo libraries should not be used in SDK projects")
+    if match := re.match(r'(from|import) (oslo_.*)', logical_line):
+        if match.group(2) == 'oslo_i18n':
+            return
+        yield (0, "O400: oslo libraries should not be used in SDK projects")
 
 
 @core.flake8ext
 def assert_no_duplicated_setup(logical_line, filename):
     """Check for use of various unnecessary test duplications.
 
-    O401
+    This check only applies to files under openstackclient/tests/unit/.
+
+    Okay: self.app = fakes.FakeShell()
+    Okay: self.app.client_manager.auth_ref = mock.Mock()
+    O401: self.app = Namespace(self.app, self.namespace)
+    O401: self.network_client = self.app.client_manager.network
+    O401: self.app.client_manager.network = mock.Mock()
     """
     if os.path.join('openstackclient', 'tests', 'unit') not in filename:
         return
@@ -53,7 +64,7 @@ def assert_no_duplicated_setup(logical_line, filename):
 
     if os.path.basename(filename) != 'fakes.py':
         if re.match(
-            r'self.[a-z_]+_client = self.app.client_manager.*', logical_line
+            r'self.[a-zA-Z0-9_]+ = self.app.client_manager.*', logical_line
         ):
             yield (
                 0,
@@ -75,10 +86,17 @@ def assert_no_duplicated_setup(logical_line, filename):
 
 
 @core.flake8ext
-def assert_use_of_client_aliases(logical_line):
+def assert_use_of_client_aliases(logical_line, filename):
     """Ensure we use $service_client instead of $sdk_connection.service.
 
-    O402
+    Okay: self.compute_client.find_server(foo)
+    O402: self.app.client_manager.sdk_connnection.compute.find_server(foo)
+
+    The following checks only apply to files under openstackclient/tests/unit/:
+
+    O402: self.app.client_manager.compute.find_server.return_value = server
+    O402: self.app.client_manager.compute.find_server = mock.Mock()
+    O402: self.compute_client.find_server = mock.Mock()
     """
     # we should expand the list of services as we drop legacy clients
     if match := re.match(
@@ -86,7 +104,22 @@ def assert_use_of_client_aliases(logical_line):
         logical_line,
     ):
         service = match.group(1)
-        yield (0, f"0402: prefer {service}_client to sdk_connection.{service}")
+        yield (0, f"O402: prefer {service}_client to sdk_connection.{service}")
+
+    # everything from here down only affects unit tests
+    if os.path.join('openstackclient', 'tests', 'unit') not in filename:
+        return
+
+    if match := re.match(
+        r'(self\.app\.client_manager\.(compute|network|image)+\.[a-z_]+)\.(return_value|side_effect) = ',  # noqa: E501
+        logical_line,
+    ):
+        service = match.group(1)
+        yield (
+            0,
+            f"O402: prefer {service}_client to "
+            f"self.app.client_manager.{service}",
+        )
 
     if match := re.match(
         r'(self\.app\.client_manager\.(compute|network|image)+\.[a-z_]+) = mock.Mock',  # noqa: E501
@@ -138,6 +171,11 @@ class SDKProxyFindChecker(ast.NodeVisitor):
                 and node.func.value.id.endswith('client')
             )
             or (
+                # handle calls like 'self.compute_client.find_server'
+                isinstance(node.func.value, ast.Attribute)
+                and node.func.value.attr.endswith('_client')
+            )
+            or (
                 # handle calls like 'self.app.client_manager.image.find_image'
                 isinstance(node.func.value, ast.Attribute)
                 and node.func.value.attr
@@ -176,4 +214,23 @@ def assert_find_ignore_missing_kwargs(logical_line, filename):
             0,
             'O403: Calls to find_* proxy methods must explicitly set '
             'ignore_missing',
+        )
+
+
+@core.flake8ext
+def assert_use_of_osc_command(logical_line, filename):
+    """Ensure we use openstackclient.command instead of osc_lib.command.
+
+    Okay: from openstackclient.command import command
+    Okay: import openstackclient.command
+    O404: from osc_lib.command import command
+    """
+    if filename == 'openstackclient/command.py':
+        return
+
+    if re.match(r'^from osc_lib\.command import command$', logical_line):
+        yield (
+            0,
+            'O404: Import Command classes from openstackclient.command, not '
+            'osc_lib.command.command',
         )

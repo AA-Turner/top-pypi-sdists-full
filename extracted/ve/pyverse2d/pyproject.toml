@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyverse2d"
-version = "1.1.7"
+version = "1.2.3"
 description = "2D Game Engine using pyglet (OpenGL) for rendering"
 authors = [{ name = "WhiteWolf45380" }]
 readme = {file = "README.md", content-type = "text/markdown"}

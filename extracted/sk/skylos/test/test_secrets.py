@@ -1,4 +1,6 @@
 import ast
+import time
+
 import pytest
 from skylos.rules.secrets import scan_ctx
 
@@ -195,6 +197,29 @@ def test_normal_strings_ignored():
     assert len(generic_findings) == 0
 
 
+def test_bare_generic_token_still_detected():
+    token = "aB3dE5fG7hI9jK2lM4nO6pQ8rS0-tU1vW2xY3zZ"
+    src = f"LEAKED = {token}\n"
+    ctx = _ctx_from_source(src)
+
+    generic = [f for f in scan_ctx(ctx) if f["provider"] == "generic"]
+
+    assert len(generic) == 1
+    assert generic[0]["col"] == src.index(token)
+
+
+def test_generic_scan_handles_long_non_secret_token_without_quadratic_retry():
+    src = ("a" * 12_000) + "\n"
+    ctx = _ctx_from_source(src)
+
+    started_at = time.perf_counter()
+    findings = list(scan_ctx(ctx))
+    elapsed = time.perf_counter() - started_at
+
+    assert findings == []
+    assert elapsed < 1.0
+
+
 @pytest.mark.parametrize(
     "line",
     [
@@ -211,6 +236,31 @@ def test_known_hashes_not_flagged_as_generic(line):
     ctx = _ctx_from_source(src, rel="package-lock.json")
     generic = [f for f in scan_ctx(ctx) if f["provider"] == "generic"]
     assert generic == []
+
+
+def test_hash_marker_does_not_suppress_generic_secret_on_same_line():
+    token = "aB3dE5fG7hI9jK2lM4nO6pQ8rS0-tU1vW2xY3zZ"
+    src = f'api_key = "{token}"  # sha256-deadbeef\n'
+    ctx = _ctx_from_source(src)
+
+    generic = [f for f in scan_ctx(ctx) if f["provider"] == "generic"]
+
+    assert len(generic) == 1
+    assert generic[0]["preview"] == "aB3d…Y3zZ"
+
+
+def test_json_hash_field_does_not_suppress_later_generic_secret():
+    token = "aB3dE5fG7hI9jK2lM4nO6pQ8rS0-tU1vW2xY3zZ"
+    src = (
+        '{"hash": "sha256-deadbeef", '
+        f'"api_key": "{token}"}}\n'
+    )
+    ctx = _ctx_from_source(src, rel="config.json")
+
+    generic = [f for f in scan_ctx(ctx) if f["provider"] == "generic"]
+
+    assert len(generic) == 1
+    assert generic[0]["preview"] == "aB3d…Y3zZ"
 
 
 def test_real_secret_on_hash_line_still_caught_by_provider():

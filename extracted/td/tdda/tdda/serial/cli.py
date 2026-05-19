@@ -2,10 +2,10 @@ import json
 import os
 import sys
 
-from tdda.serial.pandasio import gen_pandas_kwargs
+from tdda.serial.pandasio import gen_pandas_kwargs, csvw_to_pandas_kwargs
 
 
-USAGE = '''
+USAGE = """
 python cli.py [[foo-metadata.json] [output.py]]
 
 python cli.py
@@ -19,7 +19,7 @@ python cli.py foo-metadata.json foo.py
        writes foo.py, defining a dictionary with kwargs
        for pandas read_csv correspending to foo-metadata.json
 
-'''
+"""
 
 
 def fmt(d):
@@ -38,7 +38,7 @@ def write_pandas_kwargs(inpath, outpath):
     """
     if os.path.exists(os.path.dirname(outpath)):
         with open(outpath, 'w') as f:
-            out = fmt(gen_pandas_kwargs(inpath))
+            out = fmt(csvw_to_pandas_kwargs(inpath))
             f.write(f'pd_kwargs = {out}\n')
     else:
         error(f'Directory {os.path.dirname(outpath)} not found.')
@@ -51,7 +51,7 @@ if __name__ == '__main__':
             error(f'Directory {os.path.dirname(inpath)} not found.')
 
         if len(sys.argv) == 2:
-            print(fmt(gen_pandas_kwargs(inpath)))
+            print(fmt(csvw_to_pandas_kwargs(inpath)))
         else:
             write_pandas_kwargs(inpath, sys.argv[2])
 

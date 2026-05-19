@@ -246,11 +246,17 @@ class SageHostedProvider(ProviderBase):
         # someone calls us with just "qwen-coder-7b", re-prefix.
         full_id = model_name if model_name.startswith("cloud:") else f"cloud:{model_name}"
 
+        # The sage backend's /chat schema caps max_tokens at 4096. The CLI's
+        # run command sets 65536 for external API models to get large context
+        # windows — clamp here so the backend never sees an out-of-range value.
+        _BACKEND_MAX_TOKENS = 4096
+        clamped_tokens = min(max_tokens, _BACKEND_MAX_TOKENS)
+
         payload = {
             "model_id": full_id,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "temperature": temperature,
-            "max_tokens": max_tokens,
+            "max_tokens": clamped_tokens,
             "stream": stream,
         }
         return anonymize_payload(payload, provider_name="sage")

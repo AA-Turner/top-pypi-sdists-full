@@ -363,12 +363,21 @@ class DomService:
 			)
 			ax_tree_requests.append(ax_tree_request)
 
-		# Wait for all requests to complete
-		ax_trees = await asyncio.gather(*ax_tree_requests)
+		# return_exceptions=True so a child frame detaching mid-request (e.g. ad iframes)
+		# doesn't discard AX data from the rest. The root frame is required — if it
+		# fails, propagate so the caller's retry/empty-DOM path runs instead of
+		# silently returning a tree with no main-document AX properties.
+		ax_trees = await asyncio.gather(*ax_tree_requests, return_exceptions=True)
 
-		# Merge all AX nodes into a single array
-		merged_nodes: list[AXNode] = []
-		for ax_tree in ax_trees:
+		root_result = ax_trees[0]
+		if isinstance(root_result, BaseException):
+			raise root_result
+
+		merged_nodes: list[AXNode] = list(root_result['nodes'])
+		for frame_id, ax_tree in zip(all_frame_ids[1:], ax_trees[1:]):
+			if isinstance(ax_tree, BaseException):
+				self.logger.debug(f'Skipping AX tree for detached/unreachable child frame {frame_id}: {ax_tree}')
+				continue
 			merged_nodes.extend(ax_tree['nodes'])
 
 		return {'nodes': merged_nodes}
@@ -1104,10 +1113,12 @@ class DomService:
 		pagination_buttons: list[dict[str, str | int | bool]] = []
 
 		# Common pagination patterns to look for
+		# `«` and `»` are ambiguous across sites, so treat them only as prev/next
+		# fallback symbols and let word-based first/last signals win
 		next_patterns = ['next', '>', '»', '→', 'siguiente', 'suivant', 'weiter', 'volgende']
 		prev_patterns = ['prev', 'previous', '<', '«', '←', 'anterior', 'précédent', 'zurück', 'vorige']
-		first_patterns = ['first', '⇤', '«', 'primera', 'première', 'erste', 'eerste']
-		last_patterns = ['last', '⇥', '»', 'última', 'dernier', 'letzte', 'laatste']
+		first_patterns = ['first', '⇤', 'primera', 'première', 'erste', 'eerste']
+		last_patterns = ['last', '⇥', 'última', 'dernier', 'letzte', 'laatste']
 
 		for index, node in selector_map.items():
 			# Skip non-clickable elements
@@ -1133,18 +1144,18 @@ class DomService:
 
 			button_type: str | None = None
 
-			# Check for next button
-			if any(pattern in all_text for pattern in next_patterns):
-				button_type = 'next'
-			# Check for previous button
-			elif any(pattern in all_text for pattern in prev_patterns):
-				button_type = 'prev'
-			# Check for first button
-			elif any(pattern in all_text for pattern in first_patterns):
+			# Match specific first/last semantics before generic prev/next fallbacks.
+			if any(pattern in all_text for pattern in first_patterns):
 				button_type = 'first'
 			# Check for last button
 			elif any(pattern in all_text for pattern in last_patterns):
 				button_type = 'last'
+			# Check for next button
+			elif any(pattern in all_text for pattern in next_patterns):
+				button_type = 'next'
+			# Check for previous button
+			elif any(pattern in all_text for pattern in prev_patterns):
+				button_type = 'prev'
 			# Check for numeric page buttons (single or double digit)
 			elif text.isdigit() and len(text) <= 2 and role in ['button', 'link', '']:
 				button_type = 'page_number'

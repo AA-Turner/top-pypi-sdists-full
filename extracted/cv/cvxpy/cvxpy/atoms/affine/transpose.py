@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from typing import List, Tuple
 
 import numpy as np
 
@@ -21,11 +20,12 @@ import cvxpy.lin_ops.lin_op as lo
 import cvxpy.lin_ops.lin_utils as lu
 from cvxpy.atoms.affine.affine_atom import AffAtom
 from cvxpy.constraints.constraint import Constraint
+from cvxpy.utilities import bounds as bounds_utils
 
 
 class transpose(AffAtom):
     """Transpose an expression.
-    
+
     For an n-D expression, if axes are given, the order indicates the permutation of axes.
     """
 
@@ -63,6 +63,11 @@ class transpose(AffAtom):
         """
         return True
 
+    def bounds_from_args(self) -> tuple[np.ndarray, np.ndarray]:
+        """Returns bounds for transposed expression."""
+        lb, ub = self.args[0].get_bounds()
+        return bounds_utils.transpose_bounds(lb, ub, self.axes)
+
     def is_symmetric(self) -> bool:
         """Is the expression symmetric?
         """
@@ -78,7 +83,7 @@ class transpose(AffAtom):
         """
         return self.args[0].is_hermitian()
 
-    def shape_from_args(self) -> Tuple[int, ...]:
+    def shape_from_args(self) -> tuple[int, ...]:
         """Returns the shape of the transpose expression.
         """
         arr = np.empty(self.args[0].shape, dtype=np.dtype([]))
@@ -90,8 +95,8 @@ class transpose(AffAtom):
         return [self.axes]
 
     def graph_implementation(
-        self, arg_objs, shape: Tuple[int, ...], data=None
-    ) -> Tuple[lo.LinOp, List[Constraint]]:
+        self, arg_objs, shape: tuple[int, ...], data=None
+    ) -> tuple[lo.LinOp, list[Constraint]]:
         """Create a new variable equal to the argument transposed.
 
         Parameters
@@ -110,7 +115,7 @@ class transpose(AffAtom):
         """
         return (lu.transpose(arg_objs[0], self.axes), [])
 
-def permute_dims(expr, axes: List[int]):
+def permute_dims(expr, axes: list[int]):
     """Permute the dimensions of the expression.
 
     Alias for transpose with specified axes.
@@ -150,7 +155,7 @@ def swapaxes(expr, axis1: int, axis2: int):
     axes[axis1], axes[axis2] = axes[axis2], axes[axis1]
     return transpose(expr, axes=axes)
 
-def moveaxis(expr, source: List[int], destination: List[int]):
+def moveaxis(expr, source: list[int], destination: list[int]):
     """Move axes of the expression to new positions.
 
     Parameters
@@ -169,7 +174,7 @@ def moveaxis(expr, source: List[int], destination: List[int]):
     """
     if not isinstance(source, list) or not isinstance(destination, list):
         raise TypeError("Source and destination must be lists of integers.")
-    
+
     if len(source) != len(destination):
         raise ValueError("Source and destination must have the same length.")
 

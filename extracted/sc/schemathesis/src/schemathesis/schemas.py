@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass, field
-from functools import cached_property, lru_cache, partial, wraps
+from functools import cached_property, lru_cache, wraps
 from inspect import iscoroutinefunction
 from itertools import chain
 from typing import (
@@ -23,15 +23,16 @@ from schemathesis.core.failures import FailureGroup
 from schemathesis.core.jsonschema.types import JsonSchemaObject
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER
 from schemathesis.core.result import Ok, Result
+from schemathesis.core.runtime import RuntimeProbeState
 from schemathesis.core.spec import CoverageCapabilities
 from schemathesis.core.statistic import ApiStatistic
-from schemathesis.core.transport import Response
+from schemathesis.core.transport import HttpMethod, HttpMethodSchema, Response
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.hypothesis.given import GivenInput, given_proxy
 from schemathesis.generation.hypothesis.reporting import FilterCaseTracker
 from schemathesis.generation.meta import CaseMetadata
-from schemathesis.hooks import HookDispatcherMark, _should_skip_hook
+from schemathesis.hooks import HookDispatcherMark
 from schemathesis.transport.prepare import prepare_path
 
 from .auths import AuthStorage
@@ -43,8 +44,6 @@ from .filters import (
     is_deprecated,
 )
 from .hooks import (
-    GLOBAL_HOOK_DISPATCHER,
-    HookContext,
     HookDispatcher,
     HookScope,
     to_filterable_hook,
@@ -60,9 +59,11 @@ if TYPE_CHECKING:
 
     from schemathesis.auths import AuthContext
     from schemathesis.core import Specification
+    from schemathesis.core.cache import CacheWriter
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.schema_analysis import SchemaWarning
     from schemathesis.engine.context import EngineContext
+    from schemathesis.engine.link_calibration import LinkCalibrationState
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.engine.run import Phase
     from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
@@ -89,14 +90,9 @@ class BaseSchema(Mapping):
 
     def __post_init__(self) -> None:
         self.hook = to_filterable_hook(self.hooks)  # type: ignore[method-assign]
-        # Runtime auth-inference overlays keyed by operation label. Populated when the server enforces
-        # auth on an operation the spec declares public; subsequent generations consult it instead of
-        # mutating the parsed spec. Empty for schemas whose adapter doesn't run inference.
-        self._inferred_security: dict[str, list[Mapping[str, list[str]]]] = {}
-        # Set by the startup probe when the server's URL decoder rejects backslash/control chars
-        # in path strings; path generation sanitizes those chars to avoid wasting budget on
-        # requests the app never sees.
-        self._path_decoder_strict: bool = False
+        # Probe-driven runtime state mutated by the engine across phases of a single run.
+        # Concrete schemas may extend with spec-specific overlays.
+        self._probe_state = RuntimeProbeState()
 
     @property
     def specification(self) -> Specification:
@@ -403,7 +399,7 @@ class BaseSchema(Mapping):
         self,
         *,
         operation: APIOperation,
-        method: str | None = None,
+        method: HttpMethod | None = None,
         path: str | None = None,
         path_parameters: dict[str, Any] | None = None,
         headers: dict[str, Any] | CaseInsensitiveDict | None = None,
@@ -426,13 +422,23 @@ class BaseSchema(Mapping):
     ) -> SearchStrategy:
         raise NotImplementedError
 
-    def as_state_machine(self, *, error_feedback: ErrorFeedbackStore | None = None) -> type[APIStateMachine]:
+    def as_state_machine(self) -> type[APIStateMachine]:
         """Create a state machine class for stateful testing of linked API operations.
 
         Returns:
             APIStateMachine subclass configured for this schema.
 
         """
+        raise NotImplementedError
+
+    def _build_state_machine(
+        self,
+        *,
+        error_feedback: ErrorFeedbackStore | None,
+        link_calibration: LinkCalibrationState | None,
+        extra_data_source: ExtraDataSource | None,
+    ) -> type[APIStateMachine]:
+        """Engine-internal variant of `as_state_machine` that wires per-run state."""
         raise NotImplementedError
 
     def get_tags(self, operation: APIOperation) -> list[str] | None:
@@ -471,6 +477,7 @@ class BaseSchema(Mapping):
         case: Case,
         response: Response,
         transport_kwargs: dict[str, Any],
+        cache_writer: CacheWriter | None = None,
     ) -> None:
         """Spec-specific runtime observations from a response (e.g. auth inference). Default: no-op."""
 
@@ -538,12 +545,18 @@ class BaseSchema(Mapping):
         """Apply spec-specific transformations to a generated body before sending."""
         return body
 
+    def evaluate_server_error(self, case: Case, response: Response) -> None:
+        """Raise a Failure if the schema's own conventions classify this response as a server error.
+
+        Default no-op; specs whose errors aren't fully captured by HTTP status (e.g. GraphQL 200 + errors body) override.
+        """
+
     def adapt_to_null_byte_in_header_failure(self) -> None:
         """React to the engine probe finding that null bytes in headers crash the app under test."""
 
     def adapt_to_path_decoder_rejection(self) -> None:
         """React to the engine probe finding that the app rejects unsafe characters in URL paths."""
-        self._path_decoder_strict = True
+        self._probe_state.path_decoder_strict = True
 
     def get_custom_format_strategies(
         self, generation_config: GenerationConfig, mode: GenerationMode
@@ -670,6 +683,7 @@ class PayloadAlternatives(ParameterSet[P]):
 
 R = TypeVar("R", bound=ResponsesContainer)
 S = TypeVar("S")
+SchemaT = TypeVar("SchemaT", bound="BaseSchema")
 D = TypeVar("D", bound=dict)
 
 
@@ -689,17 +703,17 @@ class OperationDefinition(Generic[D]):
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
 
-@dataclass()
-class APIOperation(Generic[P, R, S]):
+@dataclass(repr=False)
+class APIOperation(Generic[P, R, S, SchemaT]):
     """An API operation (e.g., `GET /users`)."""
 
     # `path` does not contain `basePath`
     # Example <scheme>://<host>/<basePath>/users - "/users" is path
     # https://swagger.io/docs/specification/2-0/api-host-and-base-path/
     path: str
-    method: str
+    method: HttpMethodSchema
     definition: OperationDefinition = field(repr=False)
-    schema: BaseSchema
+    schema: SchemaT
     responses: R
     security: S
     label: str = None  # type: ignore[assignment]
@@ -716,7 +730,12 @@ class APIOperation(Generic[P, R, S]):
         if self.label is None:
             self.label = f"{self.method.upper()} {self.path}"  # type: ignore[unreachable]
 
-    def __deepcopy__(self, memo: dict) -> APIOperation[P, R, S]:
+    def __repr__(self) -> str:
+        return f"<APIOperation label={self.label!r}>"
+
+    def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
+
+    def __deepcopy__(self, memo: dict) -> APIOperation[P, R, S, SchemaT]:
         return self
 
     def __hash__(self) -> int:
@@ -788,6 +807,7 @@ class APIOperation(Generic[P, R, S]):
             **kwargs: Extra arguments to the underlying strategy function.
 
         """
+        from schemathesis.generation._hooks import apply_case_hooks
         from schemathesis.generation.hypothesis import setup
 
         setup()
@@ -795,47 +815,7 @@ class APIOperation(Generic[P, R, S]):
             headers = kwargs.setdefault("headers", {})
             headers.update(self.schema.config.headers)
         strategy = self.schema.get_case_strategy(self, generation_mode=generation_mode, **kwargs)
-
-        def _apply_hooks(dispatcher: HookDispatcher, _strategy: SearchStrategy[Case]) -> SearchStrategy[Case]:
-            context = HookContext(operation=self)
-            for hook in dispatcher.get_all_by_name("before_generate_case"):
-                if _should_skip_hook(hook, context):
-                    continue
-                _strategy = hook(context, _strategy)
-            for hook in dispatcher.get_all_by_name("filter_case"):
-                if _should_skip_hook(hook, context):
-                    continue
-                bound_hook = partial(hook, context)
-                if self.filter_case_tracker is None:
-                    self.filter_case_tracker = FilterCaseTracker()
-                tracker = self.filter_case_tracker
-
-                def _tracking_filter(
-                    case: Case, _hook: Callable = bound_hook, _tracker: FilterCaseTracker = tracker
-                ) -> bool:
-                    result = _hook(case)
-                    _tracker.record(result)
-                    return result
-
-                _strategy = _strategy.filter(_tracking_filter)
-            for hook in dispatcher.get_all_by_name("map_case"):
-                if _should_skip_hook(hook, context):
-                    continue
-                hook = partial(hook, context)
-                _strategy = _strategy.map(hook)
-            for hook in dispatcher.get_all_by_name("flatmap_case"):
-                if _should_skip_hook(hook, context):
-                    continue
-                hook = partial(hook, context)
-                _strategy = _strategy.flatmap(hook)
-            return _strategy
-
-        strategy = _apply_hooks(GLOBAL_HOOK_DISPATCHER, strategy)
-        strategy = _apply_hooks(self.schema.hooks, strategy)
-        hooks = kwargs.get("hooks")
-        if hooks is not None:
-            strategy = _apply_hooks(hooks, strategy)
-        return strategy
+        return apply_case_hooks(strategy, self, local=kwargs.get("hooks"))
 
     def get_strategies_from_examples(self, **kwargs: Any) -> list[SearchStrategy[Case]]:
         return self.schema.get_strategies_from_examples(self, **kwargs)
@@ -912,7 +892,7 @@ class APIOperation(Generic[P, R, S]):
     def Case(
         self,
         *,
-        method: str | None = None,
+        method: HttpMethod | None = None,
         path_parameters: dict[str, Any] | None = None,
         headers: dict[str, Any] | CaseInsensitiveDict | None = None,
         cookies: dict[str, Any] | None = None,

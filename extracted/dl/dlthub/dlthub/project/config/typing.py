@@ -33,7 +33,7 @@ class ProfileProjectSettingsConfig(TypedDict, total=False):
     data_dir: Optional[str]
     """Pipeline working dirs, other writable folders, local destination files (by default)"""
     local_dir: Optional[str]
-    """Destination local files, by default it is within run_dir/_local"""
+    """Destination local files, by default at `.dlt/data/<profile>` under `run_dir`"""
 
 
 class ProjectSettingsConfig(ProfileProjectSettingsConfig, total=False):

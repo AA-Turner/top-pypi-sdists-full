@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: oslo.i18n
-Version: 6.7.2
+Version: 6.8.0
 Summary: Oslo i18n library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://docs.openstack.org/oslo.i18n
 Project-URL: Repository, https://opendev.org/openstack/oslo.i18n
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

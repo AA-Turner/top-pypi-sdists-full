@@ -1,25 +1,26 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); }
-};
-import * as strings from '../../../../base/common/strings.js';
+import { getLeadingWhitespace, lastNonWhitespaceIndex } from '../../../../base/common/strings.js';
 import { ShiftCommand } from '../../../common/commands/shiftCommand.js';
 import { Range } from '../../../common/core/range.js';
 import { Selection } from '../../../common/core/selection.js';
 import { IndentAction } from '../../../common/languages/languageConfiguration.js';
 import { ILanguageConfigurationService } from '../../../common/languages/languageConfigurationRegistry.js';
-import * as indentUtils from '../../indentation/common/indentUtils.js';
+import { getSpaceCnt, generateIndent } from '../../indentation/common/indentUtils.js';
 import { getGoodIndentForLine, getIndentMetadata } from '../../../common/languages/autoIndent.js';
 import { getEnterAction } from '../../../common/languages/enterAction.js';
+
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+var __decorate = (undefined && undefined.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __param = (undefined && undefined.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 let MoveLinesCommand = class MoveLinesCommand {
     constructor(selection, isMovingDown, autoIndent, _languageConfigurationService) {
         this._languageConfigurationService = _languageConfigurationService;
@@ -30,6 +31,12 @@ let MoveLinesCommand = class MoveLinesCommand {
         this._moveEndLineSelectionShrink = false;
     }
     getEditOperations(model, builder) {
+        const getLanguageId = () => {
+            return model.getLanguageId();
+        };
+        const getLanguageIdAtPosition = (lineNumber, column) => {
+            return model.getLanguageIdAtPosition(lineNumber, column);
+        };
         const modelLineCount = model.getLineCount();
         if (this._isMovingDown && this._selection.endLineNumber === modelLineCount) {
             this._selectionId = builder.trackSelection(this._selection);
@@ -47,20 +54,6 @@ let MoveLinesCommand = class MoveLinesCommand {
         }
         const { tabSize, indentSize, insertSpaces } = model.getOptions();
         const indentConverter = this.buildIndentConverter(tabSize, indentSize, insertSpaces);
-        const virtualModel = {
-            tokenization: {
-                getLineTokens: (lineNumber) => {
-                    return model.tokenization.getLineTokens(lineNumber);
-                },
-                getLanguageId: () => {
-                    return model.getLanguageId();
-                },
-                getLanguageIdAtPosition: (lineNumber, column) => {
-                    return model.getLanguageIdAtPosition(lineNumber, column);
-                },
-            },
-            getLineContent: null,
-        };
         if (s.startLineNumber === s.endLineNumber && model.getLineMaxColumn(s.startLineNumber) === 1) {
             // Current line is empty
             const lineNumber = s.startLineNumber;
@@ -92,28 +85,42 @@ let MoveLinesCommand = class MoveLinesCommand {
                     const movingLineMatchResult = this.matchEnterRule(model, indentConverter, tabSize, movingLineNumber, s.startLineNumber - 1);
                     // if s.startLineNumber - 1 matches onEnter rule, we still honor that.
                     if (movingLineMatchResult !== null) {
-                        const oldIndentation = strings.getLeadingWhitespace(model.getLineContent(movingLineNumber));
-                        const newSpaceCnt = movingLineMatchResult + indentUtils.getSpaceCnt(oldIndentation, tabSize);
-                        const newIndentation = indentUtils.generateIndent(newSpaceCnt, tabSize, insertSpaces);
+                        const oldIndentation = getLeadingWhitespace(model.getLineContent(movingLineNumber));
+                        const newSpaceCnt = movingLineMatchResult + getSpaceCnt(oldIndentation, tabSize);
+                        const newIndentation = generateIndent(newSpaceCnt, tabSize, insertSpaces);
                         insertingText = newIndentation + this.trimStart(movingLineText);
                     }
                     else {
                         // no enter rule matches, let's check indentatin rules then.
-                        virtualModel.getLineContent = (lineNumber) => {
-                            if (lineNumber === s.startLineNumber) {
-                                return model.getLineContent(movingLineNumber);
-                            }
-                            else {
-                                return model.getLineContent(lineNumber);
-                            }
+                        const virtualModel = {
+                            tokenization: {
+                                getLineTokens: (lineNumber) => {
+                                    if (lineNumber === s.startLineNumber) {
+                                        return model.tokenization.getLineTokens(movingLineNumber);
+                                    }
+                                    else {
+                                        return model.tokenization.getLineTokens(lineNumber);
+                                    }
+                                },
+                                getLanguageId,
+                                getLanguageIdAtPosition,
+                            },
+                            getLineContent: (lineNumber) => {
+                                if (lineNumber === s.startLineNumber) {
+                                    return model.getLineContent(movingLineNumber);
+                                }
+                                else {
+                                    return model.getLineContent(lineNumber);
+                                }
+                            },
                         };
                         const indentOfMovingLine = getGoodIndentForLine(this._autoIndent, virtualModel, model.getLanguageIdAtPosition(movingLineNumber, 1), s.startLineNumber, indentConverter, this._languageConfigurationService);
                         if (indentOfMovingLine !== null) {
-                            const oldIndentation = strings.getLeadingWhitespace(model.getLineContent(movingLineNumber));
-                            const newSpaceCnt = indentUtils.getSpaceCnt(indentOfMovingLine, tabSize);
-                            const oldSpaceCnt = indentUtils.getSpaceCnt(oldIndentation, tabSize);
+                            const oldIndentation = getLeadingWhitespace(model.getLineContent(movingLineNumber));
+                            const newSpaceCnt = getSpaceCnt(indentOfMovingLine, tabSize);
+                            const oldSpaceCnt = getSpaceCnt(oldIndentation, tabSize);
                             if (newSpaceCnt !== oldSpaceCnt) {
-                                const newIndentation = indentUtils.generateIndent(newSpaceCnt, tabSize, insertSpaces);
+                                const newIndentation = generateIndent(newSpaceCnt, tabSize, insertSpaces);
                                 insertingText = newIndentation + this.trimStart(movingLineText);
                             }
                         }
@@ -130,22 +137,40 @@ let MoveLinesCommand = class MoveLinesCommand {
                     }
                     else {
                         // it doesn't match onEnter rules, let's check indentation rules then.
-                        virtualModel.getLineContent = (lineNumber) => {
-                            if (lineNumber === s.startLineNumber) {
-                                return insertingText;
-                            }
-                            else if (lineNumber >= s.startLineNumber + 1 && lineNumber <= s.endLineNumber + 1) {
-                                return model.getLineContent(lineNumber - 1);
-                            }
-                            else {
-                                return model.getLineContent(lineNumber);
-                            }
+                        const virtualModel = {
+                            tokenization: {
+                                getLineTokens: (lineNumber) => {
+                                    if (lineNumber === s.startLineNumber) {
+                                        // TODO@aiday-mar: the tokens here don't correspond exactly to the corresponding content (after indentation adjustment), have to fix this.
+                                        return model.tokenization.getLineTokens(movingLineNumber);
+                                    }
+                                    else if (lineNumber >= s.startLineNumber + 1 && lineNumber <= s.endLineNumber + 1) {
+                                        return model.tokenization.getLineTokens(lineNumber - 1);
+                                    }
+                                    else {
+                                        return model.tokenization.getLineTokens(lineNumber);
+                                    }
+                                },
+                                getLanguageId,
+                                getLanguageIdAtPosition,
+                            },
+                            getLineContent: (lineNumber) => {
+                                if (lineNumber === s.startLineNumber) {
+                                    return insertingText;
+                                }
+                                else if (lineNumber >= s.startLineNumber + 1 && lineNumber <= s.endLineNumber + 1) {
+                                    return model.getLineContent(lineNumber - 1);
+                                }
+                                else {
+                                    return model.getLineContent(lineNumber);
+                                }
+                            },
                         };
                         const newIndentatOfMovingBlock = getGoodIndentForLine(this._autoIndent, virtualModel, model.getLanguageIdAtPosition(movingLineNumber, 1), s.startLineNumber + 1, indentConverter, this._languageConfigurationService);
                         if (newIndentatOfMovingBlock !== null) {
-                            const oldIndentation = strings.getLeadingWhitespace(model.getLineContent(s.startLineNumber));
-                            const newSpaceCnt = indentUtils.getSpaceCnt(newIndentatOfMovingBlock, tabSize);
-                            const oldSpaceCnt = indentUtils.getSpaceCnt(oldIndentation, tabSize);
+                            const oldIndentation = getLeadingWhitespace(model.getLineContent(s.startLineNumber));
+                            const newSpaceCnt = getSpaceCnt(newIndentatOfMovingBlock, tabSize);
+                            const oldSpaceCnt = getSpaceCnt(oldIndentation, tabSize);
                             if (newSpaceCnt !== oldSpaceCnt) {
                                 const spaceCntOffset = newSpaceCnt - oldSpaceCnt;
                                 this.getIndentEditsOfMovingBlock(model, builder, s, tabSize, insertSpaces, spaceCntOffset);
@@ -166,13 +191,27 @@ let MoveLinesCommand = class MoveLinesCommand {
                 // Insert line that needs to be moved after
                 builder.addEditOperation(new Range(s.endLineNumber, model.getLineMaxColumn(s.endLineNumber), s.endLineNumber, model.getLineMaxColumn(s.endLineNumber)), '\n' + movingLineText);
                 if (this.shouldAutoIndent(model, s)) {
-                    virtualModel.getLineContent = (lineNumber) => {
-                        if (lineNumber === movingLineNumber) {
-                            return model.getLineContent(s.startLineNumber);
-                        }
-                        else {
-                            return model.getLineContent(lineNumber);
-                        }
+                    const virtualModel = {
+                        tokenization: {
+                            getLineTokens: (lineNumber) => {
+                                if (lineNumber === movingLineNumber) {
+                                    return model.tokenization.getLineTokens(s.startLineNumber);
+                                }
+                                else {
+                                    return model.tokenization.getLineTokens(lineNumber);
+                                }
+                            },
+                            getLanguageId,
+                            getLanguageIdAtPosition,
+                        },
+                        getLineContent: (lineNumber) => {
+                            if (lineNumber === movingLineNumber) {
+                                return model.getLineContent(s.startLineNumber);
+                            }
+                            else {
+                                return model.getLineContent(lineNumber);
+                            }
+                        },
                     };
                     const ret = this.matchEnterRule(model, indentConverter, tabSize, s.startLineNumber, s.startLineNumber - 2);
                     // check if s.startLineNumber - 2 matches onEnter rules, if so adjust the moving block by onEnter rules.
@@ -186,9 +225,9 @@ let MoveLinesCommand = class MoveLinesCommand {
                         const indentOfFirstLine = getGoodIndentForLine(this._autoIndent, virtualModel, model.getLanguageIdAtPosition(s.startLineNumber, 1), movingLineNumber, indentConverter, this._languageConfigurationService);
                         if (indentOfFirstLine !== null) {
                             // adjust the indentation of the moving block
-                            const oldIndent = strings.getLeadingWhitespace(model.getLineContent(s.startLineNumber));
-                            const newSpaceCnt = indentUtils.getSpaceCnt(indentOfFirstLine, tabSize);
-                            const oldSpaceCnt = indentUtils.getSpaceCnt(oldIndent, tabSize);
+                            const oldIndent = getLeadingWhitespace(model.getLineContent(s.startLineNumber));
+                            const newSpaceCnt = getSpaceCnt(indentOfFirstLine, tabSize);
+                            const oldSpaceCnt = getSpaceCnt(oldIndent, tabSize);
                             if (newSpaceCnt !== oldSpaceCnt) {
                                 const spaceCntOffset = newSpaceCnt - oldSpaceCnt;
                                 this.getIndentEditsOfMovingBlock(model, builder, s, tabSize, insertSpaces, spaceCntOffset);
@@ -227,14 +266,14 @@ let MoveLinesCommand = class MoveLinesCommand {
             }
             const movingLineText = model.getLineContent(line);
             if (this.trimStart(movingLineText).indexOf(this.trimStart(enterPrefix)) >= 0) {
-                const oldIndentation = strings.getLeadingWhitespace(model.getLineContent(line));
-                let newIndentation = strings.getLeadingWhitespace(enterPrefix);
+                const oldIndentation = getLeadingWhitespace(model.getLineContent(line));
+                let newIndentation = getLeadingWhitespace(enterPrefix);
                 const indentMetadataOfMovelingLine = getIndentMetadata(model, line, this._languageConfigurationService);
                 if (indentMetadataOfMovelingLine !== null && indentMetadataOfMovelingLine & 2 /* IndentConsts.DECREASE_MASK */) {
                     newIndentation = indentConverter.unshiftIndent(newIndentation);
                 }
-                const newSpaceCnt = indentUtils.getSpaceCnt(newIndentation, tabSize);
-                const oldSpaceCnt = indentUtils.getSpaceCnt(oldIndentation, tabSize);
+                const newSpaceCnt = getSpaceCnt(newIndentation, tabSize);
+                const oldSpaceCnt = getSpaceCnt(oldIndentation, tabSize);
                 return newSpaceCnt - oldSpaceCnt;
             }
         }
@@ -250,7 +289,7 @@ let MoveLinesCommand = class MoveLinesCommand {
      * @param futureAboveLineText
      */
     matchEnterRuleMovingDown(model, indentConverter, tabSize, line, futureAboveLineNumber, futureAboveLineText) {
-        if (strings.lastNonWhitespaceIndex(futureAboveLineText) >= 0) {
+        if (lastNonWhitespaceIndex(futureAboveLineText) >= 0) {
             // break
             const maxColumn = model.getLineMaxColumn(futureAboveLineNumber);
             const enter = getEnterAction(this._autoIndent, model, new Range(futureAboveLineNumber, maxColumn, futureAboveLineNumber, maxColumn), this._languageConfigurationService);
@@ -261,7 +300,7 @@ let MoveLinesCommand = class MoveLinesCommand {
             let validPrecedingLine = line - 1;
             while (validPrecedingLine >= 1) {
                 const lineContent = model.getLineContent(validPrecedingLine);
-                const nonWhitespaceIdx = strings.lastNonWhitespaceIndex(lineContent);
+                const nonWhitespaceIdx = lastNonWhitespaceIndex(lineContent);
                 if (nonWhitespaceIdx >= 0) {
                     break;
                 }
@@ -286,7 +325,7 @@ let MoveLinesCommand = class MoveLinesCommand {
             else {
                 lineContent = model.getLineContent(validPrecedingLine);
             }
-            const nonWhitespaceIdx = strings.lastNonWhitespaceIndex(lineContent);
+            const nonWhitespaceIdx = lastNonWhitespaceIndex(lineContent);
             if (nonWhitespaceIdx >= 0) {
                 break;
             }
@@ -323,10 +362,10 @@ let MoveLinesCommand = class MoveLinesCommand {
     getIndentEditsOfMovingBlock(model, builder, s, tabSize, insertSpaces, offset) {
         for (let i = s.startLineNumber; i <= s.endLineNumber; i++) {
             const lineContent = model.getLineContent(i);
-            const originalIndent = strings.getLeadingWhitespace(lineContent);
-            const originalSpacesCnt = indentUtils.getSpaceCnt(originalIndent, tabSize);
+            const originalIndent = getLeadingWhitespace(lineContent);
+            const originalSpacesCnt = getSpaceCnt(originalIndent, tabSize);
             const newSpacesCnt = originalSpacesCnt + offset;
-            const newIndent = indentUtils.generateIndent(newSpacesCnt, tabSize, insertSpaces);
+            const newIndent = generateIndent(newSpacesCnt, tabSize, insertSpaces);
             if (newIndent !== originalIndent) {
                 builder.addEditOperation(new Range(i, 1, i, originalIndent.length + 1), newIndent);
                 if (i === s.endLineNumber && s.endColumn <= originalIndent.length + 1 && newIndent === '') {
@@ -351,4 +390,5 @@ let MoveLinesCommand = class MoveLinesCommand {
 MoveLinesCommand = __decorate([
     __param(3, ILanguageConfigurationService)
 ], MoveLinesCommand);
+
 export { MoveLinesCommand };

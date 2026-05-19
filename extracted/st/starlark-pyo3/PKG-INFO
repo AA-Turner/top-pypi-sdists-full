@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: starlark-pyo3
-Version: 2025.2.5
+Version: 2026.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -11,8 +11,8 @@ Home-Page: https://github.com/inducer/starlark-pyo3
 Author-email: Andreas Kloeckner <inform@tiker.net>
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
-Project-URL: repository, https://github.com/inducer/starlark-pyo3
 Project-URL: documentation, https://documen.tician.de/starlark-pyo3/
+Project-URL: repository, https://github.com/inducer/starlark-pyo3
 
 Starlark-PyO3: Python bindings for starlark-rust
 ================================================

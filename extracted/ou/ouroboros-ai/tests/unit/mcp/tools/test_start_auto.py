@@ -18,12 +18,54 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from ouroboros.auto.ledger import SeedDraftLedger
 from ouroboros.auto.pipeline import AutoPipelineResult
 from ouroboros.auto.state import AutoPipelineState, AutoStore
 from ouroboros.core.types import Result
 from ouroboros.mcp.tools.auto_handler import AutoHandler, StartAutoHandler
 from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
 from ouroboros.persistence.event_store import EventStore
+
+_STRUCTURED_OBSERVATION_GOAL = """
+Goal:
+Verify current ooo auto can create hello_auto.py and tests/test_hello_auto.py.
+
+Implementation:
+- Create `hello_auto.py` at the repository root.
+- Add a minimal pytest test at `tests/test_hello_auto.py`.
+
+Outputs:
+- `hello_auto.py` exists.
+- `tests/test_hello_auto.py` exists.
+
+Runtime context:
+- This is a local development repository.
+- Local file edits are allowed.
+- Running targeted tests is allowed.
+- Network access is not required.
+- No credentials are required.
+
+Actors:
+- A single local developer/operator using Codex and Ouroboros in the local repository.
+
+Inputs:
+- The local repository state, the requested implementation contract, and the verification commands described in this goal prompt.
+
+Non-goals:
+- Do not refactor existing code.
+- Do not add dependencies.
+- Do not edit unrelated files.
+
+Success criteria:
+- `ooo auto` is handled by Ouroboros auto/MCP, not plain text.
+- `hello_auto.py` exists.
+- `tests/test_hello_auto.py` exists.
+- The targeted test command `uv run pytest tests/test_hello_auto.py` passes.
+- Final report includes auto session id, seed id, files changed, exact test command, and test result.
+
+Important dispatch rule:
+If `ouroboros_auto` is unavailable or interpreted as normal text, stop and report failure.
+"""
 
 
 @pytest.fixture
@@ -184,6 +226,82 @@ class TestBackgroundJobPath:
         # The inner AutoHandler must NOT have run synchronously — the runner is
         # enqueued on the JobManager only.
         fake_inner_auto.handle.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_new_structured_goal_preallocates_seed_ready_ledger(
+        self, event_store, tmp_path, fake_inner_auto
+    ) -> None:
+        job_manager = MagicMock()
+        snapshot = MagicMock()
+        snapshot.job_id = "job_auto_structured"
+
+        async def _start_job(*, runner, **_):
+            if inspect.iscoroutine(runner):
+                runner.close()
+            return snapshot
+
+        job_manager.start_job = AsyncMock(side_effect=_start_job)
+        store = AutoStore(tmp_path)
+        h = StartAutoHandler(event_store=event_store, job_manager=job_manager, store=store)
+        h._inner_auto = fake_inner_auto
+
+        result = await h.handle({"goal": _STRUCTURED_OBSERVATION_GOAL, "cwd": str(tmp_path)})
+
+        assert result.is_ok
+        state = store.load(result.value.meta["auto_session_id"])
+        assert "runtime_context" in state.user_preferences
+        assert "non_goals" in state.user_preferences
+        assert "failure_modes" in state.user_preferences
+        assert SeedDraftLedger.from_dict(state.ledger).open_gaps() == []
+        fake_inner_auto.handle.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_fresh_structured_goal_runner_resumes_without_preference_override(
+        self, event_store, tmp_path
+    ) -> None:
+        store = AutoStore(tmp_path)
+        job_manager = MagicMock()
+        snapshot = MagicMock()
+        snapshot.job_id = "job_auto_structured_runner"
+        captured: dict[str, object] = {}
+
+        async def _start_job(*, runner, **_):
+            captured["runner"] = runner
+            return snapshot
+
+        job_manager.start_job = AsyncMock(side_effect=_start_job)
+        h = StartAutoHandler(event_store=event_store, job_manager=job_manager, store=store)
+        inner = MagicMock(spec=AutoHandler)
+        inner.handle = AsyncMock(
+            return_value=Result.ok(
+                MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="ran"),),
+                    is_error=False,
+                    meta={"auto_session_id": "auto_structured"},
+                )
+            )
+        )
+        h._inner_auto = inner
+
+        result = await h.handle(
+            {
+                "goal": _STRUCTURED_OBSERVATION_GOAL,
+                "cwd": str(tmp_path),
+                "user_preferences": {"constraints": "Keep changes local and reversible."},
+            }
+        )
+
+        assert result.is_ok
+        auto_session_id = result.value.meta["auto_session_id"]
+        state = store.load(auto_session_id)
+        assert "runtime_context" in state.user_preferences
+        assert state.user_preferences["constraints"] == "Keep changes local and reversible."
+
+        await captured["runner"]
+        inner.handle.assert_awaited_once()
+        runner_args = inner.handle.await_args.args[0]
+        assert runner_args["resume"] == auto_session_id
+        assert "user_preferences" not in runner_args
 
     @pytest.mark.asyncio
     async def test_plugin_mode_returns_subagent_without_enqueue(

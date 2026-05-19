@@ -1906,6 +1906,7 @@ class RepositoriesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '404': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -1976,6 +1977,7 @@ class RepositoriesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '404': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2046,6 +2048,7 @@ class RepositoriesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '404': "ProblemDetails",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -2089,6 +2092,15 @@ class RepositoriesApi:
         # process the body parameter
 
 
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
 
 
         # authentication setting

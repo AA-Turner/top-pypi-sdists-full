@@ -7,7 +7,7 @@ Detect constraints using CSV files, or Pandas or R DataFrames saved as
 parquet files, against a constraints from .tdda JSON constraints file.
 """
 
-USAGE = '''
+USAGE = """
 
 Parameters:
 
@@ -20,11 +20,11 @@ Parameters:
   * constraints.tdda, if provided, is a JSON .tdda file constaining
     constraints.
 
-  * name of output file (.csv, .parqet)
+  * name of output file (.csv, .parquet)
     where detection results are to be written.
     Can be - (or missing) to write to standard output.
 
-'''
+"""
 
 import os
 import sys
@@ -38,43 +38,38 @@ import pandas as pd
 import numpy as np
 
 from tdda import __version__
+from tdda.state import get_config
 from tdda.constraints.flags import detect_parser, detect_flags
 from tdda.constraints.pd.constraints import detect_df, load_df, file_format
 
-from tdda.utils import handle_tilde, nvl
+from tdda.utils import handle_tilde, nvl, cprint, print_stderr
 
 
-def detect_df_from_file(df_path, constraints_path, outpath=None,
-                        verbose=True, **kwargs):
+def detect_df_from_file(
+    df_path,
+    constraints_path,
+    outpath=None,
+    backend=None,
+    verbose=True,
+    **kwargs,
+):
     """
-    Check the records from the Pandas DataFrame provided, to detect
-    records that fail any of the constraints in the JSON ``.tdda`` file
-    provided. This is anomaly detection.
+    Detect records in the file provided that fail any constraints in the
+    JSON ``.tdda`` file provided. This is anomaly detection.
 
-    Inputs:
-
-        *df_path*:
-             Path to a file containing data to be verified.
-             Normally a parquet of CSV file.
-
-        *constraints_path*:
-             The path to a JSON ``.tdda`` file.
-             Alternatively, can be an in-memory
-             :py:class:`~tdda.constraints.base.DatasetConstraints` object.
-
-        *outpath*:
-            Optional destination to write output records.
-            Normally path for a CSV or parquet file.
-            None for no output.
-
-        *verbose*:
-            Controls level of output reporting
-
-        *kwargs*:
-            Passed to discover_df
+    Args:
+        df_path: Path to a file to detect against (CSV or parquet).
+            Use ``None`` or ``'-'`` to read from stdin.
+        constraints_path: Path to a JSON ``.tdda`` file, or an
+            in-memory ``tdda.constraints.base.DatasetConstraints``
+            object.
+        outpath: Optional path (CSV or parquet) to write failing records
+            to. ``None`` for no output.
+        verbose: Controls level of output reporting.
+        **kwargs: Passed to ``detect_df``.
 
     Returns:
-        :py:class:`~tdda.constraints.pd.constraints.PandasDetection` object.
+        ``tdda.constraints.pd.constraints.PandasDetection`` object.
     """
     if df_path == '-' or df_path is None:
         df_path = StringIO(sys.stdin.read())
@@ -85,21 +80,29 @@ def detect_df_from_file(df_path, constraints_path, outpath=None,
         (stem, ext) = os.path.splitext(df_path)
         constraints_path = stem + '.tdda'
 
-    df = load_df(df_path)
-    v = detect_df(df, constraints_path, outpath=outpath,
-                  rownumber_is_index=False, **kwargs)
-    if verbose and outpath is not None and outpath != '-':
-        print(v)
+    df = load_df(df_path, backend=backend)
+    v = detect_df(
+        df,
+        constraints_path,
+        outpath=outpath,
+        rownumber_is_index=False,
+        backend=backend,
+        **kwargs,
+    )
+    if verbose:
+        cprint(v)
     return v
 
 
 def pd_detect_parser():
     parser = detect_parser(USAGE)
     parser.add_argument('input', help='CSV, parquet')
-    parser.add_argument('constraints', nargs='?',
-                        help='constraints file to verify against')
-    parser.add_argument('outpath', nargs='?',
-                        help='file to write detection results to')
+    parser.add_argument(
+        'constraints', nargs='?', help='constraints file to verify against'
+    )
+    parser.add_argument(
+        'outpath', nargs='?', help='file to write detection results to'
+    )
     return parser
 
 
@@ -122,7 +125,12 @@ class PandasDetector:
         params = pd_detect_params(self.argv[1:])
         path = handle_tilde(params['df_path'])
         if path is not None and path != '-' and not os.path.isfile(path):
-            print('%s does not exist' % path)
+            msg = f'{path} does not exist.' + (
+                '\nPerhaps you are trying to mix database tables and files.'
+                if ':' in path
+                else ''
+            )
+            print_stderr(msg)
             sys.exit(1)
         return detect_df_from_file(verbose=self.verbose, **params)
 
@@ -137,4 +145,3 @@ def main(argv, verbose=True):
 
 if __name__ == '__main__':
     main(sys.argv)
-

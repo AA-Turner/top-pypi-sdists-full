@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, patch
 from ouroboros.core.types import Result
 from ouroboros.events.base import BaseEvent
 from ouroboros.events.lineage import lineage_generation_watchdog_decision
+from ouroboros.mcp import job_manager as job_manager_module
 from ouroboros.mcp.job_manager import JobLinks, JobManager, JobSnapshot, JobStatus
 from ouroboros.mcp.tools.job_handlers import (
     JobStatusHandler,
@@ -130,6 +131,1551 @@ class TestJobManager:
             assert "**Current Step**: Gen 4 watchdog timeout" in text
             assert "**Reason**: Generation idle for 7200.0s" in text
         finally:
+            await store.close()
+
+    async def test_monitor_completes_job_when_execution_terminal_is_complete(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            stop = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                await stop.wait()
+                return MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="late done"),),
+                    is_error=False,
+                )
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(session_id="orch_complete", execution_id="exec_complete"),
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_complete",
+                    data={
+                        "completed_count": 2,
+                        "total_count": 2,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_complete",
+                    data={"session_id": "orch_complete", "status": "completed"},
+                )
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.COMPLETED, timeout=2.0
+            )
+
+            assert snapshot.result_text == "Execution complete: 2/2 ACs completed"
+            assert snapshot.result_meta["completed_from_execution_terminal"] is True
+            events, _ = await store.get_events_after("job", started.job_id, last_row_id=0)
+            terminal_events = [
+                event
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert [event.type for event in terminal_events] == ["mcp.job.completed"]
+        finally:
+            stop.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_runner_exception_is_not_masked_by_execution_completion(self, tmp_path) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_runner_failed_after_terminal",
+                    data={"session_id": "orch_runner_failed", "status": "completed"},
+                )
+            )
+
+            async def _runner() -> MCPToolResult:
+                raise RuntimeError("post-processing failed")
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(
+                    session_id="orch_runner_failed",
+                    execution_id="exec_runner_failed_after_terminal",
+                ),
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=2.0
+            )
+
+            assert "post-processing failed" in (snapshot.error or "")
+            assert snapshot.result_meta.get("completed_from_execution_terminal") is not True
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_error_result_is_not_masked_by_execution_completion(self, tmp_path) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_tool_error_after_terminal",
+                    data={"session_id": "orch_tool_error", "status": "completed"},
+                )
+            )
+
+            async def _runner() -> MCPToolResult:
+                return MCPToolResult(
+                    content=(
+                        MCPContentItem(
+                            type=ContentType.TEXT,
+                            text="handler failed after execution terminal",
+                        ),
+                    ),
+                    is_error=True,
+                )
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(
+                    session_id="orch_tool_error",
+                    execution_id="exec_tool_error_after_terminal",
+                ),
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=2.0
+            )
+
+            assert snapshot.result_text == "handler failed after execution terminal"
+            assert snapshot.result_meta.get("completed_from_execution_terminal") is not True
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_monitor_completion_does_not_mask_cancel_cleanup_error_result(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+
+            async def _runner() -> MCPToolResult:
+                try:
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    return MCPToolResult(
+                        content=(
+                            MCPContentItem(
+                                type=ContentType.TEXT,
+                                text="cancel cleanup returned failure",
+                            ),
+                        ),
+                        is_error=True,
+                    )
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(
+                    session_id="orch_monitor_error_result",
+                    execution_id="exec_monitor_error_result",
+                ),
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_monitor_error_result",
+                    data={"session_id": "orch_monitor_error_result", "status": "completed"},
+                )
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=3.0
+            )
+
+            assert snapshot.result_text == "cancel cleanup returned failure"
+            assert snapshot.result_meta.get("completed_from_execution_terminal") is not True
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_monitor_fails_job_when_deliver_progress_stays_zero_after_ac_success(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            stop = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                await stop.wait()
+                return MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="late done"),),
+                    is_error=False,
+                )
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(session_id="orch_stalled", execution_id="exec_stalled"),
+            )
+
+            original_append_event = manager._append_event
+
+            async def _assert_failure_persists_before_teardown(
+                event_type: str, job_id: str, data: dict, **kwargs
+            ) -> None:
+                if event_type == "mcp.job.failed":
+                    runner_task = manager._runner_tasks[job_id]
+                    job_task = manager._tasks[job_id]
+                    assert not runner_task.cancelled()
+                    assert not job_task.cancelled()
+                await original_append_event(event_type, job_id, data, **kwargs)
+
+            manager._append_event = _assert_failure_persists_before_teardown
+
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_stalled",
+                    data={
+                        "completed_count": 0,
+                        "total_count": 23,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.completed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_stalled_ac_1",
+                    data={
+                        "execution_id": "exec_stalled",
+                        "session_id": "child_1",
+                        "session_scope_id": "exec_stalled_ac_1",
+                        "success": True,
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_stalled",
+                    data={"session_id": "orch_stalled", "status": "failed"},
+                )
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=2.0
+            )
+
+            assert "workflow progress accounting stalled" in (snapshot.error or "")
+            assert snapshot.result_meta["failed_from_progress_accounting_stall"] is True
+        finally:
+            stop.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_progress_accounting_append_failure_retries_terminalization(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            stop = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                await stop.wait()
+                return MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="late done"),),
+                    is_error=False,
+                )
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(session_id="orch_append_fail", execution_id="exec_append_fail"),
+            )
+
+            original_append_event = manager._append_event
+            failed_attempts = 0
+
+            async def _fail_first_terminal_failure_append(
+                event_type: str, job_id: str, data: dict, **kwargs
+            ) -> None:
+                nonlocal failed_attempts
+                if event_type == "mcp.job.failed" and failed_attempts == 0:
+                    failed_attempts += 1
+                    raise PersistenceError("synthetic append failure", operation="insert")
+                await original_append_event(event_type, job_id, data, **kwargs)
+
+            manager._append_event = _fail_first_terminal_failure_append
+
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_append_fail",
+                    data={
+                        "session_id": "orch_append_fail",
+                        "completed_count": 0,
+                        "total_count": 1,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.completed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_append_fail_ac_1",
+                    data={
+                        "execution_id": "exec_append_fail",
+                        "session_id": "child_1",
+                        "session_scope_id": "exec_append_fail_ac_1",
+                        "success": True,
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_append_fail",
+                    data={"session_id": "orch_append_fail", "status": "failed"},
+                )
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=3.0
+            )
+
+            assert failed_attempts == 1
+            assert snapshot.result_meta["failed_from_progress_accounting_stall"] is True
+        finally:
+            stop.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_progress_accounting_failure_keeps_runner_tracked_during_cancel_cleanup(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            cleanup_started = asyncio.Event()
+            cleanup_release = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                try:
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    cleanup_started.set()
+                    await cleanup_release.wait()
+                    raise
+                raise AssertionError("runner should only exit through cancellation")
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(session_id="orch_cleanup", execution_id="exec_cleanup"),
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cleanup",
+                    data={
+                        "session_id": "orch_cleanup",
+                        "completed_count": 0,
+                        "total_count": 1,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.completed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cleanup_ac_1",
+                    data={
+                        "execution_id": "exec_cleanup",
+                        "session_id": "child_1",
+                        "session_scope_id": "exec_cleanup_ac_1",
+                        "success": True,
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cleanup",
+                    data={"session_id": "orch_cleanup", "status": "failed"},
+                )
+            )
+
+            await asyncio.wait_for(cleanup_started.wait(), timeout=2.0)
+
+            assert started.job_id in manager._runner_tasks
+
+            cleanup_release.set()
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=2.0
+            )
+
+            assert snapshot.result_meta["failed_from_progress_accounting_stall"] is True
+        finally:
+            cleanup_release.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_progress_accounting_failure_detaches_runner_after_cancel_grace_timeout(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            cleanup_started = asyncio.Event()
+            cleanup_release = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                try:
+                    await asyncio.Event().wait()
+                except asyncio.CancelledError:
+                    cleanup_started.set()
+                    await cleanup_release.wait()
+                    raise
+                raise AssertionError("runner should only exit through cancellation")
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(
+                    session_id="orch_cleanup_timeout", execution_id="exec_cleanup_timeout"
+                ),
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cleanup_timeout",
+                    data={
+                        "session_id": "orch_cleanup_timeout",
+                        "completed_count": 0,
+                        "total_count": 1,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.completed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cleanup_timeout_ac_1",
+                    data={
+                        "execution_id": "exec_cleanup_timeout",
+                        "session_id": "child_1",
+                        "session_scope_id": "exec_cleanup_timeout_ac_1",
+                        "success": True,
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cleanup_timeout",
+                    data={"session_id": "orch_cleanup_timeout", "status": "failed"},
+                )
+            )
+
+            with patch.object(
+                job_manager_module,
+                "_COMPLETED_EXECUTION_CANCEL_GRACE_SECONDS",
+                0.05,
+            ):
+                await asyncio.wait_for(cleanup_started.wait(), timeout=2.0)
+                await _wait_for_job_status(manager, started.job_id, JobStatus.FAILED, timeout=2.0)
+                deadline = asyncio.get_running_loop().time() + 1.0
+                while started.job_id in manager._runner_tasks:
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise AssertionError("runner task was not detached after grace timeout")
+                    await asyncio.sleep(0.01)
+
+            assert started.job_id not in manager._runner_tasks
+        finally:
+            cleanup_release.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_snapshot_recovers_progress_accounting_failed_terminal_after_restart(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        writer = JobManager(store)
+
+        try:
+            await writer._append_event(
+                "mcp.job.created",
+                "job_recover_failed",
+                {
+                    "job_type": "execute_seed",
+                    "status": JobStatus.RUNNING.value,
+                    "message": "Running execute_seed",
+                    "links": {
+                        "session_id": "orch_recover_failed",
+                        "execution_id": "exec_recover_failed",
+                        "lineage_id": None,
+                    },
+                },
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_failed",
+                    data={
+                        "session_id": "orch_recover_failed",
+                        "completed_count": 0,
+                        "total_count": 1,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.completed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_failed_ac_1",
+                    data={
+                        "execution_id": "exec_recover_failed",
+                        "session_id": "child_1",
+                        "session_scope_id": "exec_recover_failed_ac_1",
+                        "success": True,
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_failed",
+                    data={"session_id": "orch_recover_failed", "status": "failed"},
+                )
+            )
+
+            restarted = JobManager(store)
+
+            snapshot = await restarted.get_snapshot("job_recover_failed")
+
+            assert snapshot.status is JobStatus.FAILED
+            assert snapshot.result_meta["failed_from_progress_accounting_stall"] is True
+            assert "workflow progress accounting stalled" in (snapshot.error or "")
+            events, _ = await store.get_events_after("job", "job_recover_failed", last_row_id=0)
+            assert [event.type for event in events] == ["mcp.job.created", "mcp.job.failed"]
+        finally:
+            await store.close()
+
+    async def test_progress_accounting_blocker_waits_for_active_ac_sessions_after_terminal(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            snapshot = JobSnapshot(
+                job_id="job_parallel",
+                job_type="execute_seed",
+                status=JobStatus.RUNNING,
+                message="Running execute_seed",
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                links=JobLinks(
+                    session_id="orch_parallel_active", execution_id="exec_parallel_active"
+                ),
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_parallel_active",
+                    data={
+                        "session_id": "orch_parallel_active",
+                        "completed_count": 0,
+                        "total_count": 2,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.completed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_parallel_active_ac_1",
+                    data={
+                        "execution_id": "exec_parallel_active",
+                        "session_id": "child_1",
+                        "session_scope_id": "exec_parallel_active_ac_1",
+                        "success": True,
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.started",
+                    aggregate_type="execution",
+                    aggregate_id="exec_parallel_active_ac_2",
+                    data={
+                        "execution_id": "exec_parallel_active",
+                        "session_id": "child_2",
+                        "session_scope_id": "exec_parallel_active_ac_2",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_parallel_active",
+                    data={"session_id": "orch_parallel_active", "status": "failed"},
+                )
+            )
+
+            assert await manager._derive_progress_accounting_blocker(snapshot) is None
+
+            await store.append(
+                BaseEvent(
+                    type="execution.session.failed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_parallel_active_ac_2",
+                    data={
+                        "execution_id": "exec_parallel_active",
+                        "session_id": "child_2",
+                        "session_scope_id": "exec_parallel_active_ac_2",
+                        "success": False,
+                    },
+                )
+            )
+
+            blocker = await manager._derive_progress_accounting_blocker(snapshot)
+
+            assert blocker is not None
+            assert "all known AC runtime sessions were terminal" in blocker
+        finally:
+            await store.close()
+
+    async def test_progress_accounting_blocker_requires_failed_execution_terminal(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            snapshot = JobSnapshot(
+                job_id="job_parallel",
+                job_type="execute_seed",
+                status=JobStatus.RUNNING,
+                message="Running execute_seed",
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                links=JobLinks(session_id="orch_parallel", execution_id="exec_parallel"),
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_parallel",
+                    data={
+                        "session_id": "orch_parallel",
+                        "completed_count": 0,
+                        "total_count": 2,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.completed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_parallel_ac_1",
+                    data={
+                        "execution_id": "exec_parallel",
+                        "session_id": "child_1",
+                        "session_scope_id": "exec_parallel_ac_1",
+                        "success": True,
+                    },
+                )
+            )
+
+            assert await manager._derive_progress_accounting_blocker(snapshot) is None
+
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_parallel",
+                    data={"session_id": "orch_parallel", "status": "failed"},
+                )
+            )
+
+            blocker = await manager._derive_progress_accounting_blocker(snapshot)
+
+            assert blocker is not None
+            assert "execution reached terminal failed state" in blocker
+        finally:
+            await store.close()
+
+    async def test_cancel_requested_wins_over_complete_execution_terminal(self, tmp_path) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            stop = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                await stop.wait()
+                return MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="late done"),),
+                    is_error=False,
+                )
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(session_id="orch_cancel", execution_id="exec_cancel"),
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cancel",
+                    data={"session_id": "orch_cancel", "status": "completed"},
+                )
+            )
+
+            snapshot = await manager.cancel_job(started.job_id)
+            assert snapshot.status in {JobStatus.CANCEL_REQUESTED, JobStatus.CANCELLED}
+
+            await asyncio.sleep(1.2)
+            snapshot = await manager.get_snapshot(started.job_id)
+
+            assert snapshot.status in {JobStatus.CANCEL_REQUESTED, JobStatus.CANCELLED}
+            assert snapshot.result_meta.get("completed_from_execution_terminal") is not True
+        finally:
+            stop.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_execution_completion_waits_for_runner_cancellation_before_job_terminal_event(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            cancel_seen = asyncio.Event()
+            release = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                try:
+                    await asyncio.sleep(10)
+                except asyncio.CancelledError:
+                    cancel_seen.set()
+                    await release.wait()
+                    raise
+                return MCPToolResult()
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(session_id="orch_wait", execution_id="exec_wait"),
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_wait",
+                    data={"completed_count": 1, "total_count": 1},
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_wait",
+                    data={"session_id": "orch_wait", "status": "completed"},
+                )
+            )
+
+            await asyncio.wait_for(cancel_seen.wait(), timeout=2)
+            snapshot = await manager.get_snapshot(started.job_id)
+            assert snapshot.is_terminal is False
+
+            release.set()
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.COMPLETED, timeout=2.0
+            )
+
+            assert snapshot.result_text == "Execution complete: 1/1 ACs completed"
+            recovered = JobManager(store)
+            assert (await recovered.get_snapshot(started.job_id)).status is JobStatus.COMPLETED
+            events, _ = await store.get_events_after("job", started.job_id, last_row_id=0)
+            assert [
+                event.type
+                for event in events
+                if event.type.startswith("mcp.job.") and event.type != "mcp.job.updated"
+            ].count("mcp.job.completed") == 1
+        finally:
+            release.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_completed_execution_force_completes_noncooperative_live_runner(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        stop = asyncio.Event()
+        cancel_seen = asyncio.Event()
+
+        async def _runner() -> MCPToolResult:
+            while not stop.is_set():
+                try:
+                    await asyncio.sleep(10)
+                except asyncio.CancelledError:
+                    cancel_seen.set()
+                    continue
+            return MCPToolResult(content=(MCPContentItem(type=ContentType.TEXT, text="late"),))
+
+        runner_task = asyncio.create_task(_runner())
+        try:
+            with patch.object(
+                job_manager_module,
+                "_COMPLETED_EXECUTION_CANCEL_GRACE_SECONDS",
+                0.05,
+            ):
+                started = await manager.start_job(
+                    job_type="execute_seed",
+                    initial_message="queued",
+                    runner=runner_task,
+                    links=JobLinks(session_id="orch_stubborn", execution_id="exec_stubborn"),
+                )
+                await store.append(
+                    BaseEvent(
+                        type="workflow.progress.updated",
+                        aggregate_type="execution",
+                        aggregate_id="exec_stubborn",
+                        data={"completed_count": 1, "total_count": 1},
+                    )
+                )
+                await store.append(
+                    BaseEvent(
+                        type="execution.terminal",
+                        aggregate_type="execution",
+                        aggregate_id="exec_stubborn",
+                        data={"session_id": "orch_stubborn", "status": "completed"},
+                    )
+                )
+
+                await asyncio.wait_for(cancel_seen.wait(), timeout=2)
+                snapshot = await _wait_for_job_status(
+                    manager, started.job_id, JobStatus.COMPLETED, timeout=2.0
+                )
+
+                assert snapshot.result_text == "Execution complete: 1/1 ACs completed"
+                assert snapshot.result_meta["completed_from_execution_terminal"] is True
+                assert manager.has_live_job_task(started.job_id) is False
+                events, _ = await store.get_events_after("job", started.job_id, last_row_id=0)
+                assert [
+                    event.type
+                    for event in events
+                    if event.type.startswith("mcp.job.") and event.type != "mcp.job.updated"
+                ].count("mcp.job.completed") == 1
+        finally:
+            stop.set()
+            runner_task.cancel()
+            await asyncio.gather(runner_task, return_exceptions=True)
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_completed_execution_recovers_after_restart_without_live_runner(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            await store.initialize()
+            await store.append(
+                BaseEvent(
+                    type="mcp.job.created",
+                    aggregate_type="job",
+                    aggregate_id="job_recover_complete",
+                    data={
+                        "job_type": "execute_seed",
+                        "status": JobStatus.QUEUED.value,
+                        "message": "queued",
+                        "links": {
+                            "session_id": "orch_recover",
+                            "execution_id": "exec_recover",
+                            "lineage_id": None,
+                        },
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="mcp.job.updated",
+                    aggregate_type="job",
+                    aggregate_id="job_recover_complete",
+                    data={
+                        "status": JobStatus.RUNNING.value,
+                        "message": "Running execute_seed",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover",
+                    data={"session_id": "orch_recover", "status": "completed"},
+                )
+            )
+
+            snapshot = await manager.get_snapshot("job_recover_complete")
+
+            assert snapshot.status is JobStatus.COMPLETED
+            assert snapshot.result_meta["completed_from_execution_terminal"] is True
+            events, _ = await store.get_events_after("job", "job_recover_complete", last_row_id=0)
+            terminal_events = [
+                event.type
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert terminal_events == ["mcp.job.completed"]
+        finally:
+            await store.close()
+
+    async def test_execution_terminal_completion_preserves_runner_cancel_result(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            cancel_seen = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                try:
+                    await asyncio.sleep(10)
+                except asyncio.CancelledError:
+                    cancel_seen.set()
+                    return MCPToolResult(
+                        content=(MCPContentItem(type=ContentType.TEXT, text="cancelled"),),
+                        is_error=False,
+                        meta={"action": "cancelled"},
+                    )
+                return MCPToolResult()
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(
+                    session_id="orch_cancel_return",
+                    execution_id="exec_cancel_return",
+                ),
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cancel_return",
+                    data={"session_id": "orch_cancel_return", "status": "completed"},
+                )
+            )
+
+            await asyncio.wait_for(cancel_seen.wait(), timeout=2)
+            snapshot = await _wait_for_job_status(
+                manager,
+                started.job_id,
+                JobStatus.CANCELLED,
+                timeout=2.0,
+            )
+
+            assert snapshot.result_text == "cancelled"
+            assert snapshot.result_meta.get("completed_from_execution_terminal") is not True
+            events, _ = await store.get_events_after("job", started.job_id, last_row_id=0)
+            terminal_events = [
+                event.type
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert terminal_events == ["mcp.job.cancelled"]
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_execution_terminal_completion_preserves_runner_cancel_exception(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            cancel_seen = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                try:
+                    await asyncio.sleep(10)
+                except asyncio.CancelledError as exc:
+                    cancel_seen.set()
+                    raise RuntimeError("cleanup failed after terminal execution") from exc
+                return MCPToolResult()
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(
+                    session_id="orch_cancel_exception",
+                    execution_id="exec_cancel_exception",
+                ),
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_cancel_exception",
+                    data={"session_id": "orch_cancel_exception", "status": "completed"},
+                )
+            )
+
+            await asyncio.wait_for(cancel_seen.wait(), timeout=2)
+            snapshot = await _wait_for_job_status(
+                manager,
+                started.job_id,
+                JobStatus.FAILED,
+                timeout=2.0,
+            )
+
+            assert snapshot.result_meta.get("completed_from_execution_terminal") is not True
+            assert snapshot.error == "cleanup failed after terminal execution"
+            events, _ = await store.get_events_after("job", started.job_id, last_row_id=0)
+            terminal_events = [
+                event.type
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert terminal_events == ["mcp.job.failed"]
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_completed_execution_recovery_writes_single_terminal_event_with_concurrent_readers(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            await store.initialize()
+            await store.append(
+                BaseEvent(
+                    type="mcp.job.created",
+                    aggregate_type="job",
+                    aggregate_id="job_recover_race",
+                    data={
+                        "job_type": "execute_seed",
+                        "status": JobStatus.RUNNING.value,
+                        "message": "Running execute_seed",
+                        "links": {
+                            "session_id": "orch_recover_race",
+                            "execution_id": "exec_recover_race",
+                            "lineage_id": None,
+                        },
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_race",
+                    data={"session_id": "orch_recover_race", "status": "completed"},
+                )
+            )
+
+            first, second = await asyncio.gather(
+                manager.get_snapshot("job_recover_race"),
+                manager.get_snapshot("job_recover_race"),
+            )
+
+            assert first.status is JobStatus.COMPLETED
+            assert second.status is JobStatus.COMPLETED
+            events, _ = await store.get_events_after("job", "job_recover_race", last_row_id=0)
+            terminal_events = [
+                event.type
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert terminal_events == ["mcp.job.completed"]
+        finally:
+            await store.close()
+
+    async def test_completed_execution_recovery_is_idempotent_across_managers(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        first_manager = JobManager(store)
+        second_manager = JobManager(store)
+
+        try:
+            await store.initialize()
+            await store.append(
+                BaseEvent(
+                    type="mcp.job.created",
+                    aggregate_type="job",
+                    aggregate_id="job_recover_multi_manager",
+                    data={
+                        "job_type": "execute_seed",
+                        "status": JobStatus.RUNNING.value,
+                        "message": "Running execute_seed",
+                        "links": {
+                            "session_id": "orch_recover_multi_manager",
+                            "execution_id": "exec_recover_multi_manager",
+                            "lineage_id": None,
+                        },
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_multi_manager",
+                    data={"session_id": "orch_recover_multi_manager", "status": "completed"},
+                )
+            )
+
+            first, second = await asyncio.gather(
+                first_manager.get_snapshot("job_recover_multi_manager"),
+                second_manager.get_snapshot("job_recover_multi_manager"),
+            )
+
+            assert first.status is JobStatus.COMPLETED
+            assert second.status is JobStatus.COMPLETED
+            events, _ = await store.get_events_after(
+                "job",
+                "job_recover_multi_manager",
+                last_row_id=0,
+            )
+            terminal_events = [
+                event.type
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert terminal_events == ["mcp.job.completed"]
+        finally:
+            await store.close()
+
+    async def test_completed_execution_recovery_is_non_mutating_for_read_only_store(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        database_url = store._database_url
+
+        try:
+            await store.initialize()
+            await store.append(
+                BaseEvent(
+                    type="mcp.job.created",
+                    aggregate_type="job",
+                    aggregate_id="job_recover_read_only",
+                    data={
+                        "job_type": "execute_seed",
+                        "status": JobStatus.RUNNING.value,
+                        "message": "Running execute_seed",
+                        "links": {
+                            "session_id": "orch_recover_read_only",
+                            "execution_id": "exec_recover_read_only",
+                            "lineage_id": None,
+                        },
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_read_only",
+                    data={"session_id": "orch_recover_read_only", "status": "completed"},
+                )
+            )
+        finally:
+            await store.close()
+
+        read_only_store = EventStore(database_url, read_only=True)
+        read_only_manager = JobManager(read_only_store)
+        try:
+            await read_only_store.initialize(create_schema=False)
+            snapshot = await read_only_manager.get_snapshot("job_recover_read_only")
+
+            assert snapshot.status is JobStatus.COMPLETED
+            assert snapshot.result_meta["completed_from_execution_terminal"] is True
+            events, _ = await read_only_store.get_events_after(
+                "job",
+                "job_recover_read_only",
+                last_row_id=0,
+            )
+            terminal_events = [
+                event.type
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert terminal_events == []
+        finally:
+            await read_only_store.close()
+
+    async def test_progress_accounting_failure_recovery_is_non_mutating_for_read_only_store(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        database_url = store._database_url
+
+        try:
+            await store.initialize()
+            await store.append(
+                BaseEvent(
+                    type="mcp.job.created",
+                    aggregate_type="job",
+                    aggregate_id="job_recover_failed_read_only",
+                    data={
+                        "job_type": "execute_seed",
+                        "status": JobStatus.RUNNING.value,
+                        "message": "Running execute_seed",
+                        "links": {
+                            "session_id": "orch_recover_failed_read_only",
+                            "execution_id": "exec_recover_failed_read_only",
+                            "lineage_id": None,
+                        },
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_failed_read_only",
+                    data={
+                        "session_id": "orch_recover_failed_read_only",
+                        "completed_count": 0,
+                        "total_count": 1,
+                        "current_phase": "Deliver",
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.session.completed",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_failed_read_only_ac_1",
+                    data={
+                        "execution_id": "exec_recover_failed_read_only",
+                        "session_id": "child_1",
+                        "session_scope_id": "exec_recover_failed_read_only_ac_1",
+                        "success": True,
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_failed_read_only",
+                    data={"session_id": "orch_recover_failed_read_only", "status": "failed"},
+                )
+            )
+        finally:
+            await store.close()
+
+        read_only_store = EventStore(database_url, read_only=True)
+        read_only_manager = JobManager(read_only_store)
+        try:
+            await read_only_store.initialize(create_schema=False)
+            snapshot = await read_only_manager.get_snapshot("job_recover_failed_read_only")
+
+            assert snapshot.status is JobStatus.FAILED
+            assert snapshot.result_meta["failed_from_progress_accounting_stall"] is True
+            assert "workflow progress accounting stalled" in (snapshot.error or "")
+            events, _ = await read_only_store.get_events_after(
+                "job",
+                "job_recover_failed_read_only",
+                last_row_id=0,
+            )
+            terminal_events = [
+                event.type
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert terminal_events == []
+        finally:
+            await read_only_store.close()
+
+    async def test_completed_execution_recovery_does_not_beat_concurrent_cancel_request(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            await store.initialize()
+            await store.append(
+                BaseEvent(
+                    type="mcp.job.created",
+                    aggregate_type="job",
+                    aggregate_id="job_recover_cancel_race",
+                    data={
+                        "job_type": "execute_seed",
+                        "status": JobStatus.RUNNING.value,
+                        "message": "Running execute_seed",
+                        "links": {
+                            "session_id": "orch_recover_cancel_race",
+                            "execution_id": "exec_recover_cancel_race",
+                            "lineage_id": None,
+                        },
+                    },
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_recover_cancel_race",
+                    data={"session_id": "orch_recover_cancel_race", "status": "completed"},
+                )
+            )
+            recovery_lock = manager._recovery_locks.setdefault(
+                "job_recover_cancel_race",
+                asyncio.Lock(),
+            )
+            await recovery_lock.acquire()
+            snapshot_task = asyncio.create_task(manager.get_snapshot("job_recover_cancel_race"))
+            await asyncio.sleep(0)
+            await store.append(
+                BaseEvent(
+                    type="mcp.job.updated",
+                    aggregate_type="job",
+                    aggregate_id="job_recover_cancel_race",
+                    data={
+                        "status": JobStatus.CANCEL_REQUESTED.value,
+                        "message": "Cancellation requested",
+                    },
+                )
+            )
+
+            recovery_lock.release()
+            snapshot = await snapshot_task
+
+            assert snapshot.status is JobStatus.CANCEL_REQUESTED
+            events, _ = await store.get_events_after(
+                "job",
+                "job_recover_cancel_race",
+                last_row_id=0,
+            )
+            terminal_events = [
+                event.type
+                for event in events
+                if event.type
+                in {
+                    "mcp.job.completed",
+                    "mcp.job.failed",
+                    "mcp.job.cancelled",
+                    "mcp.job.interrupted",
+                }
+            ]
+            assert terminal_events == []
+        finally:
+            await store.close()
+
+    async def test_complete_workflow_progress_without_terminal_event_does_not_complete_job(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            stop = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                await stop.wait()
+                return MCPToolResult()
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(session_id="orch_progress_only", execution_id="exec_progress_only"),
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_progress_only",
+                    data={"completed_count": 1, "total_count": 1},
+                )
+            )
+
+            await asyncio.sleep(1.2)
+            snapshot = await manager.get_snapshot(started.job_id)
+
+            assert snapshot.is_terminal is False
+            assert snapshot.result_meta.get("completed_from_execution_terminal") is not True
+        finally:
+            stop.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_execution_terminal_ignores_incomplete_progress_for_result_text(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+
+        try:
+            stop = asyncio.Event()
+
+            async def _runner() -> MCPToolResult:
+                await stop.wait()
+                return MCPToolResult()
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(session_id="orch_partial_progress", execution_id="exec_partial"),
+            )
+            await store.append(
+                BaseEvent(
+                    type="workflow.progress.updated",
+                    aggregate_type="execution",
+                    aggregate_id="exec_partial",
+                    data={"completed_count": 1, "total_count": 2},
+                )
+            )
+            await store.append(
+                BaseEvent(
+                    type="execution.terminal",
+                    aggregate_type="execution",
+                    aggregate_id="exec_partial",
+                    data={"session_id": "orch_partial_progress", "status": "completed"},
+                )
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.COMPLETED, timeout=2.0
+            )
+
+            assert snapshot.result_text == "Execution complete"
+            assert snapshot.result_meta["completed_from_execution_terminal"] is True
+        finally:
+            stop.set()
+            await _cancel_manager_tasks(manager)
             await store.close()
 
     async def test_start_job_completes_and_persists_result(self, tmp_path) -> None:
@@ -1369,6 +2915,46 @@ class TestJobManager:
         assert result.value.text_content.startswith("## Job: job_default_full")
         assert "**Status**: running" in result.value.text_content
         assert "job_default_full | running" not in result.value.text_content
+
+    async def test_job_status_full_view_renders_raw_links_without_session_row(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        snapshot = JobSnapshot(
+            job_id="job_auto_links",
+            job_type="auto",
+            status=JobStatus.RUNNING,
+            message="Running auto",
+            created_at=datetime(2026, 4, 22, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 22, tzinfo=UTC),
+            cursor=4,
+            links=JobLinks(
+                session_id="auto_session_links",
+                execution_id="exec_links",
+                lineage_id="lin_links",
+            ),
+        )
+
+        class StaticJobManager:
+            async def get_snapshot(self, job_id: str) -> JobSnapshot:
+                assert job_id == snapshot.job_id
+                return snapshot
+
+        handler = JobStatusHandler(event_store=store, job_manager=StaticJobManager())
+        await store.initialize()
+        try:
+            result = await handler.handle({"job_id": "job_auto_links"})
+        finally:
+            await store.close()
+
+        assert result.is_ok
+        assert "### Links" in result.value.text_content
+        assert "**Session ID**: auto_session_links" in result.value.text_content
+        assert "**Execution ID**: exec_links" in result.value.text_content
+        assert "**Lineage ID**: lin_links" in result.value.text_content
+        assert result.value.meta["session_id"] == "auto_session_links"
+        assert result.value.meta["execution_id"] == "exec_links"
+        assert result.value.meta["lineage_id"] == "lin_links"
 
     async def test_job_wait_omitted_view_preserves_full_unchanged_snapshot(self, tmp_path) -> None:
         store = _build_store(tmp_path)

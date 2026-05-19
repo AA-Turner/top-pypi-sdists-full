@@ -14,6 +14,11 @@
 
 """Service action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
+from typing import Any
+
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -24,7 +29,7 @@ from openstackclient.i18n import _
 class ListService(command.Lister):
     _description = _("List service command")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             "--host",
@@ -44,8 +49,12 @@ class ListService(command.Lister):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[tuple[Any, ...]]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '2'
+        )
 
         columns: tuple[str, ...] = (
             "binary",
@@ -86,7 +95,7 @@ class ListService(command.Lister):
 class SetService(command.Command):
     _description = _("Set volume service properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             "host",
@@ -115,7 +124,7 @@ class SetService(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         if parsed_args.disable_reason and not parsed_args.disable:
             msg = _(
                 "Cannot specify option --disable-reason without "
@@ -123,7 +132,9 @@ class SetService(command.Command):
             )
             raise exceptions.CommandError(msg)
 
-        volume_client = self.app.client_manager.sdk_connection.volume
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '2'
+        )
 
         service = volume_client.find_service(
             parsed_args.service, ignore_missing=False, host=parsed_args.host

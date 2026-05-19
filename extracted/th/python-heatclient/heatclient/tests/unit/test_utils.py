@@ -14,8 +14,8 @@
 #    under the License.
 
 import os
+from pathlib import Path
 from unittest import mock
-from urllib import request
 
 import testtools
 
@@ -185,9 +185,9 @@ class ShellTest(testtools.TestCase):
         events_list = [hc_res.Resource(manager=None, info=event1),
                        hc_res.Resource(manager=None, info=event2)]
 
-        expected = ('2015-09-28 12:12:12 [res_name]: '
+        expected = ('2015-09-28 12:12:12 123456789 [res_name]: '
                     'CREATE_IN_PROGRESS  CREATE started\n'
-                    '2015-09-28 12:12:22 [res_name]: '
+                    '2015-09-28 12:12:22 123456789 [res_name]: '
                     'CREATE_COMPLETE  CREATE completed')
         self.assertEqual(expected, utils.event_log_formatter(events_list))
         self.assertEqual('', utils.event_log_formatter([]))
@@ -252,15 +252,18 @@ class ShellTest(testtools.TestCase):
         events_list = [hc_res.Resource(manager=None, info=event)
                        for event in events]
 
-        expected = '''\
-2016-09-05 04:10:24Z [nested]: \
-CREATE_IN_PROGRESS  Stack CREATE started
-2016-09-05 04:10:24Z [nested.rg1]: \
-CREATE_IN_PROGRESS  state changed
-2016-09-05 04:10:24Z [nested-rg1-m4zxcs4pra6t]: \
-CREATE_IN_PROGRESS  Stack CREATE started
-2016-09-05 04:10:24Z [nested-rg1-m4zxcs4pra6t.1]: \
-CREATE_IN_PROGRESS  state changed'''
+        expected = (
+            '2016-09-05 04:10:24Z  [nested]: '
+            'CREATE_IN_PROGRESS  Stack CREATE started\n'
+            '2016-09-05 04:10:24Z 375c49ae-cefb-4fb3-8f4d-1d5f1b9e3e5d '
+            '[nested.rg1]: CREATE_IN_PROGRESS  state changed\n'
+            '2016-09-05 04:10:24Z 7e521c84-cd35-4f4c-b0de-962bd3cc40a8 '
+            '[nested-rg1-m4zxcs4pra6t]: '
+            'CREATE_IN_PROGRESS  Stack CREATE started\n'
+            '2016-09-05 04:10:24Z c6186c16-94ef-4214-a11a-7e3cc8a17f82 '
+            '[nested-rg1-m4zxcs4pra6t.1]: '
+            'CREATE_IN_PROGRESS  state changed'
+        )
         self.assertEqual(expected, utils.event_log_formatter(events_list))
 
     def test_event_log_formatter_resource_path(self):
@@ -323,15 +326,16 @@ CREATE_IN_PROGRESS  state changed'''
         events_list = [hc_res.Resource(manager=None, info=event)
                        for event in events]
 
-        expected = '''\
-2016-09-05 04:10:24Z [nested]: \
-CREATE_IN_PROGRESS  Stack CREATE started
-2016-09-05 04:10:24Z [nested.rg1]: \
-CREATE_IN_PROGRESS  state changed
-2016-09-05 04:10:24Z [nested.rg1]: \
-CREATE_IN_PROGRESS  Stack CREATE started
-2016-09-05 04:10:24Z [nested.rg1.1]: \
-CREATE_IN_PROGRESS  state changed'''
+        expected = (
+            '2016-09-05 04:10:24Z  [nested]: '
+            'CREATE_IN_PROGRESS  Stack CREATE started\n'
+            '2016-09-05 04:10:24Z 375c49ae-cefb-4fb3-8f4d-1d5f1b9e3e5d '
+            '[nested.rg1]: CREATE_IN_PROGRESS  state changed\n'
+            '2016-09-05 04:10:24Z 7e521c84-cd35-4f4c-b0de-962bd3cc40a8 '
+            '[nested.rg1]: CREATE_IN_PROGRESS  Stack CREATE started\n'
+            '2016-09-05 04:10:24Z c6186c16-94ef-4214-a11a-7e3cc8a17f82 '
+            '[nested.rg1.1]: CREATE_IN_PROGRESS  state changed'
+        )
         self.assertEqual(expected, utils.event_log_formatter(events_list))
 
 
@@ -387,7 +391,7 @@ class TestURLFunctions(testtools.TestCase):
 
     def test_normalise_file_path_to_url_relative(self):
         self.assertEqual(
-            'file://' + request.pathname2url('%s/foo' % os.getcwd()),
+            Path(os.getcwd(), 'foo').as_uri(),
             utils.normalise_file_path_to_url(
                 'foo'))
 

@@ -17,17 +17,14 @@ from transformers import (
     GenerationConfig
 )
 
-from .base import AbstractClient, MessageResponse, StreamingRetryConfig
+from .base import AbstractClient, MessageResponse
 from ..models import (
     AIMessage,
     AIMessageFactory,
     CompletionUsage,
-    StructuredOutputConfig,
-    OutputFormat
+    StructuredOutputConfig
 )
 from ..models.responses import InvokeResult
-from ..exceptions import InvokeError
-from ..memory import ConversationHistory, ConversationTurn
 
 
 class TransformersModel(Enum):
@@ -389,6 +386,18 @@ class TransformersClient(AbstractClient):
             prompt, files, user_id, session_id, system_prompt
         )
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent
+        import time as _lc_time_hf
+        _lc_tc_hf = self._emit_before_call(
+            client_name="huggingface",
+            model=self.model_name if hasattr(self, 'model_name') else "",
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=system_prompt,
+            has_tools=False,
+            parent_trace=None,
+        )
+        _lc_t0_hf = _lc_time_hf.perf_counter()
+
         if files:
             self.logger.warning(
                 "File attachments not supported by TransformersClient"
@@ -490,6 +499,16 @@ class TransformersClient(AbstractClient):
             except Exception as e:
                 self.logger.warning(f"Failed to parse structured output: {e}")
 
+        # FEAT-176: lifecycle event — AfterClientCallEvent
+        _lc_hf_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc_hf, client_name="huggingface",
+            model=self.model_name if hasattr(self, 'model_name') else "",
+            duration_ms=(_lc_time_hf.perf_counter() - _lc_t0_hf) * 1000,
+            input_tokens=getattr(_lc_hf_usage, 'prompt_tokens', None) if _lc_hf_usage else None,
+            output_tokens=getattr(_lc_hf_usage, 'completion_tokens', None) if _lc_hf_usage else None,
+            finish_reason=None,
+        )
         return ai_message
 
     async def ask_stream(
@@ -504,12 +523,15 @@ class TransformersClient(AbstractClient):
         session_id: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         **kwargs
-    ) -> AsyncIterator[str]:
-        """
-        Stream the model's response.
+    ) -> AsyncIterator[Union[str, AIMessage]]:
+        """Stream the model's response.
 
-        Note: True streaming is not easily available with transformers,
-        so this implementation yields the complete response.
+        Pseudo-streaming: calls ``self.ask()`` (which returns a full
+        :class:`~parrot.models.responses.AIMessage`), then yields the
+        response text in small chunks for compatibility with streaming
+        consumers, then yields the ``AIMessage`` itself as the final element.
+
+        Note: True streaming is not easily available with transformers.
         """
         response = await self.ask(
             prompt=prompt,
@@ -532,6 +554,9 @@ class TransformersClient(AbstractClient):
             chunk = text[i:i + chunk_size]
             yield chunk
             await asyncio.sleep(0.01)  # Small delay to simulate streaming
+
+        # response is already an AIMessage from self.ask() — yield it as the final element
+        yield response
 
     async def batch_ask(self, requests: List[Dict[str, Any]]) -> List[AIMessage]:
         """

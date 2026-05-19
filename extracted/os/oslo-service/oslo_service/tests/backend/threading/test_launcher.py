@@ -18,8 +18,10 @@ from unittest import TestCase
 
 import cotyledon
 from oslo_config import cfg
+import pickle
 
 from oslo_service.backend._threading import service
+from oslo_service.backend._threading import threadgroup
 
 
 class DummyService(service.ServiceBase):
@@ -34,6 +36,14 @@ class DummyService(service.ServiceBase):
 
     def reset(self):
         pass
+
+
+class CustomService(service.Service):
+    """A picklable Service subclass with extra attributes."""
+
+    def __init__(self):
+        super().__init__(threads=100)
+        self.my_attr = 'preserved'
 
 
 class UnpicklableService(service.ServiceBase):
@@ -59,10 +69,9 @@ class UnpicklableService(service.ServiceBase):
 class BaseLauncherTestCase(TestCase):
     def setUp(self):
         super().setUp()
-        self.conf = cfg.ConfigOpts()
-        # Reset ServiceManager singleton between tests
-        # This allows creating multiple ServiceManager instances in tests
+        # Reset ServiceManager singleton so tests may create new instances.
         cotyledon.ServiceManager._process_runner_already_created = False
+        self.conf = cfg.ConfigOpts()
 
     def _test_multiple_launch_service_re_evaluates_context(self, launcher):
         with mock.patch.object(service, '_select_service_manager_context'
@@ -144,13 +153,7 @@ class ServiceLauncherTestCase(BaseLauncherTestCase):
         self._test_unpicklable_second_service_falls_back_to_fork(launcher)
 
 
-class LauncherTestCase(TestCase):
-    def setUp(self):
-        super().setUp()
-        self.conf = cfg.ConfigOpts()
-        # Reset ServiceManager singleton between tests
-        # This allows creating multiple ServiceManager instances in tests
-        cotyledon.ServiceManager._process_runner_already_created = False
+class LauncherTestCase(BaseLauncherTestCase):
 
     def test_graceful_shutdown_timeout_is_registered(self):
         launchers = [service.ProcessLauncher, service.ServiceLauncher]
@@ -181,3 +184,20 @@ class LauncherTestCase(TestCase):
                 self.assertEqual(
                     call_kwargs['graceful_shutdown_timeout'], timeout)
                 self.assertIn('mp_context', call_kwargs)
+
+
+class ServicePickleTestCase(TestCase):
+
+    def test_threading_service_roundtrip(self):
+        svc = service.Service(threads=500)
+        data = pickle.dumps(svc)
+        restored = pickle.loads(data)
+        self.assertEqual(restored.tg.thread_pool_size, 500)
+        self.assertIsInstance(restored.tg, threadgroup.ThreadGroup)
+
+    def test_subclass_preserves_extra_attrs(self):
+        svc = CustomService()
+        restored = pickle.loads(pickle.dumps(svc))
+        self.assertEqual(restored.my_attr, 'preserved')
+        self.assertEqual(restored.tg.thread_pool_size, 100)
+        self.assertIsInstance(restored.tg, threadgroup.ThreadGroup)

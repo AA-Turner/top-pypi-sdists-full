@@ -96,11 +96,14 @@ __all__ = (
     "CreateAnalyzerRequestTypeDef",
     "CreateAnalyzerResponseTypeDef",
     "CreateArchiveRuleRequestTypeDef",
+    "CreateServiceLinkedAnalyzerRequestTypeDef",
+    "CreateServiceLinkedAnalyzerResponseTypeDef",
     "CriterionOutputTypeDef",
     "CriterionTypeDef",
     "CriterionUnionTypeDef",
     "DeleteAnalyzerRequestTypeDef",
     "DeleteArchiveRuleRequestTypeDef",
+    "DeleteServiceLinkedAnalyzerRequestTypeDef",
     "DynamodbStreamConfigurationTypeDef",
     "DynamodbTableConfigurationTypeDef",
     "EbsSnapshotConfigurationOutputTypeDef",
@@ -401,6 +404,10 @@ class DeleteAnalyzerRequestTypeDef(TypedDict):
 class DeleteArchiveRuleRequestTypeDef(TypedDict):
     analyzerName: str
     ruleName: str
+    clientToken: NotRequired[str]
+
+class DeleteServiceLinkedAnalyzerRequestTypeDef(TypedDict):
+    analyzerName: str
     clientToken: NotRequired[str]
 
 class EbsSnapshotConfigurationTypeDef(TypedDict):
@@ -724,6 +731,10 @@ CreateAccessPreviewResponseTypeDef = TypedDict(
 )
 
 class CreateAnalyzerResponseTypeDef(TypedDict):
+    arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateServiceLinkedAnalyzerResponseTypeDef(TypedDict):
     arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1283,6 +1294,7 @@ AnalyzerSummaryTypeDef = TypedDict(
         "tags": NotRequired[dict[str, str]],
         "statusReason": NotRequired[StatusReasonTypeDef],
         "configuration": NotRequired[AnalyzerConfigurationOutputTypeDef],
+        "managedBy": NotRequired[str],
     },
 )
 
@@ -1343,6 +1355,15 @@ CreateAnalyzerRequestTypeDef = TypedDict(
         "type": TypeType,
         "archiveRules": NotRequired[Sequence[InlineArchiveRuleTypeDef]],
         "tags": NotRequired[Mapping[str, str]],
+        "clientToken": NotRequired[str],
+        "configuration": NotRequired[AnalyzerConfigurationUnionTypeDef],
+    },
+)
+CreateServiceLinkedAnalyzerRequestTypeDef = TypedDict(
+    "CreateServiceLinkedAnalyzerRequestTypeDef",
+    {
+        "type": TypeType,
+        "archiveRules": NotRequired[Sequence[InlineArchiveRuleTypeDef]],
         "clientToken": NotRequired[str],
         "configuration": NotRequired[AnalyzerConfigurationUnionTypeDef],
     },

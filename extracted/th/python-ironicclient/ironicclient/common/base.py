@@ -17,33 +17,54 @@
 Base utilities to build API operation managers and objects on top of.
 """
 
+from __future__ import annotations
+
 import abc
 import copy
+from typing import Any, cast, Generic, overload, TypeVar
 from urllib import parse as urlparse
 
 from ironicclient.common.apiclient import base
+from ironicclient.common.http import SessionClient
 from ironicclient import exc
 
 
-def getid(obj):
+class Resource(base.Resource):
+    """Represents a particular instance of an object (tenant, user, etc).
+
+    This is pretty much just a bag for attributes.
+    """
+
+    def to_dict(self) -> dict[str, Any]:
+        return copy.deepcopy(self._info)
+
+
+ResourceT = TypeVar('ResourceT', bound=Resource)
+ResourceAltT = TypeVar('ResourceAltT', bound=Resource)
+
+
+def getid(obj: str | Resource) -> str:
     """Wrapper to get  object's ID.
 
     Abstracts the common pattern of allowing both an object or an
     object's ID (UUID) as a parameter when dealing with relationships.
     """
-    try:
-        return obj.id
-    except AttributeError:
+    if isinstance(obj, str):
         return obj
+    try:
+        return cast(str, obj.id)
+    except AttributeError:
+        return cast(str, obj)
 
 
-class Manager(object, metaclass=abc.ABCMeta):
+class Manager(Generic[ResourceT], metaclass=abc.ABCMeta):
     """Provides  CRUD operations with a particular API."""
 
-    def __init__(self, api):
+    def __init__(self, api: SessionClient) -> None:
         self.api = api
+        self.client = api
 
-    def _path(self, resource_id=None):
+    def _path(self, resource_id: str | None = None) -> str:
         """Returns a request path for a given resource identifier.
 
         :param resource_id: Identifier of the resource to generate the request
@@ -54,20 +75,21 @@ class Manager(object, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def resource_class(self):
-        """The resource class
-
-        """
+    def resource_class(self) -> type[ResourceT]:
+        """The resource class"""
 
     @property
     @abc.abstractmethod
-    def _resource_name(self):
-        """The resource name.
+    def _resource_name(self) -> str:
+        """The resource name."""
 
-        """
-
-    def _get(self, resource_id, fields=None, os_ironic_api_version=None,
-             global_request_id=None):
+    def _get(
+        self,
+        resource_id: str,
+        fields: list[str] | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> ResourceT | None:
         """Retrieve a resource.
 
         :param resource_id: Identifier of the resource.
@@ -96,8 +118,13 @@ class Manager(object, metaclass=abc.ABCMeta):
         except IndexError:
             return None
 
-    def _get_as_dict(self, resource_id, fields=None,
-                     os_ironic_api_version=None, global_request_id=None):
+    def _get_as_dict(
+        self,
+        resource_id: str,
+        fields: list[str] | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> dict[str, Any]:
         """Retrieve a resource as a dictionary
 
         :param resource_id: Identifier of the resource.
@@ -117,7 +144,11 @@ class Manager(object, metaclass=abc.ABCMeta):
         else:
             return {}
 
-    def _format_body_data(self, body, response_key):
+    def _format_body_data(
+        self,
+        body: dict[str, Any],
+        response_key: str | None,
+    ) -> list[Any]:
         if response_key:
             try:
                 data = body[response_key]
@@ -127,13 +158,43 @@ class Manager(object, metaclass=abc.ABCMeta):
             data = body
 
         if not isinstance(data, list):
-            data = [data]
+            return [data]
 
         return data
 
-    def _list_pagination(self, url, response_key=None, obj_class=None,
-                         limit=None, os_ironic_api_version=None,
-                         global_request_id=None):
+    @overload
+    def _list_pagination(
+        self,
+        url: str,
+        response_key: str | None = None,
+        obj_class: None = None,
+        limit: int | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> list[ResourceT]:
+        ...
+
+    @overload
+    def _list_pagination(
+        self,
+        url: str,
+        response_key: str | None = None,
+        obj_class: type[ResourceAltT] = ...,
+        limit: int | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> list[ResourceAltT]:
+        ...
+
+    def _list_pagination(
+        self,
+        url: str,
+        response_key: str | None = None,
+        obj_class: type[Resource] | None = None,
+        limit: int | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> list[Any]:
         """Retrieve a list of items.
 
         The Ironic API is configured to return a maximum number of
@@ -159,12 +220,12 @@ class Manager(object, metaclass=abc.ABCMeta):
 
         if limit is not None:
             limit = int(limit)
-        kwargs = {"headers": {}}
+        headers: dict[str, str] = {}
         if os_ironic_api_version is not None:
-            kwargs['headers'][
+            headers[
                 'X-OpenStack-Ironic-API-Version'] = os_ironic_api_version
         if global_request_id is not None:
-            kwargs["headers"]["X-Openstack-Request-Id"] = global_request_id
+            headers["X-Openstack-Request-Id"] = global_request_id
 
         # NOTE(jroll)
         # endpoint_trimmed is what is prepended if we only pass a path
@@ -180,14 +241,24 @@ class Manager(object, metaclass=abc.ABCMeta):
         endpoint_parts = urlparse.urlparse(self.api.endpoint_trimmed)
         url_path_prefix = endpoint_parts[2]
 
-        object_list = []
+        object_list: list[Resource] = []
         object_count = 0
         limit_reached = False
         while url:
-            resp, body = self.api.json_request('GET', url, **kwargs)
+            resp, body = self.api.json_request(
+                'GET', url, headers=headers)
+            if not isinstance(body, dict):
+                raise exc.InvalidAttribute(
+                    'API response body must be a JSON object; got %s' %
+                    type(body).__name__)
             data = self._format_body_data(body, response_key)
             for obj in data:
-                object_list.append(obj_class(self, obj, loaded=True))
+                item = obj_class(
+                    self,
+                    obj,
+                    loaded=True,
+                )
+                object_list.append(item)
                 object_count += 1
                 if limit and object_count >= limit:
                     # break the for loop
@@ -198,7 +269,7 @@ class Manager(object, metaclass=abc.ABCMeta):
             if limit_reached:
                 break
 
-            url = body.get('next')
+            url = body.get('next', '')
             if url:
                 # NOTE(lucasagomes): We need to edit the URL to remove
                 # the scheme and netloc
@@ -211,40 +282,104 @@ class Manager(object, metaclass=abc.ABCMeta):
 
         return object_list
 
-    def __list(self, url, response_key=None, body=None,
-               os_ironic_api_version=None, global_request_id=None):
-        kwargs = {"headers": {}}
+    def __list(
+        self,
+        url: str,
+        response_key: str | None = None,
+        body: dict[str, Any] | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> list[Any]:
+        headers: dict[str, str] = {}
 
         if os_ironic_api_version is not None:
-            kwargs['headers'][
+            headers[
                 'X-OpenStack-Ironic-API-Version'] = os_ironic_api_version
         if global_request_id is not None:
-            kwargs["headers"]["X-Openstack-Request-Id"] = global_request_id
+            headers["X-Openstack-Request-Id"] = global_request_id
 
-        resp, body = self.api.json_request('GET', url, **kwargs)
+        _resp, json_body = self.api.json_request(
+            'GET', url, headers=headers)
+        if not isinstance(json_body, dict):
+            raise exc.InvalidAttribute(
+                'API response body must be a JSON object; got %s' %
+                type(json_body).__name__)
 
-        data = self._format_body_data(body, response_key)
+        data = self._format_body_data(json_body, response_key)
         return data
 
-    def _list(self, url, response_key=None, obj_class=None, body=None,
-              os_ironic_api_version=None, global_request_id=None):
+    @overload
+    def _list(
+        self,
+        url: str,
+        response_key: str | None = None,
+        obj_class: None = None,
+        body: dict[str, Any] | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> list[ResourceT]:
+        ...
+
+    @overload
+    def _list(
+        self,
+        url: str,
+        response_key: str | None = None,
+        obj_class: type[ResourceAltT] = ...,
+        body: dict[str, Any] | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> list[ResourceAltT]:
+        ...
+
+    def _list(
+        self,
+        url: str,
+        response_key: str | None = None,
+        obj_class: type[Resource] | None = None,
+        body: dict[str, Any] | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> list[Any]:
         if obj_class is None:
             obj_class = self.resource_class
 
-        data = self.__list(url, response_key=response_key, body=body,
-                           os_ironic_api_version=os_ironic_api_version,
-                           global_request_id=global_request_id)
-        return [obj_class(self, res, loaded=True) for res in data if res]
+        data = self.__list(
+            url,
+            response_key=response_key,
+            body=body,
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id,
+        )
+        return [
+            obj_class(self, res, loaded=True)
+            for res in data
+            if res
+        ]
 
-    def _list_primitives(self, url, response_key=None,
-                         os_ironic_api_version=None, global_request_id=None):
-        return self.__list(url, response_key=response_key,
-                           os_ironic_api_version=os_ironic_api_version,
-                           global_request_id=global_request_id)
+    def _list_primitives(
+        self,
+        url: str,
+        response_key: str | None = None,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> list[Any]:
+        return self.__list(
+            url,
+            response_key=response_key,
+            os_ironic_api_version=os_ironic_api_version,
+            global_request_id=global_request_id,
+        )
 
-    def _update(self, resource_id, patch, method='PATCH',
-                os_ironic_api_version=None, global_request_id=None,
-                params=None):
+    def _update(
+        self,
+        resource_id: str,
+        patch: list[dict[str, Any]] | None,
+        method: str = 'PATCH',
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> ResourceT | None:
         """Update a resource.
 
         :param resource_id: Resource identifier.
@@ -258,23 +393,27 @@ class Manager(object, metaclass=abc.ABCMeta):
         """
 
         url = self._path(resource_id)
-        kwargs = {"headers": {}}
-        if patch is not None:
-            kwargs['body'] = patch
+        headers: dict[str, str] = {}
         if os_ironic_api_version is not None:
-            kwargs['headers'][
+            headers[
                 'X-OpenStack-Ironic-API-Version'] = os_ironic_api_version
         if global_request_id is not None:
-            kwargs["headers"]["X-Openstack-Request-Id"] = global_request_id
-        if params:
-            kwargs['params'] = params
-        resp, body = self.api.json_request(method, url, **kwargs)
+            headers["X-Openstack-Request-Id"] = global_request_id
+        _resp, body = self.api.json_request(
+            method, url, body=patch, headers=headers, params=params)
         # PATCH/PUT requests may not return a body
         if body:
-            return self.resource_class(self, body)
+            return self.resource_class(
+                self, cast(dict[str, Any], body),
+            )
+        return None
 
-    def _delete(self, resource_id,
-                os_ironic_api_version=None, global_request_id=None):
+    def _delete(
+        self,
+        resource_id: str,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+    ) -> None:
         """Delete a resource.
 
         :param resource_id: Resource identifier.
@@ -283,7 +422,7 @@ class Manager(object, metaclass=abc.ABCMeta):
         :param global_request_id: String containing global request ID header
             value (in form "req-<UUID>") to use for the request.
         """
-        headers = {}
+        headers: dict[str, str] = {}
         if os_ironic_api_version is not None:
             headers["X-OpenStack-Ironic-API-Version"] = os_ironic_api_version
         if global_request_id is not None:
@@ -292,18 +431,20 @@ class Manager(object, metaclass=abc.ABCMeta):
                              headers=headers)
 
 
-class CreateManager(Manager, metaclass=abc.ABCMeta):
+class CreateManager(Manager[ResourceT], metaclass=abc.ABCMeta):
     """Provides creation operations with a particular API."""
 
     @property
     @abc.abstractmethod
-    def _creation_attributes(self):
-        """A list of required creation attributes for a resource type.
+    def _creation_attributes(self) -> list[str]:
+        """A list of required creation attributes for a resource type."""
 
-        """
-
-    def create(self, os_ironic_api_version=None, global_request_id=None,
-               **kwargs):
+    def create(
+        self,
+        os_ironic_api_version: str | None = None,
+        global_request_id: str | None = None,
+        **kwargs: Any,
+    ) -> ResourceT | None:
         """Create a resource based on a kwargs dictionary of attributes.
 
         :param kwargs: A dictionary containing the attributes of the resource
@@ -329,23 +470,17 @@ class CreateManager(Manager, metaclass=abc.ABCMeta):
                 'needed to create %(resource)s.' %
                 {'resource': self._resource_name,
                  'attrs': '","'.join(invalid)})
-        headers = {}
+        headers: dict[str, str] = {}
         if os_ironic_api_version is not None:
             headers['X-OpenStack-Ironic-API-Version'] = os_ironic_api_version
         if global_request_id is not None:
             headers["X-Openstack-Request-Id"] = global_request_id
         url = self._path()
-        resp, body = self.api.json_request('POST', url, body=new,
-                                           headers=headers)
+        _resp, body = self.api.json_request(
+            'POST', url, body=new, headers=headers,
+        )
         if body:
-            return self.resource_class(self, body)
-
-
-class Resource(base.Resource):
-    """Represents a particular instance of an object (tenant, user, etc).
-
-    This is pretty much just a bag for attributes.
-    """
-
-    def to_dict(self):
-        return copy.deepcopy(self._info)
+            return self.resource_class(
+                self, cast(dict[str, Any], body),
+            )
+        return None

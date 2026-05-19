@@ -1,7 +1,7 @@
 import os
 
+from biolib._shared.types.typing import Optional
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Optional
 
 try:
     import docker  # type: ignore

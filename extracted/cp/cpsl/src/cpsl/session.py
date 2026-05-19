@@ -1494,6 +1494,48 @@ class Session:
         """Close the table preview pane."""
         await self.show(Block(type="table_preview", payload={"close": True}))
 
+    async def show_ui(
+        self,
+        ui: Any = None,
+        *,
+        component: str | None = None,
+        page: str | None = None,
+        props: dict[str, Any] | None = None,
+        packages: list[str] | None = None,
+        title: str = "",
+        key: str = "",
+        mode: str = "split",
+    ) -> None:
+        """Display a custom UI surface inline or in the split preview pane.
+
+        ``ui`` may be a Python DSL widget (anything with ``to_dict()``) or
+        a widget dict. Pass ``component=`` for a TSX component path, or
+        ``page=`` for an existing app page name/route.
+        """
+        if mode not in ("inline", "split", "copilot", "preview"):
+            raise ValueError(
+                f"mode must be 'inline', 'split', 'copilot', or 'preview', got {mode!r}"
+            )
+
+        payload = _ui_preview_payload(
+            ui,
+            component=component,
+            page=page,
+            props=props,
+            packages=packages,
+            title=title,
+            key=key,
+            mode=mode,
+        )
+        await self.show(Block(type="ui_preview", payload=payload))
+
+    async def hide_ui(self, key: str = "") -> None:
+        """Close the custom UI preview pane."""
+        payload: dict[str, Any] = {"close": True}
+        if key:
+            payload["key"] = key
+        await self.show(Block(type="ui_preview", payload=payload))
+
     async def set_title(self, title: str) -> None:
         """Set the session title displayed in the sidebar.
 
@@ -1995,6 +2037,83 @@ def _table_widget_title(widget: dict[str, Any]) -> str:
     return "Table"
 
 
+def _ui_preview_payload(
+    ui: Any = None,
+    *,
+    component: str | None = None,
+    page: str | None = None,
+    props: dict[str, Any] | None = None,
+    packages: list[str] | None = None,
+    title: str = "",
+    key: str = "",
+    mode: str = "split",
+) -> dict[str, Any]:
+    sources = [ui is not None, component is not None, page is not None]
+    if sum(1 for present in sources if present) != 1:
+        raise ValueError("show_ui accepts exactly one source: ui, component, or page")
+
+    payload: dict[str, Any] = {"mode": mode}
+    if title:
+        payload["title"] = title
+    if key:
+        payload["key"] = key
+    if props is not None:
+        payload["props"] = _json_safe_value(props)
+
+    if ui is not None:
+        widget = _ui_widget_from_source(ui)
+        payload["kind"] = "widget"
+        payload["widget"] = widget
+        if "title" not in payload:
+            payload["title"] = _ui_widget_title(widget)
+        return payload
+
+    if component is not None:
+        component_path = component.strip()
+        if not component_path:
+            raise ValueError("show_ui component path must not be empty")
+        payload["kind"] = "component"
+        payload["component"] = component_path
+        if packages:
+            payload["packages"] = [str(pkg) for pkg in packages if str(pkg).strip()]
+        if "title" not in payload:
+            payload["title"] = component_path.rsplit("/", 1)[-1].rsplit(".", 1)[0] or "Custom UI"
+        return payload
+
+    page_name = (page or "").strip()
+    if not page_name:
+        raise ValueError("show_ui page must not be empty")
+    payload["kind"] = "page"
+    payload["page"] = page_name
+    if "title" not in payload:
+        payload["title"] = page_name
+    return payload
+
+
+def _ui_widget_from_source(ui: Any) -> dict[str, Any]:
+    to_dict = getattr(ui, "to_dict", None)
+    if callable(to_dict):
+        widget = to_dict()
+    elif isinstance(ui, dict):
+        widget = ui
+    else:
+        raise ValueError("show_ui ui must be a cpsl.ui widget or widget dict")
+
+    if not isinstance(widget, dict) or not isinstance(widget.get("type"), str):
+        raise ValueError("show_ui widget must serialize to a widget dict with a type")
+    return _json_safe_value(widget)
+
+
+def _ui_widget_title(widget: dict[str, Any]) -> str:
+    explicit = widget.get("title") or widget.get("label")
+    if explicit:
+        return str(explicit)
+    typ = str(widget.get("type") or "UI")
+    if typ == "page":
+        return "Custom UI"
+    return typ.replace("_", " ").replace("-", " ").title()
+
+
 class FileUploadTimeout(TimeoutError):
     """Raised when ``session.prompt_file`` times out."""
 
@@ -2051,6 +2170,10 @@ def _external_block_fallback(block: Block) -> str:
         if payload.get("close"):
             return "Table preview closed."
         return str(payload.get("title") or "Table is available in the web app.")
+    if typ == "ui_preview":
+        if payload.get("close"):
+            return "UI preview closed."
+        return str(payload.get("title") or "Custom UI is available in the web app.")
 
     return ""
 

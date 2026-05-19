@@ -14,6 +14,8 @@
 #   under the License.
 #
 
+from __future__ import annotations
+
 import json
 from unittest import mock
 
@@ -250,9 +252,13 @@ baremetal_runbook_steps = json.dumps([{
     'order': 1
 }])
 baremetal_runbook_extra = {'key1': 'value1', 'key2': 'value2'}
+baremetal_runbook_description = ''
+baremetal_runbook_traits = []
 RUNBOOK = {
     'uuid': baremetal_runbook_uuid,
     'name': baremetal_runbook_name,
+    'description': baremetal_runbook_description,
+    'traits': baremetal_runbook_traits,
     'owner': baremetal_runbook_owner,
     'public': baremetal_runbook_public,
     'steps': baremetal_runbook_steps,
@@ -344,7 +350,7 @@ INSPECTION_RULE = {
 
 class TestBaremetal(utils.TestCommand):
 
-    def setUp(self):
+    def setUp(self) -> None:
         super(TestBaremetal, self).setUp()
 
         self.app.client_manager.auth_ref = mock.Mock(auth_token="TOKEN")
@@ -353,5 +359,5 @@ class TestBaremetal(utils.TestCommand):
 
 class FakeBaremetalResource(fakes.FakeResource):
 
-    def get_keys(self):
+    def get_keys(self) -> dict[str, str]:
         return {'property': 'value'}

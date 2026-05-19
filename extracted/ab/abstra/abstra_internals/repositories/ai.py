@@ -14,6 +14,9 @@ from abstra_internals.contracts_generated import (
     CloudApiCliAiV2ConversationPostRequest,
     CloudApiCliAiV2ConversationPostResponse,
     CloudApiCliAiV2PromptPostRequest,
+    CloudApiCliAiV2QueueClearRequest,
+    CloudApiCliAiV2QueuePostRequest,
+    CloudApiCliAiV2QueueRemoveRequest,
     CloudApiCliAiV2StreamRequest,
 )
 from abstra_internals.credentials import resolve_headers
@@ -64,6 +67,28 @@ class AIRepository(ABC):
 
     @abstractmethod
     def compact_conversation(self, headers: dict, conversation_id: str) -> dict:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def queue_message(
+        self, headers: dict, body: CloudApiCliAiV2QueuePostRequest
+    ) -> dict:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def list_queued_messages(self, headers: dict, conversation_id: str) -> list[dict]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def remove_queued_message(
+        self, headers: dict, body: CloudApiCliAiV2QueueRemoveRequest
+    ) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def clear_queued_messages(
+        self, headers: dict, body: CloudApiCliAiV2QueueClearRequest
+    ) -> None:
         raise NotImplementedError()
 
     @abstractmethod
@@ -143,6 +168,32 @@ class ProductionAIRepository(AIRepository):
         )
 
     def compact_conversation(self, headers: dict, conversation_id: str) -> dict:
+        raise NotImplementedError(
+            "This method is not implemented in ProductionAIRepository."
+        )
+
+    def queue_message(
+        self, headers: dict, body: CloudApiCliAiV2QueuePostRequest
+    ) -> dict:
+        raise NotImplementedError(
+            "This method is not implemented in ProductionAIRepository."
+        )
+
+    def list_queued_messages(self, headers: dict, conversation_id: str) -> list[dict]:
+        raise NotImplementedError(
+            "This method is not implemented in ProductionAIRepository."
+        )
+
+    def remove_queued_message(
+        self, headers: dict, body: CloudApiCliAiV2QueueRemoveRequest
+    ) -> None:
+        raise NotImplementedError(
+            "This method is not implemented in ProductionAIRepository."
+        )
+
+    def clear_queued_messages(
+        self, headers: dict, body: CloudApiCliAiV2QueueClearRequest
+    ) -> None:
         raise NotImplementedError(
             "This method is not implemented in ProductionAIRepository."
         )
@@ -280,6 +331,40 @@ class LocalAIRepository(AIRepository):
         )
         response.raise_for_status()
         return response.json()
+
+    def queue_message(
+        self, headers: dict, body: CloudApiCliAiV2QueuePostRequest
+    ) -> dict:
+        response = self.client.post(
+            "/ai-v2/queue", headers=headers, json=body.to_dict()
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def list_queued_messages(self, headers: dict, conversation_id: str) -> list[dict]:
+        response = self.client.get(
+            "/ai-v2/queue",
+            headers=headers,
+            params={"conversationId": conversation_id},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def remove_queued_message(
+        self, headers: dict, body: CloudApiCliAiV2QueueRemoveRequest
+    ) -> None:
+        response = self.client.post(
+            "/ai-v2/queue/remove", headers=headers, json=body.to_dict()
+        )
+        response.raise_for_status()
+
+    def clear_queued_messages(
+        self, headers: dict, body: CloudApiCliAiV2QueueClearRequest
+    ) -> None:
+        response = self.client.post(
+            "/ai-v2/queue/clear", headers=headers, json=body.to_dict()
+        )
+        response.raise_for_status()
 
     def delete_thread(self, headers: dict, thread_id: str):
         """

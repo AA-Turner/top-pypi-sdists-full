@@ -256,6 +256,7 @@ class _App:
     def run(
         self,
         *,
+        name: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
         detach: bool = False,
         interactive: bool = False,
@@ -364,7 +365,7 @@ class _App:
         All modal.Function objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -376,7 +377,7 @@ class _App:
         All modal.Cls objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -388,7 +389,7 @@ class _App:
         All local CLI entrypoints registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future.
         """
         ...
@@ -396,10 +397,10 @@ class _App:
     @property
     def registered_web_endpoints(self) -> list[str]:
         """mdmd:hidden
-        Names of web endpoint (ie. webhook) functions registered on the app.
+        Names of Web Functions registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -489,6 +490,7 @@ class _App:
         is_generator: typing.Optional[bool] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        routing_region: typing.Optional[str] = None,
         nonpreemptible: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
@@ -536,6 +538,7 @@ class _App:
         startup_timeout: typing.Optional[int] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        routing_region: typing.Optional[str] = None,
         nonpreemptible: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
@@ -864,6 +867,7 @@ class App:
             self,
             /,
             *,
+            name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
             detach: bool = False,
             interactive: bool = False,
@@ -913,6 +917,7 @@ class App:
             self,
             /,
             *,
+            name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
             detach: bool = False,
             interactive: bool = False,
@@ -1080,7 +1085,7 @@ class App:
         All modal.Function objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -1092,7 +1097,7 @@ class App:
         All modal.Cls objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -1104,7 +1109,7 @@ class App:
         All local CLI entrypoints registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future.
         """
         ...
@@ -1112,10 +1117,10 @@ class App:
     @property
     def registered_web_endpoints(self) -> list[str]:
         """mdmd:hidden
-        Names of web endpoint (ie. webhook) functions registered on the app.
+        Names of Web Functions registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -1205,6 +1210,7 @@ class App:
         is_generator: typing.Optional[bool] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        routing_region: typing.Optional[str] = None,
         nonpreemptible: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
@@ -1252,6 +1258,7 @@ class App:
         startup_timeout: typing.Optional[int] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        routing_region: typing.Optional[str] = None,
         nonpreemptible: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,

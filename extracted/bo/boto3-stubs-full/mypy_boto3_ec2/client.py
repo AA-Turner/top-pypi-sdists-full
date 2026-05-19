@@ -76,6 +76,7 @@ from .paginator import (
     DescribeInstanceTypeOfferingsPaginator,
     DescribeInstanceTypesPaginator,
     DescribeInternetGatewaysPaginator,
+    DescribeIpamPoolAllocationsPaginator,
     DescribeIpamPoolsPaginator,
     DescribeIpamPrefixListResolversPaginator,
     DescribeIpamPrefixListResolverTargetsPaginator,
@@ -848,6 +849,8 @@ from .type_defs import (
     DescribeIpamExternalResourceVerificationTokensResultTypeDef,
     DescribeIpamPoliciesRequestTypeDef,
     DescribeIpamPoliciesResultTypeDef,
+    DescribeIpamPoolAllocationsRequestTypeDef,
+    DescribeIpamPoolAllocationsResultTypeDef,
     DescribeIpamPoolsRequestTypeDef,
     DescribeIpamPoolsResultTypeDef,
     DescribeIpamPrefixListResolversRequestTypeDef,
@@ -1421,6 +1424,8 @@ from .type_defs import (
     ModifyInstancePlacementResultTypeDef,
     ModifyIpamPolicyAllocationRulesRequestTypeDef,
     ModifyIpamPolicyAllocationRulesResultTypeDef,
+    ModifyIpamPoolAllocationRequestTypeDef,
+    ModifyIpamPoolAllocationResultTypeDef,
     ModifyIpamPoolRequestTypeDef,
     ModifyIpamPoolResultTypeDef,
     ModifyIpamPrefixListResolverRequestTypeDef,
@@ -5252,6 +5257,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_policies)
         """
 
+    def describe_ipam_pool_allocations(
+        self, **kwargs: Unpack[DescribeIpamPoolAllocationsRequestTypeDef]
+    ) -> DescribeIpamPoolAllocationsResultTypeDef:
+        """
+        Describes IPAM pool allocations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_pool_allocations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_pool_allocations)
+        """
+
     def describe_ipam_pools(
         self, **kwargs: Unpack[DescribeIpamPoolsRequestTypeDef]
     ) -> DescribeIpamPoolsResultTypeDef:
@@ -8279,6 +8294,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam_pool)
         """
 
+    def modify_ipam_pool_allocation(
+        self, **kwargs: Unpack[ModifyIpamPoolAllocationRequestTypeDef]
+    ) -> ModifyIpamPoolAllocationResultTypeDef:
+        """
+        Modifies the description of an IPAM pool allocation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_pool_allocation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam_pool_allocation)
+        """
+
     def modify_ipam_prefix_list_resolver(
         self, **kwargs: Unpack[ModifyIpamPrefixListResolverRequestTypeDef]
     ) -> ModifyIpamPrefixListResolverResultTypeDef:
@@ -10146,6 +10171,17 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_internet_gateways"]
     ) -> DescribeInternetGatewaysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_ipam_pool_allocations"]
+    ) -> DescribeIpamPoolAllocationsPaginator:
         """
         Create a paginator for an operation.
 

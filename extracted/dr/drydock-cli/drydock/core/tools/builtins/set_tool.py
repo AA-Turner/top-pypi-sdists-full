@@ -281,14 +281,9 @@ class Set(
     ToolUIData[SetArgs, SetResult],
 ):
     description: ClassVar[str] = (
-        "Discrete-math set operations — union, intersection, difference, "
-        "symmetric difference, subset / superset / disjoint checks, "
-        "cardinality, power set, Cartesian product. Use for HLE Math "
-        "questions that ask 'how many elements of A satisfy ...' or "
-        "'is A ⊆ B' or 'list the subsets of {1,2,3}'. Inputs are "
-        "comma-separated literals (ints / 'quoted' / bareword). "
-        "Sandboxed; element-count and product-size capped to keep "
-        "output bounded."
+        "Discrete-math sets: union, intersection, difference, symmetric "
+        "difference, subset/superset/disjoint, cardinality, power set, "
+        "Cartesian product. Inputs are comma-separated literals."
     )
 
     @classmethod

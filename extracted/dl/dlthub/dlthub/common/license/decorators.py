@@ -1,3 +1,4 @@
+import os
 from functools import wraps
 from typing import Any, Callable
 
@@ -17,10 +18,24 @@ from dlthub.common.license.license import (
 )
 
 
+_LICENSE_ENABLED_ENV = "DLTHUB_LICENSE_ENABLED"
+
+
+def _license_enabled() -> bool:
+    return os.environ.get(_LICENSE_ENABLED_ENV, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 def ensure_license_with_scope(scope: str) -> None:
     """Ensures that license with `scope` is available and validates dlthub
     public key LICENSE_PUBLIC_KEY
     """
+    if not _license_enabled():
+        return
     try:
         validated_scopes = Container()[LicenseContext].validated_scopes()
     except DltLicenseNotFoundException as license_ex:

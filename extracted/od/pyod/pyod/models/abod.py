@@ -163,7 +163,7 @@ class ABOD(BaseDetector):
 
     def __init__(self, contamination=0.1, n_neighbors=5, method='fast',
                  algorithm='auto', leaf_size=30, metric='minkowski', p=2,
-                 metric_params=None, n_jobs=1, **kwargs):
+                 metric_params=None, n_jobs=1):
         super(ABOD, self).__init__(contamination=contamination)
         self.method = method
         self.n_neighbors = n_neighbors
@@ -173,7 +173,6 @@ class ABOD(BaseDetector):
         self.p = p
         self.metric_params = metric_params
         self.n_jobs = n_jobs
-        self.kwargs = kwargs
 
     def fit(self, X, y=None):
         """Fit detector. y is ignored in unsupervised methods.
@@ -247,8 +246,7 @@ class ABOD(BaseDetector):
                                        metric=self.metric,
                                        p=self.p,
                                        metric_params=self.metric_params,
-                                       n_jobs=self.n_jobs,
-                                       **self.kwargs)
+                                       n_jobs=self.n_jobs)
         self.neigh_.fit(self.X_train_)
         self.tree_ = self.neigh_
         ind_arr = self.neigh_.kneighbors(self.X_train_,

@@ -10,7 +10,9 @@
 #   License for the specific language governing permissions and limitations
 #   under the License.
 
+import argparse
 import logging
+from typing import Any
 
 from osc_lib import utils
 
@@ -23,9 +25,10 @@ DEFAULT_API_VERSION = '2.0'
 API_VERSION_OPTION = 'os_network_api_version'
 API_NAME = 'network'
 API_VERSIONS = ('2.0', '2')
+API_EXTENSIONS = ('bgpvpn', 'fwaas', 'taas')
 
 
-def make_client(instance):
+def make_client(instance: Any) -> Any:
     """Returns a network proxy"""
     LOG.debug(
         'Network client initialized using OpenStack SDK: %s',
@@ -34,7 +37,9 @@ def make_client(instance):
     return instance.sdk_connection.network
 
 
-def build_option_parser(parser):
+def build_option_parser(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
     """Hook to add global options"""
     parser.add_argument(
         '--os-network-api-version',

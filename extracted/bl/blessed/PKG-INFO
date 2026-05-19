@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blessed
-Version: 1.39.0
+Version: 1.40.0
 Summary: Easy, practical library for making terminal apps, by providing an elegant, well-documented interface to Colors, Keyboard input, and screen Positioning capabilities.
 Keywords: terminal,sequences,tty,curses,ncurses,formatting,style,color,console,keyboard,ansi,xterm
 Author-email: "Jeff Quast, Erik Rose, Avram Lubkin" <contact@jeffquast.com>
@@ -28,7 +28,7 @@ Classifier: Topic :: Terminals
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: wcwidth>=0.7
-Requires-Dist: jinxed>=1.4.0; platform_system == "Windows"
+Requires-Dist: jinxed>=2.0,<3
 Requires-Dist: Pillow ; extra == "docs"
 Requires-Dist: Sphinx>3 ; extra == "docs"
 Requires-Dist: sphinx-paramlinks ; extra == "docs"

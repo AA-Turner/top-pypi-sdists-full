@@ -7,8 +7,7 @@ Discover TDDA constraints for CSV files, and for Pandas or R DataFrames saved
 as parquetfiles, and save the generated constraints as a .tdda JSON file.
 """
 
-USAGE = '''
-
+USAGE = """
 Parameters:
 
   * input is one of:
@@ -21,7 +20,7 @@ Parameters:
     which the generated constraints will be written.  Can be - (or missing)
     to write to standard output.
 
-'''
+"""
 
 import os
 import sys
@@ -33,35 +32,66 @@ except ImportError:
 
 from tdda import __version__
 from tdda.constraints.flags import discover_parser, discover_flags
-from tdda.constraints.pd.constraints import discover_df, load_df
+from tdda.constraints.pd.constraints import (
+    discover_df,
+    load_df,
+    write_constraints,
+)
+
+from tdda.utils import handle_tilde, nvl, tdda_path_info
 
 
-def discover_df_from_file(df_path, constraints_path, verbose=True, **kwargs):
+def discover_df_from_file(
+    df_path,
+    constraints_path,
+    report_path=None,
+    report_formats=None,
+    engine=None,
+    backend=None,
+    verbose=True,
+    **kwargs,
+):
+    """
+    Automatically discover potentially useful constraints that characterize
+    the data provided in the file.
+
+    Args:
+        df_path: Path to a file to discover from (CSV or parquet).
+            Use ``'-'`` to read from stdin.
+        constraints_path: Path to write the constraints to. ``None``
+            means do not write; ``'-'`` sends to stdout.
+        report_path: Path for reports (extension ignored). Writes report
+            variants of this path; falls back to ``constraints_path``.
+        report_formats: List of report formats to write. Options:
+            ``'html'``, ``'md'``, ``'txt'``, ``'yaml'``, ``'json'``,
+            ``'toml'``.
+        verbose: Controls level of output reporting.
+        **kwargs: Passed to ``discover_df``.
+
+    Returns:
+        ``tdda.constraints.base.DatasetConstraints`` object.
+    """
     md_df_path = df_path
     if df_path == '-':
         df_path = StringIO(sys.stdin.read())
         md_df_path = None
-    df = load_df(df_path)
-    constraints = discover_df(df, df_path=md_df_path, **kwargs)
-    if constraints is None:
-        # should never happen
-        return
-
-    output = constraints.to_json(tddafile=constraints_path)
-    if constraints_path and constraints_path != '-':
-        with open(constraints_path, 'w') as f:
-            f.write(output)
-    elif verbose or constraints_path == '-':
-        print(output)
-    return output
+    df = load_df(df_path, backend=backend)
+    return discover_df(
+        df,
+        constraints_path,
+        df_path=md_df_path,
+        report_path=report_path,
+        report_formats=report_formats,
+        **kwargs,
+    )
 
 
 def pd_discover_parser():
     parser = discover_parser(USAGE)
-    parser.add_argument('input', nargs=1,
-                        help='CSV or parquet file')
-    parser.add_argument('constraints', nargs='?',
-                        help='name of constraints file to create')
+    parser.add_argument('input', nargs=1, help='CSV or parquet file')
+    parser.add_argument(
+        'constraints', nargs='?', help='name of constraints file to create'
+    )
     return parser
 
 
@@ -81,9 +111,10 @@ class PandasDiscoverer:
 
     def discover(self):
         params = pd_discover_params(self.argv[1:])
-        path = params['df_path']
-        if path is not None and path != '-' and not os.path.isfile(path):
-            print('%s does not exist' % path)
+        path = params.get('df_path')
+        pi = tdda_path_info(path)
+        if path is not None and pi.path != '-' and not os.path.isfile(pi.path):
+            print('%s does not exist' % pi.path)
             sys.exit(1)
         return discover_df_from_file(verbose=self.verbose, **params)
 
@@ -98,4 +129,3 @@ def main(argv, verbose=True):
 
 if __name__ == '__main__':
     main(sys.argv)
-

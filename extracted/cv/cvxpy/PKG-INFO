@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: cvxpy
-Version: 1.8.2
+Version: 1.9.0
 Summary: A domain-specific language for modeling convex optimization problems in Python.
 Author-email: Steven Diamond <stevend2@stanford.edu>, akshayka@cs.stanford.edu, Eric Chu <echu508@stanford.edu>, Stephen Boyd <boyd@stanford.edu>
-License: Apache License, Version 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/cvxpy/cvxpy
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
@@ -14,6 +14,8 @@ Requires-Dist: scs>=3.2.4.post1
 Requires-Dist: numpy>=2.0.0
 Requires-Dist: scipy>=1.13.0
 Requires-Dist: highspy>=1.11.0
+Requires-Dist: qdldl>=0.1.7.post0
+Requires-Dist: sparsediffpy<0.4.0,>=0.3.0
 Provides-Extra: cbc
 Requires-Dist: cylp>=0.91.5; extra == "cbc"
 Provides-Extra: clarabel
@@ -72,11 +74,10 @@ Dynamic: license-file
 
 CVXPY
 =====================
-[![Build Status](http://github.com/cvxpy/cvxpy/workflows/build/badge.svg?event=push)](https://github.com/cvxpy/cvxpy/actions/workflows/build.yml)
+[![Build Status](https://github.com/cvxpy/cvxpy/actions/workflows/build.yml/badge.svg?event=push)](https://github.com/cvxpy/cvxpy/actions/workflows/build.yml)
 ![PyPI - downloads](https://img.shields.io/pypi/dm/cvxpy.svg?label=Pypi%20downloads)
 ![Conda - downloads](https://img.shields.io/conda/dn/conda-forge/cvxpy.svg?label=Conda%20downloads)
 [![Discord](https://img.shields.io/badge/Chat-Discord-Blue?color=5865f2)](https://discord.gg/4urRQeGBCr)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=cvxpy_cvxpy&metric=coverage)](https://sonarcloud.io/summary/new_code?id=cvxpy_cvxpy)
 [![Benchmarks](http://img.shields.io/badge/benchmarked%20by-asv-blue.svg?style=flat)](https://cvxpy.github.io/benchmarks/)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/cvxpy/cvxpy/badge)](https://api.securityscorecards.dev/projects/github.com/cvxpy/cvxpy)
 
@@ -127,8 +128,9 @@ print(constraints[0].dual_value)
 With CVXPY, you can model
 * convex optimization problems,
 * mixed-integer convex optimization problems,
-* geometric programs, and
-* quasiconvex programs.
+* geometric programs,
+* quasiconvex programs, and
+* nonlinear programs
 
 CVXPY is not a solver. It relies upon the open source solvers 
 [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs), [SCS](https://github.com/bodono/scs-python),
@@ -160,6 +162,7 @@ CVXPY has the following dependencies:
 - NumPy >= 2.0.0
 - SciPy >= 1.13.0
 - highspy >= 1.11.0
+- sparsediffpy >= 0.2.2
 
 For detailed instructions, see the [installation
 guide](https://www.cvxpy.org/install/index.html).

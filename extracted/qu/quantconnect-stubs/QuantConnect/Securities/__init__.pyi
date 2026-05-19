@@ -5980,7 +5980,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         ...
 
     @overload
-    def __init__(self, all_data: typing.List[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+    def __init__(self, all_data: typing.Sequence[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
         Constructs ContractSecurityFilterUniverse
         
@@ -6161,7 +6161,7 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         """
         warnings.warn("Deprecated as of 2023-12-13. Filters are always non-dynamic as of now, which means they will only bee applied daily.", DeprecationWarning)
 
-    def refresh(self, all_data: typing.List[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+    def refresh(self, all_data: typing.Sequence[QuantConnect_Securities_ContractSecurityFilterUniverse_TData], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
         Refreshes this filter universe
         
@@ -7506,7 +7506,7 @@ class OptionFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         ...
 
     @overload
-    def __init__(self, option: QuantConnect.Securities.Option.Option, all_data: typing.List[QuantConnect.Data.UniverseSelection.OptionUniverse], underlying: QuantConnect.Data.BaseData, underlying_scale_factor: float = 1) -> None:
+    def __init__(self, option: QuantConnect.Securities.Option.Option, all_data: typing.Sequence[QuantConnect.Data.UniverseSelection.OptionUniverse], underlying: QuantConnect.Data.BaseData, underlying_scale_factor: float = 1) -> None:
         """Constructs OptionFilterUniverse"""
         ...
 
@@ -7830,7 +7830,7 @@ class OptionFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUnivers
         """
         ...
 
-    def refresh(self, all_contracts_data: typing.List[QuantConnect.Data.UniverseSelection.OptionUniverse], underlying: QuantConnect.Data.BaseData, local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+    def refresh(self, all_contracts_data: typing.Sequence[QuantConnect.Data.UniverseSelection.OptionUniverse], underlying: QuantConnect.Data.BaseData, local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
         Refreshes this option filter universe and allows specifying if the exchange date changed from last call
         
@@ -8181,7 +8181,7 @@ class IndicatorVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatility
 class FutureFilterUniverse(QuantConnect.Securities.ContractSecurityFilterUniverse[QuantConnect_Securities_FutureFilterUniverse, QuantConnect.Data.UniverseSelection.FutureUniverse]):
     """Represents futures symbols universe used in filtering."""
 
-    def __init__(self, all_data: typing.List[QuantConnect.Data.UniverseSelection.FutureUniverse], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+    def __init__(self, all_data: typing.Sequence[QuantConnect.Data.UniverseSelection.FutureUniverse], local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """Constructs FutureFilterUniverse"""
         ...
 

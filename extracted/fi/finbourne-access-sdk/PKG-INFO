@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: finbourne-access-sdk
-Version: 2.4.2
+Version: 2.4.3
 Summary: FINBOURNE Access Management API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,FINBOURNE Access Management API,finbourne-access-sdk
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: aenum (>=3.1.11,<4.0.0)
-Requires-Dist: aiohttp (>=3.8.4,<4.0.0)
+Requires-Dist: aiohttp (>=3.13.4,<4.0.0)
 Requires-Dist: pydantic (>=2.6.3,<3.0.0)
 Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
 Requires-Dist: requests (>=2,<3)

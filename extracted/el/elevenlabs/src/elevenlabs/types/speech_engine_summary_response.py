@@ -13,13 +13,20 @@ class SpeechEngineSummaryResponse(UncheckedBaseModel):
     The speech engine resource ID
     """
 
-    name: str
-    created_at_unix_secs: int = pydantic.Field()
+    name: str = pydantic.Field()
     """
-    Creation time in unix seconds
+    Human-readable name for the speech engine
     """
 
-    tags: typing.List[str]
+    created_at_unix_secs: int = pydantic.Field()
+    """
+    Creation time in Unix seconds
+    """
+
+    tags: typing.List[str] = pydantic.Field()
+    """
+    Arbitrary tags for categorization and filtering
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -61,6 +61,7 @@ Usage::
         DescribeInstanceTypesPaginator,
         DescribeInstancesPaginator,
         DescribeInternetGatewaysPaginator,
+        DescribeIpamPoolAllocationsPaginator,
         DescribeIpamPoolsPaginator,
         DescribeIpamPrefixListResolverTargetsPaginator,
         DescribeIpamPrefixListResolversPaginator,
@@ -236,6 +237,7 @@ Usage::
     describe_instance_types_paginator: DescribeInstanceTypesPaginator = client.get_paginator("describe_instance_types")
     describe_instances_paginator: DescribeInstancesPaginator = client.get_paginator("describe_instances")
     describe_internet_gateways_paginator: DescribeInternetGatewaysPaginator = client.get_paginator("describe_internet_gateways")
+    describe_ipam_pool_allocations_paginator: DescribeIpamPoolAllocationsPaginator = client.get_paginator("describe_ipam_pool_allocations")
     describe_ipam_pools_paginator: DescribeIpamPoolsPaginator = client.get_paginator("describe_ipam_pools")
     describe_ipam_prefix_list_resolver_targets_paginator: DescribeIpamPrefixListResolverTargetsPaginator = client.get_paginator("describe_ipam_prefix_list_resolver_targets")
     describe_ipam_prefix_list_resolvers_paginator: DescribeIpamPrefixListResolversPaginator = client.get_paginator("describe_ipam_prefix_list_resolvers")
@@ -466,6 +468,8 @@ from .type_defs import (
     DescribeInstanceTypesResultTypeDef,
     DescribeInternetGatewaysRequestPaginateTypeDef,
     DescribeInternetGatewaysResultTypeDef,
+    DescribeIpamPoolAllocationsRequestPaginateTypeDef,
+    DescribeIpamPoolAllocationsResultTypeDef,
     DescribeIpamPoolsRequestPaginateTypeDef,
     DescribeIpamPoolsResultTypeDef,
     DescribeIpamPrefixListResolversRequestPaginateTypeDef,
@@ -766,6 +770,7 @@ __all__ = (
     "DescribeInstanceTypesPaginator",
     "DescribeInstancesPaginator",
     "DescribeInternetGatewaysPaginator",
+    "DescribeIpamPoolAllocationsPaginator",
     "DescribeIpamPoolsPaginator",
     "DescribeIpamPrefixListResolverTargetsPaginator",
     "DescribeIpamPrefixListResolversPaginator",
@@ -1975,6 +1980,27 @@ class DescribeInternetGatewaysPaginator(_DescribeInternetGatewaysPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeInternetGateways.html#EC2.Paginator.DescribeInternetGateways.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#describeinternetgatewayspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeIpamPoolAllocationsPaginatorBase = Paginator[DescribeIpamPoolAllocationsResultTypeDef]
+else:
+    _DescribeIpamPoolAllocationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeIpamPoolAllocationsPaginator(_DescribeIpamPoolAllocationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeIpamPoolAllocations.html#EC2.Paginator.DescribeIpamPoolAllocations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#describeipampoolallocationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeIpamPoolAllocationsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeIpamPoolAllocationsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeIpamPoolAllocations.html#EC2.Paginator.DescribeIpamPoolAllocations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/paginators/#describeipampoolallocationspaginator)
         """
 
 

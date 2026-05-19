@@ -1,6 +1,6 @@
+from biolib._shared.types.typing import Dict, List, TypedDict
 from biolib.biolib_binary_format.base_bbf_package import BioLibBinaryFormatBasePackage
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Dict, List, TypedDict
 
 
 class ModuleInputDict(TypedDict):

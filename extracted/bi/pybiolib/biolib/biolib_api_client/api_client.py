@@ -5,9 +5,9 @@ from json.decoder import JSONDecodeError
 from biolib._internal.http_client import HttpClient
 from biolib._internal.utils.auth import decode_jwt_without_checking_signature
 from biolib._runtime.runtime import Runtime
+from biolib._shared.types.typing import Optional, TypedDict
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger, logger_no_user_data
-from biolib.typing_utils import Optional, TypedDict
 
 from .user_state import UserState
 
@@ -152,10 +152,7 @@ class BiolibApiClient:
     @staticmethod
     def is_reauthentication_needed() -> bool:
         api_client = BiolibApiClient.get()
-        if not api_client.is_signed_in and not Runtime.check_is_environment_biolib_app():
-            return True
-        else:
-            return False
+        return bool(not api_client.is_signed_in and not Runtime.check_is_environment_biolib_app())
 
     @staticmethod
     def assert_is_signed_in(authenticated_action_description: str) -> None:

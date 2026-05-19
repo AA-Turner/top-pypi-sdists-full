@@ -8,10 +8,10 @@ import urllib.parse
 import biolib.api
 from biolib import biolib_errors
 from biolib._internal.http_client import HttpError
+from biolib._shared.types.typing import Optional
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client import AppGetResponse
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Optional
 from biolib.utils import load_base_url_from_env
 
 

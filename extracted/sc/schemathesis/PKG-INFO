@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.18.5
+Version: 4.19.0
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -50,7 +50,7 @@ Requires-Dist: werkzeug<4,>=0.16.0
 Provides-Extra: allure
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'allure'
 Provides-Extra: bench
-Requires-Dist: pytest-codspeed==4.5.0; extra == 'bench'
+Requires-Dist: pytest-codspeed==5.0.2; extra == 'bench'
 Requires-Dist: pytest-test-groups==1.2.1; extra == 'bench'
 Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
@@ -67,7 +67,7 @@ Requires-Dist: mkdocs-material; extra == 'dev'
 Requires-Dist: mkdocstrings[python]; extra == 'dev'
 Requires-Dist: pydantic>=1.10.2; extra == 'dev'
 Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'dev'
-Requires-Dist: pytest-codspeed==4.5.0; extra == 'dev'
+Requires-Dist: pytest-codspeed==5.0.2; extra == 'dev'
 Requires-Dist: pytest-httpserver<2.0,>=1.0; extra == 'dev'
 Requires-Dist: pytest-mock<4.0,>=3.7.0; extra == 'dev'
 Requires-Dist: pytest-test-groups==1.2.1; extra == 'dev'

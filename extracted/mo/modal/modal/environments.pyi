@@ -1,74 +1,324 @@
+import collections.abc
 import google.protobuf.message
-import modal._object
+import modal._environments
 import modal.client
 import modal.object
 import modal_proto.api_pb2
+import synchronicity
 import typing
 import typing_extensions
 
-class EnvironmentSettings:
-    """EnvironmentSettings(image_builder_version: str, webhook_suffix: str)"""
-
-    image_builder_version: str
-    webhook_suffix: str
-
-    def __init__(self, image_builder_version: str, webhook_suffix: str) -> None:
+class EnvironmentManager:
+    """Namespace with methods for managing Environment objects."""
+    def __init__(self, /, *args, **kwargs):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
+    class __create_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, name: str, *, restricted: bool = False, client: typing.Optional[modal.client.Client] = None
+        ) -> None:
+            """Create a new Environment.
 
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
+            **Examples:**
 
-    def __setattr__(self, name, value):
-        """Implement setattr(self, name, value)."""
-        ...
+            ```python notest
+            modal.Environment.objects.create("my-environment")
+            ```
+            """
+            ...
 
-    def __delattr__(self, name):
-        """Implement delattr(self, name)."""
-        ...
+        async def aio(
+            self, /, name: str, *, restricted: bool = False, client: typing.Optional[modal.client.Client] = None
+        ) -> None:
+            """Create a new Environment.
 
-    def __hash__(self):
-        """Return hash(self)."""
-        ...
+            **Examples:**
 
-class _Environment(modal._object._Object):
-    _settings: EnvironmentSettings
+            ```python notest
+            modal.Environment.objects.create("my-environment")
+            ```
+            """
+            ...
 
-    def __init__(self):
+    create: __create_spec
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, client: typing.Optional[modal.client.Client] = None) -> list[Environment]:
+            """Return a list of hydrated Environment objects.
+
+            **Examples:**
+
+            ```python notest
+            environments = modal.Environment.objects.list()
+            print([e.name for e in environments])
+            ```
+            """
+            ...
+
+        async def aio(self, /, *, client: typing.Optional[modal.client.Client] = None) -> list[Environment]:
+            """Return a list of hydrated Environment objects.
+
+            **Examples:**
+
+            ```python notest
+            environments = modal.Environment.objects.list()
+            print([e.name for e in environments])
+            ```
+            """
+            ...
+
+    list: __list_spec
+
+    class __delete_spec(typing_extensions.Protocol):
+        def __call__(self, /, name: str, *, client: typing.Optional[modal.client.Client] = None) -> None:
+            """Delete a named Environment.
+
+            Warning: This is irreversible and will transitively delete all objects in the Environment.
+
+            **Examples:**
+
+            ```python notest
+            modal.Environment.objects.delete("my-environment")
+            ```
+            """
+            ...
+
+        async def aio(self, /, name: str, *, client: typing.Optional[modal.client.Client] = None) -> None:
+            """Delete a named Environment.
+
+            Warning: This is irreversible and will transitively delete all objects in the Environment.
+
+            **Examples:**
+
+            ```python notest
+            modal.Environment.objects.delete("my-environment")
+            ```
+            """
+            ...
+
+    delete: __delete_spec
+
+class EnvironmentMembersManager:
+    """mdmd:namespace
+    Namespace with methods for managing the membership of a restricted Environment.
+
+    See https://modal.com/docs/guide/rbac for more information on restricted Environments.
+    """
+    def __init__(self, environment: Environment):
         """mdmd:hidden"""
         ...
 
-    def _hydrate_metadata(self, metadata: google.protobuf.message.Message): ...
-    @staticmethod
-    def from_name(
-        name: str, *, create_if_missing: bool = False, client: typing.Optional[modal.client._Client] = None
-    ): ...
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /
+        ) -> dict[typing.Literal["users", "service_users"], dict[str, typing.Literal["viewer", "contributor"]]]:
+            """Return the members of a restricted Environment with their roles.
+
+            **Examples:**
+
+            ```python notest
+            members = modal.Environment.from_name("my-restricted-env").members.list()
+            print(members)
+            # {
+            #     "users": {"alice": "contributor", "bob": "viewer"},
+            #     "service_users": {"alice-bot": "contributor"},
+            # }
+            ```
+            """
+            ...
+
+        async def aio(
+            self, /
+        ) -> dict[typing.Literal["users", "service_users"], dict[str, typing.Literal["viewer", "contributor"]]]:
+            """Return the members of a restricted Environment with their roles.
+
+            **Examples:**
+
+            ```python notest
+            members = modal.Environment.from_name("my-restricted-env").members.list()
+            print(members)
+            # {
+            #     "users": {"alice": "contributor", "bob": "viewer"},
+            #     "service_users": {"alice-bot": "contributor"},
+            # }
+            ```
+            """
+            ...
+
+    list: __list_spec
+
+    class __update_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            users: typing.Optional[collections.abc.Mapping[str, typing.Literal["viewer", "contributor"]]] = None,
+            service_users: typing.Optional[
+                collections.abc.Mapping[str, typing.Literal["viewer", "contributor"]]
+            ] = None,
+        ) -> None:
+            """Add or modify roles for members of a restricted Environment.
+
+            Each user or service user will be added to the Environment if not currently a member;
+            if already a member, the user or service user's role will be updated.
+
+            **Examples:**
+
+            ```python notest
+            env = modal.Environment.from_name("my-restricted-env")
+            env.members.update(
+                users={"alice": "contributor", "bob": "viewer"},
+                service_users={"alice-bot": "contributor"},
+            )
+            ```
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            users: typing.Optional[collections.abc.Mapping[str, typing.Literal["viewer", "contributor"]]] = None,
+            service_users: typing.Optional[
+                collections.abc.Mapping[str, typing.Literal["viewer", "contributor"]]
+            ] = None,
+        ) -> None:
+            """Add or modify roles for members of a restricted Environment.
+
+            Each user or service user will be added to the Environment if not currently a member;
+            if already a member, the user or service user's role will be updated.
+
+            **Examples:**
+
+            ```python notest
+            env = modal.Environment.from_name("my-restricted-env")
+            env.members.update(
+                users={"alice": "contributor", "bob": "viewer"},
+                service_users={"alice-bot": "contributor"},
+            )
+            ```
+            """
+            ...
+
+    update: __update_spec
+
+    class __remove_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            users: typing.Optional[collections.abc.Iterable[str]] = None,
+            service_users: typing.Optional[collections.abc.Iterable[str]] = None,
+        ) -> None:
+            """Remove members from a restricted Environment.
+
+            **Examples:**
+
+            ```python notest
+            env = modal.Environment.from_name("my-restricted-env")
+            env.members.remove(
+                users=["alice"],
+                service_users=["alice-bot"],
+            )
+            ```
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            users: typing.Optional[collections.abc.Iterable[str]] = None,
+            service_users: typing.Optional[collections.abc.Iterable[str]] = None,
+        ) -> None:
+            """Remove members from a restricted Environment.
+
+            **Examples:**
+
+            ```python notest
+            env = modal.Environment.from_name("my-restricted-env")
+            env.members.remove(
+                users=["alice"],
+                service_users=["alice-bot"],
+            )
+            ```
+            """
+            ...
+
+    remove: __remove_spec
+
+    class ___dispatch_role_updates_spec(typing_extensions.Protocol):
+        def __call__(self, /, requests: dict[str, modal_proto.api_pb2.EnvironmentRoleSetRequest]) -> None:
+            """Send batched EnvironmentRoleSet RPCs and report all errors encountered."""
+            ...
+
+        async def aio(self, /, requests: dict[str, modal_proto.api_pb2.EnvironmentRoleSetRequest]) -> None:
+            """Send batched EnvironmentRoleSet RPCs and report all errors encountered."""
+            ...
+
+    _dispatch_role_updates: ___dispatch_role_updates_spec
 
 class Environment(modal.object.Object):
-    _settings: EnvironmentSettings
+    _name: typing.Optional[str]
+    _settings: modal._environments.EnvironmentSettings
 
     def __init__(self):
         """mdmd:hidden"""
         ...
 
+    @property
+    def name(self) -> typing.Optional[str]: ...
+    @synchronicity.classproperty
+    @classmethod
+    def objects(cls) -> EnvironmentManager: ...
+    @property
+    def members(self) -> EnvironmentMembersManager: ...
     def _hydrate_metadata(self, metadata: google.protobuf.message.Message): ...
+    @staticmethod
+    def _get_or_create(
+        name: str, repr: str, create_if_missing: bool = False, client: typing.Optional[modal.client.Client] = None
+    ) -> Environment: ...
+    @staticmethod
+    def from_context(*, client: typing.Optional[modal.client.Client] = None) -> Environment:
+        """Look up an Environment object using the current context.
+
+        This method returns the Environment that is defined by the local configuration
+        (i.e., your active profile or the `MODAL_ENVIRONMENT` environment variable), or
+        it fetches the default environment from the server when not defined locally.
+        If called inside a Modal container, it will return the Environment that container
+        is associated with.
+        """
+        ...
+
     @staticmethod
     def from_name(
         name: str, *, create_if_missing: bool = False, client: typing.Optional[modal.client.Client] = None
-    ): ...
+    ) -> Environment:
+        """Look up an Environment object using its name."""
+        ...
 
-async def _get_environment_cached(name: str, client: modal.client._Client) -> _Environment: ...
+class __create_environment_spec(typing_extensions.Protocol):
+    def __call__(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
+    async def aio(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
+
+create_environment: __create_environment_spec
 
 class __delete_environment_spec(typing_extensions.Protocol):
     def __call__(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
     async def aio(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
 
 delete_environment: __delete_environment_spec
+
+class __list_environments_spec(typing_extensions.Protocol):
+    def __call__(
+        self, /, client: typing.Optional[modal.client.Client] = None
+    ) -> list[modal_proto.api_pb2.EnvironmentListItem]: ...
+    async def aio(
+        self, /, client: typing.Optional[modal.client.Client] = None
+    ) -> list[modal_proto.api_pb2.EnvironmentListItem]: ...
+
+list_environments: __list_environments_spec
 
 class __update_environment_spec(typing_extensions.Protocol):
     def __call__(
@@ -91,30 +341,3 @@ class __update_environment_spec(typing_extensions.Protocol):
     ): ...
 
 update_environment: __update_environment_spec
-
-class __create_environment_spec(typing_extensions.Protocol):
-    def __call__(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
-    async def aio(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
-
-create_environment: __create_environment_spec
-
-class __list_environments_spec(typing_extensions.Protocol):
-    def __call__(
-        self, /, client: typing.Optional[modal.client.Client] = None
-    ) -> list[modal_proto.api_pb2.EnvironmentListItem]: ...
-    async def aio(
-        self, /, client: typing.Optional[modal.client.Client] = None
-    ) -> list[modal_proto.api_pb2.EnvironmentListItem]: ...
-
-list_environments: __list_environments_spec
-
-def ensure_env(environment_name: typing.Optional[str] = None) -> str:
-    """Override config environment with environment from environment_name
-
-    This is necessary since a cli command that runs Modal code, without explicit
-    environment specification wouldn't pick up the environment specified in a
-    command line flag otherwise, e.g. when doing `modal run --env=foo`
-    """
-    ...
-
-ENVIRONMENT_CACHE: dict[str, _Environment]

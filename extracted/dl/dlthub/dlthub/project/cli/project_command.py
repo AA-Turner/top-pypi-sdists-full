@@ -6,7 +6,8 @@ from typing import Dict, List, Optional
 from dlt._workspace.cli import SupportsCliCommand, CliCommandException, echo as fmt
 from dlt._workspace.cli.utils import REQUIREMENTS_TXT, PYPROJECT_TOML
 from dlt._workspace.cli.echo import always_choose
-from dlt._workspace.cli.utils import delete_local_data, check_delete_local_data, add_mcp_arg_parser
+from dlt._workspace.cli.utils import add_mcp_arg_parser
+from dlt._workspace.cli.dlthub.utils import delete_local_data, check_delete_local_data
 
 from dlt.common.json import json
 from dlthub.common.cli import add_project_opts

@@ -19,6 +19,21 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+class _SandboxStdioFileDescriptor:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _SandboxStdioFileDescriptorEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_SandboxStdioFileDescriptor.ValueType], builtins.type):  # noqa: F821
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    SANDBOX_STDIO_FILE_DESCRIPTOR_STDOUT: _SandboxStdioFileDescriptor.ValueType  # 0
+    SANDBOX_STDIO_FILE_DESCRIPTOR_STDERR: _SandboxStdioFileDescriptor.ValueType  # 1
+
+class SandboxStdioFileDescriptor(_SandboxStdioFileDescriptor, metaclass=_SandboxStdioFileDescriptorEnumTypeWrapper): ...
+
+SANDBOX_STDIO_FILE_DESCRIPTOR_STDOUT: SandboxStdioFileDescriptor.ValueType  # 0
+SANDBOX_STDIO_FILE_DESCRIPTOR_STDERR: SandboxStdioFileDescriptor.ValueType  # 1
+global___SandboxStdioFileDescriptor = SandboxStdioFileDescriptor
+
 class _TaskExecStderrConfig:
     ValueType = typing.NewType("ValueType", builtins.int)
     V: typing_extensions.TypeAlias = ValueType
@@ -83,6 +98,72 @@ TASK_EXEC_STDOUT_CONFIG_DEVNULL: TaskExecStdoutConfig.ValueType  # 0
 TASK_EXEC_STDOUT_CONFIG_PIPE: TaskExecStdoutConfig.ValueType  # 1
 """The output will be streamed to the client."""
 global___TaskExecStdoutConfig = TaskExecStdoutConfig
+
+class SandboxStdinWriteV2Request(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    OFFSET_FIELD_NUMBER: builtins.int
+    DATA_FIELD_NUMBER: builtins.int
+    EOF_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    offset: builtins.int
+    data: builtins.bytes
+    eof: builtins.bool
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        offset: builtins.int = ...,
+        data: builtins.bytes = ...,
+        eof: builtins.bool = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["data", b"data", "eof", b"eof", "offset", b"offset", "task_id", b"task_id"]) -> None: ...
+
+global___SandboxStdinWriteV2Request = SandboxStdinWriteV2Request
+
+class SandboxStdinWriteV2Response(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___SandboxStdinWriteV2Response = SandboxStdinWriteV2Response
+
+class SandboxStdioReadV2Request(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    OFFSET_FIELD_NUMBER: builtins.int
+    FILE_DESCRIPTOR_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    offset: builtins.int
+    file_descriptor: global___SandboxStdioFileDescriptor.ValueType
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        offset: builtins.int = ...,
+        file_descriptor: global___SandboxStdioFileDescriptor.ValueType = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["file_descriptor", b"file_descriptor", "offset", b"offset", "task_id", b"task_id"]) -> None: ...
+
+global___SandboxStdioReadV2Request = SandboxStdioReadV2Request
+
+class SandboxStdioReadV2Response(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DATA_FIELD_NUMBER: builtins.int
+    data: builtins.bytes
+    def __init__(
+        self,
+        *,
+        data: builtins.bytes = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["data", b"data"]) -> None: ...
+
+global___SandboxStdioReadV2Response = SandboxStdioReadV2Response
 
 class TaskContainerCreateRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -457,6 +538,47 @@ class TaskExecStartResponse(google.protobuf.message.Message):
 
 global___TaskExecStartResponse = TaskExecStartResponse
 
+class TaskExecStdinStatusRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    EXEC_ID_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    """The ID of the task running the exec'd command."""
+    exec_id: builtins.str
+    """The execution ID of the command to query."""
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        exec_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["exec_id", b"exec_id", "task_id", b"task_id"]) -> None: ...
+
+global___TaskExecStdinStatusRequest = TaskExecStdinStatusRequest
+
+class TaskExecStdinStatusResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    NUM_BYTES_WRITTEN_FIELD_NUMBER: builtins.int
+    CLOSED_FIELD_NUMBER: builtins.int
+    num_bytes_written: builtins.int
+    """Number of bytes the server has accepted for this exec so far.
+    A streaming client that lost its connection should resume sending at this
+    offset.
+    """
+    closed: builtins.bool
+    """True if stdin has already been closed (EOF sent) for this exec."""
+    def __init__(
+        self,
+        *,
+        num_bytes_written: builtins.int = ...,
+        closed: builtins.bool = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["closed", b"closed", "num_bytes_written", b"num_bytes_written"]) -> None: ...
+
+global___TaskExecStdinStatusResponse = TaskExecStdinStatusResponse
+
 class TaskExecStdinWriteRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -499,6 +621,60 @@ class TaskExecStdinWriteResponse(google.protobuf.message.Message):
     ) -> None: ...
 
 global___TaskExecStdinWriteResponse = TaskExecStdinWriteResponse
+
+class TaskExecStdinWriteStreamRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    START_FIELD_NUMBER: builtins.int
+    DATA_FIELD_NUMBER: builtins.int
+    @property
+    def start(self) -> global___TaskExecStdinWriteStreamStart:
+        """Start of a stdin write stream. Includes task_id, exec_id, and offset to write to."""
+    data: builtins.bytes
+    """A chunk of stdin data to write to the exec'd command."""
+    def __init__(
+        self,
+        *,
+        start: global___TaskExecStdinWriteStreamStart | None = ...,
+        data: builtins.bytes = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["data", b"data", "payload", b"payload", "start", b"start"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["data", b"data", "payload", b"payload", "start", b"start"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["payload", b"payload"]) -> typing_extensions.Literal["start", "data"] | None: ...
+
+global___TaskExecStdinWriteStreamRequest = TaskExecStdinWriteStreamRequest
+
+class TaskExecStdinWriteStreamResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___TaskExecStdinWriteStreamResponse = TaskExecStdinWriteStreamResponse
+
+class TaskExecStdinWriteStreamStart(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    EXEC_ID_FIELD_NUMBER: builtins.int
+    OFFSET_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    """The ID of the task running the exec'd command."""
+    exec_id: builtins.str
+    """The execution ID of the command to write to."""
+    offset: builtins.int
+    """The byte offset at which the stream begins. Will be 0 unless resuming a broken stream."""
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        exec_id: builtins.str = ...,
+        offset: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["exec_id", b"exec_id", "offset", b"offset", "task_id", b"task_id"]) -> None: ...
+
+global___TaskExecStdinWriteStreamStart = TaskExecStdinWriteStreamStart
 
 class TaskExecStdioReadRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -609,15 +785,36 @@ class TaskSnapshotDirectoryRequest(google.protobuf.message.Message):
 
     TASK_ID_FIELD_NUMBER: builtins.int
     PATH_FIELD_NUMBER: builtins.int
+    SNAPSHOT_ID_FIELD_NUMBER: builtins.int
+    TTL_SECONDS_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     path: builtins.bytes
+    snapshot_id: builtins.str
+    """A unique ID to ensure idempotency of directory snapshot requests."""
+    ttl_seconds: builtins.int
+    """Lifetime for the resulting image, in seconds. When set, the
+    image's expires_at is a hard cutoff: it is fixed at creation time
+    and is not extended on use.
+
+    When unset, the resulting image gets the legacy retention policy:
+    a 30-day TTL that is bumped forward by 30 days on every use, so
+    active images effectively never expire.
+
+    Sentinel: -1 means "no expiry" (the image never expires).
+    0 and other negative values are invalid and rejected by the
+    server.
+    """
     def __init__(
         self,
         *,
         task_id: builtins.str = ...,
         path: builtins.bytes = ...,
+        snapshot_id: builtins.str = ...,
+        ttl_seconds: builtins.int | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["path", b"path", "task_id", b"task_id"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds", "ttl_seconds", b"ttl_seconds"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds", "path", b"path", "snapshot_id", b"snapshot_id", "task_id", b"task_id", "ttl_seconds", b"ttl_seconds"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds"]) -> typing_extensions.Literal["ttl_seconds"] | None: ...
 
 global___TaskSnapshotDirectoryRequest = TaskSnapshotDirectoryRequest
 
@@ -634,6 +831,51 @@ class TaskSnapshotDirectoryResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["image_id", b"image_id"]) -> None: ...
 
 global___TaskSnapshotDirectoryResponse = TaskSnapshotDirectoryResponse
+
+class TaskSnapshotFilesystemRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    SNAPSHOT_ID_FIELD_NUMBER: builtins.int
+    TTL_SECONDS_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    snapshot_id: builtins.str
+    """A unique ID to ensure idempotency of filesystem snapshot requests."""
+    ttl_seconds: builtins.int
+    """Lifetime for the resulting image, in seconds. Must be set. When positive,
+    the image expiry is a hard cutoff: it is fixed at creation time and is
+    not extended on use.
+
+    Sentinel: -1 means "no expiry" (the image never expires).
+    0 and other negative values are invalid and rejected by the
+    server.
+    """
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        snapshot_id: builtins.str = ...,
+        ttl_seconds: builtins.int | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds", "ttl_seconds", b"ttl_seconds"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds", "snapshot_id", b"snapshot_id", "task_id", b"task_id", "ttl_seconds", b"ttl_seconds"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds"]) -> typing_extensions.Literal["ttl_seconds"] | None: ...
+
+global___TaskSnapshotFilesystemRequest = TaskSnapshotFilesystemRequest
+
+class TaskSnapshotFilesystemResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    IMAGE_ID_FIELD_NUMBER: builtins.int
+    image_id: builtins.str
+    def __init__(
+        self,
+        *,
+        image_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["image_id", b"image_id"]) -> None: ...
+
+global___TaskSnapshotFilesystemResponse = TaskSnapshotFilesystemResponse
 
 class TaskUnmountDirectoryRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

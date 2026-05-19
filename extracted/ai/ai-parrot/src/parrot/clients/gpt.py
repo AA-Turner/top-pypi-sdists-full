@@ -33,7 +33,6 @@ from ..models import (
     AIMessageFactory,
     ToolCall,
     CompletionUsage,
-    VideoGenerationPrompt,
     StructuredOutputConfig,
     OutputFormat
 )
@@ -46,7 +45,6 @@ from ..models.openai import (
     resolve_alias,
 )
 from ..models.outputs import (
-    SentimentAnalysis,
     ProductReview
 )
 from ..models.detections import (
@@ -103,6 +101,8 @@ class OpenAIClient(AbstractClient):
     _default_model: str = "gpt-5-mini"
     _fallback_model: str = 'gpt-4.1-nano'
     _lightweight_model: str = "gpt-4.1"
+    # FEAT-181: OpenAI caches prefixes ≥1024 tokens automatically
+    _min_cache_tokens: int = 1024
 
     def __init__(
         self,
@@ -139,6 +139,74 @@ class OpenAIClient(AbstractClient):
             )
             _warned.add(s)
         return s
+
+    def _apply_cache_hints(
+        self,
+        payload: dict,
+        segments: list,
+        trace_context=None,
+    ) -> dict:
+        """OpenAI cache translator — FEAT-181.
+
+        OpenAI caches prompt prefixes ≥ 1024 tokens automatically; no API
+        shape change is required.  When segments are provided, this method
+        concatenates them back into a single string and stores it under
+        ``payload["system"]`` so the existing message-build path can use it
+        directly.
+
+        Note: the caller (``ask()`` / ``ask_stream()``) already guards against
+        ``List[CacheableSegment]`` being inserted into messages directly — this
+        method is the canonical place for the collapse, but the inline guards
+        remain as a defence-in-depth measure.
+
+        Args:
+            payload: The request payload dict being assembled.
+            segments: List of ``CacheableSegment`` produced by
+                ``PromptBuilder.build_segments()``.  May be empty.
+            trace_context: Optional W3C trace context for event correlation.
+                When ``None``, a new root trace is created for the event.
+
+        Returns:
+            The (potentially updated) payload dict.
+        """
+        import hashlib as _hashlib
+        from parrot.core.events.lifecycle.events import (
+            PromptCacheAppliedEvent as _PCApplied,
+            PromptCacheSkippedEvent as _PCSkipped,
+        )
+        from parrot.core.events.lifecycle.trace import TraceContext as _TC
+        tc = trace_context if trace_context is not None else _TC.new_root()
+        if not segments:
+            self.events.emit_nowait(_PCSkipped(
+                trace_context=tc,
+                client_name="openai",
+                model=payload.get("model", ""),
+                reason="no_segments",
+                source_type="client",
+                source_name="openai",
+            ))
+            return payload
+        # OpenAI prefix caching is automatic — just reconstruct the string.
+        combined = "\n\n".join(s.text for s in segments)
+        # Store under "system" so the caller can read it back as a plain string.
+        payload["system"] = combined
+        # Emit cache-applied event (fire-and-forget; OpenAI caching is implicit)
+        cacheable_segs = [s for s in segments if s.cacheable]
+        seg_hashes = tuple(
+            _hashlib.sha256(s.text.encode()).hexdigest() for s in cacheable_segs
+        )
+        est_tokens = sum(len(s.text) // 4 for s in cacheable_segs)
+        self.events.emit_nowait(_PCApplied(
+            trace_context=tc,
+            client_name="openai",
+            model=payload.get("model", ""),
+            blocks_marked=0,  # OpenAI caching is implicit; no explicit blocks
+            est_tokens=est_tokens,
+            segment_hashes=seg_hashes,
+            source_type="client",
+            source_name="openai",
+        ))
+        return payload
 
     def _is_capacity_error(self, error: Exception) -> bool:
         """Detect OpenAI capacity errors.
@@ -704,6 +772,18 @@ class OpenAIClient(AbstractClient):
             prompt, files, user_id, session_id, system_prompt
         )
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent
+        import time as _lc_time_gpt
+        _lc_tc_gpt = self._emit_before_call(
+            client_name="openai",
+            model=model_str,
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=system_prompt,
+            has_tools=bool(_use_tools),
+            parent_trace=None,
+        )
+        _lc_t0_gpt = _lc_time_gpt.perf_counter()
+
         if files:
             for file in files:
                 if isinstance(file, str):
@@ -718,6 +798,9 @@ class OpenAIClient(AbstractClient):
              system_prompt = "You have access to a library of tools. Use the 'search_tools' function to find relevant tools."
 
         if system_prompt:
+            # FEAT-181: collapse List[CacheableSegment] → string before inserting
+            if isinstance(system_prompt, list):
+                system_prompt = "\n\n".join(s.text for s in system_prompt)
             messages.insert(0, {"role": "system", "content": system_prompt})
 
         messages.append({"role": "user", "content": prompt})
@@ -1030,6 +1113,17 @@ class OpenAIClient(AbstractClient):
             ai_message.metadata['used_fallback_model'] = True
             ai_message.metadata['original_model'] = _original_model
             ai_message.metadata['fallback_model'] = self._fallback_model
+        # FEAT-176: lifecycle event — AfterClientCallEvent
+        _lc_gpt_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc_gpt,
+            client_name="openai",
+            model=model_str,
+            duration_ms=(_lc_time_gpt.perf_counter() - _lc_t0_gpt) * 1000,
+            input_tokens=getattr(_lc_gpt_usage, 'prompt_tokens', None) if _lc_gpt_usage else None,
+            output_tokens=getattr(_lc_gpt_usage, 'completion_tokens', None) if _lc_gpt_usage else None,
+            finish_reason=getattr(ai_message, 'stop_reason', None),
+        )
         return ai_message
 
     async def resume(
@@ -1177,8 +1271,11 @@ class OpenAIClient(AbstractClient):
         enable_web_search: bool = True,
         enable_code_interpreter: bool = False,
         lazy_loading: bool = False,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[Union[str, AIMessage]]:
         """Stream OpenAI's response with optional conversation memory.
+
+        Yields successive string chunks followed by a final
+        :class:`~parrot.models.responses.AIMessage` with metadata.
 
         Args:
             deep_research: If True, use deep research models with streaming
@@ -1206,6 +1303,21 @@ class OpenAIClient(AbstractClient):
             prompt, files, user_id, session_id, system_prompt
         )
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent for stream
+        import time as _lc_time_gpts
+        from parrot.core.events.lifecycle.events import ClientStreamChunkEvent as _GPTStreamChunkEvent
+        _lc_tc_gpts = self._emit_before_call(
+            client_name="openai",
+            model=model_str,
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=system_prompt,
+            has_tools=False,
+            parent_trace=None,
+        )
+        _lc_t0_gpts = _lc_time_gpts.perf_counter()
+        _lc_has_chunk_subs_gpt = self.events.has_subscribers(_GPTStreamChunkEvent)
+        _lc_chunk_idx_gpt = 0
+
         # Upload files if they are path-like objects
         if files:
             for file in files:
@@ -1220,6 +1332,9 @@ class OpenAIClient(AbstractClient):
              system_prompt = "You have access to a library of tools. Use the 'search_tools' function to find relevant tools."
 
         if system_prompt:
+            # FEAT-181: collapse List[CacheableSegment] → string before inserting
+            if isinstance(system_prompt, list):
+                system_prompt = "\n\n".join(s.text for s in system_prompt)
             messages.insert(0, {"role": "system", "content": system_prompt})
 
         # Build research tools if needed
@@ -1325,6 +1440,15 @@ class OpenAIClient(AbstractClient):
                             delta = event.get("delta")
                         if delta:
                             assistant_content += delta
+                            # FEAT-176: per-chunk event
+                            if _lc_has_chunk_subs_gpt:
+                                await self.events.emit(_GPTStreamChunkEvent(
+                                    trace_context=_lc_tc_gpts, client_name="openai",
+                                    model=model_str, chunk_index=_lc_chunk_idx_gpt,
+                                    chunk_size_bytes=len(delta.encode("utf-8")) if isinstance(delta, str) else 0,
+                                    source_type="client", source_name="openai",
+                                ))
+                                _lc_chunk_idx_gpt += 1
                             yield delta
                     elif event_type == "response.output_text.done":
                         text = getattr(event, "text", None)
@@ -1356,8 +1480,42 @@ class OpenAIClient(AbstractClient):
                 if output_text:
                     assistant_content = output_text
                     yield output_text
+
+            # Build and yield final AIMessage for Responses API path
+            resp_usage_obj = getattr(final_response, "usage", None) if final_response else None
+            if resp_usage_obj is not None:
+                resp_usage = CompletionUsage.from_openai(resp_usage_obj)
+            else:
+                resp_usage = CompletionUsage(
+                    prompt_tokens=0, completion_tokens=0, total_tokens=0
+                )
+            resp_ai_message = AIMessage(
+                input=prompt,
+                output=assistant_content,
+                response=assistant_content,
+                model=model_str,
+                provider="openai",
+                usage=resp_usage,
+                user_id=user_id,
+                session_id=session_id,
+                turn_id=turn_id,
+            )
+            # FEAT-176: lifecycle event — AfterClientCallEvent (Responses API path)
+            _lc_resp_usage = getattr(resp_ai_message, 'usage', None)
+            await self._emit_after_call(
+                _lc_tc_gpts, client_name="openai", model=model_str,
+                duration_ms=(_lc_time_gpts.perf_counter() - _lc_t0_gpts) * 1000,
+                input_tokens=getattr(_lc_resp_usage, 'prompt_tokens', None) if _lc_resp_usage else None,
+                output_tokens=getattr(_lc_resp_usage, 'completion_tokens', None) if _lc_resp_usage else None,
+                finish_reason=None,
+            )
+            yield resp_ai_message
         else:
             chat_args = dict(args)
+            # Request usage stats in the final streaming chunk (OpenAI SDK >= 1.17)
+            chat_args["stream_options"] = {"include_usage": True}
+            usage_data = None
+            response_stream = None  # initialise; assigned by whichever branch runs
             method = getattr(
                 self.client.chat.completions, "parse",
                 None
@@ -1374,7 +1532,7 @@ class OpenAIClient(AbstractClient):
                 except TypeError:
                     # parse() in this SDK may not accept stream=True → fallback to create()
                     method = None
-            else:
+            if not callable(method):
                 response_stream = await self.client.chat.completions.create(
                     model=model_str,
                     messages=messages,
@@ -1387,7 +1545,48 @@ class OpenAIClient(AbstractClient):
                 if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                     text_chunk = chunk.choices[0].delta.content
                     assistant_content += text_chunk
+                    # FEAT-176: per-chunk event
+                    if _lc_has_chunk_subs_gpt:
+                        await self.events.emit(_GPTStreamChunkEvent(
+                            trace_context=_lc_tc_gpts, client_name="openai",
+                            model=model_str, chunk_index=_lc_chunk_idx_gpt,
+                            chunk_size_bytes=len(text_chunk.encode("utf-8")),
+                            source_type="client", source_name="openai",
+                        ))
+                        _lc_chunk_idx_gpt += 1
                     yield text_chunk
+                # Capture usage from the final chunk (present when stream_options.include_usage=True)
+                if hasattr(chunk, 'usage') and chunk.usage is not None:
+                    usage_data = chunk.usage
+
+            # Build and yield final AIMessage for Chat Completions path
+            if usage_data is not None:
+                chat_usage = CompletionUsage.from_openai(usage_data)
+            else:
+                chat_usage = CompletionUsage(
+                    prompt_tokens=0, completion_tokens=0, total_tokens=0
+                )
+            chat_ai_message = AIMessage(
+                input=prompt,
+                output=assistant_content,
+                response=assistant_content,
+                model=model_str,
+                provider="openai",
+                usage=chat_usage,
+                user_id=user_id,
+                session_id=session_id,
+                turn_id=turn_id,
+            )
+            # FEAT-176: lifecycle event — AfterClientCallEvent (Chat Completions path)
+            _lc_chat_usage = getattr(chat_ai_message, 'usage', None)
+            await self._emit_after_call(
+                _lc_tc_gpts, client_name="openai", model=model_str,
+                duration_ms=(_lc_time_gpts.perf_counter() - _lc_t0_gpts) * 1000,
+                input_tokens=getattr(_lc_chat_usage, 'prompt_tokens', None) if _lc_chat_usage else None,
+                output_tokens=getattr(_lc_chat_usage, 'completion_tokens', None) if _lc_chat_usage else None,
+                finish_reason=None,
+            )
+            yield chat_ai_message
 
         # Update conversation memory if content was generated
         if assistant_content:
@@ -1635,8 +1834,6 @@ class OpenAIClient(AbstractClient):
             temperature=temperature or self.temperature,
             use_tools=False,
         )
-
-        result = response.choices[0].message
 
         return AIMessageFactory.from_openai(
             response=response,

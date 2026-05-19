@@ -30,6 +30,7 @@ from ouroboros.mcp.tools.definitions import (
     LateralThinkHandler,
     LineageStatusHandler,
     MeasureDriftHandler,
+    ProjectionQueryHandler,
     QueryEventsHandler,
     RalphHandler,
     SessionStatusHandler,
@@ -120,6 +121,174 @@ class TestExecuteSeedHandler:
 
         assert result.is_err
         assert "seed_content or seed_path is required" in str(result.error)
+
+    async def test_handle_restores_fat_harness_mode_from_session_contract(
+        self,
+        memory_event_store: EventStore,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """MCP resume preserves the acceptance contract chosen at session creation."""
+        captured_modes: list[bool] = []
+        fresh_tracker = SessionTracker.create("exec_fresh", "seed-123")
+        gated_resume_tracker = SessionTracker.create("exec_resume", "seed-123").with_progress(
+            {"fat_harness_mode": True}
+        )
+        legacy_resume_tracker = SessionTracker.create("exec_legacy", "seed-123")
+        missing_contract_tracker = SessionTracker.create("exec_missing", "seed-123")
+
+        workspace = SimpleNamespace(
+            effective_cwd="/tmp/ouroboros-worktree",
+            worktree_path="/tmp/ouroboros-worktree",
+            branch="ooo/test",
+            lock_path="/tmp/ouroboros.lock",
+        )
+
+        class FakeSessionRepository:
+            def __init__(self, _event_store: EventStore) -> None:
+                pass
+
+            async def reconstruct_session(self, session_id: str) -> Result:
+                trackers = {
+                    "sess_resume": gated_resume_tracker,
+                    "sess_legacy": legacy_resume_tracker,
+                    "sess_missing": missing_contract_tracker,
+                }
+                return Result.ok(trackers.get(session_id, fresh_tracker))
+
+            async def mark_failed(self, session_id: str, *, error_message: str) -> None:
+                raise AssertionError(f"unexpected failure mark for {session_id}: {error_message}")
+
+        class FakeRunner:
+            def __init__(self, *args: object, fat_harness_mode: bool, **kwargs: object) -> None:
+                captured_modes.append(fat_harness_mode)
+
+            async def prepare_session(self, *args: object, **kwargs: object) -> Result:
+                return Result.ok(fresh_tracker)
+
+            async def execute_precreated_session(self, *args: object, **kwargs: object) -> Result:
+                return Result.ok(
+                    SimpleNamespace(
+                        success=True,
+                        execution_id="exec_fresh",
+                        summary={},
+                        final_message="done",
+                    )
+                )
+
+            async def resume_session(self, *args: object, **kwargs: object) -> Result:
+                return Result.ok(
+                    SimpleNamespace(
+                        success=True,
+                        execution_id="exec_resume",
+                        summary={},
+                        final_message="resumed",
+                    )
+                )
+
+        monkeypatch.setattr(
+            "ouroboros.mcp.tools.execution_handlers.SessionRepository",
+            FakeSessionRepository,
+        )
+        monkeypatch.setattr("ouroboros.mcp.tools.execution_handlers.OrchestratorRunner", FakeRunner)
+        monkeypatch.setattr(
+            "ouroboros.mcp.tools.execution_handlers.create_agent_runtime",
+            lambda **_kwargs: SimpleNamespace(runtime_backend="test"),
+        )
+        monkeypatch.setattr(
+            "ouroboros.mcp.tools.execution_handlers.maybe_prepare_task_workspace",
+            lambda *_args, **_kwargs: workspace,
+        )
+        monkeypatch.setattr(
+            "ouroboros.mcp.tools.execution_handlers.maybe_restore_task_workspace",
+            lambda *_args, **_kwargs: workspace,
+        )
+        monkeypatch.setattr(
+            "ouroboros.mcp.tools.execution_handlers.release_lock", lambda *_args: None
+        )
+
+        handler = ExecuteSeedHandler(event_store=memory_event_store)
+
+        fresh = await handler.handle(
+            {"seed_content": VALID_SEED_YAML, "skip_qa": True},
+            synchronous=True,
+        )
+        resumed = await handler.handle(
+            {"seed_content": VALID_SEED_YAML, "session_id": "sess_resume", "skip_qa": True},
+            synchronous=True,
+        )
+        legacy_resumed = await handler.handle(
+            {
+                "seed_content": VALID_SEED_YAML.replace(
+                    "metadata:", "orchestrator:\n  execution_mode: legacy\nmetadata:", 1
+                ),
+                "session_id": "sess_legacy",
+                "skip_qa": True,
+            },
+            synchronous=True,
+        )
+        missing_contract_resumed = await handler.handle(
+            {
+                "seed_content": VALID_SEED_YAML,
+                "session_id": "sess_missing",
+                "skip_qa": True,
+            },
+            synchronous=True,
+        )
+
+        assert fresh.is_ok
+        assert resumed.is_ok
+        assert legacy_resumed.is_ok
+        assert missing_contract_resumed.is_ok
+        assert captured_modes == [True, True, False, True]
+
+    async def test_handle_rejects_removed_legacy_execution_mode(self) -> None:
+        """MCP execute_seed matches the CLI removal of the legacy selector."""
+        handler = ExecuteSeedHandler()
+        result = await handler.handle(
+            {
+                "seed_content": VALID_SEED_YAML.replace(
+                    "metadata:", "orchestrator:\n  execution_mode: legacy\nmetadata:", 1
+                )
+            }
+        )
+
+        assert result.is_err
+        assert "execution_mode='legacy' was removed" in str(result.error)
+
+    async def test_handle_plugin_rejects_removed_legacy_execution_mode(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Plugin-dispatched execute_seed uses the same fresh execution-mode gate."""
+        handler = ExecuteSeedHandler(
+            event_store=memory_event_store,
+            agent_runtime_backend="opencode",
+            opencode_mode="plugin",
+        )
+        result = await handler.handle(
+            {
+                "seed_content": VALID_SEED_YAML.replace(
+                    "metadata:", "orchestrator:\n  execution_mode: legacy\nmetadata:", 1
+                )
+            }
+        )
+
+        assert result.is_err
+        assert "execution_mode='legacy' was removed" in str(result.error)
+
+    async def test_handle_rejects_unknown_execution_mode(self) -> None:
+        """MCP execute_seed keeps execution_mode non-configurable like the CLI."""
+        handler = ExecuteSeedHandler()
+        result = await handler.handle(
+            {
+                "seed_content": VALID_SEED_YAML.replace(
+                    "metadata:", "orchestrator:\n  execution_mode: nope\nmetadata:", 1
+                )
+            }
+        )
+
+        assert result.is_err
+        assert "execution_mode is no longer configurable" in str(result.error)
 
     async def test_handle_reports_execution_handler_config_error(self) -> None:
         """Config failures should surface with execution-handler context."""
@@ -506,6 +675,796 @@ class TestQueryEventsHandler:
         assert "exec_parallel_123_sub_ac_0_0" in text
 
 
+class TestProjectionQueryHandler:
+    """Test ProjectionQueryHandler class."""
+
+    def test_definition_name(self) -> None:
+        handler = ProjectionQueryHandler()
+        assert handler.definition.name == "ouroboros_query_projection"
+
+    def test_definition_has_read_only_query_parameters(self) -> None:
+        handler = ProjectionQueryHandler()
+        param_names = {p.name for p in handler.definition.parameters}
+        assert param_names == {"session_id", "execution_id", "seed_id", "limit"}
+        assert all(p.required is False for p in handler.definition.parameters)
+
+    async def test_handle_requires_session_or_execution_id(self) -> None:
+        handler = ProjectionQueryHandler()
+        result = await handler.handle({})
+
+        assert result.is_err
+        assert "session_id or execution_id is required" in str(result.error)
+
+    async def test_handle_rejects_empty_event_set(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"execution_id": "exec_missing_projection"})
+
+        assert result.is_err
+        assert "No events found" in str(result.error)
+
+    async def test_handle_never_initializes_injected_store_with_schema_creation(self) -> None:
+        """Read-only projection queries must not create schema on shared stores."""
+        from datetime import UTC, datetime
+
+        from ouroboros.events.base import BaseEvent
+
+        class FakeEventStore:
+            create_schema_values: list[bool | None]
+
+            def __init__(self) -> None:
+                self.create_schema_values = []
+
+            async def initialize(self, *, create_schema: bool | None = None) -> None:
+                self.create_schema_values.append(create_schema)
+
+            async def query_execution_related_events(
+                self,
+                *,
+                execution_id: str,
+                limit: int | None = None,
+            ) -> list[BaseEvent]:
+                return [
+                    BaseEvent(
+                        id="evt_read_only_init",
+                        type="tool.call.started",
+                        timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+                        aggregate_type="execution",
+                        aggregate_id=execution_id,
+                        data={"call_id": "read_only", "tool_name": "Bash"},
+                    )
+                ]
+
+        store = FakeEventStore()
+        handler = ProjectionQueryHandler(event_store=store)  # type: ignore[arg-type]
+        result = await handler.handle({"execution_id": "exec_read_only_init"})
+
+        assert result.is_ok
+        assert store.create_schema_values == [False]
+
+    async def test_handle_projects_execution_events(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Execution aggregate queries expose machine-readable projection records."""
+        from datetime import UTC, datetime, timedelta
+
+        from ouroboros.events.base import BaseEvent
+
+        t0 = datetime(2026, 1, 1, tzinfo=UTC)
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_proj_start",
+                type="tool.call.started",
+                timestamp=t0,
+                aggregate_type="execution",
+                aggregate_id="exec_projection_123",
+                data={
+                    "call_id": "call_1",
+                    "tool_name": "Bash",
+                    "seed_id": "seed_projection_123",
+                    "goal": "Inspect projection",
+                    "args_preview": "pytest -q",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_proj_return",
+                type="tool.call.returned",
+                timestamp=t0 + timedelta(milliseconds=10),
+                aggregate_type="execution",
+                aggregate_id="exec_projection_123",
+                data={
+                    "call_id": "call_1",
+                    "tool_name": "Bash",
+                    "is_error": False,
+                    "duration_ms": 10,
+                    "result_preview": "ok",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_proj_artifact",
+                type="harness.artifact.recorded",
+                timestamp=t0 + timedelta(milliseconds=15),
+                aggregate_type="execution",
+                aggregate_id="exec_projection_123",
+                data={
+                    "call_id": "call_1",
+                    "artifact_id": "artifact_projection_123",
+                    "kind": "evidence",
+                    "path": "artifacts/projection.json",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_proj_verdict",
+                type="harness.verdict.recorded",
+                timestamp=t0 + timedelta(milliseconds=18),
+                aggregate_type="execution",
+                aggregate_id="exec_projection_123",
+                data={
+                    "verdict_id": "verdict_projection_123",
+                    "scope": "run",
+                    "outcome": "pass",
+                    "evidence_artifact_ids": ["artifact_projection_123"],
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_proj_child",
+                type="tool.call.started",
+                timestamp=t0 + timedelta(milliseconds=20),
+                aggregate_type="execution",
+                aggregate_id="exec_projection_123_child_0",
+                data={
+                    "parent_execution_id": "exec_projection_123",
+                    "call_id": "call_child",
+                    "tool_name": "Read",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"execution_id": "exec_projection_123"})
+        second_result = await handler.handle({"execution_id": "exec_projection_123"})
+
+        assert result.is_ok
+        assert second_result.is_ok
+        assert "Run Projection" in result.value.text_content
+        assert result.value.meta["execution_id"] == "exec_projection_123"
+        assert result.value.meta["seed_id"] == "seed_projection_123"
+        assert result.value.meta["seed_id_source"] == "event"
+        assert result.value.meta["event_count"] == 5
+        assert "Artifacts: 1" in result.value.text_content
+        assert "Verdicts: 1" in result.value.text_content
+        assert result.value.meta["run"]["goal"] == "Inspect projection"
+        assert result.value.meta["run"]["verdict_id"] == "verdict_projection_123"
+        assert len(result.value.meta["stages"]) == 1
+        assert len(result.value.meta["steps"]) == 2
+        assert result.value.meta["artifacts"] == [
+            {
+                "schema_version": 1,
+                "artifact_id": "artifact_projection_123",
+                "step_id": result.value.meta["steps"][0]["step_id"],
+                "kind": "evidence",
+                "path": "artifacts/projection.json",
+                "media_type": None,
+                "size_bytes": None,
+                "digest": None,
+                "summary": "",
+                "metadata": {
+                    "source_event_id": "evt_proj_artifact",
+                    "event_type": "harness.artifact.recorded",
+                },
+            }
+        ]
+        assert result.value.meta["verdicts"][0]["verdict_id"] == "verdict_projection_123"
+        assert result.value.meta["verdicts"][0]["evidence_artifact_ids"] == [
+            "artifact_projection_123"
+        ]
+        step = result.value.meta["steps"][0]
+        assert step["kind"] == "shell_command"
+        assert step["ok"] is True
+        assert step["source_event_ids"] == ["evt_proj_start", "evt_proj_return"]
+        assert result.value.meta["steps"][1]["name"] == "Read"
+        assert result.value.meta["run"]["run_id"] == second_result.value.meta["run"]["run_id"]
+        assert (
+            result.value.meta["stages"][0]["stage_id"]
+            == second_result.value.meta["stages"][0]["stage_id"]
+        )
+        assert [step["step_id"] for step in result.value.meta["steps"]] == [
+            step["step_id"] for step in second_result.value.meta["steps"]
+        ]
+
+    async def test_handle_projects_session_related_events(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Session queries include execution events connected by execution_id."""
+        from datetime import UTC, datetime, timedelta
+
+        from ouroboros.events.base import BaseEvent
+
+        t0 = datetime(2026, 1, 1, tzinfo=UTC)
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_session_start",
+                type="orchestrator.session.started",
+                timestamp=t0,
+                aggregate_type="session",
+                aggregate_id="orch_projection_123",
+                data={
+                    "execution_id": "exec_projection_456",
+                    "seed_id": "seed_projection_456",
+                    "seed_goal": "Project session",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_session_tool",
+                type="tool.call.started",
+                timestamp=t0,
+                aggregate_type="execution",
+                aggregate_id="exec_projection_456",
+                data={
+                    "execution_id": "exec_projection_456",
+                    "call_id": "call_session",
+                    "tool_name": "Read",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_session_completed",
+                type="orchestrator.session.completed",
+                timestamp=t0 + timedelta(milliseconds=100),
+                aggregate_type="session",
+                aggregate_id="orch_projection_123",
+                data={"status": "completed"},
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_session_foreign",
+                type="tool.call.started",
+                aggregate_type="lineage",
+                aggregate_id="lineage_projection_456",
+                data={
+                    "session_id": "orch_projection_123",
+                    "execution_id": "exec_projection_456",
+                    "call_id": "foreign",
+                    "tool_name": "Bash",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"session_id": "orch_projection_123"})
+        second_result = await handler.handle({"session_id": "orch_projection_123"})
+
+        assert result.is_ok
+        assert second_result.is_ok
+        assert result.value.meta["session_id"] == "orch_projection_123"
+        assert result.value.meta["seed_id"] == "seed_projection_456"
+        assert result.value.meta["seed_id_source"] == "event"
+        assert result.value.meta["run"]["goal"] == "Project session"
+        assert result.value.meta["event_count"] == 3
+        assert result.value.meta["run"]["ended_at"] == "2026-01-01T00:00:00.100000Z"
+        assert result.value.meta["steps"][0]["name"] == "Read"
+        assert result.value.meta["run"]["run_id"] == second_result.value.meta["run"]["run_id"]
+        assert (
+            result.value.meta["stages"][0]["stage_id"]
+            == second_result.value.meta["stages"][0]["stage_id"]
+        )
+
+    async def test_handle_rejects_mismatched_session_execution(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Explicit execution_id must belong to the requested session."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_session_declares_a",
+                type="orchestrator.session.started",
+                aggregate_type="session",
+                aggregate_id="orch_projection_mismatch",
+                data={
+                    "execution_id": "exec_projection_a",
+                    "seed_id": "seed_projection_a",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_unrelated_exec_b",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_projection_b",
+                data={"execution_id": "exec_projection_b", "call_id": "b", "tool_name": "Bash"},
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle(
+            {
+                "session_id": "orch_projection_mismatch",
+                "execution_id": "exec_projection_b",
+            }
+        )
+
+        assert result.is_err
+        assert "does not belong" in str(result.error)
+
+    async def test_handle_narrows_session_metadata_to_requested_execution(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Combined selectors must not reuse older metadata from the same session."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_session_exec_a",
+                type="orchestrator.session.started",
+                aggregate_type="session",
+                aggregate_id="orch_projection_multi",
+                data={
+                    "execution_id": "exec_projection_a",
+                    "seed_id": "seed_projection_a",
+                    "seed_goal": "Older execution",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_session_exec_b",
+                type="orchestrator.session.started",
+                aggregate_type="session",
+                aggregate_id="orch_projection_multi",
+                data={
+                    "execution_id": "exec_projection_b",
+                    "seed_id": "seed_projection_b",
+                    "seed_goal": "Requested execution",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_exec_b_tool",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_projection_b",
+                data={
+                    "session_id": "orch_projection_multi",
+                    "execution_id": "exec_projection_b",
+                    "call_id": "b",
+                    "tool_name": "Bash",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_exec_b_child",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_projection_b_child",
+                data={
+                    "parent_execution_id": "exec_projection_b",
+                    "call_id": "b_child",
+                    "tool_name": "Read",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_exec_b_foreign",
+                type="tool.call.started",
+                aggregate_type="lineage",
+                aggregate_id="lineage_projection_b",
+                data={
+                    "execution_id": "exec_projection_b",
+                    "call_id": "b_foreign",
+                    "tool_name": "Write",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle(
+            {
+                "session_id": "orch_projection_multi",
+                "execution_id": "exec_projection_b",
+            }
+        )
+
+        assert result.is_ok
+        assert result.value.meta["seed_id"] == "seed_projection_b"
+        assert result.value.meta["seed_id_source"] == "event"
+        assert result.value.meta["run"]["goal"] == "Requested execution"
+        assert result.value.meta["event_count"] == 3
+        assert [step["name"] for step in result.value.meta["steps"]] == ["Bash", "Read"]
+
+    async def test_handle_rejects_session_only_reused_session(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Session-only queries must fail when a session declares multiple executions."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_reused_session_a",
+                type="orchestrator.session.started",
+                aggregate_type="session",
+                aggregate_id="orch_projection_reused",
+                data={"execution_id": "exec_reused_a", "seed_id": "seed_reused_a"},
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_reused_session_b",
+                type="orchestrator.session.started",
+                aggregate_type="session",
+                aggregate_id="orch_projection_reused",
+                data={"execution_id": "exec_reused_b", "seed_id": "seed_reused_b"},
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"session_id": "orch_projection_reused"})
+
+        assert result.is_err
+        assert "declares multiple executions" in str(result.error)
+
+    async def test_handle_rejects_metadata_less_session_only_multi_execution_payloads(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Session-only queries must fail closed when payloads imply multiple runs."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_exec_a",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_payload_a",
+                data={
+                    "session_id": "orch_projection_payload_only",
+                    "execution_id": "exec_payload_a",
+                    "call_id": "payload_a",
+                    "tool_name": "Bash",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_exec_b",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_payload_b",
+                data={
+                    "session_id": "orch_projection_payload_only",
+                    "execution_id": "exec_payload_b",
+                    "call_id": "payload_b",
+                    "tool_name": "Read",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"session_id": "orch_projection_payload_only"})
+
+        assert result.is_err
+        assert "references multiple executions" in str(result.error)
+
+    async def test_handle_ignores_foreign_payload_execution_candidates(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Foreign aggregates must not establish session execution membership."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_real_exec",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_payload_real",
+                data={
+                    "session_id": "orch_projection_foreign_payload",
+                    "execution_id": "exec_payload_real",
+                    "call_id": "payload_real",
+                    "tool_name": "Bash",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_foreign_exec",
+                type="tool.call.started",
+                aggregate_type="lineage",
+                aggregate_id="lineage_payload_foreign",
+                data={
+                    "session_id": "orch_projection_foreign_payload",
+                    "execution_id": "exec_payload_foreign",
+                    "call_id": "payload_foreign",
+                    "tool_name": "Read",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"session_id": "orch_projection_foreign_payload"})
+
+        assert result.is_ok
+        assert result.value.meta["event_count"] == 1
+        assert result.value.meta["seed_id"] == "orch_projection_foreign_payload"
+        assert result.value.meta["seed_id_source"] == "fallback"
+        assert [step["name"] for step in result.value.meta["steps"]] == ["Bash"]
+
+    async def test_handle_rejects_foreign_only_payload_session_query(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Session-only projections must not project foreign payload-only aggregates."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_foreign_only_session",
+                type="tool.call.started",
+                aggregate_type="lineage",
+                aggregate_id="lineage_payload_foreign_only_session",
+                data={
+                    "session_id": "orch_projection_foreign_only_session",
+                    "execution_id": "exec_payload_foreign_only_session",
+                    "call_id": "payload_foreign_only_session",
+                    "tool_name": "Read",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"session_id": "orch_projection_foreign_only_session"})
+
+        assert result.is_err
+        assert "No events found" in str(result.error)
+
+    async def test_handle_rejects_foreign_only_payload_session_execution(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Explicit session/execution selectors cannot be proven by foreign aggregates."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_foreign_only_exec",
+                type="tool.call.started",
+                aggregate_type="lineage",
+                aggregate_id="lineage_payload_foreign_only",
+                data={
+                    "session_id": "orch_projection_foreign_only",
+                    "execution_id": "exec_payload_foreign_only",
+                    "call_id": "payload_foreign_only",
+                    "tool_name": "Read",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle(
+            {
+                "session_id": "orch_projection_foreign_only",
+                "execution_id": "exec_payload_foreign_only",
+            }
+        )
+
+        assert result.is_err
+        assert "does not belong" in str(result.error)
+
+    async def test_handle_disambiguates_metadata_less_session_with_execution_id(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Explicit execution_id can disambiguate payload-only session links."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_exec_a",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_payload_a",
+                data={
+                    "session_id": "orch_projection_payload_multi",
+                    "execution_id": "exec_payload_a",
+                    "call_id": "payload_a",
+                    "tool_name": "Bash",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_exec_b",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_payload_b",
+                data={
+                    "session_id": "orch_projection_payload_multi",
+                    "execution_id": "exec_payload_b",
+                    "call_id": "payload_b",
+                    "tool_name": "Read",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle(
+            {
+                "session_id": "orch_projection_payload_multi",
+                "execution_id": "exec_payload_a",
+            }
+        )
+
+        assert result.is_ok
+        assert result.value.meta["event_count"] == 1
+        assert result.value.meta["seed_id"] == "exec_payload_a"
+        assert result.value.meta["seed_id_source"] == "fallback"
+        assert [step["name"] for step in result.value.meta["steps"]] == ["Bash"]
+
+    async def test_handle_narrows_metadata_less_session_only_single_execution_payload(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """A metadata-less session projection may use one payload execution candidate."""
+        from datetime import UTC, datetime, timedelta
+
+        from ouroboros.events.base import BaseEvent
+
+        t0 = datetime(2026, 1, 1, tzinfo=UTC)
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_session_metadata",
+                type="orchestrator.session.started",
+                timestamp=t0,
+                aggregate_type="session",
+                aggregate_id="orch_projection_payload_single",
+                data={
+                    "seed_id": "seed_payload_single",
+                    "seed_goal": "Project metadata-less session",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_single",
+                type="tool.call.started",
+                timestamp=t0 + timedelta(milliseconds=10),
+                aggregate_type="execution",
+                aggregate_id="exec_payload_single",
+                data={
+                    "session_id": "orch_projection_payload_single",
+                    "execution_id": "exec_payload_single",
+                    "call_id": "payload_single",
+                    "tool_name": "Bash",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_child",
+                type="tool.call.started",
+                timestamp=t0 + timedelta(milliseconds=20),
+                aggregate_type="execution",
+                aggregate_id="exec_payload_single_child",
+                data={
+                    "parent_execution_id": "exec_payload_single",
+                    "call_id": "payload_child",
+                    "tool_name": "Read",
+                },
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_payload_foreign_family",
+                type="tool.call.started",
+                timestamp=t0 + timedelta(milliseconds=30),
+                aggregate_type="lineage",
+                aggregate_id="lineage_payload_single",
+                data={
+                    "session_id": "orch_projection_payload_single",
+                    "execution_id": "exec_payload_single",
+                    "call_id": "payload_foreign",
+                    "tool_name": "Read",
+                },
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"session_id": "orch_projection_payload_single"})
+
+        assert result.is_ok
+        assert result.value.meta["event_count"] == 3
+        assert result.value.meta["seed_id"] == "seed_payload_single"
+        assert result.value.meta["seed_id_source"] == "event"
+        assert result.value.meta["run"]["goal"] == "Project metadata-less session"
+        assert result.value.meta["run"]["started_at"] == "2026-01-01T00:00:00Z"
+        assert [step["name"] for step in result.value.meta["steps"]] == ["Bash", "Read"]
+
+    async def test_handle_records_argument_seed_id_provenance(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Caller-provided seed IDs remain visible as argument-sourced labels."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_seed_argument",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_seed_argument",
+                data={"call_id": "seed_argument", "tool_name": "Bash"},
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle(
+            {
+                "execution_id": "exec_seed_argument",
+                "seed_id": "seed_from_argument",
+            }
+        )
+
+        assert result.is_ok
+        assert result.value.meta["seed_id"] == "seed_from_argument"
+        assert result.value.meta["seed_id_source"] == "argument"
+
+    async def test_handle_limit_is_fail_closed_safety_cap(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Projection queries reject caps that would create partial projections."""
+        from ouroboros.events.base import BaseEvent
+
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_cap_1",
+                type="tool.call.started",
+                aggregate_type="execution",
+                aggregate_id="exec_projection_cap",
+                data={"call_id": "cap_1", "tool_name": "Bash"},
+            )
+        )
+        await memory_event_store.append(
+            BaseEvent(
+                id="evt_cap_2",
+                type="tool.call.returned",
+                aggregate_type="execution",
+                aggregate_id="exec_projection_cap",
+                data={"call_id": "cap_1", "tool_name": "Bash", "is_error": False},
+            )
+        )
+
+        handler = ProjectionQueryHandler(event_store=memory_event_store)
+        result = await handler.handle({"execution_id": "exec_projection_cap", "limit": 1})
+
+        assert result.is_err
+        assert "exceeds limit 1" in str(result.error)
+
+
 class TestOuroborosTools:
     """Test OUROBOROS_TOOLS constant."""
 
@@ -530,6 +1489,7 @@ class TestOuroborosTools:
         "ouroboros_measure_drift",
         "ouroboros_pm_interview",
         "ouroboros_qa",
+        "ouroboros_query_projection",
         "ouroboros_query_events",
         "ouroboros_ralph",
         "ouroboros_session_status",
@@ -556,6 +1516,7 @@ class TestOuroborosTools:
         assert JobResultHandler in handler_types
         assert CancelJobHandler in handler_types
         assert QueryEventsHandler in handler_types
+        assert ProjectionQueryHandler in handler_types
         assert GenerateSeedHandler in handler_types
         assert MeasureDriftHandler in handler_types
         assert InterviewHandler in handler_types
@@ -669,6 +1630,28 @@ class TestAsyncJobHandlers:
         assert result.is_ok
         assert result.value.meta["execution_id"].startswith("exec_")
         assert result.value.meta["session_id"].startswith("orch_")
+
+    async def test_start_execute_seed_plugin_rejects_removed_legacy_execution_mode(
+        self,
+        memory_event_store: EventStore,
+    ) -> None:
+        """Plugin-dispatched start_execute_seed uses the same fresh execution-mode gate."""
+        handler = StartExecuteSeedHandler(
+            event_store=memory_event_store,
+            agent_runtime_backend="opencode",
+            opencode_mode="plugin",
+        )
+
+        result = await handler.handle(
+            {
+                "seed_content": VALID_SEED_YAML.replace(
+                    "metadata:", "orchestrator:\n  execution_mode: legacy\nmetadata:", 1
+                )
+            }
+        )
+
+        assert result.is_err
+        assert "execution_mode='legacy' was removed" in str(result.error)
 
     def test_job_status_definition_name(self) -> None:
         handler = JobStatusHandler()

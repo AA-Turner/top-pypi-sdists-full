@@ -15,13 +15,16 @@
 
 """Identity v3 Application Credential action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import datetime
 import json
 import logging
-import typing as ty
+from typing import Any
 import uuid
 
 from cliff import columns as cliff_columns
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -32,16 +35,16 @@ from openstackclient.identity import common
 LOG = logging.getLogger(__name__)
 
 
-class RolesColumn(cliff_columns.FormattableColumn[ty.Any]):
+class RolesColumn(cliff_columns.FormattableColumn[Any]):
     """Generate a formatted string of role names."""
 
-    def human_readable(self):
-        return utils.format_list(list(r['name'] for r in self._value))
+    def human_readable(self) -> str:
+        return utils.format_list(list(r['name'] for r in self._value)) or ""
 
 
 def _format_application_credential(
-    application_credential, *, include_secret=False
-):
+    application_credential: Any, *, include_secret: bool = False
+) -> tuple[tuple[str, ...], Any]:
     column_headers: tuple[str, ...] = (
         'ID',
         'Name',
@@ -74,7 +77,9 @@ def _format_application_credential(
     )
 
 
-def _format_application_credentials(application_credentials):
+def _format_application_credentials(
+    application_credentials: Any,
+) -> tuple[tuple[str, ...], Any]:
     column_headers = (
         'ID',
         'Name',
@@ -108,7 +113,7 @@ def _format_application_credentials(application_credentials):
 
 
 # TODO(stephenfin): Move this to osc_lib since it's useful elsewhere
-def is_uuid_like(value) -> bool:
+def is_uuid_like(value: str) -> bool:
     """Returns validation of a value as a UUID.
 
     :param val: Value to verify
@@ -131,7 +136,7 @@ def is_uuid_like(value) -> bool:
 class CreateApplicationCredential(command.ShowOne):
     _description = _("Create new application credential")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'name',
@@ -203,15 +208,22 @@ class CreateApplicationCredential(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         conn = self.app.client_manager.sdk_connection
         auth = conn.config.get_auth()
         if auth is None:
             # this will never happen
             raise exceptions.CommandError('invalid authentication info')
 
-        user_id = auth.get_user_id(conn.identity)
+        user_id = auth.get_user_id(conn.session)
+        if user_id is None:
+            msg = _("failed to retrieve auth info for current session")
+            raise exceptions.CommandError(msg)
 
         role_ids = []
         for role in parsed_args.roles:
@@ -266,7 +278,7 @@ class CreateApplicationCredential(command.ShowOne):
 class DeleteApplicationCredential(command.Command):
     _description = _("Delete application credentials(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'application_credential',
@@ -276,15 +288,21 @@ class DeleteApplicationCredential(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
+
         conn = self.app.client_manager.sdk_connection
         auth = conn.config.get_auth()
         if auth is None:
             # this will never happen
             raise exceptions.CommandError('invalid authentication info')
 
-        user_id = auth.get_user_id(conn.identity)
+        user_id = auth.get_user_id(conn.session)
+        if user_id is None:
+            msg = _("failed to retrieve auth info for current session")
+            raise exceptions.CommandError(msg)
 
         errors = 0
         for ac in parsed_args.application_credential:
@@ -319,7 +337,7 @@ class DeleteApplicationCredential(command.Command):
 class ListApplicationCredential(command.Lister):
     _description = _("List application credentials")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--user',
@@ -329,8 +347,12 @@ class ListApplicationCredential(command.Lister):
         common.add_user_domain_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         if parsed_args.user:
             user_id = common.find_user_id_sdk(
                 identity_client, parsed_args.user, parsed_args.user_domain
@@ -341,7 +363,11 @@ class ListApplicationCredential(command.Lister):
             if auth is None:
                 # this will never happen
                 raise exceptions.CommandError('invalid authentication info')
-            user_id = auth.get_user_id(conn.identity)
+            _user_id = auth.get_user_id(conn.session)
+            if _user_id is None:
+                # this will never happen
+                raise exceptions.CommandError('invalid authentication info')
+            user_id = _user_id
 
         application_credentials = identity_client.application_credentials(
             user=user_id
@@ -353,7 +379,7 @@ class ListApplicationCredential(command.Lister):
 class ShowApplicationCredential(command.ShowOne):
     _description = _("Display application credential details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'application_credential',
@@ -362,14 +388,23 @@ class ShowApplicationCredential(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
+
         conn = self.app.client_manager.sdk_connection
         auth = conn.config.get_auth()
         if auth is None:
             # this will never happen
             raise exceptions.CommandError('invalid authentication info')
-        user_id = auth.get_user_id(conn.identity)
+
+        user_id = auth.get_user_id(conn.session)
+        if user_id is None:
+            msg = _("failed to retrieve auth info for current session")
+            raise exceptions.CommandError(msg)
 
         application_credential = identity_client.find_application_credential(
             user_id, parsed_args.application_credential, ignore_missing=False

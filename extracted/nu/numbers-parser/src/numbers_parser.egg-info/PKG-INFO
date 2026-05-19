@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numbers-parser
-Version: 4.18.4
+Version: 4.18.5
 Summary: Read and write Apple Numbers spreadsheets
 Author-email: Jon Connell <python@figsandfudge.com>
 License-Expression: MIT

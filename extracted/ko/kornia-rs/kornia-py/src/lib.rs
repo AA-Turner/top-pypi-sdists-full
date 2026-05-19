@@ -1,10 +1,12 @@
 mod apriltag;
 mod augmentations;
+mod ba;
 mod blur;
 mod brightness;
 mod color;
 mod cpu;
 mod crop;
+mod depth;
 mod enhance;
 mod feature_match;
 mod flip;
@@ -15,15 +17,20 @@ mod image;
 mod io;
 mod normalize;
 mod orb;
+mod pgo;
 mod pipeline;
+mod pnp;
 mod pointcloud;
 mod pyutils;
+mod ransac;
 mod resize;
+mod segmentation;
 mod twoview;
 mod warp;
 
 use crate::icp::{PyICPConvergenceCriteria, PyICPResult};
 use crate::image::{PyImageLayout, PyImageSize, PyPixelFormat};
+#[cfg(feature = "turbojpeg")]
 use crate::io::jpegturbo::{PyImageDecoder, PyImageEncoder};
 use numpy::{PyArray1, PyArray2};
 use pyo3::exceptions::PyDeprecationWarning;
@@ -352,23 +359,33 @@ pub fn kornia_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     io_mod.add_function(wrap_pyfunction!(io::tiff::write_image_tiff_f32, &io_mod)?)?;
     io_mod.add_function(wrap_pyfunction!(io::tiff::write_image_tiff_u8, &io_mod)?)?;
     io_mod.add_function(wrap_pyfunction!(io::tiff::write_image_tiff_u16, &io_mod)?)?;
+    io_mod.add_function(wrap_pyfunction!(io::rvl::encode_image_rvl, &io_mod)?)?;
+    io_mod.add_function(wrap_pyfunction!(io::rvl::decode_image_rvl, &io_mod)?)?;
+    io_mod.add_function(wrap_pyfunction!(io::rvl::write_image_rvl, &io_mod)?)?;
+    io_mod.add_function(wrap_pyfunction!(io::rvl::read_image_rvl, &io_mod)?)?;
+    #[cfg(feature = "turbojpeg")]
     io_mod.add_function(wrap_pyfunction!(
         io::jpegturbo::decode_image_jpegturbo,
         &io_mod
     )?)?;
+    #[cfg(feature = "turbojpeg")]
     io_mod.add_function(wrap_pyfunction!(
         io::jpegturbo::encode_image_jpegturbo,
         &io_mod
     )?)?;
+    #[cfg(feature = "turbojpeg")]
     io_mod.add_function(wrap_pyfunction!(
         io::jpegturbo::read_image_jpegturbo,
         &io_mod
     )?)?;
+    #[cfg(feature = "turbojpeg")]
     io_mod.add_function(wrap_pyfunction!(
         io::jpegturbo::write_image_jpegturbo,
         &io_mod
     )?)?;
+    #[cfg(feature = "turbojpeg")]
     io_mod.add_class::<PyImageDecoder>()?;
+    #[cfg(feature = "turbojpeg")]
     io_mod.add_class::<PyImageEncoder>()?;
     m.add_submodule(&io_mod)?;
 
@@ -379,6 +396,7 @@ pub fn kornia_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     imgproc_mod.add_function(wrap_pyfunction!(color::rgb_from_bgra, &imgproc_mod)?)?;
     imgproc_mod.add_function(wrap_pyfunction!(color::bgr_from_rgb, &imgproc_mod)?)?;
     imgproc_mod.add_function(wrap_pyfunction!(color::gray_from_rgb, &imgproc_mod)?)?;
+    imgproc_mod.add_function(wrap_pyfunction!(color::apply_colormap, &imgproc_mod)?)?;
     imgproc_mod.add_function(wrap_pyfunction!(enhance::add_weighted, &imgproc_mod)?)?;
     imgproc_mod.add_function(wrap_pyfunction!(
         histogram::compute_histogram,
@@ -445,6 +463,9 @@ pub fn kornia_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     k3d_mod.add_function(wrap_pyfunction!(homography::find_homography_py, &k3d_mod)?)?;
     k3d_mod.add_function(wrap_pyfunction!(homography::find_fundamental_py, &k3d_mod)?)?;
+    k3d_mod.add_function(wrap_pyfunction!(pnp::solve_pnp_ransac_py, &k3d_mod)?)?;
+    k3d_mod.add_function(wrap_pyfunction!(ba::bundle_adjust_py, &k3d_mod)?)?;
+    k3d_mod.add_function(wrap_pyfunction!(pgo::pose_graph_optimize_py, &k3d_mod)?)?;
     m.add_submodule(&k3d_mod)?;
 
     // Apriltag submodule
@@ -454,6 +475,7 @@ pub fn kornia_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     apriltag_mod.add_class::<apriltag::PyAprilTagDecoder>()?;
     apriltag_mod.add_class::<apriltag::PyApriltagDetection>()?;
     apriltag_mod.add_class::<apriltag::PyQuad>()?;
+    apriltag_mod.add_class::<apriltag::family::PyTagFamilyKind>()?;
 
     let apriltag_family_mod = PyModule::new(py, "family")?;
     apriltag_family_mod.add_class::<apriltag::family::PyTagFamily>()?;
@@ -463,6 +485,12 @@ pub fn kornia_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     apriltag_mod.add_submodule(&apriltag_family_mod)?;
 
     m.add_submodule(&apriltag_mod)?;
+
+    // RANSAC submodule — generic robust estimation + the F/E/H/EPnP
+    // estimators wired into a single `kornia_rs.ransac.*` namespace. The
+    // Python signatures mirror OpenCV's calling convention so that
+    // benchmark scripts can swap one import for the other.
+    ransac::register(py, m)?;
 
     // CPU submodule — runtime SIMD feature probe. Lets installed wheels
     // self-report which SIMD paths the host actually exposes, complementing
@@ -482,6 +510,17 @@ pub fn kornia_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     pipeline_mod.add_class::<pipeline::Preprocessor>()?;
     m.add_submodule(&pipeline_mod)?;
 
+    // Segmentation submodule — COCO RLE ↔ mask conversions.
+    let seg_mod = PyModule::new(py, "segmentation")?;
+    seg_mod.add_function(wrap_pyfunction!(segmentation::rle_to_mask, &seg_mod)?)?;
+    seg_mod.add_function(wrap_pyfunction!(segmentation::mask_to_rle, &seg_mod)?)?;
+    m.add_submodule(&seg_mod)?;
+
+    // Depth submodule — depth sampling under segmentation masks.
+    let depth_mod = PyModule::new(py, "depth")?;
+    depth_mod.add_function(wrap_pyfunction!(depth::sample_depth, &depth_mod)?)?;
+    m.add_submodule(&depth_mod)?;
+
     // Register submodules in sys.modules so `from kornia_rs.image import Image` works
     let modules =
         unsafe { pyo3::Bound::from_borrowed_ptr(py, pyo3::ffi::PyImport_GetModuleDict()) };
@@ -495,6 +534,8 @@ pub fn kornia_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
         ("kornia_rs.pipeline", &pipeline_mod),
         ("kornia_rs.features", &features_mod),
         ("kornia_rs.cpu", &cpu_mod),
+        ("kornia_rs.segmentation", &seg_mod),
+        ("kornia_rs.depth", &depth_mod),
     ] {
         modules.set_item(name, submod)?;
     }

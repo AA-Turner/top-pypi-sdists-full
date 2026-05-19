@@ -1,13 +1,4 @@
-/*!-----------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Version: 0.49.0(383fdf3fc0e1e1a024068b8d0fd4f3dcbae74d04)
- * Released under the MIT license
- * https://github.com/microsoft/monaco-editor/blob/main/LICENSE.txt
- *-----------------------------------------------------------------------------*/
-
-
-// src/basic-languages/powershell/powershell.ts
-var conf = {
+const conf = {
   // the default separators except `$-`
   wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#%\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\?\s]+)/g,
   comments: {
@@ -40,7 +31,7 @@ var conf = {
     }
   }
 };
-var language = {
+const language = {
   defaultToken: "",
   ignoreCase: true,
   tokenPostfix: ".ps1",
@@ -243,7 +234,5 @@ var language = {
     ]
   }
 };
-export {
-  conf,
-  language
-};
+
+export { conf, language };

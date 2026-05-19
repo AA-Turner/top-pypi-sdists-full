@@ -5253,7 +5253,7 @@ static PyObject *__pyx_pf_4lxml_7builder_12ElementMaker_4__getattr__(struct __py
  *     def __getattr__(self, tag):
  *         return partial(self, tag)             # <<<<<<<<<<<<<<
  * 
- *     # Allow subscripting ElementMaker in type annotions (PEP 560)
+ *     # Allow subscripting ElementMaker in type annotations (PEP 560)
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
@@ -5306,7 +5306,7 @@ static PyObject *__pyx_pf_4lxml_7builder_12ElementMaker_4__getattr__(struct __py
 
 /* "lxml/builder.py":238
  * 
- *     # Allow subscripting ElementMaker in type annotions (PEP 560)
+ *     # Allow subscripting ElementMaker in type annotations (PEP 560)
  *     def __class_getitem__(cls, item):             # <<<<<<<<<<<<<<
  *         return _GenericAlias(cls, item)
  * 
@@ -5410,7 +5410,7 @@ static PyObject *__pyx_pf_4lxml_7builder_12ElementMaker_6__class_getitem__(PyTyp
   __Pyx_RefNannySetupContext("__class_getitem__", 0);
 
   /* "lxml/builder.py":239
- *     # Allow subscripting ElementMaker in type annotions (PEP 560)
+ *     # Allow subscripting ElementMaker in type annotations (PEP 560)
  *     def __class_getitem__(cls, item):
  *         return _GenericAlias(cls, item)             # <<<<<<<<<<<<<<
  * 
@@ -5446,7 +5446,7 @@ static PyObject *__pyx_pf_4lxml_7builder_12ElementMaker_6__class_getitem__(PyTyp
 
   /* "lxml/builder.py":238
  * 
- *     # Allow subscripting ElementMaker in type annotions (PEP 560)
+ *     # Allow subscripting ElementMaker in type annotations (PEP 560)
  *     def __class_getitem__(cls, item):             # <<<<<<<<<<<<<<
  *         return _GenericAlias(cls, item)
  * 
@@ -7550,7 +7550,7 @@ __Pyx_RefNannySetupContext("PyInit_builder", 0);
 
   /* "lxml/builder.py":238
  * 
- *     # Allow subscripting ElementMaker in type annotions (PEP 560)
+ *     # Allow subscripting ElementMaker in type annotations (PEP 560)
  *     def __class_getitem__(cls, item):             # <<<<<<<<<<<<<<
  *         return _GenericAlias(cls, item)
  * 

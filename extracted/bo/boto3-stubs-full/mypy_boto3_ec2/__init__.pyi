@@ -65,6 +65,7 @@ Usage::
         DescribeInstanceTypesPaginator,
         DescribeInstancesPaginator,
         DescribeInternetGatewaysPaginator,
+        DescribeIpamPoolAllocationsPaginator,
         DescribeIpamPoolsPaginator,
         DescribeIpamPrefixListResolverTargetsPaginator,
         DescribeIpamPrefixListResolversPaginator,
@@ -327,6 +328,7 @@ Usage::
     describe_instance_types_paginator: DescribeInstanceTypesPaginator = client.get_paginator("describe_instance_types")
     describe_instances_paginator: DescribeInstancesPaginator = client.get_paginator("describe_instances")
     describe_internet_gateways_paginator: DescribeInternetGatewaysPaginator = client.get_paginator("describe_internet_gateways")
+    describe_ipam_pool_allocations_paginator: DescribeIpamPoolAllocationsPaginator = client.get_paginator("describe_ipam_pool_allocations")
     describe_ipam_pools_paginator: DescribeIpamPoolsPaginator = client.get_paginator("describe_ipam_pools")
     describe_ipam_prefix_list_resolver_targets_paginator: DescribeIpamPrefixListResolverTargetsPaginator = client.get_paginator("describe_ipam_prefix_list_resolver_targets")
     describe_ipam_prefix_list_resolvers_paginator: DescribeIpamPrefixListResolversPaginator = client.get_paginator("describe_ipam_prefix_list_resolvers")
@@ -502,6 +504,7 @@ from .paginator import (
     DescribeInstanceTypeOfferingsPaginator,
     DescribeInstanceTypesPaginator,
     DescribeInternetGatewaysPaginator,
+    DescribeIpamPoolAllocationsPaginator,
     DescribeIpamPoolsPaginator,
     DescribeIpamPrefixListResolversPaginator,
     DescribeIpamPrefixListResolverTargetsPaginator,
@@ -735,6 +738,7 @@ __all__ = (
     "DescribeInstanceTypesPaginator",
     "DescribeInstancesPaginator",
     "DescribeInternetGatewaysPaginator",
+    "DescribeIpamPoolAllocationsPaginator",
     "DescribeIpamPoolsPaginator",
     "DescribeIpamPrefixListResolverTargetsPaginator",
     "DescribeIpamPrefixListResolversPaginator",

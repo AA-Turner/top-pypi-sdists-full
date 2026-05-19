@@ -1,6 +1,7 @@
 # ruff: noqa: F401, E501, W291, W293
 
-from mcp.server.fastmcp.resources.types import TextResource
+from fastmcp.resources import TextResource
+from pydantic import AnyUrl
 
 
 # TODO determine a principled approach to get the version associated with the `dlt` version
@@ -49,7 +50,7 @@ def glossary() -> TextResource:
     return TextResource(
         text=content,
         name="docs.glossary",
-        uri="docs://core/glossary",
+        uri=AnyUrl("docs://core/glossary"),
         mime_type="text/markdown",
     )
 
@@ -138,7 +139,7 @@ pipeline.run(airtable_emojis(), refresh="drop_sources")
     return TextResource(
         text=content,
         name="docs.pipeline",
-        uri="docs://core/pipeline",
+        uri=AnyUrl("docs://core/pipeline"),
         mime_type="text/markdown",
     )
 
@@ -181,7 +182,7 @@ Check individual destination documentation for specific implementations or fallb
     return TextResource(
         text=content,
         name="docs.full_loading",
-        uri="docs://core/full_loading",
+        uri=AnyUrl("docs://core/full_loading"),
         mime_type="text/markdown",
     )
 
@@ -248,7 +249,7 @@ def repo_issues(updated_at=incremental("updated_at")):
     return TextResource(
         text=content,
         name="docs.incremental_loading",
-        uri="docs://core/incremental_loading",
+        uri=AnyUrl("docs://core/incremental_loading"),
         mime_type="text/markdown",
     )
 
@@ -300,7 +301,7 @@ Schema and table names can be adjusted dynamically during data extraction using 
     return TextResource(
         text=content,
         name="docs.resource",
-        uri="docs://core/resource",
+        uri=AnyUrl("docs://core/resource"),
         mime_type="text/markdown",
     )
 
@@ -394,7 +395,7 @@ This documentation provides a detailed but concise explanation of how to use the
     return TextResource(
         text=content,
         name="docs.source",
-        uri="docs://core/source",
+        uri=AnyUrl("docs://core/source"),
         mime_type="text/markdown",
     )
 
@@ -448,7 +449,7 @@ This documentation serves as a comprehensive guide for setting up and configurin
     return TextResource(
         text=content,
         name="docs.destination",
-        uri="docs://core/destination",
+        uri=AnyUrl("docs://core/destination"),
         mime_type="text/markdown",
     )
 
@@ -493,7 +494,7 @@ By understanding and utilizing these naming conventions, users can streamline th
     return TextResource(
         text=content,
         name="docs.naming",
-        uri="docs://core/naming",
+        uri=AnyUrl("docs://core/naming"),
         mime_type="text/markdown",
     )
 
@@ -585,7 +586,7 @@ def comments(user_id: str):
     return TextResource(
         text=content,
         name="docs.state",
-        uri="docs://core/state",
+        uri=AnyUrl("docs://core/state"),
         mime_type="text/markdown",
     )
 
@@ -649,7 +650,7 @@ This structured overview provides a comprehensive understanding of schemas in th
     return TextResource(
         text=content,
         name="docs.schema",
-        uri="docs://core/schema",
+        uri=AnyUrl("docs://core/schema"),
         mime_type="text/markdown",
     )
 
@@ -744,7 +745,7 @@ pipeline.run(frozen_source())
     return TextResource(
         text=content,
         name="docs.schema.contracts",
-        uri="docs://core/schema/contracts",
+        uri=AnyUrl("docs://core/schema/contracts"),
         mime_type="text/markdown",
     )
 
@@ -818,7 +819,7 @@ Utilize schema and data contracts to dictate schema evolution terms. These contr
     return TextResource(
         text=content,
         name="docs.schema.evolution",
-        uri="docs://core/schema/evolution",
+        uri=AnyUrl("docs://core/schema/evolution"),
         mime_type="text/markdown",
     )
 
@@ -943,7 +944,7 @@ Apply transformations before loading:
     return TextResource(
         text=content,
         name="docs.source.rest_api",
-        uri="docs://core/source/rest_api",
+        uri=AnyUrl("docs://core/source/rest_api"),
         mime_type="text/markdown",
     )
 

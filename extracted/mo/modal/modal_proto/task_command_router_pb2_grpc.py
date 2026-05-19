@@ -15,6 +15,16 @@ class TaskCommandRouterStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.SandboxStdinWriteV2 = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/SandboxStdinWriteV2',
+                request_serializer=modal__proto_dot_task__command__router__pb2.SandboxStdinWriteV2Request.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.SandboxStdinWriteV2Response.FromString,
+                )
+        self.SandboxStdioReadV2 = channel.unary_stream(
+                '/modal.task_command_router.TaskCommandRouter/SandboxStdioReadV2',
+                request_serializer=modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Request.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Response.FromString,
+                )
         self.TaskContainerCreate = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskContainerCreateRequest.SerializeToString,
@@ -50,10 +60,20 @@ class TaskCommandRouterStub(object):
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskExecStartRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecStartResponse.FromString,
                 )
+        self.TaskExecStdinStatus = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskExecStdinStatus',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinStatusRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinStatusResponse.FromString,
+                )
         self.TaskExecStdinWrite = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskExecStdinWrite',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteResponse.FromString,
+                )
+        self.TaskExecStdinWriteStream = channel.stream_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskExecStdinWriteStream',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteStreamRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteStreamResponse.FromString,
                 )
         self.TaskExecStdioRead = channel.unary_stream(
                 '/modal.task_command_router.TaskCommandRouter/TaskExecStdioRead',
@@ -75,6 +95,11 @@ class TaskCommandRouterStub(object):
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryResponse.FromString,
                 )
+        self.TaskSnapshotFilesystem = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskSnapshotFilesystem',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemResponse.FromString,
+                )
         self.TaskUnmountDirectory = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskUnmountDirectory',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskUnmountDirectoryRequest.SerializeToString,
@@ -84,6 +109,18 @@ class TaskCommandRouterStub(object):
 
 class TaskCommandRouterServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def SandboxStdinWriteV2(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxStdioReadV2(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def TaskContainerCreate(self, request, context):
         """Create an additional container for a task.
@@ -134,8 +171,24 @@ class TaskCommandRouterServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TaskExecStdinStatus(self, request, context):
+        """Get the current stdin write status for an exec'd command. Used to resume
+        a TaskExecStdinWriteStream after a stream failure.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def TaskExecStdinWrite(self, request, context):
         """Write to the stdin stream of an exec'd command.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TaskExecStdinWriteStream(self, request_iterator, context):
+        """Stream stdin bytes to an exec'd command. First message carries the
+        start envelope (task_id, exec_id, offset); subsequent messages carry data.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -169,6 +222,13 @@ class TaskCommandRouterServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TaskSnapshotFilesystem(self, request, context):
+        """Snapshot the full task filesystem into a new image.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def TaskUnmountDirectory(self, request, context):
         """Unmount an image previously mounted at a directory in the container.
         """
@@ -179,6 +239,16 @@ class TaskCommandRouterServicer(object):
 
 def add_TaskCommandRouterServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'SandboxStdinWriteV2': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxStdinWriteV2,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.SandboxStdinWriteV2Request.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.SandboxStdinWriteV2Response.SerializeToString,
+            ),
+            'SandboxStdioReadV2': grpc.unary_stream_rpc_method_handler(
+                    servicer.SandboxStdioReadV2,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Request.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Response.SerializeToString,
+            ),
             'TaskContainerCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskContainerCreate,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskContainerCreateRequest.FromString,
@@ -214,10 +284,20 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecStartRequest.FromString,
                     response_serializer=modal__proto_dot_task__command__router__pb2.TaskExecStartResponse.SerializeToString,
             ),
+            'TaskExecStdinStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskExecStdinStatus,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinStatusRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinStatusResponse.SerializeToString,
+            ),
             'TaskExecStdinWrite': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskExecStdinWrite,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteRequest.FromString,
                     response_serializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteResponse.SerializeToString,
+            ),
+            'TaskExecStdinWriteStream': grpc.stream_unary_rpc_method_handler(
+                    servicer.TaskExecStdinWriteStream,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteStreamRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteStreamResponse.SerializeToString,
             ),
             'TaskExecStdioRead': grpc.unary_stream_rpc_method_handler(
                     servicer.TaskExecStdioRead,
@@ -239,6 +319,11 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.FromString,
                     response_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryResponse.SerializeToString,
             ),
+            'TaskSnapshotFilesystem': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskSnapshotFilesystem,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemResponse.SerializeToString,
+            ),
             'TaskUnmountDirectory': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskUnmountDirectory,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskUnmountDirectoryRequest.FromString,
@@ -253,6 +338,40 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class TaskCommandRouter(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def SandboxStdinWriteV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/SandboxStdinWriteV2',
+            modal__proto_dot_task__command__router__pb2.SandboxStdinWriteV2Request.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.SandboxStdinWriteV2Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxStdioReadV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(request, target, '/modal.task_command_router.TaskCommandRouter/SandboxStdioReadV2',
+            modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Request.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.SandboxStdioReadV2Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def TaskContainerCreate(request,
@@ -374,6 +493,23 @@ class TaskCommandRouter(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def TaskExecStdinStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskExecStdinStatus',
+            modal__proto_dot_task__command__router__pb2.TaskExecStdinStatusRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskExecStdinStatusResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def TaskExecStdinWrite(request,
             target,
             options=(),
@@ -387,6 +523,23 @@ class TaskCommandRouter(object):
         return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskExecStdinWrite',
             modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteRequest.SerializeToString,
             modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskExecStdinWriteStream(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_unary(request_iterator, target, '/modal.task_command_router.TaskCommandRouter/TaskExecStdinWriteStream',
+            modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteStreamRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskExecStdinWriteStreamResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -455,6 +608,23 @@ class TaskCommandRouter(object):
         return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory',
             modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryRequest.SerializeToString,
             modal__proto_dot_task__command__router__pb2.TaskSnapshotDirectoryResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskSnapshotFilesystem(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSnapshotFilesystem',
+            modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -10,9 +10,13 @@ from datetime import timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
+from google.protobuf.duration_pb2 import Duration
+from google.protobuf.timestamp_pb2 import Timestamp
+
 from databricks.sdk.common.types.fieldmask import FieldMask
-from databricks.sdk.service._internal import (Wait, _enum, _from_dict,
-                                              _repeated_dict, _repeated_enum)
+from databricks.sdk.service._internal import (Wait, _duration, _enum,
+                                              _from_dict, _repeated_dict,
+                                              _repeated_enum, _timestamp)
 
 from ..errors import OperationFailed
 
@@ -664,6 +668,8 @@ class CommentObject:
 
 @dataclass
 class ContinuousWindow:
+    """Deprecated: use RollingWindow with `delay` instead."""
+
     window_duration: str
     """The duration of the continuous window (must be positive)."""
 
@@ -1823,13 +1829,24 @@ class ExperimentTag:
 @dataclass
 class Feature:
     full_name: str
-    """The full three-part name (catalog, schema, name) of the feature."""
+    """The full three-part name (catalog, schema, name) of the feature. This is the feature's resource
+    identifier; the catalog_name, schema_name, and name fields below are OUTPUT_ONLY decomposed
+    views of this value."""
 
     source: DataSource
     """The data source of the feature."""
 
     function: Function
     """The function by which the feature is computed."""
+
+    catalog_name: Optional[str] = None
+    """Name of parent catalog."""
+
+    created_at: Optional[Timestamp] = None
+    """Time at which this feature was created."""
+
+    created_by: Optional[str] = None
+    """Username of the feature creator."""
 
     description: Optional[str] = None
     """The description of the feature."""
@@ -1852,6 +1869,12 @@ class Feature:
     values may lead to inaccurate lineage tracking or unexpected behavior. This field will be set by
     feature-engineering client and should be left unset by SDK and terraform users."""
 
+    name: Optional[str] = None
+    """Name of the feature, extracted from the full three-part name (catalog.schema.name)."""
+
+    schema_name: Optional[str] = None
+    """Name of parent schema relative to its parent catalog."""
+
     time_window: Optional[TimeWindow] = None
     """Deprecated: Use Function.aggregation_function.time_window instead. Kept for backwards
     compatibility. The time window in which the feature is computed."""
@@ -1862,6 +1885,12 @@ class Feature:
     def as_dict(self) -> dict:
         """Serializes the Feature into a dictionary suitable for use as a JSON request body."""
         body = {}
+        if self.catalog_name is not None:
+            body["catalog_name"] = self.catalog_name
+        if self.created_at is not None:
+            body["created_at"] = self.created_at.ToJsonString()
+        if self.created_by is not None:
+            body["created_by"] = self.created_by
         if self.description is not None:
             body["description"] = self.description
         if self.entities:
@@ -1876,6 +1905,10 @@ class Feature:
             body["inputs"] = [v for v in self.inputs]
         if self.lineage_context:
             body["lineage_context"] = self.lineage_context.as_dict()
+        if self.name is not None:
+            body["name"] = self.name
+        if self.schema_name is not None:
+            body["schema_name"] = self.schema_name
         if self.source:
             body["source"] = self.source.as_dict()
         if self.time_window:
@@ -1887,6 +1920,12 @@ class Feature:
     def as_shallow_dict(self) -> dict:
         """Serializes the Feature into a shallow dictionary of its immediate attributes."""
         body = {}
+        if self.catalog_name is not None:
+            body["catalog_name"] = self.catalog_name
+        if self.created_at is not None:
+            body["created_at"] = self.created_at
+        if self.created_by is not None:
+            body["created_by"] = self.created_by
         if self.description is not None:
             body["description"] = self.description
         if self.entities:
@@ -1901,6 +1940,10 @@ class Feature:
             body["inputs"] = self.inputs
         if self.lineage_context:
             body["lineage_context"] = self.lineage_context
+        if self.name is not None:
+            body["name"] = self.name
+        if self.schema_name is not None:
+            body["schema_name"] = self.schema_name
         if self.source:
             body["source"] = self.source
         if self.time_window:
@@ -1913,6 +1956,9 @@ class Feature:
     def from_dict(cls, d: Dict[str, Any]) -> Feature:
         """Deserializes the Feature from a dictionary."""
         return cls(
+            catalog_name=d.get("catalog_name", None),
+            created_at=_timestamp(d, "created_at"),
+            created_by=d.get("created_by", None),
             description=d.get("description", None),
             entities=_repeated_dict(d, "entities", EntityColumn),
             filter_condition=d.get("filter_condition", None),
@@ -1920,6 +1966,8 @@ class Feature:
             function=_from_dict(d, "function", Function),
             inputs=d.get("inputs", None),
             lineage_context=_from_dict(d, "lineage_context", LineageContext),
+            name=d.get("name", None),
+            schema_name=d.get("schema_name", None),
             source=_from_dict(d, "source", DataSource),
             time_window=_from_dict(d, "time_window", TimeWindow),
             timeseries_column=_from_dict(d, "timeseries_column", TimeseriesColumn),
@@ -5617,6 +5665,43 @@ class RestoreRunsResponse:
 
 
 @dataclass
+class RollingWindow:
+    """A rolling time window with an optional delay. This is the SQL-spec-aligned replacement for
+    ContinuousWindow: `delay` is the non-negative counterpart of the legacy non-positive
+    `ContinuousWindow.offset`."""
+
+    window_duration: Duration
+    """The duration of the rolling window (must be positive)."""
+
+    delay: Optional[Duration] = None
+    """The delay applied to the end of the rolling window (must be non-negative). For example, delay=1d
+    shifts the window end 1 day before the evaluation time."""
+
+    def as_dict(self) -> dict:
+        """Serializes the RollingWindow into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.delay is not None:
+            body["delay"] = self.delay.ToJsonString()
+        if self.window_duration is not None:
+            body["window_duration"] = self.window_duration.ToJsonString()
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the RollingWindow into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.delay is not None:
+            body["delay"] = self.delay
+        if self.window_duration is not None:
+            body["window_duration"] = self.window_duration
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> RollingWindow:
+        """Deserializes the RollingWindow from a dictionary."""
+        return cls(delay=_duration(d, "delay"), window_duration=_duration(d, "window_duration"))
+
+
+@dataclass
 class Run:
     """A single run."""
 
@@ -6384,6 +6469,8 @@ class StddevSampFunction:
 
 @dataclass
 class SubscriptionMode:
+    """Deprecated: Use KafkaSubscriptionMode instead."""
+
     assign: Optional[str] = None
     """A JSON string that contains the specific topic-partitions to consume from. For example, for
     '{"topicA":[0,1],"topicB":[2,4]}', topicA's 0'th and 1st partitions will be consumed from."""
@@ -6493,6 +6580,8 @@ class TestRegistryWebhookResponse:
 class TimeWindow:
     continuous: Optional[ContinuousWindow] = None
 
+    rolling: Optional[RollingWindow] = None
+
     sliding: Optional[SlidingWindow] = None
 
     tumbling: Optional[TumblingWindow] = None
@@ -6502,6 +6591,8 @@ class TimeWindow:
         body = {}
         if self.continuous:
             body["continuous"] = self.continuous.as_dict()
+        if self.rolling:
+            body["rolling"] = self.rolling.as_dict()
         if self.sliding:
             body["sliding"] = self.sliding.as_dict()
         if self.tumbling:
@@ -6513,6 +6604,8 @@ class TimeWindow:
         body = {}
         if self.continuous:
             body["continuous"] = self.continuous
+        if self.rolling:
+            body["rolling"] = self.rolling
         if self.sliding:
             body["sliding"] = self.sliding
         if self.tumbling:
@@ -6524,6 +6617,7 @@ class TimeWindow:
         """Deserializes the TimeWindow from a dictionary."""
         return cls(
             continuous=_from_dict(d, "continuous", ContinuousWindow),
+            rolling=_from_dict(d, "rolling", RollingWindow),
             sliding=_from_dict(d, "sliding", SlidingWindow),
             tumbling=_from_dict(d, "tumbling", TumblingWindow),
         )
@@ -6910,7 +7004,8 @@ class ExperimentsAPI:
         another experiment with the same name does not already exist and fails if another experiment with the
         same name already exists.
 
-        Throws `RESOURCE_ALREADY_EXISTS` if an experiment with the given name exists.
+        Throws `RESOURCE_ALREADY_EXISTS` if an experiment with the given name exists. Note: In some contexts,
+        this error may be remapped to `ALREADY_EXISTS`. To be safe, clients should check for both error codes.
 
         :param name: str
           Experiment name.
@@ -8567,9 +8662,15 @@ class FeatureEngineeringAPI:
         )
         return MaterializedFeature.from_dict(res)
 
-    def list_features(self, *, page_size: Optional[int] = None, page_token: Optional[str] = None) -> Iterator[Feature]:
+    def list_features(
+        self, catalog_name: str, schema_name: str, *, page_size: Optional[int] = None, page_token: Optional[str] = None
+    ) -> Iterator[Feature]:
         """List Features.
 
+        :param catalog_name: str
+          Name of parent catalog for features of interest.
+        :param schema_name: str
+          Name of parent schema relative to its parent catalog.
         :param page_size: int (optional)
           The maximum number of results to return.
         :param page_token: str (optional)
@@ -8579,10 +8680,14 @@ class FeatureEngineeringAPI:
         """
 
         query = {}
+        if catalog_name is not None:
+            query["catalog_name"] = catalog_name
         if page_size is not None:
             query["page_size"] = page_size
         if page_token is not None:
             query["page_token"] = page_token
+        if schema_name is not None:
+            query["schema_name"] = schema_name
         headers = {
             "Accept": "application/json",
         }
@@ -8685,7 +8790,9 @@ class FeatureEngineeringAPI:
         """Update a Feature.
 
         :param full_name: str
-          The full three-part name (catalog, schema, name) of the feature.
+          The full three-part name (catalog, schema, name) of the feature. This is the feature's resource
+          identifier; the catalog_name, schema_name, and name fields below are OUTPUT_ONLY decomposed views of
+          this value.
         :param feature: :class:`Feature`
           Feature to update.
         :param update_mask: str

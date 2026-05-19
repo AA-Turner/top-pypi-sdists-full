@@ -78,6 +78,17 @@ def test_null_value_property_set():
     assert t["score"].null_value == -1
 
 
+def test_numpy_nan_null_value_skips_scalar_validation_constraints():
+    @dataclass
+    class NumpyNaNFloatRow:
+        value: float = blosc2.field(blosc2.float32(ge=0, null_value=np.float32(np.nan)))
+
+    t = CTable(NumpyNaNFloatRow)
+    t.append((np.float32(np.nan),))
+
+    assert t.value.null_count() == 1
+
+
 def test_null_value_property_not_set():
     t = CTable(IntRow, new_data=[(1, 10)])
     assert t["id"].null_value is None
@@ -233,6 +244,18 @@ def test_null_count_after_delete():
 def test_sum_skips_null():
     t = CTable(IntRow, new_data=[(1, 10), (2, -1), (3, 20), (4, -1)])
     assert t["score"].sum() == 30
+
+
+def test_sum_where_pushdown_skips_int_null():
+    t = CTable(IntRow, new_data=[(1, 10), (2, -1), (3, 20), (4, -1), (5, 30)])
+    assert t["score"].sum(where=t.id < 5) == 30
+    assert t[t.id < 5]["score"].sum() == 30
+
+
+def test_sum_where_pushdown_skips_nan_null():
+    t = CTable(FloatRow, new_data=[("a", 1.5), ("b", float("nan")), ("c", 2.5)])
+    assert t["value"].sum(where=t.value < 2.0) == pytest.approx(1.5)
+    assert t[t.value < 2.0]["value"].sum() == pytest.approx(1.5)
 
 
 def test_mean_skips_null():

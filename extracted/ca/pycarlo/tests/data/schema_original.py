@@ -7364,6 +7364,22 @@ class TsaAnalysisStatusEnum(sgqlc.types.Enum):
     __choices__ = ("COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED")
 
 
+class TuningUnavailableReason(sgqlc.types.Enum):
+    """Why ``Monitor.isTunable`` is ``false`` for a given monitor.
+    ``None`` at the GraphQL boundary means tuning is currently
+    available.
+
+    Enumeration Choices:
+
+    * `AWAITING_NEW_ALERT`None
+    * `MANAGED_AS_CODE`None
+    * `UNSUPPORTED_MONITOR_TYPE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AWAITING_NEW_ALERT", "MANAGED_AS_CODE", "UNSUPPORTED_MONITOR_TYPE")
+
+
 class TutorialStatusType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -17392,6 +17408,20 @@ class AgentGraphEdge(sgqlc.types.Type):
     """
 
 
+class AgentGraphErrorSpan(sgqlc.types.Type):
+    """Pointer to a single span occurrence that contributed to a node's
+    error count.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("trace_id", "span_id")
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """trace_id of the error span."""
+
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """span_id of the error span. Always a member of traceId."""
+
+
 class AgentGraphInsight(sgqlc.types.Type):
     """One derived finding about the fused agent graph."""
 
@@ -17515,6 +17545,7 @@ class AgentGraphNode(sgqlc.types.Type):
         "count",
         "trace_count",
         "error_count",
+        "error_spans",
         "p50_duration_ms",
         "p95_duration_ms",
         "p50_input_tokens",
@@ -17576,6 +17607,14 @@ class AgentGraphNode(sgqlc.types.Type):
 
     error_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorCount")
     """Number of span occurrences with an error status."""
+
+    error_spans = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentGraphErrorSpan))),
+        graphql_name="errorSpans",
+    )
+    """(traceId, spanId) for every span occurrence of this node that had
+    an error status. Empty when errorCount=0.
+    """
 
     p50_duration_ms = sgqlc.types.Field(Float, graphql_name="p50DurationMs")
     """Median (50th percentile) span duration in milliseconds."""
@@ -53588,7 +53627,7 @@ class Mutation(sgqlc.types.Type):
             )
         ),
     )
-    """Test Fivetran credentials
+    """(experimental) DEPRECATED. Test Fivetran credentials
 
     Arguments:
 
@@ -75964,6 +76003,15 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(LineageFilter), graphql_name="filters", default=()
                     ),
                 ),
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
+                (
+                    "tool_calls",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="toolCalls",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -75989,6 +76037,14 @@ class Query(sgqlc.types.Type):
       Defaults to 500 (default: `500`)
     * `filters` (`[LineageFilter]`): List of lineage filters (default:
       `[]`)
+    * `agent_name` (`String`): Agent name to scope the lineage query
+      to within the supplied trace-table or platform-agent MCON. When
+      provided, the query returns lineage rooted at the named agent.
+      Requires exactly one mcon. Required if `toolCalls` is provided.
+    * `tool_calls` (`[String!]`): Tool call names to further scope the
+      agent-rooted lineage query. When provided, lineage returns the
+      upstream chain for each named tool call. Requires `agentName` to
+      be set.
     """
 
     get_table_lineage_v2 = sgqlc.types.Field(
@@ -76018,6 +76074,15 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(LineageFilter), graphql_name="filters", default=None
                     ),
                 ),
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
+                (
+                    "tool_calls",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="toolCalls",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -76032,6 +76097,14 @@ class Query(sgqlc.types.Type):
       either 'upstream', 'downstream' based on the direction in which
       to traverse the lineage graph
     * `filters` (`[LineageFilter]`): List of lineage filters
+    * `agent_name` (`String`): Agent name to scope the lineage query
+      to within the supplied trace-table or platform-agent MCON. When
+      provided, the query returns lineage rooted at the named agent.
+      Requires exactly one mcon. Required if `toolCalls` is provided.
+    * `tool_calls` (`[String!]`): Tool call names to further scope the
+      agent-rooted lineage query. When provided, lineage returns the
+      upstream chain for each named tool call. Requires `agentName` to
+      be set.
     """
 
     get_table_lineage_v3 = sgqlc.types.Field(
@@ -84143,46 +84216,105 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
 
     __schema__ = schema
     __field_names__ = (
-        "mcon",
-        "full_table_id",
-        "resource_uuid",
-        "table_type",
-        "discovered_time",
         "project_name",
         "dataset_name",
         "table_name",
-        "total_row_count",
-        "total_byte_count",
-        "days_since_latest_read",
+        "table_type",
+        "latest_update",
         "latest_read",
         "latest_write",
-        "latest_update",
         "latest_query",
-        "importance_score",
-        "is_important",
-        "criticality",
-        "node_type",
-        "degree_out",
-        "degree_in",
+        "is_periodic_metadata",
         "total_reads",
         "total_writes",
         "total_users",
         "total_reading_users",
         "total_writing_users",
+        "importance_score",
+        "is_important",
+        "criticality",
+        "degree_in",
+        "degree_out",
+        "node_type",
         "is_monitored",
         "has_active_monitor",
-        "is_periodic_metadata",
         "is_excluded",
         "created_time",
+        "discovered_time",
         "last_observed",
         "byte_count_share",
         "row_count_share",
         "waste_pattern",
         "table_category",
         "risk_tier",
+        "full_table_id",
+        "resource_uuid",
+        "mcon",
+        "days_since_latest_read",
+        "total_row_count",
+        "total_byte_count",
     )
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-    """Monte Carlo object name — unique table identifier"""
+    project_name = sgqlc.types.Field(String, graphql_name="projectName")
+
+    dataset_name = sgqlc.types.Field(String, graphql_name="datasetName")
+
+    table_name = sgqlc.types.Field(String, graphql_name="tableName")
+
+    table_type = sgqlc.types.Field(String, graphql_name="tableType")
+
+    latest_update = sgqlc.types.Field(DateTime, graphql_name="latestUpdate")
+
+    latest_read = sgqlc.types.Field(DateTime, graphql_name="latestRead")
+
+    latest_write = sgqlc.types.Field(DateTime, graphql_name="latestWrite")
+
+    latest_query = sgqlc.types.Field(DateTime, graphql_name="latestQuery")
+
+    is_periodic_metadata = sgqlc.types.Field(Boolean, graphql_name="isPeriodicMetadata")
+
+    total_reads = sgqlc.types.Field(Float, graphql_name="totalReads")
+
+    total_writes = sgqlc.types.Field(Float, graphql_name="totalWrites")
+
+    total_users = sgqlc.types.Field(Float, graphql_name="totalUsers")
+
+    total_reading_users = sgqlc.types.Field(Float, graphql_name="totalReadingUsers")
+
+    total_writing_users = sgqlc.types.Field(Float, graphql_name="totalWritingUsers")
+
+    importance_score = sgqlc.types.Field(Float, graphql_name="importanceScore")
+
+    is_important = sgqlc.types.Field(Boolean, graphql_name="isImportant")
+
+    criticality = sgqlc.types.Field(String, graphql_name="criticality")
+
+    degree_in = sgqlc.types.Field(Float, graphql_name="degreeIn")
+
+    degree_out = sgqlc.types.Field(Float, graphql_name="degreeOut")
+
+    node_type = sgqlc.types.Field(String, graphql_name="nodeType")
+
+    is_monitored = sgqlc.types.Field(Boolean, graphql_name="isMonitored")
+
+    has_active_monitor = sgqlc.types.Field(Boolean, graphql_name="hasActiveMonitor")
+
+    is_excluded = sgqlc.types.Field(Boolean, graphql_name="isExcluded")
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+
+    discovered_time = sgqlc.types.Field(DateTime, graphql_name="discoveredTime")
+
+    last_observed = sgqlc.types.Field(DateTime, graphql_name="lastObserved")
+
+    byte_count_share = sgqlc.types.Field(Float, graphql_name="byteCountShare")
+
+    row_count_share = sgqlc.types.Field(Float, graphql_name="rowCountShare")
+
+    waste_pattern = sgqlc.types.Field(String, graphql_name="wastePattern")
+
+    table_category = sgqlc.types.Field(String, graphql_name="tableCategory")
+
+    risk_tier = sgqlc.types.Field(Int, graphql_name="riskTier")
 
     full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
     """Fully qualified table identifier (project:dataset.table)"""
@@ -84190,119 +84322,19 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
     resource_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="resourceUuid")
     """UUID of the warehouse this table belongs to"""
 
-    table_type = sgqlc.types.Field(String, graphql_name="tableType")
-    """Table type (TABLE, VIEW, EXTERNAL, DYNAMIC)"""
-
-    discovered_time = sgqlc.types.Field(DateTime, graphql_name="discoveredTime")
-    """When the table was first discovered by Monte Carlo"""
-
-    project_name = sgqlc.types.Field(String, graphql_name="projectName")
-    """Project or catalog name"""
-
-    dataset_name = sgqlc.types.Field(String, graphql_name="datasetName")
-    """Dataset or schema name"""
-
-    table_name = sgqlc.types.Field(String, graphql_name="tableName")
-    """Table name"""
-
-    total_row_count = sgqlc.types.Field(Float, graphql_name="totalRowCount")
-    """Most recent row count for this table"""
-
-    total_byte_count = sgqlc.types.Field(Float, graphql_name="totalByteCount")
-    """Most recent byte count for this table"""
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """Monte Carlo object name — unique table identifier"""
 
     days_since_latest_read = sgqlc.types.Field(Float, graphql_name="daysSinceLatestRead")
     """Number of days since the table was last read (computed at query
     time)
     """
 
-    latest_read = sgqlc.types.Field(DateTime, graphql_name="latestRead")
-    """Timestamp of the most recent read operation"""
+    total_row_count = sgqlc.types.Field(Float, graphql_name="totalRowCount")
+    """Most recent row count for this table"""
 
-    latest_write = sgqlc.types.Field(DateTime, graphql_name="latestWrite")
-    """Timestamp of the most recent write operation"""
-
-    latest_update = sgqlc.types.Field(DateTime, graphql_name="latestUpdate")
-    """Timestamp of the most recent metadata update"""
-
-    latest_query = sgqlc.types.Field(DateTime, graphql_name="latestQuery")
-    """Timestamp of the most recent query referencing this table"""
-
-    importance_score = sgqlc.types.Field(Float, graphql_name="importanceScore")
-    """Computed importance score (higher = more important)"""
-
-    is_important = sgqlc.types.Field(Boolean, graphql_name="isImportant")
-    """Whether this table is marked as important"""
-
-    criticality = sgqlc.types.Field(String, graphql_name="criticality")
-    """Criticality classification of this table"""
-
-    node_type = sgqlc.types.Field(String, graphql_name="nodeType")
-    """Node type classification in the lineage graph"""
-
-    degree_out = sgqlc.types.Field(Float, graphql_name="degreeOut")
-    """Number of downstream dependencies — tables that read from this
-    table
-    """
-
-    degree_in = sgqlc.types.Field(Float, graphql_name="degreeIn")
-    """Number of upstream dependencies — tables that write to this table"""
-
-    total_reads = sgqlc.types.Field(Float, graphql_name="totalReads")
-    """Total number of read operations on this table"""
-
-    total_writes = sgqlc.types.Field(Float, graphql_name="totalWrites")
-    """Total number of write operations on this table"""
-
-    total_users = sgqlc.types.Field(Float, graphql_name="totalUsers")
-    """Total number of distinct users who have interacted with this table"""
-
-    total_reading_users = sgqlc.types.Field(Float, graphql_name="totalReadingUsers")
-    """Number of distinct users who have read this table"""
-
-    total_writing_users = sgqlc.types.Field(Float, graphql_name="totalWritingUsers")
-    """Number of distinct users who have written to this table"""
-
-    is_monitored = sgqlc.types.Field(Boolean, graphql_name="isMonitored")
-    """Whether the table is actively monitored by Monte Carlo"""
-
-    has_active_monitor = sgqlc.types.Field(Boolean, graphql_name="hasActiveMonitor")
-    """Whether this table has at least one active monitor"""
-
-    is_periodic_metadata = sgqlc.types.Field(Boolean, graphql_name="isPeriodicMetadata")
-    """Whether this table has periodic metadata collection"""
-
-    is_excluded = sgqlc.types.Field(Boolean, graphql_name="isExcluded")
-    """Whether this table is excluded from monitoring"""
-
-    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
-    """When the table was originally created"""
-
-    last_observed = sgqlc.types.Field(DateTime, graphql_name="lastObserved")
-    """When the table was last observed by Monte Carlo"""
-
-    byte_count_share = sgqlc.types.Field(Float, graphql_name="byteCountShare")
-    """Fraction of the warehouse's total byte count attributable to this
-    table
-    """
-
-    row_count_share = sgqlc.types.Field(Float, graphql_name="rowCountShare")
-    """Fraction of the warehouse's total row count attributable to this
-    table
-    """
-
-    waste_pattern = sgqlc.types.Field(String, graphql_name="wastePattern")
-    """Waste pattern classification: unread, write_only, dead_end,
-    static_waste, zombie, or other_stale
-    """
-
-    table_category = sgqlc.types.Field(String, graphql_name="tableCategory")
-    """Table category: temporary, ad_hoc, archive_snapshot, production,
-    or other
-    """
-
-    risk_tier = sgqlc.types.Field(Int, graphql_name="riskTier")
-    """Safety tier for removal (0 = safest to remove, 5 = highest risk)"""
+    total_byte_count = sgqlc.types.Field(Float, graphql_name="totalByteCount")
+    """Most recent byte count for this table"""
 
 
 class StorageOptimizationCandidatesResult(sgqlc.types.Type):
@@ -98470,15 +98502,24 @@ class Monitor(
     IComparisonMonitor,
 ):
     __schema__ = schema
-    __field_names__ = ("supports_sensitivity_update", "is_tunable")
+    __field_names__ = ("supports_sensitivity_update", "is_tunable", "tuning_unavailable_reason")
     supports_sensitivity_update = sgqlc.types.Field(
         Boolean, graphql_name="supportsSensitivityUpdate"
     )
     """Whether this monitor supports sensitivity tuning"""
 
     is_tunable = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isTunable")
-    """Whether the in-product monitor tuning agent supports this monitor.
-    Used by the UI as a pre-click gate for the 'Tune monitor' action.
+    """Whether the in-product monitor tuning agent supports tuning this
+    monitor right now. Used by the UI as a pre-click gate for the
+    'Tune monitor' action. ``tuningUnavailableReason`` carries the
+    specific reason when this is false.
+    """
+
+    tuning_unavailable_reason = sgqlc.types.Field(
+        TuningUnavailableReason, graphql_name="tuningUnavailableReason"
+    )
+    """When ``isTunable`` is false, the reason tuning is currently
+    unavailable. Null when tuning is available.
     """
 
 

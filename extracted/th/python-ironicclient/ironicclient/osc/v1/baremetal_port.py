@@ -14,25 +14,32 @@
 #   under the License.
 #
 
+from __future__ import annotations
+
+import argparse
+from collections.abc import Iterable, Sequence
 import itertools
 import logging
+from typing import Any, cast
 
-from osc_lib.command import command
 from osc_lib import utils as oscutils
 
 from ironicclient.common.i18n import _
 from ironicclient.common import utils
 from ironicclient import exc
+from ironicclient.osc import command
 from ironicclient.v1 import resource_fields as res_fields
 
 
 class CreateBaremetalPort(command.ShowOne):
     """Create a new port"""
 
-    log = logging.getLogger(__name__ + ".CreateBaremetalPort")
+    log: logging.Logger = logging.getLogger(
+        __name__ + ".CreateBaremetalPort")
 
-    def get_parser(self, prog_name):
-        parser = super(CreateBaremetalPort, self).get_parser(prog_name)
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser
+        parser = super().get_parser(prog_name)
 
         parser.add_argument(
             'address',
@@ -121,14 +128,18 @@ class CreateBaremetalPort(command.ShowOne):
 
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace,
+    ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
         self.log.debug("take_action(%s)", parsed_args)
-        baremetal_client = self.app.client_manager.baremetal
+        manager = self.app.client_manager
+        baremetal_client = manager.baremetal
 
-        field_list = ['address', 'uuid', 'extra', 'node_uuid', 'pxe_enabled',
-                      'local_link_connection', 'portgroup_uuid',
-                      'physical_network', 'name', 'description', 'vendor',
-                      'category']
+        field_list: list[str] = [
+            'address', 'uuid', 'extra', 'node_uuid', 'pxe_enabled',
+            'local_link_connection', 'portgroup_uuid',
+            'physical_network', 'name', 'description', 'vendor',
+            'category']
         fields = dict((k, v) for (k, v) in vars(parsed_args).items()
                       if k in field_list and v is not None)
         fields = utils.args_array_to_dict(fields, 'extra')
@@ -146,10 +157,12 @@ class CreateBaremetalPort(command.ShowOne):
 class ShowBaremetalPort(command.ShowOne):
     """Show baremetal port details."""
 
-    log = logging.getLogger(__name__ + ".ShowBaremetalPort")
+    log: logging.Logger = logging.getLogger(
+        __name__ + ".ShowBaremetalPort")
 
-    def get_parser(self, prog_name):
-        parser = super(ShowBaremetalPort, self).get_parser(prog_name)
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser
+        parser = super().get_parser(prog_name)
         parser.add_argument(
             "port",
             metavar="<id>",
@@ -177,12 +190,17 @@ class ShowBaremetalPort(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace,
+    ) -> tuple[tuple[str, ...], tuple[Any, ...]]:
         self.log.debug("take_action(%s)", parsed_args)
 
-        baremetal_client = self.app.client_manager.baremetal
-        fields = list(itertools.chain.from_iterable(parsed_args.fields))
-        fields = fields if fields else None
+        manager = self.app.client_manager
+        baremetal_client = manager.baremetal
+        fields: list[str] | None
+        fields = (
+            list(itertools.chain.from_iterable(parsed_args.fields))
+            or None)
 
         if parsed_args.address:
             port = baremetal_client.port.get_by_address(
@@ -192,15 +210,20 @@ class ShowBaremetalPort(command.ShowOne):
                 parsed_args.port, fields=fields)._info
 
         port.pop("links", None)
-        return zip(*sorted(port.items()))
+        return cast(
+            tuple[tuple[str, ...], tuple[Any, ...]],
+            tuple(zip(*sorted(port.items()))),
+        )
 
 
 class UnsetBaremetalPort(command.Command):
     """Unset baremetal port properties."""
-    log = logging.getLogger(__name__ + ".UnsetBaremetalPort")
+    log: logging.Logger = logging.getLogger(
+        __name__ + ".UnsetBaremetalPort")
 
-    def get_parser(self, prog_name):
-        parser = super(UnsetBaremetalPort, self).get_parser(prog_name)
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser
+        parser = super().get_parser(prog_name)
 
         parser.add_argument(
             'port',
@@ -214,6 +237,13 @@ class UnsetBaremetalPort(command.Command):
             help=_('Extra to unset on this baremetal port '
                    '(repeat option to unset multiple extras)')
         )
+
+        parser.add_argument(
+            "--local-link-connection",
+            metavar="<key>",
+            action='append',
+            help=_("Remove local link connection on this port "
+                   "(repeat option to unset multiple keys)"))
 
         parser.add_argument(
             '--port-group',
@@ -259,15 +289,20 @@ class UnsetBaremetalPort(command.Command):
 
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         self.log.debug("take_action(%s)", parsed_args)
 
-        baremetal_client = self.app.client_manager.baremetal
-        properties = []
+        manager = self.app.client_manager
+        baremetal_client = manager.baremetal
+        properties: list[dict[str, Any]] = []
         if parsed_args.extra:
             properties.extend(utils.args_array_to_patch(
                 'remove',
                 ['extra/' + x for x in parsed_args.extra]))
+        if parsed_args.local_link_connection:
+            properties.extend(utils.args_array_to_patch(
+                'remove', ['local_link_connection/' + x for x in
+                           parsed_args.local_link_connection]))
         if parsed_args.portgroup:
             properties.extend(utils.args_array_to_patch('remove',
                               ['portgroup_uuid']))
@@ -299,10 +334,12 @@ class UnsetBaremetalPort(command.Command):
 class SetBaremetalPort(command.Command):
     """Set baremetal port properties."""
 
-    log = logging.getLogger(__name__ + ".SetBaremetalPort")
+    log: logging.Logger = logging.getLogger(
+        __name__ + ".SetBaremetalPort")
 
-    def get_parser(self, prog_name):
-        parser = super(SetBaremetalPort, self).get_parser(prog_name)
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser
+        parser = super().get_parser(prog_name)
 
         parser.add_argument(
             'port',
@@ -400,12 +437,13 @@ class SetBaremetalPort(command.Command):
 
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         self.log.debug("take_action(%s)", parsed_args)
 
-        baremetal_client = self.app.client_manager.baremetal
+        manager = self.app.client_manager
+        baremetal_client = manager.baremetal
 
-        properties = []
+        properties: list[dict[str, Any]] = []
         if parsed_args.node_uuid:
             node_uuid = ["node_uuid=%s" % parsed_args.node_uuid]
             properties.extend(utils.args_array_to_patch(
@@ -459,10 +497,12 @@ class SetBaremetalPort(command.Command):
 class DeleteBaremetalPort(command.Command):
     """Delete port(s)."""
 
-    log = logging.getLogger(__name__ + ".DeleteBaremetalPort")
+    log: logging.Logger = logging.getLogger(
+        __name__ + ".DeleteBaremetalPort")
 
-    def get_parser(self, prog_name):
-        parser = super(DeleteBaremetalPort, self).get_parser(prog_name)
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser
+        parser = super().get_parser(prog_name)
         parser.add_argument(
             "ports",
             metavar="<port>",
@@ -472,12 +512,13 @@ class DeleteBaremetalPort(command.Command):
 
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         self.log.debug("take_action(%s)", parsed_args)
 
-        baremetal_client = self.app.client_manager.baremetal
+        manager = self.app.client_manager
+        baremetal_client = manager.baremetal
 
-        failures = []
+        failures: list[str] = []
         for port in parsed_args.ports:
             try:
                 baremetal_client.port.delete(port)
@@ -493,10 +534,12 @@ class DeleteBaremetalPort(command.Command):
 class ListBaremetalPort(command.Lister):
     """List baremetal ports."""
 
-    log = logging.getLogger(__name__ + ".ListBaremetalPort")
+    log: logging.Logger = logging.getLogger(
+        __name__ + ".ListBaremetalPort")
 
-    def get_parser(self, prog_name):
-        parser = super(ListBaremetalPort, self).get_parser(prog_name)
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser
+        parser = super().get_parser(prog_name)
         parser.add_argument(
             '--address',
             dest='address',
@@ -558,13 +601,16 @@ class ListBaremetalPort(command.Lister):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace,
+    ) -> tuple[Sequence[str], Iterable[Any]]:
         self.log.debug("take_action(%s)", parsed_args)
-        client = self.app.client_manager.baremetal
+        manager = self.app.client_manager
+        client = manager.baremetal
 
         columns = res_fields.PORT_RESOURCE.fields
 
-        params = {}
+        params: dict[str, object] = {}
         if parsed_args.limit is not None and parsed_args.limit < 0:
             raise exc.CommandError(
                 _('Expected non-negative --limit, got %s') %

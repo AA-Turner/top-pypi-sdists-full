@@ -28,6 +28,7 @@ from openstack.block_storage.v2 import type as _type
 from openstack.block_storage.v2 import volume as _volume
 from openstack import exceptions
 from openstack.identity.v3 import project as _project
+from openstack.image.v2 import image as _image
 from openstack import proxy
 from openstack import resource
 from openstack import utils
@@ -49,47 +50,32 @@ class Proxy(proxy.Proxy):
 
     # ========== Images ==========
 
-    # TODO(stephenfin): Convert to use resources/proxy rather than direct calls
+    # TODO(stephenfin): Deprecate the unused wait, timeout parameters
     def create_image(
         self,
-        name,
-        volume,
-        allow_duplicates,
-        container_format,
-        disk_format,
-        wait,
-        timeout,
-    ):
+        name: str,
+        volume: str,
+        allow_duplicates: bool,
+        container_format: str | None,
+        disk_format: str | None,
+        wait: bool,
+        timeout: int,
+    ) -> _image.Image:
         if not disk_format:
             disk_format = self._connection.config.config['image_format']
+
         if not container_format:
             # https://docs.openstack.org/image-guide/image-formats.html
             container_format = 'bare'
 
-        if 'id' in volume:
-            volume_id = volume['id']
-        else:
-            volume_obj = self.get_volume(volume)
-            if not volume_obj:
-                raise exceptions.SDKException(
-                    f"Volume {volume} given to create_image could not be found"
-                )
-            volume_id = volume_obj['id']
-        data = self.post(
-            f'/volumes/{volume_id}/action',
-            json={
-                'os-volume_upload_image': {
-                    'force': allow_duplicates,
-                    'image_name': name,
-                    'container_format': container_format,
-                    'disk_format': disk_format,
-                }
-            },
+        data = self._get_resource(_volume.Volume, volume).upload_to_image(
+            self,
+            name,
+            force=allow_duplicates,
+            disk_format=disk_format,
+            container_format=container_format,
         )
-        response = self._connection._get_and_munchify(
-            'os-volume_upload_image', data
-        )
-        return self._connection.image._existing_image(id=response['image_id'])
+        return self._connection.image._existing_image(id=data['image_id'])
 
     # ========== Snapshots ==========
 
@@ -195,7 +181,7 @@ class Proxy(proxy.Proxy):
         base_path = '/snapshots/detail' if details else None
         return self._list(_snapshot.Snapshot, base_path=base_path, **query)
 
-    def create_snapshot(self, **attrs):
+    def create_snapshot(self, **attrs: Any) -> _snapshot.Snapshot:
         """Create a new snapshot from attributes
 
         :param dict attrs: Keyword arguments which will be used to create
@@ -219,7 +205,7 @@ class Proxy(proxy.Proxy):
         """
         return self._update(_snapshot.Snapshot, snapshot, **attrs)
 
-    def delete_snapshot(self, snapshot, ignore_missing=True):
+    def delete_snapshot(self, snapshot, ignore_missing=True, force=False):
         """Delete a snapshot
 
         :param snapshot: The value can be either the ID of a snapshot or a
@@ -230,12 +216,17 @@ class Proxy(proxy.Proxy):
             raised when the snapshot does not exist.
             When set to ``True``, no exception will be set when
             attempting to delete a nonexistent snapshot.
+        :param bool force: Whether to try forcing snapshot deletion.
 
         :returns: ``None``
         """
-        self._delete(
-            _snapshot.Snapshot, snapshot, ignore_missing=ignore_missing
-        )
+        if not force:
+            self._delete(
+                _snapshot.Snapshot, snapshot, ignore_missing=ignore_missing
+            )
+        else:
+            snapshot = self._get_resource(_snapshot.Snapshot, snapshot)
+            snapshot.force_delete(self)
 
     # ========== Snapshot actions ==========
 
@@ -342,7 +333,7 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_type.Type, **query)
 
-    def create_type(self, **attrs):
+    def create_type(self, **attrs: Any) -> _type.Type:
         """Create a new type from attributes
 
         :param dict attrs: Keyword arguments which will be used to create
@@ -503,7 +494,7 @@ class Proxy(proxy.Proxy):
         base_path = '/volumes/detail' if details else None
         return self._list(_volume.Volume, base_path=base_path, **query)
 
-    def create_volume(self, **attrs):
+    def create_volume(self, **attrs: Any) -> _volume.Volume:
         """Create a new volume from attributes
 
         :param dict attrs: Keyword arguments which will be used to create
@@ -838,7 +829,7 @@ class Proxy(proxy.Proxy):
             list_base_path=list_base_path,
         )
 
-    def create_backup(self, **attrs):
+    def create_backup(self, **attrs: Any) -> _backup.Backup:
         """Create a new Backup from attributes with native API
 
         :param dict attrs: Keyword arguments which will be used to create
@@ -1313,7 +1304,7 @@ class Proxy(proxy.Proxy):
 
     # ========== Transfers ==========
 
-    def create_transfer(self, **attrs):
+    def create_transfer(self, **attrs: Any) -> _transfer.Transfer:
         """Create a new Transfer record
 
         :param volume_id: The value is ID of the volume.

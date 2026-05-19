@@ -36,11 +36,15 @@ from ..decorators import (
     _SCHEDULE_ATTR,
 )
 from ..home import serialize_suggestions
-from ..page_bundle import build_page_bundle, page_bundle_handler
+from ..page_bundle import BUNDLE_HEADERS, build_page_bundle, bundle_cache_control, page_bundle_handler
 from ..page_source import (
+    SOURCE_HEADERS,
+    build_source_manifest,
     page_module_source_handler,
     page_source_handler,
     page_source_manifest_handler,
+    resolve_page_module,
+    safe_component_path,
 )
 from ..task_types import TaskDescriptor
 from .shared import (
@@ -287,6 +291,82 @@ class RunnerRouteMixin:
         tasks.add(task)
         task.add_done_callback(tasks.discard)
 
+    def _ui_component_path(self, request: web.Request) -> str | None:
+        return safe_component_path(request.query.get("component", ""))
+
+    def _ui_component_packages(self, request: web.Request) -> list[str]:
+        packages = [pkg for pkg in request.query.getall("package", []) if pkg]
+        raw = request.query.get("packages")
+        if raw:
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    packages.extend(str(pkg) for pkg in parsed if str(pkg).strip())
+            except json.JSONDecodeError:
+                packages.extend(pkg.strip() for pkg in raw.split(",") if pkg.strip())
+        return list(dict.fromkeys(packages))
+
+    def _handle_ui_component_source(self):
+        async def handler(request: web.Request) -> web.StreamResponse:
+            component = self._ui_component_path(request)
+            if not component:
+                return web.json_response({"error": "not found"}, status=404)
+            from ..page_source import component_entry
+
+            return web.FileResponse(component_entry(component), headers=SOURCE_HEADERS)
+
+        return handler
+
+    def _handle_ui_component_module_source(self):
+        async def handler(request: web.Request) -> web.StreamResponse:
+            component = self._ui_component_path(request)
+            if not component:
+                return web.json_response({"error": "not found"}, status=404)
+            path = resolve_page_module(component, request.match_info.get("relative_path", ""))
+            if not path:
+                return web.json_response({"error": "not found"}, status=404)
+            return web.FileResponse(path, headers=SOURCE_HEADERS)
+
+        return handler
+
+    def _handle_ui_component_source_manifest(self):
+        async def handler(request: web.Request) -> web.Response:
+            component = self._ui_component_path(request)
+            if not component:
+                return web.json_response({"error": "not found"}, status=404)
+            manifest = build_source_manifest(component)
+            if manifest is None:
+                return web.json_response({"error": "not found"}, status=404)
+            return web.json_response(manifest)
+
+        return handler
+
+    def _handle_ui_component_bundle(self):
+        async def handler(request: web.Request) -> web.StreamResponse:
+            component = self._ui_component_path(request)
+            if not component:
+                return web.json_response({"error": "not found"}, status=404)
+            try:
+                result = await asyncio.to_thread(
+                    build_page_bundle,
+                    component,
+                    self._ui_component_packages(request),
+                )
+            except Exception as exc:
+                return web.json_response({"error": "bundle_failed", "message": str(exc)}, status=503)
+
+            version = request.query.get("version") or request.query.get("version_id")
+            env = request.query.get("env")
+            headers = {
+                **BUNDLE_HEADERS,
+                "Cache-Control": bundle_cache_control(version, env),
+                "ETag": result.cache_key,
+                "X-Capsule-Bundle-Cache": "hit" if result.cached else "miss",
+            }
+            return web.FileResponse(result.path, headers=headers)
+
+        return handler
+
     def _mount_endpoints(self, app: web.Application) -> None:
         meta = self._collect_meta()
         react_page_specs: list[tuple[str, str, list[str]]] = []
@@ -306,6 +386,17 @@ class RunnerRouteMixin:
         app.router.add_get("/collection/{name}", self._wrap_collection_query())
         app.router.add_delete("/collection/{name}", self._wrap_collection_delete())
         _log("collection routes mounted: GET/DELETE /collection/{name}")
+
+        app.router.add_get("/ui-components/source", self._handle_ui_component_source())
+        app.router.add_get(
+            "/ui-components/source/{relative_path:.*}",
+            self._handle_ui_component_module_source(),
+        )
+        app.router.add_get(
+            "/ui-components/source-manifest",
+            self._handle_ui_component_source_manifest(),
+        )
+        app.router.add_get("/ui-components/bundle.js", self._handle_ui_component_bundle())
 
         if self._get_all_settings():
             app.router.add_get("/settings", self._handle_settings_list())

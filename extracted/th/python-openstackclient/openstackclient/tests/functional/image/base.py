@@ -16,9 +16,4 @@ from openstackclient.tests.functional import base
 class BaseImageTests(base.TestCase):
     """Functional tests for Image commands"""
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        # TODO(dtroyer): maybe do image API discovery here to determine
-        #                what is available, it isn't in the service catalog
-        cls.haz_v1_api = False
+    ...

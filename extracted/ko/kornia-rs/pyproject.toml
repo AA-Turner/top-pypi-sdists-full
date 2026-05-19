@@ -62,11 +62,11 @@ dev = [
 requires = ["maturin>=1.9,<2"]
 build-backend = "maturin"
 
-[tool.uv]
-extra-index-url = ["https://download.pytorch.org/whl/cpu"]
-
 [tool.pytest.ini_options]
 pythonpath = ["benchmarks"]
+
+[tool.uv]
+extra-index-url = ["https://download.pytorch.org/whl/cpu"]
 
 [tool.maturin]
 manifest-path = "kornia-py/Cargo.toml"

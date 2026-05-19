@@ -38,7 +38,8 @@ class UserGroup(object):
         'org_id': 'str',
         'created_at': 'datetime',
         'updated_at': 'datetime',
-        'deleted_at': 'datetime'
+        'deleted_at': 'datetime',
+        'organization_permissions': 'UserGroupOrganizationPermissions'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class UserGroup(object):
         'org_id': 'org_id',
         'created_at': 'created_at',
         'updated_at': 'updated_at',
-        'deleted_at': 'deleted_at'
+        'deleted_at': 'deleted_at',
+        'organization_permissions': 'organization_permissions'
     }
 
-    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, deleted_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, org_id=None, created_at=None, updated_at=None, deleted_at=None, organization_permissions=None, local_vars_configuration=None):  # noqa: E501
         """UserGroup - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class UserGroup(object):
         self._created_at = None
         self._updated_at = None
         self._deleted_at = None
+        self._organization_permissions = None
         self.discriminator = None
 
         self.id = id
@@ -71,6 +74,8 @@ class UserGroup(object):
         self.updated_at = updated_at
         if deleted_at is not None:
             self.deleted_at = deleted_at
+        if organization_permissions is not None:
+            self.organization_permissions = organization_permissions
 
     @property
     def id(self):
@@ -207,6 +212,27 @@ class UserGroup(object):
         """
 
         self._deleted_at = deleted_at
+
+    @property
+    def organization_permissions(self):
+        """Gets the organization_permissions of this UserGroup.  # noqa: E501
+
+
+        :return: The organization_permissions of this UserGroup.  # noqa: E501
+        :rtype: UserGroupOrganizationPermissions
+        """
+        return self._organization_permissions
+
+    @organization_permissions.setter
+    def organization_permissions(self, organization_permissions):
+        """Sets the organization_permissions of this UserGroup.
+
+
+        :param organization_permissions: The organization_permissions of this UserGroup.  # noqa: E501
+        :type: UserGroupOrganizationPermissions
+        """
+
+        self._organization_permissions = organization_permissions
 
     def to_dict(self):
         """Returns the model properties as a dict"""

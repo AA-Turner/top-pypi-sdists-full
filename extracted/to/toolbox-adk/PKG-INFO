@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toolbox-adk
-Version: 1.0.0
+Version: 1.0.1
 Summary: Agent Development Kit Integration for MCP Toolbox
 Author-email: Google LLC <googleapis-packages@google.com>
 Project-URL: Homepage, https://github.com/googleapis/mcp-toolbox-sdk-python/blob/main/packages/toolbox-adk
@@ -19,27 +19,27 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: toolbox-core==1.0.0
+Requires-Dist: toolbox-core==1.1.0
 Requires-Dist: google-auth<3.0.0,>=2.47.0
 Requires-Dist: google-auth-oauthlib<2.0.0,>=1.2.0
-Requires-Dist: google-adk<3.0.0,>=1.26.0
+Requires-Dist: google-adk<3.0.0,>=1.27.4
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: test
-Requires-Dist: black[jupyter]==26.1.0; extra == "test"
-Requires-Dist: isort==8.0.0; extra == "test"
-Requires-Dist: mypy==1.19.1; extra == "test"
-Requires-Dist: pytest==9.0.2; extra == "test"
+Requires-Dist: black[jupyter]==26.5.0; extra == "test"
+Requires-Dist: isort==8.0.1; extra == "test"
+Requires-Dist: mypy==2.1.0; extra == "test"
+Requires-Dist: pytest==9.0.3; extra == "test"
 Requires-Dist: pytest-asyncio==1.3.0; extra == "test"
-Requires-Dist: pytest-cov==7.0.0; extra == "test"
+Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-mock==3.15.1; extra == "test"
 
-![MCP Toolbox Logo](https://raw.githubusercontent.com/googleapis/genai-toolbox/main/logo.png)
+![MCP Toolbox Logo](https://raw.githubusercontent.com/googleapis/mcp-toolbox/main/logo.png)
 
 # MCP Toolbox SDK for ADK
 
-This package allows Google ADK (Agent Development Kit) agents to natively use tools from the [MCP Toolbox](https://github.com/googleapis/genai-toolbox).
+This package allows Google ADK (Agent Development Kit) agents to natively use tools from the [MCP Toolbox](https://github.com/googleapis/mcp-toolbox).
 
-For detailed guides, authentication examples, and advanced configuration, visit the [Python SDK ADK Guide](https://googleapis.github.io/genai-toolbox/sdks/python-sdk/adk/).
+For detailed guides, authentication examples, and advanced configuration, visit the [Python SDK ADK Guide](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/adk/).
 
 ## Table of Contents
 
@@ -54,12 +54,12 @@ pip install toolbox-adk
 
 ## Usage
 
-The `toolbox-adk` package provides a seamless bridge to natively use MCP Toolbox tools within ADK agents. For detailed guides and advanced configuration, please visit the following sections on our [Documentation Site](https://googleapis.github.io/genai-toolbox/sdks/python-sdk/adk/): 
+The `toolbox-adk` package provides a seamless bridge to natively use MCP Toolbox tools within ADK agents. For detailed guides and advanced configuration, please visit the following sections on our [Documentation Site](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/adk/): 
 
-- [Transport Protocols](https://googleapis.github.io/genai-toolbox/sdks/python-sdk/adk/#transport-protocols)
-- [Authentication](https://googleapis.github.io/genai-toolbox/sdks/python-sdk/adk/#authentication)
-- [Advanced Configuration](https://googleapis.github.io/genai-toolbox/sdks/python-sdk/adk/#advanced-configuration)
-- [OpenTelemetry](https://googleapis.github.io/genai-toolbox/sdks/python-sdk/adk/#opentelemetry)
+- [Transport Protocols](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/adk/#transport-protocols)
+- [Authentication](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/adk/#authentication)
+- [Advanced Configuration](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/adk/#advanced-configuration)
+- [OpenTelemetry](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/adk/#opentelemetry)
 
 ## Contributing
 

@@ -33,7 +33,7 @@ __all__ = (
     "uriunsplit",
 )
 
-__version__ = "6.1.0"
+__version__ = "6.1.1"
 
 
 # RFC 3986 2.2.  Reserved Characters
@@ -612,8 +612,6 @@ def issamedoc(uristring):
     """Return :const:`True` if `uristring` is a same-document reference."""
     return urisplit(uristring).issamedoc()
 
-
-# TBD: move compose to its own submodule?
 
 # RFC 3986 3.1: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
 _SCHEME_RE = re.compile(b"^[A-Za-z][A-Za-z0-9+.-]*$")

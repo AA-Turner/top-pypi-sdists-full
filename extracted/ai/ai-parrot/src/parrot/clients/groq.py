@@ -294,6 +294,18 @@ class GroqClient(AbstractClient):
             prompt, files, user_id, session_id, system_prompt
         )
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent
+        import time as _lc_time_groq
+        _lc_tc_groq = self._emit_before_call(
+            client_name="groq",
+            model=model,
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=system_prompt,
+            has_tools=bool(_use_tools),
+            parent_trace=None,
+        )
+        _lc_t0_groq = _lc_time_groq.perf_counter()
+
         if system_prompt:
             messages.insert(0, {"role": "system", "content": system_prompt})
 
@@ -591,6 +603,15 @@ class GroqClient(AbstractClient):
         # Add tool calls to the response
         ai_message.tool_calls = all_tool_calls
 
+        # FEAT-176: lifecycle event — AfterClientCallEvent
+        _lc_groq_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc_groq, client_name="groq", model=model,
+            duration_ms=(_lc_time_groq.perf_counter() - _lc_t0_groq) * 1000,
+            input_tokens=getattr(_lc_groq_usage, 'prompt_tokens', None) if _lc_groq_usage else None,
+            output_tokens=getattr(_lc_groq_usage, 'completion_tokens', None) if _lc_groq_usage else None,
+            finish_reason=None,
+        )
         return ai_message
 
     async def ask_stream(
@@ -604,9 +625,16 @@ class GroqClient(AbstractClient):
         system_prompt: Optional[str] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
-        tools: Optional[List[dict]] = None
-    ) -> AsyncIterator[str]:
-        """Stream Groq's response with optional conversation memory."""
+        tools: Optional[List[dict]] = None,
+        deep_research: bool = False,
+        agent_config: Optional[dict] = None,
+        lazy_loading: bool = False,
+    ) -> AsyncIterator[Union[str, AIMessage]]:
+        """Stream Groq's response with optional conversation memory.
+
+        Yields successive string chunks followed by a final
+        :class:`~parrot.models.responses.AIMessage` with metadata.
+        """
 
         # Generate unique turn ID for tracking
         turn_id = str(uuid.uuid4())
@@ -619,6 +647,21 @@ class GroqClient(AbstractClient):
         if system_prompt:
             messages.insert(0, {"role": "system", "content": system_prompt})
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent for stream
+        import time as _lc_time_groqs
+        from parrot.core.events.lifecycle.events import ClientStreamChunkEvent as _GroqStreamChunkEvent
+        _lc_tc_groqs = self._emit_before_call(
+            client_name="groq",
+            model=model,
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=system_prompt,
+            has_tools=False,
+            parent_trace=None,
+        )
+        _lc_t0_groqs = _lc_time_groqs.perf_counter()
+        _lc_has_chunk_subs_groq = self.events.has_subscribers(_GroqStreamChunkEvent)
+        _lc_chunk_idx_groq = 0
+
         # Prepare request arguments
         request_args = {
             "model": model,
@@ -626,7 +669,8 @@ class GroqClient(AbstractClient):
             "max_tokens": max_tokens,
             "temperature": temperature,
             "top_p": top_p,
-            "stream": True
+            "stream": True,
+            "stream_options": {"include_usage": True},
         }
 
         # Note: For streaming, we don't handle tools in this version
@@ -643,19 +687,50 @@ class GroqClient(AbstractClient):
         response_stream = await self.client.chat.completions.create(**request_args)
 
         assistant_content = ""
+        usage_data = None
         async for chunk in response_stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 text_chunk = chunk.choices[0].delta.content
                 assistant_content += text_chunk
+                # FEAT-176: per-chunk event
+                if _lc_has_chunk_subs_groq:
+                    await self.events.emit(_GroqStreamChunkEvent(
+                        trace_context=_lc_tc_groqs, client_name="groq",
+                        model=model, chunk_index=_lc_chunk_idx_groq,
+                        chunk_size_bytes=len(text_chunk.encode("utf-8")),
+                        source_type="client", source_name="groq",
+                    ))
+                    _lc_chunk_idx_groq += 1
                 yield text_chunk
+            # Capture usage from the final chunk (present when stream_options.include_usage=True)
+            if hasattr(chunk, 'usage') and chunk.usage is not None:
+                usage_data = chunk.usage
 
-        # Update conversation memory if content was generated
+        # Build and yield final AIMessage
+        if usage_data is not None:
+            usage = CompletionUsage.from_groq(usage_data)
+        else:
+            usage = CompletionUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+        ai_message = AIMessage(
+            input=prompt,
+            output=assistant_content,
+            response=assistant_content,
+            model=model,
+            provider="groq",
+            usage=usage,
+            user_id=user_id,
+            session_id=session_id,
+            turn_id=turn_id,
+        )
+        # Update conversation memory BEFORE yielding the final AIMessage so the
+        # memory write executes even if the consumer stops iterating after receiving
+        # the sentinel (generators are not fully drained once the caller exits the
+        # async-for loop).
         if assistant_content:
             messages.append({
                 "role": "assistant",
                 "content": assistant_content
             })
-            # Update conversation memory
             tools_used = []
             await self._update_conversation_memory(
                 user_id,
@@ -668,6 +743,17 @@ class GroqClient(AbstractClient):
                 assistant_content,
                 tools_used
             )
+
+        # FEAT-176: lifecycle event — AfterClientCallEvent (stream)
+        _lc_groqs_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc_groqs, client_name="groq", model=model,
+            duration_ms=(_lc_time_groqs.perf_counter() - _lc_t0_groqs) * 1000,
+            input_tokens=getattr(_lc_groqs_usage, 'prompt_tokens', None) if _lc_groqs_usage else None,
+            output_tokens=getattr(_lc_groqs_usage, 'completion_tokens', None) if _lc_groqs_usage else None,
+            finish_reason=None,
+        )
+        yield ai_message
 
     async def resume(
         self,

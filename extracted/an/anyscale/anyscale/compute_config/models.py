@@ -553,16 +553,6 @@ class _NodeConfig(ModelBase):
         ):
             del result["instance_type"]
 
-        # Filter out zero values from 'resources' dict to avoid confusing output
-        # e.g., 'CPU: 0' or 'GPU: 0' should not be shown
-        if "resources" in result and isinstance(result["resources"], dict):
-            result["resources"] = {
-                k: v for k, v in result["resources"].items() if v != 0
-            }
-            # If resources dict is now empty, remove it entirely
-            if not result["resources"]:
-                del result["resources"]
-
         return result
 
     resources: Optional[ResourceDict] = field(

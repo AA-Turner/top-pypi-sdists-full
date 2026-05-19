@@ -516,6 +516,34 @@ class APIToolFormatHandler:
                 )
                 continue
 
+            # If our safe-parse fallback bailed and stored the synthetic
+            # _parse_error key, surface the real JSON error directly
+            # instead of letting pydantic complain about a missing field.
+            # The model needs to see "your JSON was malformed", not
+            # "field 'path' required" — observed 2026-05-18 in a real
+            # user TUI where read_file got input_value={'_parse_error':
+            # 'Malformed JSON: ...'} and the pydantic error misled the
+            # model into thinking it had forgotten the path.
+            raw_args = parsed_call.raw_args
+            if isinstance(raw_args, dict) and "_parse_error" in raw_args and len(raw_args) == 1:
+                failed_calls.append(
+                    FailedToolCall(
+                        tool_name=parsed_call.tool_name,
+                        call_id=parsed_call.call_id,
+                        error=(
+                            f"Your tool call arguments were malformed JSON "
+                            f"and could not be parsed. "
+                            f"{raw_args['_parse_error']} "
+                            f"Re-emit the {parsed_call.tool_name} call with "
+                            f"valid JSON. Common causes: unescaped quotes "
+                            f"inside string values, unterminated strings, "
+                            f"or content that exceeded the model's "
+                            f"max_tokens mid-emission."
+                        ),
+                    )
+                )
+                continue
+
             try:
                 validated_args = args_model.model_validate(parsed_call.raw_args)
                 resolved_calls.append(

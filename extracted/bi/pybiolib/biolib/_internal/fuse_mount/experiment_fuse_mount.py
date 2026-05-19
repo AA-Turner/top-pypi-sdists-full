@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from time import time
 
 from biolib._internal.libs.fusepy import FUSE, FuseOSError, Operations
+from biolib._shared.types.typing import Dict, List, Optional, Tuple, TypedDict
 from biolib.biolib_errors import BioLibError
 from biolib.jobs import Job
-from biolib.typing_utils import Dict, List, Optional, Tuple, TypedDict
 
 
 class _AttributeDict(TypedDict):

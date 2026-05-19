@@ -5,9 +5,9 @@ import time
 from datetime import datetime, timezone
 
 from biolib._internal.utils.app_dirs import get_user_cache_dir
+from biolib._shared.types.typing import Generic, Optional, TypeVar
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger_no_user_data
-from biolib.typing_utils import Generic, Optional, TypeVar
 
 StateType = TypeVar('StateType')  # pylint: disable=invalid-name
 

@@ -133,6 +133,15 @@ class ProviderConfig(BaseModel):
 
 class _MCPBase(BaseModel):
     name: str = Field(description="Short alias used to prefix tool names")
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "If false, the server is completely skipped — its tools "
+            "and resources won't be loaded and no connection is "
+            "attempted. Useful for keeping a broken/legacy server "
+            "block in config without paying the failure cost."
+        ),
+    )
     prompt: str | None = Field(
         default=None, description="Optional usage hint appended to tool descriptions"
     )

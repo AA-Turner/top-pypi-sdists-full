@@ -1,5 +1,5 @@
 from dataclasses import is_dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, overload
 
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
 from abstra_internals.interface.sdk.tables import comparators as cmp
@@ -321,6 +321,10 @@ def select_by_id(table: str, id: str) -> Optional[Row]:
     return select_one(table, where={"id": id})
 
 
+@overload
+def insert(table: str, values: List[Dict[str, Any]]) -> List[Row]: ...
+@overload
+def insert(table: str, values: Dict[str, Any]) -> Row: ...
 def insert(table: str, values: Any) -> Union[Row, List[Row]]:
     """Insert one or more rows into a table.
 

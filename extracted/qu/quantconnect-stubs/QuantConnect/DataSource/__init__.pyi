@@ -52708,21 +52708,21 @@ class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataC
     """Universe Selection helper class for QuiverQuant InsiderTrading dataset"""
 
     @property
-    def date(self) -> typing.Optional[datetime.datetime]:
+    def date(self) -> datetime.datetime:
         """Transaction date as reported on SEC Form 4"""
         ...
 
     @date.setter
-    def date(self, value: typing.Optional[datetime.datetime]) -> None:
+    def date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def file_date(self) -> typing.Optional[datetime.datetime]:
+    def file_date(self) -> datetime.datetime:
         """Time the transaction was filed and became publicly available"""
         ...
 
     @file_date.setter
-    def file_date(self, value: typing.Optional[datetime.datetime]) -> None:
+    def file_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
@@ -52777,6 +52777,15 @@ class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataC
 
     @direct_or_indirect_ownership.setter
     def direct_or_indirect_ownership(self, value: QuantConnect.DataSource.QuiverQuant.OwnershipType) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of the transactor"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
         ...
 
     @property
@@ -53436,21 +53445,21 @@ class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollectio
     """Insider Trading by private businesses"""
 
     @property
-    def date(self) -> typing.Optional[datetime.datetime]:
+    def date(self) -> datetime.datetime:
         """Transaction date as reported on SEC Form 4"""
         ...
 
     @date.setter
-    def date(self, value: typing.Optional[datetime.datetime]) -> None:
+    def date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def file_date(self) -> typing.Optional[datetime.datetime]:
+    def file_date(self) -> datetime.datetime:
         """Time the transaction was filed and became publicly available"""
         ...
 
     @file_date.setter
-    def file_date(self, value: typing.Optional[datetime.datetime]) -> None:
+    def file_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
@@ -53508,6 +53517,15 @@ class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollectio
 
     @direct_or_indirect_ownership.setter
     def direct_or_indirect_ownership(self, value: QuantConnect.DataSource.QuiverQuant.OwnershipType) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of the transactor"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
         ...
 
     @property

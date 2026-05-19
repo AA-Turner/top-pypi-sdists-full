@@ -12,7 +12,7 @@ import sys
 import tempfile
 import unittest
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Callable, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 from unittest.mock import MagicMock, patch
 
 from securesystemslib.signer import Signer
@@ -30,7 +30,7 @@ from tuf.api.metadata import (
 from tuf.ngclient import Updater, UpdaterConfig
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +115,7 @@ class TestUpdater(unittest.TestCase):
             metadata_base_url=self.metadata_url,
             target_dir=self.dl_dir,
             target_base_url=self.targets_url,
+            bootstrap=None,
         )
 
     def tearDown(self) -> None:
@@ -247,14 +248,21 @@ class TestUpdater(unittest.TestCase):
 
     def test_both_target_urls_not_set(self) -> None:
         # target_base_url = None and Updater._target_base_url = None
-        updater = Updater(self.client_directory, self.metadata_url, self.dl_dir)
+        updater = Updater(
+            self.client_directory,
+            self.metadata_url,
+            self.dl_dir,
+            bootstrap=None,
+        )
         info = TargetFile(1, {"sha256": ""}, "targetpath")
         with self.assertRaises(ValueError):
             updater.download_target(info)
 
     def test_no_target_dir_no_filepath(self) -> None:
         # filepath = None and Updater.target_dir = None
-        updater = Updater(self.client_directory, self.metadata_url)
+        updater = Updater(
+            self.client_directory, self.metadata_url, bootstrap=None
+        )
         info = TargetFile(1, {"sha256": ""}, "targetpath")
         with self.assertRaises(ValueError):
             updater.find_cached_target(info)
@@ -344,6 +352,7 @@ class TestUpdater(unittest.TestCase):
             self.dl_dir,
             self.targets_url,
             config=UpdaterConfig(app_user_agent="MyApp/1.2.3"),
+            bootstrap=None,
         )
         updater.refresh()
         poolmgr = updater._fetcher._proxy_env.get_pool_manager(

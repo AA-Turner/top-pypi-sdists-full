@@ -541,6 +541,32 @@ def test_comment_out_unused_function_handles_exception_and_returns_false():
     assert logerr.called
 
 
+def test_comment_out_unused_function_refuses_symlink_outside_root(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    outside = tmp_path / "outside.py"
+    outside.write_text("def unused():\n    return 1\n", encoding="utf-8")
+    link = repo / "link.py"
+    link.symlink_to(outside)
+
+    ok = cli.comment_out_unused_function(link, "unused", 1, root_path=repo)
+
+    assert ok is False
+    assert outside.read_text(encoding="utf-8") == "def unused():\n    return 1\n"
+
+
+def test_remove_unused_import_refuses_file_outside_root(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    outside = tmp_path / "outside.py"
+    outside.write_text("import os\n", encoding="utf-8")
+
+    ok = cli.remove_unused_import(outside, "os", 1, root_path=repo)
+
+    assert ok is False
+    assert outside.read_text(encoding="utf-8") == "import os\n"
+
+
 def test_generate_llm_report_formats_findings_and_defaults_dead_code(tmp_path):
     src = tmp_path / "app.py"
     src.write_text(
@@ -601,6 +627,35 @@ def test_generate_llm_report_formats_findings_and_defaults_dead_code(tmp_path):
     assert "Unused function 'unused' is never used (no refs)" in report
     assert result["unused_functions"][0]["rule_id"] == "SKY-DC001"
     assert result["unused_functions"][0]["severity"] == "MEDIUM"
+
+
+def test_generate_llm_report_uses_secret_preview_without_source_context(tmp_path):
+    raw_secret = "ghp_" + "1234567890" + "abcdefghijklmnop" + "qrstuvwxyzABCD"
+    src = tmp_path / "settings.py"
+    src.write_text(f'TOKEN = "{raw_secret}"\n', encoding="utf-8")
+    result = {
+        "danger": [],
+        "secrets": [
+            {
+                "rule_id": "SKY-S101",
+                "severity": "CRITICAL",
+                "provider": "github",
+                "message": "Potential github secret detected",
+                "file": str(src),
+                "line": 1,
+                "preview": "ghp_…ABCD",
+            }
+        ],
+        "quality": [],
+        "custom_rules": [],
+    }
+
+    report = cli._generate_llm_report(result, tmp_path)
+
+    assert "## 1. SKY-S101 | CRITICAL | Secrets" in report
+    assert "ghp_…ABCD" in report
+    assert raw_secret not in report
+    assert 'TOKEN = "' not in report
 
 
 def test_llm_report_code_block_returns_empty_for_invalid_line(tmp_path):
@@ -1166,6 +1221,46 @@ def test_main_rich_output_writes_report_file(monkeypatch, tmp_path):
     assert "Python Static Analysis Results" in output
     assert "Unused Functions" in output
     assert "dead" in output
+
+
+def test_main_ignores_pyproject_addopts_output_clobber(monkeypatch, tmp_path):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("KEEP\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        f"""
+[tool.skylos]
+addopts = ["--output", "{victim}"]
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = {
+        "analysis_summary": {"total_files": 1},
+        "unused_functions": [{"name": "dead", "file": "app.py", "line": 1}],
+        "unused_imports": [],
+        "unused_variables": [],
+        "unused_classes": [],
+        "unused_parameters": [],
+        "danger": [],
+        "quality": [],
+        "secrets": [],
+    }
+
+    monkeypatch.setattr(
+        cli.sys,
+        "argv",
+        ["skylos", ".", "--no-provenance", "--no-upload"],
+    )
+
+    with (
+        patch("skylos.cli.Progress", return_value=_progress_ctx()),
+        patch("skylos.cli.run_analyze", return_value=json.dumps(result)),
+        patch("skylos.cli.load_config", return_value={}),
+    ):
+        cli.main()
+
+    assert victim.read_text(encoding="utf-8") == "KEEP\n"
 
 
 def test_main_json_strict_failure_exits_nonzero(monkeypatch):

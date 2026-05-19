@@ -111,7 +111,7 @@ def make_code_cells(*ss): return dict2nb({'cells':L(ss).map(mk_cell)}).cells
 # %% ../nbs/api/02_maker.ipynb #a2546836
 def relative_import(name, fname, level=0):
     "Convert a module `name` to a name relative to `fname`"
-    assert not level
+    if level: raise ValueError(f"nbdev export does not support relative imports: module={name}, export_path={fname}")
     sname = name.replace('.','/')
     if not(os.path.commonpath([sname,fname])): return name
     rel = os.path.relpath(sname, fname)
@@ -175,14 +175,15 @@ def _import2relative(cells, lib_path=None):
 
 # %% ../nbs/api/02_maker.ipynb #5bff9d71
 def _retr_mdoc(cells):
-    "Search for md meta quote lines, used to create module docstring"
+    "Search for markdown cells used to create module docstring"
     md1 = first(o for o in cells if o.cell_type=='markdown' and o.source.startswith('# '))
     if not md1: return ''
     lines = dropwhile(lambda l: not l.startswith('> '), md1.source.splitlines())
     lines = list(takewhile(lambda l: l.startswith('> '), lines))
-    if not lines: return ''
     summ = '\n'.join(l.lstrip('> ').strip() for l in lines)
-    return f'"""{summ}"""\n\n' if summ else ''
+    docs = L(o.source.rstrip() for o in cells if o.cell_type=='markdown' and 'export' in getattr(o,'directives_',{}))
+    mdoc = '\n\n'.join(L(summ)+docs).strip()
+    return f'"""{mdoc}"""\n\n' if mdoc else ''
 
 # %% ../nbs/api/02_maker.ipynb #cdd205d6
 @patch

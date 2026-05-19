@@ -33,6 +33,7 @@ Functions:
     get_codex_cli_path: Get Codex CLI path from env var or config
     get_opencode_cli_path: Get OpenCode CLI path from env var or config
     get_hermes_cli_path: Get Hermes CLI path from env var or config
+    get_goose_cli_path: Get Goose CLI path from env var or config
 """
 
 import ast
@@ -117,7 +118,62 @@ def _is_placeholder_api_key(value: str) -> bool:
     )
 
 
-def _load_env_file(path: Path) -> None:
+# Environment variables that determine HOW Ouroboros executes work. This
+# is the single authoritative trust boundary: a cloned repository's `.env`
+# must not be able to change which binary runs or whether the user's
+# approval gate applies. Three classes, all remote-code-execution sinks
+# when sourced from an untrusted location:
+#   1. Explicit CLI path overrides fed straight into a subprocess.
+#   2. Runtime/backend selectors that pick which adapter (and therefore
+#      which executable) is spawned — a selector can route to a backend
+#      whose CLI then resolves via a weak shutil.which / bare-name lookup.
+#   3. Permission-mode overrides — setting acceptEdits/bypassPermissions
+#      silently removes the human approval gate, letting a malicious repo
+#      auto-approve arbitrary tool calls (effectively RCE).
+# These keys are only honored from trusted sources (the real process
+# environment, ~/.ouroboros/.env, ~/.ouroboros/config.yaml), never from
+# the project-directory .env that travels with a cloned repo. Trusted .env
+# files still follow the loader's normal "do not override an already-set
+# real process environment value" precedence. Enforcing this here — at the
+# .env load — keeps the policy in one place rather than split across
+# downstream sinks.
+_UNTRUSTED_ENV_DENYLIST = frozenset(
+    {
+        # Search PATH used by shutil.which()/bare executable spawning.
+        "PATH",
+        # Explicit executable-path overrides.
+        "OUROBOROS_CLI_PATH",
+        "OUROBOROS_CODEX_CLI_PATH",
+        "OUROBOROS_COPILOT_CLI_PATH",
+        "OUROBOROS_KIRO_CLI_PATH",
+        "OUROBOROS_OPENCODE_CLI_PATH",
+        "OUROBOROS_HERMES_CLI_PATH",
+        "OUROBOROS_GOOSE_CLI_PATH",
+        "OUROBOROS_GEMINI_CLI_PATH",
+        # Bare provider aliases (no OUROBOROS_ prefix) that adapters also
+        # honor and then execute. Any new such alias MUST be added here:
+        # `opencode_config._configured_opencode_cli_path` reads
+        # OPENCODE_CLI_PATH and runs it via subprocess.run.
+        "OPENCODE_CLI_PATH",
+        # Runtime/backend selectors — choose which adapter is spawned.
+        "OUROBOROS_AGENT_RUNTIME",
+        "OUROBOROS_RUNTIME",
+        "OUROBOROS_LLM_BACKEND",
+        # Permission-mode overrides — must not silently disable the
+        # user's approval gate from an untrusted repo.
+        "OUROBOROS_AGENT_PERMISSION_MODE",
+        "OUROBOROS_LLM_PERMISSION_MODE",
+        "OUROBOROS_OPENCODE_PERMISSION_MODE",
+    }
+)
+
+
+def _is_untrusted_env_denied_key(key: str) -> bool:
+    """Return whether an untrusted .env key may alter execution routing."""
+    return key.upper() in _UNTRUSTED_ENV_DENYLIST
+
+
+def _load_env_file(path: Path, *, trusted: bool = False) -> None:
     if not path.is_file():
         return
 
@@ -135,6 +191,11 @@ def _load_env_file(path: Path) -> None:
         if not key or any(ch.isspace() for ch in key):
             continue
 
+        if not trusted and _is_untrusted_env_denied_key(key):
+            # Untrusted project-directory .env must not redirect which
+            # binary Ouroboros executes (remote code execution guard).
+            continue
+
         parsed_value = _parse_env_value(raw_value)
         if not parsed_value or _is_placeholder_api_key(parsed_value):
             continue
@@ -144,8 +205,13 @@ def _load_env_file(path: Path) -> None:
             os.environ[key] = parsed_value
 
 
-for env_path in (Path(".env"), Path.home() / ".ouroboros" / ".env"):
-    _load_env_file(env_path)
+# The project-directory .env travels with whatever repository the user
+# cloned and is therefore untrusted; ~/.ouroboros/.env lives in the user's
+# home and is trusted. The trust flag gates execution-redirecting keys above.
+# `_load_env_file` defaults to trusted=False (fail-closed) so any future
+# caller is safe-by-default; trust must be opted into explicitly.
+_load_env_file(Path(".env"), trusted=False)
+_load_env_file(Path.home() / ".ouroboros" / ".env", trusted=True)
 
 
 def ensure_config_dir() -> Path:
@@ -981,6 +1047,40 @@ def get_hermes_cli_path() -> str | None:
         hermes_path = getattr(config.orchestrator, "hermes_cli_path", None)
         if hermes_path:
             return hermes_path
+    except ConfigError:
+        pass
+
+    return None
+
+
+def get_goose_cli_path() -> str | None:
+    """Get Goose CLI path from environment variable or config file.
+
+    Priority:
+        1. OUROBOROS_GOOSE_CLI_PATH environment variable
+        2. config.yaml orchestrator.goose_cli_path
+        3. None (resolve from PATH at runtime)
+
+    Stale env var / config values that don't point to an executable are
+    treated as missing so callers can fall back to PATH discovery instead
+    of persisting an unusable path.
+
+    Returns:
+        Path to Goose CLI binary or None.
+    """
+    env_path = os.environ.get("OUROBOROS_GOOSE_CLI_PATH", "").strip()
+    if env_path:
+        resolved = str(Path(env_path).expanduser())
+        if shutil.which(resolved):
+            return resolved
+
+    try:
+        config = load_config()
+        goose_path = getattr(config.orchestrator, "goose_cli_path", None)
+        if goose_path:
+            resolved = str(Path(goose_path).expanduser())
+            if shutil.which(resolved):
+                return resolved
     except ConfigError:
         pass
 

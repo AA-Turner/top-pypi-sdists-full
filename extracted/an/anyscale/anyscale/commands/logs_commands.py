@@ -257,7 +257,14 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
 
 @log_cli.command(
     name="job",
-    help="Access log files of a production job. Fetches logs for all job attempts.",
+    help=(
+        "Access log files of a production job. By default, fetches logs scoped "
+        "to the last job attempt. Pass --head-only to instead fetch all "
+        "head-node logs from the job's cluster (e.g. for cluster-level startup "
+        "output that isn't attributed to a specific job run); --worker-only, "
+        "--node-ip, --instance-id, or a glob also fall back to the cluster-log "
+        "path."
+    ),
 )
 @click.option("--id", type=str, required=True, help="Provide a production job ID.")
 @option_download
@@ -289,7 +296,49 @@ def anyscale_logs_job(  # noqa: PLR0913
     parallelism: int,
 ) -> None:
     logs_controller = LogsController()
-    cluster_id = logs_controller.get_cluster_id_for_last_prodjob_run(prodjob_id=id)
+    (
+        cluster_id,
+        job_run_id,
+    ) = logs_controller.get_cluster_id_and_last_job_run_id_for_prodjob(prodjob_id=id)
+    use_job_logs = job_run_id and not any(
+        [glob, node_ip, instance_id, worker_only, head_only]
+    )
+    if use_job_logs:
+        if ttl != DEFAULT_TTL:
+            log.warning(
+                "--ttl is ignored when fetching job-scoped logs; pass "
+                "--head-only, --worker-only, --node-ip, --instance-id, or a "
+                "glob to fall back to the cluster-log path which honors --ttl."
+            )
+        if download:
+            logs_controller.download_job_logs(
+                job_run_id=job_run_id,
+                page_size=DEFAULT_PAGE_SIZE,
+                timeout=timedelta(seconds=DEFAULT_TIMEOUT),
+                read_timeout=timedelta(seconds=DEFAULT_READ_TIMEOUT),
+                download_dir=download_dir,
+                parallelism=parallelism,
+                unpack=unpack,
+                resource_id=id,
+            )
+        else:
+            log_group = logs_controller.get_job_log_group(
+                job_run_id=job_run_id,
+                page_size=DEFAULT_PAGE_SIZE,
+                timeout=timedelta(seconds=DEFAULT_TIMEOUT),
+            )
+            if len(log_group.get_chunks()) == 0:
+                Console().print("No results found.")
+            else:
+                logs_controller.render_logs(
+                    log_group=log_group,
+                    parallelism=parallelism,
+                    read_timeout=timedelta(seconds=DEFAULT_READ_TIMEOUT),
+                    tail=tail,
+                )
+            click.echo()
+        return
+
     execute_anyscale_logs_cluster(
         logs_controller=logs_controller,
         cluster_id=cluster_id,

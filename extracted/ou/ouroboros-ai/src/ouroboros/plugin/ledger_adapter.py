@@ -38,8 +38,11 @@ import uuid
 
 PLUGIN_AGGREGATE_TYPE = "plugin"
 
-# Audit event types the firewall may emit. Used by tests + by
-# downstream consumers that want to filter ledger queries.
+# Plugin audit event types currently emitted by the v0.1 runtime.
+# Hook and permission-denial-specific event names are intentionally not
+# part of this manifest/audit vocabulary until the runtime emits them;
+# permission denials are represented as plugin.failed with
+# result.status == "blocked".
 AUDIT_EVENT_TYPES: tuple[str, ...] = (
     "plugin.discovered",
     "plugin.installed",

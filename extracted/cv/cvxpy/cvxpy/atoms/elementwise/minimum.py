@@ -14,15 +14,32 @@ limitations under the License.
 """
 
 from functools import reduce
-from typing import Any, List, Tuple
+from typing import Any
 
 import numpy as np
 
 from cvxpy.atoms.elementwise.elementwise import Elementwise
+from cvxpy.utilities import bounds as bounds_utils
 
 
 class minimum(Elementwise):
     """Elementwise minimum of a sequence of expressions.
+
+    Computes the elementwise minimum over two or more input expressions.
+
+    Mathematical definition:
+        .. math::
+
+            f(x_1, x_2, \\dots, x_n) = \\min\\{x_1, x_2, \\dots, x_n\\}
+
+    Parameters
+    ----------
+    arg1 : Expression
+        First input expression.
+    arg2 : Expression
+        Second input expression.
+    *args : Expression
+        Additional input expressions.
     """
 
     def __init__(self, arg1, arg2, *args) -> None:
@@ -36,12 +53,17 @@ class minimum(Elementwise):
         """
         return reduce(np.minimum, values)
 
-    def sign_from_args(self) -> Tuple[bool, bool]:
+    def sign_from_args(self) -> tuple[bool, bool]:
         """Returns sign (is positive, is negative) of the expression.
         """
         is_pos = all(arg.is_nonneg() for arg in self.args)
         is_neg = any(arg.is_nonpos() for arg in self.args)
         return (is_pos, is_neg)
+
+    def bounds_from_args(self) -> tuple[np.ndarray, np.ndarray]:
+        """Returns bounds for elementwise minimum based on argument bounds."""
+        bounds_list = [arg.get_bounds() for arg in self.args]
+        return bounds_utils.minimum_bounds(bounds_list)
 
     def is_atom_convex(self) -> bool:
         """Is the atom convex?
@@ -78,7 +100,7 @@ class minimum(Elementwise):
         """
         return all(arg.is_pwl() for arg in self.args)
 
-    def _grad(self, values) -> List[Any]:
+    def _grad(self, values) -> list[Any]:
         """Gives the (sub/super)gradient of the atom w.r.t. each argument.
 
         Matrix expressions are vectorized, so the gradient is a matrix.

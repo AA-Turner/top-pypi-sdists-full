@@ -1,6 +1,7 @@
 import collections.abc
 import google.protobuf.message
 import inspect
+import modal._function_variants
 import modal._functions
 import modal._object
 import modal._partial_function
@@ -22,63 +23,6 @@ T = typing.TypeVar("T")
 
 def _use_annotation_parameters(user_cls: type) -> bool: ...
 def _get_class_constructor_signature(user_cls: type) -> inspect.Signature: ...
-
-class _ServiceOptions:
-    """_ServiceOptions(secrets: collections.abc.Collection[modal.secret._Secret] = (), validated_volumes: Sequence[tuple[str, modal.volume._Volume]] = (), resources: Optional[modal_proto.api_pb2.Resources] = None, retry_policy: Optional[modal_proto.api_pb2.FunctionRetryPolicy] = None, max_containers: Optional[int] = None, buffer_containers: Optional[int] = None, scaledown_window: Optional[int] = None, timeout_secs: Optional[int] = None, max_concurrent_inputs: Optional[int] = None, target_concurrent_inputs: Optional[int] = None, batch_max_size: Optional[int] = None, batch_wait_ms: Optional[int] = None, scheduler_placement: Optional[modal_proto.api_pb2.SchedulerPlacement] = None, cloud: Optional[str] = None, cloud_bucket_mounts: Sequence[tuple[str, modal.cloud_bucket_mount._CloudBucketMount]] = ())"""
-
-    secrets: collections.abc.Collection[modal.secret._Secret]
-    validated_volumes: typing.Sequence[tuple[str, modal.volume._Volume]]
-    resources: typing.Optional[modal_proto.api_pb2.Resources]
-    retry_policy: typing.Optional[modal_proto.api_pb2.FunctionRetryPolicy]
-    max_containers: typing.Optional[int]
-    buffer_containers: typing.Optional[int]
-    scaledown_window: typing.Optional[int]
-    timeout_secs: typing.Optional[int]
-    max_concurrent_inputs: typing.Optional[int]
-    target_concurrent_inputs: typing.Optional[int]
-    batch_max_size: typing.Optional[int]
-    batch_wait_ms: typing.Optional[int]
-    scheduler_placement: typing.Optional[modal_proto.api_pb2.SchedulerPlacement]
-    cloud: typing.Optional[str]
-    cloud_bucket_mounts: typing.Sequence[tuple[str, modal.cloud_bucket_mount._CloudBucketMount]]
-
-    def merge_options(self, new_options: _ServiceOptions) -> _ServiceOptions:
-        """Implement protobuf-like MergeFrom semantics for this dataclass.
-
-        This mostly exists to support "stacking" of `.with_options()` calls.
-        Returns a new _ServiceOptions instance without modifying self.
-        """
-        ...
-
-    def __init__(
-        self,
-        secrets: collections.abc.Collection[modal.secret._Secret] = (),
-        validated_volumes: typing.Sequence[tuple[str, modal.volume._Volume]] = (),
-        resources: typing.Optional[modal_proto.api_pb2.Resources] = None,
-        retry_policy: typing.Optional[modal_proto.api_pb2.FunctionRetryPolicy] = None,
-        max_containers: typing.Optional[int] = None,
-        buffer_containers: typing.Optional[int] = None,
-        scaledown_window: typing.Optional[int] = None,
-        timeout_secs: typing.Optional[int] = None,
-        max_concurrent_inputs: typing.Optional[int] = None,
-        target_concurrent_inputs: typing.Optional[int] = None,
-        batch_max_size: typing.Optional[int] = None,
-        batch_wait_ms: typing.Optional[int] = None,
-        scheduler_placement: typing.Optional[modal_proto.api_pb2.SchedulerPlacement] = None,
-        cloud: typing.Optional[str] = None,
-        cloud_bucket_mounts: typing.Sequence[tuple[str, modal.cloud_bucket_mount._CloudBucketMount]] = (),
-    ) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
-
 def _bind_instance_method(cls: _Cls, service_function: modal._functions._Function, method_name: str):
     """Binds an "instance service function" to a specific method using metadata for that method
 
@@ -100,10 +44,15 @@ class _Obj:
     _args: tuple[typing.Any, ...]
     _kwargs: dict[str, typing.Any]
     _instance_service_function: typing.Optional[modal._functions._Function]
-    _options: typing.Optional[_ServiceOptions]
+    _options: typing.Optional[modal._function_variants._FunctionOptions]
 
     def __init__(
-        self, cls: _Cls, user_cls: typing.Optional[type], options: typing.Optional[_ServiceOptions], args, kwargs
+        self,
+        cls: _Cls,
+        user_cls: typing.Optional[type],
+        options: typing.Optional[modal._function_variants._FunctionOptions],
+        args,
+        kwargs,
     ):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -173,10 +122,15 @@ class Obj:
     _args: tuple[typing.Any, ...]
     _kwargs: dict[str, typing.Any]
     _instance_service_function: typing.Optional[modal.functions.Function]
-    _options: typing.Optional[_ServiceOptions]
+    _options: typing.Optional[modal._function_variants._FunctionOptions]
 
     def __init__(
-        self, cls: Cls, user_cls: typing.Optional[type], options: typing.Optional[_ServiceOptions], args, kwargs
+        self,
+        cls: Cls,
+        user_cls: typing.Optional[type],
+        options: typing.Optional[modal._function_variants._FunctionOptions],
+        args,
+        kwargs,
     ): ...
     def _cached_service_function(self) -> modal.functions.Function: ...
     def _get_parameter_values(self) -> dict[str, typing.Any]: ...
@@ -279,7 +233,7 @@ class _Cls(modal._object._Object):
     """
 
     _class_service_function: typing.Optional[modal._functions._Function]
-    _options: _ServiceOptions
+    _options: modal._function_variants._FunctionOptions
     _app: typing.Optional[modal.app._App]
     _name: typing.Optional[str]
     _method_metadata: typing.Optional[dict[str, modal_proto.api_pb2.FunctionHandleMetadata]]
@@ -295,6 +249,12 @@ class _Cls(modal._object._Object):
     def _get_name(self) -> str: ...
     def _get_class_service_function(self) -> modal._functions._Function: ...
     def _get_method_names(self) -> collections.abc.Collection[str]: ...
+    def _apply_dynamic_config(
+        self: _Cls, new_options: modal._function_variants._FunctionOptions, method_name: str
+    ) -> _Cls:
+        """Clone the parent Cls and add updated _FunctionOptions from builder-pattern configuration."""
+        ...
+
     async def _experimental_get_flash_urls(self) -> typing.Optional[list[str]]:
         """URL of the flash service for the class."""
         ...
@@ -351,12 +311,13 @@ class _Cls(modal._object._Object):
         region: typing.Union[str, typing.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
     ) -> _Cls:
-        """Override the static Function configuration at runtime.
+        """Override the static Cls configuration with invocation-specific values.
 
-        This method will return a new instance of the cls that will autoscale independently of the
-        original instance. Note that options cannot be "unset" with this method (i.e., if a GPU
-        is configured in the `@app.cls()` decorator, passing `gpu=None` here will not create a
-        CPU-only instance).
+        This method will return a new variant of the Cls that will autoscale independently of the
+        base configuration.
+
+        Note that options cannot be "unset" with this method (i.e., if a GPU is configured in the
+        `@app.cls()` decorator, passing `gpu=None` here will not create a CPU-only instance).
 
         **Usage:**
 
@@ -381,7 +342,7 @@ class _Cls(modal._object._Object):
         ...
 
     def with_concurrency(self: _Cls, *, max_inputs: int, target_inputs: typing.Optional[int] = None) -> _Cls:
-        """Create an instance of the Cls with input concurrency enabled or overridden with new values.
+        """Override the static Cls configuration with invocation-specific input concurrency settings.
 
         **Usage:**
 
@@ -394,7 +355,7 @@ class _Cls(modal._object._Object):
         ...
 
     def with_batching(self: _Cls, *, max_batch_size: int, wait_ms: int) -> _Cls:
-        """Create an instance of the Cls with dynamic batching enabled or overridden with new values.
+        """Override the static Cls configuration with invocation-specific dynamic batching settings.
 
         **Usage:**
 
@@ -422,7 +383,7 @@ class Cls(modal.object.Object):
     """
 
     _class_service_function: typing.Optional[modal.functions.Function]
-    _options: _ServiceOptions
+    _options: modal._function_variants._FunctionOptions
     _app: typing.Optional[modal.app.App]
     _name: typing.Optional[str]
     _method_metadata: typing.Optional[dict[str, modal_proto.api_pb2.FunctionHandleMetadata]]
@@ -442,6 +403,11 @@ class Cls(modal.object.Object):
     def _get_name(self) -> str: ...
     def _get_class_service_function(self) -> modal.functions.Function: ...
     def _get_method_names(self) -> collections.abc.Collection[str]: ...
+    def _apply_dynamic_config(
+        self: Cls, new_options: modal._function_variants._FunctionOptions, method_name: str
+    ) -> Cls:
+        """Clone the parent Cls and add updated _FunctionOptions from builder-pattern configuration."""
+        ...
 
     class ___experimental_get_flash_urls_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[list[str]]:
@@ -506,12 +472,13 @@ class Cls(modal.object.Object):
         region: typing.Union[str, typing.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
     ) -> Cls:
-        """Override the static Function configuration at runtime.
+        """Override the static Cls configuration with invocation-specific values.
 
-        This method will return a new instance of the cls that will autoscale independently of the
-        original instance. Note that options cannot be "unset" with this method (i.e., if a GPU
-        is configured in the `@app.cls()` decorator, passing `gpu=None` here will not create a
-        CPU-only instance).
+        This method will return a new variant of the Cls that will autoscale independently of the
+        base configuration.
+
+        Note that options cannot be "unset" with this method (i.e., if a GPU is configured in the
+        `@app.cls()` decorator, passing `gpu=None` here will not create a CPU-only instance).
 
         **Usage:**
 
@@ -536,7 +503,7 @@ class Cls(modal.object.Object):
         ...
 
     def with_concurrency(self: Cls, *, max_inputs: int, target_inputs: typing.Optional[int] = None) -> Cls:
-        """Create an instance of the Cls with input concurrency enabled or overridden with new values.
+        """Override the static Cls configuration with invocation-specific input concurrency settings.
 
         **Usage:**
 
@@ -549,7 +516,7 @@ class Cls(modal.object.Object):
         ...
 
     def with_batching(self: Cls, *, max_batch_size: int, wait_ms: int) -> Cls:
-        """Create an instance of the Cls with dynamic batching enabled or overridden with new values.
+        """Override the static Cls configuration with invocation-specific dynamic batching settings.
 
         **Usage:**
 

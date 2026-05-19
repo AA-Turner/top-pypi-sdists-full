@@ -41,6 +41,17 @@ class LODA(BaseDetector):
     n_random_cuts : int, optional (default = 100)
         The number of random cuts.
 
+    random_state : int, RandomState instance or None, optional (default=None)
+        Controls the random projection matrix and the per-cut feature
+        subset permutation. If int, it is used as the seed. If
+        ``RandomState`` instance, that generator is used and advanced
+        (sklearn convention). If ``None``, randomness follows the
+        library default (numpy module state); two same-input fits may
+        produce different ``decision_scores_``, which is the legacy
+        v3.5.1 behavior. With a fixed seed two ``LODA(random_state=42)``
+        fits on the same X produce bit-identical ``decision_scores_``.
+        Closes #469.
+
     Attributes
     ----------
     decision_scores_ : numpy array of shape (n_samples,)
@@ -61,10 +72,12 @@ class LODA(BaseDetector):
         ``threshold_`` on ``decision_scores_``.
     """
 
-    def __init__(self, contamination=0.1, n_bins=10, n_random_cuts=100):
+    def __init__(self, contamination=0.1, n_bins=10, n_random_cuts=100,
+                 random_state=None):
         super(LODA, self).__init__(contamination=contamination)
         self.n_bins = n_bins
         self.n_random_cuts = n_random_cuts
+        self.random_state = random_state
         self.weights = np.ones(n_random_cuts, dtype=float) / n_random_cuts
 
     def fit(self, X, y=None):
@@ -92,7 +105,13 @@ class LODA(BaseDetector):
         n_nonzero_components = np.sqrt(n_components)
         n_zero_components = n_components - int(n_nonzero_components)
 
-        self.projections_ = np.random.randn(self.n_random_cuts, n_components)
+        # When random_state is set, thread it through both the projection
+        # matrix and the per-cut feature subset permutation so two LODA
+        # fits with the same seed produce bit-identical decision_scores_.
+        # Closes #469 (Results from LODA are not reproducible).
+        from sklearn.utils import check_random_state
+        rng = check_random_state(self.random_state)
+        self.projections_ = rng.randn(self.n_random_cuts, n_components)
 
         # If set to auto: determine optimal n_bins using Birge Rozenblac method
         if isinstance(self.n_bins, str) and self.n_bins.lower() == "auto":
@@ -102,7 +121,7 @@ class LODA(BaseDetector):
             self.n_bins_ = []  # only used when n_bins is determined by method "auto"
 
             for i in range(self.n_random_cuts):
-                rands = np.random.permutation(n_components)[:n_zero_components]
+                rands = rng.permutation(n_components)[:n_zero_components]
                 self.projections_[i, rands] = 0.
                 projected_data = self.projections_[i, :].dot(X.T)
 
@@ -130,7 +149,7 @@ class LODA(BaseDetector):
             self.limits_ = np.zeros((self.n_random_cuts, self.n_bins + 1))
 
             for i in range(self.n_random_cuts):
-                rands = np.random.permutation(n_components)[:n_zero_components]
+                rands = rng.permutation(n_components)[:n_zero_components]
                 self.projections_[i, rands] = 0.
                 projected_data = self.projections_[i, :].dot(X.T)
                 self.histograms_[i, :], self.limits_[i, :] = np.histogram(

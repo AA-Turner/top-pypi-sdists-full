@@ -12,6 +12,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import annotations
+
 import copy
 
 import testtools
@@ -88,6 +90,28 @@ fake_responses = {
             RUNBOOK,
         ),
     },
+    '/v1/runbooks/%s/traits' % RUNBOOK['uuid']:
+    {
+        'GET': (
+            {},
+            {'traits': ['CUSTOM_FOO', 'CUSTOM_BAR']},
+        ),
+        'DELETE': (
+            {},
+            None,
+        ),
+    },
+    '/v1/runbooks/%s/traits/CUSTOM_FOO' % RUNBOOK['uuid']:
+    {
+        'PUT': (
+            {},
+            None,
+        ),
+        'DELETE': (
+            {},
+            None,
+        ),
+    },
 }
 
 fake_responses_pagination = {
@@ -135,13 +159,15 @@ fake_responses_sorting = {
 
 class RunbookManagerTest(testtools.TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
         super(RunbookManagerTest, self).setUp()
         self.api = utils.FakeAPI(fake_responses)
+        # Set API version to support trait operations
+        self.api.os_ironic_api_version = "1.112"
         self.mgr = ironicclient.v1.runbook.RunbookManager(
             self.api)
 
-    def test_runbooks_list(self):
+    def test_runbooks_list(self) -> None:
         runbooks = self.mgr.list()
         expect = [
             ('GET', '/v1/runbooks', {}, None),
@@ -149,7 +175,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(1, len(runbooks))
 
-    def test_runbooks_list_detail(self):
+    def test_runbooks_list_detail(self) -> None:
         runbooks = self.mgr.list(detail=True)
         expect = [
             ('GET', '/v1/runbooks/?detail=True', {}, None),
@@ -157,7 +183,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(1, len(runbooks))
 
-    def test_runbook_list_fields(self):
+    def test_runbook_list_fields(self) -> None:
         runbooks = self.mgr.list(fields=['uuid', 'name'])
         expect = [
             ('GET', '/v1/runbooks/?fields=uuid,name', {}, None),
@@ -165,11 +191,11 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(1, len(runbooks))
 
-    def test_runbook_list_detail_and_fields_fail(self):
+    def test_runbook_list_detail_and_fields_fail(self) -> None:
         self.assertRaises(exc.InvalidAttribute, self.mgr.list,
                           detail=True, fields=['uuid', 'name'])
 
-    def test_runbooks_list_limit(self):
+    def test_runbooks_list_limit(self) -> None:
         self.api = utils.FakeAPI(fake_responses_pagination)
         self.mgr = ironicclient.v1.runbook.RunbookManager(
             self.api)
@@ -180,7 +206,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertThat(runbooks, HasLength(1))
 
-    def test_runbooks_list_marker(self):
+    def test_runbooks_list_marker(self) -> None:
         self.api = utils.FakeAPI(fake_responses_pagination)
         self.mgr = ironicclient.v1.runbook.RunbookManager(
             self.api)
@@ -193,7 +219,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertThat(runbooks, HasLength(1))
 
-    def test_runbooks_list_pagination_no_limit(self):
+    def test_runbooks_list_pagination_no_limit(self) -> None:
         self.api = utils.FakeAPI(fake_responses_pagination)
         self.mgr = ironicclient.v1.runbook.RunbookManager(
             self.api)
@@ -205,7 +231,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertThat(runbooks, HasLength(2))
 
-    def test_runbooks_list_sort_key(self):
+    def test_runbooks_list_sort_key(self) -> None:
         self.api = utils.FakeAPI(fake_responses_sorting)
         self.mgr = ironicclient.v1.runbook.RunbookManager(
             self.api)
@@ -216,7 +242,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(2, len(runbooks))
 
-    def test_runbooks_list_sort_dir(self):
+    def test_runbooks_list_sort_dir(self) -> None:
         self.api = utils.FakeAPI(fake_responses_sorting)
         self.mgr = ironicclient.v1.runbook.RunbookManager(
             self.api)
@@ -227,7 +253,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(2, len(runbooks))
 
-    def test_runbooks_show(self):
+    def test_runbooks_show(self) -> None:
         runbook = self.mgr.get(RUNBOOK['uuid'])
         expect = [
             ('GET', '/v1/runbooks/%s' % RUNBOOK['uuid'], {},
@@ -239,7 +265,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(RUNBOOK['steps'], runbook.steps)
         self.assertEqual(RUNBOOK['extra'], runbook.extra)
 
-    def test_runbook_show_fields(self):
+    def test_runbook_show_fields(self) -> None:
         runbook = self.mgr.get(RUNBOOK['uuid'],
                                fields=['uuid', 'name'])
         expect = [
@@ -250,7 +276,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(RUNBOOK['uuid'], runbook.uuid)
         self.assertEqual(RUNBOOK['name'], runbook.name)
 
-    def test_create(self):
+    def test_create(self) -> None:
         runbook = self.mgr.create(**CREATE_RUNBOOK)
         expect = [
             ('POST', '/v1/runbooks', {}, CREATE_RUNBOOK),
@@ -258,7 +284,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertTrue(runbook)
 
-    def test_create_with_uuid(self):
+    def test_create_with_uuid(self) -> None:
         runbook = self.mgr.create(**CREATE_RUNBOOK_WITH_UUID)
         expect = [
             ('POST', '/v1/runbooks', {},
@@ -267,7 +293,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertTrue(runbook)
 
-    def test_delete(self):
+    def test_delete(self) -> None:
         runbook = self.mgr.delete(
             runbook_id=RUNBOOK['uuid'])
         expect = [
@@ -277,7 +303,7 @@ class RunbookManagerTest(testtools.TestCase):
         self.assertEqual(expect, self.api.calls)
         self.assertIsNone(runbook)
 
-    def test_update(self):
+    def test_update(self) -> None:
         patch = {'op': 'replace',
                  'value': NEW_NAME,
                  'path': '/name'}
@@ -289,3 +315,69 @@ class RunbookManagerTest(testtools.TestCase):
         ]
         self.assertEqual(expect, self.api.calls)
         self.assertEqual(NEW_NAME, runbook.name)
+
+    def test_runbook_get_traits(self) -> None:
+        traits = self.mgr.get_traits(RUNBOOK['uuid'])
+        expect = [
+            ('GET', '/v1/runbooks/%s/traits' % RUNBOOK['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertEqual(['CUSTOM_FOO', 'CUSTOM_BAR'], traits)
+
+    def test_runbook_add_trait(self) -> None:
+        trait = 'CUSTOM_FOO'
+        resp = self.mgr.add_trait(RUNBOOK['uuid'], trait)
+        expect = [
+            ('PUT', '/v1/runbooks/%s/traits/%s' % (RUNBOOK['uuid'], trait),
+                {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertIsNone(resp)
+
+    def test_runbook_remove_all_traits(self) -> None:
+        resp = self.mgr.remove_all_traits(RUNBOOK['uuid'])
+        expect = [
+            ('DELETE', '/v1/runbooks/%s/traits' % RUNBOOK['uuid'], {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertIsNone(resp)
+
+    def test_runbook_remove_trait(self) -> None:
+        trait = 'CUSTOM_FOO'
+        resp = self.mgr.remove_trait(RUNBOOK['uuid'], trait)
+        expect = [
+            ('DELETE', '/v1/runbooks/%s/traits/%s' % (RUNBOOK['uuid'], trait),
+                {}, None),
+        ]
+        self.assertEqual(expect, self.api.calls)
+        self.assertIsNone(resp)
+
+    def test_runbook_get_traits_old_api_version(self) -> None:
+        # Test with API version that doesn't support traits
+        self.api.os_ironic_api_version = "1.111"
+        from ironicclient.common.apiclient.exceptions import UnsupportedVersion
+        self.assertRaises(UnsupportedVersion, self.mgr.get_traits,
+                          RUNBOOK['uuid'])
+
+    def test_runbook_add_trait_old_api_version(self) -> None:
+        # Test with API version that doesn't support traits
+        self.api.os_ironic_api_version = "1.111"
+        trait = 'CUSTOM_FOO'
+        from ironicclient.common.apiclient.exceptions import UnsupportedVersion
+        self.assertRaises(UnsupportedVersion, self.mgr.add_trait,
+                          RUNBOOK['uuid'], trait)
+
+    def test_runbook_remove_trait_old_api_version(self) -> None:
+        # Test with API version that doesn't support traits
+        self.api.os_ironic_api_version = "1.111"
+        trait = 'CUSTOM_FOO'
+        from ironicclient.common.apiclient.exceptions import UnsupportedVersion
+        self.assertRaises(UnsupportedVersion, self.mgr.remove_trait,
+                          RUNBOOK['uuid'], trait)
+
+    def test_runbook_remove_all_traits_old_api_version(self) -> None:
+        # Test with API version that doesn't support traits
+        self.api.os_ironic_api_version = "1.111"
+        from ironicclient.common.apiclient.exceptions import UnsupportedVersion
+        self.assertRaises(UnsupportedVersion, self.mgr.remove_all_traits,
+                          RUNBOOK['uuid'])

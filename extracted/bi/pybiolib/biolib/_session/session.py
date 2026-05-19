@@ -4,10 +4,10 @@ from biolib._internal.utils.auth import exchange_azure_oauth_token_for_biolib_re
 from biolib._internal.utils.experiment import fetch_experiment_by_uri
 from biolib._internal.utils.job_url import parse_result_id_or_url
 from biolib._result.result import Result
+from biolib._shared.types.typing import Optional
 from biolib.api.client import ApiClient, ApiClientInitDict
 from biolib.app import BioLibApp
 from biolib.biolib_errors import BioLibError
-from biolib.typing_utils import Optional
 
 
 class Session:

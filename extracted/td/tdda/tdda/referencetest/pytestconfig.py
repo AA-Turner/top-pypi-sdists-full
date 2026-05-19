@@ -15,6 +15,7 @@ import pytest
 
 from tdda.referencetest import referencepytest
 
+
 def pytest_addoption(parser):
     """
     Extend pytest to include the --write, --write-all regeneration
@@ -29,6 +30,20 @@ def pytest_collection_modifyitems(session, config, items):
     and to report tagged tests if run with --istagged (and -s).
     """
     referencepytest.tagged(config, items)
+
+
+def pytest_runtest_logreport(report):
+    """
+    Accumulate failing test IDs when --log-failures is set.
+    """
+    referencepytest.log_failures_report(report)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """
+    Write failing test IDs to file when --log-failures is set.
+    """
+    referencepytest.log_failures_finish(session.config)
 
 
 @pytest.fixture(scope='module')
@@ -48,4 +63,3 @@ def set_default_data_location(location, kind=None):
     so that it's easy to use from a conftest.py thst imports this file.
     """
     referencepytest.set_default_data_location(location, kind=kind)
-

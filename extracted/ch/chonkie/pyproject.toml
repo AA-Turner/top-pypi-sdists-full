@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chonkie"
-version = "1.6.6"
+version = "1.6.7"
 description = "🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -88,9 +88,7 @@ tokenizers = ["tokenizers>=0.16.0"]
 tiktoken = ["tiktoken>=0.5.0"]
 
 # Optional dependencies for the chunkers
-code = [
-    "tree-sitter-language-pack>=1.8.0",
-]
+code = ["tree-sitter-language-pack>=1.8.0"]
 neural = ["transformers>=4.0.0", "torch>=2.0.0, <3.0"]
 
 # Optional dependencies for the embeddings
@@ -131,33 +129,32 @@ elastic = ["elasticsearch>=8.0.0"]
 milvus = ["pymilvus>=2.1.0"]
 lancedb = ["lancedb>=0.4.0"]
 
+# Optional dependencies for the vision module
+mistral = ["mistralai>=2.4.0"]
+
 # Optional dependencies for the genie
 genie = ["pydantic>=2.0.0", "google-genai>=1.0.0"]
 
-# All dependencies
-all = [
-    "chonkie[hub]",
-    "chonkie[viz]",
-    "chonkie[cli]",
-    "chonkie[api]",
-    "chonkie[table]",
-    "chonkie[tokenizers]",
-    "chonkie[tiktoken]",
+# Group extras
+chunkers = [
     "chonkie[code]",
     "chonkie[neural]",
+    "chonkie[semantic]",
+    "chonkie[teraflopai]",
+]
+embeddings = [
     "chonkie[model2vec]",
     "chonkie[st]",
     "chonkie[openai]",
-    "chonkie[semantic]",
     "chonkie[gemini]",
     "chonkie[azure-openai]",
-    "chonkie[groq]",
-    "chonkie[cerebras]",
     "chonkie[voyageai]",
     "chonkie[cohere]",
     "chonkie[jina]",
     "chonkie[catsu]",
     "chonkie[litellm]",
+]
+handshakes = [
     "chonkie[chroma]",
     "chonkie[qdrant]",
     "chonkie[tpuf]",
@@ -169,9 +166,34 @@ all = [
     "chonkie[elastic]",
     "chonkie[milvus]",
     "chonkie[lancedb]",
-    "chonkie[genie]",
-    "chonkie[teraflopai]",
 ]
+genies = [
+    "chonkie[genie]",
+    "chonkie[openai]",
+    "chonkie[azure-openai]",
+    "chonkie[groq]",
+    "chonkie[cerebras]",
+]
+chefs = [
+    "chonkie[table]",
+    "chonkie[mistral]",
+]
+
+# All dependencies
+all = [
+    "chonkie[hub]",
+    "chonkie[viz]",
+    "chonkie[cli]",
+    "chonkie[api]",
+    "chonkie[tokenizers]",
+    "chonkie[tiktoken]",
+    "chonkie[chunkers]",
+    "chonkie[embeddings]",
+    "chonkie[handshakes]",
+    "chonkie[genies]",
+    "chonkie[chefs]",
+]
+# Dependency group for development
 dev = [
     "chonkie[all]",
     "datasets>=1.14.0",
@@ -192,6 +214,18 @@ dev = [
 
 [dependency-groups]
 dev = ["ruff>=0.13.3"]
+
+# Jupyter notebooks group, accessible via `uv sync --group jupyter`
+# not part of `all` since these dependencies can be quite heavy
+jupyter = [
+    "chonkie[all]",
+    "jupyterlab>=4.5.7",
+    "ipython>=8.0.0",
+    "notebook>=6.0.0",
+    "nbformat>=5.0.0",
+    "nbconvert>=6.0.0",
+    "ipywidgets>=7.0.0",
+]
 
 [tool.pytest.ini_options]
 pythonpath = "src"
@@ -239,14 +273,10 @@ preview = true
 indent-style = "space"
 
 [tool.coverage.run]
-omit = [
-    "*/chonkie/api/migrations/*",
-]
+omit = ["*/chonkie/api/migrations/*"]
 
 [tool.coverage.report]
-omit = [
-    "*/chonkie/api/migrations/*",
-]
+omit = ["*/chonkie/api/migrations/*"]
 
 [tool.mypy]
 disallow_untyped_defs = true

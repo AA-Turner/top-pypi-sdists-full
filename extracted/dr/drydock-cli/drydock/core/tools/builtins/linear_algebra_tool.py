@@ -80,18 +80,11 @@ class LinearAlgebraArgs(BaseModel):
     )
     matrix: str = Field(
         default="",
-        description=(
-            "Primary matrix. Semicolon-separated rows, comma-separated "
-            "entries. Each entry is a sympy expression (numbers / "
-            "symbols / sin / cos / ...). Example: '1, 2; 3, 4' is a 2×2 "
-            "matrix. Symbolic entries OK: 'x, 1; 1, x'."
-        ),
+        description="Matrix, rows ';'-separated, entries ','-separated. E.g. '1,2;3,4'. Symbolic entries OK.",
     )
     matrix2: str = Field(
         default="",
-        description=(
-            "Second matrix for binary ops (multiply, add). Same syntax."
-        ),
+        description="Second matrix for binary ops (multiply, add). Same syntax.",
     )
     vector: str = Field(
         default="",
@@ -369,12 +362,9 @@ class LinearAlgebra(
     ToolUIData[LinearAlgebraArgs, LinearAlgebraResult],
 ):
     description: ClassVar[str] = (
-        "Linear algebra via sympy.Matrix — determinant, inverse, transpose, "
-        "trace, rank, RREF, nullspace, eigenvalues, eigenvectors, matrix "
-        "multiply/add, scalar multiplication, solving Ax = b, matrix powers. "
-        "Matrix syntax: `1,2;3,4` (semicolon between rows, comma between "
-        "entries). Symbolic entries OK: `x,1;1,x`. Max 8×8. Use INSTEAD "
-        "of computing matrix products / eigenvalues by hand."
+        "Linear algebra (sympy.Matrix): determinant, inverse, transpose, "
+        "trace, rank, RREF, nullspace, eigenvalues/vectors, multiply, "
+        "solve Ax=b, powers. Matrix syntax: '1,2;3,4'. Max 8x8."
     )
 
     @classmethod

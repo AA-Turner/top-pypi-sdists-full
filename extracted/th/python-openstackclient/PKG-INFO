@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: python-openstackclient
-Version: 9.0.0
+Version: 10.0.0
 Summary: OpenStack Command-line Client
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://docs.openstack.org/python-openstackclient/
 Project-URL: Repository, https://opendev.org/openstack/python-openstackclient/
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -17,15 +16,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pbr!=2.1.0,>=2.0.0
 Requires-Dist: cryptography>=2.7
 Requires-Dist: cliff>=4.13.0
 Requires-Dist: iso8601>=0.1.11
-Requires-Dist: openstacksdk>=4.6.0
-Requires-Dist: osc-lib>=2.3.0
+Requires-Dist: openstacksdk>=4.12.0
+Requires-Dist: osc-lib>=4.6.0
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: python-keystoneclient>=3.22.0
 Requires-Dist: python-cinderclient>=3.3.0

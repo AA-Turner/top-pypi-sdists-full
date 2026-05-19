@@ -970,26 +970,48 @@ def test_write_auto_sharded_default_warns(tmp_path: Path):
 
 
 @pytest.mark.zarr_io
+@pytest.mark.skipif(
+    Version(version("zarr")) < Version("3.1.4"),
+    reason="autosharding with chosen size was not available",
+)
+def test_write_auto_sharded_size_sparse():
+    path = "memory://check_shards.zarr"
+    z = zarr.open(path)
+    mat = sparse.random(
+        1000, 1000, density=0.5, format="csr", random_state=np.random.default_rng(42)
+    )
+    ad.io.write_elem(z, "two_shards_per_sub_element", mat)
+    # i.e., there are at most two shards since one shard will contain two chunks,
+    # and the other the last elements, since the target size is 1GB uncompressed.
+    for sub_element in ["indices", "data", "indptr"]:
+        assert (
+            z["two_shards_per_sub_element"][sub_element].shape[0]
+            / z["two_shards_per_sub_element"][sub_element].shards[0]
+        ) < 2, sub_element
+
+
+@pytest.mark.zarr_io
 @pytest.mark.skipif(is_zarr_v2(), reason="auto sharding is allowed only for zarr v3.")
 def test_write_auto_sharded_does_not_override(tmp_path: Path):
     z = open_write_group(tmp_path / "arr.zarr", zarr_format=3)
     X = sparse.random(
         100, 100, density=0.1, format="csr", rng=np.random.default_rng(42)
     )
+    ad.settings.reset("auto_shard_zarr_v3")
     with ad.settings.override(auto_shard_zarr_v3=True, zarr_write_format=3):
         ad.io.write_elem(z, "X_default", X)
-        shards_default = z["X_default"]["indices"].shards
-        new_shards = shards_default[0] // 2
-        new_shards = int(new_shards - new_shards % 2)
-        ad.io.write_elem(
-            z,
-            "X_manually_set",
-            X,
-            dataset_kwargs={
-                "shards": (new_shards,),
-                "chunks": (int(new_shards / 2),),
-            },
-        )
+    shards_default = z["X_default"]["indices"].shards
+    new_shards = shards_default[0] // 2
+    new_shards = int(new_shards - new_shards % 2)
+    ad.io.write_elem(
+        z,
+        "X_manually_set",
+        X,
+        dataset_kwargs={
+            "shards": (new_shards,),
+            "chunks": (int(new_shards / 2),),
+        },
+    )
 
     def visitor(key: str, array: zarr.Array):
         assert array.shards == (new_shards,)

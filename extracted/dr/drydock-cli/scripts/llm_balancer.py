@@ -22,6 +22,7 @@ import http.server
 import socket
 import sys
 import threading
+import urllib.error
 import urllib.request
 
 BACKENDS = [
@@ -86,12 +87,34 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                 return
         except _CLIENT_DROP_ERRORS:
             return  # client gave up, no need to failover
+        except urllib.error.HTTPError as http_err:
+            # Backend returned a valid HTTP error (4xx/5xx). Forward the
+            # original response body so drydock can parse the detailed error
+            # message (e.g. "Failed to parse tool call arguments as JSON:
+            # missing closing quote"). Failovering to an identical backend
+            # would return the same error and strips the body, breaking
+            # drydock's bad-tool-call recovery.
+            try:
+                err_body = http_err.read()
+                self.send_response(http_err.code)
+                for key, val in http_err.headers.items():
+                    if key.lower() not in ('transfer-encoding', 'connection'):
+                        self.send_header(key, val)
+                self.end_headers()
+                self.wfile.write(err_body)
+            except _CLIENT_DROP_ERRORS:
+                pass
+            except Exception:
+                _safe_send_error(self, http_err.code, str(http_err))
+            return
         except Exception as e:
             primary_err = e
 
-        # Failover: try the next backend in rotation. (Was hardcoded to
-        # `1 - idx` which only works for 2-backend pools; with 3+ pool
-        # entries that became BACKENDS[-1] = same backend at idx 2 → loop.)
+        # Failover: try the next backend in rotation. Only reached for true
+        # network errors (connection refused, timeout) — not HTTP 4xx/5xx.
+        # (Was hardcoded to `1 - idx` which only works for 2-backend pools;
+        # with 3+ pool entries that became BACKENDS[-1] = same backend at
+        # idx 2 → loop.)
         other = BACKENDS[(idx + 1) % len(BACKENDS)]
         url = f"{other}{self.path}"
         req = urllib.request.Request(url, data=body, method='POST')
@@ -105,6 +128,19 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
                         self.send_header(key, val)
                 self.end_headers()
                 self.wfile.write(data)
+        except urllib.error.HTTPError as http_err2:
+            try:
+                err_body = http_err2.read()
+                self.send_response(http_err2.code)
+                for key, val in http_err2.headers.items():
+                    if key.lower() not in ('transfer-encoding', 'connection'):
+                        self.send_header(key, val)
+                self.end_headers()
+                self.wfile.write(err_body)
+            except _CLIENT_DROP_ERRORS:
+                pass
+            except Exception:
+                _safe_send_error(self, http_err2.code, str(http_err2))
         except _CLIENT_DROP_ERRORS:
             return
         except Exception as e2:

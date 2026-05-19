@@ -8,8 +8,11 @@ use anyhow::Result;
 use assert_fs::prelude::*;
 use flate2::write::GzEncoder;
 use fs_err::File;
+use futures::executor::block_on;
+use futures::io::AllowStdIo;
 use http::StatusCode;
 use indoc::indoc;
+use tokio_util::compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt};
 use url::Url;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -20,6 +23,27 @@ use uv_static::EnvVars;
 use uv_test::{
     DEFAULT_PYTHON_VERSION, TestContext, download_to_disk, packse_index_url, uv_snapshot,
 };
+
+fn write_tar_gz(file: File, entries: &[(&str, &str)]) -> Result<()> {
+    let enc = GzEncoder::new(file, flate2::Compression::default());
+    let mut tar = tokio_tar::Builder::new_non_terminated(AllowStdIo::new(enc).compat_write());
+
+    for (path, contents) in entries {
+        let mut header = tokio_tar::Header::new_gnu();
+        header.set_size(contents.len() as u64);
+        header.set_mode(0o644);
+        header.set_cksum();
+        block_on(tar.append_data(
+            &mut header,
+            path,
+            AllowStdIo::new(Cursor::new(contents)).compat(),
+        ))?;
+    }
+
+    let writer = block_on(tar.into_inner())?;
+    writer.into_inner().into_inner().finish()?;
+    Ok(())
+}
 
 #[test]
 fn compile_requirements_in() -> Result<()> {
@@ -14369,6 +14393,59 @@ fn universal_constrained_environment() -> Result<()> {
     Ok(())
 }
 
+/// Resolve with `--universal`, requiring artifact coverage for user-provided environments.
+#[test]
+fn universal_required_environment() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(&indoc::formatdoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["no-sdist-no-wheels-with-matching-platform-a"]
+
+        [tool.uv]
+        required-environments = ["platform_machine == 'arm64'"]
+
+        [[tool.uv.index]]
+        name = "packse"
+        url = "{}"
+        default = true
+        "#,
+        packse_index_url()
+    })?;
+
+    let filters: Vec<_> = context
+        .filters()
+        .into_iter()
+        .chain([(
+            // This hint is only shown when the current platform doesn't match the target.
+            r"\n\n\s+hint: The resolution failed for an environment that is not the current one[^\n]*",
+            "",
+        )])
+        .collect();
+
+    uv_snapshot!(filters, context.pip_compile()
+        .arg("pyproject.toml")
+        .arg("--universal")
+        .arg("--exclude-newer-package")
+        .arg("no-sdist-no-wheels-with-matching-platform-a=false")
+        .env_remove(EnvVars::UV_EXCLUDE_NEWER), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × No solution found when resolving dependencies for split (markers: platform_machine == 'arm64'):
+      ╰─▶ Because only no-sdist-no-wheels-with-matching-platform-a==1.0.0 is available and no-sdist-no-wheels-with-matching-platform-a==1.0.0 has no `platform_machine == 'arm64'`-compatible wheels, we can conclude that all versions of no-sdist-no-wheels-with-matching-platform-a cannot be used.
+          And because project depends on no-sdist-no-wheels-with-matching-platform-a, we can conclude that your requirements are unsatisfiable.
+    ");
+
+    Ok(())
+}
+
 /// Resolve a package that has no versions that satisfy the current Python version.
 #[test]
 fn compile_enumerate_no_versions() -> Result<()> {
@@ -15391,20 +15468,13 @@ fn dynamic_version_source_dist() -> Result<()> {
     // Flush the file after we're done.
     {
         let file = File::create(source_dist.path())?;
-        let enc = GzEncoder::new(file, flate2::Compression::default());
-        let mut tar = tar::Builder::new(enc);
-
-        for (path, contents) in [
-            ("foo-1.2.3/pyproject.toml", pyproject_toml),
-            ("foo-1.2.3/setup.py", setup_py),
-        ] {
-            let mut header = tar::Header::new_gnu();
-            header.set_size(contents.len() as u64);
-            header.set_mode(0o644);
-            header.set_cksum();
-            tar.append_data(&mut header, path, Cursor::new(contents))?;
-        }
-        tar.finish()?;
+        write_tar_gz(
+            file,
+            &[
+                ("foo-1.2.3/pyproject.toml", pyproject_toml),
+                ("foo-1.2.3/setup.py", setup_py),
+            ],
+        )?;
     }
 
     let requirements_in = context.temp_dir.child("requirements.in");

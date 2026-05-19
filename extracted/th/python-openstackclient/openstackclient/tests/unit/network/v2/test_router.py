@@ -711,17 +711,14 @@ class TestListRouter(TestRouter):
         'Distributed',
         'HA',
     )
-    columns_long = columns + (
+    columns_long = (
+        *columns,
         'Routes',
         'External gateway info',
         'Availability zones',
         'Tags',
     )
-    columns_long_no_az = columns + (
-        'Routes',
-        'External gateway info',
-        'Tags',
-    )
+    columns_long_no_az = (*columns, 'Routes', 'External gateway info', 'Tags')
 
     data = []
     for r in routers:
@@ -824,7 +821,7 @@ class TestListRouter(TestRouter):
         with mock.patch.object(
             self.network_client, "routers", return_value=_routers
         ):
-            columns, data = self.cmd.take_action(parsed_args)
+            columns, _data = self.cmd.take_action(parsed_args)
 
         self.assertNotIn("is_distributed", columns)
         self.assertNotIn("is_ha", columns)
@@ -1900,7 +1897,7 @@ class TestShowRouter(TestRouter):
         with mock.patch.object(
             self.network_client, "find_router", return_value=_router
         ):
-            columns, data = self.cmd.take_action(parsed_args)
+            columns, _data = self.cmd.take_action(parsed_args)
 
         self.assertNotIn("is_distributed", columns)
         self.assertNotIn("is_ha", columns)
@@ -1922,7 +1919,9 @@ class TestShowRouter(TestRouter):
             columns, data = self.cmd.take_action(parsed_args)
 
         self.assertIn("routes", columns)
-        self.assertIsNone(list(data)[columns.index('routes')].human_readable())
+        self.assertEqual(
+            list(data)[columns.index('routes')].human_readable(), ''
+        )
 
 
 class TestUnsetRouter(TestRouter):

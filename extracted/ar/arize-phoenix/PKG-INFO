@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 15.10.0
+Version: 15.10.1
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -48,7 +48,7 @@ Requires-Dist: pandas>=1.0
 Requires-Dist: prometheus-client
 Requires-Dist: psutil
 Requires-Dist: pyarrow
-Requires-Dist: pydantic-ai-slim[anthropic,bedrock,google,mcp,openai,ui]>=1.87.0
+Requires-Dist: pydantic-ai-slim[anthropic,bedrock,google,mcp,openai,ui]>=1.95.0
 Requires-Dist: pydantic>=2.1.0
 Requires-Dist: pystache
 Requires-Dist: python-dateutil

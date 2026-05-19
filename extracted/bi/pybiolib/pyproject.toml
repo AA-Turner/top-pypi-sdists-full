@@ -1,6 +1,6 @@
 [project]
 name = "pybiolib"
-version = "1.3.521"
+version = "1.4.2"
 description = "BioLib Python Client"
 readme = "PYPI_README.md"
 license = "MIT"
@@ -30,11 +30,6 @@ sdk = [
     "pyyaml>=5.3.1",
     "rich>=12.4.4",
 ]
-compute-node = [
-    "docker>=5.0.3",
-    "flask>=2.0.1",
-    "gunicorn>=20.1.0",
-]
 
 [dependency-groups]
 dev = [
@@ -46,7 +41,6 @@ dev = [
     "pytest==8.0.2; python_version >= '3.9'",
     "pytest-timeout==2.2.0; python_version >= '3.9'",
     "setuptools==69.1.1; python_version >= '3.9'",
-    "types-flask==1.1.6; python_version >= '3.9'",
     "types-PyYAML==6.0.12.12; python_version >= '3.9'",
     "types-docker==7.1.0.20250705; python_version >= '3.9'",
 ]

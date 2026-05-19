@@ -5,6 +5,7 @@ from datamodel.parsers.json import json_encoder, json_decoder  # pylint: disable
 from navigator.views import BaseHandler
 from navigator_auth.conf import exclude_list
 from parrot.bots import AbstractBot
+from parrot.models.responses import AIMessage
 
 
 class StreamHandler(BaseHandler):
@@ -66,13 +67,19 @@ class StreamHandler(BaseHandler):
         )
         await response.prepare(request)
         try:
+            ai_message = None
             async for chunk in bot.ask_stream(prompt, **ask_kwargs):
-                # Format as SSE
+                if isinstance(chunk, AIMessage):
+                    ai_message = chunk
+                    continue
                 sse_data = f"data: {json_encoder({'content': chunk})}\n\n"
                 await response.write(sse_data.encode('utf-8'))
                 await response.drain()
 
-            # Send completion event
+            if ai_message is not None:
+                meta_event = f"data: {json_encoder({'type': 'ai_message', 'data': ai_message.to_dict()})}\n\n"
+                await response.write(meta_event.encode('utf-8'))
+                await response.drain()
             await response.write(b"data: [DONE]\n\n")
             await response.drain()
         except asyncio.CancelledError as e:
@@ -107,8 +114,11 @@ class StreamHandler(BaseHandler):
         )
         await response.prepare(request)
         try:
+            ai_message = None
             async for chunk in bot.ask_stream(prompt, **ask_kwargs):
-                # Each line is a complete JSON object
+                if isinstance(chunk, AIMessage):
+                    ai_message = chunk
+                    continue
                 line = json_encoder({
                     'type': 'content',
                     'data': chunk,
@@ -117,7 +127,13 @@ class StreamHandler(BaseHandler):
                 await response.write(line.encode('utf-8'))
                 await response.drain()
 
-            # Send completion line
+            if ai_message is not None:
+                meta_line = json_encoder({
+                    'type': 'ai_message',
+                    'data': ai_message.to_dict(),
+                }) + '\n'
+                await response.write(meta_line.encode('utf-8'))
+                await response.drain()
             await response.write(
                 json_encoder({'done': True}).encode('utf-8') + b'\n'
             )
@@ -154,12 +170,20 @@ class StreamHandler(BaseHandler):
         )
         await response.prepare(request)
         try:
+            ai_message = None
             async for chunk in bot.ask_stream(prompt, **ask_kwargs):
+                if isinstance(chunk, AIMessage):
+                    ai_message = chunk
+                    continue
                 await response.write(chunk.encode('utf-8'))
                 await response.drain()
 
-            # Indicate end of stream
-            await response.write_eof()
+            if ai_message is not None:
+                separator = b'\n\x00'
+                await response.write(
+                    separator + json_encoder(ai_message.to_dict()).encode('utf-8')
+                )
+                await response.drain()
         except asyncio.CancelledError as e:
             raise web.HTTPInternalServerError(
                 reason="Client disconnected during streaming."
@@ -175,49 +199,32 @@ class StreamHandler(BaseHandler):
         WebSocket endpoint for bidirectional streaming
         Best for: Real-time bidirectional communication, chat applications
         """
-        ws = web.WebSocketResponse(
-            heartbeat=30.0,  # Send ping every 30s
-            max_msg_size=10 * 1024 * 1024  # 10MB max message size
-        )
-        # Extract and validate JWT from Sec-WebSocket-Protocol
+        # Extract and validate JWT from Sec-WebSocket-Protocol BEFORE preparing
+        # the WS handshake — once prepare() runs we can no longer return 401.
         # Client sends: new WebSocket(url, ["jwt", token])
         # Header received: Sec-WebSocket-Protocol: jwt, <token>
         protocol_header = request.headers.get('Sec-WebSocket-Protocol')
-        selected_protocol = None
+        ws_protocols: tuple = ()
 
         if protocol_header:
-            parts = [p.strip() for p in protocol_header.split(',')]
+            parts = [p.strip() for p in protocol_header.split(',') if p.strip()]
             if 'jwt' in parts:
-                # Find the token (assuming it's the other part)
-                # This is a bit naive if there are other protocols, but fits the requirement
-                try:
-                    token_idx = parts.index('jwt') + 1
-                    # If 'jwt' is the last item, try look elsewhere or it might be (token, jwt) order?
-                    # Browsers usually send in order requested.
-                    # Actually, if we send ["jwt", "token"], header is "jwt, token"
-                    # But we need to identify WHICH one is the token.
-                    # Heuristic: The token is the long string that isn't 'jwt'.
-                    # Or simpler: remove 'jwt' and take the first remaining non-empty string.
-                    parts.remove('jwt')
-                    if parts:
-                        token = parts[0]
-                        if await self._validate_token(token):
-                            # Auth success
-                            # We MUST return the selected protocol in the response
-                            # to the client, otherwise the WS connection fails.
-                            # Usually we echo 'jwt' or the protocol used.
-                            selected_protocol = 'jwt'
-                        else:
-                            raise web.HTTPUnauthorized(reason="Invalid Token")
-                    else:
-                        raise web.HTTPUnauthorized(reason="Missing Token")
-                except (ValueError, IndexError):
-                    raise web.HTTPUnauthorized(reason="Invalid Protocol Format")
+                parts.remove('jwt')
+                if not parts:
+                    raise web.HTTPUnauthorized(reason="Missing Token")
+                token = parts[0]
+                if not await self._validate_token(request, token):
+                    raise web.HTTPUnauthorized(reason="Invalid or expired Token")
+                # Advertise 'jwt' as the supported subprotocol; aiohttp will
+                # echo it back to the client during the handshake.
+                ws_protocols = ('jwt',)
 
-        if selected_protocol:
-            await ws.prepare(request, protocols=[selected_protocol])
-        else:
-            await ws.prepare(request)
+        ws = web.WebSocketResponse(
+            heartbeat=30.0,  # Send ping every 30s
+            max_msg_size=10 * 1024 * 1024,  # 10MB max message size
+            protocols=ws_protocols,
+        )
+        await ws.prepare(request)
 
         self.active_connections.add(ws)
         bot = await self._get_bot(request)
@@ -234,7 +241,7 @@ class StreamHandler(BaseHandler):
                     # Handle incoming messages
                     try:
                         data = json_decoder(msg.data)
-                        await self._handle_message(ws, data, bot)
+                        await self._handle_message(ws, data, bot, request)
                     except Exception:
                         await ws.send_json({
                             'type': 'error',
@@ -251,25 +258,51 @@ class StreamHandler(BaseHandler):
             ) from e
         return ws
 
-    async def _validate_token(self, token: str) -> bool:
-        """Validate the provided token using the app's auth system."""
+    async def _validate_token(self, request: web.Request, token: str) -> bool:
+        """Validate a JWT against the navigator-auth handler bound to the app.
+
+        navigator_auth.AuthHandler registers itself on the aiohttp application
+        as ``app[<app_name>]`` (default ``"auth"``). We resolve that handler
+        and call its IdP's ``decode_token`` — which raises on invalid/expired
+        tokens and returns ``(tenant, payload)`` on success.
+        """
         if not token:
             return False
-        # auth_manager = self.app.get('auth_manager')
-        # if not auth_manager:
-        #     return False
-        # is_valid = await auth_manager.validate_token(token)
-        # return is_valid
-        return True  # Temporarily allow all tokens for testing
+        auth = request.app.get('auth')
+        if auth is None:
+            self.logger.warning(
+                "navigator-auth is not registered on this app — "
+                "cannot validate WebSocket token."
+            )
+            return False
+        idp = getattr(auth, '_idp', None)
+        if idp is None or not hasattr(idp, 'decode_token'):
+            self.logger.warning(
+                "navigator-auth IdP missing decode_token — "
+                "cannot validate WebSocket token."
+            )
+            return False
+        try:
+            _, payload = idp.decode_token(code=token)
+        except Exception as exc:
+            self.logger.warning("WebSocket token validation failed: %s", exc)
+            return False
+        return bool(payload)
 
-    async def _handle_message(self, ws: web.WebSocketResponse, data: dict, bot: AbstractBot):
+    async def _handle_message(
+        self,
+        ws: web.WebSocketResponse,
+        data: dict,
+        bot: AbstractBot,
+        request: web.Request,
+    ):
         """Handle incoming WebSocket messages"""
         msg_type = data.get('type')
         if msg_type == 'auth':
             auth_header = data.get('authorization', '')
             token = auth_header.replace('Bearer ', '') if auth_header.startswith('Bearer ') else None
 
-            if await self._validate_token(token):
+            if await self._validate_token(request, token):
                 ws._authenticated = True
                 await ws.send_json({'type': 'auth_success', 'message': 'Authentication successful'})
             else:
@@ -286,14 +319,18 @@ class StreamHandler(BaseHandler):
             })
 
             try:
-                # Stream the LLM response
                 async for chunk in bot.ask_stream(prompt, **ask_kwargs):
+                    if isinstance(chunk, AIMessage):
+                        await ws.send_json({
+                            'type': 'ai_message',
+                            'data': chunk.to_dict()
+                        })
+                        continue
                     await ws.send_json({
                         'type': 'content',
                         'data': chunk
                     })
 
-                # Send completion
                 await ws.send_json({
                     'type': 'stream_complete'
                 })

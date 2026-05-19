@@ -10,7 +10,7 @@ from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from itertools import combinations
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, TypeGuard
+from typing import TYPE_CHECKING, Any, TypeGuard, cast
 
 from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
@@ -39,6 +39,8 @@ from schemathesis.transport.serialization import quote_all
 if TYPE_CHECKING:
     from schemathesis.config import GenerationConfig
     from schemathesis.core.error_feedback import ErrorFeedbackStore
+    from schemathesis.core.parameters import ContainerName
+    from schemathesis.core.transport import HttpMethod
     from schemathesis.resources import ExtraDataSource, PoolDraw
     from schemathesis.schemas import APIOperation, ParameterSet
     from schemathesis.specs.openapi.adapter.parameters import OpenApiBody
@@ -153,11 +155,14 @@ def _stringify_value(val: Any, container_name: str) -> Any:
         return str(val)
     if isinstance(val, list):
         if container_name == "query":
-            # Having a list here ensures there will be multiple query parameters wit the same name
+            # Having a list here ensures there will be multiple query parameters with the same name
             return [_stringify_value(item, container_name) for item in val]
         # use comma-separated values style for arrays
         return ",".join(str(_stringify_value(sub, container_name)) for sub in val)
     if isinstance(val, dict):
+        # Headers/cookies/query are typically all-string dicts; skip the per-value recursion.
+        if all(type(v) is str for v in val.values()):
+            return dict(val)
         return {key: _stringify_value(sub, container_name) for key, sub in val.items()}
     return val
 
@@ -424,7 +429,7 @@ def iter_coverage_cases(
         raw_containers: dict[ParameterLocation, Any] = {
             location: value
             for name, value in raw.items()
-            if (location := CONTAINER_TO_LOCATION.get(name)) is not None
+            if (location := CONTAINER_TO_LOCATION.get(cast("ContainerName", name))) is not None
             and location in components
             and location != ParameterLocation.BODY
         }
@@ -853,7 +858,7 @@ def iter_coverage_cases(
             data = template.unmodified()
             yield operation.Case(
                 **data.kwargs,
-                method=method.upper(),
+                method=cast("HttpMethod", method.upper()),
                 _meta=_build_meta(
                     generation=GenerationInfo(time=instant.elapsed, mode=GenerationMode.NEGATIVE),
                     components=data.components,

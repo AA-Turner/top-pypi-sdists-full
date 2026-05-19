@@ -388,6 +388,7 @@ class PrefectCollector(PlusLogCollector):
         markdown_lines.append("")
 
         # Add counter details using shared formatting
+        total_items = 0
         for counter_key, count in self.counters.items():
             info = self.counter_info.get(counter_key)
             if info:
@@ -395,6 +396,12 @@ class PrefectCollector(PlusLogCollector):
                 markdown_lines.append(
                     self._counter_to_markdown_line(counter_key, count, info, current_time)
                 )
+
+                if counter_key not in ("Files", "Items", "Resources", "Jobs"):
+                    total_items += count
+
+        if total_items > 0:
+            markdown_lines.append(f"- **Items**: {total_items:,}")
 
         # Add system stats if enabled
         if self.dump_system_stats:

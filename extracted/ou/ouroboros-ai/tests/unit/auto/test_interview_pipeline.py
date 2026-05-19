@@ -967,6 +967,49 @@ def test_seed_repairer_assigns_new_seed_identity_after_mutation() -> None:
     assert result.seed.metadata.parent_seed_id == seed.metadata.seed_id
 
 
+def test_seed_repairer_repairs_goal_mismatch_from_ledger() -> None:
+    ledger_goal = (
+        "Create hello_auto.py at the repository root and verify hello_auto() returns "
+        "the expected string with pytest"
+    )
+    ledger = SeedDraftLedger.from_goal(ledger_goal)
+    _fill_ready(ledger)
+    seed = _seed(
+        ac=("The targeted pytest test asserts hello_auto() returns the expected string and passes",)
+    ).model_copy(update={"goal": "Create a minimal proof file"})
+    review = SeedReviewer().review(seed, ledger=ledger)
+
+    result = SeedRepairer().repair_once(seed, review, ledger=ledger)
+
+    assert result.changed
+    assert result.blocker is None
+    assert result.seed.goal == ledger_goal
+    assert result.seed.metadata.seed_id != seed.metadata.seed_id
+    assert result.seed.metadata.parent_seed_id == seed.metadata.seed_id
+
+
+def test_seed_repairer_converges_after_repairable_goal_mismatch() -> None:
+    ledger_goal = (
+        "Create hello_auto.py at the repository root and verify hello_auto() returns "
+        "the expected string with pytest"
+    )
+    ledger = SeedDraftLedger.from_goal(ledger_goal)
+    _fill_ready(ledger)
+    seed = _seed(
+        ac=("The targeted pytest test asserts hello_auto() returns the expected string and passes",)
+    ).model_copy(update={"goal": "Create a minimal proof file"})
+
+    repaired, final_review, history = SeedRepairer(max_iterations=2).converge(
+        seed,
+        ledger=ledger,
+    )
+
+    assert len(history) == 1
+    assert repaired.goal == ledger_goal
+    assert final_review.grade_result.grade == SeedGrade.A
+    assert final_review.may_run
+
+
 def test_seed_repairer_non_goals_do_not_contradict_goal_scope() -> None:
     seed = _seed()
     ledger = SeedDraftLedger.from_goal("Add authentication and deploy this service to production")
@@ -1115,6 +1158,50 @@ async def test_pipeline_uses_explicit_goal_facts_before_completed_interview(tmp_
     assert state.seed_path == saved[0]
     assert state.last_grade == "A"
     assert state.job_id is None
+
+
+@pytest.mark.asyncio
+async def test_pipeline_syncs_state_seed_id_after_repair_changes_identity(tmp_path) -> None:
+    async def start(goal: str, cwd: str) -> InterviewTurn:  # noqa: ARG001
+        return InterviewTurn("done", "interview_repair", seed_ready=True, completed=True)
+
+    async def answer(session_id: str, text: str) -> InterviewTurn:  # noqa: ARG001
+        raise AssertionError("completed interview should not need another answer")
+
+    async def generate_seed(session_id: str) -> Seed:  # noqa: ARG001
+        return _seed(ac=("Make it nice",))
+
+    saved: list[str] = []
+
+    def save(seed: Seed) -> str:
+        path = str(tmp_path / f"{seed.metadata.seed_id}.yaml")
+        saved.append(path)
+        return path
+
+    state = AutoPipelineState(goal="Build a CLI", cwd=str(tmp_path))
+    ledger = SeedDraftLedger.from_goal(state.goal)
+    _fill_ready(ledger)
+    state.ledger = ledger.to_dict()
+    state.skip_run = True
+    driver = AutoInterviewDriver(
+        FunctionInterviewBackend(start, answer), store=AutoStore(tmp_path), max_rounds=1
+    )
+    pipeline = AutoPipeline(
+        driver,
+        generate_seed,
+        store=AutoStore(tmp_path),
+        seed_saver=save,
+        skip_run=True,
+    )
+
+    result = await pipeline.run(state)
+
+    repaired = Seed.from_dict(state.seed_artifact)
+    assert result.status == "complete"
+    assert state.seed_id == repaired.metadata.seed_id
+    assert saved == [str(tmp_path / f"{repaired.metadata.seed_id}.yaml")]
+    assert state.seed_path == saved[0]
+    assert repaired.metadata.parent_seed_id is not None
 
 
 @pytest.mark.asyncio
@@ -2570,6 +2657,7 @@ async def test_pipeline_grade_gate_resume_prefers_repaired_seed_path(tmp_path) -
     assert result.status == "complete"
     assert result.grade == "A"
     assert state.seed_artifact == repaired_seed.to_dict()
+    assert state.seed_id == repaired_seed.metadata.seed_id
 
 
 @pytest.mark.asyncio
@@ -2651,6 +2739,51 @@ async def test_interview_driver_accepts_initial_completed_turn_without_answering
 
 
 @pytest.mark.asyncio
+async def test_interview_driver_supplies_last_question_for_seed_ready_gap_reopen(tmp_path) -> None:
+    """A backend-completed interview can be reopened by a driver gap probe.
+
+    The MCP interview handler rejects answers against an already-answered
+    seed-ready transcript unless the caller supplies the fresh probe text as
+    ``last_question``. Pin the auto-driver contract so `ooo auto` can fill a
+    remaining ledger gap after backend completion instead of blocking before
+    Seed generation.
+    """
+
+    observed_last_questions: list[str | None] = []
+
+    async def start(goal: str, cwd: str) -> InterviewTurn:  # noqa: ARG001
+        return InterviewTurn("already complete", "interview_done", seed_ready=True, completed=True)
+
+    async def answer(
+        session_id: str, text: str, *, last_question: str | None = None
+    ) -> InterviewTurn:  # noqa: ARG001
+        observed_last_questions.append(last_question)
+        if not last_question:
+            raise RuntimeError("missing last_question for reopened seed-ready interview")
+        return InterviewTurn("done", session_id, seed_ready=True, completed=True)
+
+    state = AutoPipelineState(goal="Build a CLI", cwd=str(tmp_path))
+    ledger = SeedDraftLedger.from_goal(state.goal)
+    _fill_ready(ledger)
+    ledger.sections["non_goals"].entries.clear()
+    assert ledger.open_gaps() == ["non_goals"]
+
+    driver = AutoInterviewDriver(
+        FunctionInterviewBackend(start, answer),
+        store=AutoStore(tmp_path),
+        max_rounds=2,
+    )
+
+    result = await driver.run(state, ledger)
+
+    assert result.status == "seed_ready"
+    assert observed_last_questions == [
+        "[driver gap-reopen 'non_goals': backend_completed=True ledger_done=False]"
+    ]
+    assert ledger.is_seed_ready()
+
+
+@pytest.mark.asyncio
 async def test_interview_driver_does_not_replace_specific_verification_answer_with_gap_prompt(
     tmp_path,
 ) -> None:
@@ -2717,6 +2850,7 @@ async def test_pipeline_recovers_seed_loader_failure_from_review(tmp_path) -> No
     assert result.status == "complete"
     assert result.grade == "A"
     assert state.seed_artifact == repaired_seed.to_dict()
+    assert state.seed_id == repaired_seed.metadata.seed_id
 
 
 @pytest.mark.asyncio
@@ -3637,3 +3771,43 @@ async def test_convergence_contract_stalled_generic_followups_report_actionable_
     open_gaps = ledger.open_gaps()
     assert open_gaps, "stalled generic loop must leave at least one open required gap"
     assert any(section in blocker for section in open_gaps)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_normalizes_persisted_seed_artifact_on_resume(tmp_path) -> None:
+    async def start(goal: str, cwd: str) -> InterviewTurn:  # noqa: ARG001
+        raise AssertionError("resume with seed_artifact should not interview")
+
+    async def answer(session_id: str, text: str) -> InterviewTurn:  # noqa: ARG001
+        raise AssertionError("resume with seed_artifact should not answer")
+
+    async def generate_seed(session_id: str) -> Seed:  # noqa: ARG001
+        raise AssertionError("resume with seed_artifact should not generate")
+
+    seed = _seed(
+        ac=(
+            "`hello_auto.py` exists.",
+            "`tests/test_hello_auto.py` exists.",
+            "Final report includes auto session id, seed id, seed path, and test result.",
+            "CLI exits 2 on invalid flags.",
+        )
+    ).model_copy(update={"goal": "Verify current ooo auto can create hello_auto.py."})
+    state = AutoPipelineState(goal="Build a CLI", cwd=str(tmp_path))
+    state.transition(AutoPhase.INTERVIEW, "interview")
+    state.transition(AutoPhase.SEED_GENERATION, "seed generated")
+    state.transition(AutoPhase.REVIEW, "resume review")
+    state.seed_artifact = seed.to_dict()
+    state.seed_id = seed.metadata.seed_id
+    ledger = SeedDraftLedger.from_goal(state.goal)
+    _fill_ready(ledger)
+    state.ledger = ledger.to_dict()
+    driver = AutoInterviewDriver(FunctionInterviewBackend(start, answer), store=AutoStore(tmp_path))
+    pipeline = AutoPipeline(driver, generate_seed, store=AutoStore(tmp_path), skip_run=True)
+
+    result = await pipeline.run(state)
+
+    assert result.status == "complete"
+    resumed_seed = Seed.from_dict(state.seed_artifact)
+    criteria_text = "\n".join(resumed_seed.acceptance_criteria)
+    assert "Final report includes auto session id" not in criteria_text
+    assert "CLI exits 2 on invalid flags" in criteria_text

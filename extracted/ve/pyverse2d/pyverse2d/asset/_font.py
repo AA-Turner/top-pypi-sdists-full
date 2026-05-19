@@ -11,7 +11,7 @@ import os
 import sys
 import winreg
 import importlib.resources as resources
-from numbers import Real, Integral
+from numbers import Real
 from dataclasses import dataclass
 
 # ======================================== ASSET ========================================
@@ -27,17 +27,17 @@ class Font(Asset):
         "_glyph_cache", "_pyglet_font",
     )
 
-    def __init__(self, name: str = None, size: Integral = 16):
+    def __init__(self, name: str = None, size: Real = 16):
         # Transtypage et vérifications
         name = str(name) if name is not None else None
-        size = int(size)
+        size = float(size)
 
         if __debug__:
             over(size, 0, include=False)
 
         # Attributs publiques
         self._name: str = name
-        self._size: int = size
+        self._size: float = size
 
         # Attributs internes
         self._glyph_cache: dict[str, Glyph] = {}

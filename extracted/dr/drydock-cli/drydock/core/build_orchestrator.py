@@ -545,8 +545,13 @@ async def run_build_pipeline(
     _fix_circular_imports(plan, base_dir)
 
     # Phase 3.75: Verify the package actually imports — fix errors iteratively
-    logger.info("BUILD PHASE 3.75: Verify & fix...")
-    _verify_and_fix_imports(plan, base_dir)
+    # NOTE: _verify_and_fix_imports() was referenced but never defined in
+    # this module. build_orchestrator is currently dead code (not imported
+    # anywhere; the model drives builds directly per CLAUDE.md). Commenting
+    # the call so a future revival doesn't crash on NameError; implement
+    # the function before re-enabling.
+    logger.info("BUILD PHASE 3.75: Verify & fix... [SKIPPED — _verify_and_fix_imports not implemented]")
+    # _verify_and_fix_imports(plan, base_dir)
 
     # Build summary
     succeeded = sum(1 for _, ok in results if ok)

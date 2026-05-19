@@ -50,7 +50,13 @@ def _collect_column_metrics_as_table(
     for column_name, metric_defs in metrics_per_column.items():
         column_metrics_exprs = {}
         for metric_def in metric_defs:
-            column_metrics_exprs[metric_def.name] = metric_def.expr(table[column_name])
+            metric_expr = metric_def.expr(table[column_name])
+            # NOTE some engines (e.g. duckdb) report aggregate outputs as nullable,
+            # while ibis can infer non-nullability from non-nullable input columns.
+            # This can make pyarrow fail when casting execution results to ibis-inferred schema.
+            column_metrics_exprs[metric_def.name] = metric_expr.cast(
+                metric_expr.type().copy(nullable=True)
+            )
 
         columns_metrics_exprs[column_name] = ibis.struct(column_metrics_exprs)
 
@@ -64,7 +70,12 @@ def _collect_table_metrics_as_table(
     *,
     table_metrics: Sequence[TableMetricDefinition],
 ) -> ir.Table:
-    table_metrics_exprs = {metric_def.name: metric_def.expr(table) for metric_def in table_metrics}
+    table_metrics_exprs = {}
+    for metric_def in table_metrics:
+        metric_expr = metric_def.expr(table)
+        table_metrics_exprs[metric_def.name] = metric_expr.cast(
+            metric_expr.type().copy(nullable=True)
+        )
     return table.aggregate(**table_metrics_exprs)
 
 

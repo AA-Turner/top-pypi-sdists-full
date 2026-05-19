@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: oslo.metrics
-Version: 0.15.1
+Version: 0.16.0
 Summary: Oslo Metrics library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://docs.openstack.org/oslo.metrics
 Project-URL: Repository, https://opendev.org/openstack/oslo.metrics
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

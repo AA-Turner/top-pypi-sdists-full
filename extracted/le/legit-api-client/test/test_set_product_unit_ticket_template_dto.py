@@ -35,11 +35,13 @@ class TestSetProductUnitTicketTemplateDto(unittest.TestCase):
         model = SetProductUnitTicketTemplateDto()
         if include_optional:
             return SetProductUnitTicketTemplateDto(
-                product_unit_name = '',
-                template_name = ''
+                product_unit_name = '0',
+                template_name = '0'
             )
         else:
             return SetProductUnitTicketTemplateDto(
+                product_unit_name = '0',
+                template_name = '0',
         )
         """
 

@@ -24,11 +24,12 @@ from typing import (
 import typing_extensions
 from google.protobuf.message import Message
 from grpclib.exceptions import StreamTerminatedError
-from typing_extensions import Self
+from typing_extensions import Concatenate, Self
 
 from modal._serialization import serialize_data_format
 from modal_proto import api_pb2
 
+from ._environments import _get_environment_cached
 from ._load_context import LoadContext
 from ._object import _Object, live_method_gen
 from ._resolver import Resolver
@@ -44,7 +45,6 @@ from ._utils.mount_utils import validate_only_modal_volumes, validate_volumes_by
 from .client import _Client
 from .cloud_bucket_mount import _CloudBucketMount
 from .config import config, logger, user_config_path
-from .environments import _get_environment_cached
 from .exception import (
     ExecutionError,
     InternalError,
@@ -59,7 +59,7 @@ from .mount import _Mount, python_standalone_mount_name
 from .network_file_system import _NetworkFileSystem
 from .output import OutputManager
 from .secret import _Secret
-from .volume import _Volume
+from .volume import _Volume, _volume_to_mount_proto
 
 if typing.TYPE_CHECKING:
     import modal._functions
@@ -100,6 +100,8 @@ Use {replacement} instead, which is functionally and performance-wise equivalent
 
 See https://modal.com/docs/guide/modal-1-0-migration for more details.
 """
+
+P = typing_extensions.ParamSpec("P")
 
 
 def _validate_python_version(
@@ -629,15 +631,7 @@ class _Image(_Object, type_prefix="im"):
             validate_volumes_by_object_id(validated_volumes)
 
             # Relies on dicts being ordered (true as of Python 3.6).
-            volume_mounts = [
-                api_pb2.VolumeMount(
-                    mount_path=path,
-                    volume_id=volume.object_id,
-                    allow_background_commits=True,
-                    read_only=volume._read_only,
-                )
-                for path, volume in validated_volumes
-            ]
+            volume_mounts = [_volume_to_mount_proto(path, volume) for path, volume in validated_volumes]
 
             image_definition = api_pb2.Image(
                 base_images=base_images_pb2s,
@@ -2479,6 +2473,32 @@ class _Image(_Object, type_prefix="im"):
         dockerfile_cmd = f"CMD [{cmd_str}]"
 
         return self.dockerfile_commands(dockerfile_cmd)
+
+    def pipe(
+        self,
+        func: Callable[Concatenate["_Image", P], "_Image"],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> "_Image":
+        """Apply a local function to expand the Image recipe.
+
+        This method can be useful for defining reusable Image build
+        recipes that compose well with the fluent Image builder interface.
+
+        **Example**
+
+        ```python
+        def workspace_setup(image: modal.Image, repo: str) -> modal.Image:
+            return image.run_commands(f"git clone {repo}").uv_pip_install(".")
+
+        image = (
+            modal.Image.debian_slim()
+            .apt_install("git")
+            .pipe(workspace_setup, "https://github.com/example/repo.git")
+        )
+        ```
+        """
+        return func(self, *args, **kwargs)
 
     # Live handle methods
 

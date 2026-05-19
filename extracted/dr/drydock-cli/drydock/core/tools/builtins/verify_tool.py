@@ -67,27 +67,17 @@ VerifyMode = Literal[
 
 class VerifyArgs(BaseModel):
     criterion: str = Field(
-        description=(
-            "Plain-English description of what 'success' means here. "
-            "Recorded in the result so the operator can grep for verified "
-            "claims later. Examples: 'all tests pass', 'no flake8 "
-            "warnings', 'README contains the new section'."
-        )
+        description="Plain-English description of success (recorded in result)."
     )
     command: str = Field(
         default="",
-        description=(
-            "Shell command to run. Required for contains / not_contains / "
-            "regex / equals / exit_code modes. Ignored for file_* modes."
-        ),
+        description="Shell command. Required for contains/regex/equals/exit_code modes.",
     )
     expect: str = Field(
         default="",
         description=(
-            "What we're looking for in the output. Interpretation depends "
-            "on `expect_mode`. For exit_code: the integer to require. For "
-            "file_contains: 'PATH::SUBSTRING'. Otherwise: the substring / "
-            "regex / exact-match string."
+            "Expected value. For exit_code: integer. For file_contains: "
+            "'PATH::SUBSTRING'. Else: substring/regex/exact-match string."
         ),
     )
     expect_mode: VerifyMode = Field(

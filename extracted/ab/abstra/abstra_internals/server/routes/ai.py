@@ -1,11 +1,21 @@
+import logging
+
 import flask
 
-from abstra_internals.contracts_generated import AbstraLibApiAiStreamRequest
-from abstra_internals.controllers.ai import AiController
+from abstra_internals.contracts_generated import (
+    AbstraLibApiAiStreamRequest,
+    CloudApiCliAiV2QueueClearRequest,
+    CloudApiCliAiV2QueuePostRequest,
+    CloudApiCliAiV2QueueRemoveRequest,
+)
+from abstra_internals.controllers.ai import AiController, InvalidUploadPathError
 from abstra_internals.controllers.main import MainController
 from abstra_internals.usage import editor_usage
 
 MAX_AI_UPLOAD_SIZE = 300 * 1024 * 1024  # 300MB, matches cloud-api
+MAX_AI_UPLOAD_LABEL = "300MB"
+
+logger = logging.getLogger(__name__)
 
 
 def get_editor_bp(main_controller: MainController):
@@ -88,6 +98,64 @@ def get_editor_bp(main_controller: MainController):
             flask.abort(403)
         return flask.jsonify(result)
 
+    @bp.post("/queue")
+    @editor_usage
+    def _queue_message():
+        body = flask.request.json
+        if not body:
+            flask.abort(400)
+        try:
+            request = CloudApiCliAiV2QueuePostRequest.from_dict(body)
+        except (KeyError, TypeError, ValueError):
+            flask.abort(400)
+        result = controller.queue_message(request, user_jwt=_get_user_jwt())
+        if result is None:
+            flask.abort(403)
+        return flask.jsonify(result)
+
+    @bp.get("/queue")
+    @editor_usage
+    def _list_queued_messages():
+        conversation_id = flask.request.args.get("conversationId")
+        if not conversation_id:
+            flask.abort(400)
+        result = controller.list_queued_messages(
+            conversation_id, user_jwt=_get_user_jwt()
+        )
+        if result is None:
+            flask.abort(403)
+        return flask.jsonify(result)
+
+    @bp.post("/queue/remove")
+    @editor_usage
+    def _remove_queued_message():
+        body = flask.request.json
+        if not body:
+            flask.abort(400)
+        try:
+            request = CloudApiCliAiV2QueueRemoveRequest.from_dict(body)
+        except (KeyError, TypeError, ValueError):
+            flask.abort(400)
+        result = controller.remove_queued_message(request, user_jwt=_get_user_jwt())
+        if result is None:
+            flask.abort(403)
+        return "", 204
+
+    @bp.post("/queue/clear")
+    @editor_usage
+    def _clear_queued_messages():
+        body = flask.request.json
+        if not body:
+            flask.abort(400)
+        try:
+            request = CloudApiCliAiV2QueueClearRequest.from_dict(body)
+        except (KeyError, TypeError, ValueError):
+            flask.abort(400)
+        result = controller.clear_queued_messages(request, user_jwt=_get_user_jwt())
+        if result is None:
+            flask.abort(403)
+        return "", 204
+
     @bp.post("/start-conversation")
     def _start_conversation():
         """
@@ -103,26 +171,39 @@ def get_editor_bp(main_controller: MainController):
     def _upload_attachment():
         content_length = flask.request.content_length
         if content_length is not None and content_length > MAX_AI_UPLOAD_SIZE:
-            flask.abort(413)
+            return (
+                flask.jsonify({"error": f"File too large (max {MAX_AI_UPLOAD_LABEL})"}),
+                413,
+            )
         file = flask.request.files.get("file")
         conversation_id = flask.request.form.get("conversationId")
         if file is None or not conversation_id:
-            flask.abort(400)
-        return controller.save_uploaded_file(file, conversation_id)
+            return (
+                flask.jsonify({"error": "file and conversationId are required"}),
+                400,
+            )
+        try:
+            return controller.save_uploaded_file(file, conversation_id)
+        except Exception:
+            logger.exception("[ai/upload] Failed to save attachment")
+            return flask.jsonify({"error": "Failed to save attachment"}), 500
 
     @bp.delete("/upload")
     @editor_usage
     def _delete_attachment():
         body = flask.request.json
         if not body:
-            flask.abort(400)
+            return flask.jsonify({"error": "filePath is required"}), 400
         file_path = body.get("filePath")
         if not file_path:
-            flask.abort(400)
+            return flask.jsonify({"error": "filePath is required"}), 400
         try:
             controller.delete_uploaded_file(file_path)
-        except ValueError:
-            flask.abort(400)
+        except InvalidUploadPathError:
+            return flask.jsonify({"error": "Invalid path"}), 400
+        except Exception:
+            logger.exception("[ai/upload] Failed to delete attachment")
+            return flask.jsonify({"error": "Failed to delete attachment"}), 500
         return {"success": True}
 
     return bp

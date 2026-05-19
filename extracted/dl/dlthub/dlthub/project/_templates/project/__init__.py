@@ -3,9 +3,8 @@ GIT_IGNORE = """
 .pytest_cache
 .ruff_cache
 .dlt/profile-name
-_data
-.dlt/.var
-_local
+.dlt/state
+.dlt/data
 *.secrets.toml
 
 # oss .gitignore

@@ -161,7 +161,6 @@ from ansible.module_utils.common.parameters import (
 from ansible.module_utils.errors import AnsibleFallbackNotFound, AnsibleValidationErrorMultiple, UnsupportedError
 from ansible.module_utils.common.validation import (
     check_missing_parameters,
-    safe_eval,
 )
 from ansible.module_utils.common._utils import get_all_subclasses as _get_all_subclasses
 from ansible.module_utils.parsing.convert_bool import BOOLEANS, BOOLEANS_FALSE, BOOLEANS_TRUE, boolean
@@ -213,40 +212,38 @@ USERS_RE = re.compile(r'^[ugo]+$')
 PERMS_RE = re.compile(r'^[rwxXstugo]*$')
 
 
-#
-# Deprecated functions
-#
-
 def get_platform():
     """
-    **Deprecated** Use :py:func:`platform.system` directly.
-
     :returns: Name of the platform the module is running on in a native string
 
     Returns a native string that labels the platform ("Linux", "Solaris", etc). Currently, this is
     the result of calling :py:func:`platform.system`.
     """
+    deprecate(
+        msg="The `get_platfrom()` function from `ansible.module_utils.basic` is deprecated.",
+        version="2.24",
+        help_text="Use `platform.system()` from the Python standard library instead.",
+    )
     return platform.system()
 
-# End deprecated functions
-
-
-#
-# Compat shims
-#
 
 def load_platform_subclass(cls, *args, **kwargs):
-    """**Deprecated**: Use ansible.module_utils.common.sys_info.get_platform_subclass instead"""
+    deprecate(
+        msg="The `load_platform_subclass()` function from `ansible.module_utils.basic` is deprecated.",
+        version="2.24",
+        help_text="Use `get_platform_subclass()` from `ansible.module_utils.common.sys_info` instead.",
+    )
     platform_cls = get_platform_subclass(cls)
     return super(cls, platform_cls).__new__(platform_cls)
 
 
 def get_all_subclasses(cls):
-    """**Deprecated**: Use ansible.module_utils.common._utils.get_all_subclasses instead"""
+    deprecate(
+        msg="The `get_all_subclasses()` function from `ansible.module_utils.basic` is deprecated.",
+        version="2.24",
+        help_text="Use `get_all_subclasses()` from `ansible.module_utils.common._utils` instead.",
+    )
     return list(_get_all_subclasses(cls))
-
-
-# End compat shims
 
 
 def heuristic_log_sanitize(data, no_log_values=None):
@@ -1244,10 +1241,6 @@ class AnsibleModule(object):
                 if not hasattr(self, PASS_VARS[k][0]):
                     setattr(self, PASS_VARS[k][0], PASS_VARS[k][1])
 
-    def safe_eval(self, value, locals=None, include_exceptions=False):
-        # deprecated: description='no longer used in the codebase' core_version='2.21'
-        return safe_eval(value, locals, include_exceptions)
-
     def _load_params(self):
         """ read the input and set the params attribute.
 
@@ -1450,8 +1443,11 @@ class AnsibleModule(object):
 
         self.add_path_info(kwargs)
 
-        if 'invocation' not in kwargs:
-            kwargs['invocation'] = {'module_args': self.params}
+        if _PARSED_MODULE_ARGS.get('_ansible_inject_invocation', False):
+            if 'invocation' not in kwargs:
+                kwargs['invocation'] = {'module_args': self.params}
+        else:
+            kwargs.pop('invocation', None)
 
         if 'warnings' in kwargs:
             self.deprecate(  # pylint: disable=ansible-deprecated-unnecessary-collection-name
@@ -1974,7 +1970,10 @@ class AnsibleModule(object):
         else:
             # ensure args are a list
             if isinstance(args, (bytes, str)):
-                args = shlex.split(to_text(args, errors='surrogateescape'))
+                try:
+                    args = shlex.split(to_text(args, errors='surrogateescape'))
+                except ValueError as e:
+                    self.fail_json(msg="Invalid command syntax in run_command", exception=e)
 
             # expand ``~`` in paths, and all environment vars
             if expand_user_and_vars:
@@ -2204,30 +2203,11 @@ _mini_six = {
 
 def __getattr__(importable_name):
     """Inject import-time deprecation warnings."""
-    if importable_name == 'datetime':
-        import datetime
-        importable = datetime
-    elif importable_name == 'signal':
-        import signal
-        importable = signal
-    elif importable_name == 'types':
-        import types
-        importable = types
-    elif importable_name == 'chain':
-        from itertools import chain
-        importable = chain
-    elif importable_name == 'repeat':
-        from itertools import repeat
-        importable = repeat
-    elif importable_name == 'map':
-        importable = map
-    elif importable_name == 'shlex_quote':
-        importable = shlex.quote
-    elif (importable := _mini_six.get(importable_name, ...)) is ...:
+    if (importable := _mini_six.get(importable_name, ...)) is ...:
         raise AttributeError(f"module {__name__!r} has no attribute {importable_name!r}")
 
     deprecate(
         msg=f"Importing '{importable_name}' from '{__name__}' is deprecated.",
-        version="2.21",
+        version="2.24",
     )
     return importable

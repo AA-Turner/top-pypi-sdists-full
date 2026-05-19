@@ -315,6 +315,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.DomainListRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.DomainListResponse.FromString,
                 )
+        self.EndpointCreate = channel.unary_unary(
+                '/modal.client.ModalClient/EndpointCreate',
+                request_serializer=modal__proto_dot_api__pb2.EndpointCreateRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.EndpointCreateResponse.FromString,
+                )
         self.EnvironmentCreate = channel.unary_unary(
                 '/modal.client.ModalClient/EnvironmentCreate',
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentCreateRequest.SerializeToString,
@@ -1376,6 +1381,13 @@ class ModalClientServicer(object):
 
     def DomainList(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EndpointCreate(self, request, context):
+        """Endpoints
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2534,6 +2546,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.DomainList,
                     request_deserializer=modal__proto_dot_api__pb2.DomainListRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.DomainListResponse.SerializeToString,
+            ),
+            'EndpointCreate': grpc.unary_unary_rpc_method_handler(
+                    servicer.EndpointCreate,
+                    request_deserializer=modal__proto_dot_api__pb2.EndpointCreateRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.EndpointCreateResponse.SerializeToString,
             ),
             'EnvironmentCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.EnvironmentCreate,
@@ -4252,6 +4269,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/DomainList',
             modal__proto_dot_api__pb2.DomainListRequest.SerializeToString,
             modal__proto_dot_api__pb2.DomainListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def EndpointCreate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EndpointCreate',
+            modal__proto_dot_api__pb2.EndpointCreateRequest.SerializeToString,
+            modal__proto_dot_api__pb2.EndpointCreateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

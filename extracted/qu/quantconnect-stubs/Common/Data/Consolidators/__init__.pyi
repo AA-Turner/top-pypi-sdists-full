@@ -39,9 +39,6 @@ class SessionConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidato
     def reset_working_bar(self) -> None:
         ...
 
-    def update(self, data: QuantConnect.Data.BaseData) -> None:
-        ...
-
     def validate_and_scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         ...
 

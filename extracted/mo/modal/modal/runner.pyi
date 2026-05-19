@@ -75,6 +75,7 @@ async def _status_based_disconnect(
 def _run_app(
     app: modal.app._App,
     *,
+    name: typing.Optional[str] = None,
     client: typing.Optional[modal.client._Client] = None,
     detach: bool = False,
     environment_name: typing.Optional[str] = None,
@@ -170,6 +171,7 @@ class __run_app_spec(typing_extensions.Protocol):
         /,
         app: modal.app.App,
         *,
+        name: typing.Optional[str] = None,
         client: typing.Optional[modal.client.Client] = None,
         detach: bool = False,
         environment_name: typing.Optional[str] = None,
@@ -184,6 +186,7 @@ class __run_app_spec(typing_extensions.Protocol):
         /,
         app: modal.app.App,
         *,
+        name: typing.Optional[str] = None,
         client: typing.Optional[modal.client.Client] = None,
         detach: bool = False,
         environment_name: typing.Optional[str] = None,

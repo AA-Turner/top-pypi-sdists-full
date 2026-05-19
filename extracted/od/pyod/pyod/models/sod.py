@@ -110,8 +110,7 @@ class SOD(BaseDetector):
 
     def __init__(self, contamination=0.1, n_neighbors=20, ref_set=10,
                  alpha=0.8, algorithm='auto', leaf_size=30,
-                 metric='minkowski', p=2, metric_params=None, n_jobs=1,
-                 **kwargs):
+                 metric='minkowski', p=2, metric_params=None, n_jobs=1):
         super(SOD, self).__init__(contamination=contamination)
         if isinstance(n_neighbors, int):
             check_parameter(n_neighbors, low=1, param_name='n_neighbors')
@@ -139,7 +138,6 @@ class SOD(BaseDetector):
         self.p = p
         self.metric_params = metric_params
         self.n_jobs = n_jobs
-        self.kwargs = kwargs
 
     def fit(self, X, y=None):
         """Fit detector. y is ignored in unsupervised methods.
@@ -201,8 +199,7 @@ class SOD(BaseDetector):
                                metric=self.metric,
                                p=self.p,
                                metric_params=self.metric_params,
-                               n_jobs=self.n_jobs,
-                               **self.kwargs)
+                               n_jobs=self.n_jobs)
         knn.fit(X)
         # Get the knn index
         ind = knn.kneighbors(return_distance=False)

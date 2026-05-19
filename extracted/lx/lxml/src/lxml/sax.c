@@ -7009,7 +7009,7 @@ static PyObject *__pyx_pf_4lxml_3sax_25ElementTreeContentHandler_26characters(CY
 
 /* "lxml/sax.py":162
  * 
- *     # Allow subscripting sax.ElementTreeContentHandler in type annotions (PEP 560)
+ *     # Allow subscripting sax.ElementTreeContentHandler in type annotations (PEP 560)
  *     def __class_getitem__(cls, item):             # <<<<<<<<<<<<<<
  *         return _GenericAlias(cls, item)
  * 
@@ -7121,7 +7121,7 @@ static PyObject *__pyx_pf_4lxml_3sax_25ElementTreeContentHandler_28__class_getit
   __Pyx_RefNannySetupContext("__class_getitem__", 0);
 
   /* "lxml/sax.py":163
- *     # Allow subscripting sax.ElementTreeContentHandler in type annotions (PEP 560)
+ *     # Allow subscripting sax.ElementTreeContentHandler in type annotations (PEP 560)
  *     def __class_getitem__(cls, item):
  *         return _GenericAlias(cls, item)             # <<<<<<<<<<<<<<
  * 
@@ -7157,7 +7157,7 @@ static PyObject *__pyx_pf_4lxml_3sax_25ElementTreeContentHandler_28__class_getit
 
   /* "lxml/sax.py":162
  * 
- *     # Allow subscripting sax.ElementTreeContentHandler in type annotions (PEP 560)
+ *     # Allow subscripting sax.ElementTreeContentHandler in type annotations (PEP 560)
  *     def __class_getitem__(cls, item):             # <<<<<<<<<<<<<<
  *         return _GenericAlias(cls, item)
  * 
@@ -11668,7 +11668,7 @@ __Pyx_RefNannySetupContext("PyInit_sax", 0);
  * 
  *     ignorableWhitespace = characters             # <<<<<<<<<<<<<<
  * 
- *     # Allow subscripting sax.ElementTreeContentHandler in type annotions (PEP 560)
+ *     # Allow subscripting sax.ElementTreeContentHandler in type annotations (PEP 560)
 */
   __pyx_t_2 = PyObject_GetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_characters);
   if (unlikely(!__pyx_t_2)) {
@@ -11682,7 +11682,7 @@ __Pyx_RefNannySetupContext("PyInit_sax", 0);
 
   /* "lxml/sax.py":162
  * 
- *     # Allow subscripting sax.ElementTreeContentHandler in type annotions (PEP 560)
+ *     # Allow subscripting sax.ElementTreeContentHandler in type annotations (PEP 560)
  *     def __class_getitem__(cls, item):             # <<<<<<<<<<<<<<
  *         return _GenericAlias(cls, item)
  * 

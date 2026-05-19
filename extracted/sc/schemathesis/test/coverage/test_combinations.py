@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from math import inf, nextafter
 from unittest.mock import ANY
 
 import jsonschema_rs
 import pytest
+from hypothesis.errors import Unsatisfiable
 
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
@@ -327,6 +329,70 @@ def test_negative_string_with_pattern(nctx):
     ]
     assert_unique(covered)
     assert_not_conform(covered, schema)
+
+
+def test_negative_maxitems_when_unique_items_exhaust_enum(nctx):
+    # `uniqueItems: true` + `items.enum` of size `maxItems` makes a length-(max+1) unique
+    # array unsatisfiable. The maxItems negative is still meaningful (server may reject
+    # on length first), so emit one with duplicates from the enum domain.
+    schema = {
+        "type": "array",
+        "uniqueItems": True,
+        "minItems": 1,
+        "maxItems": 11,
+        "items": {"type": "string", "enum": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"]},
+    }
+    above_max = [
+        value.value
+        for value in cover_schema_iter(nctx, schema)
+        if isinstance(value, GeneratedValue) and value.scenario is CoverageScenario.ARRAY_ABOVE_MAX_ITEMS
+    ]
+    assert above_max, "Expected an above-maxItems negative case"
+    assert all(len(v) == 12 for v in above_max)
+    assert all(item in schema["items"]["enum"] for v in above_max for item in v)
+
+
+def test_negative_pattern_for_header_with_permissive_pattern(ctx_factory):
+    # `^[A-Z0-9_]*$` accepts the empty string; the negative emitter must still find one
+    # header-safe value that violates the pattern.
+    ctx = ctx_factory(location=ParameterLocation.HEADER, generation_modes=[GenerationMode.NEGATIVE])
+    schema = {"type": "string", "pattern": "^[A-Z0-9_]*$"}
+    out = [
+        v.value
+        for v in cover_schema_iter(ctx, schema)
+        if isinstance(v, GeneratedValue) and v.scenario is CoverageScenario.INVALID_PATTERN
+    ]
+    assert out, "Expected at least one pattern-violation negative for header parameter"
+    compiled = re.compile(schema["pattern"])
+    for value in out:
+        assert isinstance(value, str)
+        assert not compiled.fullmatch(value), f"Value {value!r} matches the pattern"
+
+
+def test_negative_maxlength_emitted_with_unsatisfiable_pattern(nctx):
+    # An unsatisfiable `pattern` would block the length-violation generator; the maxLength
+    # rule is still server-side enforceable, so emit a too-long string even if it also
+    # violates the broken pattern.
+    schema = {"type": "string", "maxLength": 90, "minLength": 1, "pattern": r" ^[-\w\._\(\)]+[^\.]$"}
+    above_max = [
+        v.value
+        for v in cover_schema_iter(nctx, schema)
+        if isinstance(v, GeneratedValue) and v.scenario is CoverageScenario.STRING_ABOVE_MAX_LENGTH
+    ]
+    assert above_max, "Expected an above-maxLength negative case"
+    assert all(len(s) == 91 for s in above_max)
+
+
+@pytest.mark.parametrize("max_length", [65536, 350000])
+def test_negative_maxlength_above_buffer(nctx, max_length):
+    schema = {"type": "string", "maxLength": max_length}
+    above_max = [
+        value.value
+        for value in cover_schema_iter(nctx, schema)
+        if isinstance(value, GeneratedValue) and value.scenario is CoverageScenario.STRING_ABOVE_MAX_LENGTH
+    ]
+    assert len(above_max) == 1
+    assert len(above_max[0]) == max_length + 1
 
 
 @pytest.mark.parametrize("multiple_of", [None, 2])
@@ -2184,7 +2250,6 @@ def test_generate_from_schema_reflects_bundle_mutations():
         "oneOf": [{"$ref": f"#/{BUNDLE_STORAGE_KEY}/schema1"}],
         BUNDLE_STORAGE_KEY: {"schema1": {"type": "integer"}},
     }
-    shared_cache: dict = {}
 
     def make_ctx() -> CoverageContext:
         return CoverageContext(
@@ -2195,7 +2260,6 @@ def test_generate_from_schema_reflects_bundle_mutations():
             is_required=True,
             custom_formats=get_default_format_strategies(),
             validator_cls=jsonschema_rs.Draft4Validator,
-            _schema_generation_cache=shared_cache,
         )
 
     assert isinstance(make_ctx().generate_from_schema(schema), int)
@@ -2203,6 +2267,21 @@ def test_generate_from_schema_reflects_bundle_mutations():
     schema[BUNDLE_STORAGE_KEY]["schema1"] = {"type": "string"}
 
     assert isinstance(make_ctx().generate_from_schema(schema), str)
+
+
+def test_generate_from_schema_caches_unsatisfiable_verdict(pctx):
+    # JS-style `/.../`-wrapped pattern can never match; the second call must still raise
+    # Unsatisfiable, served from the cached sentinel rather than re-running Hypothesis.
+    schema = {"type": "string", "pattern": "/^x$/", "format": "date-time"}
+    with pytest.raises(Unsatisfiable):
+        pctx.generate_from_schema(schema)
+    with pytest.raises(Unsatisfiable):
+        pctx.generate_from_schema(schema)
+
+
+def test_generate_from_schema_serves_cached_value(pctx):
+    # Two calls on identical schema/context: second must equal the first, served from cache.
+    assert pctx.generate_from_schema({"type": "string"}) == pctx.generate_from_schema({"type": "string"})
 
 
 def test_items_false_with_prefix_items(pctx):
@@ -2587,3 +2666,24 @@ def test_negative_if_then_else_violates_branches(ctx_factory):
     cases = [v.value for v in cover_schema_iter(nctx, rewritten)]
     invalid = [c for c in cases if isinstance(c, dict) and not validator.is_valid(c)]
     assert invalid, "no negative cases violate the conditional"
+
+
+def test_negative_allof_with_unmergeable_branches_terminates(nctx):
+    # `contains` with conflicting item types prevents canonicalish from merging the `allOf`.
+    schema = {
+        "allOf": [
+            {"type": "object", "properties": {"arr": {"type": "array", "contains": {"type": "string"}}}},
+            {"type": "object", "properties": {"arr": {"type": "array", "contains": {"type": "integer"}}}},
+        ],
+    }
+    list(cover_schema_iter(nctx, schema))
+
+
+def test_minitems_one_yields_empty_array_negative_with_unresolvable_items(nctx):
+    schema = {"type": "array", "minItems": 1, "items": {"$ref": "#/components/schemas/Missing"}}
+    negatives = [
+        value.value
+        for value in cover_schema_iter(nctx, schema)
+        if isinstance(value, GeneratedValue) and value.scenario is CoverageScenario.ARRAY_BELOW_MIN_ITEMS
+    ]
+    assert negatives == [[]]

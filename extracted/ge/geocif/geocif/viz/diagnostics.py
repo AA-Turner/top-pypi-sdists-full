@@ -399,9 +399,6 @@ def mape_bar_chart(
     else:
         df_plot = df_plot.sort_values(ascending=True)
 
-    avg_mape = float(np.nanmean(df_plot.values))
-    title_with_avg = f"{title}    [avg: {avg_mape:.1f}%]" if title else f"avg: {avg_mape:.1f}%"
-
     with plt.style.context(["science", "no-latex"]):
         fig, ax = plt.subplots(figsize=(8, max(3, len(df_plot) * 0.35)))
         bars = ax.barh(df_plot.index, df_plot.values, color="steelblue")
@@ -410,7 +407,8 @@ def mape_bar_chart(
                     f"{val:.1f}%", va="center", fontsize=8)
 
         ax.set_xlabel("Mean Absolute Percentage Error (%)")
-        ax.set_title(title_with_avg, fontsize=10, fontweight="bold")
+        if title:
+            ax.set_title(title, fontsize=10, fontweight="bold")
         ax.tick_params(axis='y', which='minor', length=0)
         plt.tight_layout()
         Path(dir_out).mkdir(parents=True, exist_ok=True)

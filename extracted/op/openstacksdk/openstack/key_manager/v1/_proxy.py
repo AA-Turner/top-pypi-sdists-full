@@ -10,7 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import ClassVar, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 from collections.abc import Callable
 
 from openstack.key_manager.v1 import container as _container
@@ -33,7 +33,7 @@ class Proxy(proxy.Proxy):
         "secret_store": _secret_store.SecretStore,
     }
 
-    def create_container(self, **attrs):
+    def create_container(self, **attrs: Any) -> _container.Container:
         """Create a new container from attributes
 
         :param dict attrs: Keyword arguments which will be used to create
@@ -134,7 +134,7 @@ class Proxy(proxy.Proxy):
         """
         return self._update(_container.Container, container, **attrs)
 
-    def create_order(self, **attrs):
+    def create_order(self, **attrs: Any) -> _order.Order:
         """Create a new order from attributes
 
         :param dict attrs: Keyword arguments which will be used to create
@@ -232,7 +232,7 @@ class Proxy(proxy.Proxy):
         """
         return self._update(_order.Order, order, **attrs)
 
-    def create_secret(self, **attrs):
+    def create_secret(self, **attrs: Any) -> _secret.Secret:
         """Create a new secret from attributes
 
         :param dict attrs: Keyword arguments which will be used to create a
@@ -352,12 +352,7 @@ class Proxy(proxy.Proxy):
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
-        return self._get(
-            _secret_store.SecretStore,
-            None,
-            requires_id=False,
-            base_path='/secret-stores/global-default',
-        )
+        return self._get(_secret_store.SecretStore, 'global-default')
 
     def get_preferred_secret_store(self):
         """Get the preferred secret store for the current project
@@ -367,12 +362,7 @@ class Proxy(proxy.Proxy):
         :raises: :class:`~openstack.exceptions.NotFoundException`
             when no resource can be found.
         """
-        return self._get(
-            _secret_store.SecretStore,
-            None,
-            requires_id=False,
-            base_path='/secret-stores/preferred',
-        )
+        return self._get(_secret_store.SecretStore, 'preferred')
 
     def delete_project_quota(self, project_id, ignore_missing=True):
         """Delete a project quota

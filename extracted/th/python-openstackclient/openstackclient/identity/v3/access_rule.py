@@ -15,8 +15,12 @@
 
 """Identity v3 Access Rule action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -31,7 +35,7 @@ LOG = logging.getLogger(__name__)
 class DeleteAccessRule(command.Command):
     _description = _("Delete access rule(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'access_rule',
@@ -41,14 +45,16 @@ class DeleteAccessRule(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         conn = self.app.client_manager.sdk_connection
         auth = conn.config.get_auth()
         if auth is None:
             # this will never happen
             raise exceptions.CommandError('invalid authentication info')
-        user_id = auth.get_user_id(conn.identity)
+        user_id = auth.get_user_id(conn.session)
 
         errors = 0
         for ac in parsed_args.access_rule:
@@ -73,7 +79,7 @@ class DeleteAccessRule(command.Command):
 class ListAccessRule(command.Lister):
     _description = _("List access rules")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--user',
@@ -83,8 +89,12 @@ class ListAccessRule(command.Lister):
         common.add_user_domain_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         if parsed_args.user:
             user_id = common.find_user(
                 identity_client, parsed_args.user, parsed_args.user_domain
@@ -95,7 +105,7 @@ class ListAccessRule(command.Lister):
             if auth is None:
                 # this will never happen
                 raise exceptions.CommandError('invalid authentication info')
-            user_id = auth.get_user_id(conn.identity)
+            user_id = auth.get_user_id(conn.session)
 
         columns = ('ID', 'Service', 'Method', 'Path')
         data = identity_client.access_rules(user=user_id)
@@ -115,7 +125,7 @@ class ListAccessRule(command.Lister):
 class ShowAccessRule(command.ShowOne):
     _description = _("Display access rule details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'access_rule',
@@ -124,14 +134,18 @@ class ShowAccessRule(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         conn = self.app.client_manager.sdk_connection
         auth = conn.config.get_auth()
         if auth is None:
             # this will never happen
             raise exceptions.CommandError('invalid authentication info')
-        user_id = auth.get_user_id(conn.identity)
+        user_id = auth.get_user_id(conn.session)
 
         access_rule = identity_client.get_access_rule(
             user_id, parsed_args.access_rule

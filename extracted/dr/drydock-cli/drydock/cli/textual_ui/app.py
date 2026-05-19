@@ -51,6 +51,7 @@ from drydock.cli.textual_ui.widgets.messages import (
     BashOutputMessage,
     ErrorMessage,
     InterruptMessage,
+    ReasoningMessage,
     StreamingMessageBase,
     UserCommandMessage,
     UserMessage,
@@ -2785,6 +2786,15 @@ class DrydockApp(App):  # noqa: PLR0904
         try:
             for error_msg in self.query(ErrorMessage):
                 error_msg.set_collapsed(self._tools_collapsed)
+        except Exception:
+            pass
+
+        # 2026-05-18: Ctrl+O also reveals the model's reasoning content
+        # (the "Thinking" blocks). Per operator request — it's the easy
+        # way to see what drydock was actually doing while it spun.
+        try:
+            for reasoning_msg in self.query(ReasoningMessage):
+                await reasoning_msg.set_collapsed(self._tools_collapsed)
         except Exception:
             pass
 

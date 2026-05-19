@@ -318,7 +318,7 @@ class CreateProductionJobConfig(object):
     def timeout_s(self):
         """Gets the timeout_s of this CreateProductionJobConfig.  # noqa: E501
 
-        The timeout in seconds for each job run. Set to None for no limit to be set  # noqa: E501
+        Per-job-attempt timeout in seconds. When set, each individual job run is terminated after this duration; the value does not bound the lifetime of the cluster. Supported for both standalone jobs and jobs submitted to a Job Queue (via 'job_queue_config'). Set to None for no per-attempt timeout.  # noqa: E501
 
         :return: The timeout_s of this CreateProductionJobConfig.  # noqa: E501
         :rtype: int
@@ -329,7 +329,7 @@ class CreateProductionJobConfig(object):
     def timeout_s(self, timeout_s):
         """Sets the timeout_s of this CreateProductionJobConfig.
 
-        The timeout in seconds for each job run. Set to None for no limit to be set  # noqa: E501
+        Per-job-attempt timeout in seconds. When set, each individual job run is terminated after this duration; the value does not bound the lifetime of the cluster. Supported for both standalone jobs and jobs submitted to a Job Queue (via 'job_queue_config'). Set to None for no per-attempt timeout.  # noqa: E501
 
         :param timeout_s: The timeout_s of this CreateProductionJobConfig.  # noqa: E501
         :type: int

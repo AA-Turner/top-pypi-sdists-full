@@ -718,6 +718,17 @@ class TestBuildGenerateSeedSubagent:
         assert p.context["session_id"] == "sess-123"
         assert p.context["ambiguity_score"] == 0.15
 
+    def test_context_preserves_client_gate_acknowledgements(self) -> None:
+        p = build_generate_seed_subagent(
+            session_id="sess-123",
+            client_gates=("restate_goal_approved", "seed_ready_acceptance_guard"),
+        )
+
+        assert p.context["client_gates"] == (
+            "restate_goal_approved",
+            "seed_ready_acceptance_guard",
+        )
+
 
 # ---------------------------------------------------------------------------
 # Tool-specific builders: Evaluate
@@ -776,6 +787,15 @@ class TestBuildExecuteSubagent:
             session_id="sess-123",
         )
         assert "build a CLI tool" in p.prompt
+
+    def test_prompt_includes_auto_recursion_guard(self) -> None:
+        p = build_execute_subagent(
+            seed_content="goal: build a CLI tool",
+            session_id="sess-123",
+        )
+        assert "Auto Recursion Guard" in p.prompt
+        assert "ouroboros_auto" in p.prompt
+        assert "nested auto session" in p.prompt
 
     def test_context_preserves_execution_args(self) -> None:
         p = build_execute_subagent(

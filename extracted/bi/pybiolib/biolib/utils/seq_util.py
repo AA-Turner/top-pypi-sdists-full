@@ -1,7 +1,7 @@
 import re
 from io import BufferedIOBase, TextIOBase
 
-from biolib.typing_utils import Dict, Iterator, List, Optional, Union
+from biolib._shared.types.typing import Dict, Iterator, List, Optional, Union
 
 
 class SeqUtilRecord:

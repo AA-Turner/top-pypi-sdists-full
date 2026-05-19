@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ouroboros-ai
-Version: 0.38.2
+Version: 0.39.0
 Summary: Specification-first workflow engine for AI coding agents. Works with Claude Code and Codex CLI.
 Author-email: Q00 <jqyu.lee@gmail.com>
 License-File: LICENSE

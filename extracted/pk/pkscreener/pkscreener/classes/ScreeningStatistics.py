@@ -2326,6 +2326,81 @@ class ScreeningStatistics:
         if recent.empty:
             return False, {}
         
+        # # ------------------------------------------------------------
+        # # Count distinct bearish reasons for strong sell confirmation
+        # # ------------------------------------------------------------
+        # bearish_reasons = 0
+
+        # # Helper to safely get boolean from series
+        # def is_true(val):
+        #     return bool(val) if not pd.isna(val) else False
+
+        # # 1. RSI sell condition (RSI > 70 or RSI falling from overbought)
+        # if 'RSI' in recent.columns:
+        #     rsi_val = recent['RSI'].iloc[0]
+        #     if not pd.isna(rsi_val) and rsi_val > 70:
+        #         bearish_reasons += 1
+        #     # Also check for RSI falling from above 70 (momentum loss)
+        #     elif len(data_with_signals) >= 2:
+        #         prev_rsi = data_with_signals['RSI'].iloc[-2]
+        #         if not pd.isna(prev_rsi) and prev_rsi > 70 and rsi_val < prev_rsi:
+        #             bearish_reasons += 1
+
+        # # 2. MACD bearish (histogram < 0 and falling)
+        # if 'MACD_Hist' in recent.columns:
+        #     hist = recent['MACD_Hist'].iloc[0]
+        #     if not pd.isna(hist) and hist < 0:
+        #         if len(data_with_signals) >= 2:
+        #             prev_hist = data_with_signals['MACD_Hist'].iloc[-2]
+        #             if not pd.isna(prev_hist) and hist < prev_hist:
+        #                 bearish_reasons += 1
+        #         else:
+        #             bearish_reasons += 1
+        # else:
+        #     # Compute MACD on the fly if not present
+        #     try:
+        #         _, _, hist = pktalib.MACD(data['close'])
+        #         if len(hist) >= 2:
+        #             curr_hist = hist.iloc[-1]
+        #             prev_hist = hist.iloc[-2]
+        #             if curr_hist < 0 and curr_hist < prev_hist:
+        #                 bearish_reasons += 1
+        #     except:
+        #         pass
+
+        # # 3. Volume sell confirmation (volume surge on down day)
+        # if 'volume' in recent.columns and len(data_with_signals) > 20:
+        #     curr_vol = recent['volume'].iloc[0]
+        #     avg_vol = data_with_signals['volume'].iloc[1:21].mean()
+        #     price_change = (recent['close'].iloc[0] - data_with_signals['close'].iloc[1]) / data_with_signals['close'].iloc[1]
+        #     if avg_vol > 0 and curr_vol > avg_vol * 1.5 and price_change < -0.02:
+        #         bearish_reasons += 1
+
+        # # 4. Death cross (50 SMA < 200 SMA) or below 200 SMA
+        # if 'SMA' in recent.columns and 'LMA' in recent.columns:
+        #     sma_50 = recent['SMA'].iloc[0]
+        #     sma_200 = recent['LMA'].iloc[0]
+        #     if not pd.isna(sma_50) and not pd.isna(sma_200) and sma_50 < sma_200:
+        #         bearish_reasons += 1
+        # elif 'LMA' in recent.columns:
+        #     # At least check if price is below 200 SMA
+        #     if recent['close'].iloc[0] < recent['LMA'].iloc[0]:
+        #         bearish_reasons += 1
+
+        # # 5. Price below key moving averages (20 EMA, 50 SMA)
+        # if 'close' in recent.columns:
+        #     close_price = recent['close'].iloc[0]
+        #     # 20 EMA (calculate quickly if not present)
+        #     try:
+        #         ema20 = pktalib.EMA(data['close'], 20).iloc[-1]
+        #         if close_price < ema20 * 0.98:
+        #             bearish_reasons += 1
+        #     except:
+        #         pass
+        #     # 50 SMA already covered above, but add additional if below 20 SMA
+        #     if 'SSMA20' in recent.columns and close_price < recent['SSMA20'].iloc[0]:
+        #         bearish_reasons += 1
+                
         # Extract signal values
         buy_signal = recent["Buy"].iloc[0] if "Buy" in recent.columns else False
         sell_signal = recent["Sell"].iloc[0] if "Sell" in recent.columns else False
@@ -2392,13 +2467,26 @@ class ScreeningStatistics:
                     self.default_logger.debug(f"Balanced filter error: {e}")
         
         # =========================================================================
-        # LEVEL 6: APPLY CONFIDENCE THRESHOLDS
+        # LEVEL 6: APPLY CONFIDENCE THRESHOLDS + BEARISH REASONS FOR STRONG SELL
         # =========================================================================
         if buy_signal and buy_confidence < min_confidence:
             buy_signal = False
         
         if sell_signal and sell_confidence < min_confidence:
             sell_signal = False
+        # # For sell signals, require BOTH confidence >= min_confidence AND at least 3 bearish reasons
+        # if sell_signal:
+        #     if sell_confidence < min_confidence:
+        #         sell_signal = False
+        #     elif bearish_reasons < 3:
+        #         # Not enough bearish confirmation → downgrade to weak sell or neutral
+        #         if self.default_logger:
+        #             self.default_logger.debug(f"Strong sell rejected: only {bearish_reasons} bearish reasons (need ≥3)")
+        #         sell_signal = False
+        #     # Optional: also require sell_confidence >= 70 for strong sell
+        #     elif sell_confidence >= 70 and bearish_reasons >= 3:
+        #         # This is a high-conviction strong sell – keep as True
+        #         pass
         # self.default_logger.debug(f"Level 6 for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}, Buy_Conf:{buy_confidence}, Sell_Conf:{sell_confidence}")
         # =========================================================================
         # LEVEL 7: DETERMINE RETURN VALUE
@@ -4631,6 +4719,35 @@ class ScreeningStatistics:
             if self.default_logger:
                 self.default_logger.debug(f"findStrongSellSignals error: {e}")
             return False
+        # """
+        # Enhanced sell signal detection using ATR trailing stop + bearish add-ons.
+        # """
+        # if df is None or len(df) < 20:
+        #     return False
+
+        # # First compute ATR-based signals (gives Sell/Confidence)
+        # has_signal, _ = self.findATRTrailingStops(
+        #     df, 
+        #     sensitivity=2,           # standard multiplier
+        #     atr_period=10,
+        #     ema_period=200,
+        #     buySellAll=2,            # 2 = sell signals only
+        #     min_confidence=60,       # strong sell needs >=60
+        #     use_scoring=True,
+        #     consecutive_confirmation_bars=2,
+        #     volume_confirmation=True,
+        #     sell_threshold=3,        # require stronger sell signals
+        #     min_bars_between_sell_signals=1,
+        #     stock_name=saveDict.get("Stock", "Unknown") if saveDict else "Unknown"
+        # )
+        
+        # if has_signal and saveDict is not None:
+        #     # Override with "STRONG_SELL" label for consistency
+        #     saveDict['Signal'] = "STRONG_SELL"
+        #     if screenDict is not None:
+        #         screenDict['Signal'] = colorText.FAIL + "STRONG SELL" + colorText.END
+        
+        # return has_signal
 
     def findAllBuySignals(self, df, screenDict=None, saveDict=None):
         """
@@ -6355,7 +6472,7 @@ class ScreeningStatistics:
                         if indexDate.hour == 0 and indexDate.minute == 0:
                             indexDate = indexDate.replace(hour=15, minute=30, second=0, microsecond=0)
                         
-                        dayDate = f"{indexDate.day}/{indexDate.month} {indexDate.hour}:{indexDate.minute}"
+                        dayDate = f"{indexDate.day}/{indexDate.month}/{str(indexDate.year)[-2:]} {indexDate.hour}:{indexDate.minute}"
                         screenDict["Time"] = f"{colorText.WHITE}{dayDate}{colorText.END}"
                         saveDict["Time"] = str(dayDate)
             except KeyboardInterrupt: # pragma: no cover

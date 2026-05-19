@@ -248,7 +248,6 @@ class _FileIO(Generic[T]):
             "`FileIO.read()` is deprecated."
             " Use `Sandbox.filesystem.read_text()`, `Sandbox.filesystem.read_bytes()`,"
             " or `Sandbox.filesystem.copy_to_local()` instead.",
-            pending=True,
         )
         self._check_closed()
         self._check_readable()
@@ -266,7 +265,6 @@ class _FileIO(Generic[T]):
             "`FileIO.readline()` is deprecated."
             " Use `Sandbox.filesystem.read_text()`, `Sandbox.filesystem.read_bytes()`,"
             " or `Sandbox.filesystem.copy_to_local()` instead.",
-            pending=True,
         )
         self._check_closed()
         self._check_readable()
@@ -288,7 +286,6 @@ class _FileIO(Generic[T]):
             "`FileIO.readlines()` is deprecated."
             " Use `Sandbox.filesystem.read_text()`, `Sandbox.filesystem.read_bytes()`,"
             " or `Sandbox.filesystem.copy_to_local()` instead.",
-            pending=True,
         )
         self._check_closed()
         self._check_readable()
@@ -314,7 +311,6 @@ class _FileIO(Generic[T]):
             "`FileIO.write()` is deprecated."
             " Use `Sandbox.filesystem.write_text()`, `Sandbox.filesystem.write_bytes()`,"
             " or `Sandbox.filesystem.copy_from_local()` instead.",
-            pending=True,
         )
         self._check_closed()
         self._check_writable()
@@ -343,7 +339,6 @@ class _FileIO(Generic[T]):
             "`FileIO.flush()` is deprecated."
             " Use `Sandbox.filesystem.write_text()`, `Sandbox.filesystem.write_bytes()`,"
             " or `Sandbox.filesystem.copy_from_local()` instead.",
-            pending=True,
         )
         self._check_closed()
         self._check_writable()
@@ -376,7 +371,6 @@ class _FileIO(Generic[T]):
             "`FileIO.seek()` is deprecated. Use the `Sandbox.filesystem` APIs instead."
             " If you specifically need the ability to write to specific offsets in a file,"
             " please contact support@modal.com.",
-            pending=True,
         )
         self._check_closed()
         resp = await self._client.stub.ContainerFilesystemExec(
@@ -396,8 +390,7 @@ class _FileIO(Generic[T]):
         """List the contents of the provided directory."""
         deprecation_warning(
             (2026, 3, 9),
-            "`FileIO.ls()` is deprecated. Use `Sandbox.ls()` instead.",
-            pending=True,
+            "`FileIO.ls()` is deprecated. Use `Sandbox.filesystem.list_files()` instead.",
         )
         return await ls(path, client, task_id)
 
@@ -407,7 +400,6 @@ class _FileIO(Generic[T]):
         deprecation_warning(
             (2026, 3, 9),
             "`FileIO.mkdir()` is deprecated. Use `Sandbox.filesystem.make_directory()` instead.",
-            pending=True,
         )
         await mkdir(path, client, task_id, parents)
 
@@ -417,7 +409,6 @@ class _FileIO(Generic[T]):
         deprecation_warning(
             (2026, 3, 9),
             "`FileIO.rm()` is deprecated. Use `Sandbox.filesystem.remove()` instead.",
-            pending=True,
         )
         await rm(path, client, task_id, recursive)
 
@@ -434,7 +425,6 @@ class _FileIO(Generic[T]):
         deprecation_warning(
             (2026, 3, 9),
             "`FileIO.watch()` is deprecated. Use `Sandbox.watch()` instead.",
-            pending=True,
         )
         async for event in watch(path, client, task_id, filter, recursive, timeout):
             yield event

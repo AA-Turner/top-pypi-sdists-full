@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: antsibull-changelog
-Version: 0.35.0
+Version: 0.35.1
 Summary: Changelog tool for Ansible-core and Ansible collections
 Project-URL: Documentation, https://docs.ansible.com/projects/antsibull-changelog/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-changelog/

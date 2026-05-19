@@ -1,5 +1,5 @@
+from biolib._shared.types.typing import Optional, TypedDict
 from biolib.biolib_logging import logger_no_user_data
-from biolib.typing_utils import Optional, TypedDict
 from biolib.utils.cache_state import CacheState
 
 # TODO: Save job keys in the user state instead of a separate state file

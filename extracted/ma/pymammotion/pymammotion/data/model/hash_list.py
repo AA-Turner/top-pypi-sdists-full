@@ -1,14 +1,20 @@
+"""Hash-keyed map data model: frame lists, area/obstacle/path storage, and HashList."""
+
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mashumaro.mixins.orjson import DataClassORJSONMixin
 from shapely import Point
 
-from pymammotion.data.model.location import Dock, LocationPoint
 from pymammotion.proto import NavGetCommDataAck, NavGetHashListAck, SvgMessageAckT
 from pymammotion.utility.map import CoordinateConverter
 from pymammotion.utility.mur_mur_hash import MurMurHashUtil
+
+if TYPE_CHECKING:
+    from pymammotion.data.model.location import Dock, LocationPoint
 
 
 class PathType(IntEnum):
@@ -98,7 +104,7 @@ class NavGetCommData(DataClassORJSONMixin):
     current_frame: int = 0
     data_hash: int = 0
     data_len: int = 0
-    data_couple: list["CommDataCouple"] = field(default_factory=list)
+    data_couple: list[CommDataCouple] = field(default_factory=list)
     reserved: str = ""
     name_time: NavNameTime = field(default_factory=NavNameTime)
 
@@ -112,7 +118,7 @@ class MowPathPacket(DataClassORJSONMixin):
     path_total: int = 0
     path_cur: int = 0
     zone_hash: int = 0
-    data_couple: list["CommDataCouple"] = field(default_factory=list)
+    data_couple: list[CommDataCouple] = field(default_factory=list)
 
 
 @dataclass
@@ -166,7 +172,7 @@ class SvgMessage(DataClassORJSONMixin):
     paternal_hash_a: int = 0
     type: int = 0
     result: int = 0
-    svg_message: "SvgMessageData" = field(default_factory=SvgMessageData)
+    svg_message: SvgMessageData = field(default_factory=SvgMessageData)
 
 
 @dataclass
@@ -175,7 +181,27 @@ class FrameList(DataClassORJSONMixin):
 
     total_frame: int = 0
     sub_cmd: int = 0
-    data: list[NavGetCommData | SvgMessage] = field(default_factory=list)
+    data: list[NavGetCommData] = field(default_factory=list)
+
+    @property
+    def name(self) -> str:
+        """Return name_time.name from the first data frame, or empty string if absent."""
+        if self.data:
+            return self.data[0].name_time.name
+        return ""
+
+
+@dataclass
+class SvgFrameList(DataClassORJSONMixin):
+    """Accumulates SvgMessage frames for a single SVG tile hash.
+
+    Stored separately from FrameList so mashumaro can deserialize the
+    unambiguous ``list[SvgMessage]`` type without union discrimination.
+    """
+
+    total_frame: int = 0
+    sub_cmd: int = 0
+    data: list[SvgMessage] = field(default_factory=list)
 
 
 @dataclass
@@ -299,7 +325,7 @@ class HashList(DataClassORJSONMixin):
     path: dict[int, FrameList] = field(default_factory=dict)  # type 2
     obstacle: dict[int, FrameList] = field(default_factory=dict)  # type 1
     dump: dict[int, FrameList] = field(default_factory=dict)  # type 12? / sub cmd 4
-    svg: dict[int, FrameList] = field(default_factory=dict)  # type 13
+    svg: dict[int, SvgFrameList] = field(default_factory=dict)  # type 13
     line: dict[int, FrameList] = field(
         default_factory=dict
     )  # type 10, sub cmd 3 — breakpoint line data, keyed by ub_path_hash
@@ -388,6 +414,22 @@ class HashList(DataClassORJSONMixin):
             if root_list.sub_cmd == 0
         ]
 
+    @property
+    def computed_bol_hash(self) -> int:
+        """Compute the map's bol_hash from locally stored area hash IDs.
+
+        Mirrors the APK's ``HashDataManager.getDBCmHash()``, which MurMur-hashes
+        the list of all locally stored MapElement hashes.  When our stored area
+        hashes are in sync with the device, this value equals the device's
+        reported ``bol_hash`` in ``report_data.locations[0].bol_hash``.
+
+        Returns 0 when no area hashes have been fetched yet.
+        """
+        hashes = [h for h in self.area_root_hashlist if h != 0]
+        if not hashes:
+            return 0
+        return int(MurMurHashUtil.hash_unsigned_list(hashes))
+
     def missing_hashlist(self, sub_cmd: int = 0) -> list[int]:
         """Return hash IDs declared in ``root_hash_lists`` for *sub_cmd* but not yet fetched."""
         all_hash_ids = set(self.area.keys()).union(
@@ -439,6 +481,8 @@ class HashList(DataClassORJSONMixin):
                     continue
                 for hash_id, frames in target.items():
                     lookup[hash_id] = frames
+            for hash_id, frames in self.svg.items():
+                lookup[hash_id] = frames
 
         incomplete: list[int] = []
         for root_list in self.root_hash_lists:
@@ -507,20 +551,21 @@ class HashList(DataClassORJSONMixin):
         frame_list = self._get_frame_list_by_type_and_hash(hash_data)
         return self.find_missing_frames(frame_list)
 
-    def _get_frame_list_by_type_and_hash(self, hash_data: NavGetCommDataAck | SvgMessageAckT) -> FrameList | None:
-        """Return the FrameList for *hash_data*, or ``None`` if the type isn't tracked.
+    def _get_frame_list_by_type_and_hash(
+        self, hash_data: NavGetCommDataAck | SvgMessageAckT
+    ) -> FrameList | SvgFrameList | None:
+        """Return the frame list for *hash_data*, or ``None`` if the type isn't tracked.
 
-        SvgMessageAckT keys by ``data_hash``; NavGetCommDataAck keys by ``hash``.
+        SvgMessageAckT keys by ``data_hash`` into self.svg (SvgFrameList);
+        NavGetCommDataAck keys by ``hash`` into the per-type FrameList dicts.
         """
+        if isinstance(hash_data, SvgMessageAckT):
+            return self.svg.get(hash_data.data_hash)
+
         path_type_mapping = self._get_path_type_mapping()
         target_dict = path_type_mapping.get(hash_data.type)
-
         if target_dict is None:
             return None
-
-        if isinstance(hash_data, SvgMessageAckT):
-            return target_dict.get(hash_data.data_hash)
-
         return target_dict.get(hash_data.hash)
 
     def update_plan(self, plan: Plan) -> None:
@@ -529,14 +574,17 @@ class HashList(DataClassORJSONMixin):
             self.plan[plan.plan_id] = plan
 
     def _get_path_type_mapping(self) -> dict[int, dict[int, FrameList]]:
-        """Return a ``PathType → per-type dict`` mapping for dispatch."""
+        """Return a ``PathType → per-type dict`` mapping for NavGetCommData dispatch.
+
+        SVG is intentionally excluded — SVG data arrives as SvgMessage (not
+        NavGetCommData) and is stored in self.svg (dict[int, SvgFrameList]).
+        """
         return {
             PathType.AREA: self.area,
             PathType.OBSTACLE: self.obstacle,
             PathType.PATH: self.path,
             PathType.LINE: self.line,
             PathType.DUMP: self.dump,
-            PathType.SVG: self.svg,
             PathType.VISUAL_SAFETY_ZONE: self.visual_safety_zone,
             PathType.VISUAL_OBSTACLE_ZONE: self.visual_obstacle_zone,
             PathType.CORRIDOR_LINE: self.corridor_line,
@@ -550,8 +598,15 @@ class HashList(DataClassORJSONMixin):
         AREA frames also auto-assign an ``area_name`` ("Area N") if none exists
         for the hash yet.  DYNAMICS_LINE (type 18) is keyed by frame order and
         resets on ``current_frame == 1``.
+
+        SvgMessage frames go to self.svg (SvgFrameList) via _add_svg_data.
+        NavGetCommData with type=SVG is discarded — real SVG geometry only
+        arrives as SvgMessage from toapp_svg_msg.
         """
-        if hash_data.type == PathType.AREA and isinstance(hash_data, NavGetCommData):
+        if isinstance(hash_data, SvgMessage):
+            return self._add_svg_data(self.svg, hash_data)
+
+        if hash_data.type == PathType.AREA:
             existing_name = next((area for area in self.area_name if area.hash == hash_data.hash), None)
             if not existing_name:
                 used_numbers = {
@@ -569,7 +624,7 @@ class HashList(DataClassORJSONMixin):
 
         # DYNAMICS_LINE is normally assembled by CommonDataSaga and stored via
         # update_dynamics_line; handle direct arrivals defensively here.
-        if hash_data.type == PathType.DYNAMICS_LINE and isinstance(hash_data, NavGetCommData):
+        if hash_data.type == PathType.DYNAMICS_LINE:
             if hash_data.current_frame == 1:
                 self.dynamics_line = []
             self.dynamics_line.extend(hash_data.data_couple)
@@ -659,7 +714,7 @@ class HashList(DataClassORJSONMixin):
                 del target[hash_id]
 
     @staticmethod
-    def find_missing_frames(frame_list: FrameList | RootHashList | None) -> list[int]:
+    def find_missing_frames(frame_list: FrameList | SvgFrameList | RootHashList | None) -> list[int]:
         """Return 1-based frame numbers absent from ``frame_list.data``."""
         if frame_list is None:
             return []
@@ -672,32 +727,24 @@ class HashList(DataClassORJSONMixin):
         return [num for num in number_list if num not in current_frames]
 
     @staticmethod
-    def _add_hash_data(hash_dict: dict[int, FrameList], hash_data: NavGetCommData | SvgMessage) -> bool:
+    def _add_svg_data(svg_dict: dict[int, SvgFrameList], hash_data: SvgMessage) -> bool:
+        """Insert *hash_data* into *svg_dict*; return True if anything was stored."""
+        entry = svg_dict.get(hash_data.data_hash)
+        if entry is None:
+            svg_dict[hash_data.data_hash] = SvgFrameList(total_frame=hash_data.total_frame, data=[hash_data])
+            return True
+        if any(f.current_frame == hash_data.current_frame for f in entry.data):
+            return True
+        entry.data.append(hash_data)
+        return True
+
+    @staticmethod
+    def _add_hash_data(hash_dict: dict[int, FrameList], hash_data: NavGetCommData) -> bool:
         """Insert *hash_data* into *hash_dict*; return True if anything was stored.
 
         Creates a new FrameList for a first sighting, otherwise appends the
         frame unless its ``current_frame`` is already present.
         """
-        if isinstance(hash_data, SvgMessage):
-            if hash_dict.get(hash_data.data_hash, None) is None:
-                hash_dict[hash_data.data_hash] = FrameList(total_frame=hash_data.total_frame, data=[hash_data])
-                return True
-
-            if hash_data not in hash_dict[hash_data.data_hash].data:
-                exists = next(
-                    (
-                        rhl
-                        for rhl in hash_dict[hash_data.data_hash].data
-                        if rhl.current_frame == hash_data.current_frame
-                    ),
-                    None,
-                )
-                if exists:
-                    return True
-                hash_dict[hash_data.data_hash].data.append(hash_data)
-                return True
-            return False
-
         if hash_dict.get(hash_data.hash, None) is None:
             hash_dict[hash_data.hash] = FrameList(total_frame=hash_data.total_frame, data=[hash_data])
             return True
@@ -739,21 +786,21 @@ class HashList(DataClassORJSONMixin):
         be preserved — the device advances ub_path_hash through segments during
         a mow and wiping on every change would discard live data.
         """
-        if path_hash == 0 or path_hash == 1:
+        if path_hash in (0, 1):
             self.current_mow_path = {}
             self.generated_mow_path_geojson = {}
             self.generated_mow_progress_geojson = {}
             self.last_ub_path_hash = 0
 
-    def has_mow_path_for_hash(self, ub_path_hash: int) -> bool:
-        """Return True if cover-path data for *ub_path_hash* is already cached.
+    def has_mow_path_for_hash(self, path_hash: int) -> bool:
+        """Return True if cover-path data for *path_hash* is already cached.
 
         Matches against ``path_packets[0].path_hash`` in any transaction's first
-        frame — the device uses ub_path_hash to identify the active segment.
+        frame — equals ``work.path_hash`` (field 2) when the cached data is current.
         """
         for frames in self.current_mow_path.values():
             for mow_path in frames.values():
-                if mow_path.path_packets and mow_path.path_packets[0].path_hash == ub_path_hash:
+                if mow_path.path_packets and mow_path.path_packets[0].path_hash == path_hash:
                     return True
         return False
 

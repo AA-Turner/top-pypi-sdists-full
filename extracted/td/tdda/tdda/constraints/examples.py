@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
 """
-The :py:mod:`tdda.constraints` module includes a set of examples.
+The ``tdda.constraints`` module includes a set of examples.
 
 To copy these constraints examples, run the command::
 
-    tdda examples constraints [directory]
+    tdda examples constraints
 
-If ``directory`` is not supplied, ``constraints_examples`` will be used.
+A directory ``constraints_examples`` will be created (or overwritten)
+in the current directory.
 
 Alternatively, you can copy all examples using the following command::
 
@@ -19,4 +19,3 @@ from tdda import examples
 
 if __name__ == '__main__':
     examples.copy_main('constraints')
-

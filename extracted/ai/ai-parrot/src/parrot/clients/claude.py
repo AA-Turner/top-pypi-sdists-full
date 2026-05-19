@@ -15,6 +15,12 @@ from navconfig import config
 # from datamodel.exceptions import ParserError  # pylint: disable=E0611 # noqa
 from datamodel.parsers.json import json_decoder  # pylint: disable=E0611 # noqa
 from .base import AbstractClient, BatchRequest, StreamingRetryConfig
+# FEAT-176: lifecycle events
+from parrot.core.events.lifecycle.events import (
+    ClientStreamChunkEvent,
+    PromptCacheAppliedEvent,
+    PromptCacheSkippedEvent,
+)
 
 if TYPE_CHECKING:
     # Type-check-only imports — keep IDE/mypy support without forcing the
@@ -50,6 +56,8 @@ class AnthropicClient(AbstractClient):
     _default_model: str = 'claude-sonnet-4-5'
     _fallback_model: str = 'claude-sonnet-4.5'
     _lightweight_model: str = "claude-haiku-4-5-20251001"
+    # FEAT-181: Anthropic caches system prefixes ≥ 1024 tokens.
+    _min_cache_tokens: int = 1024
 
     def __init__(
         self,
@@ -89,6 +97,96 @@ class AnthropicClient(AbstractClient):
         if isinstance(error, APIStatusError) and error.status_code in (429, 503, 529):
             return True
         return super()._is_capacity_error(error)
+
+    # ── FEAT-181: Prompt Caching ───────────────────────────────────────────
+
+    def _segments_to_anthropic_blocks(self, segments: list) -> list:
+        """Convert CacheableSegments to Anthropic system content blocks.
+
+        Anthropic requires the ``system`` field to be a list of content blocks
+        when using ``cache_control``. This method translates segments into
+        that format, respecting the 4-block hard limit.
+
+        Args:
+            segments: List of
+                :class:`~parrot.bots.prompts.segments.CacheableSegment` objects.
+
+        Returns:
+            List of ``{"type": "text", "text": ...}`` dicts, with
+            ``"cache_control": {"type": "ephemeral"}`` on cacheable blocks
+            up to the 4-block limit.
+        """
+        MAX_CACHE_BLOCKS = 4
+        blocks = []
+        cacheable_count = 0
+        for seg in segments:
+            block: dict = {"type": "text", "text": seg.text}
+            if seg.cacheable and cacheable_count < MAX_CACHE_BLOCKS:
+                block["cache_control"] = {"type": "ephemeral"}
+                cacheable_count += 1
+            elif seg.cacheable and cacheable_count >= MAX_CACHE_BLOCKS:
+                self.logger.debug(
+                    "AnthropicClient: max 4 cache_control blocks reached; "
+                    "segment dropped from cache: %.40s...", seg.text
+                )
+            blocks.append(block)
+        return blocks
+
+    def _apply_cache_hints(
+        self,
+        payload: dict,
+        segments: list,
+        trace_context=None,
+    ) -> dict:
+        """Apply Anthropic cache_control blocks to the payload system prompt.
+
+        FEAT-181 — overrides AbstractClient no-op.
+
+        Args:
+            payload: The request payload dict.
+            segments: List of
+                :class:`~parrot.bots.prompts.segments.CacheableSegment` objects.
+            trace_context: Optional W3C trace context for event correlation.
+                When ``None``, a new root trace is created for the event.
+
+        Returns:
+            The payload with ``system`` replaced by a list of content blocks
+            when segments are present; unchanged otherwise.
+        """
+        import hashlib as _hashlib
+        from parrot.core.events.lifecycle.trace import TraceContext as _TC
+        tc = trace_context if trace_context is not None else _TC.new_root()
+        if not segments:
+            self.events.emit_nowait(PromptCacheSkippedEvent(
+                trace_context=tc,
+                client_name="anthropic",
+                model=payload.get("model", ""),
+                reason="no_segments",
+                source_type="client",
+                source_name="anthropic",
+            ))
+            return payload
+        blocks = self._segments_to_anthropic_blocks(segments)
+        payload["system"] = blocks
+        # Emit cache-applied event (fire-and-forget)
+        cacheable_segs = [s for s in segments if s.cacheable]
+        seg_hashes = tuple(
+            _hashlib.sha256(s.text.encode()).hexdigest() for s in cacheable_segs
+        )
+        est_tokens = sum(len(s.text) // 4 for s in cacheable_segs)
+        self.events.emit_nowait(PromptCacheAppliedEvent(
+            trace_context=tc,
+            client_name="anthropic",
+            model=payload.get("model", ""),
+            blocks_marked=sum(
+                1 for b in blocks if isinstance(b, dict) and "cache_control" in b
+            ),
+            est_tokens=est_tokens,
+            segment_hashes=seg_hashes,
+            source_type="client",
+            source_name="anthropic",
+        ))
+        return payload
 
     async def ask(
         self,
@@ -135,23 +233,31 @@ class AnthropicClient(AbstractClient):
             prompt, files, user_id, session_id, system_prompt
         )
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent
+        import time as _lc_time
+        _lc_tc = self._emit_before_call(
+            client_name="anthropic",
+            model=model,
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=self._resolve_system_prompt(system_prompt),
+            has_tools=bool(_use_tools),
+            parent_trace=None,
+        )
+        _lc_t0 = _lc_time.perf_counter()
+
         # Enhance system prompt for deep research mode
         if deep_research:
             research_prompt = self._get_deep_research_system_prompt()
-            system_prompt = (
-                f"{system_prompt}\n\n{research_prompt}"
-                if system_prompt
-                else research_prompt
-            )
+            # FEAT-181: guard against List[CacheableSegment] + string concatenation
+            _sp = self._resolve_system_prompt(system_prompt) if isinstance(system_prompt, list) else system_prompt
+            system_prompt = f"{_sp}\n\n{research_prompt}" if _sp else research_prompt
 
         # Lazy loading system prompt
         if lazy_loading:
-             search_prompt = "You have access to a library of tools. Use the 'search_tools' function to find relevant tools."
-             system_prompt = (
-                 f"{system_prompt}\n\n{search_prompt}"
-                 if system_prompt
-                 else search_prompt
-             )
+            search_prompt = "You have access to a library of tools. Use the 'search_tools' function to find relevant tools."
+            # FEAT-181: guard against List[CacheableSegment] + string concatenation
+            _sp = self._resolve_system_prompt(system_prompt) if isinstance(system_prompt, list) else system_prompt
+            system_prompt = f"{_sp}\n\n{search_prompt}" if _sp else search_prompt
 
         output_config = self._get_structured_config(
             structured_output
@@ -159,11 +265,9 @@ class AnthropicClient(AbstractClient):
 
         if structured_output:
             schema_instruction = output_config.format_schema_instruction()
-            system_prompt = (
-                f"{system_prompt}\n\n{schema_instruction}"
-                if system_prompt
-                else schema_instruction
-            )
+            # FEAT-181: guard against List[CacheableSegment] + string concatenation
+            _sp = self._resolve_system_prompt(system_prompt) if isinstance(system_prompt, list) else system_prompt
+            system_prompt = f"{_sp}\n\n{schema_instruction}" if _sp else schema_instruction
 
         # Anthropic SDK requires max_tokens to be a non-None int;
         # _calculate_nonstreaming_timeout() does `int * max_tokens`.
@@ -176,7 +280,11 @@ class AnthropicClient(AbstractClient):
         }
 
         if system_prompt:
-            payload["system"] = system_prompt
+            if isinstance(system_prompt, list):
+                # FEAT-181: List of CacheableSegments — translate to cache blocks.
+                payload = self._apply_cache_hints(payload, system_prompt)
+            else:
+                payload["system"] = system_prompt
 
         if context_1m:
             payload["betas"] = ["context-1m-2025-08-07"]
@@ -355,6 +463,17 @@ class AnthropicClient(AbstractClient):
             ai_message.metadata['original_model'] = model
             ai_message.metadata['fallback_model'] = self._fallback_model
 
+        # FEAT-176: lifecycle event — AfterClientCallEvent
+        _lc_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc,
+            client_name="anthropic",
+            model=model,
+            duration_ms=(_lc_time.perf_counter() - _lc_t0) * 1000,
+            input_tokens=getattr(_lc_usage, 'input_tokens', None) if _lc_usage else None,
+            output_tokens=getattr(_lc_usage, 'output_tokens', None) if _lc_usage else None,
+            finish_reason=getattr(ai_message, 'stop_reason', None),
+        )
         return ai_message
 
     async def resume(
@@ -481,8 +600,12 @@ class AnthropicClient(AbstractClient):
         agent_config: Optional[Dict[str, Any]] = None,
         lazy_loading: bool = False,
         context_1m: bool = False,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[Union[str, AIMessage]]:
         """Stream Claude's response using AsyncIterator with optional conversation memory.
+
+        Yields successive string chunks of the response followed by a single
+        final :class:`~parrot.models.responses.AIMessage` with full metadata
+        (usage, stop_reason, model, turn_id).
 
         Args:
             deep_research: If True, use enhanced system prompt for thorough research
@@ -505,12 +628,25 @@ class AnthropicClient(AbstractClient):
         # Enhance system prompt for deep research mode
         if deep_research:
             research_prompt = self._get_deep_research_system_prompt()
-            system_prompt = (
-                f"{system_prompt}\n\n{research_prompt}"
-                if system_prompt
-                else research_prompt
-            )
+            # FEAT-181: guard against List[CacheableSegment] + string concatenation
+            _sp = self._resolve_system_prompt(system_prompt) if isinstance(system_prompt, list) else system_prompt
+            system_prompt = f"{_sp}\n\n{research_prompt}" if _sp else research_prompt
             self.logger.info("Deep research mode enabled for streaming")
+
+        # FEAT-176: lifecycle event — BeforeClientCallEvent for stream
+        import time as _lc_time_s
+        _lc_model_s = (model.value if isinstance(model, type(model)) and hasattr(model, 'value') else model) or (self.model or getattr(self, 'default_model', ''))
+        _lc_tc_s = self._emit_before_call(
+            client_name="anthropic",
+            model=_lc_model_s or "",
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=self._resolve_system_prompt(system_prompt),
+            has_tools=False,
+            parent_trace=None,
+        )
+        _lc_t0_s = _lc_time_s.perf_counter()
+        _lc_has_chunk_subs = self.events.has_subscribers(ClientStreamChunkEvent)
+        _lc_chunk_idx = 0
 
         if tools and isinstance(tools, list):
             for tool in tools:
@@ -520,6 +656,7 @@ class AnthropicClient(AbstractClient):
         current_max_tokens = max_tokens if max_tokens is not None else (self.max_tokens or 16000)
         retry_count = 0
         assistant_content = ""
+        final_message = None
         model = (
             model.value if isinstance(model, ClaudeModel) else model
         ) or (self.model or self.default_model)
@@ -533,7 +670,11 @@ class AnthropicClient(AbstractClient):
                 }
 
                 if system_prompt:
-                    payload["system"] = system_prompt
+                    if isinstance(system_prompt, list):
+                        # FEAT-181: List of CacheableSegments — translate to cache blocks.
+                        payload = self._apply_cache_hints(payload, system_prompt)
+                    else:
+                        payload["system"] = system_prompt
 
                 if context_1m:
                     payload["betas"] = ["context-1m-2025-08-07"]
@@ -549,6 +690,18 @@ class AnthropicClient(AbstractClient):
                     async with self.client.messages.stream(**payload) as stream:
                         async for text in stream.text_stream:
                             assistant_content += text
+                            # FEAT-176: per-chunk event (short-circuited when no subscribers)
+                            if _lc_has_chunk_subs:
+                                await self.events.emit(ClientStreamChunkEvent(
+                                    trace_context=_lc_tc_s,
+                                    client_name="anthropic",
+                                    model=_lc_model_s or "",
+                                    chunk_index=_lc_chunk_idx,
+                                    chunk_size_bytes=len(text.encode("utf-8")),
+                                    source_type="client",
+                                    source_name="anthropic",
+                                ))
+                                _lc_chunk_idx += 1
                             yield text
 
                         # Get the final message to check stop reason
@@ -567,7 +720,7 @@ class AnthropicClient(AbstractClient):
                             await self._wait_with_backoff(retry_count, retry_config)
                             continue
                         else:
-                            yield f"\n\n❌ **Rate limit exceeded. Max retries reached.**\n"
+                            yield "\n\n❌ **Rate limit exceeded. Max retries reached.**\n"
                             break
                     elif '5' in error_str[:3]:  # 5xx errors
                         if retry_config.retry_on_server_error and retry_count < retry_config.max_retries:
@@ -576,7 +729,7 @@ class AnthropicClient(AbstractClient):
                             await self._wait_with_backoff(retry_count, retry_config)
                             continue
                         else:
-                            yield f"\n\n❌ **Server error. Max retries reached.**\n"
+                            yield "\n\n❌ **Server error. Max retries reached.**\n"
                             break
                     else:
                         raise
@@ -600,7 +753,7 @@ class AnthropicClient(AbstractClient):
                             continue
                         else:
                             # Max retries reached
-                            yield f"\n\n❌ **Maximum retries reached. Response may be incomplete due to token limits.**\n"
+                            yield "\n\n❌ **Maximum retries reached. Response may be incomplete due to token limits.**\n"
                     elif on_max_tokens == "ignore":
                         continue  # Just ignore and yield what we have
                 # If we get here, streaming completed successfully
@@ -618,7 +771,36 @@ class AnthropicClient(AbstractClient):
                     yield f"\n\n❌ **Streaming failed after {retry_config.max_retries} retries: {str(e)}**\n"
                     break
 
-        # Update conversation memory
+        # Yield final AIMessage with full metadata
+        if final_message is not None:
+            ai_message = AIMessageFactory.from_claude(
+                response=final_message.model_dump(),
+                input_text=original_prompt,
+                model=model,
+                user_id=user_id,
+                session_id=session_id,
+                turn_id=turn_id,
+            )
+        else:
+            ai_message = AIMessage(
+                input=original_prompt,
+                output=assistant_content,
+                response=assistant_content,
+                model=model,
+                provider="claude",
+                usage=CompletionUsage(
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                    total_tokens=0,
+                ),
+                user_id=user_id,
+                session_id=session_id,
+                turn_id=turn_id,
+            )
+        # Update conversation memory BEFORE yielding the final AIMessage so the
+        # memory write executes even if the consumer stops iterating after receiving
+        # the sentinel (generators are not fully drained once the caller exits the
+        # async-for loop).
         if assistant_content:
             await self._update_conversation_memory(
                 user_id,
@@ -634,6 +816,19 @@ class AnthropicClient(AbstractClient):
                 assistant_content,
                 []  # No tools used in streaming
             )
+
+        # FEAT-176: lifecycle event — AfterClientCallEvent for stream
+        _lc_stream_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc_s,
+            client_name="anthropic",
+            model=_lc_model_s or "",
+            duration_ms=(_lc_time_s.perf_counter() - _lc_t0_s) * 1000,
+            input_tokens=getattr(_lc_stream_usage, 'input_tokens', None) if _lc_stream_usage else None,
+            output_tokens=getattr(_lc_stream_usage, 'output_tokens', None) if _lc_stream_usage else None,
+            finish_reason=getattr(ai_message, 'stop_reason', None),
+        )
+        yield ai_message
 
     async def batch_ask(self, requests: List[BatchRequest], context_1m: bool = False) -> List[AIMessage]:
         """Process multiple requests in batch."""
@@ -880,11 +1075,22 @@ class AnthropicClient(AbstractClient):
         if structured_output:
             structured_system_prompt = "You are a precise assistant that responds only with valid JSON when requested. When asked for structured output, respond with ONLY the JSON object, no additional text, explanations, or markdown formatting."
             if system_prompt:
-                payload["system"] = f"{system_prompt}\n\n{structured_system_prompt}"
+                if isinstance(system_prompt, list):
+                    # FEAT-181: Segments + structured output — append structured hint as non-cacheable block.
+                    extra_block = {"type": "text", "text": structured_system_prompt}
+                    blocks = self._segments_to_anthropic_blocks(system_prompt)
+                    blocks.append(extra_block)
+                    payload["system"] = blocks
+                else:
+                    payload["system"] = f"{system_prompt}\n\n{structured_system_prompt}"
             else:
                 payload["system"] = structured_system_prompt
         elif system_prompt:
-            payload["system"] = system_prompt
+            if isinstance(system_prompt, list):
+                # FEAT-181: List of CacheableSegments — translate to cache blocks.
+                payload = self._apply_cache_hints(payload, system_prompt)
+            else:
+                payload["system"] = system_prompt
 
         if count_objects and not structured_output:
             # Import ObjectDetectionResult from models

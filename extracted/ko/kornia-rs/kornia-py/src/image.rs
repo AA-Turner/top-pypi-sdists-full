@@ -1161,6 +1161,7 @@ impl PyImageApi {
         format: &str,
         quality: u8,
         compress_level: Option<u8>,
+        #[cfg_attr(not(feature = "turbojpeg"), allow(unused_variables))]
         subsampling: Option<&str>,
     ) -> PyResult<Vec<u8>> {
         let c = self.data.channels(py);
@@ -1186,17 +1187,17 @@ impl PyImageApi {
                     _ => unreachable!("u16/f32 rejected above"),
                 };
                 // libjpeg-turbo first (~3-4× faster than zune-jpeg on aarch64);
-                // fall back to zune-jpeg only if the libjpeg-turbo init fails
-                // — belt-and-suspenders for builds without the turbojpeg feature.
-                match crate::io::jpegturbo::encode_image_jpegturbo(
+                // fall back to pure-Rust jpeg if the turbojpeg feature is absent.
+                #[cfg(feature = "turbojpeg")]
+                if let Ok(b) = crate::io::jpegturbo::encode_image_jpegturbo(
                     py,
                     arr.clone_ref(py),
                     quality as i32,
                     subsampling,
                 ) {
-                    Ok(b) => Ok(b),
-                    Err(_) => crate::io::jpeg::encode_image_jpeg(py, arr, quality),
+                    return Ok(b);
                 }
+                crate::io::jpeg::encode_image_jpeg(py, arr, quality)
             }
             "png" => {
                 let mut buffer = Vec::new();
@@ -1556,9 +1557,16 @@ impl PyImageApi {
 
         // JPEG: always 8-bit per channel.
         if data.len() >= 2 && data[0] == 0xff && data[1] == 0xd8 {
-            let arr = match crate::io::jpegturbo::decode_image_jpegturbo(py, data, native_mode) {
-                Ok(a) => a,
-                Err(_) => crate::io::jpeg::decode_image_jpeg(py, data)?,
+            let arr = {
+                #[cfg(feature = "turbojpeg")]
+                {
+                    match crate::io::jpegturbo::decode_image_jpegturbo(py, data, native_mode) {
+                        Ok(a) => a,
+                        Err(_) => crate::io::jpeg::decode_image_jpeg(py, data)?,
+                    }
+                }
+                #[cfg(not(feature = "turbojpeg"))]
+                crate::io::jpeg::decode_image_jpeg(py, data)?
             };
             return Ok(Self::wrap(py, arr, Some(mode.to_string())).with_format("JPEG"));
         }
@@ -2352,6 +2360,28 @@ impl PyImageApi {
                 c
             )))
         }
+    }
+
+    /// Apply a colormap to a single-channel (L) image, producing an RGB image.
+    ///
+    /// Accepts any of the 21 OpenCV colormap names (case-insensitive):
+    /// ``autumn``, ``bone``, ``jet``, ``winter``, ``rainbow``, ``ocean``,
+    /// ``summer``, ``spring``, ``cool``, ``hsv``, ``pink``, ``hot``,
+    /// ``parula``, ``magma``, ``inferno``, ``plasma``, ``viridis``,
+    /// ``cividis``, ``twilight``, ``turbo``, ``deepgreen``.
+    ///
+    /// On aarch64 the LUT lookup is NEON-accelerated (16 px/iter).
+    fn colormap(&self, py: Python<'_>, colormap: &str) -> PyResult<Self> {
+        let data = self.require_u8("colormap")?;
+        let c = data.bind(py).shape()[2];
+        if c != 1 {
+            return Err(value_err(format!(
+                "colormap() requires a single-channel image, got {} channels",
+                c
+            )));
+        }
+        let result = crate::color::apply_colormap(py, data.clone_ref(py), colormap)?;
+        Ok(Self::wrap(py, result, Some("RGB".to_string())))
     }
 
     /// Rotate image by angle degrees (counter-clockwise). 8-bit only.

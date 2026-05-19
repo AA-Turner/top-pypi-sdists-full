@@ -2,7 +2,7 @@ import re
 from urllib.parse import urlparse
 
 import biolib.utils
-from biolib.typing_utils import Optional, Tuple
+from biolib._shared.types.typing import Optional, Tuple
 
 
 def parse_result_id_or_url(

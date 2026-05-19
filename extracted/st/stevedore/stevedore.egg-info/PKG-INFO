@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: stevedore
-Version: 5.7.0
+Version: 5.8.0
 Summary: Manage dynamic plugins for Python applications
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://docs.openstack.org/stevedore
 Project-URL: Repository, https://opendev.org/openstack/stevedore
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3

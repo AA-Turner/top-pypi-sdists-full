@@ -61,7 +61,10 @@ __all__ = (
     "DaemonTaskDefinitionStatusFilterType",
     "DaemonTaskDefinitionStatusType",
     "DeploymentControllerTypeType",
+    "DeploymentLifecycleHookActionType",
     "DeploymentLifecycleHookStageType",
+    "DeploymentLifecycleHookStatusType",
+    "DeploymentLifecycleHookTargetTypeType",
     "DeploymentRolloutStateType",
     "DeploymentStrategyType",
     "DesiredStatusType",
@@ -227,15 +230,21 @@ DaemonTaskDefinitionRevisionFilterType = Literal["LAST_REGISTERED"]
 DaemonTaskDefinitionStatusFilterType = Literal["ACTIVE", "ALL", "DELETE_IN_PROGRESS"]
 DaemonTaskDefinitionStatusType = Literal["ACTIVE", "DELETED", "DELETE_IN_PROGRESS"]
 DeploymentControllerTypeType = Literal["CODE_DEPLOY", "ECS", "EXTERNAL"]
+DeploymentLifecycleHookActionType = Literal["CONTINUE", "ROLLBACK"]
 DeploymentLifecycleHookStageType = Literal[
     "POST_PRODUCTION_TRAFFIC_SHIFT",
     "POST_SCALE_UP",
     "POST_TEST_TRAFFIC_SHIFT",
+    "PRE_PRODUCTION_TRAFFIC_SHIFT",
     "PRE_SCALE_UP",
     "PRODUCTION_TRAFFIC_SHIFT",
     "RECONCILE_SERVICE",
     "TEST_TRAFFIC_SHIFT",
 ]
+DeploymentLifecycleHookStatusType = Literal[
+    "AWAITING_ACTION", "FAILED", "IN_PROGRESS", "SUCCEEDED", "TIMED_OUT"
+]
+DeploymentLifecycleHookTargetTypeType = Literal["AWS_LAMBDA", "PAUSE"]
 DeploymentRolloutStateType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 DeploymentStrategyType = Literal["BLUE_GREEN", "CANARY", "LINEAR", "ROLLING"]
 DesiredStatusType = Literal["PENDING", "RUNNING", "STOPPED"]

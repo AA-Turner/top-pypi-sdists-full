@@ -408,6 +408,15 @@ def run_pipeline(
     exclude_folders=None,
     stats_out=None,
 ):
+    """
+    Run agent scan pipeline across static and LLM phases.
+
+    Calls: skylos/analyzer.py analyze; skylos/pipeline.py run_static_on_files;
+        skylos/llm/analyzer.py SkylosLLM.analyze_files;
+        skylos/llm/repo_activation.py build_repo_activation_index.
+        
+    Called from: skylos/cli.py main; skylos/cli.py run_pipeline.
+    """
     import sys
     import time
     from concurrent.futures import ThreadPoolExecutor
@@ -575,11 +584,15 @@ def run_pipeline(
         files,
         static_findings,
         changed_files=safe_changed_files,
-        force_include_files=path.is_file(),
+        force_include_files=path.is_file() or getattr(agent_args, "llm_only", False),
         review_index=review_index,
     )
     phase_2b_repo_context = review_index.context_map_for(phase_2b_files)
-    force_full_file_paths = review_index.force_full_file_paths_for(phase_2b_files)
+    force_full_file_paths = (
+        set()
+        if safe_changed_files is not None
+        else review_index.force_full_file_paths_for(phase_2b_files)
+    )
 
     low_conf = [f for f in dead_code_findings if f.get("confidence", 100) < 20]
     if low_conf:
@@ -737,8 +750,8 @@ def run_pipeline(
             ),
             parallel=True,
             max_workers=_max_workers,
-            smart_filter=not (path.is_file() or bool(safe_changed_files)),
-            full_file_review=path.is_file() or bool(safe_changed_files),
+            smart_filter=not path.is_file(),
+            full_file_review=path.is_file(),
             repo_context_map=phase_2b_repo_context,
             force_full_file_paths=force_full_file_paths,
         )

@@ -1021,7 +1021,7 @@ class PKScreenerMain:
                 
             ConsoleUtility.PKConsoleTools.clearScreen(clearAlways=True, forceTop=True)
             OutputControls().printOutput(f"{colorText.WARN}Launching into the selected time-window!{colorText.END}{colorText.GREEN} Brace yourself for the time-travel!{colorText.END}")
-            sleep(5)
+            sleep(2)
             
             # Restart the main method with new parameters
             return self.main(userArgs=self.user_passed_args, optionalFinalOutcome_df=None)

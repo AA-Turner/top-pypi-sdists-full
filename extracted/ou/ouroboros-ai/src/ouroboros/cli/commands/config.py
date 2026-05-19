@@ -156,7 +156,7 @@ def show(
 def backend(
     new_backend: Annotated[
         str | None,
-        typer.Argument(help="Backend to switch to (claude, codex, hermes, gemini)."),
+        typer.Argument(help="Backend to switch to (claude, codex, hermes, gemini, goose)."),
     ] = None,
 ) -> None:
     """Show or switch the runtime backend.
@@ -172,6 +172,7 @@ def backend(
     [dim]    ouroboros config backend claude    # switch to Claude Code[/dim]
     [dim]    ouroboros config backend hermes    # switch to Hermes[/dim]
     [dim]    ouroboros config backend gemini    # switch to Gemini CLI[/dim]
+    [dim]    ouroboros config backend goose     # switch to Goose[/dim]
     """
     data, config_path = _load_config()
     current = data.get("orchestrator", {}).get("runtime_backend", "unknown")
@@ -183,7 +184,7 @@ def backend(
         if cli_path:
             console.print(f"[bold]CLI path:[/bold]        [dim]{cli_path}[/dim]")
         console.print(
-            "\n[dim]Switch with: ouroboros config backend <claude|codex|hermes|gemini>[/dim]\n"
+            "\n[dim]Switch with: ouroboros config backend <claude|codex|hermes|gemini|goose>[/dim]\n"
         )
         return
 
@@ -202,8 +203,8 @@ def backend(
         return
 
     # Detect CLI path. For backends that expose an env-var or persisted
-    # config path (gemini), honor those before falling back to PATH so users
-    # with explicit-path installs can still switch via the CLI.
+    # config path, honor those before falling back to PATH so users with
+    # explicit-path installs can still switch via the CLI.
     capability = get_backend_capability(new_backend)
     cli_name = capability.cli_name if capability and capability.cli_name else new_backend
     cli_path = None
@@ -211,6 +212,10 @@ def backend(
         from ouroboros.config import get_gemini_cli_path
 
         cli_path = get_gemini_cli_path()
+    elif new_backend == "goose":
+        from ouroboros.config import get_goose_cli_path
+
+        cli_path = get_goose_cli_path()
     if not cli_path:
         cli_path = shutil.which(cli_name)
     if not cli_path:
@@ -219,6 +224,12 @@ def backend(
                 "gemini CLI not found.\n"
                 "Set OUROBOROS_GEMINI_CLI_PATH, configure orchestrator.gemini_cli_path "
                 "in config.yaml, or install gemini on PATH and retry."
+            )
+        elif new_backend == "goose":
+            print_error(
+                "goose CLI not found.\n"
+                "Set OUROBOROS_GOOSE_CLI_PATH, configure orchestrator.goose_cli_path "
+                "in config.yaml, or install goose on PATH and retry."
             )
         else:
             print_error(f"{cli_name} CLI not found in PATH.\nInstall it first, then retry.")
@@ -234,6 +245,7 @@ def backend(
         _setup_claude,
         _setup_codex,
         _setup_gemini,
+        _setup_goose,
         _setup_hermes,
     )
 
@@ -258,6 +270,8 @@ def backend(
             _setup_hermes(cli_path)
         elif new_backend == "gemini":
             _setup_gemini(cli_path)
+        elif new_backend == "goose":
+            _setup_goose(cli_path)
     except Exception as exc:
         setup_failed = True
         console.quiet = prev_quiet

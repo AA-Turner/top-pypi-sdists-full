@@ -21,7 +21,7 @@ class Text(Asset):
     def __init__(self, text: str, font: Font = None):
         # Transtypage et vérifications
         text = str(text)
-        font if font is not None else Font()
+        font = font if font is not None else Font()
 
         if __debug__:
             expect(font, Font)

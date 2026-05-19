@@ -26,6 +26,7 @@ from cvxpy.constraints import (
     NonNeg as NonNeg,
     Zero as Zero,
     PowCone3D as PowCone3D,
+    PowCone3DApprox as PowCone3DApprox,
     PowConeND as PowConeND,
     ExpCone as ExpCone,
     OpRelEntrConeQuad as OpRelEntrConeQuad,
@@ -63,11 +64,13 @@ from cvxpy.transforms import (
     suppfunc as suppfunc,
 )
 from cvxpy import logic as logic
+from cvxpy import nlp as nlp
 from cvxpy.reductions.solvers.defines import installed_solvers as installed_solvers
 from cvxpy.settings import (
     CBC as CBC,
     CLARABEL as CLARABEL,
     CUCLARABEL as CUCLARABEL,
+    PDCS as PDCS,
     COPT as COPT,
     COSMO as COSMO,
     CPLEX as CPLEX,
@@ -107,9 +110,11 @@ from cvxpy.settings import (
     SOLVER_ERROR as SOLVER_ERROR,
     UNBOUNDED as UNBOUNDED,
     UNBOUNDED_INACCURATE as UNBOUNDED_INACCURATE,
+    UNO as UNO,
     USER_LIMIT as USER_LIMIT,
     XPRESS as XPRESS,
     HIGHS as HIGHS,
+    IPOPT as IPOPT,
     KNITRO as KNITRO,
     get_num_threads as get_num_threads,
     set_num_threads as set_num_threads,

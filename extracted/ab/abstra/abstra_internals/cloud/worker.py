@@ -1,4 +1,5 @@
 import os
+from importlib.metadata import PackageNotFoundError
 
 from abstra_internals.cloud.tracing import init_tracing
 
@@ -29,9 +30,11 @@ from abstra_internals.utils.packages import get_local_package_version  # noqa: E
 def run():
     SignalHandlers.init()
     AbstraLogger.init("cloud")
-    AbstraLogger.warning(
-        f"[abstra-worker] Running abstra version {get_local_package_version()}"
-    )
+    try:
+        abstra_version = str(get_local_package_version())
+    except PackageNotFoundError:
+        abstra_version = "0.0.0"
+    AbstraLogger.warning(f"[abstra-worker] Running abstra version {abstra_version}")
     SettingsController.set_root_path(os.getenv("ABSTRA_PROJECT_PATH", "."))
     SettingsController.set_server_port(DEFAULT_PORT)
 

@@ -1,4 +1,4 @@
-from biolib.typing_utils import List, Literal, Optional, TypedDict
+from biolib._shared.types.typing import List, Literal, Optional, TypedDict
 
 JobState = Literal['in_progress', 'completed', 'failed', 'cancelled']
 

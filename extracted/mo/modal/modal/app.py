@@ -379,6 +379,7 @@ class _App:
     async def run(
         self,
         *,
+        name: Optional[str] = None,
         client: Optional[_Client] = None,
         detach: bool = False,
         interactive: bool = False,
@@ -426,7 +427,7 @@ class _App:
         from .runner import _run_app  # Defer import of runner.py, which imports a lot from Rich
 
         async with _run_app(
-            self, client=client, detach=detach, interactive=interactive, environment_name=environment_name
+            self, name=name, client=client, detach=detach, interactive=interactive, environment_name=environment_name
         ):
             yield self
 
@@ -594,7 +595,7 @@ class _App:
         All modal.Function objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -606,7 +607,7 @@ class _App:
         All modal.Cls objects registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -618,7 +619,7 @@ class _App:
         All local CLI entrypoints registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future.
         """
         return self._local_state.local_entrypoints
@@ -626,10 +627,10 @@ class _App:
     @property
     def registered_web_endpoints(self) -> list[str]:
         """mdmd:hidden
-        Names of web endpoint (ie. webhook) functions registered on the app.
+        Names of Web Functions registered on the app.
 
         Note: this property is populated only during the build phase, and it is not
-        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        expected to work when a deployed App has been retrieved via `modal.App.lookup`.
         This method is likely to be deprecated in the future in favor of a different
         approach for retrieving the layout of a deployed App.
         """
@@ -742,6 +743,7 @@ class _App:
         ] = None,  # Set this to True if it's a non-generator function returning a [sync/async] generator object
         cloud: Optional[str] = None,  # Cloud provider to run the function on. Possible values are aws, gcp, oci, auto.
         region: Optional[Union[str, Sequence[str]]] = None,  # Region or regions to run the function on.
+        routing_region: Optional[str] = None,  # Region to route inputs to the function through.
         nonpreemptible: bool = False,  # Whether to run the function on a nonpreemptible instance.
         enable_memory_snapshot: bool = False,  # Enable memory checkpointing for faster cold starts.
         block_network: bool = False,  # Whether to block network access
@@ -777,7 +779,6 @@ class _App:
             deprecation_warning(
                 (2025, 12, 16),
                 "The `max_inputs` parameter is deprecated. Please set `single_use_containers=True` instead.",
-                pending=True,
             )
             single_use_containers = max_inputs == 1
 
@@ -802,7 +803,7 @@ class _App:
                 if is_method_fn(f.raw_f.__qualname__):
                     raise InvalidError(
                         "The `@app.function` decorator cannot be used on class methods. "
-                        "Swap with `@modal.method` or one of the web endpoint decorators. "
+                        "Swap with `@modal.method` or one of the Web Function decorators. "
                         "Example: "
                         "\n\n"
                         "```python\n"
@@ -902,6 +903,7 @@ class _App:
                 startup_timeout=startup_timeout or timeout,
                 cloud=cloud,
                 region=region,
+                routing_region=routing_region,
                 nonpreemptible=nonpreemptible,
                 webhook_config=webhook_config,
                 enable_memory_snapshot=enable_memory_snapshot,
@@ -957,6 +959,7 @@ class _App:
         startup_timeout: Optional[int] = None,  # Maximum startup time in seconds with higher precedence than `timeout`.
         cloud: Optional[str] = None,  # Cloud provider to run the function on. Possible values are aws, gcp, oci, auto.
         region: Optional[Union[str, Sequence[str]]] = None,  # Region or regions to run the function on.
+        routing_region: Optional[str] = None,  # Region to route inputs to the function through.
         nonpreemptible: bool = False,  # Whether to run the function on a non-preemptible instance.
         enable_memory_snapshot: bool = False,  # Enable memory checkpointing for faster cold starts.
         block_network: bool = False,  # Whether to block network access
@@ -986,7 +989,6 @@ class _App:
             deprecation_warning(
                 (2025, 12, 16),
                 "The `max_inputs` parameter is deprecated. Please set `single_use_containers=True` instead.",
-                pending=True,
             )
             single_use_containers = max_inputs == 1
 
@@ -1101,6 +1103,7 @@ class _App:
                 startup_timeout=startup_timeout or timeout,
                 cloud=cloud,
                 region=region,
+                routing_region=routing_region,
                 nonpreemptible=nonpreemptible,
                 enable_memory_snapshot=enable_memory_snapshot,
                 block_network=block_network,

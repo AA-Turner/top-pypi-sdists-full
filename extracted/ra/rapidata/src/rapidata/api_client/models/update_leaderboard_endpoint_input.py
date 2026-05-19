@@ -31,7 +31,8 @@ class UpdateLeaderboardEndpointInput(LazyValidatedModel):
     name: Optional[StrictStr] = Field(default=None, description="The new name of the leaderboard.")
     response_budget: Optional[StrictInt] = Field(default=None, description="The response budget collected when onboarding a new participant.", alias="responseBudget")
     min_responses: Optional[StrictInt] = Field(default=None, description="The minimum responses collected per matchup.", alias="minResponses")
-    __properties: ClassVar[List[str]] = ["name", "responseBudget", "minResponses"]
+    priority: Optional[StrictInt] = Field(default=None, description="Priority override applied to every run's job. Admin-only. Pass null to clear  the override and fall back to the default leaderboard priority.")
+    __properties: ClassVar[List[str]] = ["name", "responseBudget", "minResponses", "priority"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -68,6 +69,11 @@ class UpdateLeaderboardEndpointInput(LazyValidatedModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if priority (nullable) is None
+        # and model_fields_set contains the field
+        if self.priority is None and "priority" in self.model_fields_set:
+            _dict['priority'] = None
+
         return _dict
 
     @classmethod
@@ -82,7 +88,8 @@ class UpdateLeaderboardEndpointInput(LazyValidatedModel):
         _data = {
             "name": obj.get("name"),
             "responseBudget": obj.get("responseBudget"),
-            "minResponses": obj.get("minResponses")
+            "minResponses": obj.get("minResponses"),
+            "priority": obj.get("priority")
         }
         try:
             _obj = cls.model_validate(_data)

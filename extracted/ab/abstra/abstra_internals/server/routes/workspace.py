@@ -1,3 +1,5 @@
+from importlib.metadata import PackageNotFoundError
+
 import flask
 
 from abstra_internals.contracts_generated import (
@@ -35,12 +37,10 @@ def get_editor_bp(controller: MainController):
     @bp.get("/version")
     def _get_abstra_version():
         try:
-            version = get_local_package_version("abstra")
-            return AbstraLibApiEditorWorkspaceVersionGetResponse(
-                version=str(version)
-            ).to_dict()
-        except Exception as e:
-            return {"error": f"Could not get version: {str(e)}"}, 500
+            version = str(get_local_package_version("abstra"))
+        except PackageNotFoundError:
+            version = "0.0.0"
+        return AbstraLibApiEditorWorkspaceVersionGetResponse(version=version).to_dict()
 
     @bp.get("/read-test-data")
     @editor_usage

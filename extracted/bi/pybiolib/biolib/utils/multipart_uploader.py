@@ -7,11 +7,11 @@ from urllib.parse import urlparse
 
 import biolib.api
 from biolib._internal.http_client import HttpClient
+from biolib._shared.types.typing import Callable, Dict, Iterator, List, Optional, Tuple, TypedDict
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger, logger_no_user_data
-from biolib.typing_utils import Callable, Dict, Iterator, List, Optional, Tuple, TypedDict
 
 
 def get_chunk_iterator_from_bytes(byte_buffer: bytes, chunk_size_in_bytes: int = 50_000_000) -> Iterator[bytes]:

@@ -15,7 +15,9 @@ Functional test cases for the Castellan Oslo Config Driver.
 
 Note: This requires local running instance of Vault.
 """
+
 import tempfile
+from unittest import mock
 
 from oslo_config import cfg
 from oslo_config import fixture
@@ -28,9 +30,8 @@ from castellan.tests.unit.key_manager import fake
 
 
 class CastellanSourceTestCase(base.BaseTestCase):
-
     def setUp(self):
-        super(CastellanSourceTestCase, self).setUp()
+        super().setUp()
         self.driver = _config_driver.CastellanConfigurationSourceDriver()
         self.conf = cfg.ConfigOpts()
         self.conf_fixture = self.useFixture(fixture.Config(self.conf))
@@ -55,22 +56,25 @@ class CastellanSourceTestCase(base.BaseTestCase):
             mapping_file='mapping.conf',
         )
 
-        with base.mock.patch.object(
-                _config_driver,
-                'CastellanConfigurationSource') as source_class:
+        with mock.patch.object(
+            _config_driver, 'CastellanConfigurationSource'
+        ) as source_class:
             self.driver.open_source_from_opt_group(
-                self.conf, 'castellan_source')
+                self.conf, 'castellan_source'
+            )
 
             source_class.assert_called_once_with(
                 'castellan_source',
                 self.conf.castellan_source.config_file,
-                self.conf.castellan_source.mapping_file)
+                self.conf.castellan_source.mapping_file,
+            )
 
     def test_fetch_secret(self):
         # fake KeyManager populated with secret
         km = fake.fake_api()
-        secret_id = km.store("fake_context",
-                             opaque_data.OpaqueData(b"super_secret!"))
+        secret_id = km.store(
+            "fake_context", opaque_data.OpaqueData(b"super_secret!")
+        )
 
         # driver config
         config = "[key_manager]\nbackend=vault\nauth_type=keystone_password\n"
@@ -93,8 +97,8 @@ class CastellanSourceTestCase(base.BaseTestCase):
                 )
 
                 source = self.driver.open_source_from_opt_group(
-                    self.conf,
-                    'castellan_source')
+                    self.conf, 'castellan_source'
+                )
 
                 # replacing key_manager with fake one
                 source._mngr = km
@@ -102,10 +106,10 @@ class CastellanSourceTestCase(base.BaseTestCase):
                 # testing if the source is able to retrieve
                 # the secret value stored in the key_manager
                 # using the secret_id from the mapping file
-                self.assertEqual("super_secret!",
-                                 source.get("DEFAULT",
-                                            "my_secret",
-                                            cfg.StrOpt(""))[0])
+                self.assertEqual(
+                    "super_secret!",
+                    source.get("DEFAULT", "my_secret", cfg.StrOpt(""))[0],
+                )
 
     def test_missing_auth_type(self):
         # driver config without auth_type
@@ -129,8 +133,8 @@ class CastellanSourceTestCase(base.BaseTestCase):
                 )
 
                 source = self.driver.open_source_from_opt_group(
-                    self.conf,
-                    'castellan_source')
+                    self.conf, 'castellan_source'
+                )
 
                 # testing that context is None
                 self.assertIsNone(source._context)

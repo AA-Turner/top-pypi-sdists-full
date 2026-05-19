@@ -3098,6 +3098,7 @@ class IssuesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '400': "ProblemDetails",
             '404': "ProblemDetails",
             '403': "ProblemDetails",
         }
@@ -3171,6 +3172,7 @@ class IssuesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '400': "ProblemDetails",
             '404': "ProblemDetails",
             '403': "ProblemDetails",
         }
@@ -3244,6 +3246,7 @@ class IssuesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '400': "ProblemDetails",
             '404': "ProblemDetails",
             '403': "ProblemDetails",
         }

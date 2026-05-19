@@ -26,6 +26,13 @@ _builtin_list = list
 _builtin_object = object
 
 
+def _normalize_scalar_value(value):
+    """Convert NumPy scalar sentinels to plain Python scalars."""
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
 # ---------------------------------------------------------------------------
 # Base spec class
 # ---------------------------------------------------------------------------
@@ -90,7 +97,7 @@ class _NumericSpec(SchemaSpec):
         self.le = le
         self.lt = lt
         self.nullable = nullable or null_value is not None
-        self.null_value = null_value
+        self.null_value = _normalize_scalar_value(null_value)
 
     def to_pydantic_kwargs(self) -> dict[str, Any]:
         # null_value is not a Pydantic constraint — exclude it from Pydantic kwargs.
@@ -230,6 +237,41 @@ class complex128(SchemaSpec):
         return {"kind": "complex128"}
 
 
+class timestamp(SchemaSpec):
+    """Timestamp column stored as signed 64-bit epoch offsets.
+
+    The physical storage dtype is ``int64``.  ``unit`` follows Arrow/NumPy
+    datetime units: ``"s"``, ``"ms"``, ``"us"`` or ``"ns"``.  ``timezone``
+    is metadata preserved for Arrow/Parquet roundtrips.
+    """
+
+    dtype = np.dtype(np.int64)
+    python_type = _builtin_object
+
+    def __init__(
+        self, *, unit: str = "us", timezone: str | None = None, nullable: bool = False, null_value=None
+    ):
+        if unit not in {"s", "ms", "us", "ns"}:
+            raise ValueError("timestamp unit must be one of: 's', 'ms', 'us', 'ns'")
+        self.unit = unit
+        self.timezone = timezone
+        self.nullable = nullable or null_value is not None
+        self.null_value = _normalize_scalar_value(null_value)
+
+    def to_pydantic_kwargs(self) -> dict[str, Any]:
+        return {}
+
+    def to_metadata_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"kind": "timestamp", "unit": self.unit}
+        if self.timezone is not None:
+            d["timezone"] = self.timezone
+        if self.nullable:
+            d["nullable"] = True
+        if self.null_value is not None:
+            d["null_value"] = self.null_value
+        return d
+
+
 class bool(SchemaSpec):
     """Boolean column.
 
@@ -244,7 +286,7 @@ class bool(SchemaSpec):
         if null_value is not None and null_value != 255:
             raise ValueError("Nullable bool null_value must be 255")
         self.nullable = nullable or null_value is not None
-        self.null_value = null_value
+        self.null_value = _normalize_scalar_value(null_value)
         self.dtype = np.dtype(np.uint8) if self.nullable else np.dtype(np.bool_)
 
     def to_pydantic_kwargs(self) -> dict[str, Any]:
@@ -292,7 +334,7 @@ class string(SchemaSpec):
         self.max_length = max_length if max_length is not None else self._DEFAULT_MAX_LENGTH
         self.pattern = pattern
         self.nullable = nullable or null_value is not None
-        self.null_value = null_value
+        self.null_value = _normalize_scalar_value(null_value)
         self.dtype = np.dtype(f"U{self.max_length}")
 
     def to_pydantic_kwargs(self) -> dict[str, Any]:
@@ -338,7 +380,7 @@ class bytes(SchemaSpec):
         self.min_length = min_length
         self.max_length = max_length if max_length is not None else self._DEFAULT_MAX_LENGTH
         self.nullable = nullable or null_value is not None
-        self.null_value = null_value
+        self.null_value = _normalize_scalar_value(null_value)
         self.dtype = np.dtype(f"S{self.max_length}")
 
     def to_pydantic_kwargs(self) -> dict[str, Any]:
@@ -659,6 +701,64 @@ class VLBytesSpec(SchemaSpec):
         return d
 
 
+# ---------------------------------------------------------------------------
+# Fixed-shape N-D array spec
+# ---------------------------------------------------------------------------
+
+
+class NDArraySpec(SchemaSpec):
+    """Fixed-shape N-D array column for CTable.
+
+    Each row stores a NumPy-compatible array with shape ``item_shape`` and
+    element dtype ``dtype``.  Physically, CTable stores the column as a Blosc2
+    NDArray with shape ``(nrows, *item_shape)``.
+    """
+
+    python_type = _builtin_object
+
+    def __init__(self, item_shape, dtype=np.float64, *, nullable: bool = False, null_value=None):
+        if isinstance(item_shape, int):
+            item_shape = (item_shape,)
+        item_shape = tuple(int(s) for s in item_shape)
+        if not item_shape:
+            raise ValueError("NDArraySpec item_shape must have at least one dimension.")
+        if any(s <= 0 for s in item_shape):
+            raise ValueError("All NDArraySpec item_shape dimensions must be positive.")
+        self.item_shape = item_shape
+        self.dtype = np.dtype(dtype)
+        self.nullable = nullable or null_value is not None
+        if null_value is not None:
+            self.null_value = _normalize_scalar_value(null_value)
+        self.itemsize = self.dtype.itemsize
+        self.kind = self.dtype.kind
+        self.type = self.dtype.type
+        self.str = self.dtype.str
+        self.name = self.dtype.name
+
+    def to_pydantic_kwargs(self) -> dict[str, Any]:
+        return {}
+
+    def to_metadata_dict(self) -> dict[str, Any]:
+        d = {
+            "kind": "ndarray",
+            "item_shape": _builtin_list(self.item_shape),
+            "dtype_str": self.dtype.str,
+        }
+        if self.nullable:
+            d["nullable"] = True
+        if hasattr(self, "null_value"):
+            d["null_value"] = self.null_value
+        return d
+
+    def display_label(self) -> str:
+        return f"ndarray{_builtin_list(self.item_shape)}[{self.dtype}]"
+
+
+def ndarray(item_shape, dtype=np.float64, *, nullable: bool = False, null_value=None) -> NDArraySpec:
+    """Build a fixed-shape N-D array descriptor for CTable columns."""
+    return NDArraySpec(item_shape=item_shape, dtype=dtype, nullable=nullable, null_value=null_value)
+
+
 def vlstring(
     *,
     nullable: bool = False,
@@ -723,6 +823,114 @@ def vlbytes(
         serializer=serializer,
         batch_rows=batch_rows,
         items_per_block=items_per_block,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dictionary spec
+# ---------------------------------------------------------------------------
+
+
+class DictionarySpec(SchemaSpec):
+    """Dictionary-encoded string column stored as int32 codes with a global string dictionary.
+
+    Each row value is a plain Python ``str`` (or ``None`` when nullable).
+    Internally the column stores compact integer codes (``int32``) in an NDArray,
+    with a separate append-only variable-length string array holding the unique
+    category values.  This matches Arrow dictionary encoding semantics.
+
+    Parameters
+    ----------
+    index_type:
+        Must be :class:`int32`.  The physical dtype for category codes.
+    value_type:
+        Must be :class:`VLStringSpec`.  The type of dictionary values.
+    ordered:
+        If ``True``, the dictionary has semantic ordering.  Ordered comparisons
+        (``<``, ``>``) are not implemented in v1 but the flag is stored and
+        exported to Arrow.
+    nullable:
+        If ``True`` (default), null row slots are allowed.  Nulls are represented
+        internally by the reserved code ``null_code`` (default ``-1``).
+    null_code:
+        The reserved code value for null slots.  Default is ``-1``.
+    """
+
+    python_type = str
+    dtype = None  # physical codes are int32, but logical type is str
+
+    def __init__(
+        self,
+        *,
+        index_type=None,
+        value_type=None,
+        ordered: _builtin_bool = False,
+        nullable: _builtin_bool = True,
+        null_code: int = -1,
+    ):
+        from blosc2.schema import int32 as _int32
+
+        if index_type is not None and not isinstance(index_type, _int32):
+            raise TypeError(
+                f"DictionarySpec index_type must be blosc2.int32() in v1; got {type(index_type).__name__!r}"
+            )
+        if value_type is not None and not isinstance(value_type, VLStringSpec):
+            raise TypeError(
+                "DictionarySpec value_type must be blosc2.vlstring() in v1; "
+                f"got {type(value_type).__name__!r}"
+            )
+        self.index_type = index_type if index_type is not None else _int32()
+        self.value_type = value_type if value_type is not None else VLStringSpec()
+        self.ordered = _builtin_bool(ordered)
+        self.nullable = _builtin_bool(nullable)
+        self.null_code = int(null_code)
+
+    def to_pydantic_kwargs(self) -> dict[str, Any]:
+        return {}
+
+    def to_metadata_dict(self) -> dict[str, Any]:
+        return {
+            "kind": "dictionary",
+            "index_type": self.index_type.to_metadata_dict(),
+            "value_type": self.value_type.to_metadata_dict(),
+            "ordered": self.ordered,
+            "nullable": self.nullable,
+            "null_code": self.null_code,
+        }
+
+
+def dictionary(
+    *,
+    index_type=None,
+    value_type=None,
+    ordered: bool = False,
+    nullable: bool = True,
+) -> DictionarySpec:
+    """Build a dictionary-encoded string column descriptor.
+
+    Dictionary columns store repeated string values as compact ``int32`` codes
+    with a separate global dictionary of unique string values.  This matches
+    Arrow dictionary encoding and is ideal for low-cardinality string columns
+    such as categories or enumerated values.
+
+    Parameters
+    ----------
+    index_type:
+        The physical type for category codes.  Must be ``blosc2.int32()`` in v1.
+        Defaults to ``blosc2.int32()`` when not specified.
+    value_type:
+        The type of dictionary values.  Must be ``blosc2.vlstring()`` in v1.
+        Defaults to ``blosc2.vlstring()`` when not specified.
+    ordered:
+        If ``True``, dictionary order is semantically meaningful.
+    nullable:
+        If ``True`` (default), null row values are allowed (stored as code ``-1``).
+    """
+    return DictionarySpec(
+        index_type=index_type,
+        value_type=value_type,
+        ordered=ordered,
+        nullable=nullable,
     )
 
 

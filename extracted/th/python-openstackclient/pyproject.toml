@@ -9,15 +9,13 @@ authors = [
     {name = "OpenStack", email = "openstack-discuss@lists.openstack.org"},
 ]
 readme = {file = "README.rst", content-type = "text/x-rst"}
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 dynamic = ["version", "dependencies"]
-# dependencies = [ ]
 requires-python = ">=3.10"
 classifiers = [
   "Environment :: OpenStack",
   "Intended Audience :: Information Technology",
   "Intended Audience :: System Administrators",
-  "License :: OSI Approved :: Apache Software License",
   "Operating System :: POSIX :: Linux",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
@@ -25,11 +23,9 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
 ]
-
-# [project.optional-dependencies]
-# test = [
-# ]
 
 [project.urls]
 Homepage = "https://docs.openstack.org/python-openstackclient/"
@@ -104,6 +100,7 @@ server_add_floating_ip = "openstackclient.compute.v2.server:AddFloatingIP"
 server_add_port = "openstackclient.compute.v2.server:AddPort"
 server_add_network = "openstackclient.compute.v2.server:AddNetwork"
 server_add_security_group = "openstackclient.compute.v2.server:AddServerSecurityGroup"
+server_add_share = "openstackclient.compute.v2.server_share:AddServerShare"
 server_add_volume = "openstackclient.compute.v2.server:AddServerVolume"
 server_create = "openstackclient.compute.v2.server:CreateServer"
 server_delete = "openstackclient.compute.v2.server:DeleteServer"
@@ -124,6 +121,7 @@ server_remove_floating_ip = "openstackclient.compute.v2.server:RemoveFloatingIP"
 server_remove_port = "openstackclient.compute.v2.server:RemovePort"
 server_remove_network = "openstackclient.compute.v2.server:RemoveNetwork"
 server_remove_security_group = "openstackclient.compute.v2.server:RemoveServerSecurityGroup"
+server_remove_share = "openstackclient.compute.v2.server_share:RemoveServerShare"
 server_remove_volume = "openstackclient.compute.v2.server:RemoveServerVolume"
 server_rescue = "openstackclient.compute.v2.server:RescueServer"
 server_resize = "openstackclient.compute.v2.server:ResizeServer"
@@ -155,6 +153,8 @@ server_migration_abort = "openstackclient.compute.v2.server_migration:AbortMigra
 server_migration_force_complete = "openstackclient.compute.v2.server_migration:ForceCompleteMigration"
 server_migration_list = "openstackclient.compute.v2.server_migration:ListMigration"
 server_migration_show = "openstackclient.compute.v2.server_migration:ShowMigration"
+server_share_list = "openstackclient.compute.v2.server_share:ListServerShare"
+server_share_show = "openstackclient.compute.v2.server_share:ShowServerShare"
 server_volume_list = "openstackclient.compute.v2.server_volume:ListServerVolume"
 server_volume_set = "openstackclient.compute.v2.server_volume:SetServerVolume"
 server_volume_update = "openstackclient.compute.v2.server_volume:UpdateServerVolume"
@@ -358,6 +358,7 @@ image_metadef_namespace_delete = "openstackclient.image.v2.metadef_namespaces:De
 image_metadef_namespace_list = "openstackclient.image.v2.metadef_namespaces:ListMetadefNamespace"
 image_metadef_namespace_set = "openstackclient.image.v2.metadef_namespaces:SetMetadefNamespace"
 image_metadef_namespace_show = "openstackclient.image.v2.metadef_namespaces:ShowMetadefNamespace"
+image_metadef_namespace_unset = "openstackclient.image.v2.metadef_namespaces:UnsetMetadefNamespace"
 image_metadef_object_create = "openstackclient.image.v2.metadef_objects:CreateMetadefObjects"
 image_metadef_object_show = "openstackclient.image.v2.metadef_objects:ShowMetadefObjects"
 image_metadef_object_list = "openstackclient.image.v2.metadef_objects:ListMetadefObjects"
@@ -396,7 +397,6 @@ floating_ip_list = "openstackclient.network.v2.floating_ip:ListFloatingIP"
 floating_ip_set = "openstackclient.network.v2.floating_ip:SetFloatingIP"
 floating_ip_show = "openstackclient.network.v2.floating_ip:ShowFloatingIP"
 floating_ip_unset = "openstackclient.network.v2.floating_ip:UnsetFloatingIP"
-floating_ip_pool_list = "openstackclient.network.v2.floating_ip_pool:ListFloatingIPPool"
 floating_ip_port_forwarding_create = "openstackclient.network.v2.floating_ip_port_forwarding:CreateFloatingIPPortForwarding"
 floating_ip_port_forwarding_delete = "openstackclient.network.v2.floating_ip_port_forwarding:DeleteFloatingIPPortForwarding"
 floating_ip_port_forwarding_list = "openstackclient.network.v2.floating_ip_port_forwarding:ListFloatingIPPortForwarding"
@@ -540,7 +540,53 @@ subnet_pool_set = "openstackclient.network.v2.subnet_pool:SetSubnetPool"
 subnet_pool_show = "openstackclient.network.v2.subnet_pool:ShowSubnetPool"
 subnet_pool_unset = "openstackclient.network.v2.subnet_pool:UnsetSubnetPool"
 
-# Tap-as-a-Service
+[project.entry-points."openstack.network.v2.bgpvpn"]
+bgpvpn_create = "openstackclient.network.v2.bgpvpn.bgpvpn:CreateBgpvpn"
+bgpvpn_delete = "openstackclient.network.v2.bgpvpn.bgpvpn:DeleteBgpvpn"
+bgpvpn_list = "openstackclient.network.v2.bgpvpn.bgpvpn:ListBgpvpn"
+bgpvpn_set = "openstackclient.network.v2.bgpvpn.bgpvpn:SetBgpvpn"
+bgpvpn_show = "openstackclient.network.v2.bgpvpn.bgpvpn:ShowBgpvpn"
+bgpvpn_unset = "openstackclient.network.v2.bgpvpn.bgpvpn:UnsetBgpvpn"
+bgpvpn_network_association_create = "openstackclient.network.v2.bgpvpn.network_association:CreateBgpvpnNetAssoc"
+bgpvpn_network_association_delete = "openstackclient.network.v2.bgpvpn.network_association:DeleteBgpvpnNetAssoc"
+bgpvpn_network_association_list = "openstackclient.network.v2.bgpvpn.network_association:ListBgpvpnNetAssoc"
+bgpvpn_network_association_show = "openstackclient.network.v2.bgpvpn.network_association:ShowBgpvpnNetAssoc"
+bgpvpn_router_association_create = "openstackclient.network.v2.bgpvpn.router_association:CreateBgpvpnRouterAssoc"
+bgpvpn_router_association_delete = "openstackclient.network.v2.bgpvpn.router_association:DeleteBgpvpnRouterAssoc"
+bgpvpn_router_association_list = "openstackclient.network.v2.bgpvpn.router_association:ListBgpvpnRouterAssoc"
+bgpvpn_router_association_set = "openstackclient.network.v2.bgpvpn.router_association:SetBgpvpnRouterAssoc"
+bgpvpn_router_association_show = "openstackclient.network.v2.bgpvpn.router_association:ShowBgpvpnRouterAssoc"
+bgpvpn_router_association_unset = "openstackclient.network.v2.bgpvpn.router_association:UnsetBgpvpnRouterAssoc"
+bgpvpn_port_association_create = "openstackclient.network.v2.bgpvpn.port_association:CreateBgpvpnPortAssoc"
+bgpvpn_port_association_set = "openstackclient.network.v2.bgpvpn.port_association:SetBgpvpnPortAssoc"
+bgpvpn_port_association_unset = "openstackclient.network.v2.bgpvpn.port_association:UnsetBgpvpnPortAssoc"
+bgpvpn_port_association_delete = "openstackclient.network.v2.bgpvpn.port_association:DeleteBgpvpnPortAssoc"
+bgpvpn_port_association_list = "openstackclient.network.v2.bgpvpn.port_association:ListBgpvpnPortAssoc"
+bgpvpn_port_association_show = "openstackclient.network.v2.bgpvpn.port_association:ShowBgpvpnPortAssoc"
+
+[project.entry-points."openstack.network.v2.fwaas"]
+firewall_group_create = "openstackclient.network.v2.fwaas.group:CreateFirewallGroup"
+firewall_group_delete = "openstackclient.network.v2.fwaas.group:DeleteFirewallGroup"
+firewall_group_list = "openstackclient.network.v2.fwaas.group:ListFirewallGroup"
+firewall_group_set = "openstackclient.network.v2.fwaas.group:SetFirewallGroup"
+firewall_group_show = "openstackclient.network.v2.fwaas.group:ShowFirewallGroup"
+firewall_group_unset = "openstackclient.network.v2.fwaas.group:UnsetFirewallGroup"
+firewall_group_policy_add_rule = "openstackclient.network.v2.fwaas.policy:FirewallPolicyInsertRule"
+firewall_group_policy_create = "openstackclient.network.v2.fwaas.policy:CreateFirewallPolicy"
+firewall_group_policy_delete = "openstackclient.network.v2.fwaas.policy:DeleteFirewallPolicy"
+firewall_group_policy_list = "openstackclient.network.v2.fwaas.policy:ListFirewallPolicy"
+firewall_group_policy_remove_rule = "openstackclient.network.v2.fwaas.policy:FirewallPolicyRemoveRule"
+firewall_group_policy_set = "openstackclient.network.v2.fwaas.policy:SetFirewallPolicy"
+firewall_group_policy_show = "openstackclient.network.v2.fwaas.policy:ShowFirewallPolicy"
+firewall_group_policy_unset = "openstackclient.network.v2.fwaas.policy:UnsetFirewallPolicy"
+firewall_group_rule_create = "openstackclient.network.v2.fwaas.rule:CreateFirewallRule"
+firewall_group_rule_delete = "openstackclient.network.v2.fwaas.rule:DeleteFirewallRule"
+firewall_group_rule_list = "openstackclient.network.v2.fwaas.rule:ListFirewallRule"
+firewall_group_rule_set = "openstackclient.network.v2.fwaas.rule:SetFirewallRule"
+firewall_group_rule_show = "openstackclient.network.v2.fwaas.rule:ShowFirewallRule"
+firewall_group_rule_unset = "openstackclient.network.v2.fwaas.rule:UnsetFirewallRule"
+
+[project.entry-points."openstack.network.v2.taas"]
 tap_flow_create = "openstackclient.network.v2.taas.tap_flow:CreateTapFlow"
 tap_flow_delete = "openstackclient.network.v2.taas.tap_flow:DeleteTapFlow"
 tap_flow_list = "openstackclient.network.v2.taas.tap_flow:ListTapFlow"
@@ -730,10 +776,8 @@ volume_transfer_request_show = "openstackclient.volume.v3.volume_transfer_reques
 volume_summary = "openstackclient.volume.v3.volume:VolumeSummary"
 volume_revert = "openstackclient.volume.v3.volume:VolumeRevertToSnapshot"
 
-[tool.setuptools]
-packages = [
-    "openstackclient"
-]
+[tool.setuptools.packages.find]
+include = ["openstackclient"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -744,7 +788,7 @@ follow_imports = "normal"
 incremental = true
 check_untyped_defs = true
 warn_unused_ignores = true
-exclude = '(?x)(doc | examples | hacking | releasenotes)'
+exclude = "(?x)(doc | examples | hacking | releasenotes)"
 
 [[tool.mypy.overrides]]
 module = ["openstackclient.tests.unit.*"]
@@ -758,7 +802,14 @@ quote-style = "preserve"
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = ["E4", "E5", "E7", "E9", "F", "G", "S", "UP"]
+select = ["E4", "E5", "E7", "E9", "F", "G", "RUF", "S", "UP"]
+ignore = [
+    # the following are ignored because they don't provide enough value for the
+    # changes required
+    "RUF012",  # Mutable default value for class attribute
+]
+# don't remove hacking (H) or openstackclient (O) checks
+external = ["H", "O"]
 
 [tool.ruff.lint.per-file-ignores]
 "openstackclient/tests/*" = ["E501", "S"]

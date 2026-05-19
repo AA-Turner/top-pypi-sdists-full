@@ -64,7 +64,7 @@ pub struct App<Prof: EngineProfile> {
 }
 
 impl<Prof: EngineProfile> App<Prof> {
-    pub fn new(
+    pub async fn new(
         name: &str,
         env: Environment<Prof>,
         max_inflight_components: Option<usize>,
@@ -72,14 +72,9 @@ impl<Prof: EngineProfile> App<Prof> {
         let app_reg = AppRegistration::new(name, &env)?;
 
         // TODO: This database initialization logic should happen lazily on first call to `update()`.
-        let db = {
-            let mut wtxn = env.db_env().write_txn()?;
-            let db = env.db_env().create_database(&mut wtxn, Some(name))?;
-            wtxn.commit()?;
-            db
-        };
+        let app_store = env.create_app_store(name).await?;
 
-        let app_ctx = AppContext::new(env, db, app_reg, max_inflight_components);
+        let app_ctx = AppContext::new(env, app_store, app_reg, max_inflight_components);
         let root_component = Component::new(app_ctx, StablePath::root(), None);
         crate::telemetry::track("app_create");
         Ok(Self { root_component })
@@ -216,12 +211,11 @@ impl<Prof: EngineProfile> App<Prof> {
                 handle.ready().await?;
 
                 // Clear the database
-                let db = root_component.app_ctx().db().clone();
+                let app_store = root_component.app_ctx().app_store().clone();
                 root_component
                     .app_ctx()
                     .env()
-                    .txn_batcher()
-                    .run(move |wtxn| Ok(db.clear(wtxn)?))
+                    .run_txn(move |wtxn| Box::pin(async move { app_store.clear_all(wtxn).await }))
                     .await?;
 
                 info!("App dropped successfully");

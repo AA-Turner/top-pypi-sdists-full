@@ -7,12 +7,12 @@ This module provides a CodeChunker class for splitting code into chunks of a spe
 from typing import TYPE_CHECKING, Literal
 
 from chonkie.chunker.base import BaseChunker
-from chonkie.logger import get_logger
+from chonkie.logger import LoggerAdapter, get_logger
 from chonkie.pipeline import chunker
 from chonkie.tokenizer import TokenizerProtocol
 from chonkie.types import Chunk, Document, MarkdownDocument
 
-logger = get_logger(__name__)
+logger: LoggerAdapter = get_logger(__name__)
 
 if TYPE_CHECKING:
     from tree_sitter_language_pack import CodeChunk
@@ -95,14 +95,31 @@ class CodeChunker(BaseChunker):
         self.include_nodes = include_nodes
 
         self.language = language
+
+        # download tree_sitter_languages for first time when we use the chunker
+        from tree_sitter_language_pack import download_all, downloaded_languages
+
+        num_languages = len(downloaded_languages())
+        # in version 1.6.6, when we ran the tests we downloaded 19 languages
+        # this will download the rest of them for all onward versions
+        # but it won't redownload for users who already have 19 or more languages downloaded
+        if num_languages <= 19:
+            logger.info("Downloading tree-sitter languages for the first time...")
+            download_all()
+
+        # load the language
         if language == "auto":
-            logger.warning(
+            # Set a debug message to the user that the language is auto and this might
+            # affect the performance of the chunker.
+            logger.debug(
                 "The language is set to `auto`. This would adversely affect the performance of the chunker. "
                 "Consider setting the `language` parameter to a specific language to improve performance.",
             )
         else:
             from tree_sitter_language_pack import download, has_language
 
+            # backward compatibility: if the language is not downloaded yet
+            # since this is recently made we can get rid of this block in the future
             if not has_language(language):
                 download([language])
 

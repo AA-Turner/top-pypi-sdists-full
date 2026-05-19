@@ -1,6 +1,6 @@
+from biolib._shared.types.typing import Iterable
 from biolib.biolib_binary_format.utils import IndexableBuffer
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Iterable
 
 
 class StreamSeeker:

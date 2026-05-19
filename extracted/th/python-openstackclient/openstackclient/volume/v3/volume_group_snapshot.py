@@ -10,7 +10,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
 from openstack import utils as sdk_utils
 from osc_lib import exceptions
@@ -23,7 +26,9 @@ from openstackclient.i18n import _
 LOG = logging.getLogger(__name__)
 
 
-def _format_group_snapshot(snapshot):
+def _format_group_snapshot(
+    snapshot: Any,
+) -> tuple[Sequence[str], Iterable[Any]]:
     columns = (
         'id',
         'status',
@@ -56,7 +61,7 @@ class CreateVolumeGroupSnapshot(command.ShowOne):
     This command requires ``--os-volume-api-version`` 3.13 or greater.
     """
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'volume_group',
@@ -75,8 +80,12 @@ class CreateVolumeGroupSnapshot(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
 
         if not sdk_utils.supports_microversion(volume_client, '3.14'):
             msg = _(
@@ -106,7 +115,7 @@ class DeleteVolumeGroupSnapshot(command.Command):
     This command requires ``--os-volume-api-version`` 3.14 or greater.
     """
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'snapshot',
@@ -115,8 +124,10 @@ class DeleteVolumeGroupSnapshot(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
 
         if not sdk_utils.supports_microversion(volume_client, '3.14'):
             msg = _(
@@ -140,7 +151,7 @@ class ListVolumeGroupSnapshot(command.Lister):
     This command requires ``--os-volume-api-version`` 3.14 or greater.
     """
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--all-projects',
@@ -165,8 +176,12 @@ class ListVolumeGroupSnapshot(command.Lister):
         # )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
 
         if not sdk_utils.supports_microversion(volume_client, '3.14'):
             msg = _(
@@ -202,7 +217,7 @@ class ShowVolumeGroupSnapshot(command.ShowOne):
     This command requires ``--os-volume-api-version`` 3.14 or greater.
     """
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'snapshot',
@@ -211,8 +226,12 @@ class ShowVolumeGroupSnapshot(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
 
         if not sdk_utils.supports_microversion(volume_client, '3.14'):
             msg = _(

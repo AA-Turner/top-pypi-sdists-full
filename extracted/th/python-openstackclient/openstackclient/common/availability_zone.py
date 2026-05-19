@@ -13,10 +13,14 @@
 
 """Availability Zone action implementations"""
 
+import argparse
 import copy
 import logging
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 from openstack import exceptions as sdk_exceptions
+from openstack import utils as sdk_utils
 from osc_lib import utils
 
 from openstackclient import command
@@ -26,8 +30,10 @@ from openstackclient.i18n import _
 LOG = logging.getLogger(__name__)
 
 
-def _xform_compute_availability_zone(az, include_extra):
-    result = []
+def _xform_compute_availability_zone(
+    az: Any, include_extra: bool
+) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
     zone_info = {
         'zone_name': az.name,
         'zone_status': (
@@ -61,20 +67,8 @@ def _xform_compute_availability_zone(az, include_extra):
     return result
 
 
-def _xform_volume_availability_zone(az):
-    result = []
-    zone_info = {
-        'zone_name': az.name,
-        'zone_status': (
-            'available' if az.state['available'] else 'not available'
-        ),
-    }
-    result.append(zone_info)
-    return result
-
-
-def _xform_network_availability_zone(az):
-    result = []
+def _xform_network_availability_zone(az: Any) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
     zone_info = {}
     zone_info['zone_name'] = az.name
     zone_info['zone_status'] = az.state
@@ -85,10 +79,22 @@ def _xform_network_availability_zone(az):
     return result
 
 
+def _xform_volume_availability_zone(az: Any) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
+    zone_info = {
+        'zone_name': az.name,
+        'zone_status': (
+            'available' if az.state['available'] else 'not available'
+        ),
+    }
+    result.append(zone_info)
+    return result
+
+
 class ListAvailabilityZone(command.Lister):
     _description = _("List availability zones and their status")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--compute',
@@ -116,7 +122,9 @@ class ListAvailabilityZone(command.Lister):
         )
         return parser
 
-    def _get_compute_availability_zones(self, parsed_args):
+    def _get_compute_availability_zones(
+        self, parsed_args: argparse.Namespace
+    ) -> list[dict[str, str]]:
         compute_client = self.app.client_manager.compute
         try:
             data = list(compute_client.availability_zones(details=True))
@@ -131,26 +139,9 @@ class ListAvailabilityZone(command.Lister):
             result += _xform_compute_availability_zone(zone, parsed_args.long)
         return result
 
-    def _get_volume_availability_zones(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
-        data = []
-        try:
-            data = list(volume_client.availability_zones())
-        except Exception as e:
-            LOG.debug('Volume availability zone exception: %s', e)
-            if parsed_args.volume:
-                message = _(
-                    "Availability zones list not supported by "
-                    "Block Storage API"
-                )
-                LOG.warning(message)
-
-        result = []
-        for zone in data:
-            result += _xform_volume_availability_zone(zone)
-        return result
-
-    def _get_network_availability_zones(self, parsed_args):
+    def _get_network_availability_zones(
+        self, parsed_args: argparse.Namespace
+    ) -> list[dict[str, str]]:
         network_client = self.app.client_manager.network
         try:
             # Verify that the extension exists.
@@ -171,7 +162,32 @@ class ListAvailabilityZone(command.Lister):
             result += _xform_network_availability_zone(zone)
         return result
 
-    def take_action(self, parsed_args):
+    def _get_volume_availability_zones(
+        self, parsed_args: argparse.Namespace
+    ) -> list[dict[str, str]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
+        data = []
+        try:
+            data = list(volume_client.availability_zones())
+        except Exception as e:
+            LOG.debug('Volume availability zone exception: %s', e)
+            if parsed_args.volume:
+                message = _(
+                    "Availability zones list not supported by "
+                    "Block Storage API"
+                )
+                LOG.warning(message)
+
+        result = []
+        for zone in data:
+            result += _xform_volume_availability_zone(zone)
+        return result
+
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[tuple[Any, ...]]]:
         columns: tuple[str, ...] = ('Zone Name', 'Zone Status')
         if parsed_args.long:
             columns += (
@@ -184,17 +200,17 @@ class ListAvailabilityZone(command.Lister):
         # Show everything by default.
         show_all = (
             not parsed_args.compute
-            and not parsed_args.volume
             and not parsed_args.network
+            and not parsed_args.volume
         )
 
         result = []
         if parsed_args.compute or show_all:
             result += self._get_compute_availability_zones(parsed_args)
-        if parsed_args.volume or show_all:
-            result += self._get_volume_availability_zones(parsed_args)
         if parsed_args.network or show_all:
             result += self._get_network_availability_zones(parsed_args)
+        if parsed_args.volume or show_all:
+            result += self._get_volume_availability_zones(parsed_args)
 
         return (
             columns,

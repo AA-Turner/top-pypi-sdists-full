@@ -38,6 +38,7 @@ class AgentRuntimeBackend(str, Enum):  # noqa: UP042
     GEMINI = "gemini"
     KIRO = "kiro"
     COPILOT = "copilot"
+    GOOSE = "goose"
 
 
 class LLMBackend(str, Enum):  # noqa: UP042
@@ -46,6 +47,7 @@ class LLMBackend(str, Enum):  # noqa: UP042
     CLAUDE_CODE = "claude_code"
     LITELLM = "litellm"
     CODEX = "codex"
+    GOOSE = "goose"
     COPILOT = "copilot"
     OPENCODE = "opencode"
     GEMINI = "gemini"
@@ -368,7 +370,7 @@ def serve(
         AgentRuntimeBackend | None,
         typer.Option(
             "--runtime",
-            help="Agent runtime backend for orchestrator-driven tools (claude, codex, opencode, hermes, gemini, copilot, or kiro).",
+            help="Agent runtime backend for orchestrator-driven tools (claude, codex, opencode, hermes, gemini, copilot, goose, or kiro).",
             case_sensitive=False,
         ),
     ] = None,
@@ -377,7 +379,7 @@ def serve(
         typer.Option(
             "--llm-backend",
             help=(
-                "LLM backend for interview/seed/evaluation tools (claude_code, litellm, codex, opencode, or gemini)."
+                "LLM backend for interview/seed/evaluation tools (claude_code, litellm, codex, opencode, gemini, or goose)."
             ),
             case_sensitive=False,
         ),
@@ -458,7 +460,7 @@ def info(
         AgentRuntimeBackend | None,
         typer.Option(
             "--runtime",
-            help="Agent runtime backend for orchestrator-driven tools (claude, codex, opencode, hermes, gemini, copilot, or kiro).",
+            help="Agent runtime backend for orchestrator-driven tools (claude, codex, opencode, hermes, gemini, copilot, goose, or kiro).",
             case_sensitive=False,
         ),
     ] = None,
@@ -467,7 +469,7 @@ def info(
         typer.Option(
             "--llm-backend",
             help=(
-                "LLM backend for interview/seed/evaluation tools (claude_code, litellm, codex, opencode, or gemini)."
+                "LLM backend for interview/seed/evaluation tools (claude_code, litellm, codex, opencode, gemini, or goose)."
             ),
             case_sensitive=False,
         ),

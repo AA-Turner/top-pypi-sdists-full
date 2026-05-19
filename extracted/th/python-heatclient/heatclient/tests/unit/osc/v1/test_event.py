@@ -237,9 +237,9 @@ class TestEventList(TestEvent):
         sleep.side_effect = [None, KeyboardInterrupt()]
         arglist = ['--follow', 'my_stack']
         expected = (
-            '2015-11-13 10:02:17 [resource1]: '
+            '2015-11-13 10:02:17 1234 [resource1]: '
             'CREATE_COMPLETE  state changed\n'
-            '2015-11-13 10:02:17 [resource1]: '
+            '2015-11-13 10:02:17 1234 [resource1]: '
             'CREATE_COMPLETE  state changed\n'
         )
         parsed_args = self.check_parser(self.cmd, arglist, [])
@@ -259,8 +259,8 @@ class TestEventList(TestEvent):
 
     def test_event_list_log_format(self):
         arglist = ['my_stack']
-        expected = ('2015-11-13 10:02:17 [resource1]: CREATE_COMPLETE  '
-                    'state changed\n')
+        expected = ('2015-11-13 10:02:17 1234 [resource1]: '
+                    'CREATE_COMPLETE  state changed\n')
         parsed_args = self.check_parser(self.cmd, arglist, [])
 
         self.cmd.run(parsed_args)

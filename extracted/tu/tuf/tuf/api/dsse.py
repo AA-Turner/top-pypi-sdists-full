@@ -34,7 +34,7 @@ from tuf.api._payload import (  # noqa: F401
 from tuf.api.serialization import DeserializationError, SerializationError
 
 
-class SimpleEnvelope(Generic[T], BaseSimpleEnvelope):
+class SimpleEnvelope(BaseSimpleEnvelope, Generic[T]):
     """Dead Simple Signing Envelope (DSSE) for TUF payloads.
 
     * Sign with ``self.sign()`` (inherited).
@@ -81,7 +81,7 @@ class SimpleEnvelope(Generic[T], BaseSimpleEnvelope):
         except Exception as e:
             raise DeserializationError from e
 
-        return cast(SimpleEnvelope[T], envelope)
+        return cast("SimpleEnvelope[T]", envelope)
 
     def to_bytes(self) -> bytes:
         """Return envelope as JSON bytes.
@@ -150,4 +150,4 @@ class SimpleEnvelope(Generic[T], BaseSimpleEnvelope):
         except Exception as e:
             raise DeserializationError from e
 
-        return cast(T, inner_cls.from_dict(payload_dict))
+        return cast("T", inner_cls.from_dict(payload_dict))

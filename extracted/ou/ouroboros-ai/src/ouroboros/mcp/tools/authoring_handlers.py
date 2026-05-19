@@ -78,6 +78,74 @@ _SUGGESTED_INTERVIEW_ID_RE = re.compile(r"^interview_[a-f0-9]{16}$")
 
 _LIVE_AMBIGUITY_MAX_RETRIES = 3
 
+REQUIRED_CLIENT_GATES: tuple[str, ...] = (
+    # TODO(#1008): derive required gate names from the interview skill /
+    # backend capability registry once non-skippable gates have a structured
+    # source of truth instead of a Markdown-only checklist.
+    "seed_ready_acceptance_guard",
+    "restate_goal_approved",
+)
+_REQUIRE_CLIENT_GATES_ENV = "OUROBOROS_REQUIRE_CLIENT_GATES"
+
+
+def _normalize_client_gates(value: Any) -> frozenset[str]:
+    """Normalize caller-reported client-side gate acknowledgements."""
+    if isinstance(value, str):
+        return frozenset(part.strip() for part in value.split(",") if part.strip())
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return frozenset(item.strip() for item in value if isinstance(item, str) and item.strip())
+    return frozenset()
+
+
+def get_client_gate_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Return required/accepted/missing client gate metadata for seed generation."""
+    accepted = _normalize_client_gates(arguments.get("client_gates"))
+    missing = tuple(gate for gate in REQUIRED_CLIENT_GATES if gate not in accepted)
+    status: dict[str, Any] = {
+        "required_client_gates": REQUIRED_CLIENT_GATES,
+        "accepted_client_gates": tuple(sorted(accepted)),
+        "missing_client_gates": missing,
+    }
+    if missing:
+        status["client_gate_warning"] = (
+            "Seed generation was requested without all client-side interview gates "
+            "being acknowledged. The client should run the Seed-ready Acceptance Guard "
+            "and Restate gate, then pass client_gates with the acknowledged gate names."
+        )
+    return status
+
+
+def _require_client_gates_enabled() -> bool:
+    """Return True when missing client gates should hard-block generation."""
+    return os.environ.get(_REQUIRE_CLIENT_GATES_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _client_gate_error(gate_status: dict[str, Any]) -> MCPToolError | None:
+    missing = gate_status.get("missing_client_gates")
+    if not missing or not _require_client_gates_enabled():
+        return None
+    missing_display = ", ".join(str(item) for item in missing)
+    return MCPToolError(
+        "Seed generation requires acknowledged client-side interview gates "
+        f"when {_REQUIRE_CLIENT_GATES_ENV}=1. Missing: {missing_display}.",
+        tool_name="ouroboros_generate_seed",
+    )
+
+
+def _client_gate_warning_text(gate_status: dict[str, Any]) -> str:
+    warning = gate_status.get("client_gate_warning")
+    missing = gate_status.get("missing_client_gates")
+    if not isinstance(warning, str) or not missing:
+        return ""
+    missing_display = ", ".join(str(item) for item in missing)
+    return f"Client Gate Warning: {warning} Missing: {missing_display}.\n\n"
+
+
 _INTERVIEW_COMPLETION_SIGNALS = {
     "done",
     "complete",
@@ -136,8 +204,27 @@ def _normalize_interview_answer(answer: str) -> str:
 
 
 def _is_interview_completion_signal(answer: str | None) -> bool:
-    """Return True when the answer explicitly asks to end the interview."""
+    """Return True when the answer explicitly asks to end the interview.
+
+    Only ``[from-user]`` and prefix-less answers represent human intent to close.
+    The auto driver's ``_feature_acceptance_answer`` echoes the LLM question into
+    its answer text, which can accidentally include phrases like "no remaining
+    ambiguity" and trip the shortfall branch. Gate the heuristic by prefix so
+    ``[from-auto]`` / ``[from-code]`` / ``[from-research]`` answers — which carry
+    facts or auto-generated fillers, not user intent — never enter completion.
+
+    If a new ``[from-<source>]`` prefix is introduced in
+    ``skills/interview/SKILL.md`` (or the LLM-facing prompt at
+    ``bigbang/interview.py``), audit whether that source represents direct human
+    intent and update the guard below — otherwise it is silently default-denied,
+    which is safe (the user can still close with a prefix-less ``"done"``) but
+    may surprise callers.
+    """
     if answer is None:
+        return False
+
+    stripped = answer.lstrip().lower()
+    if stripped.startswith("[from-") and not stripped.startswith("[from-user]"):
         return False
 
     normalized = _normalize_interview_answer(answer)
@@ -628,6 +715,17 @@ class GenerateSeedHandler:
                     ),
                     required=False,
                 ),
+                MCPToolParameter(
+                    name="client_gates",
+                    type=ToolInputType.ARRAY,
+                    description=(
+                        "Client-side interview gates acknowledged before seed generation. "
+                        "Expected values include seed_ready_acceptance_guard and "
+                        "restate_goal_approved."
+                    ),
+                    required=False,
+                    items={"type": "string"},
+                ),
             ),
         )
 
@@ -653,6 +751,10 @@ class GenerateSeedHandler:
             )
 
         ambiguity_score_value = arguments.get("ambiguity_score")
+        client_gate_status = get_client_gate_status(arguments)
+        client_gate_error = _client_gate_error(client_gate_status)
+        if client_gate_error is not None:
+            return Result.err(client_gate_error)
 
         log.info(
             "mcp.tool.generate_seed",
@@ -717,6 +819,7 @@ class GenerateSeedHandler:
                 session_id=session_id,
                 ambiguity_score=effective_score,
                 transcript=transcript,
+                client_gates=client_gate_status["accepted_client_gates"],
             )
             await emit_subagent_dispatched_event(
                 self.event_store,
@@ -729,6 +832,7 @@ class GenerateSeedHandler:
                     "session_id": session_id,
                     "status": "delegated_to_subagent",
                     "dispatch_mode": "plugin",
+                    **client_gate_status,
                 },
             )
 
@@ -841,7 +945,7 @@ class GenerateSeedHandler:
             )
 
             result_text = (
-                f"Seed Generated Successfully\n"
+                _client_gate_warning_text(client_gate_status) + f"Seed Generated Successfully\n"
                 f"=========================\n"
                 f"Seed ID: {seed.metadata.seed_id}\n"
                 f"Interview ID: {seed.metadata.interview_id}\n"
@@ -859,6 +963,7 @@ class GenerateSeedHandler:
                         "seed_id": seed.metadata.seed_id,
                         "interview_id": seed.metadata.interview_id,
                         "ambiguity_score": seed.metadata.ambiguity_score,
+                        **client_gate_status,
                     },
                 )
             )
@@ -889,6 +994,7 @@ class InterviewHandler:
     agent_runtime_backend: str | None = field(default=None, repr=False)
     opencode_mode: str | None = field(default=None, repr=False)
     data_dir: Path | None = field(default=None, repr=False)
+    suppress_tool_use_prompt_cues: bool = False
 
     def __post_init__(self) -> None:
         """Initialize event store."""
@@ -1113,6 +1219,7 @@ class InterviewHandler:
                     "ambiguity_score": score.overall_score if score is not None else None,
                     "milestone": _milestone_for_score(score),
                     "seed_ready": score.is_ready_for_seed if score is not None else None,
+                    "required_client_gates": REQUIRED_CLIENT_GATES,
                 },
             )
         )
@@ -1437,11 +1544,55 @@ class InterviewHandler:
             ),
             strict_mcp_config=True,
         )
-        engine = self.interview_engine or InterviewEngine(
-            llm_adapter=llm_adapter,
-            state_dir=self.data_dir or _DATA_DIR,
-            model=get_clarification_model(self.llm_backend),
-        )
+        # Build a per-call InterviewEngine when a real engine is supplied, to
+        # avoid mutating shared engine state in place. Mutating a shared
+        # engine's llm_adapter and suppress_tool_use_prompt_cues is race-prone:
+        # under concurrent MCP requests, request A's `finally` restoration can
+        # clobber request B's in-flight adapter and leave the shared engine
+        # pointing at the wrong adapter or stale prompt mode. InterviewEngine
+        # itself is config-only (state lives on disk via state_dir), so
+        # cloning the config fields into a fresh per-call engine is both
+        # correct and concurrency-safe.
+        #
+        # Test fakes that do NOT subclass InterviewEngine are passed through
+        # unchanged: they cannot leak under concurrency because they are not
+        # shared across production requests, and tests inject them to observe
+        # the question-generation flow.
+        # NOTE: ``isinstance(..., InterviewEngine)`` must NOT be reached when
+        # ``InterviewEngine`` has been monkey-patched in tests to a non-type
+        # (e.g. ``patch("authoring_handlers.InterviewEngine", return_value=...)``
+        # replaces the name with a MagicMock instance). The previous short-
+        # circuit only guarded the left operand: once ``template`` was non-None,
+        # ``isinstance(template, InterviewEngine)`` still ran and raised
+        # ``TypeError: isinstance() arg 2 must be a type``, turning a supported
+        # dependency-injection / test-harness path into a hard failure.
+        # Add an ``isinstance(InterviewEngine, type)`` guard so the clone arm
+        # is only taken when the bound name is still a real class, and any
+        # patched non-type value falls through to the ``elif template is not
+        # None`` passthrough branch.
+        template = self.interview_engine
+        if (
+            template is not None
+            and isinstance(InterviewEngine, type)
+            and isinstance(template, InterviewEngine)
+        ):
+            engine = InterviewEngine(
+                llm_adapter=llm_adapter,
+                state_dir=template.state_dir,
+                model=template.model or get_clarification_model(self.llm_backend),
+                suppress_tool_use_prompt_cues=self.suppress_tool_use_prompt_cues,
+            )
+            engine.temperature = template.temperature
+            engine.max_tokens = template.max_tokens
+        elif template is not None:
+            engine = template
+        else:
+            engine = InterviewEngine(
+                llm_adapter=llm_adapter,
+                state_dir=self.data_dir or _DATA_DIR,
+                model=get_clarification_model(self.llm_backend),
+                suppress_tool_use_prompt_cues=self.suppress_tool_use_prompt_cues,
+            )
 
         _interview_id: str | None = None  # Track for error event emission
 

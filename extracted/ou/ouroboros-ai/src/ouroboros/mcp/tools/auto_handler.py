@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 import difflib
 import inspect
 import json
 import os
 from pathlib import Path
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -23,9 +25,24 @@ from ouroboros.auto.adapters import (
     load_seed,
     save_seed,
 )
-from ouroboros.auto.answerer import AutoAnswerContext
+from ouroboros.auto.answerer import (
+    AutoAnswerContext,
+    risky_user_preference_blocker_for,
+)
+from ouroboros.auto.execution_acceptance import (
+    has_auto_wrapper_context,
+    is_auto_reporting_acceptance_criterion,
+    normalize_observation_execution_criteria,
+)
+from ouroboros.auto.handoff_contract import RUN_HANDOFF_STARTED_STATUS
 from ouroboros.auto.interview_driver import AutoInterviewDriver
-from ouroboros.auto.ledger import REQUIRED_SECTIONS
+from ouroboros.auto.ledger import (
+    REQUIRED_SECTIONS,
+    LedgerEntry,
+    LedgerSource,
+    LedgerStatus,
+    SeedDraftLedger,
+)
 from ouroboros.auto.pipeline import AutoPipeline, AutoPipelineResult
 from ouroboros.auto.repo_context import repo_auto_answer_context
 from ouroboros.auto.resume_render import render_resume_lines
@@ -44,7 +61,7 @@ from ouroboros.config import get_opencode_mode
 from ouroboros.core.file_lock import file_lock
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
-from ouroboros.mcp.job_manager import JobLinks, JobManager
+from ouroboros.mcp.job_manager import JobLinks, JobManager, JobStatus
 from ouroboros.mcp.tools.authoring_handlers import GenerateSeedHandler, InterviewHandler
 from ouroboros.mcp.tools.evaluation_handlers import LateralThinkHandler
 from ouroboros.mcp.tools.execution_handlers import ExecuteSeedHandler, StartExecuteSeedHandler
@@ -85,6 +102,9 @@ class AutoHandler:
     opencode_mode: str | None = field(default=None, repr=False)
     mcp_manager: object | None = field(default=None, repr=False)
     mcp_tool_prefix: str = ""
+    ralph_handler_factory: Callable[[str | None, str | None], RalphHandler] | None = field(
+        default=None, repr=False
+    )
 
     @property
     def definition(self) -> MCPToolDefinition:
@@ -180,7 +200,9 @@ class AutoHandler:
                         "(e.g. runtime_context, constraints, non_goals). The Driver "
                         "tags matching answers with [from-auto][user_preference] in the "
                         "ledger. Keys must be valid ledger section names; values must "
-                        "be non-empty strings or non-empty lists of strings/numbers."
+                        "be non-empty strings or non-empty lists of strings/numbers. "
+                        "On resume, null/empty values clear the persisted preference "
+                        "for that section."
                     ),
                     required=False,
                 ),
@@ -238,6 +260,7 @@ class AutoHandler:
             return Result.err(
                 MCPToolError(f"Auto pipeline failed: {exc}", tool_name="ouroboros_auto")
             )
+        result = await _reconcile_execution_job_snapshot(result)
         release_session_id = result.auto_session_id or auto_session_id
         if release_session_id and release_start_lease:
             _release_start_lease(store, release_session_id, token=start_lease_token)
@@ -283,11 +306,7 @@ class AutoHandler:
         user_preferences_supplied = (
             "user_preferences" in arguments and arguments.get("user_preferences") is not None
         )
-        supplied_user_preferences = (
-            _parse_user_preferences(arguments.get("user_preferences"))
-            if user_preferences_supplied
-            else {}
-        )
+        supplied_user_preferences: dict[str, str | None] = {}
         if isinstance(resume, str) and resume:
             state = store.load(resume)
             cwd = state.cwd
@@ -305,7 +324,20 @@ class AutoHandler:
             # ones; otherwise the original session's preferences are reused so
             # the same input converges to the same Seed.
             if user_preferences_supplied:
-                state.user_preferences = dict(supplied_user_preferences)
+                supplied_user_preferences = _parse_user_preferences(
+                    arguments.get("user_preferences"),
+                    allow_deletions=True,
+                )
+                state.user_preferences = _merge_resume_user_preferences(
+                    state.goal,
+                    state.user_preferences,
+                    supplied_user_preferences,
+                )
+                state.ledger = _reseed_preference_ledger(
+                    state.goal,
+                    state.ledger,
+                    state.user_preferences,
+                ).to_dict()
             # Q00/ouroboros#773 (review-3): ``complete_product`` is durable
             # session intent, not a per-invocation flag. Honor the persisted
             # value so MCP callers that omit ``complete_product`` on resume
@@ -316,6 +348,11 @@ class AutoHandler:
             elif complete_product and not state.complete_product:
                 state.complete_product = True
         else:
+            supplied_user_preferences = (
+                _parse_user_preferences(arguments.get("user_preferences"))
+                if user_preferences_supplied
+                else {}
+            )
             goal = arguments.get("goal")
             if not isinstance(goal, str) or not goal.strip():
                 raise ValueError("goal is required when not resuming")
@@ -325,8 +362,14 @@ class AutoHandler:
             max_interview_rounds = _positive_int_arg(arguments, "max_interview_rounds", 12)
             max_repair_rounds = _positive_int_arg(arguments, "max_repair_rounds", 5)
             skip_run = requested_skip_run
-            state = AutoPipelineState(goal=goal.strip(), cwd=cwd)
-            state.user_preferences = dict(supplied_user_preferences)
+            goal_text = goal.strip()
+            state = AutoPipelineState(goal=goal_text, cwd=cwd)
+            state.user_preferences = _merge_goal_user_preferences(
+                goal_text, supplied_user_preferences
+            )
+            state.ledger = _seed_initial_ledger_from_user_preferences(
+                goal_text, state.user_preferences
+            ).to_dict()
             state.max_interview_rounds = max_interview_rounds
             state.max_repair_rounds = max_repair_rounds
             state.complete_product = complete_product
@@ -380,14 +423,16 @@ class AutoHandler:
         # ``_subagent`` dispatch path instead of silently downgrading Ralph to
         # in-process job mode. Mirrors the CLI fix in ``cli/commands/auto.py``.
         ralph_opencode_mode = state.ralph_opencode_mode or opencode_mode
-        ralph_handler = (
-            RalphHandler(
-                agent_runtime_backend=runtime_backend,
-                opencode_mode=ralph_opencode_mode,
+        ralph_handler = None
+        if complete_product:
+            ralph_handler = (
+                self.ralph_handler_factory(runtime_backend, ralph_opencode_mode)
+                if self.ralph_handler_factory is not None
+                else RalphHandler(
+                    agent_runtime_backend=runtime_backend,
+                    opencode_mode=ralph_opencode_mode,
+                )
             )
-            if complete_product
-            else None
-        )
         ralph_starter = HandlerRalphStarter(ralph_handler) if ralph_handler is not None else None
         # Q00/ouroboros#773 (review-5 finding 1): wire a poller backed by the
         # same ``RalphHandler`` so MCP-side resumes of an interrupted
@@ -485,6 +530,9 @@ class StartAutoHandler:
     mcp_tool_prefix: str = ""
     event_store: EventStore | None = field(default=None, repr=False)
     job_manager: JobManager | None = field(default=None, repr=False)
+    ralph_handler_factory: Callable[[str | None, str | None], RalphHandler] | None = field(
+        default=None, repr=False
+    )
 
     def __post_init__(self) -> None:
         self._event_store = self.event_store or EventStore()
@@ -500,6 +548,7 @@ class StartAutoHandler:
             opencode_mode=self.opencode_mode,
             mcp_manager=self.mcp_manager,
             mcp_tool_prefix=self.mcp_tool_prefix,
+            ralph_handler_factory=self.ralph_handler_factory,
         )
 
     @property
@@ -586,6 +635,14 @@ class StartAutoHandler:
             auto_session_id = state.auto_session_id
             runner_arguments["resume"] = auto_session_id
             runner_arguments.pop("pipeline_timeout_seconds", None)
+            # The freshly preallocated state already contains the canonical
+            # merged preference map derived from the structured goal plus any
+            # explicit caller preferences.  Do not pass the original fresh-call
+            # preference payload back through the resume runner: AutoHandler's
+            # resume contract treats a supplied preference map as an override,
+            # which would drop goal-derived sections and make start_auto
+            # diverge from the synchronous auto path.
+            runner_arguments.pop("user_preferences", None)
 
         already_running = await self._active_session_error(auto_session_id)
         if already_running is not None:
@@ -722,8 +779,13 @@ class StartAutoHandler:
         state.max_repair_rounds = _positive_int_arg(arguments, "max_repair_rounds", 5)
         state.skip_run = bool(arguments.get("skip_run", False))
         state.complete_product = bool(arguments.get("complete_product", False))
+        supplied_user_preferences: dict[str, str | None] = {}
         if "user_preferences" in arguments and arguments.get("user_preferences") is not None:
-            state.user_preferences = _parse_user_preferences(arguments.get("user_preferences"))
+            supplied_user_preferences = _parse_user_preferences(arguments.get("user_preferences"))
+        state.user_preferences = _merge_goal_user_preferences(goal, supplied_user_preferences)
+        state.ledger = _seed_initial_ledger_from_user_preferences(
+            goal, state.user_preferences
+        ).to_dict()
         if pipeline_timeout_seconds is not None:
             state.pipeline_timeout_seconds = pipeline_timeout_seconds
         runtime_backend = resolve_agent_runtime_backend(self.agent_runtime_backend)
@@ -1099,8 +1161,24 @@ def _utc_iso(*, ttl_seconds: float | None = None) -> str:
     return value.isoformat()
 
 
+def _is_run_handoff_only_completion(result: AutoPipelineResult) -> bool:
+    """True when auto completed only by handing off execution work."""
+    return (
+        result.status == "complete"
+        and result.run_handoff_status == RUN_HANDOFF_STARTED_STATUS
+        and result.execution_job_status != "completed"
+        and not result.ralph_job_id
+        and not result.ralph_lineage_id
+    )
+
+
+def _presentation_status(result: AutoPipelineResult) -> str:
+    return "run_handoff_started" if _is_run_handoff_only_completion(result) else result.status
+
+
 def _result_meta(result: AutoPipelineResult) -> dict[str, Any]:
     """Build MCP metadata for clients that render auto progress outside CLI text."""
+    handoff_only = _is_run_handoff_only_completion(result)
     meta: dict[str, Any] = {
         "status": result.status,
         "auto_session_id": result.auto_session_id,
@@ -1119,6 +1197,15 @@ def _result_meta(result: AutoPipelineResult) -> dict[str, Any]:
         "job_id": result.job_id,
         "run_session_id": result.run_session_id,
     }
+    if handoff_only:
+        meta["presentation_status"] = _presentation_status(result)
+        meta["product_status"] = "not_verified_complete"
+    if result.execution_job_status:
+        meta["execution_job_status"] = result.execution_job_status
+    if result.execution_job_error:
+        meta["execution_job_error"] = result.execution_job_error
+    if result.execution_job_message:
+        meta["execution_job_message"] = result.execution_job_message
     # Only advertise a runnable resume_command when --resume actually has
     # something to do. NONE-capability sessions (COMPLETE, or unrecoverable
     # BLOCKED/FAILED) must not surface a resume action via metadata —
@@ -1185,6 +1272,48 @@ def _result_meta(result: AutoPipelineResult) -> dict[str, Any]:
     return meta
 
 
+async def _reconcile_execution_job_snapshot(result: AutoPipelineResult) -> AutoPipelineResult:
+    """Project the linked execution job lifecycle onto the auto resume result."""
+    if not result.job_id:
+        return result
+    try:
+        snapshot = await JobManager().get_snapshot(result.job_id)
+    except Exception:
+        return result
+    blocker = result.blocker
+    status = result.status
+    resume_capability = result.resume_capability
+    if snapshot.status in {JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.CANCEL_REQUESTED}:
+        # A started execution handoff is not the same as product completion.
+        # AutoPipeline persists COMPLETE after returning a durable run handle so
+        # it does not start duplicate work on resume; the MCP surface should
+        # still report the linked job as non-terminal and keep resume polling
+        # discoverable until the background job reaches a terminal state.
+        status = snapshot.status.value
+        resume_capability = AutoResumeCapability.RESUME
+    elif snapshot.status in {JobStatus.FAILED, JobStatus.CANCELLED, JobStatus.INTERRUPTED}:
+        detail = snapshot.error or snapshot.result_text or snapshot.message
+        blocker = (
+            f"execution job {snapshot.status.value}: {detail}"
+            if detail
+            else f"execution job {snapshot.status.value}"
+        )
+        status = "failed" if snapshot.status is JobStatus.FAILED else "blocked"
+        resume_capability = AutoResumeCapability.NONE
+    elif snapshot.status is JobStatus.COMPLETED:
+        status = "complete"
+        resume_capability = AutoResumeCapability.NONE
+    return replace(
+        result,
+        status=status,
+        blocker=blocker,
+        resume_capability=resume_capability,
+        execution_job_status=snapshot.status.value,
+        execution_job_error=snapshot.error,
+        execution_job_message=snapshot.message,
+    )
+
+
 def _resolved_opencode_mode(runtime_backend: str | None, opencode_mode: str | None) -> str | None:
     if runtime_backend != "opencode":
         return None
@@ -1223,7 +1352,11 @@ def _optional_pipeline_timeout(arguments: dict[str, Any]) -> float | None:
     return timeout
 
 
-def _parse_user_preferences(value: object) -> dict[str, str]:
+def _parse_user_preferences(
+    value: object,
+    *,
+    allow_deletions: bool = False,
+) -> dict[str, str | None]:
     """Validate and normalise the optional ``user_preferences`` MCP arg.
 
     Returns a dict keyed by ledger section names. Empty input yields an empty
@@ -1233,9 +1366,11 @@ def _parse_user_preferences(value: object) -> dict[str, str]:
 
     Accepted value shapes per key:
 
-    * ``str``  — stripped; must be non-empty.
+    * ``str``  — stripped; must be non-empty unless resume deletion is allowed.
     * ``list[str | int | float]`` — each item stringified+stripped, empties
       dropped, joined with ``"\\n"``; final result must be non-empty.
+    * ``None`` / empty string / empty list — only when ``allow_deletions`` is
+      true, clears a persisted preference for that key.
 
     The downstream ``answerer.py`` still consumes the value as a single
     string (via ``raw_value.strip()``); only the input contract widens.
@@ -1247,7 +1382,7 @@ def _parse_user_preferences(value: object) -> dict[str, str]:
     if not value:
         return {}
     valid_sections = frozenset(REQUIRED_SECTIONS)
-    cleaned: dict[str, str] = {}
+    cleaned: dict[str, str | None] = {}
     for raw_key, raw_val in value.items():
         if not isinstance(raw_key, str):
             raise ValueError("user_preferences keys must be strings")
@@ -1258,9 +1393,15 @@ def _parse_user_preferences(value: object) -> dict[str, str]:
                 f"user_preferences key '{raw_key}' is not a valid ledger section "
                 f"(allowed: {', '.join(sorted(valid_sections))}){hint}"
             )
+        if raw_val is None and allow_deletions:
+            cleaned[raw_key] = None
+            continue
         if isinstance(raw_val, str):
             normalised = raw_val.strip()
             if not normalised:
+                if allow_deletions:
+                    cleaned[raw_key] = None
+                    continue
                 raise ValueError(
                     f"user_preferences['{raw_key}'] must be a non-empty string or "
                     "list of strings/numbers"
@@ -1279,6 +1420,9 @@ def _parse_user_preferences(value: object) -> dict[str, str]:
                 if text:
                     parts.append(text)
             if not parts:
+                if allow_deletions:
+                    cleaned[raw_key] = None
+                    continue
                 raise ValueError(
                     f"user_preferences['{raw_key}'] must be a non-empty string or "
                     "list of strings/numbers"
@@ -1289,6 +1433,255 @@ def _parse_user_preferences(value: object) -> dict[str, str]:
             f"user_preferences['{raw_key}'] must be a non-empty string or list of strings/numbers"
         )
     return cleaned
+
+
+def _merge_goal_user_preferences(goal: str, supplied: dict[str, str | None]) -> dict[str, str]:
+    """Merge explicit MCP preferences over preferences derived from the goal text."""
+    merged = _derive_goal_user_preferences(goal)
+    for key, value in supplied.items():
+        if value is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _merge_resume_user_preferences(
+    _goal: str,
+    persisted: dict[str, str],
+    supplied: dict[str, str | None],
+) -> dict[str, str]:
+    """Merge resume preferences without dropping previously persisted facts."""
+    # Fresh sessions already persist goal-derived preferences. On resume the
+    # persisted map is the durable source of truth; re-deriving from the goal
+    # would resurrect sections the operator explicitly cleared earlier.
+    merged = dict(persisted)
+    for key, value in supplied.items():
+        if value is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _seed_initial_ledger_from_user_preferences(
+    goal: str, user_preferences: dict[str, str]
+) -> SeedDraftLedger:
+    """Create an initial ledger seeded with explicit goal-prompt preferences."""
+    ledger = SeedDraftLedger.from_goal(goal)
+    for section in REQUIRED_SECTIONS:
+        if section == "goal":
+            continue
+        value = user_preferences.get(section)
+        if not value:
+            continue
+        if _user_preference_would_bypass_risky_gate(goal, value):
+            continue
+        ledger.add_entry(
+            section,
+            LedgerEntry(
+                key=f"{section}.goal_prompt",
+                value=value,
+                source=LedgerSource.USER_PREFERENCE,
+                confidence=0.86,
+                status=LedgerStatus.CONFIRMED,
+                rationale=(
+                    "Derived from explicit structured text in the initial ooo auto goal prompt."
+                ),
+            ),
+        )
+    return ledger
+
+
+def _reseed_preference_ledger(
+    goal: str,
+    existing_ledger: dict[str, Any] | None,
+    user_preferences: dict[str, str],
+) -> SeedDraftLedger:
+    """Refresh preference-derived ledger entries after a resume override.
+
+    The auto pipeline treats a persisted ledger as the Seed source of truth.
+    Therefore a resume call that overrides ``state.user_preferences`` must also
+    refresh the preconfirmed preference entries; otherwise stale values from a
+    preallocated start_auto request can survive even though the preference map
+    was corrected. Non-preference interview facts are preserved.
+    """
+    refreshed = _seed_initial_ledger_from_user_preferences(goal, user_preferences)
+    if not existing_ledger:
+        return refreshed
+    existing = SeedDraftLedger.from_dict(existing_ledger)
+    refreshed.question_history = list(existing.question_history)
+    for section_name, section in existing.sections.items():
+        for entry in section.entries:
+            if (
+                entry.source == LedgerSource.USER_PREFERENCE
+                or entry.key.endswith(".goal_prompt")
+                or entry.key.endswith(".user_preference")
+            ):
+                continue
+            if section_name == "goal" and entry.key == "goal.primary":
+                continue
+            refreshed.add_entry(section_name, entry)
+    return refreshed
+
+
+def _user_preference_would_bypass_risky_gate(goal: str, value: str) -> bool:
+    """Return True when pre-confirming a preference would skip answerer safety.
+
+    Normal user_preferences only become confirmed ledger entries through
+    ``AutoAnswerer._maybe_apply_user_preference()``, which runs the risky
+    fallback gate against both the current question and the converged goal.
+    Preallocating a ledger for structured MCP prompts must honor that same
+    policy: unsafe preference text may remain in ``state.user_preferences`` so
+    the interview answerer can surface the blocker at the right question, but
+    it must not be persisted as already-confirmed ledger evidence.
+    """
+    return risky_user_preference_blocker_for(question=value, goal_text=goal) is not None
+
+
+def _derive_goal_user_preferences(goal: str) -> dict[str, str]:
+    """Extract explicit ledger preferences from a structured multiline auto goal.
+
+    This is intentionally conservative: it recognizes operator-authored section
+    labels and concrete command/file constraints, then lets the normal
+    interview/repair pipeline validate and refine the resulting ledger. It does
+    not invent product behavior beyond common local-repository observation
+    framing that is explicitly present in the prompt.
+    """
+    sections = _extract_goal_sections(goal)
+    preferences: dict[str, str] = {}
+
+    runtime = _section_text(sections, "runtime context", "runtime_context")
+    if runtime:
+        preferences["runtime_context"] = runtime
+
+    non_goals = _section_text(sections, "non-goals", "non goals", "non_goals")
+    if non_goals:
+        preferences["non_goals"] = non_goals
+
+    actors = _section_text(sections, "actors", "actor")
+    if actors:
+        preferences["actors"] = actors
+
+    inputs = _section_text(sections, "inputs", "input")
+    if inputs:
+        preferences["inputs"] = inputs
+
+    success = _section_text(sections, "success criteria", "acceptance criteria")
+    if success:
+        execution_success = _execution_success_criteria(success, context_text=goal)
+        if execution_success:
+            preferences["acceptance_criteria"] = execution_success
+
+    outputs = _section_text(sections, "outputs", "deliverables")
+    if outputs:
+        preferences["outputs"] = outputs
+
+    constraint_lines = _matching_lines(
+        goal,
+        (
+            "do not",
+            "keep ",
+            "local file edits are allowed",
+            "running targeted tests is allowed",
+            "network access is not required",
+            "no credentials are required",
+        ),
+    )
+    if constraint_lines:
+        preferences["constraints"] = "\n".join(constraint_lines)
+
+    verification_lines = _matching_lines(
+        goal,
+        (
+            "uv run pytest",
+            "targeted test",
+            "test command",
+            "test result",
+            "pytest test",
+        ),
+    )
+    if verification_lines:
+        preferences["verification_plan"] = "\n".join(verification_lines)
+
+    failure_lines = _matching_lines(
+        goal,
+        (
+            "if ",
+            "blocked",
+            "unavailable",
+            "interpreted as normal text",
+            "previous ",
+            "manual fallback",
+            "recursive auto invocation",
+        ),
+    )
+    if failure_lines:
+        preferences["failure_modes"] = "\n".join(failure_lines)
+
+    return preferences
+
+
+def _extract_goal_sections(goal: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    for raw_line in goal.splitlines():
+        line = raw_line.rstrip()
+        header = _section_header(line)
+        if header is not None:
+            current = header
+            sections.setdefault(current, [])
+            continue
+        if current is not None and line.strip():
+            sections[current].append(_clean_prompt_line(line))
+    return sections
+
+
+def _section_header(line: str) -> str | None:
+    stripped = line.strip()
+    # Observation prompts commonly use this report-only section after the
+    # executable success criteria. Treat it as a new section so report metadata
+    # (session IDs, fallback status, blocker recurrence) does not bleed into the
+    # execution-facing acceptance criteria ledger entry.
+    if stripped.casefold() == "after auto finishes, report:":
+        return "auto report"
+    match = re.match(r"^\s*([A-Za-z][A-Za-z0-9 _/-]{1,60}):\s*$", line)
+    if match is None:
+        return None
+    return " ".join(match.group(1).replace("_", " ").casefold().split())
+
+
+def _section_text(sections: dict[str, list[str]], *names: str) -> str:
+    values: list[str] = []
+    for name in names:
+        values.extend(sections.get(" ".join(name.replace("_", " ").casefold().split()), ()))
+    return "\n".join(dict.fromkeys(value for value in values if value.strip()))
+
+
+def _execution_success_criteria(text: str, *, context_text: str = "") -> str:
+    strip_auto_wrapper = has_auto_wrapper_context("\n".join((context_text, text)))
+    lines = tuple(
+        line
+        for line in (_clean_prompt_line(raw) for raw in text.splitlines())
+        if line and not (strip_auto_wrapper and is_auto_reporting_acceptance_criterion(line))
+    )
+    if strip_auto_wrapper:
+        lines = normalize_observation_execution_criteria(lines, context_text=context_text)
+    return "\n".join(dict.fromkeys(lines))
+
+
+def _matching_lines(text: str, needles: tuple[str, ...]) -> list[str]:
+    matches: list[str] = []
+    for line in text.splitlines():
+        cleaned = _clean_prompt_line(line)
+        lowered = cleaned.casefold()
+        if cleaned and any(needle in lowered for needle in needles):
+            matches.append(cleaned)
+    return list(dict.fromkeys(matches))
+
+
+def _clean_prompt_line(line: str) -> str:
+    return re.sub(r"^\s*(?:[-*]|\d+[.)])\s*", "", line).strip()
 
 
 def _build_context_provider(user_preferences: dict[str, str]):
@@ -1354,17 +1747,41 @@ def _authoring_interview_handler(
             llm_backend=llm_backend,
             agent_runtime_backend=agent_runtime_backend,
             opencode_mode=opencode_mode,
+            suppress_tool_use_prompt_cues=True,
         )
-    if _handler_matches_runtime(handler, agent_runtime_backend, opencode_mode):
-        return handler
+    if _handler_matches_runtime(handler, agent_runtime_backend, opencode_mode) and getattr(
+        handler, "suppress_tool_use_prompt_cues", False
+    ):
+        # Only short-circuit when llm_backend is also already aligned. Otherwise
+        # a reused handler would silently keep its previous backend/model
+        # provider on later sessions when the caller explicitly overrides it.
+        backend_matches = llm_backend is None or handler.llm_backend == llm_backend
+        if handler.llm_adapter is None and backend_matches:
+            return handler
+        return InterviewHandler(
+            interview_engine=handler.interview_engine,
+            event_store=handler.event_store,
+            # Preserve an explicit caller-supplied llm_adapter. When the auto
+            # path inherits a handler that has llm_adapter=None (production
+            # default), handle() will build the isolated default adapter
+            # itself; we only need to ensure we don't silently *replace* an
+            # explicitly injected non-default adapter here.
+            llm_adapter=handler.llm_adapter,
+            llm_backend=llm_backend if llm_backend is not None else handler.llm_backend,
+            agent_runtime_backend=agent_runtime_backend,
+            opencode_mode=opencode_mode,
+            data_dir=handler.data_dir,
+            suppress_tool_use_prompt_cues=True,
+        )
     return InterviewHandler(
         interview_engine=handler.interview_engine,
         event_store=handler.event_store,
-        llm_adapter=handler.llm_adapter,
+        llm_adapter=None,
         llm_backend=llm_backend if llm_backend is not None else handler.llm_backend,
         agent_runtime_backend=agent_runtime_backend,
         opencode_mode=opencode_mode,
         data_dir=handler.data_dir,
+        suppress_tool_use_prompt_cues=True,
     )
 
 
@@ -1448,11 +1865,14 @@ def _execution_start_handler(
 
 
 def _format_result(result: AutoPipelineResult) -> str:
+    handoff_only = _is_run_handoff_only_completion(result)
     lines = [
         f"Auto session: {result.auto_session_id}",
-        f"Status: {result.status}",
+        f"Status: {_presentation_status(result)}",
         f"Phase: {result.phase}",
     ]
+    if handoff_only:
+        lines.append("Product status: not verified complete; execution is still external/pending")
     if result.grade:
         lines.append(f"Seed grade: {result.grade}")
     if result.interview_session_id:
@@ -1471,6 +1891,16 @@ def _format_result(result: AutoPipelineResult) -> str:
         )
     if result.run_handoff_status:
         lines.append(f"Run handoff status: {result.run_handoff_status}")
+    if result.execution_job_status:
+        lines.append(f"Execution job status: {result.execution_job_status}")
+    if result.execution_job_error:
+        lines.append(f"Execution job error: {result.execution_job_error}")
+    elif result.execution_job_message and result.execution_job_status in {
+        "failed",
+        "cancelled",
+        "interrupted",
+    }:
+        lines.append(f"Execution job message: {result.execution_job_message}")
     if result.run_handoff_guidance:
         lines.append(f"Run handoff guidance: {result.run_handoff_guidance}")
     if result.attached_run_handle:

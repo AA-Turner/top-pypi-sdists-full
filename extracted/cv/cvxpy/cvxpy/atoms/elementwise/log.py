@@ -13,16 +13,31 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from typing import List, Tuple
 
 import numpy as np
 
 from cvxpy.atoms.elementwise.elementwise import Elementwise
 from cvxpy.constraints.constraint import Constraint
+from cvxpy.utilities import bounds as bounds_utils
 
 
 class log(Elementwise):
-    """Elementwise :math:`\\log x`.
+    """Elementwise natural logarithm.
+
+    Computes the elementwise natural logarithm of the input.
+
+    Mathematical definition:
+        .. math::
+
+            f(x) = \\log(x)
+
+    Domain:
+        :math:`x > 0`
+
+    Parameters
+    ----------
+    x : Expression
+        Input expression. Must be elementwise positive.
     """
 
     def __init__(self, x) -> None:
@@ -34,11 +49,16 @@ class log(Elementwise):
         """
         return np.log(values[0])
 
-    def sign_from_args(self) -> Tuple[bool, bool]:
+    def sign_from_args(self) -> tuple[bool, bool]:
         """Returns sign (is positive, is negative) of the expression.
         """
         # Always unknown.
         return (False, False)
+
+    def bounds_from_args(self) -> tuple[np.ndarray, np.ndarray]:
+        """Returns bounds for log based on argument bounds."""
+        lb, ub = self.args[0].get_bounds()
+        return bounds_utils.log_bounds(lb, ub)
 
     def is_atom_convex(self) -> bool:
         """Is the atom convex?
@@ -48,6 +68,10 @@ class log(Elementwise):
     def is_atom_concave(self) -> bool:
         """Is the atom concave?
         """
+        return True
+
+    def is_atom_smooth(self) -> bool:
+        """Is the atom smooth?"""
         return True
 
     def is_atom_log_log_convex(self) -> bool:
@@ -91,7 +115,8 @@ class log(Elementwise):
             grad_vals = 1.0/values[0]
             return [log.elemwise_grad_to_diag(grad_vals, rows, cols)]
 
-    def _domain(self) -> List[Constraint]:
+    def _domain(self) -> list[Constraint]:
         """Returns constraints describing the domain of the node.
         """
         return [self.args[0] >= 0]
+

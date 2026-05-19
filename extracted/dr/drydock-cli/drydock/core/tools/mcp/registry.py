@@ -39,7 +39,12 @@ class MCPRegistry:
         result: dict[str, type[BaseTool]] = {}
         to_discover: list[tuple[str, MCPServer]] = []
 
-        for srv in servers:
+        # Skip servers explicitly disabled in config — don't attempt
+        # connection, don't load tools. A broken/legacy block left in
+        # config will not poison the agent loop.
+        active = [s for s in servers if getattr(s, "enabled", True)]
+
+        for srv in active:
             key = self._server_key(srv)
             if key in self._cache:
                 result.update(self._cache[key])

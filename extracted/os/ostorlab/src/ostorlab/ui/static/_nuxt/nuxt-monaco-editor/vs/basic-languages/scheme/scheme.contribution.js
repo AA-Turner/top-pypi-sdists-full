@@ -1,24 +1,8 @@
-/*!-----------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Version: 0.49.0(383fdf3fc0e1e1a024068b8d0fd4f3dcbae74d04)
- * Released under the MIT license
- * https://github.com/microsoft/monaco-editor/blob/main/LICENSE.txt
- *-----------------------------------------------------------------------------*/
+import { registerLanguage } from '../_.contribution.js';
 
-
-// src/basic-languages/scheme/scheme.contribution.ts
-import { registerLanguage } from "../_.contribution.js";
 registerLanguage({
   id: "scheme",
   extensions: [".scm", ".ss", ".sch", ".rkt"],
   aliases: ["scheme", "Scheme"],
-  loader: () => {
-    if (false) {
-      return new Promise((resolve, reject) => {
-        __require(["vs/basic-languages/scheme/scheme"], resolve, reject);
-      });
-    } else {
-      return import("./scheme.js");
-    }
-  }
+  loader: () => import('./scheme.js')
 });

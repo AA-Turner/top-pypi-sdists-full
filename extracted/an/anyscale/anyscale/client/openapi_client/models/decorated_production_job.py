@@ -62,7 +62,8 @@ class DecoratedProductionJob(object):
         'job_queue': 'MiniJobQueue',
         'integration_details': 'IntegrationDetails',
         'connections': 'list[DecoratedJobConnectionInfo]',
-        'position_in_job_queue': 'int'
+        'position_in_job_queue': 'int',
+        'secrets_masked': 'bool'
     }
 
     attribute_map = {
@@ -95,10 +96,11 @@ class DecoratedProductionJob(object):
         'job_queue': 'job_queue',
         'integration_details': 'integration_details',
         'connections': 'connections',
-        'position_in_job_queue': 'position_in_job_queue'
+        'position_in_job_queue': 'position_in_job_queue',
+        'secrets_masked': 'secrets_masked'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, secrets_masked=False, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -134,6 +136,7 @@ class DecoratedProductionJob(object):
         self._integration_details = None
         self._connections = None
         self._position_in_job_queue = None
+        self._secrets_masked = None
         self.discriminator = None
 
         self.id = id
@@ -184,6 +187,8 @@ class DecoratedProductionJob(object):
             self.connections = connections
         if position_in_job_queue is not None:
             self.position_in_job_queue = position_in_job_queue
+        if secrets_masked is not None:
+            self.secrets_masked = secrets_masked
 
     @property
     def id(self):
@@ -898,6 +903,29 @@ class DecoratedProductionJob(object):
         """
 
         self._position_in_job_queue = position_in_job_queue
+
+    @property
+    def secrets_masked(self):
+        """Gets the secrets_masked of this DecoratedProductionJob.  # noqa: E501
+
+        True when one or more environment variable values were replaced with a masked sentinel before being returned to the UI.  # noqa: E501
+
+        :return: The secrets_masked of this DecoratedProductionJob.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secrets_masked
+
+    @secrets_masked.setter
+    def secrets_masked(self, secrets_masked):
+        """Sets the secrets_masked of this DecoratedProductionJob.
+
+        True when one or more environment variable values were replaced with a masked sentinel before being returned to the UI.  # noqa: E501
+
+        :param secrets_masked: The secrets_masked of this DecoratedProductionJob.  # noqa: E501
+        :type: bool
+        """
+
+        self._secrets_masked = secrets_masked
 
     def to_dict(self):
         """Returns the model properties as a dict"""

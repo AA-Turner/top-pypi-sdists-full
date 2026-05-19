@@ -724,7 +724,7 @@ class Dnf5Module(YumDnf):
                     # package specs that evaluate to a single package, trying to mimic what would the dnf machinery do
                     # for glob package specs and then filtering those for allow_downgrade appears to always
                     # result in naive/inferior solution.
-                    # TODO reasearch how feasible it is to implement the above
+                    # TODO research how feasible it is to implement the above
                     if upgrade:
                         # for upgrade we pass the spec to both upgrade and install, to satisfy both available and installed
                         # packages evaluated from the glob spec
@@ -803,9 +803,19 @@ class Dnf5Module(YumDnf):
                         rc=1,
                     )
                 elif result != libdnf5.base.Transaction.TransactionRunResult_SUCCESS:
+                    failures = []
+                    if result == libdnf5.base.Transaction.TransactionRunResult_ERROR_RPM_RUN:
+                        try:
+                            failures = list(transaction.get_rpm_messages())
+                        except AttributeError:
+                            # get_rpm_messages is not available in dnf5 < 5.2.7.0
+                            pass
+                    # Add the transaction problems to the failures
+                    failures.extend(["{}: {}".format(transaction.transaction_result_to_string(result), log) for log in transaction.get_transaction_problems()])
+
                     self.module.fail_json(
                         msg="Failed to install some of the specified packages",
-                        failures=["{}: {}".format(transaction.transaction_result_to_string(result), log) for log in transaction.get_transaction_problems()],
+                        failures=failures,
                         rc=1,
                     )
 

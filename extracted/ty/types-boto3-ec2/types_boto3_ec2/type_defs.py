@@ -1395,6 +1395,9 @@ __all__ = (
     "DescribeIpamExternalResourceVerificationTokensResultTypeDef",
     "DescribeIpamPoliciesRequestTypeDef",
     "DescribeIpamPoliciesResultTypeDef",
+    "DescribeIpamPoolAllocationsRequestPaginateTypeDef",
+    "DescribeIpamPoolAllocationsRequestTypeDef",
+    "DescribeIpamPoolAllocationsResultTypeDef",
     "DescribeIpamPoolsRequestPaginateTypeDef",
     "DescribeIpamPoolsRequestTypeDef",
     "DescribeIpamPoolsResultTypeDef",
@@ -2491,6 +2494,8 @@ __all__ = (
     "ModifyInstancePlacementResultTypeDef",
     "ModifyIpamPolicyAllocationRulesRequestTypeDef",
     "ModifyIpamPolicyAllocationRulesResultTypeDef",
+    "ModifyIpamPoolAllocationRequestTypeDef",
+    "ModifyIpamPoolAllocationResultTypeDef",
     "ModifyIpamPoolRequestTypeDef",
     "ModifyIpamPoolResultTypeDef",
     "ModifyIpamPrefixListResolverRequestTypeDef",
@@ -3369,28 +3374,6 @@ class AdvertiseByoipCidrRequestTypeDef(TypedDict):
     Asn: NotRequired[str]
     DryRun: NotRequired[bool]
     NetworkBorderGroup: NotRequired[str]
-
-
-class AllocateIpamPoolCidrRequestTypeDef(TypedDict):
-    IpamPoolId: str
-    DryRun: NotRequired[bool]
-    Cidr: NotRequired[str]
-    NetmaskLength: NotRequired[int]
-    ClientToken: NotRequired[str]
-    Description: NotRequired[str]
-    PreviewNextCidr: NotRequired[bool]
-    AllowedCidrs: NotRequired[Sequence[str]]
-    DisallowedCidrs: NotRequired[Sequence[str]]
-
-
-class IpamPoolAllocationTypeDef(TypedDict):
-    Cidr: NotRequired[str]
-    IpamPoolAllocationId: NotRequired[str]
-    Description: NotRequired[str]
-    ResourceId: NotRequired[str]
-    ResourceType: NotRequired[IpamPoolAllocationResourceTypeType]
-    ResourceRegion: NotRequired[str]
-    ResourceOwner: NotRequired[str]
 
 
 class AlternatePathHintTypeDef(TypedDict):
@@ -5848,25 +5831,6 @@ class DescribeVolumeAttributeRequestVolumeDescribeAttributeTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
-class VolumeModificationTypeDef(TypedDict):
-    VolumeId: NotRequired[str]
-    ModificationState: NotRequired[VolumeModificationStateType]
-    StatusMessage: NotRequired[str]
-    TargetSize: NotRequired[int]
-    TargetIops: NotRequired[int]
-    TargetVolumeType: NotRequired[VolumeTypeType]
-    TargetThroughput: NotRequired[int]
-    TargetMultiAttachEnabled: NotRequired[bool]
-    OriginalSize: NotRequired[int]
-    OriginalIops: NotRequired[int]
-    OriginalVolumeType: NotRequired[VolumeTypeType]
-    OriginalThroughput: NotRequired[int]
-    OriginalMultiAttachEnabled: NotRequired[bool]
-    Progress: NotRequired[int]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-
-
 class DescribeVpcAttributeRequestTypeDef(TypedDict):
     Attribute: VpcAttributeNameType
     VpcId: str
@@ -7918,6 +7882,12 @@ class ModifyInstancePlacementRequestTypeDef(TypedDict):
     Tenancy: NotRequired[HostTenancyType]
     Affinity: NotRequired[AffinityType]
     HostId: NotRequired[str]
+
+
+class ModifyIpamPoolAllocationRequestTypeDef(TypedDict):
+    IpamPoolAllocationId: str
+    DryRun: NotRequired[bool]
+    Description: NotRequired[str]
 
 
 class ModifyIpamPrefixListResolverTargetRequestTypeDef(TypedDict):
@@ -10626,6 +10596,17 @@ class IpamPolicyTypeDef(TypedDict):
     IpamId: NotRequired[str]
 
 
+class IpamPoolAllocationTypeDef(TypedDict):
+    Cidr: NotRequired[str]
+    IpamPoolAllocationId: NotRequired[str]
+    Description: NotRequired[str]
+    ResourceId: NotRequired[str]
+    ResourceType: NotRequired[IpamPoolAllocationResourceTypeType]
+    ResourceRegion: NotRequired[str]
+    ResourceOwner: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
 class IpamPrefixListResolverTargetTypeDef(TypedDict):
     IpamPrefixListResolverTargetId: NotRequired[str]
     IpamPrefixListResolverTargetArn: NotRequired[str]
@@ -11135,19 +11116,6 @@ VpnConcentratorTypeDef = TypedDict(
         "Tags": NotRequired[list[TagTypeDef]],
     },
 )
-
-
-class AllocateIpamPoolCidrResultTypeDef(TypedDict):
-    IpamPoolAllocation: IpamPoolAllocationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetIpamPoolAllocationsResultTypeDef(TypedDict):
-    IpamPoolAllocations: list[IpamPoolAllocationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 AnalysisAclRuleTypeDef = TypedDict(
     "AnalysisAclRuleTypeDef",
     {
@@ -13247,6 +13215,21 @@ class DescribeIpamPoliciesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     IpamPolicyIds: NotRequired[Sequence[str]]
+
+
+class DescribeIpamPoolAllocationsRequestPaginateTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    IpamPoolAllocationIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class DescribeIpamPoolAllocationsRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    IpamPoolAllocationIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class DescribeIpamPoolsRequestPaginateTypeDef(TypedDict):
@@ -15563,17 +15546,6 @@ class DescribeTagsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class DescribeVolumesModificationsResultTypeDef(TypedDict):
-    VolumesModifications: list[VolumeModificationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ModifyVolumeResultTypeDef(TypedDict):
-    VolumeModification: VolumeModificationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
     VpcBlockPublicAccessOptions: VpcBlockPublicAccessOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -15776,6 +15748,26 @@ class PlacementGroupTypeDef(TypedDict):
     GroupArn: NotRequired[str]
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
+    Operator: NotRequired[OperatorResponseTypeDef]
+
+
+class VolumeModificationTypeDef(TypedDict):
+    VolumeId: NotRequired[str]
+    ModificationState: NotRequired[VolumeModificationStateType]
+    StatusMessage: NotRequired[str]
+    TargetSize: NotRequired[int]
+    TargetIops: NotRequired[int]
+    TargetVolumeType: NotRequired[VolumeTypeType]
+    TargetThroughput: NotRequired[int]
+    TargetMultiAttachEnabled: NotRequired[bool]
+    OriginalSize: NotRequired[int]
+    OriginalIops: NotRequired[int]
+    OriginalVolumeType: NotRequired[VolumeTypeType]
+    OriginalThroughput: NotRequired[int]
+    OriginalMultiAttachEnabled: NotRequired[bool]
+    Progress: NotRequired[int]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
     Operator: NotRequired[OperatorResponseTypeDef]
 
 
@@ -17750,6 +17742,28 @@ class DescribeIpamPoliciesResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class AllocateIpamPoolCidrResultTypeDef(TypedDict):
+    IpamPoolAllocation: IpamPoolAllocationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeIpamPoolAllocationsResultTypeDef(TypedDict):
+    IpamPoolAllocations: list[IpamPoolAllocationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetIpamPoolAllocationsResultTypeDef(TypedDict):
+    IpamPoolAllocations: list[IpamPoolAllocationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ModifyIpamPoolAllocationResultTypeDef(TypedDict):
+    IpamPoolAllocation: IpamPoolAllocationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateIpamPrefixListResolverTargetResultTypeDef(TypedDict):
     IpamPrefixListResolverTarget: IpamPrefixListResolverTargetTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -18970,6 +18984,17 @@ class CreatePlacementGroupResultTypeDef(TypedDict):
 
 class DescribePlacementGroupsResultTypeDef(TypedDict):
     PlacementGroups: list[PlacementGroupTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeVolumesModificationsResultTypeDef(TypedDict):
+    VolumesModifications: list[VolumeModificationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ModifyVolumeResultTypeDef(TypedDict):
+    VolumeModification: VolumeModificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -20629,6 +20654,19 @@ class AllocateHostsRequestTypeDef(TypedDict):
     InstanceType: NotRequired[str]
     Quantity: NotRequired[int]
     AvailabilityZone: NotRequired[str]
+
+
+class AllocateIpamPoolCidrRequestTypeDef(TypedDict):
+    IpamPoolId: str
+    DryRun: NotRequired[bool]
+    Cidr: NotRequired[str]
+    NetmaskLength: NotRequired[int]
+    ClientToken: NotRequired[str]
+    Description: NotRequired[str]
+    PreviewNextCidr: NotRequired[bool]
+    AllowedCidrs: NotRequired[Sequence[str]]
+    DisallowedCidrs: NotRequired[Sequence[str]]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
 
 
 class AssociateIpamResourceDiscoveryRequestTypeDef(TypedDict):

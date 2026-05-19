@@ -13,15 +13,18 @@ from __future__ import annotations
 import base64
 import copy
 import dataclasses
+import datetime
 import typing
 from dataclasses import MISSING
 from typing import Any
 
-import numpy as np  # noqa: TC002
+import numpy as np
 
 from blosc2.schema import (
     BLOSC2_FIELD_METADATA_KEY,
+    DictionarySpec,
     ListSpec,
+    NDArraySpec,
     ObjectSpec,
     SchemaSpec,
     StructSpec,
@@ -36,6 +39,7 @@ from blosc2.schema import (
     int32,
     int64,
     string,
+    timestamp,
     uint8,
     uint16,
     uint32,
@@ -73,6 +77,11 @@ _KIND_TO_SPEC: dict[str, type[SchemaSpec]] = {
     "vlstring": VLStringSpec,
     "vlbytes": VLBytesSpec,
     "object": ObjectSpec,
+    "timestamp": timestamp,
+    # dictionary
+    "dictionary": DictionarySpec,
+    # fixed-shape N-D arrays
+    "ndarray": NDArraySpec,
 }
 
 # ---------------------------------------------------------------------------
@@ -93,15 +102,22 @@ _DTYPE_DISPLAY_WIDTH: dict[str, int] = {
     "bool": 6,
     "complex64": 20,
     "complex128": 25,
+    "timestamp": 26,
 }
 
 
 def compute_display_width(spec: SchemaSpec) -> int:
     """Return a reasonable terminal display width for *spec*'s column."""
+    if isinstance(spec, DictionarySpec):
+        return 32
     if isinstance(spec, (VLStringSpec, VLBytesSpec, ObjectSpec)):
         return 40
+    if isinstance(spec, NDArraySpec):
+        return max(20, len(spec.display_label()) + 4)
     if isinstance(spec, (ListSpec, StructSpec)):
         return max(40, len(spec.display_label()) + 4)
+    if isinstance(spec, timestamp):
+        return _DTYPE_DISPLAY_WIDTH["timestamp"]
     dtype = spec.dtype
     if dtype is None:
         return 20
@@ -201,11 +217,20 @@ def infer_spec_from_annotation(annotation: Any) -> SchemaSpec:
 
 def validate_annotation_matches_spec(name: str, annotation: Any, spec: SchemaSpec) -> None:
     """Raise :exc:`TypeError` if *annotation* is incompatible with *spec*."""
+    if isinstance(spec, NDArraySpec):
+        if annotation not in (np.ndarray, object):
+            raise TypeError(
+                f"Column {name!r}: annotation {annotation!r} is incompatible with "
+                "NDArraySpec (expected np.ndarray or object)."
+            )
+        return
+
     if isinstance(spec, ListSpec):
         origin = typing.get_origin(annotation)
         if origin not in (list, list):
             raise TypeError(
-                f"Column {name!r}: annotation {annotation!r} is incompatible with list spec; expected list[T]."
+                f"Column {name!r}: annotation {annotation!r} is incompatible with list spec; "
+                "expected list[T]."
             )
         args = typing.get_args(annotation)
         if len(args) != 1:
@@ -218,6 +243,22 @@ def validate_annotation_matches_spec(name: str, annotation: Any, spec: SchemaSpe
                 f"item spec {type(spec.item_spec).__name__!r} (expected {expected.__name__!r})."
             )
         return
+
+    if isinstance(spec, DictionarySpec):
+        if annotation is not str:
+            raise TypeError(
+                f"Column {name!r}: annotation {annotation!r} is incompatible with "
+                f"DictionarySpec (expected str)."
+            )
+        return
+
+    if isinstance(spec, timestamp):
+        if annotation in (object, np.datetime64, datetime.datetime, str, int):
+            return
+        raise TypeError(
+            f"Column {name!r}: annotation {annotation!r} is incompatible with "
+            "timestamp spec (expected object, np.datetime64, datetime.datetime, str, or int)."
+        )
 
     # VLStringSpec and VLBytesSpec are only reachable via blosc2.field(blosc2.vlstring()/vlbytes()),
     # so annotation must match python_type (str or bytes respectively).
@@ -245,15 +286,15 @@ def _validate_column_name(name: str) -> None:
 
     * must be a non-empty string
     * must not start with ``_``  (reserved for internal table layout)
-    * must not contain ``/``     (used as path separator in persistent layout)
     * must not be one of the reserved internal names
+
+    Literal ``/`` characters are allowed in logical names; persistent CTable
+    storage percent-encodes path segments before writing under ``_cols``.
     """
     if not name:
         raise ValueError("Column name cannot be empty.")
     if name.startswith("_"):
         raise ValueError(f"Column name cannot start with '_' (reserved for internal use): {name!r}")
-    if "/" in name:
-        raise ValueError(f"Column name cannot contain '/': {name!r}")
     if name in _RESERVED_COLUMN_NAMES:
         raise ValueError(f"Column name {name!r} is reserved for internal CTable use.")
 
@@ -330,7 +371,7 @@ def compile_schema(row_cls: type[Any]) -> CompiledSchema:
         columns.append(
             CompiledColumn(
                 name=name,
-                py_type=annotation,
+                py_type=object if isinstance(spec, (timestamp, NDArraySpec)) else annotation,
                 spec=spec,
                 dtype=getattr(spec, "dtype", None),
                 default=default,
@@ -390,6 +431,14 @@ def spec_from_metadata_dict(data: dict[str, Any]) -> SchemaSpec:
         return ListSpec(item_spec, **data)
     if kind == "struct":
         return StructSpec.from_metadata_dict({"fields": data.pop("fields"), **data})
+    if kind == "dictionary":
+        index_type = spec_from_metadata_dict(data.pop("index_type"))
+        value_type = spec_from_metadata_dict(data.pop("value_type"))
+        return DictionarySpec(index_type=index_type, value_type=value_type, **data)
+    if kind == "ndarray":
+        return NDArraySpec(
+            item_shape=tuple(data.pop("item_shape")), dtype=np.dtype(data.pop("dtype_str")), **data
+        )
     spec_cls = _KIND_TO_SPEC.get(kind)
     if spec_cls is None:
         raise ValueError(f"Unknown column kind {kind!r}")
@@ -433,8 +482,9 @@ def schema_to_dict(schema: CompiledSchema) -> dict[str, Any]:
             entry["blocks"] = list(col.config.blocks)
         cols.append(entry)
 
+    schema_version = 2 if schema.metadata.get("nested") is not None else 1
     result = {
-        "version": 1,
+        "version": schema_version,
         "row_cls": schema.row_cls.__name__ if schema.row_cls is not None else None,
         "columns": cols,
     }
@@ -456,7 +506,7 @@ def schema_from_dict(data: dict[str, Any]) -> CompiledSchema:
         If *data* uses an unknown schema version or an unknown column kind.
     """
     version = data.get("version", 1)
-    if version != 1:
+    if version not in (1, 2):
         raise ValueError(f"Unsupported schema version {version!r}")
 
     columns: list[CompiledColumn] = []

@@ -15,11 +15,11 @@ from biolib._internal.http_client import HttpClient, HttpError
 from biolib._internal.string_utils import normalize_for_docker_tag
 from biolib._internal.templates import templates
 from biolib._internal.utils import get_pip_command
+from biolib._shared.types.typing import Dict, List, Optional, Set
 from biolib.api import client as api_client
 from biolib.biolib_api_client.api_client import BiolibApiClient
 from biolib.biolib_api_client.biolib_app_api import BiolibAppApi
 from biolib.biolib_logging import logger_no_user_data
-from biolib.typing_utils import Dict, List, Optional, Set
 from biolib.user.sign_in import sign_in
 from biolib.utils import BIOLIB_PACKAGE_VERSION
 

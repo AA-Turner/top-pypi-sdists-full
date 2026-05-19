@@ -69,5 +69,8 @@ class PackageVersionManager:
 
 
 def check_latest_version(package_name="abstra"):
-    package_version = PackageVersionManager(package_name)
-    package_version.print_status_message()
+    try:
+        package_version = PackageVersionManager(package_name)
+        package_version.print_status_message()
+    except PackageNotFoundError:
+        print(f"Running {package_name} from source; skipping version check.\n")

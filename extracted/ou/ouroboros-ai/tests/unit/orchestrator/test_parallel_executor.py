@@ -17,6 +17,7 @@ from ouroboros.mcp.types import MCPToolDefinition
 from ouroboros.orchestrator.adapter import AgentMessage, RuntimeHandle
 from ouroboros.orchestrator.coordinator import CoordinatorReview, FileConflict
 from ouroboros.orchestrator.dependency_analyzer import ACNode, DependencyGraph
+from ouroboros.orchestrator.evidence_schema import EvidenceRecord, ValidationResult
 from ouroboros.orchestrator.execution_runtime_scope import ExecutionNodeIdentity
 from ouroboros.orchestrator.level_context import ACContextSummary, LevelContext
 from ouroboros.orchestrator.parallel_executor import (
@@ -27,9 +28,17 @@ from ouroboros.orchestrator.parallel_executor import (
     ParallelACExecutor,
     ParallelExecutionResult,
     StageExecutionOutcome,
+    _build_governed_parent_summary,
+    _complete_sibling_acs_from_evidence,
+    _criterion_satisfied_by_evidence,
+    _effective_evidence_schema_for_ac,
+    _message_contains_test_success,
+    _runtime_messages_support_command_claim,
     render_parallel_completion_message,
     render_parallel_verification_report,
 )
+from ouroboros.orchestrator.profile_loader import EvidenceSchema, load_profile
+from ouroboros.orchestrator.verifier import VerifierVerdict
 
 
 def _make_seed(*acceptance_criteria: str) -> Seed:
@@ -62,6 +71,738 @@ def _make_executor() -> ParallelACExecutor:
     return executor
 
 
+def test_criterion_satisfied_by_exact_runtime_evidence() -> None:
+    files = {"hello_auto.py", "tests/test_hello_auto.py"}
+    commands = {"uv run pytest tests/test_hello_auto.py"}
+
+    assert _criterion_satisfied_by_evidence("`hello_auto.py` exists.", files, commands)
+    assert _criterion_satisfied_by_evidence("`tests/test_hello_auto.py` exists.", files, commands)
+    assert not _criterion_satisfied_by_evidence("`src/hello_auto.py` exists.", files, commands)
+    assert not _criterion_satisfied_by_evidence("`Hello_Auto.py` exists.", files, commands)
+    assert not _criterion_satisfied_by_evidence(
+        "`tests/test_hello_auto.py` exists and imports `hello_auto`.",
+        files,
+        commands,
+    )
+    assert not _criterion_satisfied_by_evidence(
+        "`hello_auto.py` is created with exact content.",
+        files,
+        commands,
+    )
+    assert not _criterion_satisfied_by_evidence(
+        "`tests/test_hello_auto.py` imports `hello_auto` and asserts the exact return value.",
+        files,
+        commands,
+    )
+    assert _criterion_satisfied_by_evidence(
+        "The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        files,
+        commands,
+        commands,
+    )
+    assert _criterion_satisfied_by_evidence(
+        "Run the exact command `uv run pytest tests/test_hello_auto.py`.",
+        files,
+        commands,
+    )
+    assert _criterion_satisfied_by_evidence(
+        "Run `uv run pytest tests/test_hello_auto.py`.",
+        files,
+        commands,
+    )
+    assert _criterion_satisfied_by_evidence(
+        "Execute `uv run pytest tests/test_hello_auto.py`.",
+        files,
+        commands,
+    )
+    assert _criterion_satisfied_by_evidence(
+        "The exact command `uv run pytest tests/test_hello_auto.py` exits with code 0.",
+        files,
+        commands,
+        commands,
+    )
+    assert not _criterion_satisfied_by_evidence(
+        "The exact command `uv run pytest tests/test_hello_auto.py` passes and covers edge cases.",
+        files,
+        commands,
+        commands,
+    )
+    assert not _criterion_satisfied_by_evidence(
+        "The exact command `uv run pytest Tests/test_hello_auto.py` passes.",
+        files,
+        commands,
+        commands,
+    )
+    assert not _criterion_satisfied_by_evidence(
+        "Run the exact command `uv run pytest tests/test_hello_auto.py` and inspect output.",
+        files,
+        commands,
+    )
+    assert not _criterion_satisfied_by_evidence(
+        "The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        files,
+        commands,
+        set(),
+    )
+    assert not _criterion_satisfied_by_evidence("`other.py` exists.", files, commands)
+
+
+def test_complete_sibling_acs_from_successful_runtime_evidence(tmp_path: Any) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_hello_auto.py").write_text("def test_hello(): pass\n")
+    success = ACExecutionResult(
+        ac_index=0,
+        ac_content="`hello_auto.py` defines `hello_auto() -> str` returning exactly `hello from ooo auto`.",
+        success=True,
+        messages=(
+            AgentMessage(
+                type="tool_use",
+                content="write hello_auto",
+                tool_name="Write",
+                data={"tool_input": {"file_path": "hello_auto.py"}},
+            ),
+            AgentMessage(
+                type="tool_use",
+                content="write test",
+                tool_name="Write",
+                data={"tool_input": {"file_path": "tests/test_hello_auto.py"}},
+            ),
+            AgentMessage(
+                type="tool_use",
+                content="run pytest",
+                tool_name="Bash",
+                data={"tool_input": {"command": "uv run pytest tests/test_hello_auto.py"}},
+            ),
+        ),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["hello_auto.py", "tests/test_hello_auto.py"],
+                "commands_run": ["uv run pytest tests/test_hello_auto.py"],
+                "tests_passed": ["uv run pytest tests/test_hello_auto.py"],
+            }
+        ),
+        runtime_handle=RuntimeHandle(backend="codex_cli", cwd=str(tmp_path)),
+    )
+    failed_test_file = ACExecutionResult(
+        ac_index=1,
+        ac_content="`tests/test_hello_auto.py` exists.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+    failed_pytest = ACExecutionResult(
+        ac_index=2,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+    failed_indices = {1, 2}
+    ac_statuses = {0: "completed", 1: "failed", 2: "failed"}
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success, failed_test_file, failed_pytest],
+        ac_statuses=ac_statuses,
+        failed_indices=failed_indices,
+        completed_count=1,
+        level_success=1,
+        level_failed=2,
+    )
+
+    assert completed_count == 3
+    assert level_success == 3
+    assert level_failed == 0
+    assert failed_indices == set()
+    assert ac_statuses == {0: "completed", 1: "completed", 2: "completed"}
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.SATISFIED_EXTERNALLY,
+        ACExecutionOutcome.SATISFIED_EXTERNALLY,
+    ]
+
+
+def test_complete_sibling_acs_requires_runtime_test_success_for_pass_claim() -> None:
+    success_without_test_output = ACExecutionResult(
+        ac_index=0,
+        ac_content="`hello_auto.py` defines `hello_auto() -> str`.",
+        success=True,
+        messages=(
+            AgentMessage(
+                type="tool_use",
+                content="run pytest",
+                tool_name="Bash",
+                data={
+                    "tool_input": {
+                        "command": "/bin/zsh -lc 'uv run pytest tests/test_hello_auto.py'"
+                    }
+                },
+            ),
+            AgentMessage(
+                type="result",
+                content="success",
+                data={"subtype": "success"},
+            ),
+        ),
+    )
+    failed_pytest = ACExecutionResult(
+        ac_index=1,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_without_test_output, failed_pytest],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
+def test_complete_sibling_acs_does_not_use_later_tool_success_as_test_proof() -> None:
+    success_with_unrelated_tool_success = ACExecutionResult(
+        ac_index=0,
+        ac_content="Run pytest and edit a file.",
+        success=True,
+        messages=(
+            AgentMessage(
+                type="tool_use",
+                content="run pytest",
+                tool_name="Bash",
+                data={"tool_input": {"command": "uv run pytest tests/test_hello_auto.py"}},
+            ),
+            AgentMessage(
+                type="tool_use",
+                content="write file",
+                tool_name="Write",
+                data={"tool_input": {"file_path": "hello_auto.py"}},
+            ),
+            AgentMessage(
+                type="tool_result",
+                content="success",
+                data={"subtype": "tool_result", "stdout": "success"},
+            ),
+        ),
+    )
+    failed_pytest = ACExecutionResult(
+        ac_index=1,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_unrelated_tool_success, failed_pytest],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
+def test_complete_sibling_acs_keeps_exact_command_case_sensitive() -> None:
+    success = ACExecutionResult(
+        ac_index=0,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=True,
+        typed_evidence=EvidenceRecord(
+            data={"tests_passed": ["uv run pytest tests/test_hello_auto.py"]}
+        ),
+    )
+    failed_wrong_case_pytest = ACExecutionResult(
+        ac_index=1,
+        ac_content="The exact command `uv run pytest Tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success, failed_wrong_case_pytest],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
+def test_complete_sibling_acs_normalizes_absolute_typed_file_evidence(tmp_path: Any) -> None:
+    test_file = tmp_path / "tests" / "test_hello_auto.py"
+    test_file.parent.mkdir()
+    test_file.write_text("def test_hello(): pass\n")
+    success = ACExecutionResult(
+        ac_index=0,
+        ac_content="`tests/test_hello_auto.py` exists.",
+        success=True,
+        typed_evidence=EvidenceRecord(data={"files_touched": [str(test_file)]}),
+        runtime_handle=RuntimeHandle(backend="codex_cli", cwd=str(tmp_path)),
+    )
+    failed_file_presence = ACExecutionResult(
+        ac_index=1,
+        ac_content="`tests/test_hello_auto.py` exists.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success, failed_file_presence],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 2
+    assert level_success == 2
+    assert level_failed == 0
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.SATISFIED_EXTERNALLY,
+    ]
+
+
+def test_complete_sibling_acs_requires_file_end_state_existence(tmp_path: Any) -> None:
+    success_without_current_file = ACExecutionResult(
+        ac_index=0,
+        ac_content="`tests/test_hello_auto.py` exists.",
+        success=True,
+        typed_evidence=EvidenceRecord(data={"files_touched": ["tests/test_hello_auto.py"]}),
+        runtime_handle=RuntimeHandle(backend="codex_cli", cwd=str(tmp_path)),
+    )
+    failed_file_presence = ACExecutionResult(
+        ac_index=1,
+        ac_content="`tests/test_hello_auto.py` exists.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_without_current_file, failed_file_presence],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
+def test_complete_sibling_acs_rejects_invalid_typed_evidence() -> None:
+    success_with_invalid_typed_evidence = ACExecutionResult(
+        ac_index=0,
+        ac_content="`tests/test_hello_auto.py` exists.",
+        success=True,
+        typed_evidence=EvidenceRecord(data={"files_touched": ["tests/test_hello_auto.py"]}),
+        typed_evidence_validation=ValidationResult(ok=False, missing_fields=("tests_passed",)),
+    )
+    failed_file_presence = ACExecutionResult(
+        ac_index=1,
+        ac_content="`tests/test_hello_auto.py` exists.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_invalid_typed_evidence, failed_file_presence],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
+def test_complete_sibling_acs_rejects_verifier_failed_typed_evidence() -> None:
+    success_with_rejected_typed_evidence = ACExecutionResult(
+        ac_index=0,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=True,
+        typed_evidence=EvidenceRecord(
+            data={"tests_passed": ["uv run pytest tests/test_hello_auto.py"]}
+        ),
+        atomic_verifier_verdict=VerifierVerdict(
+            passed=False,
+            reasons=("fabricated test output",),
+            failure_class="FABRICATION_SUSPECTED",
+        ),
+    )
+    failed_pytest = ACExecutionResult(
+        ac_index=1,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_rejected_typed_evidence, failed_pytest],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
+def test_complete_sibling_acs_accepts_shell_wrapped_successful_test_command() -> None:
+    success_with_test_output = ACExecutionResult(
+        ac_index=0,
+        ac_content="`hello_auto.py` defines `hello_auto() -> str`.",
+        success=True,
+        messages=(
+            AgentMessage(
+                type="tool_use",
+                content="run pytest",
+                tool_name="Bash",
+                data={
+                    "tool_input": {
+                        "command": "/bin/zsh -lc 'uv run pytest tests/test_hello_auto.py'"
+                    }
+                },
+            ),
+            AgentMessage(
+                type="tool_result",
+                content="1 passed in 0.01s",
+                data={"stdout": "1 passed in 0.01s"},
+            ),
+        ),
+    )
+    failed_pytest = ACExecutionResult(
+        ac_index=1,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_test_output, failed_pytest],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 2
+    assert level_success == 2
+    assert level_failed == 0
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.SATISFIED_EXTERNALLY,
+    ]
+
+
+def test_complete_sibling_acs_accepts_named_tool_result_test_output() -> None:
+    success_with_named_tool_result = ACExecutionResult(
+        ac_index=0,
+        ac_content="Run the requested test command.",
+        success=True,
+        messages=(
+            AgentMessage(
+                type="tool_use",
+                content="run pytest",
+                tool_name="Bash",
+                data={"tool_input": {"command": "uv run pytest tests/test_hello_auto.py"}},
+            ),
+            AgentMessage(
+                type="tool",
+                content="1 passed in 0.01s",
+                tool_name="Bash",
+                data={"subtype": "tool_result", "stdout": "1 passed in 0.01s"},
+            ),
+        ),
+    )
+    failed_pytest = ACExecutionResult(
+        ac_index=1,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_named_tool_result, failed_pytest],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 2
+    assert level_success == 2
+    assert level_failed == 0
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.SATISFIED_EXTERNALLY,
+    ]
+
+
+def test_complete_sibling_acs_rejects_compound_runtime_command_alias() -> None:
+    success_with_compound_runtime_command = ACExecutionResult(
+        ac_index=0,
+        ac_content="Run the requested test command.",
+        success=True,
+        messages=(
+            AgentMessage(
+                type="tool_use",
+                content="run pytest and postprocess",
+                tool_name="Bash",
+                data={
+                    "tool_input": {
+                        "command": (
+                            "/bin/zsh -lc 'uv run pytest tests/test_hello_auto.py "
+                            "&& python scripts/postprocess.py'"
+                        )
+                    }
+                },
+            ),
+            AgentMessage(
+                type="tool_result",
+                content="1 passed in 0.01s",
+                data={"stdout": "1 passed in 0.01s"},
+            ),
+        ),
+    )
+    failed_pytest = ACExecutionResult(
+        ac_index=1,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_compound_runtime_command, failed_pytest],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
+def test_complete_sibling_acs_rejects_compound_typed_command_alias() -> None:
+    success_with_compound_typed_command = ACExecutionResult(
+        ac_index=0,
+        ac_content="Run the requested test command.",
+        success=True,
+        typed_evidence=EvidenceRecord(
+            data={
+                "tests_passed": [
+                    (
+                        "/bin/zsh -lc 'uv run pytest tests/test_hello_auto.py "
+                        "&& python scripts/postprocess.py'"
+                    )
+                ]
+            }
+        ),
+    )
+    failed_pytest = ACExecutionResult(
+        ac_index=1,
+        ac_content="The exact command `uv run pytest tests/test_hello_auto.py` passes.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_compound_typed_command, failed_pytest],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
+def test_complete_sibling_acs_reuses_structured_command_aliases() -> None:
+    success_with_goose_command_shape = ACExecutionResult(
+        ac_index=0,
+        ac_content="Run the requested test command.",
+        success=True,
+        messages=(
+            AgentMessage(
+                type="tool_use",
+                content="run pytest",
+                tool_name="Bash",
+                data={"tool_input": {"cmd": ["uv", "run", "pytest", "tests/test_hello_auto.py"]}},
+            ),
+        ),
+    )
+    failed_run_command = ACExecutionResult(
+        ac_index=1,
+        ac_content="Run the exact command `uv run pytest tests/test_hello_auto.py`.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_goose_command_shape, failed_run_command],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 2
+    assert level_success == 2
+    assert level_failed == 0
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.SATISFIED_EXTERNALLY,
+    ]
+
+
+def test_complete_sibling_acs_does_not_rewrite_blocked_results() -> None:
+    success = ACExecutionResult(
+        ac_index=0,
+        ac_content="`hello_auto.py` exists.",
+        success=True,
+        typed_evidence=EvidenceRecord(data={"files_touched": ["tests/test_hello_auto.py"]}),
+    )
+    blocked = ACExecutionResult(
+        ac_index=1,
+        ac_content="`tests/test_hello_auto.py` exists.",
+        success=False,
+        error="Skipped: dependency failed",
+        outcome=ACExecutionOutcome.BLOCKED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success, blocked],
+        ac_statuses={0: "completed", 1: "blocked"},
+        failed_indices=set(),
+        completed_count=1,
+        level_success=1,
+        level_failed=0,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 0
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.BLOCKED,
+    ]
+
+
+def test_complete_sibling_acs_does_not_use_bare_write_call_as_file_proof() -> None:
+    success_with_write_call_only = ACExecutionResult(
+        ac_index=0,
+        ac_content="Attempt a file write.",
+        success=True,
+        messages=(
+            AgentMessage(
+                type="tool_use",
+                content="write file",
+                tool_name="Write",
+                data={"tool_input": {"file_path": "hello_auto.py"}},
+            ),
+        ),
+    )
+    failed_file_presence = ACExecutionResult(
+        ac_index=1,
+        ac_content="`hello_auto.py` exists.",
+        success=False,
+        error="worker did not update this AC separately",
+        outcome=ACExecutionOutcome.FAILED,
+    )
+
+    completed_count, level_success, level_failed, results = _complete_sibling_acs_from_evidence(
+        level_results=[success_with_write_call_only, failed_file_presence],
+        ac_statuses={0: "completed", 1: "failed"},
+        failed_indices={1},
+        completed_count=1,
+        level_success=1,
+        level_failed=1,
+    )
+
+    assert completed_count == 1
+    assert level_success == 1
+    assert level_failed == 1
+    assert [result.outcome for result in results] == [
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+    ]
+
+
 def _make_replaying_event_store() -> tuple[AsyncMock, list[BaseEvent]]:
     """Create an async event-store mock that replays previously appended events."""
     event_store = AsyncMock()
@@ -80,6 +821,627 @@ def _make_replaying_event_store() -> tuple[AsyncMock, list[BaseEvent]]:
     event_store.append.side_effect = _append
     event_store.replay.side_effect = _replay
     return event_store, appended_events
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    (
+        ("3 passed in 1.2s", True),
+        ("0 failed, 3 passed", True),
+        ("0 failed, 0 errors, 1 passed", True),
+        ("no errors, 3 passed", True),
+        ("no tests failed, 3 passed", True),
+        ("exit code 0", True),
+        ("Ran 4 tests in 0.000s\nOK", True),
+        ("python -m unittest test_slugify.py: Ran 4 tests in 0.000s OK", True),
+        ("success", True),
+        ("FAILED (failures=1)\nRan 4 tests in 0.000s", False),
+        ("1 failed, 3 passed", False),
+        ("2 errors, 1 passed", False),
+        ("FAILED tests/test_app.py::test_auth", False),
+        ("tests failed", False),
+    ),
+)
+def test_message_contains_test_success_handles_zero_failure_summaries(
+    content: str,
+    expected: bool,
+) -> None:
+    """Verifier accepts explicit zero-failure summaries without allowing failures."""
+    message = AgentMessage(type="result", content=content, data={})
+    assert _message_contains_test_success(message) is expected
+
+
+@pytest.mark.parametrize(
+    "ac_content",
+    (
+        "Run python -m unittest test_todo.py successfully.",
+        "Verify the unit tests pass.",
+        "Ensure test_todo.py passes.",
+        "Validate the test suite.",
+        "Without modifying any files, verify the existing todo implementation by running python -m unittest test_todo.py successfully.",
+        "Confirm the current implementation by running python -m unittest test_todo.py.",
+        "Check the already-satisfied test suite with python -m unittest test_todo.py.",
+    ),
+)
+def test_validation_only_ac_drops_files_touched_requirement(ac_content: str) -> None:
+    """Validation-only ACs prove command/test evidence without requiring file mutation."""
+    schema = _effective_evidence_schema_for_ac(load_profile("code"), ac_content)
+    assert schema.required == ("commands_run", "tests_passed")
+
+
+@pytest.mark.parametrize(
+    "ac_content",
+    (
+        "Create test_todo.py with unittest coverage.",
+        "Add tests for invalid index handling.",
+        "Update test_todo.py to cover the done command.",
+        "Implement TodoList.add and run tests.",
+        "Modify parser.py and ensure tests pass.",
+        "Update parser.py and verify the existing test suite passes.",
+        "Modify parser.py and confirm the current implementation by running pytest.",
+        "Without modifying files, update parser.py and run pytest.",
+        "Without modifying any files, ensure tests cover invalid inputs.",
+        "Verify the existing test_todo.py coverage without modifying any files. Run python -m unittest test_todo.py successfully.",
+        "Document CLI usage in README.md and update tests for invalid inputs.",
+        "Update README.md with usage and run python -m unittest test_todo.py.",
+        "Document CLI usage in README.md and verify the test suite.",
+        "Document CLI usage in README.md; update tests for invalid inputs.",
+        "Update README.md with usage: run python -m unittest test_todo.py.",
+        "Refactor the validator and verify unit tests pass.",
+        "Change the runtime workflow and run pytest.",
+        "Ensure tests cover invalid inputs.",
+        "Check tests into the repo for the new parser.",
+        "Check the existing tests into the repo for the parser.",
+        "Check in tests for the new parser.",
+        "Update existing test_todo.py coverage for invalid index handling.",
+        "Add coverage to test_todo.py and run python -m unittest test_todo.py.",
+    ),
+)
+def test_test_writing_and_implementation_acs_keep_files_touched_required(
+    ac_content: str,
+) -> None:
+    """ACs that mutate code/tests must still prove files_touched."""
+    schema = _effective_evidence_schema_for_ac(load_profile("code"), ac_content)
+    assert schema.required == ("files_touched", "commands_run", "tests_passed")
+
+
+def test_build_governed_parent_summary_preserves_embedded_wrapper_headings() -> None:
+    """Only orchestrator-owned wrappers are normalized for governed dispatch."""
+    level_context = LevelContext(
+        level_number=0,
+        completed_acs=(
+            ACContextSummary(
+                ac_index=0,
+                ac_content="Prepare helper",
+                success=True,
+                key_output=(
+                    "Helper is ready\n"
+                    "## User Heading\n"
+                    "## Previous Work Context\n"
+                    "## Coordinator Review (Level 12)\n"
+                    "Prior result detail"
+                ),
+            ),
+        ),
+        coordinator_review=CoordinatorReview(
+            level_number=12,
+            review_summary=(
+                "No conflicts remain\n## Previous Work Context\n## Coordinator Review (Level 12)"
+            ),
+        ),
+    )
+
+    normalized = _build_governed_parent_summary([level_context])
+
+    assert normalized.splitlines() == [
+        "Previous Work Context:",
+        "The following ACs have already been completed. Use this context to inform your work.",
+        "",
+        "- AC 1: Prepare helper",
+        "  Result: Helper is ready",
+        "## User Heading",
+        "## Previous Work Context",
+        "## Coordinator Review (Level 12)",
+        "Prior result detail",
+        "",
+        "Coordinator Review (Level 12):",
+        "**Review**: No conflicts remain",
+        "## Previous Work Context",
+        "## Coordinator Review (Level 12)",
+    ]
+
+
+class _FinalMessageRuntime:
+    """Minimal runtime that returns one successful final message with a handle."""
+
+    _runtime_handle_backend = "opencode"
+    _cwd = "/tmp/project"
+    _permission_mode = "acceptEdits"
+
+    def __init__(
+        self,
+        final_message: str,
+        *,
+        native_session_id: str,
+        support_messages: tuple[AgentMessage, ...] = (),
+        cwd: str = "/tmp/project",
+    ) -> None:
+        self._final_message = final_message
+        self._native_session_id = native_session_id
+        self._support_messages = support_messages
+        self._cwd = cwd
+        self.last_prompt: str | None = None
+        self.last_system_prompt: str | None = None
+
+    @property
+    def runtime_backend(self) -> str:
+        return self._runtime_handle_backend
+
+    @property
+    def working_directory(self) -> str | None:
+        return self._cwd
+
+    @property
+    def permission_mode(self) -> str | None:
+        return self._permission_mode
+
+    async def execute_task(
+        self,
+        prompt: str,
+        tools: list[str] | None = None,
+        system_prompt: str | None = None,
+        resume_handle: RuntimeHandle | None = None,
+        resume_session_id: str | None = None,
+    ):
+        del tools, resume_session_id
+        self.last_prompt = prompt
+        self.last_system_prompt = system_prompt
+        for message in self._support_messages:
+            yield message
+        yield AgentMessage(
+            type="result",
+            content=self._final_message,
+            data={"subtype": "success"},
+            resume_handle=RuntimeHandle(
+                backend=resume_handle.backend if resume_handle is not None else "opencode",
+                kind=resume_handle.kind if resume_handle is not None else "implementation_session",
+                native_session_id=self._native_session_id,
+                cwd=resume_handle.cwd if resume_handle is not None else "/tmp/project",
+                metadata=dict(resume_handle.metadata) if resume_handle is not None else {},
+            ),
+        )
+
+
+def test_command_claim_supports_exact_structured_shell_body() -> None:
+    """Regression for #978 broader observation: read-only command claims may be shell-wrapped."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {"command": "/bin/zsh -lc \"rg --files -g 'AGENTS.md' -g '!**/.git/**'\""}
+        },
+    )
+
+    assert _runtime_messages_support_command_claim(
+        "rg --files -g 'AGENTS.md' -g '!**/.git/**'",
+        (message,),
+    )
+
+
+def test_command_claim_does_not_support_partial_shell_body() -> None:
+    """Generic commands_run aliases stay exact; partial shell scripts are not proof."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "/bin/zsh -lc 'pwd && rg --files'"}},
+    )
+
+    assert not _runtime_messages_support_command_claim("rg --files", (message,))
+
+
+def test_command_claim_supports_goose_cmd_and_list_shapes() -> None:
+    """Goose Bash tool_input may use cmd and list argv forms instead of command."""
+    cmd_message = AgentMessage(
+        type="tool",
+        content="Calling tool: Bash: pytest tests/test_a.py",
+        tool_name="Bash",
+        data={"tool_input": {"cmd": "pytest tests/test_a.py"}},
+    )
+    list_message = AgentMessage(
+        type="tool",
+        content="Calling tool: Bash: python -m unittest test_slugify.py",
+        tool_name="Bash",
+        data={"tool_input": {"cmd": ["python", "-m", "unittest", "test_slugify.py"]}},
+    )
+
+    assert _runtime_messages_support_command_claim("pytest tests/test_a.py", (cmd_message,))
+    assert _runtime_messages_support_command_claim(
+        "python -m unittest test_slugify.py",
+        (list_message,),
+    )
+
+
+def test_command_claim_supports_inner_command_after_safe_shell_preamble() -> None:
+    """Wrapped production commands may cite the inner command after setup preambles."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {"command": "/bin/bash -lc 'cd /workspace && python scripts/generate.py'"}
+        },
+    )
+
+    assert _runtime_messages_support_command_claim(
+        "python scripts/generate.py",
+        (message,),
+    )
+
+
+def test_command_claim_rejects_inner_command_after_non_setup_preamble() -> None:
+    """Non-test aliases must not treat arbitrary shell-script tails as proof."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": "/bin/zsh -lc 'python setup.py && python scripts/generate.py'"
+            }
+        },
+    )
+
+    assert not _runtime_messages_support_command_claim(
+        "python scripts/generate.py",
+        (message,),
+    )
+
+
+class TestProfileAwareDecompositionAudit:
+    @pytest.mark.asyncio
+    async def test_level_started_event_records_active_decomposition_profile(self) -> None:
+        event_store = AsyncMock()
+        executor = ParallelACExecutor(
+            adapter=MagicMock(),
+            event_store=event_store,
+            console=MagicMock(),
+            execution_profile=load_profile("code"),
+        )
+
+        await executor._emit_level_started(
+            session_id="sess_profile",
+            level=1,
+            ac_indices=[0, 1],
+            total_levels=2,
+        )
+
+        event = event_store.append.await_args.args[0]
+        assert event.type == "execution.decomposition.level_started"
+        assert event.data["decomposition_profile"] == {
+            "profile": "code",
+            "axis": "testable_unit",
+            "min_unit": "single function or module with at least one runnable test",
+            "cut_signal": "sub-AC produces an independently runnable test",
+            "max_branching": 5,
+        }
+
+    @pytest.mark.asyncio
+    async def test_level_started_event_records_legacy_decomposition_fallback(self) -> None:
+        event_store = AsyncMock()
+        executor = ParallelACExecutor(
+            adapter=MagicMock(),
+            event_store=event_store,
+            console=MagicMock(),
+        )
+
+        await executor._emit_level_started(
+            session_id="sess_legacy",
+            level=1,
+            ac_indices=[0],
+            total_levels=1,
+        )
+
+        event = event_store.append.await_args.args[0]
+        assert event.data["decomposition_profile"] is None
+
+
+class TestProfileAwareContextGovernance:
+    @pytest.mark.asyncio
+    async def test_profile_backed_atomic_dispatch_uses_context_governor(self) -> None:
+        class _StubRuntime:
+            def __init__(self) -> None:
+                self.calls: list[dict[str, object]] = []
+                self._runtime_handle_backend = "opencode"
+                self._cwd = "/tmp/project"
+                self._permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(
+                self,
+                prompt: str,
+                tools: list[str] | None = None,
+                system_prompt: str | None = None,
+                resume_handle: RuntimeHandle | None = None,
+                resume_session_id: str | None = None,
+            ):
+                self.calls.append(
+                    {
+                        "prompt": prompt,
+                        "tools": tools,
+                        "system_prompt": system_prompt,
+                        "resume_handle": resume_handle,
+                        "resume_session_id": resume_session_id,
+                    }
+                )
+                yield AgentMessage(
+                    type="result",
+                    content="[TASK_COMPLETE]",
+                    data={"subtype": "success"},
+                    resume_handle=resume_handle,
+                )
+
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _StubRuntime()
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+        )
+        level_context = LevelContext(
+            level_number=0,
+            completed_acs=(
+                ACContextSummary(
+                    ac_index=0,
+                    ac_content="Prepare helper",
+                    success=True,
+                    key_output=(
+                        "Helper is ready\n"
+                        "## User Heading\n"
+                        "## Previous Work Context\n"
+                        "## Coordinator Review (Level 1)\n"
+                        "Prior result detail"
+                    ),
+                ),
+            ),
+            coordinator_review=CoordinatorReview(
+                level_number=1,
+                review_summary="No conflicts remain\n## Previous Work Context",
+                warnings_for_next_level=("Keep edits localized",),
+            ),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=1,
+            ac_content="Implement duplicate leaf",
+            session_id="sess_context",
+            tools=["Read"],
+            system_prompt="system",
+            seed_goal="Ship context governance",
+            depth=0,
+            start_time=datetime.now(UTC),
+            execution_id="exec_context",
+            level_contexts=[level_context],
+            sibling_acs=[(1, "Implement duplicate leaf"), (2, "Implement duplicate leaf")],
+        )
+
+        assert result.success is True
+        prompt = runtime.calls[0]["prompt"]
+        assert "## Governed Dispatch Context (AC 2)" in prompt
+        assert "## Parent context" in prompt
+        assert "## Previous Work Context\nThe following ACs" not in prompt
+        assert "## Coordinator Review (Level 1)\n**Review**" not in prompt
+        assert "Previous Work Context:" in prompt
+        assert "Coordinator Review (Level 1):" in prompt
+        assert "Helper is ready" in prompt
+        assert "## User Heading" in prompt
+        assert "User Heading:" not in prompt
+        assert "## Previous Work Context" in prompt
+        assert "## Coordinator Review (Level 1)" in prompt
+        assert "Prior result detail" in prompt
+        assert "No conflicts remain" in prompt
+        assert "Keep edits localized" in prompt
+        assert "## Sibling status" in prompt
+        assert "… sibling-1: Implement duplicate leaf" in prompt
+        assert "## AC\nImplement duplicate leaf" in prompt
+        assert "## Parallel Execution Notice" in prompt
+        assert "Avoid modifying files that other agents are likely editing." in prompt
+        assert "summarized in the governed sibling-status section above" in prompt
+
+        context_events = [
+            event for event in appended_events if event.type == "execution.ac.context_governed"
+        ]
+        assert len(context_events) == 1
+        assert context_events[0].data["context_governed"] is True
+        assert context_events[0].data["context_acceptance_enforced"] is False
+        assert context_events[0].data["context_default_flipped"] is False
+        assert context_events[0].data["profile"] == "code"
+        assert context_events[0].data["context_sibling_status_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_legacy_atomic_dispatch_keeps_existing_context_prompt_shape(self) -> None:
+        class _StubRuntime:
+            def __init__(self) -> None:
+                self.calls: list[dict[str, object]] = []
+                self._runtime_handle_backend = "opencode"
+                self._cwd = "/tmp/project"
+                self._permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(
+                self,
+                prompt: str,
+                tools: list[str] | None = None,
+                system_prompt: str | None = None,
+                resume_handle: RuntimeHandle | None = None,
+                resume_session_id: str | None = None,
+            ):
+                self.calls.append(
+                    {
+                        "prompt": prompt,
+                        "tools": tools,
+                        "system_prompt": system_prompt,
+                        "resume_handle": resume_handle,
+                        "resume_session_id": resume_session_id,
+                    }
+                )
+                yield AgentMessage(
+                    type="result",
+                    content="[TASK_COMPLETE]",
+                    data={"subtype": "success"},
+                    resume_handle=resume_handle,
+                )
+
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _StubRuntime()
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+        )
+        level_context = LevelContext(
+            level_number=0,
+            completed_acs=(
+                ACContextSummary(
+                    ac_index=0,
+                    ac_content="Prepare helper",
+                    success=True,
+                    key_output="Helper is ready",
+                ),
+            ),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=1,
+            ac_content="Implement legacy leaf",
+            session_id="sess_legacy_context",
+            tools=["Read"],
+            system_prompt="system",
+            seed_goal="Ship legacy context",
+            depth=0,
+            start_time=datetime.now(UTC),
+            execution_id="exec_legacy_context",
+            level_contexts=[level_context],
+            sibling_acs=[(1, "Implement legacy leaf"), (2, "Update sibling docs")],
+        )
+
+        assert result.success is True
+        prompt = runtime.calls[0]["prompt"]
+        assert "## Your Task (AC 2)\nImplement legacy leaf" in prompt
+        assert "## Previous Work Context" in prompt
+        assert "## Parallel Execution Notice" in prompt
+        assert "## Governed Dispatch Context" not in prompt
+        assert not any(event.type == "execution.ac.context_governed" for event in appended_events)
+
+    @pytest.mark.asyncio
+    async def test_profile_context_governor_budget_error_falls_back_without_failing_ac(
+        self,
+    ) -> None:
+        class _StubRuntime:
+            def __init__(self) -> None:
+                self.calls: list[dict[str, object]] = []
+                self._runtime_handle_backend = "opencode"
+                self._cwd = "/tmp/project"
+                self._permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(
+                self,
+                prompt: str,
+                tools: list[str] | None = None,
+                system_prompt: str | None = None,
+                resume_handle: RuntimeHandle | None = None,
+                resume_session_id: str | None = None,
+            ):
+                self.calls.append(
+                    {
+                        "prompt": prompt,
+                        "tools": tools,
+                        "system_prompt": system_prompt,
+                        "resume_handle": resume_handle,
+                        "resume_session_id": resume_session_id,
+                    }
+                )
+                yield AgentMessage(
+                    type="result",
+                    content="[TASK_COMPLETE]",
+                    data={"subtype": "success"},
+                    resume_handle=resume_handle,
+                )
+
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _StubRuntime()
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+        )
+        oversized_ac = "x" * 13_000
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content=oversized_ac,
+            session_id="sess_context_fallback",
+            tools=["Read"],
+            system_prompt="system",
+            seed_goal="Ship context governance fallback",
+            depth=0,
+            start_time=datetime.now(UTC),
+            execution_id="exec_context_fallback",
+        )
+
+        assert result.success is True
+        prompt = runtime.calls[0]["prompt"]
+        assert "## Your Task (AC 1)" in prompt
+        assert "## Governed Dispatch Context" not in prompt
+        context_events = [
+            event for event in appended_events if event.type == "execution.ac.context_governed"
+        ]
+        assert len(context_events) == 1
+        assert context_events[0].data["context_governed"] is False
+        assert context_events[0].data["context_fallback"] == "legacy_prompt"
+        assert (
+            "AC alone exceeds context budget" in context_events[0].data["context_governance_error"]
+        )
 
 
 class TestParallelACExecutor:
@@ -620,7 +1982,7 @@ class TestParallelACExecutor:
                     ).bind_controls(terminate_callback=_terminate),
                 )
 
-        event_store, _ = _make_replaying_event_store()
+        event_store, appended_events = _make_replaying_event_store()
         executor = ParallelACExecutor(
             adapter=_StubImplementationRuntime(),
             event_store=event_store,
@@ -644,6 +2006,3921 @@ class TestParallelACExecutor:
 
         assert result.success is True
         assert terminate_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_atomic_ac_observes_profile_typed_evidence_without_changing_success(self) -> None:
+        """Profile-backed atomic completion records typed evidence observe-only."""
+
+        class _StubImplementationRuntime:
+            _runtime_handle_backend = "opencode"
+            _cwd = "/tmp/project"
+            _permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(
+                self,
+                prompt: str,
+                tools: list[str] | None = None,
+                system_prompt: str | None = None,
+                resume_handle: RuntimeHandle | None = None,
+                resume_session_id: str | None = None,
+            ):
+                del prompt, tools, system_prompt, resume_session_id
+                yield AgentMessage(
+                    type="result",
+                    content=(
+                        "Done.\n"
+                        "```json\n"
+                        '{"files_touched":["src/app.py"],'
+                        '"commands_run":["pytest"],'
+                        '"tests_passed":["tests/test_app.py"]}\n'
+                        "```"
+                    ),
+                    data={"subtype": "success"},
+                    resume_handle=RuntimeHandle(
+                        backend=resume_handle.backend if resume_handle is not None else "opencode",
+                        kind=resume_handle.kind
+                        if resume_handle is not None
+                        else "implementation_session",
+                        native_session_id="opencode-session-evidence",
+                        cwd=resume_handle.cwd if resume_handle is not None else "/tmp/project",
+                        metadata=dict(resume_handle.metadata) if resume_handle is not None else {},
+                    ),
+                )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_StubImplementationRuntime(),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.typed_evidence is not None
+        assert result.typed_evidence.data["files_touched"] == ["src/app.py"]
+        assert result.typed_evidence_validation is not None
+        assert result.typed_evidence_validation.ok is True
+        assert result.typed_evidence_error is None
+
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["observe_only"] is True
+        assert evidence_event.data["enforced"] is False
+        assert evidence_event.data["fat_harness_mode"] is False
+        assert evidence_event.data["enforcement_error"] is None
+        assert evidence_event.data["typed_evidence_present"] is True
+        assert evidence_event.data["typed_evidence_valid"] is True
+        assert evidence_event.data["verifier_ran"] is False
+        assert evidence_event.data["verifier_passed"] is False
+        assert evidence_event.data["required_fields"] == [
+            "files_touched",
+            "commands_run",
+            "tests_passed",
+        ]
+        assert evidence_event.data["typed_evidence_fields"] == [
+            "commands_run",
+            "files_touched",
+            "tests_passed",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_atomic_ac_records_typed_evidence_error_without_default_flip(self) -> None:
+        """Malformed typed evidence is observed but does not change legacy success."""
+
+        class _StubImplementationRuntime:
+            _runtime_handle_backend = "opencode"
+            _cwd = "/tmp/project"
+            _permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(
+                self,
+                prompt: str,
+                tools: list[str] | None = None,
+                system_prompt: str | None = None,
+                resume_handle: RuntimeHandle | None = None,
+                resume_session_id: str | None = None,
+            ):
+                del prompt, tools, system_prompt, resume_session_id
+                yield AgentMessage(
+                    type="result",
+                    content="[TASK_COMPLETE] no JSON evidence yet",
+                    data={"subtype": "success"},
+                    resume_handle=RuntimeHandle(
+                        backend=resume_handle.backend if resume_handle is not None else "opencode",
+                        kind=resume_handle.kind
+                        if resume_handle is not None
+                        else "implementation_session",
+                        native_session_id="opencode-session-no-evidence",
+                        cwd=resume_handle.cwd if resume_handle is not None else "/tmp/project",
+                        metadata=dict(resume_handle.metadata) if resume_handle is not None else {},
+                    ),
+                )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_StubImplementationRuntime(),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.typed_evidence is None
+        assert result.typed_evidence_validation is None
+        assert result.typed_evidence_error is not None
+
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["observe_only"] is True
+        assert evidence_event.data["enforced"] is False
+        assert evidence_event.data["typed_evidence_present"] is False
+        assert evidence_event.data["typed_evidence_valid"] is False
+        assert evidence_event.data["verifier_ran"] is False
+        assert "Evidence is not valid JSON" in evidence_event.data["typed_evidence_error"]
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_atomic_prompt_requests_json_evidence_without_task_complete(
+        self,
+    ) -> None:
+        """Fat-harness atomic prompts must not ask for prose [TASK_COMPLETE]."""
+        event_store, _ = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            "```json\n"
+            '{"files_touched":["src/app.py"],"commands_run":["pytest"],"tests_passed":["pytest"]}'
+            "\n```",
+            native_session_id="opencode-session-prompt",
+            support_messages=(
+                AgentMessage(
+                    type="tool",
+                    content="Edit src/app.py",
+                    tool_name="Edit",
+                    data={"input": {"file_path": "src/app.py"}},
+                ),
+                AgentMessage(
+                    type="tool",
+                    content="pytest passed",
+                    tool_name="Bash",
+                    data={"input": {"command": "pytest"}},
+                ),
+            ),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert runtime.last_prompt is not None
+        assert "emit exactly ONE fenced JSON evidence record" in runtime.last_prompt
+        assert "files_touched, commands_run, tests_passed" in runtime.last_prompt
+        assert "do not emit a generic command_result wrapper" in runtime.last_prompt
+        assert "Do not prefix it with [TASK_COMPLETE]" in runtime.last_prompt
+        assert "You are responsible only for the current acceptance criterion" in (
+            runtime.last_prompt
+        )
+        assert "Do not implement, test, document, or pre-create work" in runtime.last_prompt
+        assert "sibling or future ACs" in runtime.last_prompt
+        assert "current AC in this runtime session" in runtime.last_prompt
+        assert "workspace-relative paths only" in runtime.last_prompt
+        assert "never absolute paths" in runtime.last_prompt
+        assert "omit exploratory" in runtime.last_prompt
+        assert "rg, grep, sed, cat, ls, find, or pwd" in runtime.last_prompt
+        assert "Auto Recursion Guard" in runtime.last_prompt
+        assert "ouroboros_auto" in runtime.last_prompt
+        assert "nested auto session" in runtime.last_prompt
+        assert "explicitly state: [TASK_COMPLETE]" not in runtime.last_prompt
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_docs_only_ac_uses_docs_evidence_contract(self, tmp_path) -> None:
+        """Regression for #961: README-only ACs must not require prior test IDs."""
+        readme = tmp_path / "README.md"
+        readme.write_text("# String utils\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            "```json\n"
+            "{\n"
+            '  "files_touched": ["README.md"],\n'
+            '  "commands_run": ["grep -n slugify README.md"]\n'
+            "}\n"
+            "```",
+            native_session_id="codex-session-docs-only-current-ac",
+            support_messages=(
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Edit: {readme}",
+                    tool_name="Edit",
+                    data={"tool_input": {"file_path": str(readme)}},
+                ),
+                AgentMessage(
+                    type="assistant",
+                    content="Calling tool: Bash: grep -n slugify README.md",
+                    tool_name="Bash",
+                    data={
+                        "tool_input": {"command": "grep -n slugify README.md"},
+                        "output": "12:slugify('Hello World') -> hello-world",
+                        "exit_code": 0,
+                    },
+                ),
+            ),
+            cwd=str(tmp_path),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=2,
+            ac_content="Document slugify and truncate usage in README.md.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+            sibling_acs=[
+                (0, "Create string_utils.py with slugify(text) and test_slugify.py."),
+                (1, "Add truncate(text, max_length) and test_truncate.py."),
+                (2, "Document slugify and truncate usage in README.md."),
+            ],
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert runtime.last_prompt is not None
+        assert "documentation-only current AC" in runtime.last_prompt
+        assert "read/grep/diff command when that command is the validation" in runtime.last_prompt
+        assert "Do not include tests_passed at all for documentation-only ACs" in (
+            runtime.last_prompt
+        )
+        assert "do not list individual test names or prior test IDs" in runtime.last_prompt
+        assert "files_touched, commands_run" in runtime.last_prompt
+        assert "files_touched, commands_run, tests_passed" not in runtime.last_prompt
+        assert result.typed_evidence is not None
+        assert "tests_passed" not in result.typed_evidence.data
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == ["files_touched", "commands_run"]
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.parametrize(
+        ("ac_content", "doc_path"),
+        [
+            ("Document the API in docs/api.md.", "docs/api.md"),
+            ("Write a CLI flag guide in README.md.", "README.md"),
+            ("Update the changelog for the parser bug.", "CHANGELOG.md"),
+            ("Document test setup in README.md.", "README.md"),
+            ("Write a unit test guide in docs/testing.md.", "docs/testing.md"),
+            (
+                "Create README.md documenting how to run the CLI and the required test command.",
+                "README.md",
+            ),
+            (
+                "Document CLI usage and the required test command in README.md.",
+                "README.md",
+            ),
+            (
+                "Update README.md with usage and verification instructions for python -m unittest test_todo.py.",
+                "README.md",
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_fat_harness_docs_only_ac_allows_code_subject_documentation(
+        self, tmp_path, ac_content: str, doc_path: str
+    ) -> None:
+        """Docs about code subjects are still docs-only when they do not mutate code."""
+        doc_file = tmp_path / doc_path
+        doc_file.parent.mkdir(parents=True, exist_ok=True)
+        doc_file.write_text("Documentation\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            "```json\n"
+            "{\n"
+            f'  "files_touched": ["{doc_path}"],\n'
+            f'  "commands_run": ["grep -n Documentation {doc_path}"]\n'
+            "}\n"
+            "```",
+            native_session_id="codex-session-docs-only-code-subject",
+            support_messages=(
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Edit: {doc_file}",
+                    tool_name="Edit",
+                    data={"tool_input": {"file_path": str(doc_file)}},
+                ),
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Bash: grep -n Documentation {doc_path}",
+                    tool_name="Bash",
+                    data={
+                        "tool_input": {"command": f"grep -n Documentation {doc_path}"},
+                        "output": "1:Documentation",
+                        "exit_code": 0,
+                    },
+                ),
+            ),
+            cwd=str(tmp_path),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content=ac_content,
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship docs",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert runtime.last_prompt is not None
+        assert "documentation-only current AC" in runtime.last_prompt
+        assert "read/grep/diff command when that command is the validation" in runtime.last_prompt
+        assert "Do not include tests_passed at all for documentation-only ACs" in (
+            runtime.last_prompt
+        )
+        assert "do not list individual test names or prior test IDs" in runtime.last_prompt
+        assert "files_touched, commands_run" in runtime.last_prompt
+        assert "files_touched, commands_run, tests_passed" not in runtime.last_prompt
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == ["files_touched", "commands_run"]
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_markdown_code_ac_keeps_test_evidence_required(
+        self, tmp_path
+    ) -> None:
+        """A markdown-related implementation AC must not be misclassified as docs-only."""
+        parser_file = tmp_path / "src" / "markdown_parser.py"
+        parser_file.parent.mkdir()
+        parser_file.write_text("def parse(text):\n    return text\n", encoding="utf-8")
+        test_file = tmp_path / "tests" / "test_markdown_parser.py"
+        test_file.parent.mkdir()
+        test_file.write_text("def test_parse():\n    assert True\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            "```json\n"
+            "{\n"
+            '  "files_touched": ["src/markdown_parser.py", "tests/test_markdown_parser.py"],\n'
+            '  "commands_run": ["python -m pytest tests/test_markdown_parser.py"],\n'
+            '  "tests_passed": ["tests/test_markdown_parser.py::test_parse"]\n'
+            "}\n"
+            "```",
+            native_session_id="codex-session-markdown-code-ac",
+            support_messages=(
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Edit: {parser_file}",
+                    tool_name="Edit",
+                    data={"tool_input": {"file_path": str(parser_file)}},
+                ),
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Edit: {test_file}",
+                    tool_name="Edit",
+                    data={"tool_input": {"file_path": str(test_file)}},
+                ),
+                AgentMessage(
+                    type="assistant",
+                    content="Calling tool: Bash: python -m pytest tests/test_markdown_parser.py",
+                    tool_name="Bash",
+                    data={
+                        "tool_input": {"command": "python -m pytest tests/test_markdown_parser.py"},
+                        "output": "tests/test_markdown_parser.py::test_parse passed; 1 passed",
+                        "exit_code": 0,
+                    },
+                ),
+            ),
+            cwd=str(tmp_path),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement a markdown parser and usage examples.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship markdown support",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert runtime.last_prompt is not None
+        assert "documentation-only current AC" not in runtime.last_prompt
+        assert "files_touched, commands_run, tests_passed" in runtime.last_prompt
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == [
+            "files_touched",
+            "commands_run",
+            "tests_passed",
+        ]
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.parametrize(
+        "ac_content",
+        [
+            "Add slugify() and update README.md.",
+            "Fix parser bug and document it in docs/.",
+            "Update README.md and fix parser bug.",
+            "Write docs/api.md and add endpoint validation.",
+            "Document README.md, then create parser.py.",
+            "Run pytest and update README.md.",
+            "Add docs command to CLI.",
+            "Create docs endpoint.",
+            "Fix docs parser bug.",
+            "Update README.md while fixing parser bug.",
+            "Update README.md plus fix parser bug.",
+            "Fix documentation parser bug.",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_fat_harness_mixed_code_and_docs_ac_keeps_test_evidence_required(
+        self, tmp_path, ac_content: str
+    ) -> None:
+        """Mixed implementation/docs ACs must not drop tests_passed from code profile evidence."""
+        source_file = tmp_path / "src" / "string_utils.py"
+        source_file.parent.mkdir()
+        source_file.write_text("def slugify(text):\n    return text.lower()\n", encoding="utf-8")
+        test_file = tmp_path / "tests" / "test_string_utils.py"
+        test_file.parent.mkdir()
+        test_file.write_text("def test_slugify():\n    assert True\n", encoding="utf-8")
+        readme = tmp_path / "README.md"
+        readme.write_text("# String utils\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            "```json\n"
+            "{\n"
+            '  "files_touched": ["src/string_utils.py", "tests/test_string_utils.py", "README.md"],\n'
+            '  "commands_run": ["python -m pytest tests/test_string_utils.py"],\n'
+            '  "tests_passed": ["tests/test_string_utils.py::test_slugify"]\n'
+            "}\n"
+            "```",
+            native_session_id="codex-session-mixed-code-docs-ac",
+            support_messages=(
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Edit: {source_file}",
+                    tool_name="Edit",
+                    data={"tool_input": {"file_path": str(source_file)}},
+                ),
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Edit: {test_file}",
+                    tool_name="Edit",
+                    data={"tool_input": {"file_path": str(test_file)}},
+                ),
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Edit: {readme}",
+                    tool_name="Edit",
+                    data={"tool_input": {"file_path": str(readme)}},
+                ),
+                AgentMessage(
+                    type="assistant",
+                    content="Calling tool: Bash: python -m pytest tests/test_string_utils.py",
+                    tool_name="Bash",
+                    data={
+                        "tool_input": {"command": "python -m pytest tests/test_string_utils.py"},
+                        "output": "tests/test_string_utils.py::test_slugify passed; 1 passed",
+                        "exit_code": 0,
+                    },
+                ),
+            ),
+            cwd=str(tmp_path),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content=ac_content,
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert runtime.last_prompt is not None
+        assert "documentation-only current AC" not in runtime.last_prompt
+        assert "files_touched, commands_run, tests_passed" in runtime.last_prompt
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == [
+            "files_touched",
+            "commands_run",
+            "tests_passed",
+        ]
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_docs_only_ac_ignores_out_of_scope_test_id_bleed(
+        self, tmp_path
+    ) -> None:
+        """Docs-only ACs ignore extra tests_passed instead of failing required docs evidence."""
+        readme = tmp_path / "README.md"
+        readme.write_text("# String utils\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["README.md"],\n'
+                '  "commands_run": ["grep -n slugify README.md"],\n'
+                '  "tests_passed": ["test_slugify.py::test_slugify"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-docs-only-prior-test-bleed",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {readme}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(readme)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: grep -n slugify README.md",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "grep -n slugify README.md"},
+                            "output": "12:slugify('Hello World') -> hello-world",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=2,
+            ac_content="Document slugify and truncate usage in README.md.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert result.typed_evidence is not None
+        assert result.typed_evidence.data == {
+            "files_touched": ["README.md"],
+            "commands_run": ["grep -n slugify README.md"],
+        }
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == ["files_touched", "commands_run"]
+        assert evidence_event.data["ignored_out_of_scope_evidence_fields"] == ["tests_passed"]
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_docs_only_ac_passes_consistent_profile_to_injected_verifier(
+        self, tmp_path
+    ) -> None:
+        """Docs-only AC profile overrides must keep must_produce within required evidence."""
+        readme = tmp_path / "README.md"
+        readme.write_text("# String utils\n", encoding="utf-8")
+        verifier_profiles: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
+        verifier_records: list[dict[str, object]] = []
+
+        def _recording_verifier(**kwargs: object) -> VerifierVerdict:
+            profile = kwargs["profile"]
+            record = kwargs["record"]
+            verifier_profiles.append(
+                (
+                    tuple(profile.evidence_schema.required),  # type: ignore[attr-defined]
+                    tuple(profile.must_produce),  # type: ignore[attr-defined]
+                )
+            )
+            verifier_records.append(dict(record.data))  # type: ignore[attr-defined]
+            return VerifierVerdict(passed=True)
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["README.md"],\n'
+                '  "commands_run": ["grep -n slugify README.md"],\n'
+                '  "tests_passed": ["test_slugify.py::test_slugify"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-docs-only-injected-verifier",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {readme}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(readme)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: grep -n slugify README.md",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "grep -n slugify README.md"},
+                            "output": "12:slugify('Hello World') -> hello-world",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            atomic_verifier=_recording_verifier,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=2,
+            ac_content="Document slugify and truncate usage in README.md.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert verifier_profiles == [(("files_touched", "commands_run"), ("files_touched",))]
+        assert set(verifier_profiles[0][1]).issubset(verifier_profiles[0][0])
+        assert verifier_records == [
+            {
+                "files_touched": ["README.md"],
+                "commands_run": ["grep -n slugify README.md"],
+            }
+        ]
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == ["files_touched", "commands_run"]
+        assert evidence_event.data["ignored_out_of_scope_evidence_fields"] == ["tests_passed"]
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_sibling_context_marks_siblings_out_of_scope(self) -> None:
+        """Fat-harness sibling context must be a boundary, not an invitation."""
+        event_store, _ = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            "```json\n"
+            '{"files_touched":["string_utils.py","test_slugify.py"],'
+            '"commands_run":["python -m pytest test_slugify.py"],'
+            '"tests_passed":["python -m pytest test_slugify.py"]}'
+            "\n```",
+            native_session_id="opencode-session-scope-boundary",
+            support_messages=(
+                AgentMessage(
+                    type="tool",
+                    content="Write string_utils.py",
+                    tool_name="Write",
+                    data={"tool_input": {"file_path": "string_utils.py"}},
+                ),
+                AgentMessage(
+                    type="tool",
+                    content="Write test_slugify.py",
+                    tool_name="Write",
+                    data={"tool_input": {"file_path": "test_slugify.py"}},
+                ),
+                AgentMessage(
+                    type="tool",
+                    content="Bash: python -m pytest test_slugify.py",
+                    tool_name="Bash",
+                    data={"tool_input": {"command": "python -m pytest test_slugify.py"}},
+                ),
+                AgentMessage(
+                    type="result",
+                    content="test_slugify.py passed",
+                    data={"subtype": "success"},
+                ),
+            ),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create string_utils.py with slugify(text) and test_slugify.py.",
+            session_id="orch_123",
+            tools=["Read", "Write", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+            sibling_acs=[
+                (0, "Create string_utils.py with slugify(text) and test_slugify.py."),
+                (1, "Add truncate(text, max_length) and test_truncate.py."),
+                (2, "Document slugify and truncate usage in README.md."),
+            ],
+        )
+
+        assert result.success is True
+        assert runtime.last_prompt is not None
+        assert "## Current AC Scope Boundary" in runtime.last_prompt
+        assert "outside the current dispatch" in runtime.last_prompt
+        assert "Do not satisfy those criteria now" in runtime.last_prompt
+        assert "do not pre-create their files, tests, docs, or evidence" in runtime.last_prompt
+        assert "Sibling/future ACs are summarized in the governed sibling-status" in (
+            runtime.last_prompt
+        )
+        assert "as out-of-scope boundary context" in runtime.last_prompt
+        assert "Sibling tasks in progress" not in runtime.last_prompt
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_accepts_validation_evidence_after_code_fence(self) -> None:
+        """Regression for #978 batch 2b: parser must skip earlier code fences."""
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "[AC_COMPLETE: 1]\n\n"
+                "`hello.py` contains:\n\n"
+                "```python\n"
+                "def hello():\n"
+                '    return "hello"\n'
+                "```\n\n"
+                "Validation evidence:\n\n"
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["hello.py", "test_hello.py"],\n'
+                '  "commands_run": ["pytest test_hello.py"],\n'
+                '  "tests_passed": ["test_hello.py::test_hello"]\n'
+                "}\n"
+                "```",
+                native_session_id="opencode-session-evidence-code-fence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Write: hello.py created",
+                        tool_name="Write",
+                        data={"tool_input": {"file_path": "hello.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Write: test_hello.py created",
+                        tool_name="Write",
+                        data={"tool_input": {"file_path": "test_hello.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest test_hello.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest test_hello.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="test_hello.py::test_hello passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content='Create hello.py with hello() returning "hello".',
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert result.typed_evidence is not None
+        assert result.typed_evidence.data["files_touched"] == ["hello.py", "test_hello.py"]
+        assert result.typed_evidence_validation is not None
+        assert result.typed_evidence_validation.ok is True
+        assert result.atomic_verifier_verdict is not None
+        assert result.atomic_verifier_verdict.passed is True
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["typed_evidence_present"] is True
+        assert evidence_event.data["typed_evidence_valid"] is True
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_codex_runtime_evidence_shape(
+        self, tmp_path
+    ) -> None:
+        """Regression for #978 post-#1025: Codex emits abs paths and same-message output."""
+        hello_file = tmp_path / "hello.py"
+        test_file = tmp_path / "test_hello.py"
+        hello_file.write_text('def hello():\n    return "hello"\n', encoding="utf-8")
+        test_file.write_text(
+            "from hello import hello\n\n"
+            "def test_hello_returns_hello():\n"
+            "    assert hello() == 'hello'\n",
+            encoding="utf-8",
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["hello.py", "test_hello.py"],\n'
+                '  "commands_run": ["pytest"],\n'
+                '  "tests_passed": ["test_hello.py::test_hello_returns_hello"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-post-1025-observation",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {hello_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(hello_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: pytest",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "pytest"},
+                            "output": "1 passed in 0.01s",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content='Create hello.py with hello() returning "hello".',
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert result.atomic_verifier_verdict is not None
+        assert result.atomic_verifier_verdict.passed is True
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["typed_evidence_present"] is True
+        assert evidence_event.data["typed_evidence_valid"] is True
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_notebookedit_notebook_path(self, tmp_path) -> None:
+        """NotebookEdit reports its target as notebook_path, not file_path."""
+        notebook_file = tmp_path / "analysis.ipynb"
+        notebook_file.write_text("{}\n", encoding="utf-8")
+        test_file = tmp_path / "tests" / "test_analysis.py"
+        test_file.parent.mkdir()
+        test_file.write_text("def test_analysis():\n    assert True\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["analysis.ipynb"],\n'
+                '  "commands_run": ["pytest tests/test_analysis.py"],\n'
+                '  "tests_passed": ["tests/test_analysis.py"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-notebook-path",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: NotebookEdit",
+                        tool_name="NotebookEdit",
+                        data={"tool_input": {"notebook_path": str(notebook_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: pytest tests/test_analysis.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_analysis.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_analysis.py passed; 1 passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Update notebook and tests.",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_bare_pytest_for_unmentioned_stale_test(
+        self, tmp_path
+    ) -> None:
+        """A bare pytest success must not prove arbitrary existing test files."""
+        generated_file = tmp_path / "src" / "generated.py"
+        generated_file.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        stale_test = tmp_path / "tests" / "test_other.py"
+        stale_test.parent.mkdir()
+        stale_test.write_text("def test_other():\n    assert True\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["src/generated.py"],\n'
+                '  "commands_run": ["pytest"],\n'
+                '  "tests_passed": ["tests/test_other.py::test_other"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-bare-pytest-unrelated-test",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {generated_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(generated_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: pytest",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "pytest"},
+                            "output": "1 passed in 0.01s",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement generated module.",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed: tests/test_other.py::test_other" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_rejects_command_result_wrapper_after_parsing_json_fence(
+        self,
+    ) -> None:
+        """Actual #978 failing shape parses, then fails schema without verifier."""
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "[AC_COMPLETE: 1]\n\n"
+                "```python\n"
+                "def hello():\n"
+                '    return "hello"\n'
+                "```\n\n"
+                "Validation evidence:\n\n"
+                "```json\n"
+                "{\n"
+                '  "type": "command_result",\n'
+                '  "command": "pytest test_hello.py",\n'
+                '  "cwd": "/Users/jh0927/character-chat",\n'
+                '  "exit_code": 0,\n'
+                '  "result": "1 passed in 0.01s"\n'
+                "}\n"
+                "```",
+                native_session_id="opencode-session-command-result-wrapper",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest test_hello.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest test_hello.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="1 passed in 0.01s",
+                        data={"subtype": "success"},
+                    ),
+                ),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content='Create hello.py with hello() returning "hello".',
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.typed_evidence is not None
+        assert result.typed_evidence.data["type"] == "command_result"
+        assert result.typed_evidence_validation is not None
+        assert result.typed_evidence_validation.ok is False
+        assert result.typed_evidence_error is None
+        assert "Fat-harness typed evidence validation failed" in (result.error or "")
+        assert result.atomic_verifier_verdict is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["typed_evidence_present"] is True
+        assert evidence_event.data["typed_evidence_valid"] is False
+        assert evidence_event.data["typed_evidence_error"] is None
+        assert evidence_event.data["missing_fields"] == [
+            "files_touched",
+            "commands_run",
+            "tests_passed",
+        ]
+        assert evidence_event.data["verifier_ran"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_mode_rejects_missing_typed_evidence(self) -> None:
+        """Fat-harness mode gates atomic success on profile evidence."""
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "[TASK_COMPLETE] no JSON evidence yet",
+                native_session_id="opencode-session-no-evidence",
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "Evidence is not valid JSON" in result.error
+        assert result.final_message.startswith("Evidence is not valid JSON")
+
+        report = render_parallel_verification_report(
+            ParallelExecutionResult(
+                results=(result,),
+                success_count=0,
+                failure_count=1,
+                total_messages=len(result.messages),
+            ),
+            total_acceptance_criteria=1,
+        )
+        assert "[FAILED]" in report
+        assert "Evidence is not valid JSON" in report
+        assert "Runtime final message:" in report
+
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["observe_only"] is False
+        assert evidence_event.data["enforced"] is True
+        assert evidence_event.data["fat_harness_mode"] is True
+        assert "Evidence is not valid JSON" in evidence_event.data["enforcement_error"]
+        assert evidence_event.data["verifier_ran"] is False
+
+        terminal_event = next(
+            event for event in appended_events if event.type == "execution.session.failed"
+        )
+        assert "Evidence is not valid JSON" in terminal_event.data["error"]
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_mode_accepts_valid_typed_evidence(self) -> None:
+        """Valid profile evidence keeps the opt-in fat-harness leaf accepted."""
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/app.py"],'
+                '"commands_run":["pytest"],'
+                '"tests_passed":["tests/test_app.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Edit: src/app.py",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": "src/app.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_app.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_app.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_app.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert result.atomic_verifier_verdict is not None
+        assert result.atomic_verifier_verdict.passed is True
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["observe_only"] is False
+        assert evidence_event.data["enforced"] is True
+        assert evidence_event.data["fat_harness_mode"] is True
+        assert evidence_event.data["enforcement_error"] is None
+        assert evidence_event.data["typed_evidence_valid"] is True
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_validation_only_ac_accepts_no_files_touched(
+        self,
+    ) -> None:
+        """Validation-only ACs can pass with command and test evidence only."""
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            "Done.\n"
+            "```json\n"
+            '{"commands_run":["python -m unittest test_todo.py"],'
+            '"tests_passed":["python -m unittest test_todo.py"]}\n'
+            "```",
+            native_session_id="opencode-session-validation-only",
+            support_messages=(
+                AgentMessage(
+                    type="tool",
+                    content="Bash: python -m unittest test_todo.py",
+                    tool_name="Bash",
+                    data={"tool_input": {"command": "python -m unittest test_todo.py"}},
+                ),
+                AgentMessage(
+                    type="result",
+                    content="Ran 6 tests in 0.002s\n\nOK",
+                    data={"subtype": "success", "exit_code": 0},
+                ),
+            ),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Run python -m unittest test_todo.py successfully.",
+            session_id="orch_123",
+            tools=["Read", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert runtime.last_prompt is not None
+        assert "validation-only current AC" in runtime.last_prompt
+        assert "Do not include files_touched unless you actually edited" in runtime.last_prompt
+        assert "Read-only inspection or running tests does not count as files_touched" in (
+            runtime.last_prompt
+        )
+        assert "commands_run, tests_passed" in runtime.last_prompt
+        assert "files_touched, commands_run, tests_passed" not in runtime.last_prompt
+        assert result.typed_evidence is not None
+        assert result.typed_evidence.data == {
+            "commands_run": ["python -m unittest test_todo.py"],
+            "tests_passed": ["python -m unittest test_todo.py"],
+        }
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == ["commands_run", "tests_passed"]
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_validation_only_ac_ignores_files_touched_overclaim(
+        self,
+    ) -> None:
+        """Validation-only ACs record but ignore extra files_touched overclaims."""
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["test_todo.py"],'
+                '"commands_run":["python -m unittest test_todo.py"],'
+                '"tests_passed":["python -m unittest test_todo.py"]}\n'
+                "```",
+                native_session_id="opencode-session-validation-only-overclaim",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: sed -n '1,240p' test_todo.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "sed -n '1,240p' test_todo.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: python -m unittest test_todo.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "python -m unittest test_todo.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="Ran 6 tests in 0.002s\n\nOK",
+                        data={"subtype": "success", "exit_code": 0},
+                    ),
+                ),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Run python -m unittest test_todo.py successfully.",
+            session_id="orch_123",
+            tools=["Read", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert result.typed_evidence is not None
+        assert result.typed_evidence.data == {
+            "commands_run": ["python -m unittest test_todo.py"],
+            "tests_passed": ["python -m unittest test_todo.py"],
+        }
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == ["commands_run", "tests_passed"]
+        assert evidence_event.data["ignored_out_of_scope_evidence_fields"] == ["files_touched"]
+        assert evidence_event.data["ignored_out_of_scope_evidence"] == {
+            "files_touched": ["test_todo.py"]
+        }
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_test_writing_ac_still_requires_files_touched(
+        self,
+    ) -> None:
+        """Test-writing ACs must still prove file mutation."""
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"commands_run":["python -m unittest test_todo.py"],'
+                '"tests_passed":["python -m unittest test_todo.py"]}\n'
+                "```",
+                native_session_id="opencode-session-test-writing-missing-file",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: python -m unittest test_todo.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "python -m unittest test_todo.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="Ran 6 tests in 0.002s\n\nOK",
+                        data={"subtype": "success", "exit_code": 0},
+                    ),
+                ),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create test_todo.py with unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "missing fields: files_touched" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == [
+            "files_touched",
+            "commands_run",
+            "tests_passed",
+        ]
+        assert "files_touched" in evidence_event.data["missing_fields"]
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_mode_rejects_unbacked_typed_evidence(self) -> None:
+        """Default verifier rejects final-message-only self-reported evidence."""
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/app.py"],'
+                '"commands_run":["pytest"],'
+                '"tests_passed":["tests/test_app.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "Fat-harness verifier failed" in result.error
+        assert "no runtime transcript evidence supports" in result.error
+
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["typed_evidence_valid"] is True
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is False
+        assert evidence_event.data["verifier_failure_class"] == "EVIDENCE_MISSING"
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_allows_bash_generated_file_and_whole_suite_test(
+        self, tmp_path
+    ) -> None:
+        """Bash-backed generation plus whole-suite pytest can support evidence."""
+        generated_file = tmp_path / "src" / "generated.py"
+        generated_file.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        generated_test = tmp_path / "tests" / "test_generated.py"
+        generated_test.parent.mkdir()
+        generated_test.write_text("def test_generated():\n    assert True\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/generated.py"],'
+                '"commands_run":["python scripts/generate.py","pytest"],'
+                '"tests_passed":["tests/test_generated.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: python scripts/generate.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "python scripts/generate.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content=(
+                            "generated.py updated; tests/test_generated.py passed; "
+                            "0 failed, 0 errors, 1 passed"
+                        ),
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_normalizes_workspace_absolute_file_claim(
+        self, tmp_path
+    ) -> None:
+        """Absolute files_touched claims under task_cwd are normalized before matching."""
+        touched_file = tmp_path / "test_todo.py"
+        touched_file.write_text("import unittest\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                f'{{"files_touched":["{touched_file}"],'
+                '"commands_run":["python -m unittest test_todo.py"],'
+                '"tests_passed":["python -m unittest test_todo.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Edit {touched_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(touched_file)}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: python -m unittest test_todo.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "python -m unittest test_todo.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="Ran 1 test in 0.001s\n\nOK",
+                        data={"subtype": "success", "exit_code": 0},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_unscoped_file_and_failed_test_command(
+        self, tmp_path
+    ) -> None:
+        """Workspace path scope and test success are required for verifier support."""
+        outside_file = tmp_path.parent / "outside.py"
+        outside_file.write_text("VALUE = 1\n", encoding="utf-8")
+        test_file = tmp_path / "tests" / "test_generated.py"
+        test_file.parent.mkdir()
+        test_file.write_text("def test_generated():\n    assert False\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                f'{{"files_touched":["{outside_file}"],'
+                '"commands_run":["pytest"],'
+                '"tests_passed":["tests/test_generated.py"]}}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="1 failed, 3 passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched:" in result.error
+        assert "tests_passed: tests/test_generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_preexisting_file_without_transcript_support(
+        self, tmp_path
+    ) -> None:
+        """A stale workspace file must not prove this run touched that file."""
+        preexisting_file = tmp_path / "src" / "preexisting.py"
+        preexisting_file.parent.mkdir()
+        preexisting_file.write_text("VALUE = 1\n", encoding="utf-8")
+        test_file = tmp_path / "tests" / "test_preexisting.py"
+        test_file.parent.mkdir()
+        test_file.write_text("def test_preexisting():\n    assert True\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/preexisting.py"],'
+                '"commands_run":["pytest tests/test_preexisting.py"],'
+                '"tests_passed":["tests/test_preexisting.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="result",
+                        content="Read src/preexisting.py for context only.",
+                        data={"subtype": "success"},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_preexisting.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_preexisting.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_preexisting.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/preexisting.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_read_only_file_reference(self, tmp_path) -> None:
+        """Mentioning a path in a read-only command is not files_touched proof."""
+        preexisting_file = tmp_path / "src" / "preexisting.py"
+        preexisting_file.parent.mkdir()
+        preexisting_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/preexisting.py"],'
+                '"commands_run":["pytest tests/test_preexisting.py"],'
+                '"tests_passed":["tests/test_preexisting.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: cat src/preexisting.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "cat src/preexisting.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_preexisting.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_preexisting.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_preexisting.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/preexisting.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_read_only_bash_command_with_write_word(
+        self, tmp_path
+    ) -> None:
+        """Read-only Bash command text cannot prove files_touched via mutation words."""
+        preexisting_file = tmp_path / "src" / "preexisting.py"
+        preexisting_file.parent.mkdir()
+        preexisting_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/preexisting.py"],'
+                '"commands_run":["grep updated src/preexisting.py"],'
+                '"tests_passed":["tests/test_preexisting.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: grep updated src/preexisting.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "grep updated src/preexisting.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_preexisting.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_preexisting.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_preexisting.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/preexisting.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "command",
+        (
+            "touch src/generated.py",
+            "printf 'VALUE = 1' > src/generated.py",
+            "sed -i '' 's/1/2/' src/generated.py",
+        ),
+    )
+    async def test_fat_harness_verifier_allows_explicit_bash_file_mutation_without_output(
+        self, tmp_path, command
+    ) -> None:
+        """Explicit shell writes can prove files_touched even without path-specific output."""
+        generated_file = tmp_path / "src" / "generated.py"
+        generated_file.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                f'{{"files_touched":["src/generated.py"],'
+                f'"commands_run":["{command}","pytest tests/test_generated.py"],'
+                '"tests_passed":["tests/test_generated.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "success", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_generated.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_bash_mutation_of_different_file(
+        self, tmp_path
+    ) -> None:
+        """A mutating Bash pipeline must not prove a separately read file was touched."""
+        preexisting_file = tmp_path / "src" / "preexisting.py"
+        generated_file = tmp_path / "src" / "generated.py"
+        preexisting_file.parent.mkdir()
+        preexisting_file.write_text("VALUE = 1\n", encoding="utf-8")
+        generated_file.write_text("VALUE = 2\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/preexisting.py"],'
+                '"commands_run":["cat src/preexisting.py | tee src/generated.py",'
+                '"pytest tests/test_generated.py"],'
+                '"tests_passed":["tests/test_generated.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: cat src/preexisting.py | tee src/generated.py",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {
+                                "command": "cat src/preexisting.py | tee src/generated.py"
+                            }
+                        },
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_generated.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/preexisting.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_failed_explicit_bash_file_mutation(
+        self, tmp_path
+    ) -> None:
+        """An explicit shell write command must also have a successful result."""
+        generated_file = tmp_path / "src" / "generated.py"
+        generated_file.parent.mkdir()
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/generated.py"],'
+                '"commands_run":["touch src/generated.py","pytest tests/test_generated.py"],'
+                '"tests_passed":["tests/test_generated.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: touch src/generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "touch src/generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="touch: src/generated.py: permission denied",
+                        data={"subtype": "error", "exit_code": 1},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_generated.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_bash_command_basename_fallback(
+        self, tmp_path
+    ) -> None:
+        """Bash command-text proof must not use basename fallback for another path."""
+        generated_file = tmp_path / "src" / "generated.py"
+        generated_file.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/generated.py"],'
+                '"commands_run":["touch generated.py","pytest tests/test_generated.py"],'
+                '"tests_passed":["tests/test_generated.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: touch generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "touch generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "success", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_generated.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_exit_code_only_test_success(self, tmp_path) -> None:
+        """Regression for #978 observation: Codex may omit pytest stdout but keep exit_code=0."""
+        hello_file = tmp_path / "hello.py"
+        test_file = tmp_path / "test_hello.py"
+        hello_file.write_text('def hello():\n    return "hello"\n', encoding="utf-8")
+        test_file.write_text(
+            "from hello import hello\n\n"
+            "def test_hello_returns_hello():\n"
+            "    assert hello() == 'hello'\n",
+            encoding="utf-8",
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["hello.py", "test_hello.py"],\n'
+                '  "commands_run": ["python -m pytest test_hello.py"],\n'
+                '  "tests_passed": ["test_hello.py::test_hello_returns_hello"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-exit-code-only-pytest",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {hello_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(hello_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: /bin/zsh -lc 'python -m pytest test_hello.py'",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {
+                                "command": "/bin/zsh -lc 'python -m pytest test_hello.py'"
+                            },
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content='Create hello.py with hello() returning "hello".',
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.atomic_verifier_verdict is not None
+        assert result.atomic_verifier_verdict.passed is True
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_unittest_command_summary_claim(
+        self, tmp_path
+    ) -> None:
+        """Regression for #961: Codex may put unittest command + OK summary in tests_passed."""
+        source_file = tmp_path / "string_utils.py"
+        test_file = tmp_path / "test_slugify.py"
+        source_file.write_text(
+            "def slugify(text):\n    return text.lower().replace(' ', '-')\n",
+            encoding="utf-8",
+        )
+        test_file.write_text(
+            "import unittest\n\n"
+            "from string_utils import slugify\n\n"
+            "class SlugifyTest(unittest.TestCase):\n"
+            "    def test_slugify(self):\n"
+            "        self.assertEqual(slugify('Hello World'), 'hello-world')\n\n"
+            "if __name__ == '__main__':\n"
+            "    unittest.main()\n",
+            encoding="utf-8",
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py", "test_slugify.py"],\n'
+                '  "commands_run": ["python -m unittest test_slugify.py"],\n'
+                '  "tests_passed": ['
+                '"python -m unittest test_slugify.py: Ran 4 tests in 0.000s OK"'
+                "]\n"
+                "}\n"
+                "```",
+                native_session_id="codex-session-unittest-summary-claim",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: python -m unittest test_slugify.py",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "python -m unittest test_slugify.py"},
+                            "output": "Ran 4 tests in 0.000s\n\nOK",
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_unittest_command_bare_ok_claim(
+        self, tmp_path
+    ) -> None:
+        """A backed unittest command plus bare OK can rely on real Bash unittest output."""
+        source_file = tmp_path / "string_utils.py"
+        test_file = tmp_path / "test_slugify.py"
+        source_file.write_text(
+            "def slugify(text):\n    return text.lower().replace(' ', '-')\n",
+            encoding="utf-8",
+        )
+        test_file.write_text(
+            "import unittest\n\n"
+            "from string_utils import slugify\n\n"
+            "class SlugifyTest(unittest.TestCase):\n"
+            "    def test_slugify_spaces(self):\n"
+            "        self.assertEqual(slugify('Hello World'), 'hello-world')\n"
+            "    def test_slugify_lowercase(self):\n"
+            "        self.assertEqual(slugify('Already Lower'), 'already-lower')\n"
+            "    def test_slugify_empty(self):\n"
+            "        self.assertEqual(slugify(''), '')\n"
+            "    def test_slugify_one_word(self):\n"
+            "        self.assertEqual(slugify('Hello'), 'hello')\n\n"
+            "if __name__ == '__main__':\n"
+            "    unittest.main()\n",
+            encoding="utf-8",
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py", "test_slugify.py"],\n'
+                '  "commands_run": ["python -m unittest test_slugify.py"],\n'
+                '  "tests_passed": ["python -m unittest test_slugify.py: OK"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-unittest-bare-ok-claim",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: python -m unittest test_slugify.py",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "python -m unittest test_slugify.py"},
+                            "output": "Ran 4 tests in 0.000s\n\nOK",
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_shell_wrapped_unittest_bare_ok_claim(
+        self, tmp_path
+    ) -> None:
+        """Shell-wrapped unittest commands can back concise unittest claims."""
+        source_file = tmp_path / "string_utils.py"
+        test_file = tmp_path / "test_slugify.py"
+        source_file.write_text(
+            "def slugify(text):\n    return text.lower().replace(' ', '-')\n",
+            encoding="utf-8",
+        )
+        test_file.write_text(
+            "import unittest\n\n"
+            "from string_utils import slugify\n\n"
+            "class SlugifyTest(unittest.TestCase):\n"
+            "    def test_slugify_spaces(self):\n"
+            "        self.assertEqual(slugify('Hello World'), 'hello-world')\n"
+            "    def test_slugify_lowercase(self):\n"
+            "        self.assertEqual(slugify('Already Lower'), 'already-lower')\n"
+            "    def test_slugify_empty(self):\n"
+            "        self.assertEqual(slugify(''), '')\n"
+            "    def test_slugify_one_word(self):\n"
+            "        self.assertEqual(slugify('Hello'), 'hello')\n\n"
+            "if __name__ == '__main__':\n"
+            "    unittest.main()\n",
+            encoding="utf-8",
+        )
+
+        shell_command = "/bin/zsh -lc 'python -m unittest \"test_slugify.py\"'"
+        escaped_shell_command = shell_command.replace('"', '\\"')
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py", "test_slugify.py"],\n'
+                f'  "commands_run": ["{escaped_shell_command}"],\n'
+                '  "tests_passed": ["python -m unittest test_slugify.py: OK"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-shell-wrapped-unittest-bare-ok",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Bash: {shell_command}",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": shell_command},
+                            "output": "Ran 4 tests in 0.000s\n\nOK",
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_inner_unittest_claim_for_shell_wrapped_cd_command(
+        self, tmp_path
+    ) -> None:
+        """Codex shell wrappers may run setup before the claimed inner unittest command."""
+        source_file = tmp_path / "string_utils.py"
+        test_file = tmp_path / "test_slugify.py"
+        source_file.write_text(
+            "def slugify(text):\n    return text.lower().replace(' ', '-')\n",
+            encoding="utf-8",
+        )
+        test_file.write_text(
+            "import unittest\n\n"
+            "from string_utils import slugify\n\n"
+            "class SlugifyTest(unittest.TestCase):\n"
+            "    def test_slugify_spaces(self):\n"
+            "        self.assertEqual(slugify('Hello World'), 'hello-world')\n\n"
+            "if __name__ == '__main__':\n"
+            "    unittest.main()\n",
+            encoding="utf-8",
+        )
+
+        inner_command = "python -m unittest test_slugify.py"
+        shell_command = f"/bin/bash --noprofile --norc -lc 'cd {tmp_path} && python -m unittest \"test_slugify.py\"'"
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py", "test_slugify.py"],\n'
+                f'  "commands_run": ["{inner_command}"],\n'
+                f'  "tests_passed": ["{inner_command}: OK"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-shell-wrapped-cd-unittest-inner-claim",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Bash: {shell_command}",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": shell_command},
+                            "output": "Ran 1 test in 0.000s\n\nOK",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_inner_unittest_claim_for_shell_wrapped_export_command(
+        self, tmp_path
+    ) -> None:
+        """Shell env setup preambles may precede the claimed inner unittest command."""
+        source_file = tmp_path / "string_utils.py"
+        test_file = tmp_path / "test_slugify.py"
+        source_file.write_text(
+            "def slugify(text):\n    return text.lower().replace(' ', '-')\n",
+            encoding="utf-8",
+        )
+        test_file.write_text(
+            "import unittest\n\n"
+            "from string_utils import slugify\n\n"
+            "class SlugifyTest(unittest.TestCase):\n"
+            "    def test_slugify_spaces(self):\n"
+            "        self.assertEqual(slugify('Hello World'), 'hello-world')\n\n"
+            "if __name__ == '__main__':\n"
+            "    unittest.main()\n",
+            encoding="utf-8",
+        )
+
+        inner_command = "python -m unittest test_slugify.py"
+        shell_command = (
+            f"/bin/zsh -lc 'export PYTHONPATH={tmp_path} && python -m unittest \"test_slugify.py\"'"
+        )
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py", "test_slugify.py"],\n'
+                f'  "commands_run": ["{inner_command}"],\n'
+                f'  "tests_passed": ["{inner_command}: OK"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-shell-wrapped-export-unittest-inner-claim",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Bash: {shell_command}",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": shell_command},
+                            "output": "Ran 1 test in 0.000s\n\nOK",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_shell_wrapped_unittest_summary_missing_from_runtime(
+        self, tmp_path
+    ) -> None:
+        """Shell wrappers must not let assistant prose prove a unittest summary."""
+        source_file = tmp_path / "string_utils.py"
+        test_file = tmp_path / "test_slugify.py"
+        source_file.write_text("def slugify(text):\n    return text\n", encoding="utf-8")
+        test_file.write_text("import unittest\n", encoding="utf-8")
+
+        shell_command = "/bin/zsh -lc 'python -m unittest \"test_slugify.py\"'"
+        escaped_shell_command = shell_command.replace('"', '\\"')
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py", "test_slugify.py"],\n'
+                f'  "commands_run": ["{escaped_shell_command}"],\n'
+                '  "tests_passed": ["python -m unittest test_slugify.py: Ran 4 tests in 0.000s OK"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-shell-wrapped-unittest-invented-summary",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Bash: {shell_command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": shell_command}, "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=(
+                            "Tests passed: python -m unittest test_slugify.py: "
+                            "Ran 4 tests in 0.000s OK"
+                        ),
+                        data={},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed:" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_unittest_summary_missing_from_runtime(
+        self, tmp_path
+    ) -> None:
+        """A tests_passed summary must be backed by runtime output, not claim text."""
+        source_file = tmp_path / "string_utils.py"
+        test_file = tmp_path / "test_slugify.py"
+        source_file.write_text("def slugify(text):\n    return text\n", encoding="utf-8")
+        test_file.write_text("import unittest\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py", "test_slugify.py"],\n'
+                '  "commands_run": ["python -m unittest test_slugify.py"],\n'
+                '  "tests_passed": ['
+                '"python -m unittest test_slugify.py: Ran 4 tests in 0.000s OK"'
+                "]\n"
+                "}\n"
+                "```",
+                native_session_id="codex-session-unittest-invented-summary",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {test_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(test_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: python -m unittest test_slugify.py",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "python -m unittest test_slugify.py"},
+                            "exit_code": 0,
+                        },
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=(
+                            "Tests passed: python -m unittest test_slugify.py: "
+                            "Ran 4 tests in 0.000s OK"
+                        ),
+                        data={},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed:" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_bare_unittest_word_as_test_command(
+        self, tmp_path
+    ) -> None:
+        """Commands merely mentioning unittest must not back tests_passed."""
+        source_file = tmp_path / "string_utils.py"
+        source_file.write_text("def slugify(text):\n    return text\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py"],\n'
+                '  "commands_run": ["echo unittest docs"],\n'
+                '  "tests_passed": ["unittest docs"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-bare-unittest-word",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: echo unittest docs",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "echo unittest docs"},
+                            "output": "unittest docs\nsuccess",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed: unittest docs" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_echoed_unittest_command_as_test_command(
+        self, tmp_path
+    ) -> None:
+        """Echoing a unittest command string must not count as running unittest."""
+        source_file = tmp_path / "string_utils.py"
+        source_file.write_text("def slugify(text):\n    return text\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py"],\n'
+                '  "commands_run": ["echo python -m unittest test_slugify.py"],\n'
+                '  "tests_passed": ["python -m unittest test_slugify.py: OK"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-echoed-unittest-command",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content="Calling tool: Bash: echo python -m unittest test_slugify.py",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": "echo python -m unittest test_slugify.py"},
+                            "output": "python -m unittest test_slugify.py\nsuccess\nRan 4 tests in 0.000s\n\nOK",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed:" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_echoed_shell_wrapped_unittest_command(
+        self, tmp_path
+    ) -> None:
+        """Echoing a shell-wrapped unittest command must not count as running it."""
+        source_file = tmp_path / "string_utils.py"
+        source_file.write_text("def slugify(text):\n    return text\n", encoding="utf-8")
+
+        shell_command = "echo /bin/zsh -lc 'python -m unittest \"test_slugify.py\"'"
+        escaped_shell_command = shell_command.replace('"', '\\"')
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "```json\n"
+                "{\n"
+                '  "files_touched": ["string_utils.py"],\n'
+                f'  "commands_run": ["{escaped_shell_command}"],\n'
+                '  "tests_passed": ["python -m unittest test_slugify.py: OK"]\n'
+                "}\n"
+                "```",
+                native_session_id="codex-session-echoed-shell-wrapped-unittest-command",
+                support_messages=(
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Edit: {source_file}",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": str(source_file)}},
+                    ),
+                    AgentMessage(
+                        type="assistant",
+                        content=f"Calling tool: Bash: {shell_command}",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": shell_command},
+                            "output": "/bin/zsh -lc 'python -m unittest \"test_slugify.py\"'\nsuccess\nRan 4 tests in 0.000s\n\nOK",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Create slugify and unittest coverage.",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship string utilities",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed:" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_accepts_wrapped_broad_pytest_for_current_test_file(
+        self, tmp_path
+    ) -> None:
+        """Wrapped bare pytest should behave like unwrapped broad pytest for current files."""
+        source_file = tmp_path / "src" / "generated.py"
+        source_file.parent.mkdir()
+        source_file.write_text("VALUE = 1\n", encoding="utf-8")
+        test_file = tmp_path / "tests" / "test_generated.py"
+        test_file.parent.mkdir()
+        test_file.write_text("def test_generated():\n    assert True\n", encoding="utf-8")
+
+        shell_command = f"/bin/zsh -lc 'cd {tmp_path} && pytest'"
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/generated.py", "tests/test_generated.py"],'
+                f'"commands_run":["{shell_command}"],'
+                '"tests_passed":["tests/test_generated.py"]}\n'
+                "```",
+                native_session_id="codex-session-wrapped-broad-pytest",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Edit: src/generated.py",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": "src/generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Edit: tests/test_generated.py",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": "tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {shell_command}",
+                        tool_name="Bash",
+                        data={
+                            "tool_input": {"command": shell_command},
+                            "output": "tests/test_generated.py passed\n1 passed in 0.01s",
+                            "exit_code": 0,
+                        },
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is True
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_test_not_covered_by_success_chunk(
+        self, tmp_path
+    ) -> None:
+        """A successful test command must cover the claimed tests_passed entry."""
+        touched_file = tmp_path / "src" / "generated.py"
+        touched_file.parent.mkdir()
+        touched_file.write_text("VALUE = 1\n", encoding="utf-8")
+        test_a = tmp_path / "tests" / "test_a.py"
+        test_b = tmp_path / "tests" / "test_b.py"
+        test_a.parent.mkdir()
+        test_a.write_text("def test_a():\n    assert True\n", encoding="utf-8")
+        test_b.write_text("def test_b():\n    assert True\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/generated.py"],'
+                '"commands_run":["pytest tests/test_a.py"],'
+                '"tests_passed":["tests/test_b.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_a.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_a.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_a.py passed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed: tests/test_b.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_zero_passed_test_output(self, tmp_path) -> None:
+        """A zero-passed test run is not proof for a claimed passing test."""
+        touched_file = tmp_path / "src" / "generated.py"
+        touched_file.parent.mkdir()
+        touched_file.write_text("VALUE = 1\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/generated.py"],'
+                '"commands_run":["pytest tests/test_generated.py"],'
+                '"tests_passed":["tests/test_generated.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Edit: src/generated.py",
+                        tool_name="Edit",
+                        data={"tool_input": {"file_path": "src/generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_generated.py collected, 0 passed, 0 failed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed: tests/test_generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_targeted_failed_test_command(
+        self, tmp_path
+    ) -> None:
+        """A targeted test command mentioning the claim is not proof without success."""
+        touched_file = tmp_path / "src" / "generated.py"
+        touched_file.parent.mkdir()
+        touched_file.write_text("VALUE = 1\n", encoding="utf-8")
+        test_file = tmp_path / "tests" / "test_generated.py"
+        test_file.parent.mkdir()
+        test_file.write_text("def test_generated():\n    assert False\n", encoding="utf-8")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/generated.py"],'
+                '"commands_run":["pytest tests/test_generated.py"],'
+                '"tests_passed":["tests/test_generated.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="result",
+                        content="tests/test_generated.py failed",
+                        data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "tests_passed: tests/test_generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_mode_rejects_verifier_fail(self) -> None:
+        """Fat harness requires a separate verifier PASS after typed evidence."""
+
+        def _rejecting_verifier(**kwargs: object) -> VerifierVerdict:
+            del kwargs
+            return VerifierVerdict(
+                passed=False,
+                reasons=("claimed test command did not support the AC",),
+                failure_class="FABRICATION_SUSPECTED",
+            )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/app.py"],'
+                '"commands_run":["pytest"],'
+                '"tests_passed":["tests/test_app.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            atomic_verifier=_rejecting_verifier,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "Fat-harness verifier failed" in result.error
+        assert "claimed test command did not support the AC" in result.error
+        assert result.atomic_verifier_verdict is not None
+        assert result.atomic_verifier_verdict.passed is False
+
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["typed_evidence_valid"] is True
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is False
+        assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
+        assert evidence_event.data["verifier_reasons"] == [
+            "claimed test command did not support the AC"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_mode_surfaces_operational_verifier_error(self) -> None:
+        """Operational verifier failures remain typed verifier rejections."""
+
+        def _timeout_verifier(**kwargs: object) -> VerifierVerdict:
+            del kwargs
+            raise TimeoutError("verifier timed out")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/app.py"],'
+                '"commands_run":["pytest"],'
+                '"tests_passed":["tests/test_app.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            atomic_verifier=_timeout_verifier,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "verifier raised TimeoutError: verifier timed out" in result.error
+        assert result.atomic_verifier_verdict is not None
+        assert result.atomic_verifier_verdict.failure_class == "STALL"
+
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_ran"] is True
+        assert evidence_event.data["verifier_passed"] is False
+        assert evidence_event.data["verifier_failure_class"] == "STALL"
+        assert evidence_event.data["verifier_reasons"] == [
+            "verifier raised TimeoutError: verifier timed out"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_observe_only_mode_does_not_run_injected_verifier(self) -> None:
+        """Non-enforced profile evidence telemetry must stay observe-only."""
+
+        def _raising_verifier(**kwargs: object) -> VerifierVerdict:
+            del kwargs
+            raise AssertionError("observe-only mode must not invoke the verifier")
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                "Done.\n"
+                "```json\n"
+                '{"files_touched":["src/app.py"],'
+                '"commands_run":["pytest"],'
+                '"tests_passed":["tests/test_app.py"]}\n'
+                "```",
+                native_session_id="opencode-session-evidence",
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            atomic_verifier=_raising_verifier,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.atomic_verifier_verdict is None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_ran"] is False
+
+    @pytest.mark.asyncio
+    async def test_atomic_ac_typed_evidence_event_failure_does_not_fail_success(self) -> None:
+        """Observe-only typed-evidence telemetry must not change AC success."""
+
+        class _StubImplementationRuntime:
+            _runtime_handle_backend = "opencode"
+            _cwd = "/tmp/project"
+            _permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(
+                self,
+                prompt: str,
+                tools: list[str] | None = None,
+                system_prompt: str | None = None,
+                resume_handle: RuntimeHandle | None = None,
+                resume_session_id: str | None = None,
+            ):
+                del prompt, tools, system_prompt, resume_session_id
+                yield AgentMessage(
+                    type="result",
+                    content=(
+                        "Done.\n"
+                        "```json\n"
+                        '{"files_touched":["src/app.py"],'
+                        '"commands_run":["pytest"],'
+                        '"tests_passed":["tests/test_app.py"]}\n'
+                        "```"
+                    ),
+                    data={"subtype": "success"},
+                    resume_handle=RuntimeHandle(
+                        backend=resume_handle.backend if resume_handle is not None else "opencode",
+                        kind=resume_handle.kind
+                        if resume_handle is not None
+                        else "implementation_session",
+                        native_session_id="opencode-session-evidence",
+                        cwd=resume_handle.cwd if resume_handle is not None else "/tmp/project",
+                        metadata=dict(resume_handle.metadata) if resume_handle is not None else {},
+                    ),
+                )
+
+        event_store, appended_events = _make_replaying_event_store()
+        original_append = event_store.append
+
+        async def _append(event: BaseEvent) -> None:
+            if event.type == "execution.ac.typed_evidence.observed":
+                raise RuntimeError("typed evidence telemetry failed")
+            await original_append(event)
+
+        event_store.append = AsyncMock(side_effect=_append)
+        executor = ParallelACExecutor(
+            adapter=_StubImplementationRuntime(),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is True
+        assert result.typed_evidence is not None
+        assert all(
+            event.type != "execution.ac.typed_evidence.observed" for event in appended_events
+        )
+
+    @pytest.mark.asyncio
+    async def test_atomic_ac_profile_evidence_config_error_remains_loud(self) -> None:
+        """Profile-authored evidence-schema bugs must not be downgraded to telemetry."""
+
+        class _StubImplementationRuntime:
+            _runtime_handle_backend = "opencode"
+            _cwd = "/tmp/project"
+            _permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(
+                self,
+                prompt: str,
+                tools: list[str] | None = None,
+                system_prompt: str | None = None,
+                resume_handle: RuntimeHandle | None = None,
+                resume_session_id: str | None = None,
+            ):
+                del prompt, tools, system_prompt, resume_session_id
+                yield AgentMessage(
+                    type="result",
+                    content=(
+                        "Done.\n"
+                        "```json\n"
+                        '{"files_touched":["src/app.py"],'
+                        '"commands_run":["pytest"],'
+                        '"tests_passed":["tests/test_app.py"]}\n'
+                        "```"
+                    ),
+                    data={"subtype": "success"},
+                    resume_handle=RuntimeHandle(
+                        backend=resume_handle.backend if resume_handle is not None else "opencode",
+                        kind=resume_handle.kind
+                        if resume_handle is not None
+                        else "implementation_session",
+                        native_session_id="opencode-session-evidence",
+                        cwd=resume_handle.cwd if resume_handle is not None else "/tmp/project",
+                        metadata=dict(resume_handle.metadata) if resume_handle is not None else {},
+                    ),
+                )
+
+        profile = load_profile("code").model_copy(
+            update={
+                "evidence_schema": EvidenceSchema(
+                    required=("files_touched", "commands_run", "tests_passed"),
+                    rejected_if=("tests_passed != []",),
+                )
+            }
+        )
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_StubImplementationRuntime(),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=profile,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "Unsupported rejected_if expression" in result.error
+        assert "execution.session.completed" not in {event.type for event in appended_events}
+        assert "execution.session.failed" in {event.type for event in appended_events}
 
     @pytest.mark.asyncio
     async def test_remembered_runtime_handle_preserves_live_controls(self) -> None:
@@ -1806,6 +7083,7 @@ class TestParallelACExecutor:
             seed_goal="Ship the feature",
             depth=0,
             start_time=datetime.now(UTC),
+            execution_id="exec_ac_progress",
         )
 
         appended_events = [call.args[0] for call in event_store.append.await_args_list]
@@ -1814,6 +7092,9 @@ class TestParallelACExecutor:
         )
         completed_event = next(
             event for event in appended_events if event.type == "execution.session.completed"
+        )
+        execution_completed_event = next(
+            event for event in appended_events if event.type == "execution.ac.completed"
         )
 
         assert result.success is True
@@ -1833,6 +7114,51 @@ class TestParallelACExecutor:
         assert "transcript_path" not in started_event.data["runtime"]
         assert "updated_at" not in started_event.data["runtime"]
         assert completed_event.data["session_id"] == "server-42"
+        assert execution_completed_event.aggregate_id == "exec_ac_progress"
+        assert execution_completed_event.data["success"] is True
+        assert execution_completed_event.data["acceptance_criterion"] == (
+            "Persist reconnectable OpenCode implementation handles"
+        )
+
+    @pytest.mark.asyncio
+    async def test_execution_scoped_ac_completion_append_is_best_effort(self) -> None:
+        """Root AC evidence must not corrupt an already persisted successful AC lifecycle."""
+
+        event_store = AsyncMock()
+        event_store.replay = AsyncMock(return_value=[])
+        appended_events: list[BaseEvent] = []
+
+        async def _append(event: BaseEvent) -> None:
+            if event.type == "execution.ac.completed":
+                raise RuntimeError("root aggregate temporarily unavailable")
+            appended_events.append(event)
+
+        event_store.append = AsyncMock(side_effect=_append)
+        executor = ParallelACExecutor(
+            adapter=MagicMock(),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+        )
+        runtime_identity = executor._resolve_ac_runtime_identity(
+            0,
+            execution_context_id="exec_ac_progress",
+            retry_attempt=0,
+        )
+
+        await executor._emit_ac_runtime_event(
+            event_type="execution.session.completed",
+            runtime_identity=runtime_identity,
+            ac_content="Persist AC completion evidence",
+            runtime_handle=None,
+            execution_id="exec_ac_progress",
+            session_id="server-42",
+            result_summary="[TASK_COMPLETE]",
+            success=True,
+        )
+
+        assert [event.type for event in appended_events] == ["execution.session.completed"]
+        assert event_store.append.await_count == 2
 
     @pytest.mark.asyncio
     async def test_restarted_executor_loads_persisted_runtime_handle_for_same_attempt(self) -> None:
@@ -3797,3 +9123,90 @@ class TestParallelACExecutor:
         assert result.runtime_handle is not None
         assert result.runtime_handle.native_session_id == resume_handle.native_session_id
         assert result.runtime_handle.metadata == resume_handle.metadata
+
+
+@pytest.mark.asyncio
+async def test_try_decompose_ac_replaces_goose_chunks_with_final_result() -> None:
+    """Goose can emit deltas plus a final full answer; decomposition should not duplicate."""
+
+    class _GooseChunkAndFinalRuntime:
+        runtime_backend = "goose"
+
+        async def execute_task(
+            self,
+            prompt: str,
+            tools: list[str] | None = None,
+            system_prompt: str | None = None,
+            resume_handle: RuntimeHandle | None = None,
+            resume_session_id: str | None = None,
+        ):
+            del prompt, tools, system_prompt, resume_handle, resume_session_id
+            yield AgentMessage(type="assistant", content='["Sub-AC 1: inspect", ')
+            yield AgentMessage(type="assistant", content='"Sub-AC 2: test"]')
+            yield AgentMessage(
+                type="result",
+                content='["Sub-AC 1: inspect", "Sub-AC 2: test"]',
+            )
+
+    executor = ParallelACExecutor(
+        adapter=_GooseChunkAndFinalRuntime(),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=True,
+    )
+
+    result = await executor._try_decompose_ac(
+        ac_content="Investigate and test sub-AC behavior.",
+        ac_index=0,
+        seed_goal="Verify Goose final result handling",
+        tools=[],
+        system_prompt="system",
+    )
+
+    assert result == ["Sub-AC 1: inspect", "Sub-AC 2: test"]
+
+
+@pytest.mark.asyncio
+async def test_try_decompose_ac_accumulates_goose_stream_chunks() -> None:
+    """Goose stream-json emits token chunks; decomposition must parse accumulated output."""
+
+    class _GooseChunkRuntime:
+        runtime_backend = "goose"
+
+        async def execute_task(
+            self,
+            prompt: str,
+            tools: list[str] | None = None,
+            system_prompt: str | None = None,
+            resume_handle: RuntimeHandle | None = None,
+            resume_session_id: str | None = None,
+        ):
+            del prompt, tools, system_prompt, resume_handle, resume_session_id
+            yield AgentMessage(type="system", content="Session initialized: sess-1")
+            for chunk in (
+                '["Sub-AC 1: inspect the implementation", ',
+                '"Sub-AC 2: write a focused regression test", ',
+                '"Sub-AC 3: document the result"]',
+            ):
+                yield AgentMessage(type="assistant", content=chunk)
+
+    executor = ParallelACExecutor(
+        adapter=_GooseChunkRuntime(),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=True,
+    )
+
+    result = await executor._try_decompose_ac(
+        ac_content="Investigate, test, and document sub-AC behavior.",
+        ac_index=0,
+        seed_goal="Verify Goose sub-AC support",
+        tools=[],
+        system_prompt="system",
+    )
+
+    assert result == [
+        "Sub-AC 1: inspect the implementation",
+        "Sub-AC 2: write a focused regression test",
+        "Sub-AC 3: document the result",
+    ]

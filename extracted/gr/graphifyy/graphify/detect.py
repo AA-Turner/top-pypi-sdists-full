@@ -33,13 +33,27 @@ VIDEO_EXTENSIONS = {'.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v', '.mp3', '.w
 
 CORPUS_WARN_THRESHOLD = 50_000    # words - below this, warn "you may not need a graph"
 CORPUS_UPPER_THRESHOLD = 500_000  # words - above this, warn about token cost
-FILE_COUNT_UPPER = 200             # files - above this, warn about token cost
+FILE_COUNT_UPPER = 500             # files - above this, warn about token cost
 
-# Files that may contain secrets - skip silently
+# Parent directories whose contents are always sensitive.
+# Checked against path.parts[:-1] (parents only) so a root-level file named
+# "credentials" or "secrets" is not falsely flagged by this stage.
+_SENSITIVE_DIRS = frozenset({
+    ".ssh", ".gnupg", ".aws", ".gcloud", "secrets", ".secrets", "credentials",
+})
+
+# Files that may contain secrets - skip silently.
+# Uses lookarounds instead of \b so underscore-prefixed names like api_token.txt
+# match. Both patterns use (?![a-zA-Z]) so that the trailing-underscore behavior
+# is consistent: "secret_store.txt" IS flagged, "tokenizer.py" is NOT (because
+# "i" after "token" is alpha and blocks the match).
+# `token` is kept separate because its longer suffix "izer"/"ize" is the only
+# common false-positive; other keywords have no such well-known derivatives.
 _SENSITIVE_PATTERNS = [
     re.compile(r'(^|[\\/])\.(env|envrc)(\.|$)', re.IGNORECASE),
     re.compile(r'\.(pem|key|p12|pfx|cert|crt|der|p8)$', re.IGNORECASE),
-    re.compile(r'\b(credential|secret|passwd|password|token|private_key)s?\b', re.IGNORECASE),
+    re.compile(r'(?<![a-zA-Z0-9])(credential|secret|passwd|password|private_key)s?(?![a-zA-Z])', re.IGNORECASE),
+    re.compile(r'(?<![a-zA-Z0-9])tokens?(?![a-zA-Z])', re.IGNORECASE),
     re.compile(r'(id_rsa|id_dsa|id_ecdsa|id_ed25519)(\.pub)?$'),
     re.compile(r'(\.netrc|\.pgpass|\.htpasswd)$', re.IGNORECASE),
     re.compile(r'(aws_credentials|gcloud_credentials|service.account)', re.IGNORECASE),
@@ -66,6 +80,12 @@ _PAPER_SIGNAL_THRESHOLD = 3  # need at least this many signals to call it a pape
 
 def _is_sensitive(path: Path) -> bool:
     """Return True if this file likely contains secrets and should be skipped."""
+    # Stage 1: any PARENT directory is a known secrets dir (parts[:-1] excludes
+    # the filename itself so a root-level file named "credentials" is not falsely
+    # skipped — the name patterns in Stage 2 handle the filename).
+    if any(part in _SENSITIVE_DIRS for part in path.parts[:-1]):
+        return True
+    # Stage 2: filename pattern match
     name = path.name
     return any(p.search(name) for p in _SENSITIVE_PATTERNS)
 
@@ -805,7 +825,7 @@ def detect(root: Path, *, follow_symlinks: bool | None = None, google_workspace:
         warning = (
             f"Large corpus: {total_files} files · ~{total_words:,} words. "
             f"Semantic extraction will be expensive (many Claude tokens). "
-            f"Consider running on a subfolder, or use --no-semantic to run AST-only."
+            f"Consider running on a subfolder."
         )
 
     return {
@@ -816,6 +836,7 @@ def detect(root: Path, *, follow_symlinks: bool | None = None, google_workspace:
         "warning": warning,
         "skipped_sensitive": skipped_sensitive,
         "graphifyignore_patterns": len(ignore_patterns),
+        "scan_root": str(root.resolve()),
     }
 
 

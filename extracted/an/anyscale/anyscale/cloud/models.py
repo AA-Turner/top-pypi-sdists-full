@@ -483,6 +483,7 @@ kubernetes_config:
     - us-west-2a
     - us-west-2b
     - us-west-2c
+  redis_endpoint: redis.ray-system.svc.cluster.local:6379
 """
 
     anyscale_operator_iam_identity: Optional[str] = field(
@@ -493,6 +494,12 @@ kubernetes_config:
     )
     zones: Optional[List[str]] = field(
         default=None, metadata={"docstring": "List of zones to launch pods in."},
+    )
+    redis_endpoint: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Redis endpoint reachable from the data plane (e.g. 'redis.ray-system.svc.cluster.local:6379'). Used for Ray GCS fault tolerance."
+        },
     )
 
 

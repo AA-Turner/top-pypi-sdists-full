@@ -6,8 +6,8 @@ import sys
 
 from biolib._internal.http_client import HttpClient
 from biolib._internal.utils.package_version import get_package_version
+from biolib._shared.types.typing import Iterator, Optional, Tuple
 from biolib.biolib_logging import logger, logger_no_user_data
-from biolib.typing_utils import Iterator, Optional, Tuple
 from biolib.utils.seq_util import SeqUtil, SeqUtilRecord
 
 from .multipart_uploader import MultiPartUploader, get_chunk_iterator_from_bytes

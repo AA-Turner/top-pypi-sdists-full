@@ -289,7 +289,7 @@ class PageSDKController:
     def _build_js_fetch(self, name: str, params: List[Dict[str, str]]) -> List[str]:
         js_params_obj = ", ".join(f"{p['name']}: {p['name']}" for p in params)
         return [
-            "  const __endpoint = document.querySelector('base')?.getAttribute('href') || window.location.pathname;",
+            "  const __endpoint = document.querySelector('meta[name=\"abstra-page-endpoint\"]')?.getAttribute('content') || document.querySelector('base')?.getAttribute('href') || window.location.pathname;",
             "  const __headers = {};",
             "  const __token = document.querySelector('meta[name=\"abstra-auth-token\"]')?.getAttribute('content');",
             "  if (__token) __headers['Authorization'] = 'Bearer ' + __token;",

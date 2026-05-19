@@ -18,6 +18,10 @@ short_description: Add or remove an apt key
 description:
     - Add or remove an I(apt) key, optionally downloading it.
 extends_documentation_fragment: action_common_attributes
+deprecated:
+    alternative: ansible.builtin.deb822_repository
+    why: The M(ansible.builtin.apt_key) module is deprecated in favor of the M(ansible.builtin.deb822_repository) module.
+    removed_in: "2.25"
 attributes:
     check_mode:
         support: full
@@ -144,7 +148,7 @@ after:
     type: list
     sample: ["D8576A8BA88D21E9", "3B4FE6ACC0B21F32", "D94AA3F0EFE21092", "871920D1991BC93C"]
 before:
-    description: List of apt key ids or fingprints before any modifications
+    description: List of apt key ids or fingerprints before any modifications
     returned: always
     type: list
     sample: ["3B4FE6ACC0B21F32", "D94AA3F0EFE21092", "871920D1991BC93C"]

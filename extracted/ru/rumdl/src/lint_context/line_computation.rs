@@ -305,8 +305,22 @@ pub(super) fn compute_code_block_line_map(
     in_code_block
 }
 
-/// Pre-compute which lines are inside math blocks ($$ ... $$) - O(n) single pass
-/// Returns a Vec<bool> where index i indicates if line i is in a math block
+/// Pre-compute which lines are entirely inside `$$ ... $$` math blocks.
+///
+/// This is a coarse, blockquote-aware optimization: a line is flagged only
+/// when it contains no Markdown that should be linted (interior lines and
+/// bare/LaTeX-only fence lines). Lines that mix a fence with trailing prose
+/// (`$$ and __x__`) are left unflagged so the byte-level math filter can
+/// distinguish the math span from the prose. A line is flagged only when its
+/// single line-start `$$...$$` span covers the whole line (nothing but
+/// whitespace after the first closing `$$`). A multi-line block opens only on
+/// a line whose (blockquote-stripped) content starts with `$$`, has no close
+/// on the same line, and has a closing `$$` on some later line; it closes on
+/// the first subsequent line containing `$$`. An opener with no closer
+/// anywhere is dropped, not allowed to swallow the rest of the document. This
+/// mirrors the byte-level `math_block_ranges` model - only a line-start `$$`
+/// opens a span, and an unmatched opener is a literal - so line- and
+/// byte-level rules agree.
 pub(super) fn compute_math_block_line_map(content_lines: &[&str], code_block_map: &[bool]) -> Vec<bool> {
     let num_lines = content_lines.len();
     let mut in_math_block = vec![false; num_lines];
@@ -320,19 +334,68 @@ pub(super) fn compute_math_block_line_map(content_lines: &[&str], code_block_map
 
         let trimmed = line.trim();
         // Strip blockquote prefix so that `> $$` is recognized as a math delimiter
-        let content_after_blockquote =
-            crate::utils::blockquote::parse_blockquote_prefix(trimmed).map_or(trimmed, |p| p.content.trim());
+        let ic = crate::utils::blockquote::parse_blockquote_prefix(trimmed).map_or(trimmed, |p| p.content.trim());
 
-        if content_after_blockquote == "$$" {
-            if inside_math {
-                in_math_block[i] = true;
-                inside_math = false;
-            } else {
-                in_math_block[i] = true;
-                inside_math = true;
-            }
-        } else if inside_math {
+        if inside_math {
             in_math_block[i] = true;
+            if let Some(close) = ic.find("$$") {
+                let after = ic[close + 2..].trim();
+                // A non-empty remainder after the closing `$$` is Markdown
+                // prose; defer to the byte-level filter rather than skipping
+                // the whole line.
+                if !after.is_empty() {
+                    in_math_block[i] = false;
+                }
+                // The block closes here. Any further `$$` in the trailing
+                // prose is mid-line and cannot open a new multi-line block
+                // (openers must begin a line), so the block stays closed -
+                // matching the byte-level `math_block_ranges` model.
+                inside_math = false;
+            }
+            // No `$$` on this line: still interior, stay inside.
+        } else if let Some(after_open) = ic.strip_prefix("$$") {
+            // Mirror the byte-level `math_block_ranges` model exactly: only a
+            // `$$` that begins the line opens a span, and it closes at the
+            // very next `$$`. Any later `$$` is mid-line and opens nothing.
+            //
+            // - No closing `$$` on the line: the line-start delimiter opens a
+            //   multi-line block ONLY if a closing `$$` appears on a later
+            //   line. An opener with no closer anywhere is a literal and is
+            //   dropped, exactly as `math_block_ranges` drops an unmatched
+            //   opener instead of swallowing the rest of the document.
+            // - A closing `$$` with only whitespace after it: the whole line
+            //   is that one display span and has nothing lintable, so flag it
+            //   as a cheap whole-line skip.
+            // - Anything else after the closing `$$` (prose, or further
+            //   non-opening `$$` spans like `$$x$$ $$ _y_ $$`): leave the
+            //   line unflagged so trailing prose stays lintable. Rules that
+            //   need per-span precision on such mixed lines (MD049) also
+            //   apply the byte-level math filter, so the leading span is
+            //   still exempted while the trailing prose is checked.
+            match after_open.find("$$") {
+                None => {
+                    // Look ahead for a closer using the same blockquote and
+                    // code-block treatment the close loop above applies, so
+                    // "would this block ever close" is decided identically.
+                    let has_closer = content_lines.iter().enumerate().skip(i + 1).any(|(j, l)| {
+                        if code_block_map.get(j).copied().unwrap_or(false) {
+                            return false;
+                        }
+                        let t = l.trim();
+                        let icj = crate::utils::blockquote::parse_blockquote_prefix(t).map_or(t, |p| p.content.trim());
+                        icj.contains("$$")
+                    });
+                    if has_closer {
+                        in_math_block[i] = true;
+                        inside_math = true;
+                    }
+                }
+                Some(close_rel) => {
+                    if after_open[close_rel + 2..].trim().is_empty() {
+                        in_math_block[i] = true;
+                    }
+                }
+            }
         }
     }
 

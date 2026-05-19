@@ -16,6 +16,10 @@
 Test Common utilities for Castellan.
 """
 
+from castellan.common.credentials import keystone_password
+from castellan.common.credentials import keystone_token
+from castellan.common.credentials import password
+from castellan.common.credentials import token
 from castellan.common import exception
 from castellan.common import utils
 from castellan.tests import base
@@ -28,9 +32,8 @@ CONF = cfg.CONF
 
 
 class TestUtils(base.TestCase):
-
     def setUp(self):
-        super(TestUtils, self).setUp()
+        super().setUp()
         self.config_fixture = self.useFixture(config_fixture.Config(CONF))
         CONF.register_opts(utils.credential_opts, group=utils.OPT_GROUP)
 
@@ -38,30 +41,27 @@ class TestUtils(base.TestCase):
         token_value = 'ec9799cd921e4e0a8ab6111c08ebf065'
 
         self.config_fixture.config(
-            auth_type='token',
-            token=token_value,
-            group='key_manager'
+            auth_type='token', token=token_value, group='key_manager'
         )
 
         token_context = utils.credential_factory(conf=CONF)
         token_context_class = token_context.__class__.__name__
 
         self.assertEqual('Token', token_context_class)
+        assert isinstance(token_context, token.Token)
         self.assertEqual(token_value, token_context.token)
 
     def test_token_credential_with_context(self):
         token_value = 'ec9799cd921e4e0a8ab6111c08ebf065'
         ctxt = context.RequestContext(auth_token=token_value)
 
-        self.config_fixture.config(
-            auth_type='token',
-            group='key_manager'
-        )
+        self.config_fixture.config(auth_type='token', group='key_manager')
 
         token_context = utils.credential_factory(conf=CONF, context=ctxt)
         token_context_class = token_context.__class__.__name__
 
         self.assertEqual('Token', token_context_class)
+        assert isinstance(token_context, token.Token)
         self.assertEqual(token_value, token_context.token)
 
     def test_token_credential_config_override_context(self):
@@ -71,55 +71,51 @@ class TestUtils(base.TestCase):
         conf_token_value = 'ec9799cd921e4e0a8ab6111c08ebf065'
 
         self.config_fixture.config(
-            auth_type='token',
-            token=conf_token_value,
-            group='key_manager'
+            auth_type='token', token=conf_token_value, group='key_manager'
         )
 
         token_context = utils.credential_factory(conf=CONF, context=ctxt)
         token_context_class = token_context.__class__.__name__
 
         self.assertEqual('Token', token_context_class)
+        assert isinstance(token_context, token.Token)
         self.assertEqual(conf_token_value, token_context.token)
 
     def test_token_credential_exception(self):
-        self.config_fixture.config(
-            auth_type='token',
-            group='key_manager'
-        )
+        self.config_fixture.config(auth_type='token', group='key_manager')
 
-        self.assertRaises(exception.InsufficientCredentialDataError,
-                          utils.credential_factory,
-                          CONF)
+        self.assertRaises(
+            exception.InsufficientCredentialDataError,
+            utils.credential_factory,
+            CONF,
+        )
 
     def test_password_credential(self):
         password_value = 'p4ssw0rd'
 
         self.config_fixture.config(
-            auth_type='password',
-            password=password_value,
-            group='key_manager'
+            auth_type='password', password=password_value, group='key_manager'
         )
 
         password_context = utils.credential_factory(conf=CONF)
         password_context_class = password_context.__class__.__name__
 
         self.assertEqual('Password', password_context_class)
+        assert isinstance(password_context, password.Password)
         self.assertEqual(password_value, password_context.password)
 
     def test_keystone_token_credential(self):
         token_value = 'ec9799cd921e4e0a8ab6111c08ebf065'
 
         self.config_fixture.config(
-            auth_type='keystone_token',
-            token=token_value,
-            group='key_manager'
+            auth_type='keystone_token', token=token_value, group='key_manager'
         )
 
         ks_token_context = utils.credential_factory(conf=CONF)
         ks_token_context_class = ks_token_context.__class__.__name__
 
         self.assertEqual('KeystoneToken', ks_token_context_class)
+        assert isinstance(ks_token_context, keystone_token.KeystoneToken)
         self.assertEqual(token_value, ks_token_context.token)
 
     def test_keystone_token_credential_with_context(self):
@@ -127,14 +123,14 @@ class TestUtils(base.TestCase):
         ctxt = context.RequestContext(auth_token=token_value)
 
         self.config_fixture.config(
-            auth_type='keystone_token',
-            group='key_manager'
+            auth_type='keystone_token', group='key_manager'
         )
 
         ks_token_context = utils.credential_factory(conf=CONF, context=ctxt)
         ks_token_context_class = ks_token_context.__class__.__name__
 
         self.assertEqual('KeystoneToken', ks_token_context_class)
+        assert isinstance(ks_token_context, keystone_token.KeystoneToken)
         self.assertEqual(token_value, ks_token_context.token)
 
     def test_keystone_token_credential_config_override_context(self):
@@ -146,24 +142,26 @@ class TestUtils(base.TestCase):
         self.config_fixture.config(
             auth_type='keystone_token',
             token=conf_token_value,
-            group='key_manager'
+            group='key_manager',
         )
 
         ks_token_context = utils.credential_factory(conf=CONF, context=ctxt)
         ks_token_context_class = ks_token_context.__class__.__name__
 
         self.assertEqual('KeystoneToken', ks_token_context_class)
+        assert isinstance(ks_token_context, keystone_token.KeystoneToken)
         self.assertEqual(conf_token_value, ks_token_context.token)
 
     def test_keystone_token_credential_exception(self):
         self.config_fixture.config(
-            auth_type='keystone_token',
-            group='key_manager'
+            auth_type='keystone_token', group='key_manager'
         )
 
-        self.assertRaises(exception.InsufficientCredentialDataError,
-                          utils.credential_factory,
-                          CONF)
+        self.assertRaises(
+            exception.InsufficientCredentialDataError,
+            utils.credential_factory,
+            CONF,
+        )
 
     def test_keystone_password_credential(self):
         password_value = 'p4ssw0rd'
@@ -171,13 +169,16 @@ class TestUtils(base.TestCase):
         self.config_fixture.config(
             auth_type='keystone_password',
             password=password_value,
-            group='key_manager'
+            group='key_manager',
         )
 
         ks_password_context = utils.credential_factory(conf=CONF)
         ks_password_context_class = ks_password_context.__class__.__name__
 
         self.assertEqual('KeystonePassword', ks_password_context_class)
+        assert isinstance(
+            ks_password_context, keystone_password.KeystonePassword
+        )
         self.assertEqual(password_value, ks_password_context.password)
 
     def test_oslo_context_to_keystone_token(self):
@@ -185,17 +186,18 @@ class TestUtils(base.TestCase):
         project_id_value = '00c6ef5ad2984af2acd7d42c299935c0'
 
         ctxt = context.RequestContext(
-            auth_token=auth_token_value,
-            project_id=project_id_value)
+            auth_token=auth_token_value, project_id=project_id_value
+        )
 
         ks_token_context = utils.credential_factory(context=ctxt)
         ks_token_context_class = ks_token_context.__class__.__name__
 
         self.assertEqual('KeystoneToken', ks_token_context_class)
+        assert isinstance(ks_token_context, keystone_token.KeystoneToken)
         self.assertEqual(auth_token_value, ks_token_context.token)
         self.assertEqual(project_id_value, ks_token_context.project_id)
 
     def test_no_auth_type(self):
-        self.assertRaises(exception.AuthTypeInvalidError,
-                          utils.credential_factory,
-                          conf=CONF)
+        self.assertRaises(
+            exception.AuthTypeInvalidError, utils.credential_factory, conf=CONF
+        )

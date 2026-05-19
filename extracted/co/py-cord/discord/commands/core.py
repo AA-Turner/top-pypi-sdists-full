@@ -50,9 +50,7 @@ from ..enums import Enum as DiscordEnum
 from ..enums import (
     IntegrationType,
     InteractionContextType,
-    MessageType,
     SlashCommandOptionType,
-    try_enum,
 )
 from ..errors import (
     ApplicationCommandError,
@@ -62,7 +60,6 @@ from ..errors import (
     InvalidArgument,
     ValidationError,
 )
-from ..member import Member
 from ..message import Attachment, Message
 from ..object import Object
 from ..role import Role
@@ -93,11 +90,12 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from typing_extensions import Concatenate, ParamSpec
+    from typing_extensions import Concatenate, Never, ParamSpec
 
     from .. import Permissions
+    from ..bot import C
     from ..cog import Cog
-    from ..ext.commands.cooldowns import CooldownMapping, MaxConcurrency
+    from ..ext.commands.cooldowns import Cooldown, CooldownMapping, MaxConcurrency
 
 T = TypeVar("T")
 CogT = TypeVar("CogT", bound="Cog")
@@ -190,7 +188,7 @@ class ApplicationCommand(_BaseCommand, Generic[CogT, P, T]):
     cog = None
 
     def __init__(self, func: Callable, **kwargs) -> None:
-        from ..ext.commands.cooldowns import BucketType, CooldownMapping, MaxConcurrency
+        from ..ext.commands.cooldowns import BucketType, CooldownMapping
 
         cooldown = getattr(func, "__commands_cooldown__", kwargs.get("cooldown"))
 
@@ -245,7 +243,7 @@ class ApplicationCommand(_BaseCommand, Generic[CogT, P, T]):
                 "guild_only",
                 "contexts",
                 "2.6",
-                reference="https://discord.com/developers/docs/change-log#userinstallable-apps-preview",
+                reference="https://docs.discord.com/developers/change-log#user-installable-apps-preview",
             )
         if contexts and guild_only:
             raise InvalidArgument(
@@ -312,7 +310,7 @@ class ApplicationCommand(_BaseCommand, Generic[CogT, P, T]):
             "guild_only",
             "contexts",
             "2.6",
-            reference="https://discord.com/developers/docs/change-log#userinstallable-apps-preview",
+            reference="https://docs.discord.com/developers/change-log#user-installable-apps-preview",
         )
         return InteractionContextType.guild in self.contexts and len(self.contexts) == 1
 
@@ -322,7 +320,7 @@ class ApplicationCommand(_BaseCommand, Generic[CogT, P, T]):
             "guild_only",
             "contexts",
             "2.6",
-            reference="https://discord.com/developers/docs/change-log#userinstallable-apps-preview",
+            reference="https://docs.discord.com/developers/change-log#user-installable-apps-preview",
         )
         if value:
             self.contexts = {InteractionContextType.guild}
@@ -712,10 +710,10 @@ class SlashCommand(ApplicationCommand):
         doesn't have a cooldown.
     name_localizations: Dict[:class:`str`, :class:`str`]
         The name localizations for this command. The values of this should be ``"locale": "name"``. See
-        `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+        `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
     description_localizations: Dict[:class:`str`, :class:`str`]
         The description localizations for this command. The values of this should be ``"locale": "description"``.
-        See `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+        See `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
     integration_types: Set[:class:`IntegrationType`]
         The type of installation this command should be available to. For instance, if set to
         :attr:`IntegrationType.user_install`, the command will only be available to users with
@@ -887,17 +885,22 @@ class SlashCommand(ApplicationCommand):
         params = self._check_required_params(params)
 
         check_annotations: list[Callable[[Option, type], bool]] = [
-            lambda o, a: o.input_type == SlashCommandOptionType.string
-            and o.converter is not None,  # pass on converters
+            lambda o, a: (
+                o.input_type == SlashCommandOptionType.string
+                and o.converter is not None
+            ),  # pass on converters
             lambda o, a: isinstance(
                 o.input_type, SlashCommandOptionType
             ),  # pass on slash cmd option type enums
             lambda o, a: isinstance(o._raw_type, tuple) and a == Union[o._raw_type],  # type: ignore # union types
-            lambda o, a: self._is_typing_optional(a)
-            and not o.required
-            and o._raw_type in a.__args__,  # optional
-            lambda o, a: isinstance(a, type)
-            and issubclass(a, o._raw_type),  # 'normal' types
+            lambda o, a: (
+                self._is_typing_optional(a)
+                and not o.required
+                and o._raw_type in a.__args__
+            ),  # optional
+            lambda o, a: (
+                isinstance(a, type) and issubclass(a, o._raw_type)
+            ),  # 'normal' types
         ]
         for o in options:
             _validate_names(o)
@@ -1212,10 +1215,10 @@ class SlashCommandGroup(ApplicationCommand):
         event.
     name_localizations: Dict[:class:`str`, :class:`str`]
         The name localizations for this command. The values of this should be ``"locale": "name"``. See
-        `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+        `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
     description_localizations: Dict[:class:`str`, :class:`str`]
         The description localizations for this command. The values of this should be ``"locale": "description"``.
-        See `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+        See `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
     integration_types: Set[:class:`IntegrationType`]
         The type of installation this command should be available to. For instance, if set to
         :attr:`IntegrationType.user_install`, the command will only be available to users with
@@ -1397,6 +1400,15 @@ class SlashCommandGroup(ApplicationCommand):
     def command(
         self, cls: type[T] = SlashCommand, **kwargs
     ) -> Callable[[Callable], SlashCommand]:
+        """A shortcut decorator for adding a subcommand to this slash command group.
+
+        Returns
+        -------
+        Callable[..., :class:`SlashCommand`]
+            A decorator that converts the provided function into a :class:`.SlashCommand`,
+            adds it to this group, then returns it.
+        """
+
         def wrap(func) -> T:
             command = cls(func, parent=self, **kwargs)
             self.add_command(command)
@@ -1412,7 +1424,7 @@ class SlashCommandGroup(ApplicationCommand):
         **kwargs,
     ) -> SlashCommandGroup:
         """
-        Creates a new subgroup for this SlashCommandGroup.
+        Creates a new subgroup under this slash command group.
 
         Parameters
         ----------
@@ -1439,10 +1451,10 @@ class SlashCommandGroup(ApplicationCommand):
             event.
         name_localizations: Dict[:class:`str`, :class:`str`]
             The name localizations for this command. The values of this should be ``"locale": "name"``. See
-            `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+            `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
         description_localizations: Dict[:class:`str`, :class:`str`]
             The description localizations for this command. The values of this should be ``"locale": "description"``.
-            See `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+            See `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
 
         Returns
         -------
@@ -1640,7 +1652,7 @@ class ContextMenuCommand(ApplicationCommand):
         doesn't have a cooldown.
     name_localizations: Dict[:class:`str`, :class:`str`]
         The name localizations for this command. The values of this should be ``"locale": "name"``. See
-        `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+        `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
     integration_types: Set[:class:`IntegrationType`]
         The installation contexts where this command is available. Unapplicable for guild commands.
     contexts: Set[:class:`InteractionContextType`]
@@ -1780,7 +1792,7 @@ class UserCommand(ContextMenuCommand):
         doesn't have a cooldown.
     name_localizations: Dict[:class:`str`, :class:`str`]
         The name localizations for this command. The values of this should be ``"locale": "name"``. See
-        `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+        `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
     integration_types: Set[:class:`IntegrationType`]
         The installation contexts where this command is available. Unapplicable for guild commands.
     contexts: Set[:class:`InteractionContextType`]
@@ -1895,7 +1907,7 @@ class MessageCommand(ContextMenuCommand):
         doesn't have a cooldown.
     name_localizations: Dict[:class:`str`, :class:`str`]
         The name localizations for this command. The values of this should be ``"locale": "name"``. See
-        `here <https://discord.com/developers/docs/reference#locales>`_ for a list of valid locales.
+        `here <https://docs.discord.com/developers/reference#locales>`_ for a list of valid locales.
     integration_types: Set[:class:`IntegrationType`]
         The installation contexts where this command is available. Unapplicable for guild commands.
     contexts: Set[:class:`InteractionContextType`]
@@ -1967,7 +1979,25 @@ class MessageCommand(ContextMenuCommand):
             return self.copy()
 
 
-def slash_command(**kwargs):
+def slash_command(
+    *,
+    checks: list[Callable[[ApplicationContext], bool]] | None = MISSING,
+    cog: Cog | None = MISSING,
+    contexts: set[InteractionContextType] | None = MISSING,
+    cooldown: Cooldown | None = MISSING,
+    default_member_permissions: Permissions | None = MISSING,
+    description: str | None = MISSING,
+    description_localizations: dict[str, str] | None = MISSING,
+    guild_ids: list[int] | None = MISSING,
+    guild_only: bool | None = MISSING,
+    integration_types: set[IntegrationType] | None = MISSING,
+    name: str | None = MISSING,
+    name_localizations: dict[str, str] | None = MISSING,
+    nsfw: bool | None = MISSING,
+    options: list[Option] | None = MISSING,
+    parent: SlashCommandGroup | None = MISSING,
+    **kwargs: Never,
+) -> Callable[..., SlashCommand]:
     """Decorator for slash commands that invokes :func:`application_command`.
 
     .. versionadded:: 2.0
@@ -1977,10 +2007,42 @@ def slash_command(**kwargs):
     Callable[..., :class:`.SlashCommand`]
         A decorator that converts the provided method into a :class:`.SlashCommand`.
     """
-    return application_command(cls=SlashCommand, **kwargs)
+    return application_command(
+        cls=SlashCommand,
+        checks=checks,
+        cog=cog,
+        contexts=contexts,
+        cooldown=cooldown,
+        default_member_permissions=default_member_permissions,
+        description=description,
+        description_localizations=description_localizations,
+        guild_ids=guild_ids,
+        guild_only=guild_only,
+        integration_types=integration_types,
+        name=name,
+        name_localizations=name_localizations,
+        nsfw=nsfw,
+        options=options,
+        parent=parent,
+        **kwargs,
+    )
 
 
-def user_command(**kwargs):
+def user_command(
+    *,
+    checks: list[Callable[[ApplicationContext], bool]] | None = MISSING,
+    cog: Cog | None = MISSING,
+    contexts: set[InteractionContextType] | None = MISSING,
+    cooldown: Cooldown | None = MISSING,
+    default_member_permissions: Permissions | None = MISSING,
+    guild_ids: list[int] | None = MISSING,
+    guild_only: bool | None = MISSING,
+    integration_types: set[IntegrationType] | None = MISSING,
+    name: str | None = MISSING,
+    name_localizations: dict[str, str] | None = MISSING,
+    nsfw: bool | None = MISSING,
+    **kwargs: Never,
+) -> Callable[..., UserCommand]:
     """Decorator for user commands that invokes :func:`application_command`.
 
     .. versionadded:: 2.0
@@ -1990,10 +2052,38 @@ def user_command(**kwargs):
     Callable[..., :class:`.UserCommand`]
         A decorator that converts the provided method into a :class:`.UserCommand`.
     """
-    return application_command(cls=UserCommand, **kwargs)
+    return application_command(
+        cls=UserCommand,
+        checks=checks,
+        cog=cog,
+        contexts=contexts,
+        cooldown=cooldown,
+        default_member_permissions=default_member_permissions,
+        guild_ids=guild_ids,
+        guild_only=guild_only,
+        integration_types=integration_types,
+        name=name,
+        name_localizations=name_localizations,
+        nsfw=nsfw,
+        **kwargs,
+    )
 
 
-def message_command(**kwargs):
+def message_command(
+    *,
+    checks: list[Callable[[ApplicationContext], bool]] | None = MISSING,
+    cog: Cog | None = MISSING,
+    contexts: set[InteractionContextType] | None = MISSING,
+    cooldown: Cooldown | None = MISSING,
+    default_member_permissions: Permissions | None = MISSING,
+    guild_ids: list[int] | None = MISSING,
+    guild_only: bool | None = MISSING,
+    integration_types: set[IntegrationType] | None = MISSING,
+    name: str | None = MISSING,
+    name_localizations: dict[str, str] | None = MISSING,
+    nsfw: bool | None = MISSING,
+    **kwargs: Never,
+) -> Callable[..., MessageCommand]:
     """Decorator for message commands that invokes :func:`application_command`.
 
     .. versionadded:: 2.0
@@ -2003,10 +2093,43 @@ def message_command(**kwargs):
     Callable[..., :class:`.MessageCommand`]
         A decorator that converts the provided method into a :class:`.MessageCommand`.
     """
-    return application_command(cls=MessageCommand, **kwargs)
+    return application_command(
+        cls=MessageCommand,
+        checks=checks,
+        cog=cog,
+        contexts=contexts,
+        cooldown=cooldown,
+        default_member_permissions=default_member_permissions,
+        guild_ids=guild_ids,
+        guild_only=guild_only,
+        integration_types=integration_types,
+        name=name,
+        name_localizations=name_localizations,
+        nsfw=nsfw,
+        **kwargs,
+    )
 
 
-def application_command(cls=SlashCommand, **attrs):
+def application_command(
+    *,
+    cls: type[C] = SlashCommand,
+    checks: list[Callable[[ApplicationContext], bool]] | None = MISSING,
+    cog: Cog | None = MISSING,
+    contexts: set[InteractionContextType] | None = MISSING,
+    cooldown: Cooldown | None = MISSING,
+    default_member_permissions: Permissions | None = MISSING,
+    description: str | None = MISSING,
+    description_localizations: dict[str, str] | None = MISSING,
+    guild_ids: list[int] | None = MISSING,
+    guild_only: bool | None = MISSING,
+    integration_types: set[IntegrationType] | None = MISSING,
+    name: str | None = MISSING,
+    name_localizations: dict[str, str] | None = MISSING,
+    nsfw: bool | None = MISSING,
+    options: list[Option] | None = MISSING,
+    parent: SlashCommandGroup | None = MISSING,
+    **kwargs: Any,
+) -> Callable[..., C]:
     """A decorator that transforms a function into an :class:`.ApplicationCommand`. More specifically,
     usually one of :class:`.SlashCommand`, :class:`.UserCommand`, or :class:`.MessageCommand`. The exact class
     depends on the ``cls`` parameter.
@@ -2037,6 +2160,25 @@ def application_command(cls=SlashCommand, **attrs):
     TypeError
         If the function is not a coroutine or is already a command.
     """
+    params = {
+        "checks": checks,
+        "cog": cog,
+        "contexts": contexts,
+        "cooldown": cooldown,
+        "default_member_permissions": default_member_permissions,
+        "description": description,
+        "description_localizations": description_localizations,
+        "guild_ids": guild_ids,
+        "guild_only": guild_only,
+        "integration_types": integration_types,
+        "name": name,
+        "name_localizations": name_localizations,
+        "nsfw": nsfw,
+        "options": options,
+        "parent": parent,
+        **kwargs,
+    }
+    kwargs = {k: v for k, v in params.items() if v is not MISSING}
 
     def decorator(func: Callable) -> cls:
         if isinstance(func, ApplicationCommand):
@@ -2045,7 +2187,7 @@ def application_command(cls=SlashCommand, **attrs):
             raise TypeError(
                 "func needs to be a callable or a subclass of ApplicationCommand."
             )
-        return cls(func, **attrs)
+        return cls(func, **kwargs)
 
     return decorator
 
@@ -2066,7 +2208,7 @@ def command(**kwargs):
     return application_command(**kwargs)
 
 
-docs = "https://discord.com/developers/docs"
+docs = "https://docs.discord.com/developers"
 valid_locales = [
     "id",
     "da",

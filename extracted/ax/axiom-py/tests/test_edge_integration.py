@@ -17,7 +17,7 @@ import logging
 def get_edge_config():
     """Get edge configuration from environment variables.
 
-    Returns tuple of (edge_url, edge_token, dataset_region).
+    Returns tuple of (edge_url, edge_token, dataset_edge_deployment).
     Returns (None, None, None) if edge testing is not configured.
 
     Note: Empty strings are treated as None since GitHub Actions sets
@@ -25,9 +25,9 @@ def get_edge_config():
     """
     edge_url = os.getenv("AXIOM_EDGE_URL") or None
     edge_token = os.getenv("AXIOM_EDGE_TOKEN") or None
-    dataset_region = os.getenv("AXIOM_EDGE_DATASET_REGION") or None
+    dataset_edge_deployment = os.getenv("AXIOM_EDGE_DEPLOYMENT") or None
 
-    return edge_url, edge_token, dataset_region
+    return edge_url, edge_token, dataset_edge_deployment
 
 
 def is_edge_configured():
@@ -50,14 +50,14 @@ class TestEdgeIntegration(unittest.TestCase):
                 "skipping edge integration tests; " "set AXIOM_EDGE_URL to run"
             )
 
-        edge_url, edge_token, dataset_region = get_edge_config()
+        edge_url, edge_token, dataset_edge_deployment = get_edge_config()
 
-        # Dataset region must be set for edge tests to ensure the dataset
-        # is created in the same region as the edge endpoint
-        if not dataset_region:
+        # Dataset edgeDeployment must be set for edge tests to ensure the dataset
+        # is created in the same edge deployment as the edge endpoint
+        if not dataset_edge_deployment:
             raise unittest.SkipTest(
                 "skipping edge integration tests; "
-                "AXIOM_EDGE_DATASET_REGION must be set to match edge endpoint"
+                "AXIOM_EDGE_DEPLOYMENT must be set to match edge endpoint"
             )
 
         org_id = os.getenv("AXIOM_ORG_ID")
@@ -86,24 +86,24 @@ class TestEdgeIntegration(unittest.TestCase):
         )
 
         cls.dataset_name = get_random_name()
-        cls.dataset_region = dataset_region
+        cls.dataset_edge_deployment = dataset_edge_deployment
 
         # Log configuration for debugging
         print(f"Edge URL: {edge_url}")
         print(f"Edge Token set: {bool(edge_token)}")
-        print(f"Dataset Region: {dataset_region}")
+        print(f"Dataset Edge Deployment: {dataset_edge_deployment}")
         print(f"Dataset Name: {cls.dataset_name}")
 
         # Create the test dataset via main API
-        # Set dataset region if configured (required for edge routing)
+        # Set dataset edgeDeployment if configured (required for edge routing)
         cls.api_client.datasets.create(
             cls.dataset_name,
             "edge integration test dataset",
-            region=dataset_region,
+            edgeDeployment=dataset_edge_deployment,
         )
 
-        # Verify the dataset was created in the expected region
-        # The API may ignore the region parameter on some environments
+        # Verify the dataset was created in the expected edgeDeployment
+        # The API may ignore the edgeDeployment parameter on some environments
         import requests
 
         resp = requests.get(
@@ -114,17 +114,17 @@ class TestEdgeIntegration(unittest.TestCase):
             },
         )
         if resp.status_code == 200:
-            actual_region = resp.json().get("region", "")
-            if actual_region != dataset_region:
-                # Clean up and skip - the server didn't create in expected region
+            actual_edge_deployment = resp.json().get("edgeDeployment", "")
+            if actual_edge_deployment != dataset_edge_deployment:
+                # Clean up and skip - the server didn't create in expected edgeDeployment
                 try:
                     cls.api_client.datasets.delete(cls.dataset_name)
                 except Exception:
                     pass
                 raise unittest.SkipTest(
-                    f"skipping edge tests; dataset created in {actual_region} "
-                    f"instead of {dataset_region} (server may not support "
-                    "region parameter)"
+                    f"skipping edge tests; dataset created in {actual_edge_deployment} "
+                    f"instead of {dataset_edge_deployment} (server may not support "
+                    "edgeDeployment parameter)"
                 )
 
     @classmethod
@@ -340,20 +340,20 @@ class TestAsyncEdgeIntegration(unittest.TestCase):
                 "set AXIOM_EDGE_URL to run"
             )
 
-        edge_url, edge_token, dataset_region = get_edge_config()
+        edge_url, edge_token, dataset_edge_deployment = get_edge_config()
 
-        # Dataset region must be set for edge tests to ensure the dataset
-        # is created in the same region as the edge endpoint
-        if not dataset_region:
+        # Dataset edgeDeployment must be set for edge tests to ensure the dataset
+        # is created in the same edge deployment as the edge endpoint
+        if not dataset_edge_deployment:
             raise unittest.SkipTest(
                 "skipping async edge integration tests; "
-                "AXIOM_EDGE_DATASET_REGION must be set to match edge endpoint"
+                "AXIOM_EDGE_DEPLOYMENT must be set to match edge endpoint"
             )
 
         cls.edge_url = edge_url
         cls.edge_token = edge_token or os.getenv("AXIOM_TOKEN")
         cls.org_id = os.getenv("AXIOM_ORG_ID")
-        cls.dataset_region = dataset_region
+        cls.dataset_edge_deployment = dataset_edge_deployment
         cls.dataset_name = get_random_name()
 
         # Create main API client for dataset management (sync)
@@ -366,19 +366,19 @@ class TestAsyncEdgeIntegration(unittest.TestCase):
         # Log configuration for debugging
         print(f"Async Edge URL: {edge_url}")
         print(f"Async Edge Token set: {bool(edge_token)}")
-        print(f"Async Dataset Region: {dataset_region}")
+        print(f"Async Dataset Edge Deployment: {dataset_edge_deployment}")
         print(f"Async Dataset Name: {cls.dataset_name}")
 
         # Create the test dataset via main API
-        # Set dataset region if configured (required for edge routing)
+        # Set dataset edgeDeployment if configured (required for edge routing)
         cls.api_client.datasets.create(
             cls.dataset_name,
             "async edge integration test dataset",
-            region=dataset_region,
+            edgeDeployment=dataset_edge_deployment,
         )
 
-        # Verify the dataset was created in the expected region
-        # The API may ignore the region parameter on some environments
+        # Verify the dataset was created in the expected edgeDeployment
+        # The API may ignore the edgeDeployment parameter on some environments
         import requests
 
         resp = requests.get(
@@ -389,17 +389,17 @@ class TestAsyncEdgeIntegration(unittest.TestCase):
             },
         )
         if resp.status_code == 200:
-            actual_region = resp.json().get("region", "")
-            if actual_region != dataset_region:
-                # Clean up and skip - the server didn't create in expected region
+            actual_edge_deployment = resp.json().get("edgeDeployment", "")
+            if actual_edge_deployment != dataset_edge_deployment:
+                # Clean up and skip - the server didn't create in expected edgeDeployment
                 try:
                     cls.api_client.datasets.delete(cls.dataset_name)
                 except Exception:
                     pass
                 raise unittest.SkipTest(
                     f"skipping async edge tests; dataset created in "
-                    f"{actual_region} instead of {dataset_region} "
-                    "(server may not support region parameter)"
+                    f"{actual_edge_deployment} instead of {dataset_edge_deployment} "
+                    "(server may not support edgeDeployment parameter)"
                 )
 
     @classmethod
@@ -607,16 +607,44 @@ class TestAsyncEdgeIntegration(unittest.TestCase):
         asyncio.run(run_test())
 
 
-class TestAsyncEdgeURLConfiguration(unittest.TestCase):
-    """Test async edge_url configuration."""
+class TestAsyncEdgeConfiguration(unittest.TestCase):
+    """Test async edge configuration."""
+
+    def _clear_env(self):
+        os.environ.pop("AXIOM_EDGE", None)
+        os.environ.pop("AXIOM_URL", None)
+        os.environ.pop("AXIOM_EDGE_URL", None)
+
+    def test_async_edge_builds_correct_urls(self):
+        """Test async edge builds correct ingest and query URLs."""
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {}, clear=False):
+            self._clear_env()
+
+            client = AsyncClient(
+                token="xaat-test-token",
+                org_id="test-org",
+                edge="eu-central-1.aws.edge.axiom.co",
+            )
+
+            self.assertEqual(client._edge, "eu-central-1.aws.edge.axiom.co")
+            self.assertEqual(
+                client._get_edge_ingest_url("my-dataset"),
+                "https://eu-central-1.aws.edge.axiom.co/v1/ingest/my-dataset",
+            )
+            self.assertEqual(
+                client._get_edge_query_url(),
+                "https://eu-central-1.aws.edge.axiom.co/v1/query/_apl",
+            )
+            self.assertTrue(client.is_edge_configured())
 
     def test_async_edge_url_builds_correct_urls(self):
         """Test async edge_url builds correct ingest and query URLs."""
         from unittest.mock import patch
 
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("AXIOM_URL", None)
-            os.environ.pop("AXIOM_EDGE_URL", None)
+            self._clear_env()
 
             client = AsyncClient(
                 token="xaat-test-token",
@@ -638,8 +666,7 @@ class TestAsyncEdgeURLConfiguration(unittest.TestCase):
         from unittest.mock import patch
 
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("AXIOM_URL", None)
-            os.environ.pop("AXIOM_EDGE_URL", None)
+            self._clear_env()
 
             client = AsyncClient(
                 token="xaat-test-token",
@@ -657,3 +684,57 @@ class TestAsyncEdgeURLConfiguration(unittest.TestCase):
                 query_url,
                 "https://eu-central-1.aws.edge.axiom.co/v1/query/_apl",
             )
+
+    def test_async_edge_url_takes_precedence_over_edge(self):
+        """Test that async edge_url takes precedence over edge."""
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {}, clear=False):
+            self._clear_env()
+
+            client = AsyncClient(
+                token="xaat-test-token",
+                org_id="test-org",
+                edge="ignored.aws.edge.axiom.co",
+                edge_url="https://custom-edge.example.com",
+            )
+
+            self.assertEqual(
+                client._get_edge_ingest_url("my-dataset"),
+                "https://custom-edge.example.com/v1/ingest/my-dataset",
+            )
+            self.assertEqual(
+                client._get_edge_query_url(),
+                "https://custom-edge.example.com/v1/query/_apl",
+            )
+
+    def test_async_edge_not_read_from_env(self):
+        """Test that async edge config is NOT auto-read from environment."""
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {}, clear=False):
+            self._clear_env()
+            os.environ["AXIOM_EDGE"] = "eu-central-1.aws.edge.axiom.co"
+            os.environ["AXIOM_EDGE_URL"] = "https://custom-edge.example.com"
+
+            client = AsyncClient(token="xaat-test-token", org_id="test-org")
+
+            self.assertIsNone(client._edge)
+            self.assertIsNone(client._edge_url)
+            self.assertFalse(client.is_edge_configured())
+
+    def test_async_empty_string_edge_treated_as_none(self):
+        """Test that async edge empty string is treated as None."""
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {}, clear=False):
+            self._clear_env()
+
+            client = AsyncClient(
+                token="xaat-test-token",
+                org_id="test-org",
+                edge="",
+            )
+
+            self.assertIsNone(client._edge)
+            self.assertFalse(client.is_edge_configured())

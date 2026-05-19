@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.7.5
+Version: 0.7.6
 Summary: Define, Prompt and Test MCP enabled Agents and Workflows
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -242,6 +242,7 @@ Requires-Dist: opentelemetry-instrumentation-anthropic==0.52.1; python_version >
 Requires-Dist: opentelemetry-instrumentation-google-genai==0.6b0
 Requires-Dist: opentelemetry-instrumentation-mcp==0.52.1; python_version >= '3.10' and python_version < '4.0'
 Requires-Dist: opentelemetry-instrumentation-openai==0.52.1; python_version >= '3.10' and python_version < '4.0'
+Requires-Dist: pillow>=12.1.1
 Requires-Dist: prompt-toolkit==3.0.52
 Requires-Dist: pydantic-settings==2.14.1
 Requires-Dist: pydantic==2.13.4

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytest-playwright
-Version: 0.7.2
+Version: 0.8.0
 Summary: A pytest wrapper with fixtures for Playwright to automate web browsers
 Author: Microsoft
 License:                                  Apache License

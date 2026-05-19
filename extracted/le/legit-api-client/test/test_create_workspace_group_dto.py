@@ -35,7 +35,7 @@ class TestCreateWorkspaceGroupDto(unittest.TestCase):
         model = CreateWorkspaceGroupDto()
         if include_optional:
             return CreateWorkspaceGroupDto(
-                name = '',
+                name = '0',
                 description = '',
                 parent_group_id = '',
                 child_group_ids = [
@@ -47,6 +47,7 @@ class TestCreateWorkspaceGroupDto(unittest.TestCase):
             )
         else:
             return CreateWorkspaceGroupDto(
+                name = '0',
         )
         """
 

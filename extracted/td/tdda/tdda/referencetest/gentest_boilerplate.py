@@ -1,5 +1,4 @@
-HEADER = '''# -*- coding: utf-8 -*-
-"""
+HEADER = '''"""
 %(SCRIPT)s: Automatically generated test code from tdda gentest.
 
 Generation command:
@@ -38,7 +37,7 @@ class Test%(CLASSNAME)s(ReferenceTestCase):
 '''
 
 
-TAIL = '''
+TAIL = """
 if __name__ == '__main__':
     ReferenceTestCase.main()
-'''
+"""

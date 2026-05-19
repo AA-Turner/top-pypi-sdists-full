@@ -379,6 +379,53 @@ def test_auto_result_pipeline_carries_runtime_labels(tmp_path) -> None:
     assert result.opencode_mode is None
 
 
+def test_run_auto_complete_product_configures_ralph_evolutionary_loop(
+    tmp_path, monkeypatch
+) -> None:
+    """Regression for #1090: CLI complete-product must not create a bare Ralph handler.
+
+    A bare ``RalphHandler(agent_runtime_backend=...)`` constructs an
+    ``EvolveStepHandler`` without an ``EvolutionaryLoop``. The background Ralph
+    job then fails at handoff time with ``EvolutionaryLoop not configured``.
+    """
+    import asyncio
+
+    from ouroboros.cli.commands.auto import _run_auto
+
+    captured = {}
+    monkeypatch.chdir(tmp_path)
+
+    async def fake_pipeline_run(self, run_state):  # noqa: ARG001
+        ralph_starter = self.ralph_starter
+        captured["evolve_handler"] = ralph_starter.handler._evolve_handler  # noqa: SLF001
+        captured["project_dir"] = ralph_starter.project_dir
+        return AutoPipelineResult(
+            status="complete",
+            auto_session_id=run_state.auto_session_id,
+            phase="complete",
+            grade="A",
+        )
+
+    with patch("ouroboros.cli.commands.auto.AutoPipeline.run", new=fake_pipeline_run):
+        result = asyncio.run(
+            _run_auto(
+                goal="safe goal",
+                resume=None,
+                runtime="hermes",
+                max_interview_rounds=2,
+                max_repair_rounds=1,
+                skip_run=False,
+                complete_product=True,
+            )
+        )
+
+    assert result.status == "complete"
+    evolve_handler = captured.get("evolve_handler")
+    assert evolve_handler is not None
+    assert getattr(evolve_handler, "evolutionary_loop", None) is not None
+    assert captured["project_dir"] == str(tmp_path)
+
+
 def test_run_auto_demotes_plugin_to_subprocess_in_state(tmp_path) -> None:
     """`_run_auto` must overwrite persisted plugin opencode_mode to subprocess."""
     import asyncio
@@ -613,3 +660,117 @@ def test_print_result_resume_capability_none_emits_no_resume_line() -> None:
     assert "Resume:" not in output
     assert "Retry:" not in output
     assert "Start fresh" not in output
+
+
+def test_print_result_handoff_completion_is_not_labeled_product_complete() -> None:
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_handoff",
+        phase="complete",
+        run_handoff_status="started",
+        job_id="job_123",
+        execution_id="exec_123",
+        resume_capability=AutoResumeCapability.NONE,
+    )
+
+    output = _capture_result(result)
+
+    assert "Auto run handoff started" in output
+    assert "Status: run_handoff_started" in output
+    assert "Product status: not verified complete" in output
+    assert "Auto pipeline completed" not in output
+
+
+def test_print_result_complete_product_completion_suppresses_stale_handoff_status() -> None:
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_complete_product",
+        phase="complete",
+        run_handoff_status="started",
+        job_id="job_123",
+        execution_id="exec_123",
+        run_session_id="orch_123",
+        ralph_job_id="job_ralph",
+        ralph_lineage_id="lineage_123",
+        ralph_dispatch_mode="sync",
+        resume_capability=AutoResumeCapability.NONE,
+    )
+
+    output = _capture_result(result)
+
+    assert "Auto pipeline completed" in output
+    assert "Status: complete" in output
+    assert "Product status: completed by Ralph loop" in output
+    assert "Status: run_handoff_started" not in output
+    assert "Run handoff status: started" not in output
+    assert "Product status: not verified complete" not in output
+
+
+def test_print_result_complete_product_completion_suppresses_retry_handoff_status() -> None:
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_complete_product_retry",
+        phase="complete",
+        run_handoff_status="ralph_retry_after_blocker",
+        job_id="job_123",
+        execution_id="exec_123",
+        run_session_id="orch_123",
+        ralph_job_id="job_ralph",
+        ralph_lineage_id="lineage_123",
+        ralph_dispatch_mode="job",
+        resume_capability=AutoResumeCapability.NONE,
+    )
+
+    output = _capture_result(result)
+
+    assert "Auto pipeline completed" in output
+    assert "Product status: completed by Ralph loop" in output
+    assert "Run handoff status: ralph_retry_after_blocker" not in output
+
+
+def test_print_result_plugin_ralph_completion_remains_external_pending() -> None:
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_plugin_complete_product",
+        phase="complete",
+        run_handoff_status="started",
+        run_handoff_guidance=(
+            "Ralph loop delegated to the OpenCode plugin child session. "
+            "Track progress through the OpenCode Task widget."
+        ),
+        job_id="job_123",
+        execution_id="exec_123",
+        run_session_id="orch_123",
+        ralph_lineage_id="lineage_123",
+        ralph_dispatch_mode="plugin",
+        resume_capability=AutoResumeCapability.NONE,
+    )
+
+    output = _capture_result(result)
+
+    assert "Auto pipeline completed" in output
+    assert "Status: complete" in output
+    assert "Product status: not verified complete; Ralph loop is external/pending" in output
+    assert "Product status: completed by Ralph loop" not in output
+    assert "Run handoff status: started" in output
+    assert "Run handoff guidance: Ralph loop delegated to the OpenCode plugin" in output
+
+
+def test_print_result_attached_completion_remains_product_complete() -> None:
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_attached",
+        phase="complete",
+        run_handoff_status="attached",
+        attached_run_handle="exec_existing",
+        attached_run_source="operator",
+        attached_at="2026-05-07T00:00:00+00:00",
+        resume_capability=AutoResumeCapability.NONE,
+    )
+
+    output = _capture_result(result)
+
+    assert "Auto pipeline completed" in output
+    assert "Status: complete" in output
+    assert "Status: run_handoff_started" not in output
+    assert "Product status: not verified complete" not in output

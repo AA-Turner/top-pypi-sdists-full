@@ -4,8 +4,8 @@ import time
 import uuid
 from fnmatch import fnmatch
 
+from biolib._shared.types.typing import Callable, List, Union, cast
 from biolib.biolib_binary_format.utils import LazyLoadedFile
-from biolib.typing_utils import Callable, List, Union, cast
 
 PathFilter = Union[str, Callable[[str], bool]]
 

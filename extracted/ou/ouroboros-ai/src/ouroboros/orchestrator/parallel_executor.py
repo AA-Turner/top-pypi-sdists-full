@@ -32,8 +32,10 @@ from dataclasses import replace
 from datetime import UTC, datetime
 import json
 import os
+from pathlib import Path
 import platform
 import re
+import shlex
 import subprocess
 import time
 from typing import TYPE_CHECKING, Any
@@ -41,6 +43,7 @@ from typing import TYPE_CHECKING, Any
 import anyio
 from rich.console import Console
 
+from ouroboros.core.seed_contract_prompt import render_auto_recursion_guard
 from ouroboros.observability.logging import get_logger
 from ouroboros.orchestrator.adapter import (
     AgentMessage,
@@ -51,6 +54,7 @@ from ouroboros.orchestrator.capabilities import (
     build_capability_graph,
     serialize_capability_graph,
 )
+from ouroboros.orchestrator.context_governor import SiblingStatus, compose_context
 from ouroboros.orchestrator.control_plane import (
     build_control_plane_state,
     serialize_control_plane_state,
@@ -64,6 +68,14 @@ from ouroboros.orchestrator.decomposition_params import (
 from ouroboros.orchestrator.events import (
     create_ac_stall_detected_event,
     create_heartbeat_event,
+)
+from ouroboros.orchestrator.evidence_schema import (
+    EvidenceError,
+    EvidenceRecord,
+    ProfileEvidenceConfigError,
+    ValidationResult,
+    extract_evidence,
+    validate_evidence,
 )
 from ouroboros.orchestrator.execution_runtime_scope import (
     ACRuntimeIdentity,
@@ -93,9 +105,15 @@ from ouroboros.orchestrator.policy import (
     PolicySessionRole,
     evaluate_capability_policy,
 )
-from ouroboros.orchestrator.profile_loader import ExecutionProfile
+from ouroboros.orchestrator.profile_loader import EvidenceSchema, ExecutionProfile
 from ouroboros.orchestrator.runtime_message_projection import (
     project_runtime_message,
+)
+from ouroboros.orchestrator.verifier import (
+    Verifier,
+    VerifierContractError,
+    VerifierVerdict,
+    verifier_operational_failure_verdict,
 )
 
 if TYPE_CHECKING:
@@ -120,12 +138,1168 @@ DECOMPOSITION_TIMEOUT_SECONDS = 60.0
 _IMPLEMENTATION_SESSION_KIND = "implementation_session"
 
 
+_DOC_ONLY_TARGET_RE = re.compile(
+    r"\b(readme(?:\.md)?|docs?/|docs?\.[a-z0-9_-]+|documentation|guide|manual|changelog)\b",
+    re.IGNORECASE,
+)
+_DOC_ONLY_ACTION_RE = re.compile(
+    r"\b(document|describe|explain|add|update|create|fix|write|improve)\b",
+    re.IGNORECASE,
+)
+_CODE_IMPLEMENTATION_ACTION_RE = re.compile(
+    r"\b(implement|build|develop|ship)\b",
+    re.IGNORECASE,
+)
+_CODE_MUTATION_ACTION_RE = re.compile(
+    r"\b(add(?:ing)?|fix(?:ing)?|create|creating|update|updating|change|changing|modify|modifying|refactor(?:ing)?|repair(?:ing)?)\b",
+    re.IGNORECASE,
+)
+_CODE_WORK_SIGNAL_RE = re.compile(
+    r"("
+    r"\b[a-zA-Z_][a-zA-Z0-9_]*\s*\("
+    r"|"
+    r"\.(?:py|pyi|js|jsx|ts|tsx|go|rs|java|kt|c|cc|cpp|h|hpp|swift|rb|php|sh|zsh|fish)\b"
+    r"|"
+    r"\b(parser|function|module|api|endpoint|class|method|cli\s+flag|flag|command|"
+    r"bug|runtime|workflow|validator|validation|implementation)\b"
+    r")",
+    re.IGNORECASE,
+)
+_TEST_WORK_RE = re.compile(
+    r"("
+    r"\b(?:run|execute|pass|validate|verify)\b.{0,40}\b(?:pytest|tests?|unit\s+tests?|integration\s+tests?)\b"
+    r"|"
+    r"\b(?:add|write|create|implement|fix|update)\b.{0,40}\b"
+    r"(?:tests?|unit\s+tests?|integration\s+tests?)\b"
+    r"(?!\s+(?:guide|docs?|documentation|setup))"
+    r"|"
+    r"\b(?:pytest|tests_passed|test\s+command)\b"
+    r")",
+    re.IGNORECASE,
+)
+_TEST_MUTATION_WORK_RE = re.compile(
+    r"("
+    r"\b(?:add|write|create|implement|fix|update|extend|expand)\b.{0,60}\b"
+    r"(?:tests?|unit\s+tests?|integration\s+tests?|coverage|test_[\w.-]+\.py)\b"
+    r"|"
+    r"\b(?:tests?|unit\s+tests?|integration\s+tests?|test_[\w.-]+\.py)\b.{0,60}\b"
+    r"(?:cover|coverage)\b"
+    r"|"
+    r"\bcheck(?:ed)?\s+(?:(?:the|existing|current|new|added|updated)\s+){0,3}"
+    r"(?:tests?|unit\s+tests?|integration\s+tests?|test_[\w.-]+\.py)"
+    r"\s+into\b"
+    r"|"
+    r"\bcheck\s+in\b.{0,60}\b"
+    r"(?:tests?|unit\s+tests?|integration\s+tests?|test_[\w.-]+\.py)\b"
+    r")",
+    re.IGNORECASE,
+)
+_DOCS_TEST_REFERENCE_RE = re.compile(
+    r"("
+    r"\b(?:document(?:ing)?|guide|manual|instructions?|usage|setup|how\s+to|verification)\b"
+    r".{0,100}\b(?:test\s+command|python\s+-m\s+unittest|pytest|tests?|unit\s+tests?|test\s+setup)\b"
+    r"|"
+    r"\b(?:test\s+command|python\s+-m\s+unittest|pytest|tests?|unit\s+tests?|test\s+setup)\b"
+    r".{0,100}\b(?:document(?:ing)?|guide|manual|instructions?|usage|setup|how\s+to|verification)\b"
+    r")",
+    re.IGNORECASE,
+)
+_NO_MUTATION_VALIDATION_RE = re.compile(
+    r"("
+    r"\bwithout\s+(?:modifying|changing|editing|writing|updating|touching)\b"
+    r"|"
+    r"\bwith\s+no\s+(?:file|code)?\s*(?:modifications?|changes?|edits?|updates?)\b"
+    r"|"
+    r"\bno\s+(?:file|code)?\s*(?:modifications?|changes?|edits?|updates?)\b"
+    r"|"
+    r"\bdo\s+not\s+(?:modify|change|edit|write|update|touch)\b"
+    r")",
+    re.IGNORECASE,
+)
+_EXISTING_VALIDATION_RE = re.compile(
+    r"\b(?:existing|current|already(?:-|\s+)?satisfied|already(?:-|\s+)?implemented)\b",
+    re.IGNORECASE,
+)
+_VALIDATION_ONLY_ACTION_RE = re.compile(
+    r"\b(?:run|execute|pass|validate|verify|ensure|confirm|check)\b",
+    re.IGNORECASE,
+)
+_VALIDATION_ONLY_TEST_SIGNAL_RE = re.compile(
+    r"\b(?:pytest|unit\s+tests?|integration\s+tests?|tests?|test suite|"
+    r"test_[\w.-]+\.py|python\s+-m\s+unittest)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_mixed_code_and_documentation_work(ac_content: str) -> bool:
+    """Return True when one AC appears to combine code mutation and docs work."""
+    for connector in re.finditer(
+        r"\b(?:and|then|while|plus)\b|[,;:]",
+        ac_content,
+        re.IGNORECASE,
+    ):
+        before = ac_content[: connector.start()]
+        after = ac_content[connector.end() :]
+        before_has_docs = bool(_DOC_ONLY_TARGET_RE.search(before))
+        after_has_docs = bool(_DOC_ONLY_TARGET_RE.search(after))
+        before_has_code_work = bool(
+            _CODE_MUTATION_ACTION_RE.search(before) and _CODE_WORK_SIGNAL_RE.search(before)
+        )
+        after_has_code_work = bool(
+            _CODE_MUTATION_ACTION_RE.search(after) and _CODE_WORK_SIGNAL_RE.search(after)
+        )
+        if after_has_docs and not before_has_docs and before_has_code_work:
+            return True
+        if before_has_docs and not after_has_docs and after_has_code_work:
+            return True
+    return False
+
+
+def _has_mixed_test_and_documentation_work(ac_content: str) -> bool:
+    """Return True when one AC appears to combine test mutation and docs work."""
+    for connector in re.finditer(
+        r"\b(?:and|then|while|plus)\b|[,;:]",
+        ac_content,
+        re.IGNORECASE,
+    ):
+        before = ac_content[: connector.start()]
+        after = ac_content[connector.end() :]
+        before_has_docs = bool(_DOC_ONLY_TARGET_RE.search(before))
+        after_has_docs = bool(_DOC_ONLY_TARGET_RE.search(after))
+        before_has_test_work = bool(_TEST_MUTATION_WORK_RE.search(before))
+        after_has_test_work = bool(_TEST_MUTATION_WORK_RE.search(after))
+        if after_has_docs and not before_has_docs and before_has_test_work:
+            return True
+        if before_has_docs and not after_has_docs and after_has_test_work:
+            return True
+    return False
+
+
+def _has_mixed_validation_and_documentation_work(ac_content: str) -> bool:
+    """Return True when one AC appears to combine docs work and test execution."""
+    for connector in re.finditer(
+        r"\b(?:and|then|while|plus)\b|[,;:]",
+        ac_content,
+        re.IGNORECASE,
+    ):
+        before = ac_content[: connector.start()]
+        after = ac_content[connector.end() :]
+        before_has_docs = bool(_DOC_ONLY_TARGET_RE.search(before))
+        after_has_docs = bool(_DOC_ONLY_TARGET_RE.search(after))
+        before_has_validation = bool(
+            _VALIDATION_ONLY_ACTION_RE.search(before)
+            and _VALIDATION_ONLY_TEST_SIGNAL_RE.search(before)
+        )
+        after_has_validation = bool(
+            _VALIDATION_ONLY_ACTION_RE.search(after)
+            and _VALIDATION_ONLY_TEST_SIGNAL_RE.search(after)
+        )
+        if after_has_docs and not before_has_docs and before_has_validation:
+            return True
+        if before_has_docs and not after_has_docs and after_has_validation:
+            return True
+    return False
+
+
+def _is_documentation_only_ac(ac_content: str) -> bool:
+    """Return True when an AC asks only for documentation/README work.
+
+    The code profile normally requires runnable test evidence. Normal usage can
+    still include a final docs-only AC (for example README usage examples after
+    code ACs already passed). Such an AC should be verified by docs evidence
+    from the current runtime session, not by re-claiming prior code test IDs.
+    """
+    normalized = " ".join(ac_content.split())
+    if not normalized:
+        return False
+    has_docs_target = bool(_DOC_ONLY_TARGET_RE.search(normalized))
+    has_docs_action = bool(_DOC_ONLY_ACTION_RE.search(normalized))
+    documents_test_reference = (
+        has_docs_target and has_docs_action and bool(_DOCS_TEST_REFERENCE_RE.search(normalized))
+    )
+    if documents_test_reference and _has_mixed_validation_and_documentation_work(normalized):
+        return False
+    if _TEST_MUTATION_WORK_RE.search(normalized) and (
+        not documents_test_reference or _has_mixed_test_and_documentation_work(normalized)
+    ):
+        return False
+    if _TEST_WORK_RE.search(normalized) and not documents_test_reference:
+        return False
+    if _CODE_IMPLEMENTATION_ACTION_RE.search(normalized):
+        return False
+    if _has_mixed_code_and_documentation_work(normalized):
+        return False
+    if (
+        re.search(r"\bdocumentation\b", normalized, re.IGNORECASE)
+        and _CODE_MUTATION_ACTION_RE.search(normalized)
+        and _CODE_WORK_SIGNAL_RE.search(normalized)
+        and not re.search(
+            r"\b(readme(?:\.md)?|docs?/|docs?\.[a-z0-9_-]+|guide|manual|changelog)\b",
+            normalized,
+            re.IGNORECASE,
+        )
+    ):
+        return False
+    return has_docs_target and has_docs_action
+
+
+def _is_validation_only_ac(ac_content: str) -> bool:
+    """Return True when an AC asks only to run or verify tests.
+
+    Test-writing ACs still require ``files_touched``; validation-only ACs are
+    allowed to prove completion with command/test evidence and no file mutation.
+    """
+    normalized = " ".join(ac_content.split())
+    if not normalized:
+        return False
+    if _is_documentation_only_ac(normalized):
+        return False
+    if _DOC_ONLY_TARGET_RE.search(normalized) and _DOC_ONLY_ACTION_RE.search(normalized):
+        return False
+    stripped_no_mutation_terms = _NO_MUTATION_VALIDATION_RE.sub("", normalized)
+    if _TEST_MUTATION_WORK_RE.search(normalized):
+        return False
+    if _CODE_MUTATION_ACTION_RE.search(stripped_no_mutation_terms) and _CODE_WORK_SIGNAL_RE.search(
+        stripped_no_mutation_terms
+    ):
+        return False
+    if _CODE_IMPLEMENTATION_ACTION_RE.search(stripped_no_mutation_terms):
+        return False
+    if _has_mixed_code_and_documentation_work(stripped_no_mutation_terms):
+        return False
+    if (
+        (
+            _NO_MUTATION_VALIDATION_RE.search(normalized)
+            or _EXISTING_VALIDATION_RE.search(normalized)
+        )
+        and _VALIDATION_ONLY_ACTION_RE.search(normalized)
+        and _VALIDATION_ONLY_TEST_SIGNAL_RE.search(normalized)
+    ):
+        return True
+    return bool(_VALIDATION_ONLY_ACTION_RE.search(normalized)) and bool(
+        _VALIDATION_ONLY_TEST_SIGNAL_RE.search(normalized)
+    )
+
+
+def _effective_evidence_schema_for_ac(
+    profile: ExecutionProfile,
+    ac_content: str,
+) -> EvidenceSchema:
+    """Return the active evidence schema for one atomic AC dispatch."""
+    schema = profile.evidence_schema
+    if _is_validation_only_ac(ac_content) and "files_touched" in schema.required:
+        required = tuple(field for field in schema.required if field != "files_touched")
+        rejected_if = tuple(
+            expr for expr in schema.rejected_if if not expr.strip().startswith("files_touched")
+        )
+        return EvidenceSchema(required=required, rejected_if=rejected_if)
+    if not _is_documentation_only_ac(ac_content) or "tests_passed" not in schema.required:
+        return schema
+    required = tuple(field for field in schema.required if field != "tests_passed")
+    rejected_if = tuple(
+        expr for expr in schema.rejected_if if not expr.strip().startswith("tests_passed")
+    )
+    return EvidenceSchema(required=required, rejected_if=rejected_if)
+
+
+def _out_of_scope_evidence_fields_for_ac(
+    profile: ExecutionProfile,
+    ac_content: str,
+    record: EvidenceRecord | None,
+) -> tuple[str, ...]:
+    """Return non-empty evidence fields excluded by the AC-specific schema."""
+    if record is None:
+        return ()
+    effective_schema = _effective_evidence_schema_for_ac(profile, ac_content)
+    required_fields = set(effective_schema.required)
+    return tuple(
+        field
+        for field in profile.evidence_schema.required
+        if field not in required_fields and _flatten_evidence_values(record.get(field))
+    )
+
+
+def _out_of_scope_evidence_values_for_ac(
+    profile: ExecutionProfile,
+    ac_content: str,
+    record: EvidenceRecord | None,
+) -> dict[str, Any]:
+    """Return out-of-scope evidence values retained for audit metadata only."""
+    if record is None:
+        return {}
+    fields = _out_of_scope_evidence_fields_for_ac(profile, ac_content, record)
+    return {field: record.data[field] for field in fields if field in record.data}
+
+
+def _scoped_evidence_record_for_ac(
+    profile: ExecutionProfile,
+    ac_content: str,
+    record: EvidenceRecord,
+) -> EvidenceRecord:
+    """Return only evidence fields inside the AC-specific schema."""
+    effective_schema = _effective_evidence_schema_for_ac(profile, ac_content)
+    allowed_fields = set(effective_schema.required)
+    return EvidenceRecord(
+        data={field: value for field, value in record.data.items() if field in allowed_fields},
+        source=record.source,
+    )
+
+
+def _profile_with_evidence_schema(
+    profile: ExecutionProfile,
+    schema: EvidenceSchema,
+) -> ExecutionProfile:
+    """Return a shallow profile copy using an AC-specific evidence schema."""
+    required_fields = set(schema.required)
+    must_produce = tuple(field for field in profile.must_produce if field in required_fields)
+    return profile.model_copy(update={"evidence_schema": schema, "must_produce": must_produce})
+
+
 def _subtask_event_label(content: str, *, max_length: int = 50) -> str:
     """Return compact display text without losing full event content."""
     normalized = " ".join(content.split())
     if len(normalized) <= max_length:
         return normalized
     return normalized[:max_length]
+
+
+def _flatten_evidence_values(value: object) -> tuple[str, ...]:
+    """Return concrete string claims from a typed evidence field."""
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        stripped = value.strip()
+        return (stripped,) if stripped else ()
+    if isinstance(value, (int, float, bool)):
+        return (str(value),)
+    if isinstance(value, dict):
+        flattened: list[str] = []
+        for item in value.values():
+            flattened.extend(_flatten_evidence_values(item))
+        return tuple(flattened)
+    if isinstance(value, (list, tuple, set)):
+        flattened_sequence: list[str] = []
+        for item in value:
+            flattened_sequence.extend(_flatten_evidence_values(item))
+        return tuple(flattened_sequence)
+    return (str(value),)
+
+
+def _runtime_message_search_text(message: AgentMessage) -> str:
+    """Build searchable transcript text for one non-final runtime message."""
+    parts: list[str] = [message.content]
+    if message.tool_name:
+        parts.append(message.tool_name)
+    tool_input = message.data.get("tool_input")
+    if isinstance(tool_input, dict):
+        parts.extend(str(value) for value in tool_input.values() if value is not None)
+    parts.extend(_flatten_evidence_values(message.data))
+    return "\n".join(parts).lower()
+
+
+def _runtime_message_file_path_values(message: AgentMessage) -> tuple[str, ...]:
+    """Return explicit file path values carried by a runtime message.
+
+    Codex/OpenCode file-change events may report absolute workspace paths while
+    typed evidence should normally claim workspace-relative paths. Keep this
+    structured path extraction separate from broad text search so read-only text
+    mentions still cannot prove ``files_touched``.
+    """
+    path_keys = {
+        "file_path",
+        "filepath",
+        "filePath",
+        "notebook_path",
+        "notebookPath",
+        "path",
+        "target_file",
+        "targetFile",
+    }
+    values: list[str] = []
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in path_keys and isinstance(child, str) and child.strip():
+                    values.append(child.strip())
+                else:
+                    visit(child)
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                visit(child)
+
+    for container_key in ("tool_input", "input", "arguments", "args"):
+        visit(message.data.get(container_key))
+    return tuple(values)
+
+
+def _runtime_message_command_values(message: AgentMessage) -> tuple[str, ...]:
+    """Return explicit command strings carried by a runtime message.
+
+    Runtime adapters normalize shell calls slightly differently.  Codex-like
+    events usually expose ``tool_input.command``; Goose may expose ``cmd`` or a
+    list argv form.  Keep extraction structured, not prose-based, so command
+    evidence does not fall back to arbitrary assistant text.
+    """
+    values: list[str] = []
+    for container_key in ("tool_input", "input", "arguments", "args"):
+        container = message.data.get(container_key)
+        if not isinstance(container, dict):
+            continue
+        for command_key in ("command", "cmd", "command_line"):
+            command = container.get(command_key)
+            normalized = _runtime_command_value_to_text(command)
+            if normalized and normalized not in values:
+                values.append(normalized)
+    return tuple(values)
+
+
+def _runtime_command_value_to_text(value: object) -> str | None:
+    """Normalize a structured runtime command value into shell text."""
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    if isinstance(value, list) and value:
+        return shlex.join(str(part) for part in value)
+    return None
+
+
+def _file_claim_matches_runtime_path(
+    claim: str,
+    runtime_path: str,
+    *,
+    task_cwd: str | None,
+) -> bool:
+    """Return True when a claimed workspace path matches a runtime path value."""
+    claim_path = Path(claim.strip())
+    if not claim_path or claim_path.is_absolute() or ".." in claim_path.parts:
+        return False
+
+    runtime_path = runtime_path.strip()
+    if not runtime_path:
+        return False
+
+    runtime_candidate = Path(runtime_path)
+    if task_cwd is not None:
+        base = Path(task_cwd).resolve()
+        claimed_absolute = (base / claim_path).resolve()
+        runtime_absolute = (
+            runtime_candidate if runtime_candidate.is_absolute() else base / runtime_candidate
+        ).resolve()
+        try:
+            claimed_absolute.relative_to(base)
+            runtime_absolute.relative_to(base)
+        except ValueError:
+            return False
+        return runtime_absolute == claimed_absolute
+
+    normalized_claim = claim_path.as_posix().lower()
+    normalized_runtime = runtime_candidate.as_posix().lower()
+    return normalized_runtime == normalized_claim or normalized_runtime.endswith(
+        "/" + normalized_claim
+    )
+
+
+def _workspace_relative_file_claim(value: str, *, task_cwd: str | None) -> str | None:
+    """Normalize a files_touched claim to a workspace-relative path.
+
+    The evidence producer should emit workspace-relative paths, but live Codex
+    runs may still report absolute files under the disposable target repo.  Treat
+    those as the same claim only after proving they resolve inside ``task_cwd``.
+    Paths outside the workspace, empty paths, and relative traversal remain
+    unsupported evidence claims.
+    """
+    raw_value = value.strip()
+    if not raw_value or task_cwd is None:
+        return None
+
+    base = Path(task_cwd).resolve()
+    candidate = Path(raw_value)
+    if not candidate.is_absolute() and ".." in candidate.parts:
+        return None
+
+    resolved = (candidate if candidate.is_absolute() else base / candidate).resolve()
+    try:
+        relative = resolved.relative_to(base)
+    except ValueError:
+        return None
+
+    if not relative.parts or ".." in relative.parts:
+        return None
+    return relative.as_posix()
+
+
+def _runtime_support_messages_for_field(
+    field_name: str,
+    messages: tuple[AgentMessage, ...],
+) -> tuple[AgentMessage, ...]:
+    """Narrow support messages for profile-known evidence fields."""
+    normalized = field_name.lower()
+    if normalized == "files_touched":
+        return messages
+    if normalized in {"commands_run", "tests_passed"}:
+        return tuple(message for message in messages if message.tool_name == "Bash")
+    return messages
+
+
+def _runtime_messages_support_claim(value: str, messages: tuple[AgentMessage, ...]) -> bool:
+    """Return True when a non-final runtime message backs a claim string."""
+    needle = value.strip().lower()
+    return bool(needle) and any(
+        needle in _runtime_message_search_text(message) for message in messages
+    )
+
+
+def _runtime_message_supports_command_claim(value: str, message: AgentMessage) -> bool:
+    """Return True when one runtime message backs a command claim.
+
+    Codex commonly records the executed Bash command as a shell wrapper such as
+    ``/bin/zsh -lc 'cd /workspace && python -m unittest "test_hello.py"'``
+    while typed evidence may claim the inner test command.  Treat those as
+    equivalent only through the structured Bash command field; arbitrary output
+    text or assistant narration must not create command aliases.
+    """
+    if message.tool_name != "Bash":
+        return _runtime_messages_support_claim(value, (message,))
+    claim_aliases = set(_normalized_command_claim_aliases(value))
+    claim_test_invocation = _test_command_invocation(value)
+    for runtime_command in _runtime_message_command_values(message):
+        runtime_aliases = set(_normalized_command_claim_aliases(runtime_command))
+        if claim_aliases and runtime_aliases and claim_aliases.intersection(runtime_aliases):
+            return True
+
+        runtime_inner_command = _single_command_after_safe_shell_preamble(runtime_command)
+        if runtime_inner_command and runtime_inner_command in claim_aliases:
+            return True
+
+        runtime_test_invocation = _test_command_invocation(runtime_command)
+        if (
+            claim_test_invocation
+            and runtime_test_invocation
+            and (
+                runtime_test_invocation == claim_test_invocation
+                or runtime_test_invocation.startswith(claim_test_invocation + " ")
+            )
+        ):
+            return True
+    return False
+
+
+def _runtime_messages_support_command_claim(
+    value: str,
+    messages: tuple[AgentMessage, ...],
+) -> bool:
+    """Return True when runtime messages back a command claim."""
+    return any(_runtime_message_supports_command_claim(value, message) for message in messages)
+
+
+def _runtime_messages_support_file_claim(
+    value: str,
+    messages: tuple[AgentMessage, ...],
+    *,
+    task_cwd: str | None,
+) -> bool:
+    """Return True when runtime transcript evidence backs a workspace file claim.
+
+    Existence alone is not sufficient for ``files_touched``: a stale file in the
+    workspace must not prove that this run created or modified it. Exact
+    transcript support is preferred; basename support is accepted only when the
+    claimed relative path resolves inside the active workspace, which covers
+    tool outputs that report ``generated.py`` instead of ``src/generated.py``.
+    """
+    relative_claim = _workspace_relative_file_claim(value, task_cwd=task_cwd)
+    if relative_claim is None:
+        return False
+    candidate = Path(relative_claim)
+    base = Path(task_cwd).resolve()
+    resolved = (base / candidate).resolve()
+    if any(
+        _runtime_message_supports_file_reference(
+            relative_claim,
+            message,
+            messages=messages,
+            index=index,
+            task_cwd=task_cwd,
+        )
+        for index, message in enumerate(messages)
+    ):
+        return True
+    if not resolved.exists():
+        return False
+    basename = candidate.name.strip().lower()
+    return bool(basename) and any(
+        _runtime_message_supports_file_reference(
+            basename,
+            message,
+            messages=messages,
+            index=index,
+            task_cwd=task_cwd,
+            allow_bash_command_text=False,
+        )
+        for index, message in enumerate(messages)
+    )
+
+
+def _runtime_message_supports_file_reference(
+    reference: str,
+    message: AgentMessage,
+    *,
+    messages: tuple[AgentMessage, ...],
+    index: int,
+    task_cwd: str | None,
+    allow_bash_command_text: bool = True,
+) -> bool:
+    """Return True when one message plausibly reports touching a file reference."""
+    normalized_reference = reference.strip().lower()
+    if not normalized_reference:
+        return False
+    text = _runtime_message_file_proof_text(message)
+    if message.tool_name == "Bash":
+        return _text_supports_file_mutation_reference(text, normalized_reference) or (
+            allow_bash_command_text
+            and _bash_command_mutates_file_reference(message, normalized_reference)
+            and _runtime_message_has_success_evidence(message, messages=messages, index=index)
+        )
+    if message.tool_name in {"Edit", "Write", "NotebookEdit"}:
+        return any(
+            _file_claim_matches_runtime_path(reference, path, task_cwd=task_cwd)
+            for path in _runtime_message_file_path_values(message)
+        )
+    return _text_supports_file_mutation_reference(text, normalized_reference)
+
+
+def _text_supports_file_mutation_reference(text: str, normalized_reference: str) -> bool:
+    """Return True when text pairs a file reference with mutation language."""
+    if not text:
+        return False
+    reference_pattern = _file_reference_pattern(normalized_reference)
+    if not reference_pattern.search(text):
+        return False
+    return bool(
+        re.search(
+            rf"(?<![\w./-]){re.escape(normalized_reference)}(?![\w./-]).*\b("
+            r"updated|modified|changed|created|generated|wrote|written|patched"
+            r")\b|\b("
+            r"updated|modified|changed|created|generated|wrote|written|patched"
+            rf")\b.*(?<![\w./-]){re.escape(normalized_reference)}(?![\w./-])",
+            text,
+        )
+    )
+
+
+def _file_reference_pattern(normalized_reference: str) -> re.Pattern[str]:
+    """Return a conservative token pattern for a workspace-relative file reference."""
+    return re.compile(rf"(?<![\w./-]){re.escape(normalized_reference)}(?![\w./-])")
+
+
+def _bash_command_mutates_file_reference(message: AgentMessage, normalized_reference: str) -> bool:
+    """Return True for explicit shell writes to the referenced file.
+
+    Bash command text is only trusted when the command itself carries mutation
+    semantics for the claimed file. This preserves direct shell-edit evidence
+    such as ``touch src/generated.py`` or ``printf ... > src/generated.py``
+    without allowing read-only probes like ``grep updated src/generated.py`` to
+    prove ``files_touched`` merely by containing a path and a mutation word.
+    """
+    tool_input = message.data.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return False
+    command = tool_input.get("command")
+    if not isinstance(command, str):
+        return False
+    normalized_command = command.strip().lower()
+    if not normalized_command:
+        return False
+    if not _file_reference_pattern(normalized_reference).search(normalized_command):
+        return False
+    quoted_reference = rf"['\"]?{re.escape(normalized_reference)}['\"]?"
+    if re.search(rf"(^|[\s;&|])(?:\d?>|&>|>>|\d>>)\s*{quoted_reference}", normalized_command):
+        return True
+    return bool(
+        re.search(
+            rf"(^|[\s;&|])(touch|truncate|tee)\b[^;&|]*\s{quoted_reference}(?=$|[\s;&|])",
+            normalized_command,
+        )
+        or re.search(
+            rf"(^|[\s;&|])(sed|perl)\b[^;&|]*\s-[^\s;&|]*i[^;&|]*\s"
+            rf"{quoted_reference}(?=$|[\s;&|])",
+            normalized_command,
+        )
+    )
+
+
+def _runtime_message_has_success_signal(message: AgentMessage) -> bool:
+    """Return True when one runtime message carries successful completion evidence."""
+    if message.is_error:
+        return False
+    exit_code = message.data.get("exit_code")
+    if isinstance(exit_code, int):
+        return exit_code == 0
+    if message.data.get("subtype") == "success":
+        return True
+    status = message.data.get("status")
+    if isinstance(status, str) and status.strip().lower() in {
+        "completed",
+        "success",
+        "succeeded",
+    }:
+        return True
+    text = "\n".join(
+        str(part)
+        for part in (
+            message.content,
+            message.data.get("result_preview"),
+            message.data.get("output"),
+            message.data.get("stdout"),
+            message.data.get("stderr"),
+        )
+        if isinstance(part, str)
+    ).lower()
+    return bool(re.search(r"\b(exit\s*code\s*0|completed|succeeded|success)\b", text))
+
+
+def _runtime_message_has_success_evidence(
+    message: AgentMessage,
+    *,
+    messages: tuple[AgentMessage, ...],
+    index: int,
+) -> bool:
+    """Return True when a tool-call message itself or its result proves success."""
+    if _runtime_message_has_success_signal(message):
+        return True
+    return _runtime_message_has_following_success(messages, index)
+
+
+def _runtime_message_has_following_success(messages: tuple[AgentMessage, ...], index: int) -> bool:
+    """Return True when a tool-call message is followed by a successful result."""
+    for candidate in messages[index + 1 :]:
+        if candidate.type == "tool":
+            return False
+        if candidate.is_error:
+            return False
+        if _runtime_message_has_success_signal(candidate):
+            return True
+    return False
+
+
+def _runtime_message_file_proof_text(message: AgentMessage) -> str:
+    """Return text that can prove a file was touched by the current run.
+
+    For Bash tool invocations, command text is not proof by itself: read-only
+    commands such as ``grep updated src/app.py`` can contain both the claimed
+    path and mutation verbs. Trust Bash result/output fields instead. Dedicated
+    edit/write tools still expose their tool inputs because their tool identity
+    supplies the mutation semantics.
+    """
+    if message.tool_name == "Bash":
+        parts: list[str] = []
+        for key in ("result_preview", "output", "stdout", "stderr"):
+            value = message.data.get(key)
+            if isinstance(value, str):
+                parts.append(value)
+        return "\n".join(parts).lower()
+    return _runtime_message_search_text(message)
+
+
+def _looks_like_test_command(command: str) -> bool:
+    """Return True for common whole-suite or targeted test invocations."""
+    return _test_command_invocation(command) is not None
+
+
+def _test_command_invocation(command: str) -> str | None:
+    """Return the backed inner test invocation for a direct or wrapped command."""
+    normalized = command.strip().lower()
+    if not normalized:
+        return None
+
+    direct = _test_invocation_from_prefix(normalized)
+    if direct is not None:
+        return direct
+
+    body = _shell_command_body(normalized)
+    if body is None:
+        return None
+    return _test_invocation_from_shell_body(body)
+
+
+def _shell_command_body(command: str) -> str | None:
+    """Return the ``-c`` body when the command starts with a shell wrapper."""
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return None
+    if len(parts) < 3:
+        return None
+    shell_name = Path(parts[0]).name
+    if shell_name not in {"bash", "zsh", "sh"}:
+        return None
+    option_index = next(
+        (index for index, part in enumerate(parts[1:], start=1) if part in {"-c", "-lc", "-cl"}),
+        None,
+    )
+    if option_index is None or option_index + 1 >= len(parts):
+        return None
+    return parts[option_index + 1].strip()
+
+
+def _test_invocation_from_shell_body(body: str) -> str | None:
+    """Return a test invocation after conservative shell setup preambles."""
+    for segment in _segments_after_safe_shell_preamble(body):
+        invocation = _test_invocation_from_prefix(segment)
+        if invocation is not None:
+            return invocation
+        return None
+    return None
+
+
+def _single_command_after_safe_shell_preamble(command: str) -> str | None:
+    """Return a wrapped inner command after only safe setup preambles.
+
+    Generic ``commands_run`` evidence may cite the useful command inside a
+    runtime-recorded shell wrapper such as ``cd /work && python scripts/gen.py``.
+    Keep this narrower than substring containment: only ignore setup-only
+    preambles and only when exactly one non-preamble command remains.
+    """
+    body = _shell_command_body(command)
+    if body is None:
+        return None
+    segments = tuple(_segments_after_safe_shell_preamble(body))
+    if len(segments) != 1:
+        return None
+    return _normalized_evidence_text(segments[0])
+
+
+def _segments_after_safe_shell_preamble(body: str) -> tuple[str, ...]:
+    """Return non-preamble shell segments after setup-only commands."""
+    remaining: list[str] = []
+    for segment in re.split(r"\s*&&\s*", body.strip()):
+        normalized_segment = segment.strip()
+        if not normalized_segment:
+            continue
+        if not remaining and _is_safe_test_command_preamble(normalized_segment):
+            continue
+        remaining.append(normalized_segment)
+    return tuple(remaining)
+
+
+def _is_safe_test_command_preamble(segment: str) -> bool:
+    """Return True for shell setup segments that do not execute tests themselves."""
+    try:
+        parts = shlex.split(segment)
+    except ValueError:
+        return False
+    if not parts:
+        return True
+    if parts[0] == "cd" and len(parts) == 2:
+        return True
+    if parts[0] == "export" and len(parts) > 1:
+        return all(_is_env_assignment(part) for part in parts[1:])
+    return all(_is_env_assignment(part) for part in parts)
+
+
+def _is_env_assignment(value: str) -> bool:
+    """Return True for a simple shell environment assignment token."""
+    return bool(re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*$", value))
+
+
+def _strip_env_prefix(parts: list[str]) -> list[str]:
+    """Remove leading env assignment tokens before command recognition."""
+    index = 0
+    if parts and parts[0] == "env":
+        index = 1
+    while index < len(parts) and _is_env_assignment(parts[index]):
+        index += 1
+    return parts[index:]
+
+
+def _test_invocation_from_prefix(command: str) -> str | None:
+    """Return a normalized test invocation only when it starts the command text."""
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        parts = command.replace('"', "").replace("'", "").split()
+    parts = _strip_env_prefix(parts)
+    if not parts:
+        return None
+
+    if parts[0] in {"pytest", "py.test", "tox", "nox"}:
+        return _normalized_evidence_text(" ".join(parts))
+    if len(parts) >= 2 and parts[0] in {"npm", "pnpm", "yarn"} and parts[1] == "test":
+        return _normalized_evidence_text(" ".join(parts))
+    if len(parts) >= 3 and parts[:3] == ["uv", "run", "pytest"]:
+        return _normalized_evidence_text(" ".join(parts))
+    if (
+        len(parts) >= 3
+        and parts[:2] == ["python", "-m"]
+        and parts[2]
+        in {
+            "pytest",
+            "unittest",
+        }
+    ):
+        return _normalized_evidence_text(" ".join(parts))
+    return None
+
+
+def _unittest_command_invocation(command: str) -> str | None:
+    """Return the embedded ``python -m unittest`` invocation, if present."""
+    invocation = _test_command_invocation(command)
+    if invocation is None:
+        return None
+    parts = invocation.split()
+    if len(parts) >= 3 and parts[:3] == ["python", "-m", "unittest"]:
+        return invocation
+    return None
+
+
+def _looks_like_unittest_command(command: str) -> bool:
+    """Return True when a shell command invokes stdlib unittest."""
+    return _unittest_command_invocation(command) is not None
+
+
+def _normalized_command_claim_aliases(command: str) -> tuple[str, ...]:
+    """Return normalized command forms that a concise evidence claim may use.
+
+    Structured Bash tool inputs may wrap the user command as
+    ``/bin/zsh -lc '<body>'``.  The wrapper itself is runtime-backed, so an
+    evidence claim may cite the exact shell body without re-stating the wrapper.
+    Keep this alias exact: test-command-specific helpers handle conservative
+    setup preambles, while generic ``commands_run`` claims should not be proven
+    by partial substrings of arbitrary shell scripts.
+    """
+    normalized = _normalized_evidence_text(command)
+    aliases = [normalized] if normalized else []
+    shell_body = _shell_command_body(command)
+    normalized_shell_body = _normalized_evidence_text(shell_body) if shell_body else None
+    if normalized_shell_body and normalized_shell_body not in aliases:
+        aliases.append(normalized_shell_body)
+    test_invocation = _test_command_invocation(command)
+    if test_invocation and test_invocation not in aliases:
+        aliases.append(test_invocation)
+    return tuple(aliases)
+
+
+def _text_contains_unittest_success(text: str) -> bool:
+    """Return True for real unittest success output."""
+    return _text_contains_test_success(text) and bool(
+        re.search(r"\bran\s+[1-9]\d*\s+tests?\b[\s\S]*\bok\b", text.lower())
+    )
+
+
+def _text_contains_test_success(text: str) -> bool:
+    """Return True when text contains a conservative test-success signal."""
+    text = text.lower()
+    zero_failure_pattern = (
+        r"\b(0\s+(failed|failures?|errors?)|no\s+(tests?\s+)?(failed|failures?|errors?))\b"
+    )
+    failure_scan_text = re.sub(zero_failure_pattern, "", text)
+    if re.search(
+        r"\b[1-9]\d*\s+(failed|failures?|errors?)\b|"
+        r"\b(failed|failure|failures?|error|errors)\b|"
+        r"exit\s*code\s*[1-9]",
+        failure_scan_text,
+    ):
+        return False
+    if re.search(r"\b0\s+passed\b", text) and not re.search(r"\b[1-9]\d*\s+passed\b", text):
+        return False
+    return bool(
+        re.search(r"\b([1-9]\d*\s+passed|passed|pass|success|succeeded)\b|exit\s*code\s*0", text)
+        or re.search(r"\bran\s+[1-9]\d*\s+tests?\b[\s\S]*\bok\b", text)
+    )
+
+
+def _message_contains_test_success(message: AgentMessage) -> bool:
+    """Return True when one message says a test command passed."""
+    parts = [message.content]
+    for key in ("result_preview", "output", "stdout", "status", "subtype"):
+        value = message.data.get(key)
+        if isinstance(value, str):
+            parts.append(value)
+    exit_code = message.data.get("exit_code")
+    if type(exit_code) is int:
+        parts.append(f"exit code {exit_code}")
+    return _text_contains_test_success("\n".join(parts))
+
+
+def _runtime_message_test_proof_text(message: AgentMessage) -> str:
+    """Return runtime-produced text that can prove test output for a Bash chunk.
+
+    Assistant narration after a Bash call is useful transcript context, but it
+    is not runtime output for that command. Keep summary matching tied to the
+    Bash output/result payloads and tool-result messages that runtimes emit.
+    """
+    resultish = (
+        message.type in {"result", "tool_result"} or message.data.get("subtype") == "tool_result"
+    )
+    parts: list[str] = []
+    if resultish:
+        parts.append(message.content)
+    for key in ("result_preview", "output", "stdout", "stderr", "tool_result_text"):
+        value = message.data.get(key)
+        if isinstance(value, str):
+            parts.append(value)
+    tool_result = message.data.get("tool_result")
+    if isinstance(tool_result, dict):
+        for key in ("text_content", "content", "output", "stdout", "stderr"):
+            value = tool_result.get(key)
+            if isinstance(value, str):
+                parts.append(value)
+    elif isinstance(tool_result, str):
+        parts.append(tool_result)
+    return "\n".join(parts)
+
+
+def _is_tool_result_message(message: AgentMessage) -> bool:
+    """Return True for runtime tool-result messages, including named-tool variants."""
+    return message.type in {"result", "tool_result"} or message.data.get("subtype") == "tool_result"
+
+
+def _test_claim_file_part(value: str) -> str | None:
+    """Return the file path portion of a pytest node-id style claim."""
+    stripped = value.strip()
+    if not stripped:
+        return None
+    file_part = stripped.split("::", 1)[0].strip()
+    return file_part or None
+
+
+def _normalized_evidence_text(text: str) -> str:
+    """Normalize transcript/claim text for conservative containment checks."""
+    return " ".join(text.lower().split())
+
+
+def _claim_summary_matches_runtime_chunk(
+    *,
+    command: str,
+    claim: str,
+    chunk_text: str,
+) -> bool:
+    """Return True when a command+summary claim is present in runtime output.
+
+    This keeps the verifier transcript-driven: the claim may combine the backed
+    command and a unittest-style success summary, but the summary itself must
+    also appear in the runtime chunk. The claim text alone is never proof.
+    """
+    normalized_claim = _normalized_evidence_text(claim)
+    normalized_chunk = _normalized_evidence_text(chunk_text)
+    summary = ""
+    for normalized_command in _normalized_command_claim_aliases(command):
+        if normalized_command in normalized_claim:
+            summary = normalized_claim.split(normalized_command, 1)[1].strip(" :-")
+            break
+    if not summary or summary not in normalized_chunk:
+        return False
+    if (
+        summary == "ok"
+        and _looks_like_unittest_command(command)
+        and _text_contains_unittest_success(chunk_text)
+    ):
+        return True
+    return _text_contains_test_success(summary)
+
+
+def _claim_contains_command_success_summary(*, command: str, claim: str) -> bool:
+    """Return True when a test claim appends a success summary to a command."""
+    normalized_claim = _normalized_evidence_text(claim)
+    for normalized_command in _normalized_command_claim_aliases(command):
+        if normalized_command in normalized_claim:
+            summary = normalized_claim.split(normalized_command, 1)[1].strip(" :-")
+            return bool(summary) and _text_contains_test_success(summary)
+    return False
+
+
+def _test_command_targets_claim(
+    *,
+    command: str,
+    claim: str,
+    chunk_text: str,
+    chunk_test_proof_text: str,
+    messages: tuple[AgentMessage, ...],
+    task_cwd: str | None,
+) -> bool:
+    """Return True when a successful test command can cover a test claim."""
+    needle = claim.strip().lower()
+    if _claim_contains_command_success_summary(command=command, claim=claim):
+        return _claim_summary_matches_runtime_chunk(
+            command=command,
+            claim=claim,
+            chunk_text=chunk_test_proof_text,
+        )
+    if needle and needle in chunk_text:
+        return True
+
+    file_part = _test_claim_file_part(claim)
+    if file_part is None:
+        return False
+    normalized_file = file_part.lower()
+    normalized_command = command.lower()
+    if normalized_file in chunk_text or normalized_file in normalized_command:
+        return True
+    if _claim_summary_matches_runtime_chunk(
+        command=command,
+        claim=claim,
+        chunk_text=chunk_test_proof_text,
+    ):
+        return True
+
+    # A broad suite command such as ``pytest`` can cover a node-id claim when
+    # the claimed test file is also backed by current-run mutation evidence.
+    # Existence alone is deliberately insufficient: otherwise a transcript with
+    # unrelated ``pytest`` output could prove any stale test file in the tree.
+    command_parts = (_test_command_invocation(command) or normalized_command).split()
+    broad_pytest = command_parts in (["pytest"], ["py.test"]) or command_parts[-3:] == [
+        "python",
+        "-m",
+        "pytest",
+    ]
+    if not broad_pytest or task_cwd is None:
+        return False
+    return _runtime_messages_support_file_claim(file_part, messages, task_cwd=task_cwd)
+
+
+def _runtime_messages_support_test_claim(
+    *,
+    value: str,
+    backed_commands: tuple[str, ...],
+    messages: tuple[AgentMessage, ...],
+    task_cwd: str | None,
+) -> bool:
+    """Return True when a backed test command chunk proves one test claim."""
+    needle = value.strip().lower()
+    if not needle:
+        return False
+    for index, message in enumerate(messages):
+        if message.tool_name != "Bash":
+            continue
+        matching_commands = tuple(
+            candidate
+            for candidate in backed_commands
+            if _looks_like_test_command(candidate)
+            and _runtime_message_supports_command_claim(candidate, message)
+        )
+        if not matching_commands:
+            continue
+        chunk = [message]
+        for following in messages[index + 1 :]:
+            if following.tool_name and not _is_tool_result_message(following):
+                break
+            chunk.append(following)
+        if not any(_message_contains_test_success(item) for item in chunk):
+            continue
+        chunk_text = "\n".join(_runtime_message_search_text(item) for item in chunk)
+        chunk_test_proof_text = "\n".join(_runtime_message_test_proof_text(item) for item in chunk)
+        if any(
+            _test_command_targets_claim(
+                command=command,
+                claim=value,
+                chunk_text=chunk_text,
+                chunk_test_proof_text=chunk_test_proof_text,
+                messages=messages,
+                task_cwd=task_cwd,
+            )
+            for command in matching_commands
+        ):
+            return True
+    return False
 
 
 _REUSABLE_RUNTIME_EVENT_TYPES = frozenset(
@@ -209,6 +1383,69 @@ _MIN_FREE_MEMORY_GB = 2.0
 _MEMORY_CHECK_INTERVAL_SECONDS = 5.0
 _MEMORY_WAIT_MAX_SECONDS = 120.0
 _MAX_LEAF_RESULT_CHARS = 1200
+_SIBLING_HEADLINE_CHARS = 80
+_SiblingACRef = tuple[int | None, str]
+
+
+def _build_governed_parent_summary(level_contexts: list[LevelContext] | None) -> str:
+    """Render level context for governed dispatch without nested H2 headings.
+
+    ``build_context_prompt()`` is also used by the legacy prompt path, where its
+    top-level ``##`` sections are appropriate.  Governed dispatch already wraps
+    that text in ``## Parent context`` via ``compose_context()``, so preserving
+    those headings creates a hard-to-scan nested hierarchy.  Build the governed
+    variant from structured ``LevelContext`` data so only orchestrator-owned
+    section wrappers become compact labels; embedded markdown from AC outputs
+    remains byte-for-byte content inside its original summary text.
+    """
+    if not level_contexts:
+        return ""
+
+    sections: list[str] = []
+    for ctx in level_contexts:
+        text = ctx.to_prompt_text()
+        if text:
+            sections.append(text)
+
+    has_reviews = any(ctx.coordinator_review for ctx in level_contexts)
+    if not sections and not has_reviews:
+        return ""
+
+    lines: list[str] = []
+    if sections:
+        lines.extend(
+            (
+                "Previous Work Context:",
+                "The following ACs have already been completed. "
+                "Use this context to inform your work.",
+                "",
+                "\n\n".join(sections),
+            )
+        )
+
+    for ctx in level_contexts:
+        if ctx.coordinator_review:
+            review = ctx.coordinator_review
+            review_lines: list[str] = []
+
+            if review.review_summary:
+                review_lines.append(f"**Review**: {review.review_summary}")
+
+            if review.fixes_applied:
+                fixes = "; ".join(review.fixes_applied)
+                review_lines.append(f"**Fixes applied**: {fixes}")
+
+            if review.warnings_for_next_level:
+                for warning in review.warnings_for_next_level:
+                    review_lines.append(f"- WARNING: {warning}")
+
+            if review_lines:
+                if lines:
+                    lines.append("")
+                lines.append(f"Coordinator Review (Level {review.level_number}):")
+                lines.extend(review_lines)
+
+    return "\n".join(lines).strip()
 
 
 def _get_available_memory_gb() -> float | None:
@@ -263,6 +1500,11 @@ def _normalize_command(command: str) -> str:
     return " ".join(command.split())
 
 
+def _normalize_exact_command(command: str) -> str:
+    """Normalize command whitespace while preserving case-sensitive exactness."""
+    return " ".join(command.split())
+
+
 def _truncate_text(text: str, limit: int = _MAX_LEAF_RESULT_CHARS) -> str:
     """Truncate long evidence blocks while preserving their beginning."""
     stripped = text.strip()
@@ -311,6 +1553,299 @@ def _extract_leaf_evidence_lines(result: ACExecutionResult) -> list[str]:
         lines.append("Result:")
         lines.append(_truncate_text(result_text))
     return lines
+
+
+def _successful_runtime_test_commands(messages: tuple[AgentMessage, ...]) -> set[str]:
+    """Return Bash test commands backed by adjacent runtime success output."""
+    commands: set[str] = set()
+    for index, message in enumerate(messages):
+        if message.tool_name != "Bash":
+            continue
+        message_commands = {
+            alias
+            for command in _runtime_message_command_values(message)
+            if _looks_like_test_command(command)
+            for alias in _runtime_command_evidence_aliases(command)
+        }
+        if not message_commands:
+            continue
+        chunk = [message]
+        for following in messages[index + 1 :]:
+            if following.tool_name and not _is_tool_result_message(following):
+                break
+            chunk.append(following)
+        if any(
+            not item.is_final
+            and _text_contains_test_success(_runtime_message_test_proof_text(item))
+            for item in chunk
+        ):
+            commands.update(command for command in message_commands if command)
+    return commands
+
+
+def _add_runtime_command_evidence(commands: set[str], command: str) -> None:
+    """Add runtime command evidence without accepting compound shell aliases."""
+    commands.update(_runtime_command_evidence_aliases(command))
+
+
+def _runtime_command_evidence_aliases(command: str) -> tuple[str, ...]:
+    """Return exact runtime command aliases for sibling reconciliation."""
+    aliases = [_normalize_exact_command(command)]
+    single_inner_command = _single_exact_command_after_safe_shell_preamble(command)
+    if single_inner_command and single_inner_command not in aliases:
+        aliases.append(single_inner_command)
+    return tuple(alias for alias in aliases if alias)
+
+
+def _single_exact_command_after_safe_shell_preamble(command: str) -> str | None:
+    """Return one wrapped inner command without lowercasing exact evidence."""
+    body = _shell_command_body(command)
+    if body is None:
+        return None
+    segments = tuple(_segments_after_safe_shell_preamble(body))
+    if len(segments) != 1:
+        return None
+    return _normalize_exact_command(segments[0])
+
+
+def _typed_evidence_is_usable_for_sibling_reconciliation(result: ACExecutionResult) -> bool:
+    """Return True when typed evidence was not rejected by validation/verifier."""
+    if result.typed_evidence is None:
+        return False
+    if result.typed_evidence_error:
+        return False
+    if result.typed_evidence_validation is not None and not result.typed_evidence_validation.ok:
+        return False
+    return result.atomic_verifier_verdict is None or result.atomic_verifier_verdict.passed
+
+
+def _typed_file_evidence_proves_current_existence(
+    result: ACExecutionResult,
+    relative_path: str,
+) -> bool:
+    """Return True when typed file evidence is backed by current end-state existence."""
+    if result.runtime_handle is None or result.runtime_handle.cwd is None:
+        return False
+    candidate = (Path(result.runtime_handle.cwd).resolve() / relative_path).resolve()
+    try:
+        candidate.relative_to(Path(result.runtime_handle.cwd).resolve())
+    except ValueError:
+        return False
+    return candidate.is_file()
+
+
+def _evidence_values_from_result(result: ACExecutionResult) -> tuple[set[str], set[str], set[str]]:
+    """Return normalized file paths, run commands, and passed commands.
+
+    This intentionally uses only structured/runtime evidence, not broad natural
+    language success claims, so sibling AC completion remains conservative.
+    """
+    files: set[str] = set()
+    run_commands: set[str] = set()
+    passed_commands: set[str] = set()
+
+    if _typed_evidence_is_usable_for_sibling_reconciliation(result):
+        assert result.typed_evidence is not None
+        task_cwd = result.runtime_handle.cwd if result.runtime_handle is not None else None
+        for value in _flatten_evidence_values(result.typed_evidence.get("files_touched")):
+            normalized = (
+                _workspace_relative_file_claim(str(value), task_cwd=task_cwd) or str(value).strip()
+            )
+            if normalized and _typed_file_evidence_proves_current_existence(result, normalized):
+                files.add(normalized)
+        for value in _flatten_evidence_values(result.typed_evidence.get("commands_run")):
+            _add_runtime_command_evidence(run_commands, str(value))
+        for value in _flatten_evidence_values(result.typed_evidence.get("tests_passed")):
+            _add_runtime_command_evidence(passed_commands, str(value))
+            _add_runtime_command_evidence(run_commands, str(value))
+
+    for message in result.messages:
+        if not message.tool_name:
+            continue
+
+        if message.tool_name == "Bash":
+            for command in _runtime_message_command_values(message):
+                _add_runtime_command_evidence(run_commands, command)
+            continue
+
+    passed_commands.update(_successful_runtime_test_commands(result.messages))
+    return files, run_commands, passed_commands
+
+
+def _criterion_satisfied_by_evidence(
+    criterion: str,
+    files: set[str],
+    run_commands: set[str],
+    passed_commands: set[str] | None = None,
+) -> bool:
+    """Conservatively decide whether evidence satisfies a sibling criterion."""
+    normalized_run_commands = {
+        _normalize_exact_command(command) for command in run_commands if command
+    }
+    normalized_passed_commands = {
+        _normalize_exact_command(command) for command in (passed_commands or set()) if command
+    }
+
+    for file_path in files:
+        if file_path and _criterion_is_exact_file_presence_ac(criterion, file_path):
+            return True
+
+    for command in normalized_passed_commands:
+        if command and _criterion_is_exact_command_pass_ac(criterion, command):
+            return True
+
+    for command in normalized_run_commands:
+        if command and _criterion_is_exact_command_run_ac(criterion, command):
+            return True
+
+    return False
+
+
+def _criterion_is_exact_file_presence_ac(criterion: str, file_path: str) -> bool:
+    """Return True when the criterion is only an exact file-presence AC."""
+    normalized_path = Path(file_path.strip()).as_posix()
+    if (
+        not normalized_path
+        or Path(normalized_path).is_absolute()
+        or ".." in Path(normalized_path).parts
+    ):
+        return False
+    inline_code_paths = [
+        Path(match.group(1).strip()).as_posix()
+        for match in re.finditer(r"`([^`]+)`", criterion)
+        if match.group(1).strip()
+    ]
+    if inline_code_paths != [normalized_path]:
+        return False
+
+    normalized = _normalized_evidence_text(
+        re.sub(r"`[^`]+`", "<path>", criterion).strip().rstrip(".")
+    )
+    return normalized in {
+        "<path> exists",
+        "<path> is present",
+        "the file <path> exists",
+        "the file <path> is present",
+    }
+
+
+def _criterion_inline_code_values(criterion: str) -> list[str]:
+    """Return normalized inline-code fragments from a criterion."""
+    return [
+        _normalize_exact_command(match.group(1).strip())
+        for match in re.finditer(r"`([^`]+)`", criterion)
+        if match.group(1).strip()
+    ]
+
+
+def _criterion_is_exact_command_pass_ac(criterion: str, command: str) -> bool:
+    """Return True when the criterion is only an exact command-pass AC."""
+    normalized_command = _normalize_exact_command(command)
+    if not normalized_command or _criterion_inline_code_values(criterion) != [normalized_command]:
+        return False
+    normalized = _normalized_evidence_text(
+        re.sub(r"`[^`]+`", "<command>", criterion).strip().rstrip(".")
+    )
+    return normalized in {
+        "<command> passes",
+        "<command> passed",
+        "<command> succeeds",
+        "<command> succeeded",
+        "the exact command <command> passes",
+        "the exact command <command> passed",
+        "the exact command <command> succeeds",
+        "the exact command <command> succeeded",
+        "the exact command <command> exits with code 0",
+        "the command <command> passes",
+        "the command <command> succeeds",
+    }
+
+
+def _criterion_is_exact_command_run_ac(criterion: str, command: str) -> bool:
+    """Return True when the criterion is only an exact command-run AC."""
+    normalized_command = _normalize_exact_command(command)
+    if not normalized_command or _criterion_inline_code_values(criterion) != [normalized_command]:
+        return False
+    normalized = _normalized_evidence_text(
+        re.sub(r"`[^`]+`", "<command>", criterion).strip().rstrip(".")
+    )
+    return normalized in {
+        "run <command>",
+        "run the exact command <command>",
+        "execute <command>",
+        "execute the exact command <command>",
+        "the exact command <command> runs",
+        "the command <command> runs",
+    }
+
+
+def _complete_sibling_acs_from_evidence(
+    *,
+    level_results: list[ACExecutionResult],
+    ac_statuses: dict[int, str],
+    failed_indices: set[int],
+    completed_count: int,
+    level_success: int,
+    level_failed: int,
+) -> tuple[int, int, int, list[ACExecutionResult]]:
+    """Mark sibling ACs satisfied when a successful sibling has exact evidence.
+
+    Observation jobs often ask for separate ACs such as "file exists", "test
+    file exists", and "pytest passes". A single worker can legitimately create
+    both files and run the test. This function reconciles those concrete sibling
+    ACs from runtime/typed evidence instead of leaving them failed or pending.
+    """
+    replacements: dict[int, ACExecutionResult] = {}
+    successful_evidence = [
+        (result.ac_index, *_evidence_values_from_result(result))
+        for result in level_results
+        if result.success
+    ]
+    if not successful_evidence:
+        return completed_count, level_success, level_failed, level_results
+
+    for result in level_results:
+        if result.success or result.outcome != ACExecutionOutcome.FAILED:
+            continue
+        for source_idx, files, run_commands, passed_commands in successful_evidence:
+            if source_idx == result.ac_index:
+                continue
+            if not _criterion_satisfied_by_evidence(
+                result.ac_content,
+                files,
+                run_commands,
+                passed_commands,
+            ):
+                continue
+            replacements[result.ac_index] = ACExecutionResult(
+                ac_index=result.ac_index,
+                ac_content=result.ac_content,
+                success=True,
+                final_message=(f"Satisfied by runtime evidence from sibling AC {source_idx + 1}."),
+                retry_attempt=result.retry_attempt,
+                outcome=ACExecutionOutcome.SATISFIED_EXTERNALLY,
+            )
+            break
+
+    if not replacements:
+        return completed_count, level_success, level_failed, level_results
+
+    reconciled: list[ACExecutionResult] = []
+    for result in level_results:
+        replacement = replacements.get(result.ac_index)
+        if replacement is None:
+            reconciled.append(result)
+            continue
+        if result.outcome == ACExecutionOutcome.FAILED:
+            failed_indices.discard(result.ac_index)
+            if level_failed > 0:
+                level_failed -= 1
+        ac_statuses[result.ac_index] = "completed"
+        completed_count += 1
+        level_success += 1
+        reconciled.append(replacement)
+
+    return completed_count, level_success, level_failed, reconciled
 
 
 def _render_ac_section(
@@ -488,6 +2023,8 @@ class ParallelACExecutor:
         inherited_runtime_handle: RuntimeHandle | None = None,
         task_cwd: str | None = None,
         execution_profile: ExecutionProfile | None = None,
+        fat_harness_mode: bool = False,
+        atomic_verifier: Verifier | None = None,
     ):
         """Initialize executor.
 
@@ -504,6 +2041,11 @@ class ParallelACExecutor:
             task_cwd: Explicit working directory override for task execution metadata.
             execution_profile: Optional profile that makes decomposition split along
                 profile axis/min_unit instead of the legacy generic prompt.
+            fat_harness_mode: Enforce profile typed evidence plus a verifier
+                PASS at atomic AC acceptance.
+            atomic_verifier: Optional verifier callable for the separate
+                atomic evidence PASS gate. Defaults to the harness-owned
+                structural verifier.
         """
         self._adapter = adapter
         self._event_store = event_store
@@ -513,6 +2055,8 @@ class ParallelACExecutor:
         self._inherited_runtime_handle = inherited_runtime_handle
         self._task_cwd = task_cwd
         self._execution_profile = execution_profile
+        self._fat_harness_mode = fat_harness_mode
+        self._atomic_verifier = atomic_verifier
         self._coordinator = LevelCoordinator(
             adapter,
             inherited_runtime_handle=inherited_runtime_handle,
@@ -1485,6 +3029,34 @@ class ParallelACExecutor:
         if tool_catalog is not None:
             event.data["tool_catalog"] = tool_catalog
         await self._event_store.append(event)
+        if success is True and execution_id:
+            try:
+                await self._event_store.append(
+                    BaseEvent(
+                        type="execution.ac.completed",
+                        aggregate_type="execution",
+                        aggregate_id=execution_id,
+                        data={
+                            **identity_metadata,
+                            "ac_id": runtime_identity.ac_id,
+                            "acceptance_criterion": ac_content,
+                            "execution_id": execution_id,
+                            "session_id": effective_session_id,
+                            "session_scope_id": runtime_identity.session_scope_id,
+                            "retry_attempt": runtime_identity.retry_attempt,
+                            "attempt_number": runtime_identity.attempt_number,
+                            "success": True,
+                            "result_summary": result_summary,
+                        },
+                    )
+                )
+            except Exception as exc:
+                log.warning(
+                    "parallel_executor.execution_ac_completed_append_failed",
+                    ac_id=runtime_identity.ac_id,
+                    execution_id=execution_id,
+                    error=str(exc),
+                )
 
     @staticmethod
     def _coerce_ac_indices(raw_indices: Any) -> tuple[int, ...]:
@@ -1550,8 +3122,10 @@ class ParallelACExecutor:
     ) -> list[ACExecutionResult | BaseException]:
         """Execute one batch of stage-ready ACs using the shared worker pool."""
         batch_results: list[ACExecutionResult | BaseException] = [None] * len(batch_indices)
-        sibling_acs = (
-            [seed.acceptance_criteria[i] for i in batch_indices] if len(batch_indices) > 1 else []
+        sibling_acs: list[_SiblingACRef] = (
+            [(i, seed.acceptance_criteria[i]) for i in batch_indices]
+            if len(batch_indices) > 1
+            else []
         )
 
         async def _run_ac(idx: int, ac_idx: int) -> None:
@@ -2047,6 +3621,25 @@ class ParallelACExecutor:
                         all_results.append(ac_result)
                         stage_ac_results.append(ac_result)
 
+                (
+                    completed_count,
+                    level_success,
+                    level_failed,
+                    stage_ac_results,
+                ) = _complete_sibling_acs_from_evidence(
+                    level_results=stage_ac_results,
+                    ac_statuses=ac_statuses,
+                    failed_indices=failed_indices,
+                    completed_count=completed_count,
+                    level_success=level_success,
+                    level_failed=level_failed,
+                )
+
+                reconciled_by_index = {result.ac_index: result for result in stage_ac_results}
+                all_results = [
+                    reconciled_by_index.get(result.ac_index, result) for result in all_results
+                ]
+
                 stage_result = ParallelExecutionStageResult(
                     stage_index=level_idx,
                     ac_indices=tuple(level),
@@ -2256,7 +3849,7 @@ class ParallelACExecutor:
         depth: int = 0,
         execution_id: str = "",
         level_contexts: list[LevelContext] | None = None,
-        sibling_acs: list[str] | None = None,
+        sibling_acs: list[_SiblingACRef] | None = None,
         retry_attempt: int = 0,
         execution_counters: dict[str, int] | None = None,
         is_sub_ac: bool = False,
@@ -2559,12 +4152,16 @@ class ParallelACExecutor:
         decomposition_system_prompt = (
             "You are a task decomposition expert. Analyze tasks and break them down if needed."
         )
+        min_sub_acs = MIN_SUB_ACS
+        max_sub_acs = MAX_SUB_ACS
+        profile_metadata = self._decomposition_profile_metadata()
         if self._execution_profile is not None:
             params = params_from_profile(
                 self._execution_profile,
                 min_branching=MIN_SUB_ACS,
-                max_branching=MAX_SUB_ACS,
             )
+            min_sub_acs = params.min_branching
+            max_sub_acs = params.max_branching
             decomposition_system_prompt = build_decomposition_system_prompt(params)
             decompose_prompt = build_decomposition_user_prompt(
                 params,
@@ -2614,7 +4211,20 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                     resume_handle=self._inherited_runtime_handle,
                 ):
                     if message.content:
-                        response_text = message.content
+                        # Some runtimes (notably Goose stream-json) emit assistant text
+                        # as token/delta chunks.  The decomposition parser needs the
+                        # full response, so accumulate chunks for Goose while preserving
+                        # the previous last-message behavior for runtimes that emit
+                        # complete assistant messages.
+                        if getattr(self._adapter, "runtime_backend", "") == "goose":
+                            if message.type not in {"assistant", "result"}:
+                                continue
+                            if message.is_final:
+                                response_text = message.content
+                            else:
+                                response_text += message.content
+                        else:
+                            response_text = message.content
 
             # Parse response
             response_text = response_text.strip()
@@ -2623,6 +4233,7 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                 log.info(
                     "parallel_executor.decomposition.atomic",
                     ac_index=ac_index,
+                    **profile_metadata,
                 )
                 return None
 
@@ -2631,11 +4242,12 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
             if json_match:
                 sub_acs = json.loads(json_match.group())
                 if isinstance(sub_acs, list) and all(isinstance(s, str) for s in sub_acs):
-                    if MIN_SUB_ACS <= len(sub_acs) <= MAX_SUB_ACS:
+                    if min_sub_acs <= len(sub_acs) <= max_sub_acs:
                         log.info(
                             "parallel_executor.decomposition.success",
                             ac_index=ac_index,
                             sub_ac_count=len(sub_acs),
+                            **profile_metadata,
                         )
                         return sub_acs
 
@@ -2643,6 +4255,7 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                 "parallel_executor.decomposition.parse_failed",
                 ac_index=ac_index,
                 response_preview=response_text[:100],
+                **profile_metadata,
             )
             return None
 
@@ -2651,6 +4264,7 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                 "parallel_executor.decomposition.timeout",
                 ac_index=ac_index,
                 timeout_seconds=DECOMPOSITION_TIMEOUT_SECONDS,
+                **profile_metadata,
             )
             return None
         except Exception as e:
@@ -2658,6 +4272,7 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                 "parallel_executor.decomposition.error",
                 ac_index=ac_index,
                 error=str(e),
+                **profile_metadata,
             )
             return None
 
@@ -2701,6 +4316,125 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
             await asyncio.sleep(_MEMORY_CHECK_INTERVAL_SECONDS)
             elapsed += _MEMORY_CHECK_INTERVAL_SECONDS
         log.warning("memory_pressure.timeout", label=label)
+
+    def _decomposition_profile_metadata(self) -> dict[str, Any]:
+        """Return audit metadata for profile-aware decomposition decisions.
+
+        The metadata is intentionally descriptive only. It lets projections,
+        tests, and reviewers prove which profile shaped decomposition without
+        changing dispatch behavior or the CLI fat-harness default path.
+        """
+        profile = self._execution_profile
+        if profile is None:
+            return {"decomposition_profile": None}
+        return {
+            "decomposition_profile": {
+                "profile": profile.profile,
+                "axis": profile.axis,
+                "min_unit": profile.min_unit,
+                "cut_signal": profile.cut_signal,
+                "max_branching": profile.max_branching,
+            }
+        }
+
+    def _build_atomic_dispatch_context(
+        self,
+        *,
+        ac_index: int,
+        ac_content: str,
+        label: str,
+        level_contexts: list[LevelContext] | None,
+        sibling_acs: list[_SiblingACRef] | None,
+    ) -> tuple[str, dict[str, Any] | None]:
+        """Build the task section for an atomic leaf dispatch.
+
+        Legacy execution keeps its historical prompt shape.  When an
+        ExecutionProfile is active, route parent/sibling/AC context through
+        the #830 H6 context governor so profile-backed leaves receive bounded,
+        deterministic context without flipping any evidence/verifier default.
+        """
+        if self._execution_profile is None:
+            return f"## Your Task ({label})\n{ac_content}", None
+
+        sibling_statuses: list[SiblingStatus] = []
+        if sibling_acs and len(sibling_acs) > 1:
+            for sibling_index, sibling_ac in sibling_acs:
+                if sibling_index == ac_index:
+                    continue
+                sibling_id = f"sibling-{len(sibling_statuses) + 1}"
+                headline = " ".join(sibling_ac.split())
+                if len(headline) > _SIBLING_HEADLINE_CHARS:
+                    headline = headline[:_SIBLING_HEADLINE_CHARS]
+                sibling_statuses.append(
+                    SiblingStatus(
+                        sibling_id=sibling_id,
+                        accepted=None,
+                        headline=headline,
+                    )
+                )
+
+        try:
+            composed = compose_context(
+                ac=ac_content,
+                parent_summary=_build_governed_parent_summary(level_contexts),
+                siblings=sibling_statuses,
+            )
+        except ValueError as exc:
+            # This C.3 slice wires the governor into profile-backed dispatch
+            # without making budget failures an acceptance/default gate yet.
+            # Preserve execution by falling back to the legacy prompt shape and
+            # emit auditable metadata so later enforcement work can quantify
+            # how often the hard governor would have rejected a leaf.
+            return f"## Your Task ({label})\n{ac_content}", {
+                "context_governed": False,
+                "context_acceptance_enforced": False,
+                "context_default_flipped": False,
+                "context_governance_error": str(exc),
+                "context_fallback": "legacy_prompt",
+            }
+        rendered = composed.render()
+        audit = {
+            "context_governed": True,
+            "context_acceptance_enforced": False,
+            "context_default_flipped": False,
+            "context_rendered_chars": len(rendered),
+            "context_truncated": composed.truncated,
+            "context_sibling_status_count": len(composed.sibling_lines),
+            "context_parent_summary_present": bool(composed.parent_summary),
+        }
+        return f"## Governed Dispatch Context ({label})\n{rendered}", audit
+
+    async def _emit_atomic_context_governed_event(
+        self,
+        *,
+        runtime_identity: ACRuntimeIdentity,
+        execution_id: str,
+        session_id: str | None,
+        ac_content: str,
+        context_audit: dict[str, Any] | None,
+    ) -> None:
+        """Persist observe-only context-governor metadata for profile-backed leaves."""
+        if self._execution_profile is None or context_audit is None:
+            return
+
+        from ouroboros.events.base import BaseEvent
+
+        await self._safe_emit_event(
+            BaseEvent(
+                type="execution.ac.context_governed",
+                aggregate_type=runtime_identity.runtime_scope.aggregate_type,
+                aggregate_id=runtime_identity.session_scope_id,
+                data={
+                    **runtime_identity.to_metadata(),
+                    **self._decomposition_profile_metadata(),
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "acceptance_criterion": ac_content,
+                    "profile": self._execution_profile.profile,
+                    **context_audit,
+                },
+            )
+        )
 
     @staticmethod
     def _runtime_event_metadata(message: AgentMessage) -> dict[str, Any]:
@@ -2970,7 +4704,7 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         sub_ac_index: int | None = None,
         node_identity: ExecutionNodeIdentity | None = None,
         level_contexts: list[LevelContext] | None = None,
-        sibling_acs: list[str] | None = None,
+        sibling_acs: list[_SiblingACRef] | None = None,
         retry_attempt: int = 0,
         tool_catalog: tuple[MCPToolDefinition, ...] | None = None,
         execution_counters: dict[str, int] | None = None,
@@ -2997,8 +4731,19 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
             label = f"AC {ac_index + 1}"
             indent = "  "
 
-        # Build context section from previous levels
-        context_section = build_context_prompt(level_contexts or [])
+        task_section, context_governance_audit = self._build_atomic_dispatch_context(
+            ac_index=ac_index,
+            ac_content=ac_content,
+            label=label,
+            level_contexts=level_contexts,
+            sibling_acs=sibling_acs,
+        )
+        legacy_context_section = (
+            ""
+            if context_governance_audit is not None
+            and context_governance_audit.get("context_governed") is True
+            else build_context_prompt(level_contexts or [])
+        )
 
         retry_section = ""
         if retry_attempt > 0:
@@ -3012,16 +4757,53 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         # Build parallel awareness section
         parallel_section = ""
         if sibling_acs and len(sibling_acs) > 1:
-            other_acs = [ac for ac in sibling_acs if ac != ac_content]
+            other_acs = [
+                content for sibling_index, content in sibling_acs if sibling_index != ac_index
+            ]
             if other_acs:
-                other_list = "\n".join(f"- {ac[:80]}" for ac in other_acs)
-                parallel_section = (
-                    "\n## Parallel Execution Notice\n"
-                    "Other agents are working on sibling tasks concurrently. "
-                    "Avoid modifying files that other agents are likely editing. "
-                    "Focus on files directly related to YOUR task.\n\n"
-                    f"Sibling tasks in progress:\n{other_list}\n"
+                context_is_governed = (
+                    context_governance_audit is not None
+                    and context_governance_audit.get("context_governed") is True
                 )
+                if context_is_governed:
+                    if self._fat_harness_mode and self._execution_profile is not None:
+                        other_list = (
+                            "Sibling/future ACs are summarized in the governed "
+                            "sibling-status section above as out-of-scope boundary "
+                            "context."
+                        )
+                    else:
+                        other_list = (
+                            "Sibling tasks in progress are summarized in the governed "
+                            "sibling-status section above."
+                        )
+                else:
+                    sibling_heading = (
+                        "Sibling/future ACs that are OUT OF SCOPE for this dispatch:"
+                        if self._fat_harness_mode and self._execution_profile is not None
+                        else "Sibling tasks in progress:"
+                    )
+                    other_list = (
+                        sibling_heading + "\n" + "\n".join(f"- {ac[:80]}" for ac in other_acs)
+                    )
+                if self._fat_harness_mode and self._execution_profile is not None:
+                    parallel_section = (
+                        "\n## Current AC Scope Boundary\n"
+                        "Sibling/future ACs are listed only to define work that is "
+                        "outside the current dispatch. Do not satisfy those criteria "
+                        "now, and do not pre-create their files, tests, docs, or "
+                        "evidence. Avoid modifying files that sibling/future ACs are "
+                        "likely to own unless the current AC explicitly requires it.\n\n"
+                        f"{other_list}\n"
+                    )
+                else:
+                    parallel_section = (
+                        "\n## Parallel Execution Notice\n"
+                        "Other agents are working on sibling tasks concurrently. "
+                        "Avoid modifying files that other agents are likely editing. "
+                        "Focus on files directly related to YOUR task.\n\n"
+                        f"{other_list}\n"
+                    )
 
         # Scan the requested runtime workspace so prompts stay aligned with the actual task cwd.
         import os
@@ -3034,6 +4816,62 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
             file_listing = "\n".join(f"- {e}" for e in entries if not e.startswith("."))
         except OSError:
             file_listing = "(unable to list)"
+
+        if self._fat_harness_mode and self._execution_profile is not None:
+            effective_schema = _effective_evidence_schema_for_ac(
+                self._execution_profile, ac_content
+            )
+            required_fields = ", ".join(effective_schema.required)
+            doc_only_note = ""
+            if _is_documentation_only_ac(ac_content):
+                doc_only_note = (
+                    "This is a documentation-only current AC: verify the requested docs "
+                    "with current-session README/docs evidence such as Edit plus a direct "
+                    "read/grep/diff command when that command is the validation for the docs change. "
+                    "Do not include tests_passed at all for documentation-only ACs. "
+                    "If you ran tests as a sanity check, cite only the validation command "
+                    "in commands_run when it directly validates the current docs change; "
+                    "do not list individual test names or prior test IDs.\n"
+                )
+            validation_only_note = ""
+            if _is_validation_only_ac(ac_content):
+                validation_only_note = (
+                    "This is a validation-only current AC: prove it with commands_run "
+                    "and tests_passed from this runtime session. Do not include "
+                    "files_touched unless you actually edited, wrote, or generated files "
+                    "for this current AC. Read-only inspection or running tests does not "
+                    "count as files_touched.\n"
+                )
+            completion_instruction = (
+                "## Current AC Scope Contract\n"
+                "You are responsible only for the current acceptance criterion in "
+                "this dispatch. Do not implement, test, document, or pre-create work "
+                "that belongs only to sibling or future ACs. If another AC mentions "
+                "related files, future functions, tests, or docs, treat that work as "
+                "out of scope unless the current AC explicitly requires it.\n"
+                "Your final evidence JSON must cite only files, commands, and tests "
+                "directly changed or run for this current AC in this runtime session. "
+                "For files_touched, cite workspace-relative paths only, never absolute "
+                "paths such as /tmp/... or /private/tmp/..., and never paths outside "
+                "the working directory. "
+                "For commands_run, include only validation/production commands such "
+                "as test, build, lint, generation, or docs verification commands; omit "
+                "exploratory discovery commands such as rg, grep, sed, cat, ls, find, "
+                "or pwd unless the current AC explicitly requires that command as validation.\n"
+                f"{doc_only_note}{validation_only_note}\n"
+                "Use the available tools to accomplish this task. Report progress through "
+                "tool-visible work, not a prose-only completion claim.\n"
+                "When complete, emit exactly ONE fenced JSON evidence record as the "
+                "final response and then stop. Populate the active profile fields "
+                f"directly ({required_fields}); do not emit a generic command_result "
+                "wrapper. Do not prefix it with [TASK_COMPLETE] or any prose; the "
+                "harness decides success from typed evidence plus the verifier PASS."
+            )
+        else:
+            completion_instruction = (
+                "Use the available tools to accomplish this task. Report your progress "
+                "clearly.\nWhen complete, explicitly state: [TASK_COMPLETE]"
+            )
 
         prompt = f"""Execute the following task:
 
@@ -3048,11 +4886,11 @@ Files present:
 ## Goal Context
 {seed_goal}
 
-## Your Task ({label})
-{ac_content}
-{context_section}{retry_section}{parallel_section}
-Use the available tools to accomplish this task. Report your progress clearly.
-When complete, explicitly state: [TASK_COMPLETE]
+{render_auto_recursion_guard()}
+
+{task_section}
+{legacy_context_section}{retry_section}{parallel_section}
+{completion_instruction}
 """
 
         messages: list[AgentMessage] = []
@@ -3098,6 +4936,13 @@ When complete, explicitly state: [TASK_COMPLETE]
             sub_ac_index=sub_ac_index,
             node_identity=node_identity,
             retry_attempt=retry_attempt,
+        )
+        await self._emit_atomic_context_governed_event(
+            runtime_identity=runtime_identity,
+            execution_id=execution_context_id,
+            session_id=session_id,
+            ac_content=ac_content,
+            context_audit=context_governance_audit,
         )
         lifecycle_event_type = (
             "execution.session.resumed"
@@ -3337,6 +5182,45 @@ When complete, explicitly state: [TASK_COMPLETE]
 
             duration = (datetime.now(UTC) - start_time).total_seconds()
 
+            typed_evidence, typed_validation, typed_error = self._observe_atomic_typed_evidence(
+                ac_content=ac_content,
+                final_message=final_message,
+                success=success,
+            )
+            verifier_verdict = self._run_atomic_verifier_pass(
+                ac_content=ac_content,
+                final_message=final_message,
+                success=success,
+                messages=tuple(messages),
+                typed_evidence=typed_evidence,
+                typed_validation=typed_validation,
+            )
+            fat_harness_error = self._fat_harness_acceptance_error(
+                runtime_success=success,
+                typed_evidence=typed_evidence,
+                typed_validation=typed_validation,
+                typed_error=typed_error,
+                verifier_verdict=verifier_verdict,
+            )
+            result_final_message = final_message
+            if fat_harness_error is not None:
+                success = False
+                result_final_message = (
+                    f"{fat_harness_error}\n\nRuntime final message:\n{final_message}"
+                    if final_message
+                    else fat_harness_error
+                )
+            await self._emit_atomic_typed_evidence_event(
+                runtime_identity=runtime_identity,
+                execution_id=execution_context_id,
+                session_id=ac_session_id,
+                ac_content=ac_content,
+                typed_evidence=typed_evidence,
+                typed_validation=typed_validation,
+                typed_error=typed_error,
+                verifier_verdict=verifier_verdict,
+                enforcement_error=fat_harness_error,
+            )
             await self._emit_ac_runtime_event(
                 event_type=(
                     "execution.session.completed" if success else "execution.session.failed"
@@ -3346,11 +5230,22 @@ When complete, explicitly state: [TASK_COMPLETE]
                 runtime_handle=runtime_handle,
                 execution_id=execution_context_id,
                 session_id=ac_session_id,
-                result_summary=final_message or None,
+                result_summary=result_final_message or None,
                 success=success,
-                error=None if success else final_message or "Implementation session failed",
+                error=(
+                    None
+                    if success
+                    else fat_harness_error or final_message or "Implementation session failed"
+                ),
             )
             clear_cached_runtime_handle = True
+            result_typed_evidence = typed_evidence
+            if success and self._execution_profile is not None and typed_evidence is not None:
+                result_typed_evidence = _scoped_evidence_record_for_ac(
+                    self._execution_profile,
+                    ac_content,
+                    typed_evidence,
+                )
 
             log.info(
                 "parallel_executor.ac.completed",
@@ -3366,12 +5261,17 @@ When complete, explicitly state: [TASK_COMPLETE]
                 ac_content=ac_content,
                 success=success,
                 messages=tuple(messages),
-                final_message=final_message,
+                final_message=result_final_message,
                 duration_seconds=duration,
                 session_id=ac_session_id,
                 retry_attempt=retry_attempt,
                 depth=depth,
                 runtime_handle=runtime_handle,
+                typed_evidence=result_typed_evidence,
+                typed_evidence_validation=typed_validation,
+                typed_evidence_error=typed_error,
+                atomic_verifier_verdict=verifier_verdict,
+                error=fat_harness_error,
             )
 
         except Exception as e:
@@ -3433,6 +5333,281 @@ When complete, explicitly state: [TASK_COMPLETE]
                     node_identity=node_identity,
                     retry_attempt=retry_attempt,
                 )
+
+    def _observe_atomic_typed_evidence(
+        self,
+        *,
+        ac_content: str,
+        final_message: str,
+        success: bool,
+    ) -> tuple[EvidenceRecord | None, ValidationResult | None, str | None]:
+        """Parse and validate typed evidence at the atomic AC acceptance boundary.
+
+        In observe-only mode this only records whether a successful atomic
+        leaf emitted profile-shaped evidence. In fat-harness mode, the caller
+        subsequently requires both this validation result and a separate
+        verifier PASS before accepting the AC.
+        """
+        if not success or self._execution_profile is None:
+            return None, None, None
+
+        try:
+            record = extract_evidence(final_message)
+            effective_schema = _effective_evidence_schema_for_ac(
+                self._execution_profile,
+                ac_content,
+            )
+            validation = validate_evidence(
+                _profile_with_evidence_schema(self._execution_profile, effective_schema),
+                record,
+            )
+        except ProfileEvidenceConfigError:
+            raise
+        except EvidenceError as exc:
+            return None, None, str(exc)
+        return record, validation, None
+
+    def _fat_harness_acceptance_error(
+        self,
+        *,
+        runtime_success: bool,
+        typed_evidence: EvidenceRecord | None,
+        typed_validation: ValidationResult | None,
+        typed_error: str | None,
+        verifier_verdict: VerifierVerdict | None,
+    ) -> str | None:
+        """Return the fat-harness rejection reason for an atomic leaf."""
+        if not self._fat_harness_mode or not runtime_success:
+            return None
+        if self._execution_profile is None:
+            return "Fat-harness mode requires a loaded execution profile."
+        if typed_evidence is None:
+            return typed_error or "Fat-harness mode requires typed evidence."
+        if typed_validation is None:
+            return "Fat-harness mode could not validate typed evidence."
+        if typed_validation.ok:
+            if verifier_verdict is None:
+                return "Fat-harness mode requires verifier PASS before atomic acceptance."
+            if verifier_verdict.passed:
+                return None
+            detail = "; ".join(verifier_verdict.reasons) or "verifier rejected atomic evidence"
+            return f"Fat-harness verifier failed ({detail})."
+
+        reasons: list[str] = []
+        if typed_validation.missing_fields:
+            reasons.append("missing fields: " + ", ".join(typed_validation.missing_fields))
+        if typed_validation.rejected_by:
+            reasons.append("rejected by: " + ", ".join(typed_validation.rejected_by))
+        if typed_validation.blocker is not None:
+            reasons.append("blocker: " + typed_validation.blocker.summary())
+        detail = "; ".join(reasons) if reasons else "profile evidence validation failed"
+        return f"Fat-harness typed evidence validation failed ({detail})."
+
+    def _run_atomic_verifier_pass(
+        self,
+        *,
+        ac_content: str,
+        final_message: str,
+        success: bool,
+        messages: tuple[AgentMessage, ...],
+        typed_evidence: EvidenceRecord | None,
+        typed_validation: ValidationResult | None,
+    ) -> VerifierVerdict | None:
+        """Run the separate verifier pass once typed evidence is schema-valid."""
+        if (
+            not success
+            or not self._fat_harness_mode
+            or self._execution_profile is None
+            or typed_evidence is None
+            or typed_validation is None
+            or not typed_validation.ok
+        ):
+            return None
+
+        verifier = self._atomic_verifier
+        try:
+            effective_schema = _effective_evidence_schema_for_ac(
+                self._execution_profile, ac_content
+            )
+            effective_profile = _profile_with_evidence_schema(
+                self._execution_profile, effective_schema
+            )
+            scoped_evidence = _scoped_evidence_record_for_ac(
+                self._execution_profile,
+                ac_content,
+                typed_evidence,
+            )
+            verdict = (
+                verifier(
+                    profile=effective_profile,
+                    ac=ac_content,
+                    leaf_output=final_message,
+                    record=scoped_evidence,
+                )
+                if verifier is not None
+                else self._verify_atomic_evidence_against_runtime_messages(
+                    messages=messages,
+                    typed_evidence=scoped_evidence,
+                    ac_content=ac_content,
+                )
+            )
+        except VerifierContractError:
+            raise
+        except Exception as exc:
+            verdict = verifier_operational_failure_verdict(exc)
+        if not isinstance(verdict, VerifierVerdict):
+            msg = f"Atomic verifier returned {type(verdict).__name__}, expected VerifierVerdict."
+            raise VerifierContractError(msg)
+        return verdict
+
+    def _verify_atomic_evidence_against_runtime_messages(
+        self,
+        *,
+        messages: tuple[AgentMessage, ...],
+        typed_evidence: EvidenceRecord,
+        ac_content: str,
+    ) -> VerifierVerdict:
+        """Verify leaf evidence is backed by runtime transcript events.
+
+        The verifier deliberately ignores the final result message so the
+        accepted evidence cannot be supported only by the leaf's self-report.
+        """
+        support_messages = tuple(messages[:-1] if messages and messages[-1].is_final else messages)
+        if not support_messages:
+            return VerifierVerdict(
+                passed=False,
+                reasons=("no runtime transcript evidence supports the typed evidence claims",),
+                failure_class="EVIDENCE_MISSING",
+            )
+
+        unsupported: list[str] = []
+        backed_commands = tuple(
+            command
+            for command in _flatten_evidence_values(typed_evidence.get("commands_run"))
+            if _runtime_messages_support_command_claim(
+                command,
+                _runtime_support_messages_for_field("commands_run", support_messages),
+            )
+        )
+        effective_schema = _effective_evidence_schema_for_ac(self._execution_profile, ac_content)
+        required_fields = set(effective_schema.required)
+        fields_to_verify = list(effective_schema.required)
+
+        for field_name in fields_to_verify:
+            values = tuple(_flatten_evidence_values(typed_evidence.get(field_name)))
+            if not values:
+                if field_name in required_fields:
+                    unsupported.append(f"{field_name}: no concrete claim values")
+                continue
+            field_messages = _runtime_support_messages_for_field(field_name, support_messages)
+            for value in values:
+                if field_name == "commands_run":
+                    if _runtime_messages_support_command_claim(value, field_messages):
+                        continue
+                    unsupported.append(f"{field_name}: {value}")
+                    continue
+                if field_name == "files_touched":
+                    if _runtime_messages_support_file_claim(
+                        value,
+                        field_messages,
+                        task_cwd=self._task_cwd or self._adapter.working_directory,
+                    ):
+                        continue
+                    unsupported.append(f"{field_name}: {value}")
+                    continue
+                if field_name == "tests_passed":
+                    if _runtime_messages_support_test_claim(
+                        value=value,
+                        backed_commands=backed_commands,
+                        messages=support_messages,
+                        task_cwd=self._task_cwd or self._adapter.working_directory,
+                    ):
+                        continue
+                    unsupported.append(f"{field_name}: {value}")
+                    continue
+                if not _runtime_messages_support_claim(value, field_messages):
+                    unsupported.append(f"{field_name}: {value}")
+
+        if unsupported:
+            return VerifierVerdict(
+                passed=False,
+                reasons=("unsupported evidence claims: " + "; ".join(unsupported),),
+                failure_class="FABRICATION_SUSPECTED",
+            )
+
+        return VerifierVerdict(passed=True)
+
+    async def _emit_atomic_typed_evidence_event(
+        self,
+        *,
+        runtime_identity: ACRuntimeIdentity,
+        execution_id: str,
+        session_id: str | None,
+        ac_content: str,
+        typed_evidence: EvidenceRecord | None,
+        typed_validation: ValidationResult | None,
+        typed_error: str | None,
+        verifier_verdict: VerifierVerdict | None = None,
+        enforcement_error: str | None = None,
+    ) -> None:
+        """Persist typed-evidence metadata for atomic AC completion."""
+        if self._execution_profile is None:
+            return
+
+        from ouroboros.events.base import BaseEvent
+
+        data: dict[str, Any] = {
+            **runtime_identity.to_metadata(),
+            **self._decomposition_profile_metadata(),
+            "execution_id": execution_id,
+            "session_id": session_id,
+            "acceptance_criterion": ac_content,
+            "profile": self._execution_profile.profile,
+            "required_fields": list(
+                _effective_evidence_schema_for_ac(self._execution_profile, ac_content).required
+            ),
+            "observe_only": not self._fat_harness_mode,
+            "enforced": self._fat_harness_mode,
+            "fat_harness_mode": self._fat_harness_mode,
+            "enforcement_error": enforcement_error,
+            "typed_evidence_present": typed_evidence is not None,
+            "typed_evidence_valid": typed_validation.ok if typed_validation is not None else False,
+            "typed_evidence_error": typed_error,
+            "verifier_ran": verifier_verdict is not None,
+            "verifier_passed": verifier_verdict.passed if verifier_verdict is not None else False,
+        }
+        if verifier_verdict is not None:
+            data["verifier_reasons"] = list(verifier_verdict.reasons)
+            data["verifier_failure_class"] = verifier_verdict.failure_class
+        if typed_evidence is not None:
+            data["typed_evidence_fields"] = sorted(typed_evidence.data)
+            data["ignored_out_of_scope_evidence_fields"] = list(
+                _out_of_scope_evidence_fields_for_ac(
+                    self._execution_profile,
+                    ac_content,
+                    typed_evidence,
+                )
+            )
+            data["ignored_out_of_scope_evidence"] = _out_of_scope_evidence_values_for_ac(
+                self._execution_profile,
+                ac_content,
+                typed_evidence,
+            )
+        if typed_validation is not None:
+            data["missing_fields"] = list(typed_validation.missing_fields)
+            data["rejected_by"] = list(typed_validation.rejected_by)
+            data["blocker"] = (
+                typed_validation.blocker.summary() if typed_validation.blocker is not None else None
+            )
+
+        await self._safe_emit_event(
+            BaseEvent(
+                type="execution.ac.typed_evidence.observed",
+                aggregate_type=runtime_identity.runtime_scope.aggregate_type,
+                aggregate_id=runtime_identity.session_scope_id,
+                data=data,
+            )
+        )
 
     async def _emit_subtask_event(
         self,
@@ -3509,6 +5684,7 @@ When complete, explicitly state: [TASK_COMPLETE]
                 "total_levels": total_levels,
                 "child_indices": ac_indices,  # TUI expects this field name
                 "ac_count": len(ac_indices),
+                **self._decomposition_profile_metadata(),
             },
         )
         await self._event_store.append(event)

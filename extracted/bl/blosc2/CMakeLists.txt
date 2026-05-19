@@ -15,7 +15,7 @@ endif()
 project(python-blosc2)
 
 set(BLOSC2_MIN_VERSION 3.0.0)
-set(BLOSC2_BUNDLED_VERSION v3.0.2)
+set(BLOSC2_BUNDLED_VERSION v3.0.3)
 
 if(WIN32 AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
     message(FATAL_ERROR "Windows builds require clang-cl. Set CC/CXX to clang-cl or configure CMake with -T ClangCL.")
@@ -51,6 +51,13 @@ add_custom_command(
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/blosc2/indexing_ext.pyx"
   VERBATIM)
 
+add_custom_command(
+  OUTPUT groupby_ext.c
+  COMMAND Python::Interpreter -m cython
+          "${CMAKE_CURRENT_SOURCE_DIR}/src/blosc2/groupby_ext.pyx" --output-file groupby_ext.c
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/blosc2/groupby_ext.pyx"
+  VERBATIM)
+
 # ...and add it to the target
 Python_add_library(blosc2_ext MODULE blosc2_ext.c WITH_SOABI)
 target_sources(blosc2_ext PRIVATE src/blosc2/matmul_kernels.c)
@@ -59,10 +66,12 @@ if(UNIX)
   target_link_libraries(blosc2_ext PRIVATE ${CMAKE_DL_LIBS})
 endif()
 Python_add_library(indexing_ext MODULE indexing_ext.c WITH_SOABI)
+Python_add_library(groupby_ext MODULE groupby_ext.c WITH_SOABI)
 
 # We need to link against NumPy
 target_link_libraries(blosc2_ext PRIVATE Python::NumPy)
 target_link_libraries(indexing_ext PRIVATE Python::NumPy)
+target_link_libraries(groupby_ext PRIVATE Python::NumPy)
 
 # Fetch and build miniexpr library
 include(FetchContent)
@@ -72,6 +81,12 @@ set(MINIEXPR_BUILD_SHARED OFF CACHE BOOL "Build miniexpr shared library" FORCE)
 set(MINIEXPR_BUILD_TESTS OFF CACHE BOOL "Build miniexpr tests" FORCE)
 set(MINIEXPR_BUILD_EXAMPLES OFF CACHE BOOL "Build miniexpr examples" FORCE)
 set(MINIEXPR_BUILD_BENCH OFF CACHE BOOL "Build miniexpr benchmarks" FORCE)
+# Keep miniexpr's bundled libtcc and related files inside the blosc2 package.
+# Without this, miniexpr's install rules use the default CMAKE_INSTALL_LIBDIR
+# ("lib"), which scikit-build places at site-packages/lib.
+set(CMAKE_INSTALL_INCLUDEDIR ${SKBUILD_PLATLIB_DIR}/blosc2/include)
+set(CMAKE_INSTALL_LIBDIR ${SKBUILD_PLATLIB_DIR}/blosc2/lib)
+set(CMAKE_INSTALL_DATADIR ${SKBUILD_PLATLIB_DIR}/blosc2/share)
 
 if(EMSCRIPTEN)
   set(MINIEXPR_ENABLE_TCC_JIT ON CACHE BOOL "Enable TCC JIT in Emscripten builds" FORCE)
@@ -93,6 +108,7 @@ endif()
 
 target_compile_features(blosc2_ext PRIVATE c_std_11)
 target_compile_features(indexing_ext PRIVATE c_std_11)
+target_compile_features(groupby_ext PRIVATE c_std_11)
 if(WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "Clang")
     execute_process(
         COMMAND "${CMAKE_C_COMPILER}" -print-resource-dir
@@ -131,8 +147,6 @@ else()
     set(BUILD_BENCHMARKS OFF CACHE BOOL "Build C-Blosc2 benchmarks")
     set(BUILD_FUZZERS OFF CACHE BOOL "Build C-Blosc2 fuzzers")
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-    set(CMAKE_INSTALL_INCLUDEDIR ${SKBUILD_PLATLIB_DIR}/blosc2/include) # directory for include files
-    set(CMAKE_INSTALL_LIBDIR ${SKBUILD_PLATLIB_DIR}/blosc2/lib) # directory for libblosc2 and pkgconfig
     set(Blosc2_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/blosc2) # directory for cmake files
     set(CMAKE_INSTALL_BINDIR ${SKBUILD_PLATLIB_DIR}/blosc2/lib) # directory for libblosc2.dll on windows
     # we will put the binaries of the C-Blosc2 library into the wheels according to PEP
@@ -169,7 +183,7 @@ endif()
 
 # Python extension -> site-packages/blosc2
 install(
-  TARGETS blosc2_ext indexing_ext
+  TARGETS blosc2_ext indexing_ext groupby_ext
   LIBRARY DESTINATION ${SKBUILD_PLATLIB_DIR}/blosc2
 )
 
@@ -177,33 +191,3 @@ install(
   FILES "${miniexpr_SOURCE_DIR}/src/me_jit_glue.js"
   DESTINATION ${SKBUILD_PLATLIB_DIR}/blosc2
 )
-
-# Install bundled libtcc next to the Python package (separate LGPL artifact).
-if(MINIEXPR_ENABLE_TCC_JIT)
-  if(APPLE)
-    install(
-      FILES "${miniexpr_BINARY_DIR}/libtcc.dylib"
-      DESTINATION ${SKBUILD_PLATLIB_DIR}/blosc2/lib
-      OPTIONAL
-    )
-  elseif(WIN32)
-    install(
-      FILES
-        "${miniexpr_BINARY_DIR}/tcc.dll"
-        "${miniexpr_BINARY_DIR}/Debug/tcc.dll"
-        "${miniexpr_BINARY_DIR}/Release/tcc.dll"
-        "${miniexpr_BINARY_DIR}/RelWithDebInfo/tcc.dll"
-        "${miniexpr_BINARY_DIR}/MinSizeRel/tcc.dll"
-      DESTINATION ${SKBUILD_PLATLIB_DIR}/blosc2/lib
-      OPTIONAL
-    )
-  else()
-    install(
-      FILES
-        "${miniexpr_BINARY_DIR}/libtcc.so"
-        "${miniexpr_BINARY_DIR}/libtcc.so.1"
-      DESTINATION ${SKBUILD_PLATLIB_DIR}/blosc2/lib
-      OPTIONAL
-    )
-  endif()
-endif()

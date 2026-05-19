@@ -1,0 +1,7 @@
+---
+  features:
+    - |
+      The ``openstack stack event list`` command now displays the event ID
+      in the default log format output. The default listing
+      should show it to enable users to easily retrieve detailed information
+      about specific events.

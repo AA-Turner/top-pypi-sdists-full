@@ -224,6 +224,10 @@ class AgentLoop:
         self._empty_responses: int = 0
         self._successful_test_runs: int = 0
 
+        # Math/science docs are injected at most once per session if the
+        # user's prompt looks mathy. See _maybe_inject_math_docs.
+        self._math_docs_injected: bool = False
+
         # Mid-turn user injections (the Claude Code "type while busy" feature).
         # The TUI calls `queue_user_injection()` whenever the user submits a
         # message while the agent is mid-task. The per-turn loop drains this
@@ -781,6 +785,19 @@ class AgentLoop:
         _ar_t1 = time.perf_counter()
         logger.warning("[TIMING] _auto_route_task: %.2fs", _ar_t1 - _ar_t0)
 
+        # === GEMMA 4 MATH/SCIENCE TOOL DOCS — JUST-IN-TIME ===
+        # gemma4.md used to inline ~3700 tokens of math/logic/stats/
+        # chemistry/units/solve/prolog tool documentation on EVERY
+        # session — most of it useless for the typical coding task.
+        # Operator observed 21K-token baseline in a fresh coding
+        # session 2026-05-18. Now those docs live in gemma4_math.md
+        # and only inject when the user's first message looks like
+        # a math/science/logic problem.
+        try:
+            self._maybe_inject_math_docs(user_msg)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("math docs inject skipped: %s", e)
+
         # === AUTO-PREFETCH RETRIEVE ===
         # HLE Phase 1 finding (memory: project_graphrag_underused.md): Gemma 4
         # almost never calls retrieve() on its own for general-knowledge
@@ -901,7 +918,11 @@ class AgentLoop:
             _prompt_start = time.perf_counter()
             _time_stop_injected = False
             _time_stop_escalated = False
-            _tool_stop_injected = False
+            # Promoted to self._tool_stop_injected so _perform_llm_turn
+            # (a separate method, different scope) can read+write it.
+            # The four read sites at lines ~1459/1538/1594/1661 live in
+            # _perform_llm_turn and were raising NameError previously.
+            self._tool_stop_injected = False
             logger.warning("[TIMING] entering conversation while loop")
             while not should_break_loop:
                 # Drain any user messages typed while the agent was working.
@@ -987,9 +1008,9 @@ class AgentLoop:
                         + (f" {_stop_suffix}" if _stop_suffix else "")
                     )
                 if (TOOL_STOP_AFTER > 0
-                        and not _tool_stop_injected
+                        and not self._tool_stop_injected
                         and tool_turns >= TOOL_STOP_AFTER):
-                    _tool_stop_injected = True
+                    self._tool_stop_injected = True
                     _stop_suffix = os.environ.get("DRYDOCK_STOP_NOW_SUFFIX", "")
                     self._inject_system_note(
                         f"You have used {tool_turns} tool calls. "
@@ -999,7 +1020,7 @@ class AgentLoop:
                         + (f" {_stop_suffix}" if _stop_suffix else "")
                     )
                 elif (TOOL_STOP_AFTER > 0
-                        and _tool_stop_injected
+                        and self._tool_stop_injected
                         and tool_turns > TOOL_STOP_AFTER):
                     # Model called another tool after the stop note — force
                     # text-only on the next LLM call so it must emit an answer.
@@ -1456,7 +1477,7 @@ class AgentLoop:
                 and bool(_prev_tool_result.strip())
             )
             if _stall_attempt == 0:
-                if _tool_stop_injected:
+                if self._tool_stop_injected:
                     _fa_suffix = os.environ.get(
                         "DRYDOCK_STOP_NOW_SUFFIX",
                         "End with 'FINAL ANSWER: <answer>'.",
@@ -1535,7 +1556,7 @@ class AgentLoop:
                         + (f" {_generic_suffix}" if _generic_suffix else "")
                     )
             elif _stall_attempt == 1:
-                if _tool_stop_injected:
+                if self._tool_stop_injected:
                     _fa_suffix = os.environ.get(
                         "DRYDOCK_STOP_NOW_SUFFIX",
                         "End with 'FINAL ANSWER: <answer>'.",
@@ -1591,7 +1612,7 @@ class AgentLoop:
                         + (f" {_generic_suffix}" if _generic_suffix else "")
                     )
             else:
-                if _tool_stop_injected:
+                if self._tool_stop_injected:
                     _fa_suffix = os.environ.get(
                         "DRYDOCK_STOP_NOW_SUFFIX",
                         "End with 'FINAL ANSWER: <answer>'.",
@@ -1658,7 +1679,7 @@ class AgentLoop:
             # (cleared) at the previous LLM call boundary, so without
             # this the stall-retry call gets tool_choice="auto" and the
             # model loops back to calling tools instead of answering.
-            if _tool_stop_injected:
+            if self._tool_stop_injected:
                 self._hle_force_text_only = True
             # Loop back to re-call the LLM.
             continue
@@ -1668,6 +1689,11 @@ class AgentLoop:
         # than returning control to the outer loop that would exit on
         # empty assistant + user-role precursor.)
 
+        # Guard: if no messages or the binding above never executed
+        # (pyright-flagged possibly-unbound), bail rather than NameError.
+        if not self.messages:
+            return
+        last_message = self.messages[-1]
         # Detect repetitive text generation (Gemma 4 sometimes loops text within one response)
         if last_message.content and len(last_message.content) > 200:
             text = last_message.content
@@ -1903,13 +1929,20 @@ class AgentLoop:
         # run where FORCED STOP poisoned every subsequent prompt.
         if blocked := self._circuit_breaker_check(tool_call):
             self._consecutive_circuit_breaker_fires += 1
+            # 2026-05-18: render as `skipped` (yellow warning) not `error`
+            # (red ✕). The dedup advisory is informational — the call was
+            # not attempted, nothing failed. Showing it as ✕ misleads the
+            # operator AND the model into thinking the tool itself is
+            # broken. Per the operator's standing rule, loop-breakers
+            # return a result, never raise an error.
             yield ToolResultEvent(
                 tool_name=tool_call.tool_name,
                 tool_class=tool_call.tool_class,
-                error=blocked,
+                skipped=True,
+                skip_reason=blocked,
                 tool_call_id=tool_call.call_id,
             )
-            self._handle_tool_response(tool_call, blocked, "failure")
+            self._handle_tool_response(tool_call, blocked, "skipped")
             return
         else:
             # Reset consecutive fires when a non-blocked call happens
@@ -3169,6 +3202,95 @@ class AgentLoop:
             f"Choose a different approach on your own."
         )
 
+    # Keywords that signal "user is asking about math/science/logic/
+    # constraint problems." Conservative — false negatives are fine
+    # (just no injection), false positives waste ~3K tokens once.
+    _MATH_KEYWORDS = (
+        # Arithmetic / number theory
+        "factorial", "prime", "factor", "gcd", "lcm", "modulo", "mod ",
+        "remainder", "divisor", "totient", "permutation", "combination",
+        # Algebra / calculus
+        "solve for", "equation", "polynomial", "integrate", "derivative",
+        "differentiate", "limit ", "series", "matrix", "eigen", "determinant",
+        # Logic
+        "prove ", "proof ", "iff", "tautology", "contrapositive",
+        "modus ponens", "satisfiab", "truth table", "implies",
+        # Stats
+        "probability", "p-value", "hypothesis test", "z-test", "t-test",
+        "confidence interval", "regression", "correlation", "standard deviation",
+        "distribution", "binomial", "poisson", "normal distribution",
+        # Constraint / search
+        "constraint", "z3", "sudoku", "n-queens", "logic puzzle",
+        "find all x", "find x such that", "smallest x", "largest x",
+        # Physics / units
+        "kilogram", "joule", "newton", "kelvin", "pascal", "conversion",
+        "dimensional analysis", "si unit",
+        # Chemistry
+        "molar mass", "stoichiometry", "atomic", "periodic table",
+        "empirical formula", "percent composition",
+        # HLE-style phrasings
+        "compute ", "calculate ", "evaluate the", "what is the value",
+        "show that", "prove that", "let x", "find the",
+    )
+
+    def _maybe_inject_math_docs(self, user_msg: str) -> None:
+        """Append the math/science tool cheat sheet (gemma4_math.md) to
+        the system prompt as a NOTE-style injection — but only when the
+        user's prompt looks mathy, and only once per session.
+
+        Saves ~3K tokens on every typical coding session by deferring
+        the verbose tool docs until needed.
+        """
+        if self._math_docs_injected:
+            return
+        # Only Gemma-family models use gemma4.md / gemma4_math.md.
+        try:
+            active = self.config.get_active_model()
+            if "gemma" not in (active.name or "").lower():
+                return
+        except Exception:  # noqa: BLE001
+            return
+
+        msg_lc = user_msg.lower()
+        # Word-boundary match so "factor" doesn't fire on "refactor",
+        # "matrix" doesn't fire on "matrix-multiplication-driven UI".
+        import re as _re
+        if not any(
+            _re.search(rf"\b{_re.escape(kw.rstrip())}\b", msg_lc)
+            for kw in self._MATH_KEYWORDS
+        ):
+            return
+
+        from drydock.core.prompts import SystemPrompt
+        try:
+            # SystemPrompt enum value names lowercased = file stems.
+            # gemma4_math isn't in the enum — load by path.
+            from drydock import DRYDOCK_ROOT
+            from pathlib import Path
+            p = Path(DRYDOCK_ROOT) / "core" / "prompts" / "gemma4_math.md"
+            if not p.is_file():
+                return
+            math_docs = p.read_text(encoding="utf-8").strip()
+        except Exception:  # noqa: BLE001
+            return
+        if not math_docs:
+            return
+
+        # Use _inject_system_note which handles message-ordering rules
+        # (vLLM rejects user-after-tool, etc). At first-turn there's no
+        # tool message yet, so it appends to the just-added user message
+        # — exactly where we want the math context.
+        self._inject_system_note(
+            "math/science tool cheat sheet (loaded just-in-time because "
+            "your prompt looks math/science/logic-flavored):\n\n"
+            + math_docs
+        )
+        self._math_docs_injected = True
+        logger.info(
+            "[math-docs] injected gemma4_math.md (%d chars) for mathy prompt",
+            len(math_docs),
+        )
+
     def _inject_system_note(self, text: str, replace_last_tool: bool = False) -> None:
         """Safely inject a system note into conversation without breaking message ordering.
 
@@ -4145,6 +4267,13 @@ or replace freely; future sessions will respect your edits._
             return False
 
         has_prd = Path.cwd().joinpath("PRD.md").exists() or Path.cwd().joinpath("prd.md").exists()
+        # `has_complexity` was referenced but never defined — guaranteed
+        # NameError on every call where has_prd is False. Define it now
+        # as "the prompt mentions complex multi-file scaffolding" keywords.
+        has_complexity = any(kw in msg_lower for kw in (
+            "multiple files", "package", "module", "from scratch",
+            "scaffold", "boilerplate", "directory structure",
+        ))
         return has_build_verb and (has_complexity or has_prd)
 
     def _auto_fix_package(self, file_path: str) -> None:
@@ -4231,10 +4360,13 @@ or replace freely; future sessions will respect your edits._
         """
         parts: list[str] = []
         msg_lower = user_msg.lower()
+        # Pull cwd outside the first try-block so the second try-block
+        # (which also references `cwd`) can't hit a NameError if Path.cwd()
+        # somehow throws — was reportPossiblyUnbound at line 4262.
+        cwd = Path.cwd()
 
         # 1. Auto-explore: list project files so model doesn't have to
         try:
-            cwd = Path.cwd()
             py_files = sorted(cwd.rglob("*.py"))
             py_files = [f for f in py_files if ".logs" not in str(f) and ".venv" not in str(f)]
             if len(py_files) >= 3:
@@ -4439,6 +4571,11 @@ or replace freely; future sessions will respect your edits._
     def _reset_session(self) -> None:
         self.session_id = str(uuid4())
         self.session_logger.reset_session(self.session_id)
+        # Defensive init — _perform_llm_turn reads this in 4 places;
+        # if a code path calls into the LLM turn before
+        # _conversation_loop sets the local, we'd hit NameError.
+        # Observed in user TUI 2026-05-18.
+        self._tool_stop_injected = False
 
     def set_approval_callback(self, callback: ApprovalCallback) -> None:
         self.approval_callback = callback
@@ -4636,6 +4773,12 @@ or replace freely; future sessions will respect your edits._
         # /compact since the goal is session-scoped and a fresh session
         # shouldn't inherit the prior pursuit.
         self.goal = None
+        # Defensive init for _tool_stop_injected — _perform_llm_turn
+        # references this at multiple sites; if a session-level reset
+        # path calls into the LLM turn before _conversation_loop's
+        # init line, we'd hit NameError. Observed in user's actual TUI
+        # 2026-05-18 with the slides project.
+        self._tool_stop_injected = False
 
     async def compact(self) -> str:
         try:

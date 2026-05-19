@@ -19,6 +19,7 @@ from .util import (
     ANSIBLE_TEST_DATA_ROOT,
     cache,
     read_lines_without_comments,
+    get_powershell_version_map,
     str_to_version,
     InternalError,
 )
@@ -80,15 +81,28 @@ class PosixCompletionConfig(CompletionConfig, metaclass=abc.ABCMeta):
     def supported_pythons(self) -> list[str]:
         """Return a list of the supported Python versions."""
 
+    @property
+    @abc.abstractmethod
+    def supported_powershells(self) -> list[str]:
+        """Return a list of the supported PowerShell versions."""
+
     @abc.abstractmethod
     def get_python_path(self, version: str) -> str:
         """Return the path of the requested Python version."""
+
+    @abc.abstractmethod
+    def get_powershell_path(self, version: str | None) -> str | None:
+        """Return the path of the requested PowerShell version, or None if PowerShell is not available."""
 
     def get_default_python(self, controller: bool) -> str:
         """Return the default Python version for a controller or target as specified."""
         context_pythons = CONTROLLER_PYTHON_VERSIONS if controller else SUPPORTED_PYTHON_VERSIONS
         version = [python for python in self.supported_pythons if python in context_pythons][0]
         return version
+
+    def get_default_powershell(self) -> str | None:
+        """Return the default PowerShell version, or None if there is no default."""
+        return None
 
     @property
     def controller_supported(self) -> bool:
@@ -113,6 +127,28 @@ class PythonCompletionConfig(PosixCompletionConfig, metaclass=abc.ABCMeta):
     def get_python_path(self, version: str) -> str:
         """Return the path of the requested Python version."""
         return os.path.join(self.python_dir, f'python{version}')
+
+
+@dataclasses.dataclass(frozen=True)
+class PowerShellCompletionConfig(PosixCompletionConfig, metaclass=abc.ABCMeta):
+    """Base class for completion configuration of PowerShell environments."""
+
+    powershell: str = ''
+    powershell_dir: str = '/usr/local/bin'
+
+    @property
+    def supported_powershells(self) -> list[str]:
+        """Return a list of the supported PowerShell versions."""
+        versions = self.powershell.split(',') if self.powershell else []
+        versions = [version for version in versions if version in get_powershell_version_map()]
+        return versions
+
+    def get_powershell_path(self, version: str | None) -> str | None:
+        """Return the path of the requested PowerShell version, or None if PowerShell is not available."""
+        if not version:
+            return None
+
+        return os.path.join(self.powershell_dir, f'pwsh{version}')
 
 
 @dataclasses.dataclass(frozen=True)
@@ -169,7 +205,7 @@ class InventoryCompletionConfig(CompletionConfig):
 
 
 @dataclasses.dataclass(frozen=True)
-class PosixSshCompletionConfig(PythonCompletionConfig):
+class PosixSshCompletionConfig(PythonCompletionConfig, PowerShellCompletionConfig):
     """Configuration for a POSIX host reachable over SSH."""
 
     def __init__(self, user: str, host: str) -> None:
@@ -185,7 +221,7 @@ class PosixSshCompletionConfig(PythonCompletionConfig):
 
 
 @dataclasses.dataclass(frozen=True)
-class DockerCompletionConfig(PythonCompletionConfig):
+class DockerCompletionConfig(PythonCompletionConfig, PowerShellCompletionConfig):
     """Configuration for Docker containers."""
 
     image: str = ''
@@ -228,6 +264,10 @@ class DockerCompletionConfig(PythonCompletionConfig):
         except ValueError:
             raise ValueError(f'Docker completion entry "{self.name}" has an invalid value "{self.cgroup}" for the "cgroup" setting.') from None
 
+    def get_default_powershell(self) -> str | None:
+        """Return the default PowerShell version, or None if there is no default."""
+        return next(iter(self.supported_powershells), None)
+
     def __post_init__(self):
         if not self.image:
             raise Exception(f'Docker completion entry "{self.name}" must provide an "image" setting.')
@@ -254,11 +294,15 @@ class NetworkRemoteCompletionConfig(RemoteCompletionConfig):
 
 
 @dataclasses.dataclass(frozen=True)
-class PosixRemoteCompletionConfig(RemoteCompletionConfig, PythonCompletionConfig):
+class PosixRemoteCompletionConfig(RemoteCompletionConfig, PythonCompletionConfig, PowerShellCompletionConfig):
     """Configuration for remote POSIX platforms."""
 
     become: t.Optional[str] = None
     placeholder: bool = False
+
+    def get_default_powershell(self) -> str | None:
+        """Return the default PowerShell version, or None if there is no default."""
+        return next(iter(self.supported_powershells), None)
 
     def __post_init__(self):
         if not self.placeholder:

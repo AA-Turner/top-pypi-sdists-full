@@ -17,9 +17,10 @@ limitations under the License.
 import abc
 import warnings
 from functools import wraps
-from typing import List, Literal, Optional, Self, Tuple
+from typing import Literal, Self
 
 import numpy as np
+import scipy.sparse as sp
 
 import cvxpy as cp
 import cvxpy.settings as s
@@ -52,6 +53,24 @@ def _cast_other(binary_op):
         return binary_op(self, other)
     return cast_op
 
+
+def _pow_const_base(base, exponent):
+    """Helper for b**x where b is a positive constant and x is a CVXPY expression.
+
+    Validates that base is constant and positive, then returns exp(x * log(b)).
+    """
+    from cvxpy.atoms.affine.binary_operators import multiply
+    from cvxpy.atoms.elementwise.exp import exp
+    from cvxpy.atoms.elementwise.log import log
+    if not base.is_constant():
+        raise ValueError(
+            "The base of b**x must be a constant when the exponent is a variable."
+        )
+    if not base.is_pos():
+        raise ValueError(
+            "The base of b**x must be positive since we use b**x = exp(x * log(b))."
+        )
+    return exp(multiply(exponent, log(base)))
 
 __STAR_MATMUL_COUNT__ = 1
 
@@ -120,7 +139,7 @@ class Expression(u.Canonical):
     Overloads many operators to allow for convenient creation of compound
     expressions (e.g., the sum of two expressions) and constraints.
     """
-    
+
     def __init__(self):
         """Initialize the expression."""
         self._label = None
@@ -130,12 +149,12 @@ class Expression(u.Canonical):
 
     @property
     @abc.abstractmethod
-    def value(self) -> Optional[np.ndarray]:
+    def value(self) -> np.ndarray | None:
         """Returns: The numeric value of the expression.
         """
         raise NotImplementedError()
 
-    def _value_impl(self) -> Optional[np.ndarray]:
+    def _value_impl(self) -> np.ndarray | None:
         """Implementation of .value.
         """
         return self.value
@@ -180,12 +199,12 @@ class Expression(u.Canonical):
         """str : The string representation of the expression.
         """
         raise NotImplementedError()
-    
+
     @property
     def label(self):
         """Get the label of the expression."""
         return self._label
-    
+
     @label.setter
     def label(self, value: object | None):
         """Set the label of the expression."""
@@ -198,26 +217,26 @@ class Expression(u.Canonical):
                 )
         else:
             self._label = None
-    
+
     @label.deleter
     def label(self):
         """Delete the label of the expression."""
         self._label = None
-    
+
     def set_label(self, label: object | None) -> Self:
         """Set a custom label for this expression.
-        
+
         Parameters
         ----------
         label : object | None
             Custom label for the expression. Will be converted to string.
             If None, clears the label.
-            
+
         Returns
         -------
         Self
             Returns self to allow method chaining.
-            
+
         Examples
         --------
         >>> x = cp.Variable(3)
@@ -226,14 +245,14 @@ class Expression(u.Canonical):
         """
         self.label = label
         return self
-    
+
     def format_labeled(self):
         """Format expression with labels where available.
-        
+
         Returns the expression's label if set, otherwise recursively substitutes
         labels in sub-expressions. For compound expressions without their own label,
         this shows labels where available and mathematical notation where not.
-        
+
         Returns
         -------
         str
@@ -250,7 +269,7 @@ class Expression(u.Canonical):
 
     # Curvature properties.
     @property
-    def curvatures(self) -> List[str]:
+    def curvatures(self) -> list[str]:
         """List : Returns a list of the curvatures of the expression."""
         curvatures = [
             (self.is_constant, s.CONSTANT),
@@ -327,6 +346,14 @@ class Expression(u.Canonical):
         """
         return self.is_constant() or (self.is_convex() and self.is_concave())
 
+    @perf.compute_once
+    def is_smooth(self) -> bool:
+        """Is the expression smooth?
+        """
+        return self.is_constant() or (
+            self.is_linearizable_convex() and self.is_linearizable_concave()
+        )
+
     @abc.abstractmethod
     def is_convex(self) -> bool:
         """Is the expression convex?
@@ -336,6 +363,18 @@ class Expression(u.Canonical):
     @abc.abstractmethod
     def is_concave(self) -> bool:
         """Is the expression concave?
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def is_linearizable_convex(self) -> bool:
+        """Is the expression convex after linearizing all smooth subexpressions?
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def is_linearizable_concave(self) -> bool:
+        """Is the expression concave after linearizing all smooth subexpressions?
         """
         raise NotImplementedError()
 
@@ -358,6 +397,12 @@ class Expression(u.Canonical):
             with scopes.dpp_scope():
                 return self.is_convex() or self.is_concave()
         return self.is_convex() or self.is_concave()
+
+    def is_dnlp(self) -> bool:
+        """
+        The expression is smooth representable.
+        """
+        return self.is_linearizable_convex() or self.is_linearizable_concave()
 
     def is_log_log_constant(self) -> bool:
         """Is the expression log-log constant, ie, elementwise positive?
@@ -517,9 +562,21 @@ class Expression(u.Canonical):
         """
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def get_bounds(self) -> tuple[np.ndarray | sp.sparray, np.ndarray | sp.sparray]:
+        """Returns bounds (lower, upper) of the expression.
+
+        Returns
+        -------
+        tuple of (np.ndarray | sp.sparray)
+            (lower_bound, upper_bound) arrays with shape matching self.shape.
+            For sparse variables with sparse bounds, may return sparse arrays.
+        """
+        raise NotImplementedError()
+
     @property
     @abc.abstractmethod
-    def shape(self) -> Tuple[int, ...]:
+    def shape(self) -> tuple[int, ...]:
         """tuple : The expression dimensions.
         """
         raise NotImplementedError()
@@ -623,13 +680,29 @@ class Expression(u.Canonical):
         Expression
             The expression raised to ``power``.
         """
+        power_expr = Expression.cast_to_const(power)
+        if self.is_constant() and not power_expr.is_constant():
+            return _pow_const_base(self, power_expr)
         return cvxtypes.power()(self, power)
 
     def __rpow__(self, base: float) -> "Expression":
-        raise NotImplementedError("CVXPY currently does not support variables "
-                                  "on the right side of **. Consider using the"
-                                  " identity that a**x = cp.exp(cp.multiply(np"
-                                  ".log(a), x)).")
+        """Raise base to the power of this expression (base ** self).
+
+        Uses the identity: a**x = exp(x * log(a))
+
+        Parameters
+        ----------
+        base : float
+            A positive constant base.
+
+        Returns
+        -------
+        Expression
+            exp(self * log(base))
+        """
+
+        base = cvxtypes.expression().cast_to_const(base)
+        return _pow_const_base(base, self)
 
     @staticmethod
     def cast(expr_like) -> "Expression":
@@ -693,7 +766,12 @@ class Expression(u.Canonical):
     def __add__(self, other: ExpressionLike) -> "Expression":
         """Expression : Sum two expressions.
         """
-        if isinstance(other, cvxtypes.constant()) and other.is_zero():
+        # Zero-sized constants (size == 0) are placeholders for
+        # eliminated variables and must not be folded away; they need
+        # to propagate through the expression tree so that the resulting
+        # shape is correct.
+        if isinstance(other, cvxtypes.constant()) and other.is_zero() \
+                and other.size > 0:
             return self
         self, other = self.broadcast(self, other)
         return cvxtypes.add_expr()([self, other])
@@ -702,7 +780,9 @@ class Expression(u.Canonical):
     def __radd__(self, other: ExpressionLike) -> "Expression":
         """Expression : Sum two expressions.
         """
-        if isinstance(other, cvxtypes.constant()) and other.is_zero():
+        # See __add__ for why we require size > 0.
+        if isinstance(other, cvxtypes.constant()) and other.is_zero() \
+                and other.size > 0:
             return self
         return other + self
 
@@ -1016,7 +1096,7 @@ class Expression(u.Canonical):
         """
         from cvxpy import std
         return std(self, axis=axis, ddof=ddof, keepdims=keepdims)
- 
+
     def sum(self, axis=None, *, keepdims=False) -> "Expression":
         """
         Equivalent to `cp.sum(self, axis, keepdims)`.

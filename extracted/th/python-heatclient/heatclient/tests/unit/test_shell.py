@@ -12,6 +12,7 @@
 # limitations under the License.
 
 import os
+from pathlib import Path
 import sys
 import tempfile
 from unittest import mock
@@ -1224,8 +1225,8 @@ class ShellTestUserPass(ShellBase):
 
         self.useFixture(fixtures.MockPatchObject(utils, 'read_url_content',
                                                  return_value='xxxxxx'))
-        url = 'file://' + request.pathname2url(
-            '%s/private_key.env' % TEST_VAR_DIR)
+
+        url = Path(TEST_VAR_DIR, 'private_key.env').as_uri()
 
         template_file = os.path.join(TEST_VAR_DIR, 'minimal.template')
         create_text = self.shell(
@@ -1255,8 +1256,7 @@ class ShellTestUserPass(ShellBase):
 
         self.useFixture(fixtures.MockPatchObject(utils, 'read_url_content',
                                                  return_value='xxxxxx'))
-        url = 'file://' + request.pathname2url(
-            '%s/private_key.env' % TEST_VAR_DIR)
+        url = Path(TEST_VAR_DIR, 'private_key.env').as_uri()
 
         template_file = os.path.join(TEST_VAR_DIR, 'minimal.template')
         create_text = self.shell(
@@ -2641,10 +2641,11 @@ class ShellTestEvents(ShellBase):
         event_list_text = self.shell('event-list {} --format log'.format(
             stack_id))
 
-        expected = ('2013-12-05 14:14:31 [aResource]: '
+        expected = ('2013-12-05 14:14:31 {} [aResource]: '
                     'CREATE_IN_PROGRESS  state changed\n'
-                    '2013-12-05 14:14:32 [aResource]: CREATE_COMPLETE  '
-                    'state changed\n')
+                    '2013-12-05 14:14:32 {} [aResource]: CREATE_COMPLETE  '
+                    'state changed\n').format(self.event_id_one,
+                                              self.event_id_two)
 
         self.assertEqual(expected, event_list_text)
 
@@ -2903,12 +2904,17 @@ class ShellTestEventsNested(ShellBase):
         self.mock_request_get(url, ev_resp_dict)
         list_text = self.shell('event-list %s --nested-depth 1 --format log'
                                % stack_id)
-        self.assertEqual('''\
-2014-01-06 16:14:00Z [the_stack]: CREATE_IN_PROGRESS  Stack CREATE started
-2014-01-06 16:15:00Z [nested_stack]: CREATE_IN_PROGRESS  Stack CREATE started
-2014-01-06 16:16:00Z [nested_stack]: CREATE_COMPLETE  Stack CREATE completed
-2014-01-06 16:17:00Z [the_stack]: CREATE_COMPLETE  Stack CREATE completed
-''', list_text)
+        expected = (
+            '2014-01-06 16:14:00Z p_eventid1 [the_stack]: '
+            'CREATE_IN_PROGRESS  Stack CREATE started\n'
+            '2014-01-06 16:15:00Z n_eventid1 [nested_stack]: '
+            'CREATE_IN_PROGRESS  Stack CREATE started\n'
+            '2014-01-06 16:16:00Z n_eventid2 [nested_stack]: '
+            'CREATE_COMPLETE  Stack CREATE completed\n'
+            '2014-01-06 16:17:00Z p_eventid2 [the_stack]: '
+            'CREATE_COMPLETE  Stack CREATE completed\n'
+        )
+        self.assertEqual(expected, list_text)
 
     def test_shell_nested_depth_marker(self):
         self.register_keystone_auth_fixture()
@@ -2922,11 +2928,15 @@ class ShellTestEventsNested(ShellBase):
         list_text = self.shell('event-list %s --nested-depth 1 --format log '
                                '--marker n_eventid1'
                                % stack_id)
-        self.assertEqual('''\
-2014-01-06 16:15:00Z [nested_stack]: CREATE_IN_PROGRESS  Stack CREATE started
-2014-01-06 16:16:00Z [nested_stack]: CREATE_COMPLETE  Stack CREATE completed
-2014-01-06 16:17:00Z [the_stack]: CREATE_COMPLETE  Stack CREATE completed
-''', list_text)
+        expected = (
+            '2014-01-06 16:15:00Z n_eventid1 [nested_stack]: '
+            'CREATE_IN_PROGRESS  Stack CREATE started\n'
+            '2014-01-06 16:16:00Z n_eventid2 [nested_stack]: '
+            'CREATE_COMPLETE  Stack CREATE completed\n'
+            '2014-01-06 16:17:00Z p_eventid2 [the_stack]: '
+            'CREATE_COMPLETE  Stack CREATE completed\n'
+        )
+        self.assertEqual(expected, list_text)
 
     def test_shell_nested_depth_limit(self):
         self.register_keystone_auth_fixture()
@@ -2940,10 +2950,13 @@ class ShellTestEventsNested(ShellBase):
         list_text = self.shell('event-list %s --nested-depth 1 --format log '
                                '--limit 2'
                                % stack_id)
-        self.assertEqual('''\
-2014-01-06 16:14:00Z [the_stack]: CREATE_IN_PROGRESS  Stack CREATE started
-2014-01-06 16:15:00Z [nested_stack]: CREATE_IN_PROGRESS  Stack CREATE started
-''', list_text)
+        expected = (
+            '2014-01-06 16:14:00Z p_eventid1 [the_stack]: '
+            'CREATE_IN_PROGRESS  Stack CREATE started\n'
+            '2014-01-06 16:15:00Z n_eventid1 [nested_stack]: '
+            'CREATE_IN_PROGRESS  Stack CREATE started\n'
+        )
+        self.assertEqual(expected, list_text)
 
 
 class ShellTestHookFunctions(ShellBase):

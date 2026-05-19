@@ -15,6 +15,7 @@
 import io
 import sys
 import textwrap
+from typing import Any, cast
 from unittest import mock
 
 import fixtures
@@ -209,16 +210,24 @@ class GeneratorTestCase(base.BaseTestCase):
             default=4096,
         ),
         'native_str_type': cfg.Opt(
-            'native_str_type', help='native help', type=str
+            'native_str_type',
+            help='native help',
+            type=cast(types.ConfigType, str),
         ),
         'native_int_type': cfg.Opt(
-            'native_int_type', help='native help', type=int
+            'native_int_type',
+            help='native help',
+            type=cast(types.ConfigType, int),
         ),
         'native_float_type': cfg.Opt(
-            'native_float_type', help='native help', type=float
+            'native_float_type',
+            help='native help',
+            type=cast(types.ConfigType, float),
         ),
         'custom_type': cfg.Opt(
-            'custom_type', help='custom help', type=custom_type
+            'custom_type',
+            help='custom help',
+            type=cast(types.ConfigType, custom_type),
         ),
         'custom_type_name': cfg.Opt(
             'custom_opt_type',
@@ -1201,6 +1210,11 @@ class GeneratorTestCase(base.BaseTestCase):
         ('output_file', dict(output_file='sample.conf', stdout=False)),
     ]
 
+    stdout: bool
+    output_file: str | None
+    expected: str
+    scenarios: Any
+
     @classmethod
     def generate_scenarios(cls):
         cls.scenarios = testscenarios.multiply_scenarios(
@@ -1244,6 +1258,7 @@ class GeneratorTestCase(base.BaseTestCase):
         if self.stdout:
             stdout = self._capture_stdout()
         else:
+            assert self.output_file is not None
             output_file = self.tempdir.join(self.output_file)
             self.config(output_file=output_file)
 
@@ -1254,8 +1269,9 @@ class GeneratorTestCase(base.BaseTestCase):
         # the lambda to cache a reference to the name because the list
         # comprehension changes the thing pointed to by the name each
         # time through the loop.
+        scenario_opts: Any = self.opts
         raw_opts_loader.return_value = [
-            (ns, lambda opts=opts: opts) for ns, opts in self.opts
+            (ns, lambda opts=opts: opts) for ns, opts in scenario_opts
         ]
 
         generator.generate(self.conf)
@@ -1703,37 +1719,44 @@ class MachineReadableGeneratorTestCase(base.BaseTestCase):
                             'dynamic_group_owner': '',
                             'help': all_groups['group1'].help,
                             'standard_opts': ['foo'],
-                            'opts': [
-                                {
-                                    'advanced': False,
-                                    'choices': [],
-                                    'default': None,
-                                    'deprecated_for_removal': False,
-                                    'deprecated_opts': [],
-                                    'deprecated_reason': None,
-                                    'deprecated_since': None,
-                                    'dest': 'foo',
-                                    'help': all_opts['foo'].help,
-                                    'max': None,
-                                    'metavar': None,
-                                    'min': None,
-                                    'mutable': False,
-                                    'name': 'foo',
-                                    'namespace': 'test',
-                                    'positional': False,
-                                    'required': False,
-                                    'sample_default': None,
-                                    'secret': False,
-                                    'short': None,
-                                    'type': 'string value',
-                                }
-                            ],
+                            'opts': cast(
+                                list[dict[str, Any]],
+                                [
+                                    {
+                                        'advanced': False,
+                                        'choices': [],
+                                        'default': None,
+                                        'deprecated_for_removal': False,
+                                        'deprecated_opts': [],
+                                        'deprecated_reason': None,
+                                        'deprecated_since': None,
+                                        'dest': 'foo',
+                                        'help': all_opts['foo'].help,
+                                        'max': None,
+                                        'metavar': None,
+                                        'min': None,
+                                        'mutable': False,
+                                        'name': 'foo',
+                                        'namespace': 'test',
+                                        'positional': False,
+                                        'required': False,
+                                        'sample_default': None,
+                                        'secret': False,
+                                        'short': None,
+                                        'type': 'string value',
+                                    }
+                                ],
+                            ),
                         },
                     },
                 },
             ),
         ),
     ]
+
+    opts: list[tuple[str, list[tuple[str | None, list[cfg.Opt]]]]]
+    expected: str
+    scenarios: Any
 
     def setUp(self):
         super().setUp()
@@ -1750,7 +1773,8 @@ class MachineReadableGeneratorTestCase(base.BaseTestCase):
     @mock.patch.object(generator, '_get_raw_opts_loaders')
     def test_generate(self, raw_opts_loader):
         generator.register_cli_opts(self.conf)
-        namespaces = [i[0] for i in self.opts]
+        scenario_opts: Any = self.opts
+        namespaces = [i[0] for i in scenario_opts]
         self.config(namespace=namespaces, format_='yaml')
 
         # We have a static data structure matching what should be
@@ -1761,7 +1785,7 @@ class MachineReadableGeneratorTestCase(base.BaseTestCase):
         # comprehension changes the thing pointed to by the name each
         # time through the loop.
         raw_opts_loader.return_value = [
-            (ns, lambda opts=opts: opts) for ns, opts in self.opts
+            (ns, lambda opts=opts: opts) for ns, opts in scenario_opts
         ]
         test_groups = generator._get_groups(
             generator._list_opts(self.conf.namespace)
@@ -1905,7 +1929,9 @@ class GeneratorAdditionalTestCase(base.BaseTestCase):
         self.assertEqual(['DEFAULT', 'alpha', 'beta', 'gamma'], sorted(groups))
 
     def test_output_opts_empty_default(self):
-        config = [("namespace1", [("alpha", [])])]
+        config: list[tuple[str, list[tuple[str, list[Any]]]]] = [
+            ("namespace1", [("alpha", [])])
+        ]
         groups = generator._get_groups(config)
 
         fd, tmp_file = tempfile.mkstemp()

@@ -39,7 +39,8 @@ class CreateSchedule(object):
         'config': 'CreateProductionJobConfig',
         'job_queue_config': 'CreateJobQueueConfig',
         'tags': 'dict(str, str)',
-        'schedule': 'ScheduleConfig'
+        'schedule': 'ScheduleConfig',
+        'job_tags': 'dict(str, str)'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class CreateSchedule(object):
         'config': 'config',
         'job_queue_config': 'job_queue_config',
         'tags': 'tags',
-        'schedule': 'schedule'
+        'schedule': 'schedule',
+        'job_tags': 'job_tags'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, schedule=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, schedule=None, job_tags=None, local_vars_configuration=None):  # noqa: E501
         """CreateSchedule - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class CreateSchedule(object):
         self._job_queue_config = None
         self._tags = None
         self._schedule = None
+        self._job_tags = None
         self.discriminator = None
 
         self.name = name
@@ -78,6 +81,8 @@ class CreateSchedule(object):
         if tags is not None:
             self.tags = tags
         self.schedule = schedule
+        if job_tags is not None:
+            self.job_tags = job_tags
 
     @property
     def name(self):
@@ -243,6 +248,29 @@ class CreateSchedule(object):
             raise ValueError("Invalid value for `schedule`, must not be `None`")  # noqa: E501
 
         self._schedule = schedule
+
+    @property
+    def job_tags(self):
+        """Gets the job_tags of this CreateSchedule.  # noqa: E501
+
+        Tags applied to every job spawned from this schedule.  # noqa: E501
+
+        :return: The job_tags of this CreateSchedule.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._job_tags
+
+    @job_tags.setter
+    def job_tags(self, job_tags):
+        """Sets the job_tags of this CreateSchedule.
+
+        Tags applied to every job spawned from this schedule.  # noqa: E501
+
+        :param job_tags: The job_tags of this CreateSchedule.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._job_tags = job_tags
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-crewai
-Version: 1.1.6
+Version: 1.1.7
 Summary: OpenInference Crewai Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-crewai
 Author-email: OpenInference Authors <oss@arize.com>
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: <3.14,>=3.10
-Requires-Dist: openinference-instrumentation>=0.1.50
+Requires-Dist: openinference-instrumentation>=0.1.51
 Requires-Dist: openinference-semantic-conventions>=0.1.21
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation

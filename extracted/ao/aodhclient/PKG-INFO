@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aodhclient
-Version: 3.10.1
+Version: 3.11.0
 Summary: Python client library for Aodh
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

@@ -137,7 +137,20 @@ def test_unwrap_returns_audit_event() -> None:
     assert unwrapped == ev
 
 
-def test_round_trip_for_all_seven_event_types() -> None:
+def test_audit_event_types_match_current_v0_runtime_vocabulary() -> None:
+    assert AUDIT_EVENT_TYPES == (
+        "plugin.discovered",
+        "plugin.installed",
+        "plugin.trusted",
+        "plugin.invoked",
+        "plugin.permission_used",
+        "plugin.completed",
+        "plugin.failed",
+    )
+    assert tuple(AUDIT_SCHEMA["properties"]["event_type"]["enum"]) == AUDIT_EVENT_TYPES
+
+
+def test_round_trip_for_all_audit_event_types() -> None:
     """Round-trip every event type defined in the schema."""
     for event_type in AUDIT_EVENT_TYPES:
         ev = _audit_event(event_type)

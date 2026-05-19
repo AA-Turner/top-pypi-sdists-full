@@ -12,7 +12,7 @@ import cpsl
 from cpsl.image import Image
 from cpsl.msg import Event
 from cpsl.page_bundle import bundle_cache_control, bundle_cache_key, external_args, package_root
-from cpsl.page_source import resolve_page_module
+from cpsl.page_source import resolve_page_module, safe_component_path
 from cpsl.utils import collect_source_archive, react_page_bundle_specs
 
 
@@ -96,6 +96,32 @@ class OnboardingTests(unittest.TestCase):
             extensionless and str(extensionless).endswith("pages/components/header.tsx")
         )
         self.assertTrue(index and str(index).endswith("pages/components/index.tsx"))
+        self.assertIsNone(escaped)
+
+    def test_safe_component_path_restricts_dynamic_ui_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = os.getcwd()
+            try:
+                os.chdir(tmp)
+                os.makedirs("components")
+                os.makedirs("node_modules/pkg")
+                with open("components/panel.tsx", "w") as f:
+                    f.write("export default function Panel() { return null }")
+                with open("components/readme.md", "w") as f:
+                    f.write("# no")
+                with open("node_modules/pkg/panel.tsx", "w") as f:
+                    f.write("export default function Panel() { return null }")
+
+                valid = safe_component_path("components/panel.tsx")
+                wrong_extension = safe_component_path("components/readme.md")
+                ignored = safe_component_path("node_modules/pkg/panel.tsx")
+                escaped = safe_component_path("../outside.tsx")
+            finally:
+                os.chdir(cwd)
+
+        self.assertEqual(valid, "components/panel.tsx")
+        self.assertIsNone(wrong_extension)
+        self.assertIsNone(ignored)
         self.assertIsNone(escaped)
 
     def test_page_bundle_cache_key_tracks_sources_and_packages(self):

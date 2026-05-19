@@ -14,10 +14,12 @@ from typing import IO, List, Union, Optional, Generator
 from jinxed import win32
 
 # local
+from .keyboard import TERMINAL_QUERY_TIMEOUT_SECONDS
 from .terminal import WINSZ
 from .terminal import Terminal as _Terminal
 from .dec_modes import DecPrivateMode as _DecPrivateMode
 from .dec_modes import DecModeResponse
+from ._capabilities import TermcapResponse
 
 # Maximum time to block in WaitForSingleObject before returning
 # to Python for signal processing (e.g. KeyboardInterrupt).
@@ -110,13 +112,20 @@ class Terminal(_Terminal):
     def __init__(self,
                  kind: Optional[str] = None,
                  stream: Optional[IO[str]] = None,
-                 force_styling: Union[bool, None] = False) -> None:
+                 force_styling: Union[bool, None] = False,
+                 kind_fallback: str = 'vtwin10',
+                 _xtgettcap_data: Optional[TermcapResponse] = None
+                 ) -> None:
         """Initialize Windows terminal instance."""
-        super().__init__(kind=kind, stream=stream, force_styling=force_styling)
+        # Initialize instance attributes needed by kbhit() during
+        # XTGETTCAP probing in the base class __init__.
         self._event_buf: collections.deque[str] = collections.deque()
-        self._prev_button_state: int = 0
         self._native_mouse: bool = False
         self._native_resize: bool = False
+        super().__init__(kind=kind, stream=stream, force_styling=force_styling,
+                         kind_fallback=kind_fallback,
+                         _xtgettcap_data=_xtgettcap_data)
+        self._prev_button_state: int = 0
 
     def getch(self, decode_latin1: bool = False) -> str:
         r"""
@@ -316,7 +325,8 @@ class Terminal(_Terminal):
     @contextlib.contextmanager
     def mouse_enabled(self, *, clicks: bool = True, report_pixels: bool = False,
                       report_drag: bool = False, report_motion: bool = False,
-                      timeout: float = 1.0) -> Generator[None, None, None]:
+                      timeout: float = TERMINAL_QUERY_TIMEOUT_SECONDS
+                      ) -> Generator[None, None, None]:
         """
         Context manager for enabling mouse tracking.
 
@@ -367,7 +377,7 @@ class Terminal(_Terminal):
 
     def does_mouse(self, *, clicks: bool = True, report_pixels: bool = False,
                    report_drag: bool = False, report_motion: bool = False,
-                   timeout: float = 1.0) -> bool:
+                   timeout: float = TERMINAL_QUERY_TIMEOUT_SECONDS) -> bool:
         """
         Check if the terminal supports mouse tracking.
 
@@ -381,7 +391,8 @@ class Terminal(_Terminal):
         return True
 
     @contextlib.contextmanager
-    def notify_on_resize(self, timeout: float = 1.0) -> Generator[None, None, None]:
+    def notify_on_resize(
+            self, timeout: float = TERMINAL_QUERY_TIMEOUT_SECONDS) -> Generator[None, None, None]:
         """
         Context manager for enabling in-band window resize notifications.
 
@@ -426,7 +437,7 @@ class Terminal(_Terminal):
             self._preferred_size_cache = None  # pylint: disable=attribute-defined-outside-init
             win32.set_console_mode(filehandle, save_mode)
 
-    def does_inband_resize(self, timeout: float = 1.0) -> bool:
+    def does_inband_resize(self, timeout: float = TERMINAL_QUERY_TIMEOUT_SECONDS) -> bool:
         """
         Check if the terminal supports in-band window resize notifications.
 

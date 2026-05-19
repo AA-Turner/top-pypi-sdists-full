@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-bedrock
-Version: 0.1.38
+Version: 0.1.39
 Summary: OpenInference Bedrock Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-bedrock
 Author-email: OpenInference Authors <oss@arize.com>
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
 Requires-Dist: dacite>=1.8.1
-Requires-Dist: openinference-instrumentation>=0.1.50
+Requires-Dist: openinference-instrumentation>=0.1.51
 Requires-Dist: openinference-semantic-conventions>=0.1.17
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation

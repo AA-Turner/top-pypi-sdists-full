@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import sys
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -31,7 +32,13 @@ class TestCodexSetup:
 
     def test_register_codex_mcp_server_writes_guidance_comment(self, tmp_path: Path) -> None:
         """The generated Codex config should explain the config file split."""
-        with patch("pathlib.Path.home", return_value=tmp_path):
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch(
+                "ouroboros.cli.commands.setup._is_source_tree_ouroboros_build", return_value=False
+            ),
+            patch("ouroboros.cli.commands.setup.importlib_metadata.version", return_value="0.38.2"),
+        ):
             setup_cmd._register_codex_mcp_server()
 
         config_path = tmp_path / ".codex" / "config.toml"
@@ -44,6 +51,186 @@ class TestCodexSetup:
         assert 'OUROBOROS_AGENT_RUNTIME = "codex"' in contents
         assert 'OUROBOROS_LLM_BACKEND = "codex"' in contents
         assert "tool_timeout_sec" not in contents
+        assert 'command = "uvx"' in contents
+        assert 'args = ["--from", "ouroboros-ai[mcp]", "ouroboros", "mcp", "serve"]' in contents
+
+    def test_register_codex_mcp_server_uses_direct_executable_for_dev_build(
+        self, tmp_path: Path
+    ) -> None:
+        """Dev/git installs should not be rewritten to the latest PyPI uvx package."""
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch(
+                "ouroboros.cli.commands.setup.importlib_metadata.version",
+                return_value="0.38.3.dev110",
+            ),
+            patch(
+                "ouroboros.cli.commands.setup._is_source_tree_ouroboros_build",
+                return_value=False,
+            ),
+        ):
+            setup_cmd._register_codex_mcp_server()
+
+        contents = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+
+        assert f"command = {json.dumps(sys.executable)}" in contents
+        assert (
+            'args = ["-m", "ouroboros", "mcp", "serve", "--runtime", "codex", '
+            '"--llm-backend", "codex"]'
+        ) in contents
+        assert 'command = "uvx"' not in contents
+
+    def test_register_codex_mcp_server_refreshes_stale_dev_module_entry(
+        self, tmp_path: Path
+    ) -> None:
+        """Setup-owned dev module configs should be repairable after venv moves."""
+        codex_config = tmp_path / ".codex" / "config.toml"
+        codex_config.parent.mkdir(parents=True)
+        codex_config.write_text(
+            "\n".join(
+                [
+                    "# Ouroboros MCP hookup for Codex CLI.",
+                    "# Keep Ouroboros runtime settings and per-role model overrides in",
+                    "# ~/.ouroboros/config.yaml (for example: clarification.default_model,",
+                    "# llm.qa_model, evaluation.semantic_model, consensus.*).",
+                    "# This file is only for the Codex MCP/env registration block.",
+                    "",
+                    "[mcp_servers.ouroboros]",
+                    'command = "/stale/venv/bin/python"',
+                    (
+                        'args = ["-m", "ouroboros", "mcp", "serve", "--runtime", '
+                        '"codex", "--llm-backend", "codex"]'
+                    ),
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch(
+                "ouroboros.cli.commands.setup.importlib_metadata.version",
+                return_value="0.38.3.dev110",
+            ),
+        ):
+            setup_cmd._register_codex_mcp_server()
+
+        contents = codex_config.read_text(encoding="utf-8")
+
+        assert f"command = {json.dumps(sys.executable)}" in contents
+        assert "/stale/venv/bin/python" not in contents
+
+    def test_register_codex_mcp_server_refreshes_legacy_direct_dev_entry(
+        self, tmp_path: Path
+    ) -> None:
+        """Earlier setup-owned direct executable configs should not become stuck."""
+        codex_config = tmp_path / ".codex" / "config.toml"
+        codex_config.parent.mkdir(parents=True)
+        codex_config.write_text(
+            "\n".join(
+                [
+                    "# Ouroboros MCP hookup for Codex CLI.",
+                    "# Keep Ouroboros runtime settings and per-role model overrides in",
+                    "# ~/.ouroboros/config.yaml (for example: clarification.default_model,",
+                    "# llm.qa_model, evaluation.semantic_model, consensus.*).",
+                    "# This file is only for the Codex MCP/env registration block.",
+                    "",
+                    "[mcp_servers.ouroboros]",
+                    'command = "/old/venv/bin/ouroboros"',
+                    ('args = ["mcp", "serve", "--runtime", "codex", "--llm-backend", "codex"]'),
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch(
+                "ouroboros.cli.commands.setup.importlib_metadata.version",
+                return_value="0.38.3.dev110",
+            ),
+        ):
+            setup_cmd._register_codex_mcp_server()
+
+        contents = codex_config.read_text(encoding="utf-8")
+
+        assert f"command = {json.dumps(sys.executable)}" in contents
+        assert "/old/venv/bin/ouroboros" not in contents
+
+    def test_register_codex_mcp_server_preserves_custom_python_module_by_default(
+        self, tmp_path: Path
+    ) -> None:
+        """User-pinned Python module configs are preserved without the managed comment."""
+        codex_config = tmp_path / ".codex" / "config.toml"
+        codex_config.parent.mkdir(parents=True)
+        codex_config.write_text(
+            "\n".join(
+                [
+                    "[mcp_servers.ouroboros]",
+                    'command = "/custom/venv/bin/python"',
+                    (
+                        'args = ["-m", "ouroboros", "mcp", "serve", "--runtime", '
+                        '"codex", "--llm-backend", "codex"]'
+                    ),
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        with patch("pathlib.Path.home", return_value=tmp_path):
+            setup_cmd._register_codex_mcp_server()
+
+        contents = codex_config.read_text(encoding="utf-8")
+        assert 'command = "/custom/venv/bin/python"' in contents
+        assert f"command = {json.dumps(sys.executable)}" not in contents
+
+    def test_register_codex_mcp_server_uses_current_python_for_source_tree(
+        self, tmp_path: Path
+    ) -> None:
+        """Source-tree runs should not fall back to the PyPI uvx MCP server."""
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch(
+                "ouroboros.cli.commands.setup._is_source_tree_ouroboros_build",
+                return_value=True,
+            ),
+            patch(
+                "ouroboros.cli.commands.setup.importlib_metadata.version",
+                side_effect=setup_cmd.importlib_metadata.PackageNotFoundError,
+            ),
+        ):
+            setup_cmd._register_codex_mcp_server()
+
+        contents = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+        assert f"command = {json.dumps(sys.executable)}" in contents
+        assert 'command = "uvx"' not in contents
+
+    def test_register_codex_mcp_server_keeps_release_uvx_inside_repo_venv(
+        self, tmp_path: Path
+    ) -> None:
+        """A wheel installed in a repo-local venv is still a release install."""
+        repo = tmp_path / "repo"
+        source_package = repo / "src" / "ouroboros"
+        wheel_package = repo / ".venv" / "lib" / "python3.12" / "site-packages" / "ouroboros"
+        source_package.mkdir(parents=True)
+        (repo / "pyproject.toml").write_text('name = "ouroboros-ai"\n', encoding="utf-8")
+        wheel_setup = wheel_package / "cli" / "commands" / "setup.py"
+        wheel_setup.parent.mkdir(parents=True)
+        wheel_setup.write_text("# installed wheel module\n", encoding="utf-8")
+
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch("ouroboros.cli.commands.setup.__file__", str(wheel_setup)),
+            patch("ouroboros.cli.commands.setup.importlib_metadata.version", return_value="0.38.2"),
+        ):
+            setup_cmd._register_codex_mcp_server()
+
+        contents = (tmp_path / ".codex" / "config.toml").read_text(encoding="utf-8")
+        assert 'command = "uvx"' in contents
+        assert f"command = {json.dumps(sys.executable)}" not in contents
 
     def test_register_codex_mcp_server_rewrites_existing_block_without_timeout(
         self,
@@ -138,7 +325,13 @@ class TestCodexSetup:
             encoding="utf-8",
         )
 
-        with patch("pathlib.Path.home", return_value=tmp_path):
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch(
+                "ouroboros.cli.commands.setup._is_source_tree_ouroboros_build", return_value=False
+            ),
+            patch("ouroboros.cli.commands.setup.importlib_metadata.version", return_value="0.38.2"),
+        ):
             setup_cmd._register_codex_mcp_server(mode="stdio")
 
         contents = codex_config.read_text(encoding="utf-8")
@@ -2471,6 +2664,42 @@ class TestSetupJsoncDetection:
 
         assert jsonc_path.exists()
         assert not (config_dir / "opencode.json").exists()
+
+
+class TestGooseSetup:
+    """Tests for Goose-specific setup behavior."""
+
+    def test_detect_runtimes_honors_config_goose_path(self) -> None:
+        """Explicit Goose path takes precedence over PATH-only discovery."""
+        with (
+            patch(
+                "ouroboros.cli.commands.setup.shutil.which",
+                side_effect=lambda name: "/custom/goose" if name == "/custom/goose" else None,
+            ),
+            patch("ouroboros.config.get_gemini_cli_path", return_value=None),
+            patch("ouroboros.config.get_goose_cli_path", return_value="/custom/goose"),
+            patch("ouroboros.config.get_kiro_cli_path", return_value=None),
+            patch("ouroboros.config.get_copilot_cli_path", return_value=None),
+        ):
+            detected = setup_cmd._detect_runtimes()
+
+        assert detected["goose"] == "/custom/goose"
+
+    def test_setup_runtime_goose_uses_detected_explicit_path(self) -> None:
+        chosen: dict[str, str] = {}
+
+        def _goose(path: str) -> None:
+            chosen["path"] = path
+
+        runner = CliRunner()
+        with (
+            patch.object(setup_cmd, "_detect_runtimes", return_value={"goose": "/custom/goose"}),
+            patch.object(setup_cmd, "_setup_goose", side_effect=_goose),
+        ):
+            result = runner.invoke(setup_cmd.app, ["--runtime", "goose", "--non-interactive"])
+
+        assert result.exit_code == 0, result.output
+        assert chosen["path"] == "/custom/goose"
 
 
 class TestKiroSetup:

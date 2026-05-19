@@ -39,6 +39,7 @@ from typing import Any
 
 import structlog
 
+from ouroboros.core.seed_contract_prompt import render_auto_recursion_guard
 from ouroboros.core.types import Result
 from ouroboros.mcp.types import (
     ContentType,
@@ -656,6 +657,7 @@ def build_generate_seed_subagent(
     session_id: str,
     ambiguity_score: float | None = None,
     transcript: str = "",
+    client_gates: tuple[str, ...] = (),
 ) -> SubagentPayload:
     """Build subagent payload for seed generation from interview."""
     from ouroboros.agents.loader import load_agent_prompt
@@ -690,6 +692,7 @@ autonomous execution."""
     context: dict[str, Any] = {
         "session_id": session_id,
         "ambiguity_score": ambiguity_score,
+        "client_gates": client_gates,
     }
 
     return build_subagent_payload(
@@ -816,6 +819,8 @@ in the seed, respecting constraints and acceptance criteria.
 ```yaml
 {seed_content}
 ```
+
+{render_auto_recursion_guard()}
 
 Implement the seed requirements. Work iteratively, testing as you go.
 Stop when all acceptance criteria are met or max iterations reached."""

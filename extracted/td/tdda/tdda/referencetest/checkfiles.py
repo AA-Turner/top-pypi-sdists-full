@@ -17,7 +17,10 @@ import tempfile
 from collections import namedtuple
 
 from tdda.referencetest.basecomparison import (
-    BaseComparison, Diffs, copycmd, FailureDiffs
+    BaseComparison,
+    Diffs,
+    copycmd,
+    FailureDiffs,
 )
 from tdda.referencetest.utils import get_encoding, FileType
 
@@ -25,6 +28,10 @@ from tdda.referencetest.utils import get_encoding, FileType
 BinaryInfo = namedtuple(
     'BinaryInfo', ('byteoffset', 'actualLen', 'expectedLen')
 )
+
+
+def perms_ok(n_permutations, max_permutations):
+    return max_permutations is None or n_permutations <= max_permutations
 
 
 class FilesComparison(BaseComparison):
@@ -102,7 +109,8 @@ class FilesComparison(BaseComparison):
                                 lines are permutations of each other, and
                                 the number of such permutations does not
                                 exceed this limit, then the two are considered
-                                to be identical.
+                                to be identical. None to allow an
+                                unlimited number of permutations.
             *create_temporaries*
                                 controls whether failures cause temporary
                                 files to be written.
@@ -259,7 +267,11 @@ class FilesComparison(BaseComparison):
             )
             msgs.add_reconstruction(reconstruction)
 
-        if permutable and ndiffs > 0 and ndiffs <= max_permutation_cases:
+        if (
+            permutable
+            and ndiffs > 0
+            and perms_ok(ndiffs, max_permutation_cases)
+        ):
             ndiffs = self.check_for_permutation_failures(failure_cases)
 
         if ndiffs > 0:
@@ -273,8 +285,8 @@ class FilesComparison(BaseComparison):
                 ignore_substrings=ignore_substrings,
                 ignore_patterns=ignore_patterns,
                 remove_lines=remove_lines,
-                actual=actual,
-                expected=expected,
+                actual=original_actual,
+                expected=original_expected,
                 preprocess=preprocess,
                 create_temporaries=create_temporaries,
                 encoding=enc,
@@ -322,7 +334,7 @@ class FilesComparison(BaseComparison):
                     # a difference that cannot be ignored
                     if first_error_line is None:
                         first_error_line = i + 1
-                    if len(failure_cases) < max_permutation_cases:
+                    if perms_ok(len(failure_cases), max_permutation_cases):
                         failure_cases.append((i, actual[i], expected[i]))
 
             if first_error_line is not None:
@@ -398,8 +410,11 @@ class FilesComparison(BaseComparison):
                 first_error_line = 'end of actual %s' % desc
 
         first_error = (
-            '%ss have different numbers of lines, '
-            'differences start at %s' % (desc.title(), first_error_line)
+            '%ss have different numbers of lines, differences start at %s'
+            % (
+                desc.title(),
+                first_error_line,
+            )
         )
         ndiffs = max(len(original_actual), len(original_expected))
         return (first_error, ndiffs)
@@ -933,9 +948,10 @@ class FilesComparison(BaseComparison):
         enc = get_encoding(expected_path, encoding)
 
         commonname = None
-        differ = None
+        raw_differ = rec_differ = None
         raw_actual_path = actual_path
         raw_expected_path = expected_path
+        raw = None
 
         if create_temporaries:
             if raw_actual_path and raw_expected_path:
@@ -964,7 +980,7 @@ class FilesComparison(BaseComparison):
 
         if raw_actual_path and raw_expected_path:
             raw = 'raw' if (preprocess or reconstruction) else None
-            differ = self.compare_with(
+            raw_differ = self.compare_with(
                 raw_actual_path,
                 raw_expected_path,
                 qualifier=raw,
@@ -981,13 +997,11 @@ class FilesComparison(BaseComparison):
             elif not create_temporaries:
                 self.info(msgs, 'No files available for comparison')
 
-        if differ:
-            self.info(msgs, differ)
-
         if reconstruction and create_temporaries:
             # show diffs after ignores and removals have been collapsed
-            if differ:
-                differ = '***\n' + differ + '***\n\n'
+            differ = ''
+            if raw_differ:
+                differ = '***\n' + raw_differ + '***\n\n'
             diffActual = os.path.join(self.tmp_dir, 'actual-' + commonname)
             diffExpected = os.path.join(self.tmp_dir, 'expected-' + commonname)
             guide = expected_path or actual_path
@@ -1001,12 +1015,31 @@ class FilesComparison(BaseComparison):
                 (differ or '') + reconstruction.expected_lines(),
                 guide=guide,
             )
-            self.info(
-                msgs,
-                self.compare_with(
-                    diffActual, diffExpected, qualifier='post-processed'
-                ),
+            actualsSame = (
+                '\n'.join(actual).strip()
+                == reconstruction.actual_lines().strip()
             )
+            expectedsSame = (
+                '\n'.join(expected).strip()
+                == reconstruction.expected_lines().strip()
+            )
+            bothSame = actualsSame and expectedsSame
+            if bothSame:
+                # Don't print second diff line and take the 'raw'
+                # out ot raw_differ
+                raw_differ = self.compare_with(
+                    raw_actual_path,
+                    raw_expected_path,
+                    qualifier=None,
+                    binary=binary,
+                )
+            else:
+                rec_differ = self.compare_with(
+                    diffActual, diffExpected, qualifier='post-processed'
+                )
+
+        self.info(msgs, raw_differ)
+        self.info(msgs, rec_differ)
 
         if ignore_substrings or ignore_patterns or remove_lines:
             self.info(msgs, 'Note exclusions:')

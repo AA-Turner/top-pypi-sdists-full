@@ -9,6 +9,7 @@ Not part of the public API.
 from __future__ import annotations
 
 import importlib
+import inspect
 import logging
 from typing import TYPE_CHECKING
 
@@ -18,7 +19,31 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def build_detector_from_plan(plan: dict, kb: 'KnowledgeBase') -> object:
+def _accepts_random_state(cls: type) -> bool:
+    """Return True if `cls.__init__` declares an explicit `random_state` parameter.
+
+    A class is considered to accept ``random_state`` only when the parameter
+    is named explicitly in the signature, not when it would be absorbed via
+    ``**kwargs``. The conservative check prevents accidental forwarding to
+    classes whose ``**kwargs`` is not safe (see pyod issue #685: ABOD / KNN /
+    LUNAR / SOD forward ``**kwargs`` to sklearn NearestNeighbors which rejects
+    ``random_state``).
+    """
+    try:
+        sig = inspect.signature(cls.__init__)
+    except (TypeError, ValueError):
+        return False
+    for name, param in sig.parameters.items():
+        if name == 'random_state' and param.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        ):
+            return True
+    return False
+
+
+def build_detector_from_plan(plan: dict, kb: 'KnowledgeBase',
+                             random_state: int | None = None) -> object:
     """Build and return an unfitted detector from a plan.
 
     Parameters
@@ -27,6 +52,13 @@ def build_detector_from_plan(plan: dict, kb: 'KnowledgeBase') -> object:
         Output of plan_detection().
     kb : KnowledgeBase
         Knowledge base used to look up algorithm metadata.
+    random_state : int or None, optional
+        Random seed forwarded to the detector when the detector class
+        declares an explicit ``random_state`` parameter. Detectors that do
+        not declare it (e.g., ABOD, KNN, LOF, SOD) are instantiated
+        without it, preserving the v3.5.1 behavior for those classes.
+        If ``plan['params']`` already specifies ``random_state``, the
+        plan's value wins (explicit caller intent overrides engine default).
 
     Returns
     -------
@@ -44,18 +76,24 @@ def build_detector_from_plan(plan: dict, kb: 'KnowledgeBase') -> object:
     preset = plan.get('preset')
     if preset:
         return build_from_preset(name, preset,
-                                 plan.get('params', {}))
+                                 plan.get('params', {}),
+                                 random_state=random_state)
 
     class_path = algo['class_path']
     module_path, class_name = class_path.rsplit('.', 1)
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)
-    params = plan.get('params', {})
+    params = dict(plan.get('params', {}))
+    if (random_state is not None
+            and 'random_state' not in params
+            and _accepts_random_state(cls)):
+        params['random_state'] = random_state
     return cls(**params)
 
 
 def build_from_preset(detector_name: str, preset: str,
-                      extra_params: dict) -> object:
+                      extra_params: dict,
+                      random_state: int | None = None) -> object:
     """Build a detector using a factory preset.
 
     Presets are class-method factories that wire common defaults for
@@ -72,6 +110,14 @@ def build_from_preset(detector_name: str, preset: str,
         ``'for_image'``.
     extra_params : dict
         Additional kwargs forwarded to the preset class method.
+    random_state : int or None, optional
+        Random seed forwarded to the preset factory's ``random_state``
+        kwarg if the caller did not already supply one in
+        ``extra_params``. EmbeddingOD presets forward this further to
+        the inner detector (e.g., LUNAR), keeping
+        ``ADEngine(random_state=...).build_detector(preset_plan)``
+        deterministic end-to-end. Plan-level ``random_state`` in
+        ``extra_params`` wins over the engine default.
 
     Returns
     -------
@@ -85,9 +131,12 @@ def build_from_preset(detector_name: str, preset: str,
     """
     if detector_name == 'EmbeddingOD':
         from pyod.models.embedding import EmbeddingOD
+        params = dict(extra_params)
+        if random_state is not None and 'random_state' not in params:
+            params['random_state'] = random_state
         if preset == 'for_text':
-            return EmbeddingOD.for_text(**extra_params)
+            return EmbeddingOD.for_text(**params)
         elif preset == 'for_image':
-            return EmbeddingOD.for_image(**extra_params)
+            return EmbeddingOD.for_image(**params)
     raise ValueError("Unknown preset '%s' for '%s'"
                      % (preset, detector_name))

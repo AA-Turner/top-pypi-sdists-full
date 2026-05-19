@@ -14,8 +14,12 @@
 
 """Identity v3 Protocols actions implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -26,7 +30,7 @@ from openstackclient.i18n import _
 LOG = logging.getLogger(__name__)
 
 
-def _format_protocol(protocol):
+def _format_protocol(protocol: Any) -> tuple[tuple[str, ...], Any]:
     columns = ('name', 'idp_id', 'mapping_id')
     column_headers = ('id', 'identity_provider', 'mapping')
     return (
@@ -38,7 +42,7 @@ def _format_protocol(protocol):
 class CreateProtocol(command.ShowOne):
     _description = _("Create new federation protocol")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'federation_protocol',
@@ -66,8 +70,12 @@ class CreateProtocol(command.ShowOne):
 
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         protocol = identity_client.create_federation_protocol(
             name=parsed_args.federation_protocol,
@@ -81,7 +89,7 @@ class CreateProtocol(command.ShowOne):
 class DeleteProtocol(command.Command):
     _description = _("Delete federation protocol(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'federation_protocol',
@@ -101,8 +109,10 @@ class DeleteProtocol(command.Command):
 
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         result = 0
         for i in parsed_args.federation_protocol:
@@ -134,7 +144,7 @@ class DeleteProtocol(command.Command):
 class ListProtocols(command.Lister):
     _description = _("List federation protocols")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--identity-provider',
@@ -145,8 +155,12 @@ class ListProtocols(command.Lister):
 
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         protocols = identity_client.federation_protocols(
             parsed_args.identity_provider
@@ -163,7 +177,7 @@ class ListProtocols(command.Lister):
 class SetProtocol(command.Command):
     _description = _("Set federation protocol properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'federation_protocol',
@@ -186,8 +200,12 @@ class SetProtocol(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         kwargs = {'idp_id': parsed_args.identity_provider}
         if parsed_args.federation_protocol:
@@ -202,7 +220,7 @@ class SetProtocol(command.Command):
 class ShowProtocol(command.ShowOne):
     _description = _("Display federation protocol details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'federation_protocol',
@@ -220,8 +238,12 @@ class ShowProtocol(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         protocol = identity_client.get_federation_protocol(
             idp_id=parsed_args.identity_provider,

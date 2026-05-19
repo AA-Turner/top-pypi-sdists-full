@@ -15,9 +15,13 @@
 
 """Identity v3 Role action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
 from openstack import exceptions as sdk_exc
+from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
@@ -29,7 +33,7 @@ from openstackclient.identity import common
 LOG = logging.getLogger(__name__)
 
 
-def _format_role(role):
+def _format_role(role: Any) -> tuple[tuple[str, ...], Any]:
     columns = (
         "id",
         "name",
@@ -48,7 +52,9 @@ def _format_role(role):
     )
 
 
-def _add_identity_and_resource_options_to_parser(parser):
+def _add_identity_and_resource_options_to_parser(
+    parser: argparse.ArgumentParser,
+) -> None:
     system_or_domain_or_project = parser.add_mutually_exclusive_group()
     system_or_domain_or_project.add_argument(
         '--system',
@@ -83,9 +89,11 @@ def _add_identity_and_resource_options_to_parser(parser):
 
 
 def _process_identity_and_resource_options(
-    parsed_args, identity_client, validate_actor_existence=True
-):
-    def _find_user():
+    parsed_args: argparse.Namespace,
+    identity_client: Any,
+    validate_actor_existence: bool = True,
+) -> dict[str, Any]:
+    def _find_user() -> Any:
         domain_id = (
             common._find_sdk_id(
                 identity_client.find_domain,
@@ -102,7 +110,7 @@ def _process_identity_and_resource_options(
             domain_id=domain_id,
         )
 
-    def _find_group():
+    def _find_group() -> Any:
         domain_id = (
             common._find_sdk_id(
                 identity_client.find_domain,
@@ -119,7 +127,7 @@ def _process_identity_and_resource_options(
             domain_id=domain_id,
         )
 
-    def _find_project():
+    def _find_project() -> Any:
         domain_id = (
             common._find_sdk_id(
                 identity_client.find_domain,
@@ -180,7 +188,7 @@ class AddRole(command.Command):
         "system, a domain, or a project"
     )
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'role',
@@ -191,8 +199,10 @@ class AddRole(command.Command):
         common.add_role_domain_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         if (
             not parsed_args.user
@@ -278,7 +288,7 @@ class AddRole(command.Command):
 class CreateRole(command.ShowOne):
     _description = _("Create new role")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'name',
@@ -303,10 +313,14 @@ class CreateRole(command.ShowOne):
         common.add_resource_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
-        create_kwargs = {}
+        create_kwargs: dict[str, Any] = {}
         if parsed_args.domain:
             create_kwargs['domain_id'] = common._find_sdk_id(
                 identity_client.find_domain, name_or_id=parsed_args.domain
@@ -341,7 +355,7 @@ class CreateRole(command.ShowOne):
 class DeleteRole(command.Command):
     _description = _("Delete role(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'roles',
@@ -356,8 +370,10 @@ class DeleteRole(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         domain_id = None
         if parsed_args.domain:
@@ -395,7 +411,7 @@ class DeleteRole(command.Command):
 class ListRole(command.Lister):
     _description = _("List roles")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--domain',
@@ -404,8 +420,12 @@ class ListRole(command.Lister):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         if parsed_args.domain:
             domain = identity_client.find_domain(
@@ -416,8 +436,10 @@ class ListRole(command.Lister):
             return (
                 ('ID', 'Name', 'Domain'),
                 (
-                    utils.get_item_properties(s, ('id', 'name'))
-                    + (domain.name,)
+                    (
+                        *utils.get_item_properties(s, ('id', 'name')),
+                        domain.name,
+                    )
                     for s in data
                 ),
             )
@@ -435,7 +457,7 @@ class RemoveRole(command.Command):
         "Removes a role assignment from system/domain/project : user/group"
     )
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'role',
@@ -447,8 +469,10 @@ class RemoveRole(command.Command):
 
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         if (
             not parsed_args.user
             and not parsed_args.domain
@@ -527,7 +551,7 @@ class RemoveRole(command.Command):
 class SetRole(command.Command):
     _description = _("Set role properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'role',
@@ -552,8 +576,10 @@ class SetRole(command.Command):
         common.add_resource_option_to_parser(parser)
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         update_kwargs = {}
         if parsed_args.description:
@@ -585,7 +611,7 @@ class SetRole(command.Command):
 class ShowRole(command.ShowOne):
     _description = _("Display role details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'role',
@@ -599,8 +625,12 @@ class ShowRole(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.sdk_connection.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         domain_id = None
         if parsed_args.domain:

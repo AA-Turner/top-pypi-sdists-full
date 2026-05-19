@@ -34,6 +34,7 @@ from skylos.core.result_cache import (
     save_trace_cache,
     write_trace_payload,
 )
+from skylos.remediation.safety import resolve_remediation_path
 
 from pathlib import Path
 import pathlib
@@ -688,10 +689,9 @@ def setup_logger(output_file=None):
     return logger
 
 
-def remove_unused_import(file_path, import_name, line_number):
-    path = pathlib.Path(file_path)
-
+def remove_unused_import(file_path, import_name, line_number, *, root_path=None):
     try:
+        path = resolve_remediation_path(file_path, root_path=root_path)
         src = path.read_text(encoding="utf-8")
         new_code, changed = remove_unused_import_cst(src, import_name, line_number)
         if not changed:
@@ -704,10 +704,9 @@ def remove_unused_import(file_path, import_name, line_number):
         return False
 
 
-def remove_unused_function(file_path, function_name, line_number):
-    path = pathlib.Path(file_path)
-
+def remove_unused_function(file_path, function_name, line_number, *, root_path=None):
     try:
+        path = resolve_remediation_path(file_path, root_path=root_path)
         src = path.read_text(encoding="utf-8")
         new_code, changed = remove_unused_function_cst(src, function_name, line_number)
         if not changed:
@@ -723,11 +722,10 @@ def remove_unused_function(file_path, function_name, line_number):
 
 
 def comment_out_unused_import(
-    file_path, import_name, line_number, marker="SKYLOS DEADCODE"
+    file_path, import_name, line_number, marker="SKYLOS DEADCODE", *, root_path=None
 ):
-    path = pathlib.Path(file_path)
-
     try:
+        path = resolve_remediation_path(file_path, root_path=root_path)
         src = path.read_text(encoding="utf-8")
         new_code, changed = comment_out_unused_import_cst(
             src, import_name, line_number, marker=marker
@@ -745,11 +743,10 @@ def comment_out_unused_import(
 
 
 def comment_out_unused_function(
-    file_path, function_name, line_number, marker="SKYLOS DEADCODE"
+    file_path, function_name, line_number, marker="SKYLOS DEADCODE", *, root_path=None
 ):
-    path = pathlib.Path(file_path)
-
     try:
+        path = resolve_remediation_path(file_path, root_path=root_path)
         src = path.read_text(encoding="utf-8")
         new_code, changed = comment_out_unused_function_cst(
             src, function_name, line_number, marker=marker
@@ -1345,6 +1342,11 @@ def _llm_report_code_block(
     return ""
 
 
+def _llm_report_secret_block(finding: dict) -> str:
+    preview = finding.get("preview") or "****"
+    return f"\n```\n>>> secret preview | {preview}\n```\n"
+
+
 def _format_llm_report_section(finding_num, finding, label, code_block):
     rule_id = finding.get("rule_id", "")
     severity = finding.get("severity", "INFO")
@@ -1379,7 +1381,11 @@ def _generate_llm_report(result: dict, project_root: pathlib.Path) -> str:
     for finding_num, (finding, label) in enumerate(all_findings, 1):
         file_path = finding.get("file", "")
         line = finding.get("line", 0)
-        code_block = _llm_report_code_block(file_path, line, project_root, file_cache)
+        code_block = (
+            _llm_report_secret_block(finding)
+            if label == "Secrets"
+            else _llm_report_code_block(file_path, line, project_root, file_cache)
+        )
         sections.append(
             _format_llm_report_section(finding_num, finding, label, code_block)
         )
@@ -2021,57 +2027,9 @@ def _render_result_tree(console: Console, result, root_path=None):
 
 
 def _display_rule_name(rule_id):
-    RULE_TITLES = {
-        "SKY-D201": "Dynamic code execution (eval)",
-        "SKY-D202": "Dynamic code execution (exec)",
-        "SKY-D203": "OS command execution (os.system)",
-        "SKY-D204": "Unsafe deserialization (pickle.load)",
-        "SKY-D205": "Unsafe deserialization (pickle.loads)",
-        "SKY-D206": "Unsafe YAML load (no SafeLoader)",
-        "SKY-D207": "Weak hash (MD5)",
-        "SKY-D208": "Weak hash (SHA1)",
-        "SKY-D209": "Shell execution (subprocess shell=True)",
-        "SKY-D210": "TLS verification disabled (requests verify=False)",
-        "SKY-D211": "SQL injection (cursor)",
-        "SKY-D212": "Possible command injection (os.system): tainted input",
-        "SKY-D222": "Dependency hallucination",
-        "SKY-D223": "Undeclared third-party dependency",
-        "SKY-D290": "GitHub Actions dangerous trigger",
-        "SKY-D291": "GitHub Actions excessive permissions",
-        "SKY-D292": "GitHub Actions unpinned action",
-        "SKY-D293": "GitHub Actions persisted checkout credentials",
-        "SKY-D294": "GitHub Actions template injection",
-        "SKY-D295": "GitHub Actions self-hosted runner",
-        "SKY-D296": "GitHub Actions unpinned container image",
-        "SKY-D297": "GitHub Actions secrets inheritance",
-        "SKY-D298": "GitHub Actions overprovisioned secrets",
-        "SKY-D299": "GitHub Actions secret outside environment",
-        "SKY-D300": "GitHub Actions unsafe environment file write",
-        "SKY-D301": "GitHub Actions hardcoded container credential",
-        "SKY-D302": "GitHub Actions broad GitHub App token",
-        "SKY-D303": "GitHub Actions unsound contains condition",
-        "SKY-D304": "GitHub Actions spoofable bot condition",
-        "SKY-D305": "GitHub Actions unsound multiline condition",
-        "SKY-D306": "GitHub Actions insecure commands enabled",
-        "SKY-D307": "GitHub Actions anonymous definition",
-        "SKY-D308": "GitHub Actions cache poisoning risk",
-        "SKY-D309": "GitHub Actions broad secret environment",
-        "SKY-D310": "GitHub Actions OIDC build-script exposure",
-        "SKY-D311": "GitHub Actions lax artifact upload",
-        "SKY-D312": "GitHub Actions JavaScript install scripts",
-        "SKY-D313": "GitHub Actions privileged job missing timeout",
-        "SKY-D314": "GitLab CI mutable container image",
-        "SKY-D315": "GitLab CI unpinned external include",
-        "SKY-D316": "GitLab CI literal secret variable",
-        "SKY-D317": "GitLab CI untrusted eval",
-        "SKY-D318": "GitLab CI Docker-in-Docker TLS disabled",
-        "SKY-D319": "GitLab CI OIDC local-script exposure",
-        "SKY-D320": "GitLab CI release cache poisoning risk",
-        "SKY-D321": "GitLab CI privileged job missing timeout",
-        "SKY-D322": "GitLab CI dynamic runner tag",
-        "SKY-D323": "GitLab CI ambiguous secret token",
-    }
-    return RULE_TITLES.get(rule_id, "Security issue")
+    from skylos.rules.catalog import get_rule_name
+
+    return get_rule_name(rule_id)
 
 
 def _verification_proof(danger_finding):
@@ -2344,6 +2302,18 @@ def render_results(
         _render_sca(console, limit, result.get("dependency_vulnerabilities", []) or [])
 
 
+def render_pretty_results(
+    console: Console,
+    result: dict,
+    *,
+    root_path=None,
+    limit=None,
+):
+    from skylos.ui.terminal_report import render_pretty_results as render_impl
+
+    return render_impl(console, result, root_path=root_path, limit=limit)
+
+
 def _write_rich_report_output(
     output_file: str,
     result: dict,
@@ -2365,6 +2335,28 @@ def _write_rich_report_output(
         root_path=root_path,
         limit=limit,
         copy_badge=False,
+    )
+    pathlib.Path(output_file).write_text(buffer.getvalue(), encoding="utf-8")
+
+
+def _write_pretty_report_output(
+    output_file: str,
+    result: dict,
+    *,
+    root_path=None,
+    limit=None,
+):
+    buffer = StringIO()
+    file_console = Console(
+        theme=_skylos_console_theme(),
+        file=buffer,
+        force_terminal=False,
+    )
+    render_pretty_results(
+        file_console,
+        result,
+        root_path=root_path,
+        limit=limit,
     )
     pathlib.Path(output_file).write_text(buffer.getvalue(), encoding="utf-8")
 
@@ -2932,6 +2924,16 @@ def _print_main_scan_banner(args, console, final_exclude_folders):
         return True
 
     if _is_main_machine_output(args):
+        return False
+
+    if getattr(args, "format", "rich") == "pretty":
+        console.print(
+            f"[brand]skylos[/brand] [muted]v{skylos.__version__} · scanning...[/muted]"
+        )
+        if final_exclude_folders and getattr(args, "verbose", False):
+            console.print(
+                f"[muted]excluding: {', '.join(sorted(final_exclude_folders))}[/muted]"
+            )
         return False
 
     banner = (
@@ -3838,6 +3840,15 @@ def _build_agent_parser():
 
 
 def main() -> None:
+    """
+    Dispatch top-level skylos CLI command.
+
+    Calls: skylos/cli_core/dispatch.py _dispatch_early_command;
+        skylos/cli.py _build_agent_parser; skylos/cli.py _run_scan_command;
+        skylos/cli.py _run_web_server_command; skylos/cli.py run_pipeline.
+
+    Called from: pyproject.toml skylos; skylos/cli.py __main__.
+    """
     dispatch_result = _dispatch_early_command(sys.argv[1:])
     if dispatch_result is not None:
         sys.exit(dispatch_result)

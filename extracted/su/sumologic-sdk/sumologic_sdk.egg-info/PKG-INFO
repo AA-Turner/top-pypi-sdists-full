@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sumologic-sdk
-Version: 0.1.17
+Version: 0.2.0
 Summary: Sumo Logic Python SDK
 Home-page: https://github.com/SumoLogic/sumologic-python-sdk
 Author: SumoLogic, Yoway Buorn, Melchi Salins
@@ -211,16 +211,25 @@ Project-URL: Issues, https://github.com/SumoLogic/sumologic-python-sdk/issues
 Project-URL: Changelog, https://github.com/SumoLogic/sumologic-python-sdk/blob/master/CHANGELOG.md
 Keywords: sumologic,python,sdk,rest,api,log,management,analytics,logreduce,security,siem,collector,forwarder
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=2.32.0
+Requires-Dist: requests>=2.33.1
+Requires-Dist: certifi>=2026.4.22
+Requires-Dist: urllib3>=2.6.3
+Requires-Dist: pytest>=9.0.3
+Requires-Dist: filelock>=3.29.0
+Requires-Dist: virtualenv>=21.3.0
+Requires-Dist: pygments>=2.20.0
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
 
 Sumo Logic Python SDK
 =====================

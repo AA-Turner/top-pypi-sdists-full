@@ -603,6 +603,37 @@ def _compute_region_metric(df, stages_sorted, metric_col):
     )
 
 
+def _compute_rrmsep(df, obs_col, pred_col):
+    """Paper-conformant rRMSEp (arxiv:2506.19046, sec 5).
+
+    Returns ``(mean_rrmsep, std_rrmsep, n_years)``.
+
+    Denominator: **pooled** ``mean(obs)`` across the entire df (one
+    constant per call — "the mean yield per crop").
+    Numerator (per LOOCV year): RMSE across all regions in that year.
+    Output: mean and stdev of the per-year rRMSEp series.
+    """
+    d = df.dropna(subset=[obs_col, pred_col]).copy()
+    d = d[d[obs_col] != 0]
+    if d.empty or "Harvest Year" not in d.columns:
+        return np.nan, np.nan, 0
+    pooled_mean = float(d[obs_col].mean())
+    if pooled_mean <= 0:
+        return np.nan, np.nan, 0
+    rrmsep_by_year = []
+    for _y, g in d.groupby("Harvest Year"):
+        err = g[pred_col] - g[obs_col]
+        rmse_y = float(np.sqrt((err ** 2).mean()))
+        rrmsep_by_year.append(100.0 * rmse_y / pooled_mean)
+    if not rrmsep_by_year:
+        return np.nan, np.nan, 0
+    return (
+        float(np.mean(rrmsep_by_year)),
+        float(np.std(rrmsep_by_year)),
+        len(rrmsep_by_year),
+    )
+
+
 def _aggregate_national_yields(df):
     """Area-weighted national observed/predicted yield per year."""
     obs_col = "Observed Yield (tn per ha)"
@@ -662,6 +693,10 @@ def _compute_national_metric(df, stages_sorted, metric_col, has_area):
                 val = ((nat[pred_col] - nat[obs_col]).abs() / nat[obs_col] * 100).mean()
             elif metric_col == "RMSE":
                 val = float(np.sqrt(((nat[pred_col] - nat[obs_col]) ** 2).mean()))
+            elif metric_col == "RRMSE":
+                obs_mean = float(nat[obs_col].mean())
+                rmse = float(np.sqrt(((nat[pred_col] - nat[obs_col]) ** 2).mean()))
+                val = (100.0 * rmse / obs_mean) if obs_mean else np.nan
             elif metric_col == "R2":
                 from sklearn.metrics import r2_score
                 val = r2_score(nat[obs_col], nat[pred_col])
@@ -864,6 +899,34 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook):
             df_for_national=df,
         )
         df_r2.to_csv(dir_csvs_prog / f"r2_progression_{country}_{crop}_{model}.csv", index=False)
+
+    # RRMSE — compute per (Stage Name, Region)
+    rrmse_data = []
+    for stage in stages_sorted:
+        for region in df["Region"].unique():
+            mask = (df["Stage Name"] == stage) & (df["Region"] == region)
+            ds = df[mask]
+            if len(ds) >= 2:
+                obs_mean = ds[obs_col].mean()
+                if obs_mean and obs_mean > 0:
+                    rmse = float(np.sqrt(ds["RMSE_sq"].mean()))
+                    rrmse_data.append({
+                        "Stage Name": stage, "Region": region,
+                        "RRMSE": 100.0 * rmse / obs_mean,
+                    })
+    if rrmse_data:
+        df_rrmse = pd.DataFrame(rrmse_data)
+        if has_area:
+            df_rrmse = df_rrmse.merge(area_map, on="Region", how="left")
+        _plot_metric_progression(
+            df_rrmse, stages_sorted, "RRMSE", "RRMSE (%)",
+            f"RRMSE Progression — {base_title}",
+            country, crop, model, dir_progression,
+            f"rrmse_progression_{country}_{crop}_{model}.png",
+            prod_pct, has_area,
+            df_for_national=df,
+        )
+        df_rrmse.to_csv(dir_csvs_prog / f"rrmse_progression_{country}_{crop}_{model}.csv", index=False)
 
 
 # ---------------------------------------------------------------------------
@@ -1784,10 +1847,14 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                     r2 = r2_score(rdf[obs_col], rdf[pred_col])
                 except ValueError:
                     r2 = np.nan
+                _obs_mean = rdf[obs_col].mean()
+                _rmse = float(np.sqrt(rdf["SE"].mean()))
+                _rrmse = (100.0 * _rmse / _obs_mean) if _obs_mean else np.nan
                 rows_region.append({
                     "Model": model, "Region": region,
                     "MAPE": rdf["MAPE"].mean(),
-                    "RMSE": np.sqrt(rdf["SE"].mean()),
+                    "RMSE": _rmse,
+                    "RRMSE": _rrmse,
                     "R2": r2,
                 })
 
@@ -1799,9 +1866,13 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                     r2 = r2_score(ydf[obs_col], ydf[pred_col])
                 except ValueError:
                     r2 = np.nan
+                _yobs_mean = ydf[obs_col].mean()
+                _yrmse = float(np.sqrt(ydf["SE"].mean()))
+                _yrrmse = (100.0 * _yrmse / _yobs_mean) if _yobs_mean else np.nan
                 rows_year.append({
                     "Model": model, "Harvest Year": year,
                     "MAPE": ydf["MAPE"].mean(),
+                    "RRMSE": _yrrmse,
                     "RMSE": np.sqrt(ydf["SE"].mean()),
                     "R2": r2,
                 })
@@ -1863,7 +1934,11 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
             err = nat[pred_col] - nat[obs_col]
             w_mape = (err.abs() / nat[obs_col] * 100).mean()
             w_rmse = float(np.sqrt((err ** 2).mean()))
-            national_metrics[model] = {"MAPE": w_mape, "RMSE": w_rmse}
+            _nat_obs_mean = float(nat[obs_col].mean())
+            w_rrmse = (100.0 * w_rmse / _nat_obs_mean) if _nat_obs_mean else np.nan
+            national_metrics[model] = {
+                "MAPE": w_mape, "RMSE": w_rmse, "RRMSE": w_rrmse,
+            }
 
         def _model_legend(model, metric):
             """Model display name with national metric in parentheses."""
@@ -1871,13 +1946,13 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
             nm = national_metrics.get(model, {})
             val = nm.get(metric)
             if val is not None:
-                unit = "%" if metric == "MAPE" else "tn/ha" if metric == "RMSE" else ""
+                unit = "%" if metric in ("MAPE", "RRMSE") else "tn/ha" if metric == "RMSE" else ""
                 return f"{display} (nat: {val:.1f}{unit})"
             return display
 
         with plt.style.context(["science", "no-latex"]):
             # By region: grouped bar for each metric
-            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", "RMSE (tn/ha)"), ("R2", "R²")]:
+            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", "RMSE (tn/ha)"), ("RRMSE", "RRMSE (%)"), ("R2", "R²")]:
                 pivot = df_region.pivot_table(index="Region", columns="Model", values=metric)
                 if pivot.empty:
                     continue
@@ -1906,7 +1981,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 plt.close(fig)
 
             # By year: grouped bar for each metric
-            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", "RMSE (tn/ha)"), ("R2", "R²")]:
+            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", "RMSE (tn/ha)"), ("RRMSE", "RRMSE (%)"), ("R2", "R²")]:
                 if df_year.empty:
                     continue
                 pivot = df_year.pivot_table(index="Harvest Year", columns="Model", values=metric)
@@ -1925,6 +2000,47 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 fig.savefig(dir_comp / f"{metric.lower()}_by_year_{country}_{crop}.png",
                             dpi=250, bbox_inches="tight")
                 plt.close(fig)
+
+            # rRMSEp summary bar chart (arxiv:2506.19046 Figure 3 style)
+            rrmsep_rows = []
+            for model, df_m in model_dfs.items():
+                mean_r, std_r, n_y = _compute_rrmsep(df_m, obs_col, pred_col)
+                if not np.isnan(mean_r):
+                    rrmsep_rows.append({
+                        "Model": model, "rrmsep_mean": mean_r,
+                        "rrmsep_std": std_r, "n_years": n_y,
+                    })
+            if rrmsep_rows:
+                df_rrmsep = pd.DataFrame(rrmsep_rows).sort_values("rrmsep_mean")
+                fig, ax = plt.subplots(figsize=(max(6, len(df_rrmsep) * 1.0), 5))
+                bar_colors = [
+                    _MODEL_COLORS.get(m, "steelblue")
+                    for m in df_rrmsep["Model"]
+                ]
+                ax.bar(
+                    [_display_model_name(m) for m in df_rrmsep["Model"]],
+                    df_rrmsep["rrmsep_mean"],
+                    yerr=df_rrmsep["rrmsep_std"],
+                    color=bar_colors, capsize=4,
+                )
+                ax.set_ylabel("rRMSEp (%, mean ± stdev over LOOCV years)")
+                ax.set_title(
+                    f"rRMSEp — {base_title}\n"
+                    f"(normalized by pooled mean obs yield, "
+                    f"per arxiv:2506.19046)",
+                    fontweight="bold",
+                )
+                plt.xticks(rotation=20, ha="right")
+                plt.tight_layout()
+                fig.savefig(
+                    dir_comp / f"rrmsep_summary_{country}_{crop}.png",
+                    dpi=250, bbox_inches="tight",
+                )
+                plt.close(fig)
+                df_rrmsep.to_csv(
+                    dir_csvs_comp / f"rrmsep_summary_{country}_{crop}.csv",
+                    index=False,
+                )
 
         # Best model per region map (qualitative choropleth)
         # For each region, pick the model with lowest MAPE
@@ -2294,6 +2410,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("training_start_year",
                 parser.get("ML", "training_start_year", fallback="").strip()
                 or "(earliest - 1)"),
+            ("Yield Trend feature",
+                parser.get("ML", "use_yield_trend_as_feature", fallback="False").strip()
+                or "False"),
         ]
         for c, yf in yield_files.items():
             params.append((f"  {c} yield file", yf))
@@ -2588,7 +2707,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_plot,
                     predicted_col="Predicted Yield (tn per ha)",
                     out_path=plot_dir / f"yield_ci_{country_lower}_{crop}_{model}.png",
-                    title=f"Predicted Yield with CI \u2014 {country} {crop} ({model})",
+                    title=f"Predicted Yield with CI \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})",
                     reference_df=df_obs_last5,
                     reference_value_col="Observed Yield (tn per ha)",
                     reference_label=obs_label,
@@ -2642,7 +2761,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 diag.yield_table(
                     df_table[["Region"] + cols_order],
                     out_path=plot_dir / f"yield_table_{country_lower}_{crop}_{model}.png",
-                    title=f"Yield Forecast Summary \u2014 {country} {crop} ({model}, {current_year})",
+                    title=f"Yield Forecast Summary \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model}, {current_year})",
                     columns=cols_order,
                 )
 
@@ -2664,14 +2783,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
                 diag.mape_bar_chart(
                     df_mape,
-                    title=f"Mean MAPE by Region \u2014 {country} {crop} ({model})",
+                    title=f"Mean MAPE by Region \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})",
                     dir_out=plot_dir,
                     fname=f"mape_bar_{country_lower}_{crop}_{model}.png",
                     production_pct=prod_pct,
                 )
                 diag.mape_by_year(
                     df_mape,
-                    title=f"MAPE by Year \u2014 {country} {crop} ({model})",
+                    title=f"MAPE by Year \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})",
                     dir_out=plot_dir,
                     fname=f"mape_year_{country_lower}_{crop}_{model}.png",
                     obs_col="Observed Yield (tn per ha)",

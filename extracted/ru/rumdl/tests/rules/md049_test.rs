@@ -311,3 +311,135 @@ fn test_nested_code_and_emphasis() {
     );
     assert!(fixed.contains("And *more* text"), "Second emphasis should be fixed");
 }
+
+#[test]
+fn test_self_contained_display_math_line_is_not_emphasis() {
+    // A line whose only non-whitespace content is a `$$...$$` display-math
+    // span carries LaTeX, not Markdown emphasis. MD049 consults the
+    // line-level math map (skip_math_blocks), so this whole line must be
+    // flagged as math and its `_x_`/`_y_` must not be mis-linted.
+    let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+    let content = "All emphasis uses asterisks: *a* *b* *c*.\n\n$$ _x_ + _y_ $$\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "underscores inside a self-contained $$...$$ line are LaTeX, not emphasis: {result:?}"
+    );
+}
+
+#[test]
+fn test_display_math_span_with_trailing_prose_still_lints_prose() {
+    // When real prose follows the span on the same line the line stays
+    // lintable, so emphasis in that prose is still flagged.
+    let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+    let content = "use stars: *a* *b*. $$x$$ then _y_ here\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(result.len(), 1, "trailing-prose `_y_` must still be linted: {result:?}");
+}
+
+#[test]
+fn test_second_inline_dollar_span_stays_lintable() {
+    // `$$x$$ $$ _y_ $$`: per the byte model only a line-start `$$` opens a
+    // span, so the first `$$x$$` is math but the second `$$ _y_ $$` is
+    // mid-line and NOT math. The line must stay lintable so `_y_` is caught.
+    let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+    let content = "stars: *a* *b*.\n\n$$x$$ $$ _y_ $$\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        1,
+        "`_y_` in a non-line-start `$$` span must still be linted: {result:?}"
+    );
+    assert_eq!(result[0].line, 3);
+}
+
+#[test]
+fn test_odd_double_dollar_line_does_not_swallow_following_prose() {
+    // `$$x$$ costs $$` has three `$$`: the first opens and the second closes
+    // a span; the trailing `$$` is mid-line and per the byte model opens no
+    // multi-line block. The following `_next_` line must stay lintable.
+    let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+    let content = "lead *a* *b*.\n\n$$x$$ costs $$\n_next_ prose\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        1,
+        "`_next_` after an odd-`$$` line must still be linted: {result:?}"
+    );
+    assert_eq!(result[0].line, 4);
+}
+
+#[test]
+fn test_unmatched_dollar_opener_does_not_swallow_rest_of_document() {
+    // A line-start `$$` with no closing `$$` anywhere is a literal, exactly
+    // as `math_block_ranges` drops an unmatched opener. It must NOT mark the
+    // rest of the document as math, or emphasis after it is silently missed.
+    let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+    let content = "lead *a* *b*.\n\n$$ unclosed display math\n\nThen _bad_ here\nand _more_ too\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    let lines: Vec<usize> = result.iter().map(|w| w.line).collect();
+    assert_eq!(
+        result.len(),
+        2,
+        "emphasis after an unmatched `$$` opener must still be linted: {result:?}"
+    );
+    assert!(
+        lines.contains(&5) && lines.contains(&6),
+        "lines 5 and 6 flagged: {lines:?}"
+    );
+}
+
+#[test]
+fn test_genuine_multiline_block_still_suppresses_interior() {
+    // The unmatched-opener guard must not regress real blocks: a `$$`...`$$`
+    // pair still suppresses its interior while prose after it stays lintable.
+    let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+    let content = "lead *a* *b*.\n\n$$\n_interior_ = x\n$$\n\nAfter _bad_ here\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        1,
+        "interior `_interior_` is math; only the trailing `_bad_` is linted: {result:?}"
+    );
+    assert_eq!(result[0].line, 7);
+}
+
+#[test]
+fn test_fenced_code_dollars_do_not_mask_emphasis() {
+    // A `$$` inside a fenced code block must not open a math span that
+    // swallows real prose up to a later `$$`. The byte-level math filter
+    // must be as code-block aware as the line-level math map.
+    let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+    let content = "set style *a* *b*.\n\n```\n$$\n```\n\nThen _bad_ here\n\n$$\nx = y\n$$\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        1,
+        "`_bad_` between a fenced `$$` and a real `$$` must still be linted: {result:?}"
+    );
+    assert_eq!(result[0].line, 7);
+}
+
+#[test]
+fn test_inline_code_dollars_do_not_synthesize_math_span() {
+    // Dollar signs inside inline code spans are literals, not math
+    // delimiters. They must not pair into a `$...$` span that swallows the
+    // real emphasis between them.
+    let rule = MD049EmphasisStyle::new(EmphasisStyle::Asterisk);
+    let content = "set style *a* *b*.\n\nUse `$` and _bad_ then `$` here\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        1,
+        "`_bad_` between two inline-code `$` must still be linted: {result:?}"
+    );
+    assert_eq!(result[0].line, 3);
+}

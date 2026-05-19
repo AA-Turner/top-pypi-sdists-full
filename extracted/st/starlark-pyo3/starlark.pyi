@@ -65,9 +65,6 @@ class ResolvedFileSpan:
     file: str
     span: ResolvedSpan
 
-    @override
-    def __str__(self) -> str: ...
-
 class StarlarkError(Exception): ...
 
 @final
@@ -78,9 +75,7 @@ class EvalSeverity:
     Disabled: EvalSeverity
 
     @override
-    def __str__(self) -> str: ...
-    @override
-    def __eq__(self, other: object) -> bool: ...
+    def __eq__(self, other: object, /) -> bool: ...
 
 @final
 class Lint:
@@ -94,8 +89,6 @@ class Lint:
 class Error:
     @property
     def span(self) -> ResolvedFileSpan | None: ...
-    @override
-    def __str__(self) -> str: ...
 
 @final
 class DialectTypes:
@@ -109,6 +102,7 @@ class Dialect:
     enable_lambda: bool
     enable_load: bool
     enable_keyword_only_arguments: bool
+    enable_positional_only_arguments: bool
     enable_types: DialectTypes
     enable_load_reexport: bool
     enable_top_level_stmt: bool
@@ -121,7 +115,7 @@ class Dialect:
 
 @final
 class Interface:
-    pass
+    ...
 
 @final
 class AstLoad:

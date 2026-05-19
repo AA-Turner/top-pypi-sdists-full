@@ -10,6 +10,7 @@ from schemathesis.core.error_feedback.store import (
     NumericBoundPayload,
     Observation,
     ObservationKind,
+    ParameterPath,
     PatternPayload,
     SizeBoundPayload,
     TypeMismatchPayload,
@@ -23,7 +24,7 @@ from schemathesis.specs.openapi.adapter import v3_1
 from schemathesis.specs.openapi.patterns import is_valid_python_regex, normalize_regex
 
 if TYPE_CHECKING:
-    from schemathesis.schemas import APIOperation
+    from schemathesis.specs.openapi.schemas import OpenApiOperation
 
 
 class Adjustment(Protocol):
@@ -38,7 +39,7 @@ class Adjustment(Protocol):
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],
@@ -52,7 +53,7 @@ ADJUSTMENTS: Registry[type[Adjustment]] = Registry()
 
 def apply_adjustments(
     *,
-    operation: APIOperation,
+    operation: OpenApiOperation,
     location: ParameterLocation,
     schema: JsonSchema,
     store: ErrorFeedbackStore,
@@ -127,7 +128,7 @@ def _ensure_required_in_object(obj: dict[str, Any], leaf: str) -> None:
     obj["required"] = required
 
 
-def _walk_and_apply(schema: dict[str, Any], path: tuple[str | int, ...]) -> None:
+def _walk_and_apply(schema: dict[str, Any], path: ParameterPath) -> None:
     """Descend along `path` and mark the leaf as required.
 
     String-only paths only — synthesizing intermediate objects under `properties`
@@ -180,7 +181,7 @@ def _apply_size_bound_to_property(prop: dict[str, Any], payload: SizeBoundPayloa
                 prop[max_keyword] = payload.max
 
 
-def _walk_to_property(schema: dict[str, Any], path: tuple[str | int, ...]) -> dict[str, Any] | None:
+def _walk_to_property(schema: dict[str, Any], path: ParameterPath) -> dict[str, Any] | None:
     """Descend `schema` along `path`; return the leaf prop dict or None.
 
     String steps navigate `properties[<name>]` (object properties); int steps
@@ -226,7 +227,7 @@ class FormatAdjustment:
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],
@@ -263,7 +264,7 @@ class SizeBoundAdjustment:
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],
@@ -332,7 +333,7 @@ class NumericBoundAdjustment:
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],
@@ -344,9 +345,6 @@ class NumericBoundAdjustment:
         if not targets:
             return schema
 
-        from schemathesis.specs.openapi.schemas import OpenApiSchema
-
-        assert isinstance(operation.schema, OpenApiSchema)
         is_2020_12 = operation.schema.adapter is v3_1
         for observation in observations:
             assert isinstance(observation.payload, NumericBoundPayload)
@@ -384,7 +382,7 @@ class PatternAdjustment:
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],
@@ -456,7 +454,7 @@ class TypeMismatchAdjustment:
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],
@@ -503,7 +501,7 @@ class EnumAdjustment:
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],
@@ -537,7 +535,7 @@ class RequiredFieldAdjustment:
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],
@@ -569,7 +567,7 @@ class UnexpectedPropertyAdjustment:
     def apply(
         self,
         *,
-        operation: APIOperation,
+        operation: OpenApiOperation,
         location: ParameterLocation,
         schema: JsonSchema,
         observations: tuple[Observation, ...],

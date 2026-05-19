@@ -96,18 +96,18 @@ def fastapi_endpoint(
     ],
     PartialFunction[modal._partial_function.P, modal._partial_function.ReturnType, modal._partial_function.ReturnType],
 ]:
-    """Convert a function into a basic web endpoint by wrapping it with a FastAPI App.
+    """Create a Web Function that can be addressed via HTTP at a public URL.
 
     Modal will internally use [FastAPI](https://fastapi.tiangolo.com/) to expose a
     simple, single request handler. If you are defining your own `FastAPI` application
     (e.g. if you want to define multiple routes), use `@modal.asgi_app` instead.
 
-    The endpoint created with this decorator will automatically have
+    The Web Function created with this decorator will automatically have
     [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) enabled
     and can leverage many of FastAPI's features.
 
     For more information on using Modal with popular web frameworks, see our
-    [guide on web endpoints](https://modal.com/docs/guide/webhooks).
+    [guide on Web Functions](https://modal.com/docs/guide/webhooks).
 
     *Added in v0.73.82*: This function replaces the deprecated `@web_endpoint` decorator.
     """
@@ -129,12 +129,10 @@ def asgi_app(
     ],
     PartialFunction,
 ]:
-    """Decorator for registering an ASGI app with a Modal function.
+    """Decorator for registering an ASGI app as a Web Function.
 
     Asynchronous Server Gateway Interface (ASGI) is a standard for Python
-    synchronous and asynchronous apps, supported by all popular Python web
-    libraries. This is an advanced decorator that gives full flexibility in
-    defining one or more web endpoints on Modal.
+    web apps, supported by all popular Python web libraries.
 
     **Usage:**
 
@@ -148,7 +146,7 @@ def asgi_app(
     ```
 
     To learn how to use Modal with popular web frameworks, see the
-    [guide on web endpoints](https://modal.com/docs/guide/webhooks).
+    [guide on Web Functions](https://modal.com/docs/guide/webhooks).
     """
     ...
 
@@ -187,7 +185,7 @@ def wsgi_app(
     ```
 
     To learn how to use this decorator with popular web frameworks, see the
-    [guide on web endpoints](https://modal.com/docs/guide/webhooks).
+    [guide on Web Functions](https://modal.com/docs/guide/webhooks).
     """
     ...
 
@@ -210,9 +208,9 @@ def web_server(
 ]:
     """Decorator that registers an HTTP web server inside the container.
 
-    This is similar to `@asgi_app` and `@wsgi_app`, but it allows you to expose a full HTTP server
-    listening on a container port. This is useful for servers written in other languages like Rust,
-    as well as integrating with non-ASGI frameworks like aiohttp and Tornado.
+    This is similar to `@modal.asgi_app` and `@modal.wsgi_app`, but it allows you to expose a full
+    HTTP server listening on a container port. This is useful for servers written in other languages
+    like Rust, as well as integrating with non-ASGI frameworks like aiohttp and Tornado.
 
     **Usage:**
 
@@ -226,13 +224,13 @@ def web_server(
     ```
 
     The above example starts a simple file server, displaying the contents of the root directory.
-    Here, requests to the web endpoint will go to external port 8000 on the container. The
+    Here, requests to the URL will go to external port 8000 on the container. The
     `http.server` module is included with Python, but you could run anything here.
 
-    Internally, the web server is transparently converted into a web endpoint by Modal, so it has
-    the same serverless autoscaling behavior as other web endpoints.
+    Internally, the web server is transparently converted into a Web Function by Modal, so it has
+    the same serverless autoscaling behavior as other Web Functions.
 
-    For more info, see the [guide on web endpoints](https://modal.com/docs/guide/webhooks).
+    For more info, see the [guide on Web Functions](https://modal.com/docs/guide/webhooks).
     """
     ...
 

@@ -16,7 +16,9 @@
 
 """Command-line interface to the OpenStack APIs"""
 
+import argparse
 import sys
+from typing import Any
 import warnings
 
 from osc_lib.api import auth
@@ -31,14 +33,16 @@ DEFAULT_DOMAIN = 'default'
 # core OSC
 IGNORED_MODULES = (
     'neutron_taas.taas_client.osc',
+    'neutronclient.osc.v2.fwaas',
     'neutronclient.osc.v2.taas',
+    'neutronclient.osc.v2.networking_bgpvpn',
 )
 
 
 class OpenStackShell(shell.OpenStackShell):
     client_manager: clientmanager.ClientManager
 
-    def __init__(self):
+    def __init__(self) -> None:
         command_manager = commandmanager.CommandManager(
             'openstack.cli', ignored_modules=IGNORED_MODULES
         )
@@ -59,7 +63,12 @@ class OpenStackShell(shell.OpenStackShell):
         # about them
         warnings.filterwarnings('ignore', module='openstack')
 
-    def build_option_parser(self, description, version, argparse_kwargs=None):
+    def build_option_parser(
+        self,
+        description: str | None,
+        version: str | None,
+        argparse_kwargs: dict[str, Any] | None = None,
+    ) -> argparse.ArgumentParser:
         parser = super().build_option_parser(
             description, version, argparse_kwargs
         )
@@ -67,7 +76,7 @@ class OpenStackShell(shell.OpenStackShell):
         parser = auth.build_auth_plugins_option_parser(parser)
         return parser
 
-    def _final_defaults(self):
+    def _final_defaults(self) -> None:
         super()._final_defaults()
 
         # Set the default plugin to admin_token if endpoint and token are given
@@ -77,7 +86,7 @@ class OpenStackShell(shell.OpenStackShell):
         else:
             self._auth_type = 'password'
 
-    def _load_plugins(self):
+    def _load_plugins(self) -> None:
         """Load plugins via stevedore."""
         # Loop through extensions to get API versions
         for mod in clientmanager.PLUGIN_MODULES:
@@ -128,16 +137,43 @@ class OpenStackShell(shell.OpenStackShell):
                             },
                         )
 
-                # Command groups deal only with major versions
-                version = '.v' + version_opt.replace('.', '_').split('_')[0]
-                cmd_group = 'openstack.' + api.replace('-', '_') + version
+                # Build our command group which we expect to look like:
+                #
+                #   openstack.<service>.vN
+                #
+                # Note that command groups deal only with major versions
+                cmd_group = '.'.join(
+                    [
+                        'openstack',
+                        api.replace('-', '_'),
+                        'v' + version_opt.replace('.', '_').split('_')[0],
+                    ]
+                )
                 self.command_manager.add_command_group(cmd_group)
                 self.log.debug(
                     '%(name)s API version %(version)s, cmd group %(group)s',
                     {'name': api, 'version': version_opt, 'group': cmd_group},
                 )
 
-    def _load_commands(self):
+                mod_extensions = getattr(mod, 'API_EXTENSIONS', None)
+                if not mod_extensions:
+                    continue
+
+                for extension in mod_extensions:
+                    extension_cmd_group = '.'.join([cmd_group, extension])
+                    self.command_manager.add_command_group(extension_cmd_group)
+                    self.log.debug(
+                        '%(name)s API version %(version)s '
+                        '(%(extension)s extension), cmd group %(group)s',
+                        {
+                            'name': api,
+                            'version': version_opt,
+                            'extension': extension,
+                            'group': cmd_group,
+                        },
+                    )
+
+    def _load_commands(self) -> None:
         """Load commands via cliff/stevedore
 
         osc-lib has no opinion on what commands should be loaded
@@ -157,7 +193,7 @@ class OpenStackShell(shell.OpenStackShell):
         # }
         self.command_manager.add_command_group('openstack.extension')
 
-    def initialize_app(self, argv):
+    def initialize_app(self, argv: list[str]) -> None:
         super().initialize_app(argv)
 
         # Re-create the client_manager with our subclass
@@ -168,7 +204,7 @@ class OpenStackShell(shell.OpenStackShell):
         )
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 

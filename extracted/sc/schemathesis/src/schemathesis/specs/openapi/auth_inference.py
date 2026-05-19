@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from schemathesis.auths import AuthContext
+from schemathesis.core.cache import CacheWriter, Kind, request_from_case
 from schemathesis.core.error_feedback import (
     ErrorFeedbackStore,
     Observation,
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.generation.case import Case
     from schemathesis.schemas import APIOperation
+    from schemathesis.specs.openapi.schemas import OpenApiCase
 
 
 def _intersect_configured_schemes(schema: OpenApiSchema) -> list[str]:
@@ -59,7 +61,7 @@ def _is_auth_success(operation: APIOperation, retry_status: int) -> bool:
 
 def _send_with_scheme(
     *,
-    case: Case,
+    case: OpenApiCase,
     scheme_name: str,
     transport_kwargs: dict[str, Any],
     recorder: ScenarioRecorder,
@@ -70,7 +72,6 @@ def _send_with_scheme(
     or any other unexpected exception. The caller treats `None` as "skip this scheme".
     """
     schema = case.operation.schema
-    assert isinstance(schema, OpenApiSchema)
     config = schema.config.auth.all_openapi_schemes[scheme_name]
 
     retry_case = clone_case(case)
@@ -101,6 +102,7 @@ def record_auth_inference(
     case: Case,
     response: Response,
     transport_kwargs: dict[str, Any],
+    cache_writer: CacheWriter | None = None,
 ) -> None:
     """Infer a missing security requirement when the server enforces auth on a publicly-declared operation.
 
@@ -148,4 +150,6 @@ def record_auth_inference(
         # Stored on the schema (not the operation) because operation instances aren't shared
         # across phases — the engine reparses operations per phase.
         operation.schema._inferred_security[operation.label] = [{scheme_name: []}]
+        if cache_writer is not None:
+            cache_writer.record(Kind.AUTH_REQUIRED, operation.label, request_from_case(case))
         return

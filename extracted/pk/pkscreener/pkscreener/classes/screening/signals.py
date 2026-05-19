@@ -378,6 +378,12 @@ class TradingSignals:
         if mom_reason:
             reasons.append(mom_reason)
         
+        # 8. Death Cross Analysis - Long-term bearish trend
+        dc_signal, dc_reason = self._analyze_death_cross(df, pktalib)
+        signals.append(('death_cross', dc_signal))
+        if dc_reason:
+            reasons.append(dc_reason)
+            
         # Calculate weighted score
         total_weight = sum(self.WEIGHTS.values())
         weighted_score = 0
@@ -450,10 +456,10 @@ class TradingSignals:
                 return 0.65, f"RSI approaching oversold ({current_rsi:.1f})", current_rsi
             elif current_rsi > 70:
                 # Strong overbought condition
-                return 0.2, f"RSI overbought ({current_rsi:.1f})", current_rsi
+                return 0.1, f"RSI overbought ({current_rsi:.1f})", current_rsi
             elif current_rsi > 60:
                 # Mild overbought condition
-                return 0.35, f"RSI approaching overbought ({current_rsi:.1f})", current_rsi
+                return 0.3, f"RSI approaching overbought ({current_rsi:.1f})", current_rsi
             else:
                 # Neutral range
                 return 0.5, None, current_rsi
@@ -508,7 +514,7 @@ class TradingSignals:
                 return 0.7, "MACD histogram increasing"
             elif current_hist < 0 and current_hist < prev_hist:
                 # Bearish histogram trend
-                return 0.3, "MACD histogram decreasing"
+                return 0.2, "MACD histogram decreasing"
             else:
                 return 0.5, None
         except Exception as e:
@@ -587,8 +593,10 @@ class TradingSignals:
             volume_ratio = current_volume / avg_volume
             price_change = (df['close'].iloc[-1] - df['close'].iloc[-2]) / df['close'].iloc[-2]
             
+            if volume_ratio > 2.5 and price_change < -0.02:
+                return 0.1, f"Massive volume surge ({volume_ratio:.1f}x) with sharp fall"
             # High volume with positive price = bullish
-            if volume_ratio > 2 and price_change > 0.01:
+            elif volume_ratio > 2 and price_change > 0.01:
                 return 0.85, f"Volume surge ({volume_ratio:.1f}x) with price increase"
             elif volume_ratio > 1.5 and price_change > 0:
                 return 0.7, f"Above average volume ({volume_ratio:.1f}x) with gain"
@@ -603,6 +611,33 @@ class TradingSignals:
             self.logger.debug(f"Volume analysis error: {e}")
             return 0.5, None
     
+    def _analyze_death_cross(self, df: pd.DataFrame, pktalib) -> Tuple[float, Optional[str]]:
+        try:
+            sma_50 = pktalib.SMA(df['close'], timeperiod=50)
+            sma_200 = pktalib.SMA(df['close'], timeperiod=200)
+            if sma_50 is None or sma_200 is None or len(sma_50) < 2:
+                return 0.5, None
+            
+            current_50 = sma_50.iloc[-1]
+            current_200 = sma_200.iloc[-1]
+            prev_50 = sma_50.iloc[-2]
+            prev_200 = sma_200.iloc[-2]
+            
+            # Death cross: 50 SMA crosses below 200 SMA (strong bearish)
+            if prev_50 >= prev_200 and current_50 < current_200:
+                return 0.1, "Death cross (50 SMA < 200 SMA)"
+            # Price far below both MAs
+            elif df['close'].iloc[-1] < current_50 * 0.95 and current_50 < current_200:
+                return 0.25, "Price deeply below 50 & 200 SMA"
+            # 50 SMA below 200 SMA but no cross today
+            elif current_50 < current_200:
+                return 0.4, "50 SMA below 200 SMA (bearish alignment)"
+            else:
+                return 0.5, None
+        except Exception as e:
+            self.logger.debug(f"Death cross analysis error: {e}")
+            return 0.5, None
+        
     def _analyze_ma_crossover(self, df: pd.DataFrame, pktalib) -> Tuple[float, Optional[str]]:
         """
         Analyze moving average crossovers for trend direction signals.
@@ -802,9 +837,9 @@ class TradingSignals:
             return SignalStrength.WEAK_BUY
         elif score >= 45:
             return SignalStrength.NEUTRAL
-        elif score >= 35:
+        elif score >= 30:
             return SignalStrength.WEAK_SELL
-        elif score >= 20:
+        elif score >= 15:
             return SignalStrength.SELL
         else:
             return SignalStrength.STRONG_SELL

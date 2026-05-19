@@ -2,7 +2,7 @@ import os
 
 from biolib._internal.file_utils import copy_file_with_replacements
 from biolib._internal.templates import templates
-from biolib.typing_utils import Dict
+from biolib._shared.types.typing import Dict
 
 
 def add_gui_files(replacements: Dict[str, str], force=False, silent=False) -> None:

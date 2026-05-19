@@ -7,9 +7,10 @@
 
   tasks:
   - name: get remote information for shell method tests
-    win_shell: |
-      (Resolve-Path ~\).Path + "\test"
-      (Get-Item $env:TEMP).FullName + "\ansible-tmp-"
+    ansible.windows.win_powershell:
+      script: |
+        (Resolve-Path ~\).Path + "\test"
+        (Get-Item $env:TEMP).FullName + "\ansible-tmp-"
     register: remote_info
 
   - name: test shell methods with pipelining disabled
@@ -19,5 +20,5 @@
   - name: assert shell test results
     assert:
       that:
-        - shell_res.remote_expand_user == remote_info.stdout_lines[0]
-        - shell_res.tmpdir.startswith(remote_info.stdout_lines[1])
+        - shell_res.remote_expand_user == remote_info.output[0]
+        - shell_res.tmpdir.startswith(remote_info.output[1])

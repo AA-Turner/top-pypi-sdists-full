@@ -175,7 +175,7 @@ def _reraise_malformed_media_type(case: Case, location: str, actual: str, define
 @requires_openapi_schema
 @skips_on_unexpected_http_status
 def response_headers_conformance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
-    from schemathesis.specs.openapi.schemas import _maybe_raise_one_or_more
+    from schemathesis.specs.openapi.validation import _maybe_raise_one_or_more
 
     # Find the matching response definition
     response_definition = case.operation.responses.find_by_status_code(response.status_code)
@@ -1189,8 +1189,8 @@ def resource_was_deleted(recorder: ScenarioRecorder, case: Case) -> bool:
     """Return True if a successful DELETE in the scenario covers this case's resource path.
 
     A DELETE path is considered to cover the current case when it is a prefix of the current
-    path with matching parameter values. Used to suppress false positives where a prior step
-    deleted the resource.
+    path with matching parameter values. Used to suppress false positives in checks and in
+    link-calibration observations where a prior step deleted the resource.
     """
     case_path = ResourcePath(case.path, case.path_parameters or {})
     for prior_case in recorder.find_all_cases():

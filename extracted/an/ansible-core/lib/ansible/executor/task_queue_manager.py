@@ -32,17 +32,20 @@ from ansible import constants as C
 from ansible import context
 from ansible.errors import AnsibleError, ExitCode, AnsibleCallbackError
 from ansible._internal._errors._handler import ErrorHandler
+from ansible._internal import _rpc_host
 from ansible.executor.play_iterator import PlayIterator
 from ansible.executor.stats import AggregateStats
-from ansible.executor.task_result import _RawTaskResult, _WireTaskResult
-from ansible.inventory.data import InventoryData
+from ansible.executor.task_result import CallbackTaskResult
+from ansible.inventory.manager import InventoryManager
 from ansible.module_utils.common.text.converters import to_native
 from ansible.parsing.dataloader import DataLoader
 from ansible.playbook.play_context import PlayContext
 from ansible.playbook.task import Task
-from ansible.plugins.loader import callback_loader, strategy_loader, module_loader
 from ansible.plugins.callback import CallbackBase
+from ansible.plugins.loader import callback_loader, strategy_loader, module_loader
+from ansible._internal._plugins import _strategy
 from ansible._internal._templating._engine import TemplateEngine
+from ansible._internal._task import UnifiedTaskResult, WireTaskResult, HostTaskResult
 from ansible.vars.hostvars import HostVars
 from ansible.vars.manager import VariableManager
 from ansible.utils.display import Display
@@ -51,6 +54,7 @@ from ansible.utils.multiprocessing import context as multiprocessing_context
 
 if t.TYPE_CHECKING:
     from ansible.executor.process.worker import WorkerProcess
+    from ansible.inventory.host import Host
 
 __all__ = ['TaskQueueManager']
 
@@ -64,7 +68,7 @@ display = Display()
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class CallbackSend:
     method_name: str
-    wire_task_result: _WireTaskResult
+    wire_task_result: WireTaskResult
 
 
 class DisplaySend:
@@ -89,11 +93,11 @@ class FinalQueue(multiprocessing.queues.SimpleQueue):
         kwargs['ctx'] = multiprocessing_context
         super().__init__(*args, **kwargs)
 
-    def send_callback(self, method_name: str, task_result: _RawTaskResult) -> None:
-        self.put(CallbackSend(method_name=method_name, wire_task_result=task_result.as_wire_task_result()))
+    def send_callback(self, method_name: str, host: Host, task: Task, utr: UnifiedTaskResult) -> None:
+        self.put(CallbackSend(method_name=method_name, wire_task_result=WireTaskResult.create(host=host, task=task, utr=utr)))
 
-    def send_task_result(self, task_result: _RawTaskResult) -> None:
-        self.put(task_result.as_wire_task_result())
+    def send_task_result(self, host: Host, task: Task, utr: UnifiedTaskResult) -> None:
+        self.put(WireTaskResult.create(host=host, task=task, utr=utr))
 
     def send_display(self, method, *args, **kwargs):
         self.put(
@@ -109,6 +113,16 @@ class FinalQueue(multiprocessing.queues.SimpleQueue):
 class AnsibleEndPlay(Exception):
     def __init__(self, result):
         self.result = result
+
+
+def _resolve_callback_option_variables(callback: CallbackBase, variables: dict[str, object], templar: TemplateEngine) -> None:
+    """Set callback plugin options using documented variables."""
+    callback_variables = {
+        var_name: variables[var_name]
+        for var_name in C.config.get_plugin_vars(callback.plugin_type, callback._load_name)
+        if var_name in variables
+    }
+    callback.set_options(var_options=templar.template(callback_variables))
 
 
 class TaskQueueManager:
@@ -134,7 +148,7 @@ class TaskQueueManager:
 
     def __init__(
         self,
-        inventory: InventoryData,
+        inventory: InventoryManager,
         variable_manager: VariableManager,
         loader: DataLoader,
         passwords: dict[str, str | None],
@@ -155,6 +169,8 @@ class TaskQueueManager:
 
         self._callback_plugins: list[CallbackBase] = []
         self._start_at_done = False
+
+        _rpc_host.LocalManager.shared_instance()  # ensure the RPC host is available
 
         # make sure any module paths (if specified) are added to the module_loader
         if context.CLIARGS.get('module_path', False):
@@ -248,8 +264,10 @@ class TaskQueueManager:
         if not stdout_callback:
             raise AnsibleError(f"Could not load {self._stdout_callback_name!r} callback plugin.")
 
+        templar = TemplateEngine(loader=self._loader, variables=self._variable_manager._extra_vars)
+
         stdout_callback._init_callback_methods()
-        stdout_callback.set_options()
+        _resolve_callback_option_variables(stdout_callback, self._variable_manager._extra_vars, templar)
 
         self._callback_plugins.append(stdout_callback)
 
@@ -303,7 +321,7 @@ class TaskQueueManager:
                 # really a bug in the plugin itself which we ignore as callback errors are not supposed to be fatal.
                 if callback_obj:
                     callback_obj._init_callback_methods()
-                    callback_obj.set_options()
+                    _resolve_callback_option_variables(callback_obj, self._variable_manager._extra_vars, templar)
                     self._callback_plugins.append(callback_obj)
                 else:
                     display.warning("Skipping callback '%s', as it does not create a valid plugin instance." % callback_name)
@@ -381,7 +399,8 @@ class TaskQueueManager:
 
         # and run the play using the strategy and cleanup on way out
         try:
-            play_return = strategy.run(iterator, play_context)
+            with _strategy.StrategyContext(strategy=strategy, tqm=self).activate():
+                play_return = strategy.run(iterator, play_context)
         finally:
             strategy.cleanup()
             self._cleanup_processes()
@@ -426,7 +445,7 @@ class TaskQueueManager:
     def clear_failed_hosts(self) -> None:
         self._failed_hosts = dict()
 
-    def get_inventory(self) -> InventoryData:
+    def get_inventory(self) -> InventoryManager:
         return self._inventory
 
     def get_variable_manager(self) -> VariableManager:
@@ -484,8 +503,8 @@ class TaskQueueManager:
 
                 for arg in args:
                     # FIXME: add play/task cleaners
-                    if isinstance(arg, _RawTaskResult):
-                        copied_tr = arg.as_callback_task_result()
+                    if isinstance(arg, HostTaskResult):
+                        copied_tr = CallbackTaskResult(host=arg.host, task=arg.task, utr=arg.utr)
                         new_args.append(copied_tr)
                         # this state hack requires that no callback ever accepts > 1 TaskResult object
                         callback_plugin._current_task_result = copied_tr

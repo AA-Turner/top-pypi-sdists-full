@@ -17,6 +17,14 @@ import modal_proto.task_command_router_pb2
 class TaskCommandRouterBase(abc.ABC):
 
     @abc.abstractmethod
+    async def SandboxStdinWriteV2(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.SandboxStdinWriteV2Request, modal_proto.task_command_router_pb2.SandboxStdinWriteV2Response]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxStdioReadV2(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.SandboxStdioReadV2Request, modal_proto.task_command_router_pb2.SandboxStdioReadV2Response]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskContainerCreate(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskContainerCreateRequest, modal_proto.task_command_router_pb2.TaskContainerCreateResponse]') -> None:
         pass
 
@@ -45,7 +53,15 @@ class TaskCommandRouterBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def TaskExecStdinStatus(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskExecStdinStatusRequest, modal_proto.task_command_router_pb2.TaskExecStdinStatusResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskExecStdinWrite(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskExecStdinWriteRequest, modal_proto.task_command_router_pb2.TaskExecStdinWriteResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def TaskExecStdinWriteStream(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamRequest, modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -65,11 +81,27 @@ class TaskCommandRouterBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def TaskSnapshotFilesystem(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSnapshotFilesystemRequest, modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskUnmountDirectory(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
     def __mapping__(self) -> typing.Dict[str, grpclib.const.Handler]:
         return {
+            '/modal.task_command_router.TaskCommandRouter/SandboxStdinWriteV2': grpclib.const.Handler(
+                self.SandboxStdinWriteV2,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.SandboxStdinWriteV2Request,
+                modal_proto.task_command_router_pb2.SandboxStdinWriteV2Response,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/SandboxStdioReadV2': grpclib.const.Handler(
+                self.SandboxStdioReadV2,
+                grpclib.const.Cardinality.UNARY_STREAM,
+                modal_proto.task_command_router_pb2.SandboxStdioReadV2Request,
+                modal_proto.task_command_router_pb2.SandboxStdioReadV2Response,
+            ),
             '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate': grpclib.const.Handler(
                 self.TaskContainerCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -112,11 +144,23 @@ class TaskCommandRouterBase(abc.ABC):
                 modal_proto.task_command_router_pb2.TaskExecStartRequest,
                 modal_proto.task_command_router_pb2.TaskExecStartResponse,
             ),
+            '/modal.task_command_router.TaskCommandRouter/TaskExecStdinStatus': grpclib.const.Handler(
+                self.TaskExecStdinStatus,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskExecStdinStatusRequest,
+                modal_proto.task_command_router_pb2.TaskExecStdinStatusResponse,
+            ),
             '/modal.task_command_router.TaskCommandRouter/TaskExecStdinWrite': grpclib.const.Handler(
                 self.TaskExecStdinWrite,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.task_command_router_pb2.TaskExecStdinWriteRequest,
                 modal_proto.task_command_router_pb2.TaskExecStdinWriteResponse,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskExecStdinWriteStream': grpclib.const.Handler(
+                self.TaskExecStdinWriteStream,
+                grpclib.const.Cardinality.STREAM_UNARY,
+                modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamRequest,
+                modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamResponse,
             ),
             '/modal.task_command_router.TaskCommandRouter/TaskExecStdioRead': grpclib.const.Handler(
                 self.TaskExecStdioRead,
@@ -142,6 +186,12 @@ class TaskCommandRouterBase(abc.ABC):
                 modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest,
                 modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
             ),
+            '/modal.task_command_router.TaskCommandRouter/TaskSnapshotFilesystem': grpclib.const.Handler(
+                self.TaskSnapshotFilesystem,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskSnapshotFilesystemRequest,
+                modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse,
+            ),
             '/modal.task_command_router.TaskCommandRouter/TaskUnmountDirectory': grpclib.const.Handler(
                 self.TaskUnmountDirectory,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -154,6 +204,18 @@ class TaskCommandRouterBase(abc.ABC):
 class TaskCommandRouterStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
+        self.SandboxStdinWriteV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/SandboxStdinWriteV2',
+            modal_proto.task_command_router_pb2.SandboxStdinWriteV2Request,
+            modal_proto.task_command_router_pb2.SandboxStdinWriteV2Response,
+        )
+        self.SandboxStdioReadV2 = grpclib.client.UnaryStreamMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/SandboxStdioReadV2',
+            modal_proto.task_command_router_pb2.SandboxStdioReadV2Request,
+            modal_proto.task_command_router_pb2.SandboxStdioReadV2Response,
+        )
         self.TaskContainerCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.task_command_router.TaskCommandRouter/TaskContainerCreate',
@@ -196,11 +258,23 @@ class TaskCommandRouterStub:
             modal_proto.task_command_router_pb2.TaskExecStartRequest,
             modal_proto.task_command_router_pb2.TaskExecStartResponse,
         )
+        self.TaskExecStdinStatus = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskExecStdinStatus',
+            modal_proto.task_command_router_pb2.TaskExecStdinStatusRequest,
+            modal_proto.task_command_router_pb2.TaskExecStdinStatusResponse,
+        )
         self.TaskExecStdinWrite = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.task_command_router.TaskCommandRouter/TaskExecStdinWrite',
             modal_proto.task_command_router_pb2.TaskExecStdinWriteRequest,
             modal_proto.task_command_router_pb2.TaskExecStdinWriteResponse,
+        )
+        self.TaskExecStdinWriteStream = grpclib.client.StreamUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskExecStdinWriteStream',
+            modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamRequest,
+            modal_proto.task_command_router_pb2.TaskExecStdinWriteStreamResponse,
         )
         self.TaskExecStdioRead = grpclib.client.UnaryStreamMethod(
             channel,
@@ -225,6 +299,12 @@ class TaskCommandRouterStub:
             '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory',
             modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest,
             modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
+        )
+        self.TaskSnapshotFilesystem = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskSnapshotFilesystem',
+            modal_proto.task_command_router_pb2.TaskSnapshotFilesystemRequest,
+            modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse,
         )
         self.TaskUnmountDirectory = grpclib.client.UnaryUnaryMethod(
             channel,

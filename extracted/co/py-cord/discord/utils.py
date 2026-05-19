@@ -31,6 +31,7 @@ import collections.abc
 import datetime
 import functools
 import importlib.resources
+import io
 import itertools
 import json
 import logging
@@ -64,6 +65,8 @@ from typing import (
     overload,
 )
 
+from typing_extensions import deprecated as ext_deprecated
+
 if TYPE_CHECKING:
     from discord import (
         Client,
@@ -89,7 +92,6 @@ except ModuleNotFoundError:
     HAS_MSGSPEC = False
 else:
     HAS_MSGSPEC = True
-
 
 __all__ = (
     "parse_time",
@@ -117,6 +119,7 @@ __all__ = (
     "basic_autocomplete",
     "filter_params",
     "MISSING",
+    "users_to_csv",
 )
 
 _log = logging.getLogger(__name__)
@@ -135,7 +138,6 @@ except FileNotFoundError:
         "Couldn't find emojis.json. Is the package data missing? Discord emojis names will not work.",
     )
     EMOJIS_MAP = {}
-
 
 UNICODE_EMOJIS = set(EMOJIS_MAP.values())
 
@@ -171,7 +173,6 @@ if TYPE_CHECKING:
 else:
     AutocompleteContext = Any
     OptionChoice = Any
-
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
@@ -345,6 +346,9 @@ def warn_deprecated(
     warnings.warn(message, stacklevel=stacklevel, category=DeprecationWarning)
 
 
+@ext_deprecated(
+    "deprecated is deprecated since version 2.8, consider using warnings.deprecated instead."
+)
 def deprecated(
     instead: str | None = None,
     since: str | None = None,
@@ -353,9 +357,12 @@ def deprecated(
     stacklevel: int = 3,
     *,
     use_qualname: bool = True,
-) -> Callable[[Callable[[P], T]], Callable[[P], T]]:
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """A decorator implementation of :func:`warn_deprecated`. This will automatically call :func:`warn_deprecated` when
     the decorated function is called.
+
+    .. deprecated:: 2.8
+        Deprecated in favor of :func:`warnings.deprecated`.
 
     Parameters
     ----------
@@ -378,7 +385,7 @@ def deprecated(
         will display as ``login``. Defaults to ``True``.
     """
 
-    def actual_decorator(func: Callable[[P], T]) -> Callable[[P], T]:
+    def actual_decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
         def decorated(*args: P.args, **kwargs: P.kwargs) -> T:
             warn_deprecated(
@@ -760,7 +767,7 @@ def _get_string_to_type_map() -> dict[str, type]:
 @functools.lru_cache(maxsize=1)
 def _get_getter_fetcher_map() -> dict[type, tuple[_Getter, _Fetcher]]:
     """Return a cached map of type names -> (getter, fetcher) functions."""
-    from discord import Guild, Member, Role, User, abc, emoji
+    from discord import Guild, Member, Role, Thread, User, abc, emoji
 
     base_map: dict[type, tuple[_Getter, _Fetcher]] = {
         Member: (
@@ -784,6 +791,10 @@ def _get_getter_fetcher_map() -> dict[type, tuple[_Getter, _Fetcher]]:
             lambda obj, oid: obj.fetch_emoji(oid),
         ),
         abc.GuildChannel: (
+            lambda obj, oid: obj.get_channel(oid),
+            lambda obj, oid: obj.fetch_channel(oid),
+        ),
+        Thread: (
             lambda obj, oid: obj.get_channel(oid),
             lambda obj, oid: obj.fetch_channel(oid),
         ),
@@ -1601,3 +1612,77 @@ def filter_params(params, **kwargs):
                 params[new_param] = params.pop(old_param)
 
     return params
+
+
+def users_to_csv(users: Iterable[Snowflake]) -> io.BytesIO:
+    """Converts an iterable of users to a CSV file-like object for usage in
+    :meth:`~discord.abc.GuildChannel.create_invite` and :meth:`~discord.Invite.edit_target_users`.
+
+    Parameters
+    ----------
+    users: Iterable[:class:`discord.abc.Snowflake`]
+        An iterable of users to convert.
+
+    Returns
+    -------
+    :class:`io.BytesIO`
+        A file-like object containing the CSV data.
+    """
+    return io.BytesIO("\n".join(map(lambda u: str(u.id), users)).encode("utf-8"))
+
+
+voice_dependency_warning_emitted = False
+
+
+def get_missing_voice_dependencies() -> tuple[str, ...]:
+    missing: list[str] = []
+    try:
+        import nacl.secret
+        import nacl.utils
+    except ImportError:
+        missing.append("PyNaCl")
+
+    try:
+        import davey
+    except ImportError:
+        missing.append("davey")
+    return tuple(missing)
+
+
+def warn_if_voice_dependencies_missing() -> None:
+    global voice_dependency_warning_emitted
+    if voice_dependency_warning_emitted:
+        return
+
+    missing = get_missing_voice_dependencies()
+    if not missing:
+        return
+
+    voice_dependency_warning_emitted = True
+    deps = ", ".join(missing)
+    _log.warning(
+        "%s %s not installed, voice will NOT be supported",
+        deps,
+        "is" if len(missing) == 1 else "are",
+    )
+
+
+def _get_event_loop() -> asyncio.AbstractEventLoop:
+    """Get the current event loop, creating one if necessary.
+
+    If no event loop is running and none is set, a new event loop
+    is created and set as the current event loop.
+
+    Returns
+    -------
+    asyncio.AbstractEventLoop
+        The current event loop.
+    """
+    if sys.version_info >= (3, 14):
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop
+    return asyncio.get_event_loop()

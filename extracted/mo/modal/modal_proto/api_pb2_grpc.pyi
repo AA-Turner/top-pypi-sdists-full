@@ -260,6 +260,11 @@ class ModalClientStub:
         modal_proto.api_pb2.DomainListRequest,
         modal_proto.api_pb2.DomainListResponse,
     ]
+    EndpointCreate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EndpointCreateRequest,
+        modal_proto.api_pb2.EndpointCreateResponse,
+    ]
+    """Endpoints"""
     EnvironmentCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EnvironmentCreateRequest,
         google.protobuf.empty_pb2.Empty,
@@ -1208,6 +1213,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.DomainListRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.DomainListResponse: ...
+    @abc.abstractmethod
+    def EndpointCreate(
+        self,
+        request: modal_proto.api_pb2.EndpointCreateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EndpointCreateResponse:
+        """Endpoints"""
     @abc.abstractmethod
     def EnvironmentCreate(
         self,

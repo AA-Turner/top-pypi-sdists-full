@@ -15,6 +15,15 @@ import synchronicity.combined_types
 import typing
 import typing_extensions
 
+async def _raise_on_block_response_error(response) -> None:
+    """Raise a picklable Modal exception on error.
+
+    We avoid `aiohttp.ClientResponse.raise_for_status()` because the resulting
+    `ClientResponseError` is not picklable, which breaks result serialization
+    when raised from within a Modal function.
+    """
+    ...
+
 def _validate_volume_version(requested_version: int, actual_version: int, volume_name: str) -> None:
     """Validate that the returned volume version matches the requested version."""
     ...
@@ -407,6 +416,40 @@ class VolumeManager:
 
     delete: __delete_spec
 
+class _VolumeMountOptions:
+    """_VolumeMountOptions(read_only: bool = False, sub_path: Optional[str] = None)"""
+
+    read_only: bool
+    sub_path: typing.Optional[str]
+
+    def __init__(self, read_only: bool = False, sub_path: typing.Optional[str] = None) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
+def _volume_to_mount_proto(path: str, volume: _Volume) -> modal_proto.api_pb2.VolumeMount:
+    """Convert a Volume to a VolumeMount proto for use in Function/Sandbox definitions."""
+    ...
+
 class _Volume(modal._object._Object):
     """A writeable volume that can be used to share files between one or more Modal functions.
 
@@ -451,33 +494,57 @@ class _Volume(modal._object._Object):
 
     _lock: typing.Optional[asyncio.locks.Lock]
     _metadata: typing.Optional[modal_proto.api_pb2.VolumeMetadata]
+    _mount_options: typing.Optional[_VolumeMountOptions]
     _read_only: bool
 
+    def _initialize_from_empty(self): ...
+    def _initialize_from_other(self, other): ...
     @synchronicity.classproperty
     @classmethod
     def objects(cls) -> _VolumeManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def read_only(self) -> _Volume:
-        """Configure Volume to mount as read-only.
+        """mdmd:hidden"""
+        ...
 
-        **Example**
+    def with_mount_options(
+        self,
+        *,
+        read_only: typing.Optional[bool] = None,
+        sub_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
+    ) -> _Volume:
+        """Configure options used when mounting this Volume.
 
+        Note that these options are not properties stored with the Volume itself - they can be individually configured
+        for each Volume - container association.
+
+        read_only: bool (optional) - set this to True to make the Volume read only from within containers
+        sub_path: str | PurePosixPath (optional) - only mount this sub_path directory from the Volume.
+            If the directory doesn't exist in the Volume, it will be created when the container starts up
+
+
+        **Mount Volume in read-only mode**
         ```python
         import modal
 
-        volume = modal.Volume.from_name("my-volume", create_if_missing=True)
+        volume = modal.Volume.from_name("my-volume")
 
-        @app.function(volumes={"/mnt/items": volume.read_only()})
+        @app.function(volumes={"/mnt": volume.with_mount_options(read_only=True)})
         def f():
-            with open("/mnt/items/my-file.txt") as f:
-                return f.read()
+            return os.mkdir("/mnt/foo")  # not possible!
         ```
 
-        The Volume is mounted as a read-only volume in a function. Any file system write operation into the
-        mounted volume will result in an error.
+        **Mount only part of a Volume using sub_path**
+        ```python
+        import modal
 
-        Added in v1.0.5.
+        volume = modal.Volume.from_name("my-volume")
+
+        @app.function(volumes={"/user_data": volume.with_mount_options(sub_path="/users/my_user")})
+        def f():
+            return os.listdir("/user_data")  # lists data from /users/my_user
+        ```
         """
         ...
 
@@ -783,37 +850,61 @@ class Volume(modal.object.Object):
 
     _lock: typing.Optional[asyncio.locks.Lock]
     _metadata: typing.Optional[modal_proto.api_pb2.VolumeMetadata]
+    _mount_options: typing.Optional[_VolumeMountOptions]
     _read_only: bool
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
         ...
 
+    def _initialize_from_empty(self): ...
+    def _initialize_from_other(self, other): ...
     @synchronicity.classproperty
     @classmethod
     def objects(cls) -> VolumeManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def read_only(self) -> Volume:
-        """Configure Volume to mount as read-only.
+        """mdmd:hidden"""
+        ...
 
-        **Example**
+    def with_mount_options(
+        self,
+        *,
+        read_only: typing.Optional[bool] = None,
+        sub_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
+    ) -> Volume:
+        """Configure options used when mounting this Volume.
 
+        Note that these options are not properties stored with the Volume itself - they can be individually configured
+        for each Volume - container association.
+
+        read_only: bool (optional) - set this to True to make the Volume read only from within containers
+        sub_path: str | PurePosixPath (optional) - only mount this sub_path directory from the Volume.
+            If the directory doesn't exist in the Volume, it will be created when the container starts up
+
+
+        **Mount Volume in read-only mode**
         ```python
         import modal
 
-        volume = modal.Volume.from_name("my-volume", create_if_missing=True)
+        volume = modal.Volume.from_name("my-volume")
 
-        @app.function(volumes={"/mnt/items": volume.read_only()})
+        @app.function(volumes={"/mnt": volume.with_mount_options(read_only=True)})
         def f():
-            with open("/mnt/items/my-file.txt") as f:
-                return f.read()
+            return os.mkdir("/mnt/foo")  # not possible!
         ```
 
-        The Volume is mounted as a read-only volume in a function. Any file system write operation into the
-        mounted volume will result in an error.
+        **Mount only part of a Volume using sub_path**
+        ```python
+        import modal
 
-        Added in v1.0.5.
+        volume = modal.Volume.from_name("my-volume")
+
+        @app.function(volumes={"/user_data": volume.with_mount_options(sub_path="/users/my_user")})
+        def f():
+            return os.listdir("/user_data")  # lists data from /users/my_user
+        ```
         """
         ...
 

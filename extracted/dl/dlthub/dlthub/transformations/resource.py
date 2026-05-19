@@ -50,9 +50,6 @@ except (ImportError, MissingDependencyException):
 
 
 class DltTransformationResource(DltResource):
-    def __init__(self, *args: Any, **kwds: Any) -> None:
-        super().__init__(*args, **kwds)
-
     @property
     def has_dynamic_table_name(self) -> bool:
         return True

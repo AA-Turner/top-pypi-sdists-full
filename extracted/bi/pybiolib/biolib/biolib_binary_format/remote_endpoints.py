@@ -2,13 +2,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import biolib.api
+from biolib._shared.types.typing import Literal
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client.biolib_job_api import BiolibJobApi
 from biolib.biolib_binary_format.utils import RemoteEndpoint
 
 # from urllib.parse import urlparse, parse_qs
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Literal
 
 
 class RemoteJobStorageEndpoint(RemoteEndpoint):

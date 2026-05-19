@@ -5,7 +5,6 @@
 
 use crate::config::MarkdownFlavor;
 use crate::lint_context::LintContext;
-use crate::utils::kramdown_utils::is_math_block_delimiter;
 use crate::utils::mkdocs_admonitions;
 use crate::utils::mkdocs_critic;
 use crate::utils::mkdocs_extensions;
@@ -132,59 +131,113 @@ pub fn is_in_html_tag(ctx: &LintContext, byte_pos: usize) -> bool {
     false
 }
 
-/// Check if a byte position is within a math context (block or inline)
+/// Check if a byte position is within a math context.
+///
+/// `$$...$$` display math is recognized only when it begins its line, via
+/// [`math_block_ranges`]; a mid-line or stray-prose `$$...$$` is a literal,
+/// not math. Single-`$` inline spans are recognized anywhere. This keeps
+/// every math-aware rule agreeing on what is math.
 pub fn is_in_math_context(ctx: &LintContext, byte_pos: usize) -> bool {
-    let content = ctx.content;
-
-    // Check if we're in a math block
-    if is_in_math_block(content, byte_pos) {
-        return true;
-    }
-
-    // Check if we're in inline math
-    if is_in_inline_math(content, byte_pos) {
-        return true;
-    }
-
-    false
+    math_byte_ranges(ctx.content)
+        .iter()
+        .any(|&(start, end)| byte_pos >= start && byte_pos < end)
 }
 
-/// Check if a byte position is within a math block ($$...$$)
-pub fn is_in_math_block(content: &str, byte_pos: usize) -> bool {
-    let mut in_math_block = false;
-    let mut current_pos = 0;
-
-    for line in content.lines() {
-        let line_start = current_pos;
-        let line_end = current_pos + line.len();
-
-        // Check if this line is a math block delimiter
-        if is_math_block_delimiter(line) {
-            if byte_pos >= line_start && byte_pos <= line_end {
-                // Position is on the delimiter line itself
-                return true;
+/// Paired `$$ ... $$` display-math byte ranges, half-open `[start, end)`.
+///
+/// A block only *opens* on a `$$` that begins its line, ignoring leading
+/// whitespace and blockquote markers (`>`); a stray `$$` mid-prose is a
+/// literal, not a block opener. This keeps the byte-level result consistent
+/// with the line-level [`compute_math_block_line_map`] guard. Once open, the
+/// block *closes* on the next `$$` anywhere - even when that closing `$$`
+/// shares its line with LaTeX content (`\end{cases}$$`) or trailing Markdown
+/// prose. An opener with no matching closer is dropped, not treated as an
+/// unterminated block that swallows the rest of the document.
+pub(crate) fn math_block_ranges(content: &str) -> Vec<(usize, usize)> {
+    let bytes = content.as_bytes();
+    let mut ranges = Vec::new();
+    let mut open: Option<usize> = None;
+    let mut line_start = 0usize;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\n' => {
+                line_start = i + 1;
+                i += 1;
             }
-            in_math_block = !in_math_block;
-        } else if in_math_block && byte_pos >= line_start && byte_pos <= line_end {
-            // Position is inside a math block
-            return true;
+            b'$' if i + 1 < bytes.len() && bytes[i + 1] == b'$' => {
+                match open {
+                    None => {
+                        // Open only when this `$$` is the first non-blank,
+                        // non-blockquote content on its line.
+                        let starts_line = bytes[line_start..i]
+                            .iter()
+                            .all(|&b| b == b' ' || b == b'\t' || b == b'>');
+                        if starts_line {
+                            open = Some(i);
+                        }
+                    }
+                    Some(start) => {
+                        ranges.push((start, i + 2));
+                        open = None;
+                    }
+                }
+                i += 2;
+            }
+            _ => i += 1,
         }
-
-        current_pos = line_end + 1; // +1 for newline
     }
-
-    false
+    ranges
 }
 
-/// Check if a byte position is within inline math ($...$)
+/// Check if a byte position is within a `$$ ... $$` display-math block.
+///
+/// A block opens only on a `$$` that begins its line (see [`math_block_ranges`])
+/// and closes on the next `$$` anywhere, so the closing fence ends the block
+/// even when it shares its line with LaTeX content (e.g. `\end{cases}$$`) or
+/// trailing Markdown prose; bytes after the closing `$$` are not math.
+pub fn is_in_math_block(content: &str, byte_pos: usize) -> bool {
+    math_block_ranges(content)
+        .iter()
+        .any(|&(start, end)| byte_pos >= start && byte_pos < end)
+}
+
+/// Check if a byte position is within inline math (`$...$`).
+///
+/// Only single-`$` spans count here. A `$$...$$` token is display-math
+/// syntax, and whether it is actually math depends solely on whether it
+/// begins its line - that decision belongs to [`math_block_ranges`]. The
+/// regex still consumes `$$...$$` tokens so a single-`$` span cannot straddle
+/// them, but a mid-line `$$...$$` is a literal here, not inline math, keeping
+/// this function consistent with the line-start-gated block model.
 pub fn is_in_inline_math(content: &str, byte_pos: usize) -> bool {
-    // Find all inline math spans
     for m in INLINE_MATH_REGEX.find_iter(content) {
+        if content[m.start()..m.end()].starts_with("$$") {
+            continue;
+        }
         if m.start() <= byte_pos && byte_pos < m.end() {
             return true;
         }
     }
     false
+}
+
+/// All math byte ranges in `content`: line-start `$$...$$` display blocks
+/// plus single-`$` inline spans. Ranges are half-open `[start, end)` and may
+/// be unordered relative to each other; membership is by `any`-containment.
+///
+/// Precompute this once when classifying many positions in one document
+/// (e.g. every emphasis span). [`is_in_math_context`] is the single-shot
+/// equivalent and is defined in terms of the same two sources.
+pub fn math_byte_ranges(content: &str) -> Vec<(usize, usize)> {
+    let mut ranges = math_block_ranges(content);
+    for m in INLINE_MATH_REGEX.find_iter(content) {
+        if content[m.start()..m.end()].starts_with("$$") {
+            continue;
+        }
+        ranges.push((m.start(), m.end()));
+    }
+    ranges
 }
 
 /// Check if a position is within a table cell
@@ -384,12 +437,68 @@ mod tests {
     }
 
     #[test]
+    fn test_stray_double_dollar_in_prose_is_not_math() {
+        // Two `$$` tokens inside a prose line must NOT pair into a math block:
+        // a multi-line block only opens on a `$$` that begins its line. This
+        // keeps the byte-level result consistent with the line-level map.
+        let content = "Note: $$ is used for display math and $$ closes it";
+        let between = content.find("is used").unwrap();
+        assert!(
+            !is_in_math_block(content, between),
+            "stray paired `$$` in prose must not be treated as a math block"
+        );
+        assert!(math_block_ranges(content).is_empty());
+    }
+
+    #[test]
+    fn test_blockquoted_double_dollar_opens_block() {
+        // A `$$` opener is still recognized behind a blockquote prefix.
+        let content = "> $$\n> x = y\n> $$\n";
+        let inside = content.find("x = y").unwrap();
+        assert!(is_in_math_block(content, inside), "blockquoted math interior");
+    }
+
+    #[test]
+    fn test_self_contained_single_line_block_leaves_trailing_prose() {
+        // `$$ a $$` at line start is math; prose after the closing `$$` is not.
+        let content = "$$ a $$ and __not math__\n";
+        let in_math = content.find('a').unwrap();
+        assert!(is_in_math_block(content, in_math), "single-line math interior");
+        let after = content.find("not math").unwrap();
+        assert!(!is_in_math_block(content, after), "trailing prose is lintable");
+    }
+
+    #[test]
+    fn test_math_block_closes_with_content_before_fence() {
+        // A display-math block whose closing `$$` shares its line with
+        // content (e.g. `\end{aligned}$$`) must still close the block.
+        // Content after the block is prose, not math.
+        let content = "$$\nx = y\n\\end{x}$$\nafter __text__ here";
+
+        let inside = content.find("x = y").unwrap();
+        assert!(is_in_math_block(content, inside), "interior must be math");
+
+        let after = content.find("after").unwrap();
+        assert!(
+            !is_in_math_block(content, after),
+            "content after a content-sharing closing fence must NOT be math"
+        );
+    }
+
+    #[test]
     fn test_inline_math_detection() {
         let content = "Text $x + y$ and $$a^2 + b^2$$ here";
-        assert!(is_in_inline_math(content, 7)); // Inside first math
-        assert!(is_in_inline_math(content, 20)); // Inside second math
-        assert!(!is_in_inline_math(content, 0)); // Before math
-        assert!(!is_in_inline_math(content, 35)); // After math
+        assert!(is_in_inline_math(content, 7), "inside the single-`$` inline span");
+        // The mid-line `$$a^2 + b^2$$` is display syntax, not a line-start
+        // block, so it is a literal under the shared math model - neither the
+        // inline path nor `math_block_ranges` treats it as math.
+        assert!(!is_in_inline_math(content, 20), "mid-line $$...$$ is not inline math");
+        assert!(
+            !is_in_math_block(content, 20),
+            "mid-line $$...$$ is not a line-start display block"
+        );
+        assert!(!is_in_inline_math(content, 0), "before any math");
+        assert!(!is_in_inline_math(content, 35), "after the spans");
     }
 
     #[test]

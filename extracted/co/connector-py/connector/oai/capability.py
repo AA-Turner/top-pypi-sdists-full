@@ -142,44 +142,87 @@ DEFAULT_AUTH_MISSING_MESSAGE = (
 )
 
 
+@t.overload
 def get_credential(
-    request: Request, credential_id: str, credential_type: type[CredentialType]
+    request: Request,
+    credential_id: str,
+    credential_type: type[CredentialType],
+    strict: t.Literal[False],
+) -> CredentialType | None:
+    ...
+
+
+@t.overload
+def get_credential(
+    request: Request,
+    credential_id: str,
+    credential_type: type[CredentialType],
+    strict: t.Literal[True] = True,
+) -> CredentialType:
+    ...
+
+
+def get_credential(
+    request: Request,
+    credential_id: str,
+    credential_type: type[CredentialType],
+    strict: bool = True,
 ) -> CredentialType | None:
     """
     Return the particular credential from the request.
     Similarly to get_settings, the credential is identified by the credential_id and the root credentials model.
 
-    Can return None if the credential is not found or is not of the correct type.
+    When strict=True (default), raises if the credential is missing or has the wrong type.
+    When strict=False, returns None instead.
     """
-    if request.credentials and isinstance(request.credentials, list):
-        for credential in request.credentials:
-            if credential.id == credential_id:
-                # Find the credential from the request
-                if credential.oauth and isinstance(credential.oauth, credential_type):
-                    return credential.oauth
-                elif credential.oauth_client_credentials and isinstance(
-                    credential.oauth_client_credentials, credential_type
-                ):
-                    return credential.oauth_client_credentials
-                elif credential.basic and isinstance(credential.basic, credential_type):
-                    return credential.basic
-                elif credential.token and isinstance(credential.token, credential_type):
-                    return credential.token
-                elif credential.jwt and isinstance(credential.jwt, credential_type):
-                    return credential.jwt
-                elif credential.service_account and isinstance(
-                    credential.service_account, credential_type
-                ):
-                    return credential.service_account
-                elif credential.key_pair and isinstance(credential.key_pair, credential_type):
-                    return credential.key_pair
+    if not request.credentials or not isinstance(request.credentials, list):
+        logger.warning(f"Credential '{credential_id}' not provided in credentials.")
 
-                logger.warning(
-                    f"Credential '{credential_id}' found but is not of type {credential_type}."
-                )
-                return None
+        if strict:
+            raise InvalidConfigurationError(
+                message=f"Credential '{credential_id}' not provided in credentials."
+            )
+
+        return None
+
+    for credential in request.credentials:
+        # Find the credential from the request
+        if credential.id != credential_id:
+            continue
+
+        if credential.oauth and isinstance(credential.oauth, credential_type):
+            return credential.oauth
+        elif credential.oauth_client_credentials and isinstance(
+            credential.oauth_client_credentials, credential_type
+        ):
+            return credential.oauth_client_credentials
+        elif credential.basic and isinstance(credential.basic, credential_type):
+            return credential.basic
+        elif credential.token and isinstance(credential.token, credential_type):
+            return credential.token
+        elif credential.jwt and isinstance(credential.jwt, credential_type):
+            return credential.jwt
+        elif credential.service_account and isinstance(credential.service_account, credential_type):
+            return credential.service_account
+        elif credential.key_pair and isinstance(credential.key_pair, credential_type):
+            return credential.key_pair
+
+        logger.warning(f"Credential '{credential_id}' found but is not of type {credential_type}.")
+
+        if strict:
+            raise InvalidConfigurationError(
+                message=f"Credential '{credential_id}' found but is not of type {credential_type.__name__}."
+            )
+
+        return None
 
     logger.warning(f"Credential '{credential_id}' not provided in credentials.")
+
+    if strict:
+        raise MissingParameterError(
+            message=f"Credential '{credential_id}' not provided in credentials."
+        )
+
     return None
 
 

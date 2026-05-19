@@ -10,8 +10,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
-import typing as ty
+from typing import Any
 
 from openstack import utils as sdk_utils
 from osc_lib.cli import format_columns
@@ -32,7 +34,7 @@ _FILTER_DEPRECATED = _(
 )
 
 
-def _format_attachment(attachment):
+def _format_attachment(attachment: Any) -> tuple[tuple[str, ...], Any]:
     columns = (
         'id',
         'volume_id',
@@ -57,7 +59,7 @@ def _format_attachment(attachment):
     # VolumeAttachmentManager.create returns a dict while everything else
     # returns a VolumeAttachment object
     if isinstance(attachment, dict):
-        data: tuple[ty.Any, ...] = ()
+        data: tuple[Any, ...] = ()
         for column in columns:
             if column == 'connection_info':
                 data += (format_columns.DictColumn(attachment[column]),)
@@ -88,7 +90,7 @@ class CreateVolumeAttachment(command.ShowOne):
     add volume' command should be preferred.
     """
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'volume',
@@ -171,8 +173,12 @@ class CreateVolumeAttachment(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
         compute_client = self.app.client_manager.compute
 
         if not sdk_utils.supports_microversion(volume_client, '3.27'):
@@ -249,7 +255,7 @@ class DeleteVolumeAttachment(command.Command):
     remove' command should be preferred.
     """
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'attachment',
@@ -258,8 +264,10 @@ class DeleteVolumeAttachment(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
 
         if not sdk_utils.supports_microversion(volume_client, '3.27'):
             msg = _(
@@ -280,7 +288,7 @@ class SetVolumeAttachment(command.ShowOne):
     connected to.
     """
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'attachment',
@@ -332,8 +340,12 @@ class SetVolumeAttachment(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
 
         if not sdk_utils.supports_microversion(volume_client, '3.27'):
             msg = _(
@@ -363,7 +375,7 @@ class SetVolumeAttachment(command.ShowOne):
 class CompleteVolumeAttachment(command.Command):
     """Complete an attachment for a volume."""
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'attachment',
@@ -372,8 +384,10 @@ class CompleteVolumeAttachment(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
 
         if not sdk_utils.supports_microversion(volume_client, '3.44'):
             msg = _(
@@ -388,7 +402,7 @@ class CompleteVolumeAttachment(command.Command):
 class ListVolumeAttachment(command.Lister):
     """Lists all volume attachments."""
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--project',
@@ -432,8 +446,12 @@ class ListVolumeAttachment(command.Lister):
         # )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
         identity_client = self.app.client_manager.identity
 
         if not sdk_utils.supports_microversion(volume_client, '3.27'):
@@ -490,7 +508,7 @@ class ListVolumeAttachment(command.Lister):
 class ShowVolumeAttachment(command.ShowOne):
     """Show detailed information for a volume attachment."""
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'attachment',
@@ -499,8 +517,12 @@ class ShowVolumeAttachment(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        volume_client = self.app.client_manager.sdk_connection.volume
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        volume_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.volume, '3'
+        )
 
         if not sdk_utils.supports_microversion(volume_client, '3.27'):
             msg = _(

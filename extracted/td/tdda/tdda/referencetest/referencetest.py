@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 __unittest = True
 
 
@@ -8,7 +6,17 @@ import sys
 import tempfile
 
 from tdda.referencetest.checkpandas import PandasComparison
+from tdda.referencetest.checkpolars import PolarsComparison
 from tdda.referencetest.checkfiles import FilesComparison
+from tdda.state import get_config
+from tdda.utils import TDDAError, nvl, error
+from tdda.abstractdf import (
+    all_fields_except,
+    df_type,
+    df_definite,
+    is_pandas_df,
+    is_polars_df,
+)
 
 
 # DEFAULT_FAIL_DIR is the default location for writing failing output
@@ -27,31 +35,20 @@ def tag(test):
 
 
 class ReferenceTest(object):
-    """
-    The :py:class:`~tdda.referencetest.referencetest.ReferenceTest` class
-    provides support for comparing results against a set of reference
-    "known to be correct" results.
+    """Provides support for comparing results against reference
+    “known to be correct” results.
 
-    The functionality provided by this class can be used with:
+    Can be used with:
 
-        - the standard Python :py:mod:`unittest` framework, using the
-          :py:class:`~tdda.referencetest.referencetestcase.ReferenceTestCase`
-          class. This is a subclass of, and therefore a drop-in replacement
-          for, :py:class:`unittest.TestCase`. It extends that class with all
-          of the methods from the
-          :py:class:`~tdda.referencetest.referencetest.ReferenceTest` class.
+    - the standard Python ``unittest`` framework, via the
+      ``ReferenceTestCase`` class, which is a drop-in replacement for
+      ``unittest.TestCase`` extended with all ``ReferenceTest`` methods.
+    - the ``pytest`` framework, via the ``referencepytest`` module, which
+      exposes all ``ReferenceTest`` methods as functions callable directly
+      from pytest tests.
 
-        - the :py:mod:`pytest` framework, using the
-          :py:mod:`~tdda.referencetest.referencepytest` module.
-          This module provides all of the methods from the
-          :py:class:`~tdda.referencetest.referencetest.ReferenceTest` class,
-          exposed as functions that can be called directly from tests
-          in a :py:mod:`pytest` suite.
-
-    In addition to the various test-assertion methods, the module also
-    provides some useful instance variables. All of these can be set
-    explicitly in test setup code, using the :py:meth:`set_defaults`
-    class method.
+    In addition to the assertion methods, the class provides useful instance
+    variables that can be set via the ``set_defaults`` class method.
     """
 
     # Verbose flag
@@ -71,42 +68,26 @@ class ReferenceTest(object):
 
     @classmethod
     def set_defaults(cls, **kwargs):
-        """Set default parameters, at the class level. These defaults will
-        apply to all instances of the class.
+        """Set default parameters at the class level, applying to all
+        instances.
 
-        The following parameters can be set:
+        Args:
+            **kwargs: Keyword arguments. Supported keys are:
 
-            *verbose*:
-                Sets the boolean verbose flag globally, to control
-                reporting of errors while running tests. Reference
-                tests tend to take longer to run than traditional
-                unit tests, so it is often useful to be able to see
-                information from failing tests as they happen, rather
-                than waiting for the full report at the end. Verbose
-                is set to ``True`` by default.
-
-            *print_fn*: Sets the print function globally, to specify
-                the function to use to display information while
-                running tests.  The function have the same signature
-                as Python3's standard print function, a default
-                print function is used which writes unbuffered to
-                ``sys.stdout``.
-
-            *tmp_dir*:
-                Sets the tmp_dir property globally, to specify the
-                directory where temporary files are written.
-                Temporary files are created whenever a text file
-                check fails and a 'preprocess' function has been
-                specified. It's useful to be able to see the contents
-                of the files after preprocessing has taken place,
-                so preprocessed versions of the files are written
-                to this directory, and their pathnames are included
-                in the failure messages. If not explicitly set by
-                :py:meth:`set_defaults()`, the environment variable
-                *TDDA_FAIL_DIR* is used, or, if that is not defined,
-                it defaults to */tmp*, *c:\\temp* or whatever
-                :py:func:`tempfile.gettempdir()` returns, as
-                appropriate.
+                - ``verbose``: Boolean flag controlling reporting of errors
+                  while running tests. Reference tests tend to take longer
+                  than traditional unit tests, so seeing failures as they
+                  happen is often useful. Default is ``True``.
+                - ``print_fn``: Function to use to display information
+                  while running tests. Must have the same signature as
+                  Python’s built-in ``print``. Defaults to unbuffered
+                  output to ``sys.stdout``.
+                - ``tmp_dir``: Directory where temporary files are written.
+                  Temporary files are created when a text file check fails
+                  and a ``preprocess`` function has been specified, so the
+                  preprocessed versions can be inspected. If not set, the
+                  ``TDDA_FAIL_DIR`` environment variable is used, or
+                  ``tempfile.gettempdir()`` as a fallback.
         """
         for k in kwargs:
             if k == 'verbose':
@@ -133,30 +114,27 @@ class ReferenceTest(object):
 
     @classmethod
     def set_default_data_location(cls, location, kind=None):
-        """
-        Declare the default filesystem location for reference files of a
-        particular kind. This sets the location for all instances of the class
-        it is called on. Subclasses will inherit this default (unless they
-        explicitly override it).
+        """Declare the default filesystem location for reference files of a
+        particular kind, applying to all instances of the class.
 
-        To set the location globally for all tests in all classes
-        within an application, call this method on the
-        :py:class:`ReferenceTest` class.
+        Subclasses inherit this default unless they explicitly override it.
+        To set the location globally for all test classes in an application,
+        call this on the ``ReferenceTest`` class directly.
 
-        The instance method :py:meth:`set_data_location()` can be used to set
-        the per-kind data locations for an individual instance of a class.
+        Use the instance method ``set_data_location()`` to set per-kind
+        locations for an individual instance.
 
-        If calls to :py:meth:`assertTextFileCorrect()` (etc) are made for
-        kinds of reference data that hasn't had their location defined
-        explicitly, then the
-        default location is used. This is the location declared for
-        the ``None`` *kind* and this default **must** be specified.
+        If an assertion is made for a kind whose location has not been
+        defined explicitly, the default location (declared for kind
+        ``None``) is used. This default **must** be specified. If it is
+        not set and relative pathnames are used, an exception is raised.
 
-        If you haven't even defined the ``None`` default, and you make calls
-        to :py:meth:`assertTextFileCorrect()` (etc) using relative pathnames
-        for the reference data files, then it can't check correctness, so it
-        will raise an exception.
-
+        Args:
+            location: Filesystem path to the directory containing
+                reference files of this kind.
+            kind: The reference kind this location applies to.
+                ``None`` sets the default location used when no
+                specific kind is matched.
         """
         clsid = id(cls)
         if clsid not in cls.default_data_locations:
@@ -181,21 +159,20 @@ class ReferenceTest(object):
         return d
 
     def __init__(self, assert_fn):
-        """
-        Initializer for a ReferenceTest instance.
+        """Initializer for a ReferenceTest instance.
 
-            *assert_fn*:
-                Function to be used to make assertions for
-                unit-tests. It should take two parameters:
-
-                    - a value (which should evaluate as ``True`` for
-                      the test to pass)
-                    - a string (to report details of how a test
-                      failed, if the value does not evaluate as ``True``).
+        Args:
+            assert_fn: Function used to make assertions. Should take two
+                parameters: a value (which should evaluate as ``True`` for
+                the test to pass) and a string (to report details of how
+                the test failed).
         """
         self.assert_fn = assert_fn
         self.reference_data_locations = self._cls_dataloc(self.__class__)
         self.pandas = PandasComparison(
+            print_fn=self.call_print_fn, verbose=self.verbose
+        )
+        self.polars = PolarsComparison(
             print_fn=self.call_print_fn, verbose=self.verbose
         )
         self.files = FilesComparison(
@@ -205,42 +182,38 @@ class ReferenceTest(object):
         )
 
     def all_fields_except(self, exclusions):
-        """
-        Helper function, for using with *check_data*, *check_types* and
-        *check_order* parameters to assertion functions for Pandas DataFrames.
-        It returns the names of all of the fields in the DataFrame being
-        checked, apart from the ones given.
+        """Return all field names in the DataFrame except those specified.
 
-        *exclusions* is a list of field names.
+        Helper for use with the ``check_data``, ``check_types`` and
+        ``check_order`` parameters of the DataFrame assertion methods.
+
+        Args:
+            exclusions: A list of field names to exclude.
         """
-        return self.pandas.all_fields_except(exclusions)
+        return all_fields_except(exclusions)
 
     def set_data_location(self, location, kind=None):
-        """
-        Declare the filesystem location for reference files of a
-        particular kind. Typically you would subclass
-        ``ReferenceTestCase`` and pass in these locations though its
-        ``__init__`` method when constructing an instance of
-        ReferenceTestCase as a superclass.
+        """Declare the filesystem location for reference files of a
+        particular kind for this instance.
 
-        If calls to :py:meth:`assertTextFileCorrect()` (etc) are made for
-        kinds of reference data that hasn't had their location defined
-        explicitly, then the
-        default location is used. This is the location declared for
-        the ``None`` *kind* and this default **must** be specified.
+        Overrides any global defaults set via
+        ``ReferenceTest.set_default_data_location()``.
 
-        This method overrides any global defaults set from calls to the
-        :py:meth:`ReferenceTest.set_default_data_location()` class-method.
+        If an assertion is made for a kind whose location has not been
+        defined explicitly, the default location (declared for kind
+        ``None``) is used. This default **must** be specified. If it is
+        not set and relative pathnames are used, an exception is raised.
 
-        If you haven't even defined the ``None`` default, and you make calls
-        to :py:meth:`assertTextFileCorrect()` (etc) using relative pathnames
-        for the reference data files, then it can't check correctness, so it
-        will raise an exception.
-
+        Args:
+            location: Filesystem path to the directory containing
+                reference files of this kind.
+            kind: The reference kind this location applies to.
+                ``None`` sets the default location used when no
+                specific kind is matched.
         """
         self.reference_data_locations[kind] = os.path.normpath(location)
 
-    def assertDataFramesEqual(
+    def assertDataFramesEquivalent(
         self,
         df,
         ref_df,
@@ -253,83 +226,77 @@ class ReferenceTest(object):
         sortby=None,
         precision=None,
         type_matching=None,
+        fuzzy_nulls=False,
+        engine=None,
+        backend=None,
     ):
-        """Check that an in-memory Pandas `DataFrame` matches an in-memory
-        reference one.
+        """Check that an in-memory DataFrame matches an in-memory reference one.
 
-            *df*:
-                Actual `DataFrame`.
+        Both ``df`` and ``ref_df`` may be Pandas or Polars DataFrames. If they
+        are of different types, both are converted to the engine specified by
+        the ``engine`` parameter, or to the default engine from configuration
+        if ``engine`` is not supplied.
 
-            *ref_df*:
-                Expected `DataFrame`.
+        Args:
+            df: Actual DataFrame (Pandas or Polars).
+            ref_df: Expected DataFrame (Pandas or Polars).
+            actual_path: Optional path for the file where the actual
+                DataFrame originated, used for error messages.
+            expected_path: Optional path for the file where the expected
+                DataFrame originated, used for error messages.
+            check_data: Optional restriction of fields whose values should
+                be compared. Possible values are:
 
-            *actual_path*:
-                (Optional) path for file where
-                actual DataFrame originated, used for error messages.
+                - ``None`` or ``True`` to apply the comparison to all
+                  fields (this is the default).
+                - ``False`` to skip the comparison completely.
+                - a list of field names to check only those fields.
+                - a function taking a DataFrame as its single parameter
+                  and returning a list of field names to check.
 
-            *expected_path*:
-                (Optional) path for file where
-                expected DataFrame originated, used for error messages.
+            check_types: Optional restriction of fields whose types should
+                be compared. See ``check_data`` for possible values.
+            check_order: Optional restriction of fields whose (relative)
+                order should be compared. See ``check_data`` for possible
+                values.
+            check_extra_cols: Optional restriction of extra fields in the
+                actual dataset which, if found, will cause the check to
+                fail. See ``check_data`` for possible values.
+            sortby: Optional specification of fields to sort by before
+                comparing. Possible values are:
 
-            *check_data*:
-                (Optional) restriction of fields whose values should
-                be compared.
-                Possible values are:
+                - ``None`` or ``False`` to not sort (this is the default).
+                - ``True`` to sort on all fields based on their order in
+                  the reference dataset (rarely useful).
+                - a list of field names to sort on, in order.
+                - a function taking the reference DataFrame as its single
+                  parameter and returning a list of field names to sort on.
 
-                    - ``None`` or ``True`` (to apply the comparison to
-                      *all* fields; this is the default).
-                    - ``False`` (to skip the comparison completely)
-                    - a list of field names (to check only these fields)
-                    - a function taking a ``DataFrame`` as its single
-                      parameter,
-                      and returning a list of field names to check.
+            condition: Optional filter to apply to datasets before
+                comparing. Can be ``None``, or a function that takes a
+                DataFrame as its single parameter and returns a vector of
+                booleans specifying which rows to compare.
+            precision: Optional number of decimal places to use for
+                floating-point comparisons. Default is 7.
+            type_matching: How to match field types: ``'strict'``,
+                ``'medium'``, or ``'loose'`` (also ``'permissive'``).
+                Default is ``'strict'``.
+            engine: DataFrame engine to use for comparison: ``'pandas'`` or
+                ``'polars'``. Required when ``df`` and ``ref_df`` are of
+                different types; otherwise inferred from the DataFrames.
+            fuzzy_nulls: If ``True``, treat different null types (such as
+                ``pd.NaN`` and ``None``) as equivalent when comparing.
+                Default is ``False``.
+            backend: Pandas backend: ``'numpy_nullable'``, ``'pyarrow'``,
+                or ``'original'``.
 
-            *check_types*:
-                (Optional) restriction of fields whose types should be
-                compared.
-                See *check_data* (above) for possible values.
-
-            *check_order*:
-                (Optional) restriction of fields whose (relative)
-                order should be compared.
-                See *check_data* (above) for possible values.
-
-            *check_extra_cols*:
-                (Optional) restriction of extra fields in the actual dataset
-                which, if found, will cause the check to fail.
-                See *check_data* (above) for possible values.
-
-            *sortby*:
-                (Optional) specification of fields to sort by before comparing.
-
-                    - ``None`` or ``False`` (do not sort; this is the default)
-                    - ``True`` (to sort on all fields based on their
-                      order in the reference datasets; you probably
-                      don't want to use this option)
-                    - a list of field names (to sort on these fields, in order)
-                    - a function taking a ``DataFrame`` (which will be
-                      the reference data frame) as its single
-                      parameter,
-                      and returning a list of field names to sort on.
-
-            *condition*:
-                (Optional) filter to be applied to datasets before comparing.
-                It can be ``None``, or can be a function that
-                takes a `DataFrame` as its single parameter and
-                returns a vector of booleans (to specify which rows
-                should be compared).
-
-            *precision*:
-                (Optional) number of decimal places to use for
-                floating-point comparisons.  Default is not to perform
-                rounding.
-
-            *type_matching*  'strict', 'medium', 'permissive'
-
-        Raises :py:class:`NotImplementedError` if Pandas is not available.
-
+        Note:
+            ``assertDataFramesEqual`` and ``assertDataFramesEquivalent``
+            are identical; two names are provided for flexibility and as
+            legacy support.
         """
-        r = self.pandas.check_dataframe(
+        df, ref_df, lib = self.choose_common_df_lib(df, ref_df, engine)
+        r = lib.check_dataframe(
             df,
             ref_df,
             actual_path=actual_path,
@@ -341,9 +308,14 @@ class ReferenceTest(object):
             sortby=sortby,
             precision=precision,
             type_matching=type_matching,
+            fuzzy_nulls=fuzzy_nulls,
+            engine=engine,
+            backend=backend,
         )
         (failures, msgs) = r
         self._check_failures(failures, msgs)
+
+    assertDataFramesEqual = assertDataFramesEquivalent
 
     def assertDataFrameCorrect(
         self,
@@ -359,63 +331,71 @@ class ReferenceTest(object):
         sortby=None,
         precision=None,
         type_matching=None,
+        fuzzy_nulls=False,
+        engine=None,
+        backend=None,
         **kwargs,
     ):
-        """
-        Check that an in-memory Pandas DataFrame matches a reference one
-        from a save reference DataFrame on disk (parquet of CSV).
+        """Check that an in-memory DataFrame matches a saved reference
+        DataFrame on disk (parquet or CSV).
 
-            *df*:
-                Actual DataFrame.
+        The actual DataFrame may be Pandas or Polars; the engine is inferred
+        from it unless overridden by the ``engine`` parameter.
 
-            *ref_path*:
-                Name of reference file, which can
-                be a .parquet file or a CSV file. The location of the
-                reference file is determined by the configuration
-                via :py:meth:`set_data_location()`.
-                **Renamed from csv_path in version 2.2**
+        Args:
+            df: Actual DataFrame (Pandas or Polars).
+            ref_path: Name of the reference file, which can be a .parquet
+                file or a CSV file. The location of the reference file is
+                determined by the configuration via ``set_data_location()``.
+                Renamed from ``csv_path`` in version 2.2.
+            actual_path: Optional path for the file where the actual
+                DataFrame originated, used for error messages.
+            kind: Optional reference kind (a string), used to locate the
+                reference file.
+            csv_read_fn: Optional function to read a CSV file to obtain a
+                DataFrame. If ``None``, a default CSV loader is used.
 
+                The default CSV loader is a wrapper around
+                ``pd.read_csv()`` with the following options:
 
-            *actual_path*:
-                Optional parameter, giving path for file where
-                actual DataFrame originated, used for error
-                messages.
+                - ``index_col`` is ``None``
+                - ``infer_datetime_format`` is ``True``
+                - ``quotechar`` is ``"``
+                - ``quoting`` is ``csv.QUOTE_MINIMAL``
+                - ``escapechar`` is ``\\`` (backslash)
+                - ``na_values`` are the empty string, ``"NaN"`` and
+                  ``"NULL"``
+                - ``keep_default_na`` is ``False``
 
-            *kind*:
-                (Optional) reference kind (a string; see above), used to locate
-                the reference CSV file.
-
-            *csv_read_fn*:
-                (Optional) function to read a CSV file to obtain
-                a pandas DataFrame. If ``None``, then a default
-                CSV loader is used.
-
-                The default CSV loader function is a wrapper around Pandas
-                :py:func:`pd.read_csv()`, with default options as follows:
-
-                    - ``index_col`` is ``None``
-                    - ``infer_datetime_format`` is ``True``
-                    - ``quotechar`` is ``"``
-                    - ``quoting`` is :py:const:`csv.QUOTE_MINIMAL`
-                    - ``escapechar`` is ``\\`` (backslash)
-                    - ``na_values`` are the empty string, ``"NaN"``,
-                      and ``"NULL"``
-                    - ``keep_default_na`` is ``False``
-
-        It also accepts the ``check_data``, ``check_types``, ``check_order``,
-        ``check_extra_cols``, ``sortby``, ``condition`` and ``precision``
-        optional parameters described in :py:meth:`assertDataFramesEqual()`.
-
-        Raises :py:class:`NotImplementedError` if Pandas is not available.
-
+            check_data: See ``assertDataFramesEquivalent`` for details.
+            check_types: See ``assertDataFramesEquivalent`` for details.
+            check_order: See ``assertDataFramesEquivalent`` for details.
+            check_extra_cols: See ``assertDataFramesEquivalent`` for
+                details.
+            sortby: See ``assertDataFramesEquivalent`` for details.
+            condition: See ``assertDataFramesEquivalent`` for details.
+            precision: See ``assertDataFramesEquivalent`` for details.
+            type_matching: See ``assertDataFramesEquivalent`` for details.
+            fuzzy_nulls: See ``assertDataFramesEquivalent`` for details.
+            engine: See ``assertDataFramesEquivalent`` for details.
+            backend: See ``assertDataFramesEquivalent`` for details.
+            **kwargs: Additional keyword arguments passed to ``csv_read_fn``.
         """
         expected_path = self._resolve_reference_path(ref_path, kind=kind)
+        lib = self.get_comparison_lib(df=df, engine=engine)
         if self._should_regenerate(kind):
-            self.pandas._write_reference_dataframe(df, expected_path)
+            lib._write_reference_dataframe(df, expected_path)
         else:
-            ref_df = self.pandas.load_serialized_dataframe(
-                expected_path, actual_df=df, loader=csv_read_fn
+            ref_df = lib.load_serialized_dataframe(
+                expected_path,
+                actual_df=df,
+                loader=csv_read_fn,
+                backend=backend,
             )
+            if type_matching is None and not str(expected_path).lower().endswith(
+                '.parquet'
+            ):
+                type_matching = 'medium'
             self.assertDataFramesEqual(
                 df,
                 ref_df,
@@ -428,9 +408,12 @@ class ReferenceTest(object):
                 sortby=sortby,
                 precision=precision,
                 type_matching=type_matching,
+                fuzzy_nulls=fuzzy_nulls,
+                engine=engine,
+                backend=backend,
             )
 
-    def assertOnDiskDataFrameCorrect(
+    def assertStoredDataFrameCorrect(
         self,
         actual_path,
         ref_path,
@@ -442,62 +425,74 @@ class ReferenceTest(object):
         condition=None,
         sortby=None,
         precision=None,
+        type_matching=None,
+        fuzzy_nulls=False,
+        engine=None,
         **kwargs,
     ):
-        r"""Check that a DataFrame on disk (as a parquet file,
-           or possible a CSV file, reference DataFrame, also on disk.
+        """Check that a DataFrame stored on disk (as a parquet or CSV file)
+        matches a reference DataFrame, also stored on disk.
 
-           Args:
+        Args:
+            actual_path: Path to the actual serialized DataFrame.
+            ref_path: Path to the reference serialized DataFrame. The
+                location of the reference file is determined by the
+                configuration via ``set_data_location()``.
+            kind: Optional reference kind (a string), used to locate the
+                reference file.
+            csv_read_fn: Optional function to read a CSV file to obtain a
+                DataFrame. If ``None``, a default CSV loader is used.
 
-            *actual_path*:
-                File containing actual serialized DataFrame
+                The default CSV loader is a wrapper around
+                ``pd.read_csv()`` with the following options:
 
-            *ref_path*:
-                File containing reference serialized DataFrame.
-                The location of the
-                reference file is determined by the configuration
-                via :py:meth:`set_data_location()`.
+                - ``index_col`` is ``None``
+                - ``infer_datetime_format`` is ``True``
+                - ``quotechar`` is ``"``
+                - ``quoting`` is ``csv.QUOTE_MINIMAL``
+                - ``escapechar`` is ``\\`` (backslash)
+                - ``na_values`` are the empty string, ``"NaN"`` and
+                  ``"NULL"``
+                - ``keep_default_na`` is ``False``
 
-            *kind*:
-                (Optional) reference kind (a string; see above), used to locate
-                the reference file. CSV is used here, and applies, for now,
-                to parqet as well as CSV.
+            check_data: See ``assertDataFramesEquivalent`` for details.
+            check_types: See ``assertDataFramesEquivalent`` for details.
+            check_order: See ``assertDataFramesEquivalent`` for details.
+            check_extra_cols: See ``assertDataFramesEquivalent`` for
+                details.
+            sortby: See ``assertDataFramesEquivalent`` for details.
+            condition: See ``assertDataFramesEquivalent`` for details.
+            precision: See ``assertDataFramesEquivalent`` for details.
+            type_matching: See ``assertDataFramesEquivalent`` for details.
+            fuzzy_nulls: See ``assertDataFramesEquivalent`` for details.
+            engine: See ``assertDataFramesEquivalent`` for details.
+            **kwargs: Additional keyword arguments passed to
+                ``csv_read_fn``.
 
-            *csv_read_fn*:
-                (Optional) function to read a CSV file to obtain
-                a pandas DataFrame. If ``None``, then a default
-                CSV loader is used if it is a CSV file.
+        Note:
+            ``assertOnDiskDataFrameCorrect`` is a legacy alias for
+            ``assertStoredDataFrameCorrect``.
 
-                The default CSV loader function is a wrapper around Pandas
-                :py:func:`pd.read_csv()`, with default options as follows:
-
-                    - ``index_col`` is ``None``
-                    - ``infer_datetime_format`` is ``True``
-                    - ``quotechar`` is ``"``
-                    - ``quoting`` is :py:const:`csv.QUOTE_MINIMAL`
-                    - ``escapechar`` is ``\\`` (backslash)
-                    - ``na_values`` are the empty string, ``"NaN"``,
-                       and ``"NULL"``
-                    - ``keep_default_na`` is ``False``
-
-            *\*\*kwargs*:
-                Any additional named parameters are passed
-                straight through to the *csv_read_fn* function.
-
-        It also accepts the ``check_data``, ``check_types``, ``check_order``,
-        ``check_extra_cols``, ``sortby``, ``condition`` and ``precision``
-        optional parameters described in :py:meth:`assertDataFramesEqual()`.
-
-        Raises :py:class:`NotImplementedError` if Pandas is not available.
+        Note:
+            If the format is CSV, the CSV file is loaded as a DataFrame
+            using the default engine, or whichever is supplied (pandas
+            or polars), with tdda.serial.csv_to_polars
+            or tdda.serial.csv_to_pandas.
         """
         if kind == 'parquet':
             kind = 'csv'  # it's just a key; can be parquet
         expected_path = self._resolve_reference_path(ref_path, kind=kind)
+        lib = self.get_comparison_lib(engine=engine)
         if self._should_regenerate(kind):
-            self.pandas._write_reference_dataframe_from_file(actual_path,
-                                                             expected_path)
+            lib._write_reference_dataframe_from_file(
+                actual_path, expected_path
+            )
         else:
-            r = self.pandas.check_serialized_dataframe(
+            if type_matching is None and not str(expected_path).lower().endswith(
+                '.parquet'
+            ):
+                type_matching = 'medium'
+            r = lib.check_serialized_dataframe(
                 actual_path,
                 expected_path,
                 check_data=check_data,
@@ -506,11 +501,15 @@ class ReferenceTest(object):
                 condition=condition,
                 sortby=sortby,
                 precision=precision,
+                type_matching=type_matching,
+                fuzzy_nulls=fuzzy_nulls,
                 loader=csv_read_fn,
                 **kwargs,
             )
             (failures, msgs) = r
             self._check_failures(failures, msgs)
+
+    assertOnDiskDataFrameCorrect = assertStoredDataFrameCorrect
 
     def assertCSVFileCorrect(
         self,
@@ -524,16 +523,18 @@ class ReferenceTest(object):
         condition=None,
         sortby=None,
         precision=None,
+        type_matching=None,
+        fuzzy_nulls=False,
+        engine=None,
         **kwargs,
     ):
+        """Legacy convenience method with second parameter called ref_csv.
+        Just calls ``assertStoredDataFrameCorrect``.
         """
-        Legacy convenience method with second parameter called ref_csv.
-        Just calls assertOnDiskDataFrameCorrect.
-        """
-        return self.assertOnDiskDataFrameCorrect(
+        return self.assertStoredDataFrameCorrect(
             actual_path,
             ref_csv,
-            kind='kind',
+            kind=kind,
             csv_read_fn=csv_read_fn,
             check_data=check_data,
             check_types=check_types,
@@ -541,10 +542,13 @@ class ReferenceTest(object):
             condition=condition,
             sortby=sortby,
             precision=precision,
+            type_matching=type_matching,
+            fuzzy_nulls=fuzzy_nulls,
+            engine=engine,
             **kwargs,
         )
 
-    def assertOnDiskDataFramesCorrect(
+    def assertStoredDataFramesCorrect(
         self,
         actual_paths,
         ref_paths,
@@ -556,61 +560,73 @@ class ReferenceTest(object):
         condition=None,
         sortby=None,
         precision=None,
+        type_matching=None,
+        fuzzy_nulls=False,
+        engine=None,
         **kwargs,
     ):
-        r"""Check that a set of serialized datafames in files
-           match corresponding reference ones.
+        """Check that a set of serialized DataFrames in files match
+        corresponding reference ones.
 
-            *actual_paths*:
-                List of actual serialized data frames (Parquet or CSV)
+        Args:
+            actual_paths: List of paths to actual serialized DataFrames
+                (parquet or CSV).
+            ref_paths: List of paths to matching reference serialized
+                DataFrames (parquet or CSV). The location of the reference
+                files is determined by the configuration via
+                ``set_data_location()``.
+            kind: Optional reference kind (a string), used to locate the
+                reference files.
+            csv_read_fn: Optional function to read a CSV file to obtain a
+                DataFrame. If ``None``, a default CSV loader is used.
 
-            *ref_paths*:
-                List of names of matching reference serialized data frames
-                (Parquet or CSV). The
-                location of the reference files is determined by
-                the configuration via :py:meth:`set_data_location()`.
+                The default CSV loader is a wrapper around
+                ``pd.read_csv()`` with the following options:
 
-            *kind*:
-                (Optional) reference kind (a string; see above), used to locate
-                the reference CSV or Paerquet file.
+                - ``index_col`` is ``None``
+                - ``infer_datetime_format`` is ``True``
+                - ``quotechar`` is ``"``
+                - ``quoting`` is ``csv.QUOTE_MINIMAL``
+                - ``escapechar`` is ``\\`` (backslash)
+                - ``na_values`` are the empty string, ``"NaN"`` and
+                  ``"NULL"``
+                - ``keep_default_na`` is ``False``
 
-            *csv_read_fn*:
-                (Optional) function to read a CSV file to obtain
-                a pandas DataFrame. If ``None``, then a default
-                CSV loader is used.
+            check_data: See ``assertDataFramesEquivalent`` for details.
+            check_types: See ``assertDataFramesEquivalent`` for details.
+            check_order: See ``assertDataFramesEquivalent`` for details.
+            check_extra_cols: See ``assertDataFramesEquivalent`` for
+                details.
+            sortby: See ``assertDataFramesEquivalent`` for details.
+            condition: See ``assertDataFramesEquivalent`` for details.
+            precision: See ``assertDataFramesEquivalent`` for details.
+            type_matching: See ``assertDataFramesEquivalent`` for details.
+            fuzzy_nulls: See ``assertDataFramesEquivalent`` for details.
+            engine: See ``assertDataFramesEquivalent`` for details.
+            **kwargs: Additional keyword arguments passed to
+                ``csv_read_fn``.
 
-                The default CSV loader function is a wrapper around Pandas
-                :py:func:`pd.read_csv()`, with default options as follows:
+        Note:
+            ``assertOnDiskDataFramesCorrect`` is a legacy alias for
+            ``assertStoredDataFramesCorrect``.
 
-                    - ``index_col`` is ``None``
-                    - ``infer_datetime_format`` is ``True``
-                    - ``quotechar`` is ``"``
-                    - ``quoting`` is :py:const:`csv.QUOTE_MINIMAL`
-                    - ``escapechar`` is ``\\`` (backslash)
-                    - ``na_values`` are the empty string, ``"NaN"``,
-                      and ``"NULL"``
-                    - ``keep_default_na`` is ``False``
-
-            *\*\*kwargs*:
-                Any additional named parameters are passed straight
-                through to the *csv_read_fn* function.
-
-        It also accepts the ``check_data``, ``check_types``, ``check_order``,
-        ``check_extra_cols``, ``sortby``, ``condition`` and ``precision``
-        optional parameters described in :py:meth:`assertDataFramesEqual()`.
-
-        Raises :py:class:`NotImplementedError` if Pandas is not available.
-
+        Note:
+            If the format is CSV, the CSV file is loaded as a DataFrame
+            using the default engine, or whichever is supplied (pandas
+            or polars), with tdda.serial.csv_to_polars
+            or tdda.serial.csv_to_pandas.
         """
         if kind == 'parquet':
             kind = 'csv'  # it's just a key; can be parquet
 
         expected_paths = self._resolve_reference_paths(ref_paths, kind=kind)
+        lib = self.get_comparison_lib(engine=engine)
         if self._should_regenerate(kind):
-            self.pandas._write_reference_dataframes_from_files(actual_paths,
-                                                               expected_paths)
+            lib._write_reference_dataframes_from_files(
+                actual_paths, expected_paths
+            )
         else:
-            r = self.pandas.check_serialized_dataframes(
+            r = lib.check_serialized_dataframes(
                 actual_paths,
                 expected_paths,
                 check_data=check_data,
@@ -619,11 +635,15 @@ class ReferenceTest(object):
                 condition=condition,
                 sortby=sortby,
                 precision=precision,
+                type_matching=type_matching,
                 loader=csv_read_fn,
+                fuzzy_nulls=fuzzy_nulls,
                 **kwargs,
             )
             (failures, msgs) = r
             self._check_failures(failures, msgs)
+
+    assertOnDiskDataFramesCorrect = assertStoredDataFramesCorrect
 
     def assertCSVFilesCorrect(
         self,
@@ -637,12 +657,13 @@ class ReferenceTest(object):
         condition=None,
         sortby=None,
         precision=None,
+        type_matching=None,
+        fuzzy_nulls=False,
+        engine=None,
         **kwargs,
     ):
-        """
-        Legacy method that just calls assertOnDiskDataFramesCorrect.
-        """
-        return self.assertOnDiskDataFramesCorrect(
+        """Legacy method that just calls ``assertStoredDataFramesCorrect``."""
+        return self.assertStoredDataFramesCorrect(
             actual_paths,
             ref_csvs,
             kind=kind,
@@ -653,6 +674,9 @@ class ReferenceTest(object):
             condition=condition,
             sortby=sortby,
             precision=precision,
+            type_matching=type_matching,
+            fuzzy_nulls=fuzzy_nulls,
+            engine=engine,
             **kwargs,
         )
 
@@ -670,70 +694,42 @@ class ReferenceTest(object):
         preprocess=None,
         max_permutation_cases=0,
     ):
-        """
-        Check that an in-memory string matches the contents from a reference
-        text file.
+        """Check that an in-memory string matches the contents from a
+        reference text file.
 
-            *string*:
-                The actual string.
+        Args:
+            string: The actual string.
+            ref_path: The name of the reference file. The location of the
+                reference file is determined by the configuration via
+                ``set_data_location()``.
+            kind: The reference kind, used to locate the reference file.
+            lstrip: If ``True``, whitespace is stripped from the start of
+                each line before comparison.
+            rstrip: If ``True``, whitespace is stripped from the end of
+                each line before comparison.
+            ignore_substrings: An optional list of substrings; lines
+                containing any of these substrings will be ignored in the
+                comparison.
+            ignore_patterns: An optional list of regular expressions; lines
+                will be considered the same if they differ only in
+                substrings that match one of these expressions. Expressions
+                should only include explicit anchors if they need to refer
+                to the whole line. Only the matched portion is ignored; any
+                text to the left or right must be identical in both strings.
+            remove_lines: An optional list of substrings; lines containing
+                any of these substrings will be removed before comparison.
+            preprocess: An optional function that takes a list of strings
+                and preprocesses it; applied to both the actual and
+                expected strings before comparison.
+            max_permutation_cases: An optional number specifying the
+                maximum number of permutations to allow; if the actual and
+                expected lists differ only in line order, and the number of
+                such permutations does not exceed this limit, the two are
+                considered identical.
 
-            *ref_path*:
-                The name of the reference file. The
-                location of the reference file is
-                determined by the configuration via
-                :py:meth:`set_data_location()`.
-
-            *kind*:
-                The reference *kind*, used to locate the reference file.
-
-            *lstrip*:
-                If set to ``True``, both strings are
-                left-stripped before the comparison is carried out.
-                Note: the stripping is on a per-line basis.
-
-            *rstrip*:
-                If set to ``True``, both strings are
-                right-stripped before the comparison is carried out.
-                Note: the stripping is on a per-line basis.
-
-            *ignore_substrings*:
-                An optional list of substrings; lines
-                containing any of these substrings will be
-                ignored in the comparison.
-
-            *ignore_patterns*:
-                An optional list of regular expressions;
-                lines will be considered to be the same if
-                they only differ in substrings that match
-                one of these regular expressions.
-                The expressions should only include explicit anchors if they
-                need to refer to the whole line.
-                Only the matched expression within the line is ignored; any text
-                to the left or right of the matched expression must either be
-                **exactly** the same on both sides, or be ignorable.
-
-            *remove_lines*
-                An optional list of substrings; lines
-                containing any of these substrings will be
-                completely removed before carrying out the
-                comparison. This is the means by which you
-                would exclude 'optional' content.
-
-            *preprocess*:
-                An optional function that takes a list of
-                strings and preprocesses it in some way; this
-                function will be applied to both the actual and expected.
-
-            *max_permutation_cases*:
-                An optional number specifying the maximum
-                number of permutations allowed; if the actual
-                and expected lists differ only in that their
-                lines are permutations of each other, and
-                the number of such permutations does not
-                exceed this limit, then the two are considered to be identical.
-
-        The *ignore_lines* parameter exists for backwards compatibility as
-        an alias for *remove_lines*.
+        Note:
+            The ``ignore_lines`` parameter is a backwards-compatible alias
+            for ``remove_lines``.
         """
         expected_path = self._resolve_reference_path(ref_path, kind=kind)
         if self._should_regenerate(kind):
@@ -775,32 +771,29 @@ class ReferenceTest(object):
         max_permutation_cases=0,
         encoding=None,
     ):
-        """
-        Check that a text file matches the contents from a reference text file.
+        """Check that a text file matches the contents from a reference
+        text file.
 
-            *actual_path*:
-                A path for a text file.
+        For CSV files, use ``assertStoredDataFrameCorrect`` instead.
 
-            *ref_path*:
-                The name of the reference file. The
-                location of the reference file is determined by
-                the configuration via
-                :py:meth:`set_data_location()`.
+        Args:
+            actual_path: Path to the actual text file.
+            ref_path: The name of the reference file. The location of the
+                reference file is determined by the configuration via
+                ``set_data_location()``.
+            kind: See ``assertStringCorrect`` for details.
+            lstrip: See ``assertStringCorrect`` for details.
+            rstrip: See ``assertStringCorrect`` for details.
+            ignore_substrings: See ``assertStringCorrect`` for details.
+            ignore_patterns: See ``assertStringCorrect`` for details.
+            remove_lines: See ``assertStringCorrect`` for details.
+            preprocess: See ``assertStringCorrect`` for details.
+            max_permutation_cases: See ``assertStringCorrect`` for details.
+            encoding: Optional character encoding for reading the file.
 
-        It also accepts the ``kind``, ``lstrip``, ``rstrip``,
-        ``ignore_substrings``, ``ignore_patterns``, ``remove_lines``,
-        ``preprocess`` and ``max_permutation_cases``
-        optional parameters described in :py:meth:`assertStringCorrect()`.
-
-        This should be used for unstructured data such as logfiles, etc.
-        For CSV files, use :py:meth:`assertOnDiskDataFramCorrect` instead.
-
-        The *ignore_lines* parameter exists for backwards compatibility as
-        an alias for *remove_lines*.
-
-        The :py:meth:`assertFileCorrect()` method can be used as an alias for
-        :py:meth:`assertTextFileCorrect()`, retained for backwards
-        compatibility.
+        Note:
+            ``ignore_lines`` is a legacy alias for ``remove_lines``.
+            ``assertFileCorrect`` is a legacy alias for this method.
         """
         expected_path = self._resolve_reference_path(ref_path, kind=kind)
         if self._should_regenerate(kind):
@@ -840,35 +833,34 @@ class ReferenceTest(object):
         max_permutation_cases=0,
         encodings=None,
     ):
-        """
-        Check that a collection of text files matche the contents from
+        """Check that a collection of text files match the contents from a
         matching collection of reference text files.
 
-            *actual_paths*:
-                A list of paths for text files.
+        For CSV files, use ``assertStoredDataFramesCorrect`` instead.
 
-            *ref_paths*:
-                A list of names of the matching reference
-                files.  The location of the reference files
-                is determined by the configuration via
-                :py:meth:`set_data_location()`.
+        Args:
+            actual_paths: A list of paths for text files.
+            ref_paths: A list of names of the matching reference files.
+                The location of the reference files is determined by the
+                configuration via ``set_data_location()``.
+            kind: See ``assertStringCorrect`` for details.
+            lstrip: See ``assertStringCorrect`` for details.
+            rstrip: See ``assertStringCorrect`` for details.
+            ignore_substrings: See ``assertStringCorrect`` for details.
+            ignore_patterns: See ``assertStringCorrect`` for details.
+            remove_lines: See ``assertStringCorrect`` for details.
+            preprocess: See ``assertStringCorrect`` for details.
+            max_permutation_cases: See ``assertStringCorrect`` for details.
+            encodings: Optional list of character encodings, one per file.
 
-        This should be used for unstructured data such as logfiles, etc.
-        For CSV files, use :py:meth:`assertOnDiskDataFramesCorrect` instead.
-
-        It also accepts the ``kind``, ``lstrip``, ``rstrip``,
-        ``ignore_substrings``, ``ignore_patterns``, ``remove_lines``,
-        ``preprocess`` and ``max_permutation_cases``
-        optional parameters described in :py:meth:`assertStringCorrect()`.
-
-        The :py:meth:`assertFilesCorrect()` metohd can be used as an alias for
-        :py:meth:`assertTextFilesCorrect()`, retained for backwards
-        compatibility.
+        Note:
+            ``ignore_lines`` is a legacy alias for ``remove_lines``.
+            ``assertFilesCorrect`` is a legacy alias for this method.
         """
         expected_paths = self._resolve_reference_paths(ref_paths, kind=kind)
         if self._should_regenerate(kind):
             self._write_reference_files(
-                actual_paths, expected_paths, lstrip=strip, rstrip=rstrip
+                actual_paths, expected_paths, lstrip=lstrip, rstrip=rstrip
             )
         else:
             mpc = max_permutation_cases
@@ -893,21 +885,15 @@ class ReferenceTest(object):
     assertFilesCorrect = assertTextFilesCorrect
 
     def assertBinaryFileCorrect(self, actual_path, ref_path, kind=None):
-        """
-        Check that a binary file matches the contents from a reference
+        """Check that a binary file matches the contents from a reference
         binary file.
 
-            *actual_path*:
-                A path for a binary file.
-
-            *ref_path*:
-                The name of the reference binary file. The
-                location of the reference file is determined by
-                the configuration via
-                :py:meth:`set_data_location()`.
-
-            *kind*:
-                The reference *kind*, used to locate the reference file.
+        Args:
+            actual_path: Path to the actual binary file.
+            ref_path: The name of the reference binary file. The location
+                of the reference file is determined by the configuration
+                via ``set_data_location()``.
+            kind: The reference kind, used to locate the reference file.
         """
         expected_path = self._resolve_reference_path(ref_path, kind=kind)
         if self._should_regenerate(kind):
@@ -979,7 +965,8 @@ class ReferenceTest(object):
         """
         Internal method for regenerating reference data for a Pandas dataset
         """
-        self.pandas._write_reference_dataframe(df, reference_path)
+        lib = self.get_comparison_lib(df)
+        lib._write_reference_dataframe(df, reference_path)
 
     def _write_reference_result(
         self, result, reference_path, binary=False, lstrip=False, rstrip=False
@@ -1004,6 +991,24 @@ class ReferenceTest(object):
         fn = self.print_fn or self._default_print_fn
         fn(*args, **kwargs)
 
+    def choose_common_df_lib(self, ldf, rdf, engine=None):
+        le, re = df_type(ldf), df_type(rdf)
+        if le == re == 'pandas':
+            return ldf, rdf, self.pandas
+        if le == re == 'polars':
+            return ldf, rdf, self.polars
+
+        engine = get_preferred_engine(engine)
+        lib = self.polars if engine == 'polars' else self.pandas
+        return df_definite(ldf, engine), df_definite(rdf, engine), lib
+
+    def get_comparison_lib(self, df=None, engine=None):
+        if df is None:
+            engine = get_preferred_engine(engine)
+            return self.polars if engine == 'polars' else self.pandas
+        else:
+            return self.pandas if is_pandas_df(df) else self.polars
+
     @staticmethod
     def _default_print_fn(*args, **kwargs):
         # Sometimes the framework needs to print messages. By default, it
@@ -1015,6 +1020,15 @@ class ReferenceTest(object):
 
     # Default print function
     print_fn = _default_print_fn
+
+
+def get_preferred_engine(engine):
+    if engine is None:
+        config = get_config(None)
+        engine = config.get('engine')
+    if not engine in ('polars', 'pandas'):
+        error(f'Unknown dataframe engine: {engine}')
+    return engine
 
 
 # Magic so that an instance of this class can masquerade as a module,

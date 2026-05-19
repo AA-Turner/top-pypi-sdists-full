@@ -1,5 +1,5 @@
 from pathlib import Path
-from graphify.detect import classify_file, count_words, detect, detect_incremental, save_manifest, FileType, _looks_like_paper, _is_ignored, _load_graphifyignore
+from graphify.detect import classify_file, count_words, detect, detect_incremental, save_manifest, FileType, _looks_like_paper, _is_ignored, _load_graphifyignore, _is_sensitive
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -501,3 +501,110 @@ def test_negation_ancestor_itself_reincluded(tmp_path):
     patterns = _load_graphifyignore(tmp_path)
     # vendor/ is excluded then re-included; ancestor eval returns False so file is evaluated on its own
     assert not _is_ignored(f, tmp_path, patterns)
+
+
+# Regression tests for #920 - sensitive pattern misses underscore-prefixed names
+def test_sensitive_flags_api_token_txt():
+    assert _is_sensitive(Path("api_token.txt"))
+
+def test_sensitive_flags_oauth_token_json():
+    assert _is_sensitive(Path("oauth_token.json"))
+
+def test_sensitive_flags_underscore_secret():
+    assert _is_sensitive(Path("app_secret.yaml"))
+
+def test_sensitive_does_not_flag_tokenizer_py():
+    assert not _is_sensitive(Path("tokenizer.py"))
+
+def test_sensitive_does_not_flag_tokenize_py():
+    assert not _is_sensitive(Path("tokenize.py"))
+
+def test_sensitive_flags_passwords_py():
+    # passwords.py is just as likely a secret store as passwords.txt — code ext is no excuse
+    assert _is_sensitive(Path("passwords.py"))
+
+def test_sensitive_flags_ssh_dir():
+    assert _is_sensitive(Path("/home/user/.ssh/id_rsa"))
+
+def test_sensitive_flags_secrets_dir():
+    assert _is_sensitive(Path("config/secrets/db.json"))
+
+def test_sensitive_flags_token_txt():
+    assert _is_sensitive(Path("token.txt"))
+
+def test_sensitive_flags_credentials_json():
+    assert _is_sensitive(Path("credentials.json"))
+
+def test_sensitive_does_not_flag_root_file_named_credentials():
+    # A root-level file called "credentials" (no parent dir named credentials)
+    # must NOT be flagged by Stage 1; Stage 2 name-pattern check catches it instead.
+    # Specifically: Path("credentials").parts == ('credentials',) which is parts[:-1] == ()
+    # so the dir check passes. The name pattern for "credential" then picks it up.
+    # What we are asserting here is that the Stage 1 check uses parts[:-1], not parts.
+    p = Path("credentials")
+    # The name pattern WILL match "credentials" (it's a sensitive name), but the
+    # false-flag we fixed was Stage 1 matching on the filename itself as a "dir".
+    # Verify the whole function still returns True (via name pattern, not dir check).
+    assert _is_sensitive(p)
+
+def test_sensitive_secret_handler_txt():
+    # Both patterns now use (?![a-zA-Z]) so underscore after keyword is allowed.
+    # "secret_handler.txt": "secret" followed by "_" (not alpha) → flagged.
+    assert _is_sensitive(Path("secret_handler.txt"))
+
+def test_sensitive_token_config_yaml():
+    # "token_config.yaml": "token" followed by "_" (not alpha) → flagged.
+    assert _is_sensitive(Path("token_config.yaml"))
+
+
+# ── Issue #933: failed-chunk files must not be frozen in manifest ─────────────
+
+def test_save_manifest_skips_semantic_hash_for_files_without_cache(tmp_path):
+    """Files in failed chunks have no semantic cache entry; save_manifest must
+    leave their semantic_hash empty so detect_incremental re-queues them (#933)."""
+    import json
+    from graphify.cache import save_cached
+
+    doc1 = tmp_path / "docs" / "a.md"
+    doc2 = tmp_path / "docs" / "b.md"
+    doc1.parent.mkdir()
+    doc1.write_text("# A\n\ncontent a")
+    doc2.write_text("# B\n\ncontent b")
+
+    # Simulate: doc1's chunk succeeded (has a cache entry), doc2's chunk failed (no entry).
+    save_cached(doc1, {"nodes": [{"id": "a", "source_file": str(doc1)}], "edges": [], "hyperedges": []}, root=tmp_path, kind="semantic")
+    # doc2: no cache entry written
+
+    files = {"document": [str(doc1), str(doc2)]}
+    manifest_path = str(tmp_path / "manifest.json")
+
+    # Simulate what __main__.py now does: only include files with semantic output.
+    sem_extracted = {str(doc1)}  # doc2 not present — failed chunk
+    sem_types = {"document", "paper", "image"}
+    safe_files = {
+        ftype: [f for f in flist if ftype not in sem_types or f in sem_extracted]
+        for ftype, flist in files.items()
+    }
+    save_manifest(safe_files, manifest_path)
+
+    manifest = json.loads(Path(manifest_path).read_text())
+    assert str(doc1) in manifest, "successful file must be in manifest"
+    assert manifest[str(doc1)]["semantic_hash"] != "", "successful file must have semantic_hash"
+    assert str(doc2) not in manifest, "failed-chunk file must be absent from manifest"
+
+
+
+def test_save_manifest_without_filter_unchanged_for_code(tmp_path):
+    """Code files must be stamped in the manifest regardless of semantic cache."""
+    import json
+
+    py = tmp_path / "main.py"
+    py.write_text("print('hello')")
+
+    files = {"code": [str(py)]}
+    manifest_path = str(tmp_path / "manifest.json")
+    save_manifest(files, manifest_path)
+
+    manifest = json.loads(Path(manifest_path).read_text())
+    assert str(py) in manifest
+    assert manifest[str(py)]["ast_hash"] != ""

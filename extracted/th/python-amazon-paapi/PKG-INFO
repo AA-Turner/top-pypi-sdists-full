@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-amazon-paapi
-Version: 6.2.0
+Version: 6.3.0
 Summary: Amazon Product Advertising API 5.0 wrapper for Python
 Project-URL: Homepage, https://github.com/sergioteula/python-amazon-paapi
 Project-URL: Repository, https://github.com/sergioteula/python-amazon-paapi

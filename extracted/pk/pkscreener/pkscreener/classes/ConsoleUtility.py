@@ -201,7 +201,26 @@ class PKConsoleTools:
             f"{downloadsInfo}\n{documentation}\n{homePage}\n{issuesInfo}\n{communityInfo}\n"
             f"{latestInfo}\n{freeInfo}{donationInfo}"
         )
-    
+
+    @staticmethod
+    def _extract_best_match_downloads(html_content):
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        # Find the span with exact text "Best match"
+        best_match_span = soup.find('span', string='Best match')
+        if not best_match_span:
+            return None
+        # Navigate up to the card container (div with class 'rounded-lg border')
+        card = best_match_span.find_parent('div', class_='rounded-lg')
+        if not card:
+            # fallback: go up multiple levels
+            card = best_match_span.find_parent('div', class_=lambda c: c and 'rounded-lg' in c)
+        if card:
+            download_div = card.find('div', class_='text-2xl font-bold text-primary')
+            if download_div:
+                return download_div.get_text(strip=True)
+        return None
+
     @staticmethod
     def _fetchDownloadStats():
         """
@@ -213,12 +232,12 @@ class PKConsoleTools:
         totalDownloads = "200k+"
         try:
             resp = PKConsoleTools.fetcher.fetchURL(
-                url="https://static.pepy.tech/badge/pkscreener",
+                url="https://pepy.tech/search?q=pkscreener",
                 headers={'user-agent': f'{random_user_agent()}'},
                 timeout=2
             )
             if resp is not None and resp.status_code == 200:
-                totalDownloads = resp.text.split("</text>")[-2].split(">")[-1]
+                totalDownloads = PKConsoleTools._extract_best_match_downloads(resp.text)
         except Exception:
             pass
         return totalDownloads

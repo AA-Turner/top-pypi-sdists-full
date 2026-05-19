@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
 
 from dlt.common.json import json
 from dlt.common.typing import TypedDict
@@ -14,7 +14,7 @@ from dlthub.data_quality.checks._base import LazyCheck
 
 
 if TYPE_CHECKING:
-    from sqlglot.serde import Node
+    from sqlglot.expressions import Expression
 
 
 class TInlineDataQualityCheck(TypedDict):
@@ -43,5 +43,5 @@ def serialize_check_expr(check: LazyCheck) -> str:
     return json.dumps(sqlglot.serde.dump(check.expr))
 
 
-def deserialize_check_expr(serialized_check_expr: str) -> Node:
-    return sqlglot.serde.load(json.loads(serialized_check_expr))
+def deserialize_check_expr(serialized_check_expr: str) -> Expression:
+    return cast("Expression", sqlglot.serde.load(json.loads(serialized_check_expr)))

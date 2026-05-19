@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-heatclient
-Version: 5.1.0
+Version: 5.2.0
 Summary: OpenStack Orchestration API Client Library
 Home-page: https://docs.openstack.org/python-heatclient/latest
 Author: OpenStack

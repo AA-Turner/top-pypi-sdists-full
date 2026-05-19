@@ -20,7 +20,18 @@ from oslo_config import cfg
 
 class TestConfigOpts(cfg.ConfigOpts):
     def __call__(
-        self, args=None, default_config_files=[], default_config_dirs=[]
+        self,
+        args=None,
+        project=None,
+        prog=None,
+        version=None,
+        usage=None,
+        default_config_files=None,
+        default_config_dirs=None,
+        validate_default_values=False,
+        description=None,
+        epilog=None,
+        use_env=True,
     ):
         return cfg.ConfigOpts.__call__(
             self,
@@ -77,6 +88,7 @@ class GetLocationTestCase(base.BaseTestCase):
     def test_opt_default(self):
         self.conf([])
         loc = self.conf.get_location('normal_opt')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.opt_default,
             loc.location,
@@ -87,6 +99,7 @@ class GetLocationTestCase(base.BaseTestCase):
         self.conf.set_default('normal_opt', self.id())
         self.conf([])
         loc = self.conf.get_location('normal_opt')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.set_default,
             loc.location,
@@ -97,6 +110,7 @@ class GetLocationTestCase(base.BaseTestCase):
         cfg.set_defaults([self.normal_opt], normal_opt=self.id())
         self.conf([])
         loc = self.conf.get_location('normal_opt')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.set_default,
             loc.location,
@@ -107,6 +121,7 @@ class GetLocationTestCase(base.BaseTestCase):
         self.conf.set_override('normal_opt', self.id())
         self.conf([])
         loc = self.conf.get_location('normal_opt')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.set_override,
             loc.location,
@@ -119,6 +134,7 @@ class GetLocationTestCase(base.BaseTestCase):
         )
         self.conf(['--config-file', filename, '--cli_opt', 'blah'])
         loc = self.conf.get_location('cli_opt')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.command_line,
             loc.location,
@@ -130,6 +146,7 @@ class GetLocationTestCase(base.BaseTestCase):
         )
         self.conf(['--config-file', filename])
         loc = self.conf.get_location('cli_opt')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.opt_default,
             loc.location,
@@ -154,6 +171,7 @@ class GetLocationTestCase(base.BaseTestCase):
         filename = self._write_opt_to_tmp_file('DEFAULT', 'cli_opt', self.id())
         self.conf(['--config-file', filename])
         loc = self.conf.get_location('cli_opt')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.user,
             loc.location,
@@ -169,6 +187,7 @@ class GetLocationTestCase(base.BaseTestCase):
         )
         self.conf(['--config-file', filename])
         loc = self.conf.get_location('normal_opt')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.user,
             loc.location,
@@ -201,6 +220,7 @@ class GetLocationTestCase(base.BaseTestCase):
     def test_group_opt(self):
         self.conf([])
         loc = self.conf.get_location('group_opt', 'group')
+        assert loc is not None
         self.assertEqual(
             cfg.Locations.opt_default,
             loc.location,

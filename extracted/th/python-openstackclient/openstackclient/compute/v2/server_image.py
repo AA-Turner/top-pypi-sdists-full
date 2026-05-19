@@ -15,8 +15,11 @@
 
 """Compute v2 Server action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import importlib
 import logging
+from typing import Any
 
 from osc_lib.cli import parseractions
 from osc_lib import exceptions
@@ -37,7 +40,7 @@ class CreateServerImage(command.ShowOne):
         "2": "openstackclient.image.v2.image",
     }
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'server',
@@ -66,8 +69,10 @@ class CreateServerImage(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        def _show_progress(progress):
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        def _show_progress(progress: int | None) -> None:
             if progress:
                 self.app.stdout.write(f'\rProgress: {progress}')
                 self.app.stdout.flush()
@@ -85,11 +90,16 @@ class CreateServerImage(command.ShowOne):
         else:
             image_name = server.name
 
-        image_id = compute_client.create_server_image(
+        image = compute_client.create_server_image(
             server.id,
             image_name,
             parsed_args.properties,
-        ).id
+        )
+        if not image:
+            msg = _('Error creating server image: %s')
+            raise exceptions.CommandError(msg, parsed_args.server)
+
+        image_id = image.id
 
         if parsed_args.wait:
             if utils.wait_for_status(
@@ -99,10 +109,8 @@ class CreateServerImage(command.ShowOne):
             ):
                 self.app.stdout.write('\n')
             else:
-                LOG.error(
-                    _('Error creating server image: %s'), parsed_args.server
-                )
-                raise exceptions.CommandError
+                msg = _('Error creating server image: %s')
+                raise exceptions.CommandError(msg, parsed_args.server)
 
         image = image_client.find_image(image_id, ignore_missing=False)
 
@@ -119,4 +127,5 @@ class CreateServerImage(command.ShowOne):
             )
             info = image_module._format_image(image)
 
-        return zip(*sorted(info.items()))
+        col_headers, col_data = zip(*sorted(info.items()))
+        return col_headers, col_data

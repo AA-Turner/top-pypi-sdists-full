@@ -12661,7 +12661,7 @@ class SAGEAgent:
 
                     lines = []
                     for idx, task in enumerate(plan.tasks, start=1):
-                        deps = ", ".join(task.dependencies) if task.dependencies else ""
+                        deps = ", ".join(str(d) for d in task.dependencies) if task.dependencies else ""
                         dep_suffix = f" (deps: {deps})" if deps else ""
                         lines.append(
                             f"{idx}. [{task.priority.name}] {task.description}{dep_suffix}"

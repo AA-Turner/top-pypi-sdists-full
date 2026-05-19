@@ -5,8 +5,8 @@ from typing import Optional
 
 from biolib import api
 from biolib._internal.runtime import BioLibRuntimeError, BioLibRuntimeNotRecognizedError, RuntimeJobDataDict
+from biolib._shared.types.typing import cast
 from biolib.biolib_logging import logger
-from biolib.typing_utils import cast
 from biolib.utils.seq_util import SeqUtil
 
 

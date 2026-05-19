@@ -1,8 +1,6 @@
 from __future__ import annotations
 from typing import List, Dict, Any, Optional, Union, AsyncIterator, TYPE_CHECKING
 import os
-import asyncio
-import logging
 import json
 import uuid
 from enum import Enum
@@ -36,12 +34,10 @@ from ..models import (
     CompletionUsage,
     AIMessage,
     StructuredOutputConfig,
-    ToolCall,
-    OutputFormat
+    ToolCall
 )
 from ..models.responses import InvokeResult
 from ..exceptions import InvokeError
-from ..tools.abstract import AbstractTool
 from ..memory import ConversationTurn
 from ..tools.manager import ToolFormat
 
@@ -227,6 +223,18 @@ class GrokClient(AbstractClient):
              else:
                  prepared_tools = self._prepare_tools_for_grok()
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent
+        import time as _lc_time_grok2
+        _lc_tc_grok2 = self._emit_before_call(
+            client_name="grok",
+            model=model,
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=system_prompt,
+            has_tools=bool(_use_tools),
+            parent_trace=None,
+        )
+        _lc_t0_grok2 = _lc_time_grok2.perf_counter()
+
         # 3. Initialize Chat
         chat_kwargs = {
             "model": model,
@@ -398,11 +406,20 @@ class GrokClient(AbstractClient):
                 metadata=ai_message.usage.dict() if ai_message.usage else None
             )
              await self.conversation_memory.add_turn(
-                user_id, 
-                session_id, 
+                user_id,
+                session_id,
                 turn
             )
 
+        # FEAT-176: lifecycle event — AfterClientCallEvent
+        _lc_grok2_usage = getattr(ai_message, 'usage', None)
+        await self._emit_after_call(
+            _lc_tc_grok2, client_name="grok", model=model,
+            duration_ms=(_lc_time_grok2.perf_counter() - _lc_t0_grok2) * 1000,
+            input_tokens=getattr(_lc_grok2_usage, 'prompt_tokens', None) if _lc_grok2_usage else None,
+            output_tokens=getattr(_lc_grok2_usage, 'completion_tokens', None) if _lc_grok2_usage else None,
+            finish_reason=None,
+        )
         return ai_message
 
     async def ask_stream(
@@ -416,20 +433,40 @@ class GrokClient(AbstractClient):
         structured_output: Union[type, StructuredOutputConfig, None] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
-        tools: Optional[List[Dict[str, Any]]] = None
-    ) -> AsyncIterator[str]:
-        """
-        Stream response from Grok.
+        tools: Optional[List[Dict[str, Any]]] = None,
+        deep_research: bool = False,
+        agent_config: Optional[Dict[str, Any]] = None,
+        lazy_loading: bool = False,
+    ) -> AsyncIterator[Union[str, AIMessage]]:
+        """Stream response from Grok.
+
+        Yields successive string chunks followed by a final
+        :class:`~parrot.models.responses.AIMessage` with metadata.
         """
         turn_id = str(uuid.uuid4())
         client = await self.get_client()
         model = model or self.model or self.default_model
 
+        # FEAT-176: lifecycle event — BeforeClientCallEvent for stream
+        import time as _lc_time_groks
+        from parrot.core.events.lifecycle.events import ClientStreamChunkEvent as _GrokStreamChunkEvent
+        _lc_tc_groks = self._emit_before_call(
+            client_name="grok",
+            model=model,
+            temperature=temperature if temperature is not None else self.temperature,
+            system_prompt=system_prompt,
+            has_tools=False,
+            parent_trace=None,
+        )
+        _lc_t0_groks = _lc_time_groks.perf_counter()
+        _lc_has_chunk_subs_grok2 = self.events.has_subscribers(_GrokStreamChunkEvent)
+        _lc_chunk_idx_grok2 = 0
+
         chat_kwargs = {
             "model": model,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "stream": True 
+            "stream": True
         }
 
         if structured_output:
@@ -462,19 +499,49 @@ class GrokClient(AbstractClient):
         chat.append(user(prompt))
 
         full_response = []
-        
+
         async for token in chat.stream():
-            content = token 
+            content = token
             if hasattr(token, 'choices'):
-                 delta = token.choices[0].delta
-                 if hasattr(delta, 'content'):
-                     content = delta.content
+                delta = token.choices[0].delta
+                if hasattr(delta, 'content'):
+                    content = delta.content
             elif hasattr(token, 'content'):
-                 content = token.content
-            
+                content = token.content
+
             if content:
                 full_response.append(content)
+                # FEAT-176: per-chunk event
+                if _lc_has_chunk_subs_grok2:
+                    await self.events.emit(_GrokStreamChunkEvent(
+                        trace_context=_lc_tc_groks, client_name="grok",
+                        model=model, chunk_index=_lc_chunk_idx_grok2,
+                        chunk_size_bytes=len(content.encode("utf-8")),
+                        source_type="client", source_name="grok",
+                    ))
+                    _lc_chunk_idx_grok2 += 1
                 yield content
+
+        # Build and yield final AIMessage (xAI has no final response object)
+        final_text = "".join(full_response)
+        ai_message = AIMessage(
+            input=prompt,
+            output=final_text,
+            response=final_text,
+            model=model or self.model or self.default_model,
+            provider="grok",
+            usage=CompletionUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0),
+            user_id=user_id,
+            session_id=session_id,
+            turn_id=turn_id,
+        )
+        # FEAT-176: lifecycle event — AfterClientCallEvent
+        await self._emit_after_call(
+            _lc_tc_groks, client_name="grok", model=model,
+            duration_ms=(_lc_time_groks.perf_counter() - _lc_t0_groks) * 1000,
+            input_tokens=None, output_tokens=None, finish_reason=None,
+        )
+        yield ai_message
 
         if user_id and session_id:
             turn = ConversationTurn(

@@ -468,7 +468,7 @@ def handle_execute_option_30(userPassedArgs, configManager, screener) -> None:
 
         atrMinConfidence = OutputControls().takeUserInput(
             f"{colorText.WARN}Enter the ATR Trailing Stop Minimum confidence percentage for confirmation "
-            f"({colorText.GREEN}Optimal:50{colorText.END}, Current={configManager.atrTrailingStopMinimumConfidencePercentage}):"
+            f"({colorText.GREEN}Optimal:60{colorText.END}, Current={configManager.atrTrailingStopMinimumConfidencePercentage}):"
         ) or configManager.atrTrailingStopMinimumConfidencePercentage
         configManager.atrTrailingStopMinimumConfidencePercentage = atrMinConfidence
 
@@ -492,7 +492,7 @@ def handle_execute_option_30(userPassedArgs, configManager, screener) -> None:
 
         atrTrailingStopSellThreshold = OutputControls().takeUserInput(
             f"{colorText.WARN}Enter the ATR Trailing Stop Sell threshold "
-            f"({colorText.GREEN}Optimal:1{colorText.END}, Current={configManager.atrTrailingStopSellThreshold}):"
+            f"({colorText.GREEN}Optimal:3{colorText.END}, Current={configManager.atrTrailingStopSellThreshold}):"
         ) or configManager.atrTrailingStopSellThreshold
         configManager.atrTrailingStopSellThreshold = atrTrailingStopSellThreshold
 

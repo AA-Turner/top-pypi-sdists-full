@@ -5,9 +5,9 @@ from typing import Callable, Iterator
 
 import biolib.api as api
 from biolib._internal.file_utils import get_files_and_size_of_directory, get_iterable_zip_stream
+from biolib._shared.types.typing import Dict, List, Optional, Sequence, Tuple, Union
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Dict, List, Optional, Sequence, Tuple, Union
 from biolib.utils import MultiPartUploader
 
 

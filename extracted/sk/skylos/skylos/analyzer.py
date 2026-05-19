@@ -2548,47 +2548,134 @@ class Skylos:
                     progress_callback(0, 1, Path("PHASE: prompt injection scan"))
                 try:
                     from skylos.security.injection_scanner import (
+                        MAX_SCAN_FILES as _INJECTION_MAX_SCAN_FILES,
+                        MAX_SCAN_FINDINGS as _INJECTION_MAX_SCAN_FINDINGS,
                         SCANNABLE_EXTENSIONS,
                         scan_file as _injection_scan_file,
                     )
 
-                    injection_candidates = list(files)
                     injection_root = Path(
                         path[0] if isinstance(path, (list, tuple)) else path
                     ).resolve()
                     if injection_root.is_file():
                         injection_root = injection_root.parent
+                    injection_candidates = []
+                    seen_injection_files = set()
+                    high_priority_injection_names = (
+                        "readme.md",
+                        "readme.rst",
+                        "readme.txt",
+                        "security.md",
+                        "contributing.md",
+                        "contributing.rst",
+                        "prompt.md",
+                        "prompts.md",
+                        "prompts.yaml",
+                        "prompts.yml",
+                    )
+                    high_priority_injection_dirs = (
+                        "",
+                        "docs",
+                        "prompt",
+                        "prompts",
+                        "config",
+                        "configs",
+                    )
+
+                    def _add_injection_candidate(candidate):
+                        if len(injection_candidates) >= _INJECTION_MAX_SCAN_FILES:
+                            return False
+                        candidate_path = Path(candidate)
+                        if not candidate_path.is_absolute():
+                            candidate_path = injection_root / candidate_path
+                        if candidate_path.suffix.lower() not in SCANNABLE_EXTENSIONS:
+                            return False
+                        try:
+                            resolved_path = candidate_path.resolve()
+                            resolved_path.relative_to(injection_root)
+                        except (OSError, ValueError):
+                            return False
+                        if not resolved_path.is_file():
+                            return False
+                        candidate_key = str(resolved_path)
+                        if candidate_key in seen_injection_files:
+                            return False
+                        seen_injection_files.add(candidate_key)
+                        injection_candidates.append(candidate_path)
+                        return True
+
                     if changed_files is not None:
-                        injection_candidates = [Path(f) for f in changed_files]
+                        for changed_file in changed_files:
+                            if len(injection_candidates) >= _INJECTION_MAX_SCAN_FILES:
+                                break
+                            _add_injection_candidate(changed_file)
                     else:
-                        seen_injection_files = {
-                            str(Path(f).resolve()) for f in injection_candidates
-                        }
+                        for base_dir in high_priority_injection_dirs:
+                            for filename in high_priority_injection_names:
+                                if (
+                                    len(injection_candidates)
+                                    >= _INJECTION_MAX_SCAN_FILES
+                                ):
+                                    break
+                                _add_injection_candidate(
+                                    injection_root / base_dir / filename
+                                )
                         if injection_root.is_dir():
-                            for dirpath, dirnames, filenames in os.walk(injection_root):
-                                dirnames[:] = [
-                                    d
-                                    for d in dirnames
-                                    if not d.startswith(".")
-                                    and d not in (exclude_folders or [])
-                                ]
-                                for fname in filenames:
-                                    fpath = Path(dirpath) / fname
-                                    if fpath.suffix.lower() not in SCANNABLE_EXTENSIONS:
-                                        continue
-                                    fkey = str(fpath.resolve())
-                                    if fkey in seen_injection_files:
-                                        continue
-                                    seen_injection_files.add(fkey)
-                                    injection_candidates.append(fpath)
+                            pending_dirs = [injection_root]
+                            excluded_dirs = set(exclude_folders or [])
+                            while (
+                                pending_dirs
+                                and len(injection_candidates)
+                                < _INJECTION_MAX_SCAN_FILES
+                            ):
+                                current_dir = pending_dirs.pop()
+                                try:
+                                    entries = os.scandir(current_dir)
+                                except OSError:
+                                    continue
+
+                                try:
+                                    entry_iter = iter(entries)
+                                    while (
+                                        len(injection_candidates)
+                                        < _INJECTION_MAX_SCAN_FILES
+                                    ):
+                                        try:
+                                            entry = next(entry_iter)
+                                        except StopIteration:
+                                            break
+                                        try:
+                                            if entry.is_dir(follow_symlinks=False):
+                                                if (
+                                                    not entry.name.startswith(".")
+                                                    and entry.name not in excluded_dirs
+                                                ):
+                                                    pending_dirs.append(Path(entry.path))
+                                                continue
+                                        except OSError:
+                                            continue
+
+                                        if (
+                                            Path(entry.name).suffix.lower()
+                                            in SCANNABLE_EXTENSIONS
+                                        ):
+                                            _add_injection_candidate(entry.path)
+                                finally:
+                                    entries.close()
+                    injection_findings = 0
                     for f in injection_candidates:
+                        if injection_findings >= _INJECTION_MAX_SCAN_FINDINGS:
+                            break
                         try:
                             scan_path = Path(f).resolve().relative_to(injection_root)
                         except ValueError:
                             scan_path = None
                         inj_hits = _injection_scan_file(f, scan_path=scan_path)
                         if inj_hits:
-                            all_dangers.extend(inj_hits)
+                            remaining = _INJECTION_MAX_SCAN_FINDINGS - injection_findings
+                            bounded_hits = inj_hits[:remaining]
+                            all_dangers.extend(bounded_hits)
+                            injection_findings += len(bounded_hits)
                 except Exception:
                     if os.getenv("SKYLOS_DEBUG"):
                         logger.error(traceback.format_exc())

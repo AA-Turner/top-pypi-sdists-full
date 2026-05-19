@@ -142,6 +142,23 @@ class LevelOneMarketData(System.Object):
         """
         ...
 
+    @overload
+    def update_quote(self, quote_date_time_utc: typing.Optional[datetime.datetime], bid_price: typing.Optional[float], bid_size: typing.Optional[float], ask_price: typing.Optional[float], ask_size: typing.Optional[float], sale_condition: str, exchange: str) -> None:
+        """
+        Updates the best bid and ask prices and sizes.
+        Constructs and publishes a quote Tick to the IDataAggregator.
+        
+        :param quote_date_time_utc: The UTC timestamp when the quote was received.
+        :param bid_price: The best bid price.
+        :param bid_size: The size available at the best bid.
+        :param ask_price: The best ask price.
+        :param ask_size: The size available at the best ask.
+        :param sale_condition: The sale condition string.
+        :param exchange: The exchange identifier.
+        """
+        ...
+
+    @overload
     def update_quote(self, quote_date_time_utc: typing.Optional[datetime.datetime], bid_price: typing.Optional[float], bid_size: typing.Optional[float], ask_price: typing.Optional[float], ask_size: typing.Optional[float]) -> None:
         """
         Updates the best bid and ask prices and sizes.

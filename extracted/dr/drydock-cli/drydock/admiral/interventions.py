@@ -19,3 +19,9 @@ def apply(agent_loop: AgentLoop, finding: Finding) -> None:
     """Inject the finding's directive into the live conversation."""
     agent_loop._inject_system_note(finding.directive)
     history.append("intervention", f"{finding.code} :: {finding.directive[:160]}")
+    if finding.force_stop:
+        # Severe struggle (≥30 read-only calls) — advisory alone doesn't break
+        # the loop. Set FORCE_STOP so the next LLM call uses tool_choice=none,
+        # forcing the model to emit text rather than keep exploring.
+        agent_loop._loop_detected = True
+        agent_loop._loop_signal = "FORCE_STOP"

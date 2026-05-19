@@ -280,13 +280,10 @@ class Units(
     ToolUIData[UnitsArgs, UnitsResult],
 ):
     description: ClassVar[str] = (
-        "Physics unit conversion + dimensional analysis via "
-        "sympy.physics.units. Convert between SI/imperial, simplify "
-        "unit-bearing expressions, check whether two expressions share "
-        "the same dimension, list available units per category. "
-        "Use INSTEAD of remembering conversion factors and INSTEAD of "
-        "doing unit algebra in your head. Common units: m/km/mile/ft, "
-        "s/hour, kg/g/lb, N/J/W, V/A/C/Ω, atm/Pa, K, mol."
+        "Physics unit conversion + dimensional analysis (sympy.physics.units). "
+        "Convert SI/imperial, simplify unit-bearing expressions, check "
+        "dimension consistency. Units: m/km/mile/ft, s/hour, kg/g/lb, "
+        "N/J/W, V/A/C, atm/Pa, K, mol."
     )
 
     @classmethod

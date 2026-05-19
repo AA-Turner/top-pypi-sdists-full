@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-export class StableEditorScrollState {
+class StableEditorScrollState {
     static capture(editor) {
         if (editor.getScrollTop() === 0 || editor.hasPendingScrollAnimation()) {
             // Never mess with the scroll top if the editor is at the top of the file or if there is a pending scroll animation
@@ -45,6 +45,8 @@ export class StableEditorScrollState {
             return;
         }
         const offset = editor.getTopForLineNumber(currentCursorPosition.lineNumber) - editor.getTopForLineNumber(this._cursorPosition.lineNumber);
-        editor.setScrollTop(editor.getScrollTop() + offset);
+        editor.setScrollTop(editor.getScrollTop() + offset, 1 /* ScrollType.Immediate */);
     }
 }
+
+export { StableEditorScrollState };

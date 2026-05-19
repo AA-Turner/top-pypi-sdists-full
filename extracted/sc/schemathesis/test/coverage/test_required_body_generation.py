@@ -293,6 +293,76 @@ def test_swagger2_array_query_param_with_top_level_enum(ctx):
         assert isinstance(c.query["purposes"], list), f"Expected list, got: {c.query['purposes']!r}"
 
 
+def test_swagger2_array_query_param_top_level_enum_constrains_items(ctx):
+    # Swagger 2.0 idiom: parameter-level `enum` on a `type: array` parameter constrains items.
+    schema = ctx.openapi.load_schema(
+        {
+            "/listings": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "in": "query",
+                            "required": True,
+                            "type": "array",
+                            "collectionFormat": "multi",
+                            "enum": ["Active", "Pending", "Closed"],
+                            "items": {"type": "string"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    operation = schema["/listings"]["GET"]
+    cases = _collect_coverage_cases(operation, GenerationMode.POSITIVE)
+    items_seen: set[str] = set()
+    for case in cases:
+        value = case.query.get("status") if isinstance(case.query, dict) else None
+        if isinstance(value, list):
+            items_seen.update(item for item in value if isinstance(item, str))
+    assert items_seen == {"Active", "Pending", "Closed"}, f"Expected each enum value covered, got {items_seen!r}"
+
+
+def test_positive_array_with_maxitems_zero(ctx):
+    # `maxItems: 0` permits only `[]`; the items-baseline path must not synthesize a non-empty array.
+    operation = _load_json_body_operation(
+        ctx,
+        {
+            "type": "object",
+            "properties": {
+                "stacks": {
+                    "type": "array",
+                    "maxItems": 0,
+                    "items": {"type": "string", "enum": ["unknown"]},
+                },
+            },
+        },
+    )
+    _assert_generated_bodies_match_schema(operation, GenerationMode.POSITIVE)
+
+
+def test_positive_not_flip_validates_against_outer_constraints(ctx):
+    # The `not` flip yields values that satisfy `not` but may violate other outer constraints (e.g. property types).
+    operation = _load_json_body_operation(
+        ctx,
+        {
+            "type": "object",
+            "properties": {
+                "image_url": {"type": "string"},
+                "file_id": {"type": "string"},
+            },
+            "anyOf": [{"required": ["image_url"]}, {"required": ["file_id"]}],
+            "not": {"required": ["image_url", "file_id"]},
+            "additionalProperties": False,
+        },
+        version="3.1.0",
+    )
+    _assert_generated_bodies_match_schema(operation, GenerationMode.POSITIVE)
+
+
 def test_minlength_maxlength_negative_skipped_for_integer_type(ctx):
     # When a schema property has type:integer but also specifies minLength/maxLength
     operation = _load_json_body_operation(
@@ -314,55 +384,6 @@ def test_minlength_maxlength_negative_skipped_for_integer_type(ctx):
     _assert_generated_bodies_match_schema(operation, GenerationMode.NEGATIVE, require_bodies=False)
 
 
-def test_deep_allof_chain_with_inherited_additional_properties_populates_inner_required(ctx):
-    # `additionalProperties: false` inherited through a chain of allOf bases would otherwise drop the wrapper's required keys.
-    operation = _load_json_body_operation(
-        ctx,
-        {"$ref": "#/components/schemas/Envelope"},
-        path="/items",
-        method="put",
-        components={
-            "schemas": {
-                "Base": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {"baseField": {"type": "string"}},
-                },
-                "Intermediate": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "allOf": [{"$ref": "#/components/schemas/Base"}],
-                },
-                "Wrapper": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "allOf": [{"$ref": "#/components/schemas/Intermediate"}],
-                    "properties": {
-                        "first": {"type": "string"},
-                        "second": {"type": "string"},
-                    },
-                    "required": ["first", "second"],
-                },
-                "Envelope": {
-                    "type": "object",
-                    "properties": {"payload": {"$ref": "#/components/schemas/Wrapper"}},
-                    "required": ["payload"],
-                },
-            }
-        },
-    )
-
-    bodies = [
-        case.body for case in _collect_coverage_cases(operation, GenerationMode.POSITIVE) if case.body is not None
-    ]
-    populated = [
-        body
-        for body in bodies
-        if isinstance(body.get("payload"), dict) and {"first", "second"} <= body["payload"].keys()
-    ]
-    assert populated, f"Expected positive body with `payload.first` and `payload.second`, got {bodies!r}"
-
-
 def test_required_enforced_when_properties_at_threshold(ctx):
     # When a schema has exactly 15 properties (at the jsonschema_rs SmallProperties threshold)
     # and required lists exactly 2 of them, NEGATIVE cases must still be schema-invalid.
@@ -377,3 +398,90 @@ def test_required_enforced_when_properties_at_threshold(ctx):
         path="/things",
     )
     _assert_generated_bodies_match_schema(operation, GenerationMode.NEGATIVE)
+
+
+def test_optional_unsatisfiable_property_does_not_block_siblings(ctx):
+    # One optional property with mutually-exclusive `type` + `enum` (a spec bug) must not
+    # suppress coverage for the sibling properties.
+    operation = _load_json_body_operation(
+        ctx,
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "good": {"type": "string"},
+                "broken": {"type": "number", "enum": ["1", "2"]},
+                "choice": {"type": "string", "enum": ["a", "b"]},
+            },
+        },
+    )
+    cases = _collect_coverage_cases(operation, GenerationMode.POSITIVE)
+    assert cases, "Expected positive cases despite the unsatisfiable optional"
+    populated_choice = {c.body["choice"] for c in cases if isinstance(c.body, dict) and "choice" in c.body}
+    assert populated_choice == {"a", "b"}, f"Expected each enum value covered, got {populated_choice!r}"
+
+
+def test_optional_nullable_emits_null_when_template_omits_it(ctx):
+    # When the template omits an optional, the sweep used to dedup the legitimate null
+    # emission against an implicit `None`. `deprecated` is one of several root keywords
+    # (also `title`, `readOnly`, unknown extensions) that make the template skip optionals.
+    operation = _load_json_body_operation(
+        ctx,
+        {
+            "deprecated": False,
+            "type": "object",
+            "required": ["req"],
+            "properties": {
+                "req": {"type": "string", "nullable": True},
+                "opt": {"type": "string", "nullable": True},
+            },
+        },
+    )
+    cases = _collect_coverage_cases(operation, GenerationMode.POSITIVE)
+    opt_values = [c.body["opt"] for c in cases if isinstance(c.body, dict) and "opt" in c.body]
+    assert None in opt_values
+    assert any(isinstance(v, str) for v in opt_values)
+
+
+def test_enum_in_allof_base_with_sibling_ref_property_covers_every_value(ctx):
+    # `allOf:[base]` + sibling `properties` with a `$ref` (common in Azure specs).
+    # The bundled-ref short-circuit used to skip canonical allOf merging, dropping every
+    # enum value reachable only through the base.
+    operation = _load_json_body_operation(
+        ctx,
+        {"$ref": "#/components/schemas/Outer"},
+        components={
+            "schemas": {
+                "Base": {
+                    "type": "object",
+                    "properties": {"storageType": {"type": "string", "enum": ["A", "B"]}},
+                },
+                "Source": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                    "required": ["name"],
+                },
+                "PublishingProfile": {
+                    "allOf": [{"$ref": "#/components/schemas/Base"}],
+                    "type": "object",
+                    "properties": {"source": {"$ref": "#/components/schemas/Source"}},
+                    "required": ["source"],
+                },
+                "Outer": {
+                    "type": "object",
+                    "properties": {"pubProfile": {"$ref": "#/components/schemas/PublishingProfile"}},
+                    "required": ["pubProfile"],
+                },
+            }
+        },
+    )
+    cases = _collect_coverage_cases(operation, GenerationMode.POSITIVE)
+    seen = set()
+    for case in cases:
+        body = case.body
+        if not isinstance(body, dict):
+            continue
+        pub = body.get("pubProfile")
+        if isinstance(pub, dict) and isinstance(pub.get("storageType"), str):
+            seen.add(pub["storageType"])
+    assert seen == {"A", "B"}, f"Expected both enum values covered, got {seen!r}"

@@ -53,8 +53,11 @@ from .type_defs import (
     CreateAnalyzerRequestTypeDef,
     CreateAnalyzerResponseTypeDef,
     CreateArchiveRuleRequestTypeDef,
+    CreateServiceLinkedAnalyzerRequestTypeDef,
+    CreateServiceLinkedAnalyzerResponseTypeDef,
     DeleteAnalyzerRequestTypeDef,
     DeleteArchiveRuleRequestTypeDef,
+    DeleteServiceLinkedAnalyzerRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     GenerateFindingRecommendationRequestTypeDef,
     GetAccessPreviewRequestTypeDef,
@@ -244,6 +247,16 @@ class AccessAnalyzerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_accessanalyzer/client/#create_archive_rule)
         """
 
+    def create_service_linked_analyzer(
+        self, **kwargs: Unpack[CreateServiceLinkedAnalyzerRequestTypeDef]
+    ) -> CreateServiceLinkedAnalyzerResponseTypeDef:
+        """
+        Creates a service-linked analyzer managed by an Amazon Web Services service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/create_service_linked_analyzer.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_accessanalyzer/client/#create_service_linked_analyzer)
+        """
+
     def delete_analyzer(
         self, **kwargs: Unpack[DeleteAnalyzerRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -262,6 +275,16 @@ class AccessAnalyzerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/delete_archive_rule.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_accessanalyzer/client/#delete_archive_rule)
+        """
+
+    def delete_service_linked_analyzer(
+        self, **kwargs: Unpack[DeleteServiceLinkedAnalyzerRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a service-linked analyzer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/delete_service_linked_analyzer.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_accessanalyzer/client/#delete_service_linked_analyzer)
         """
 
     def generate_finding_recommendation(

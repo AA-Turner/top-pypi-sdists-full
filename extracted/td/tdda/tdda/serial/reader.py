@@ -4,211 +4,332 @@ import yaml
 
 import numpy as np
 import pandas as pd
+import polars as pl
 
-from tdda.serial.base import CONTEXT_KEY, URI, MetadataError, VERBOSITY
-from tdda.serial.csvw import CSVWConstants, CSVWMetadata
-from tdda.serial.pandasio import to_pandas_read_csv_args
+
+from tdda.serial.metadata import (
+    CONTEXT_KEY,
+    URI,
+    VERBOSITY,
+    TDDASERIAL,
+    SERIAL_METADATA_FLAVOURS,
+    SerialMetadata,
+    TDDASerialError,
+)
+from tdda.serial.csvw import CSVWMetadata, CSVW
+from tdda.serial.frictionless import (
+    FrictionlessMetadata,
+    FRICTIONLESS_TELL_KEYS,
+)
 
 from tdda.serial.utils import (
     find_associated_metadata_file,
-    find_metadata_type_from_path
+    find_metadata_type_from_path,
 )
+from tdda.state import get_config
+from tdda.utils import error, is_sequence, tdda_path_info
 
 
-class CSVMetadataError(Exception):
-    pass
-
-
-def load_metadata(path, mdtype=None, table_number=None, for_table_name=None,
-                  verbosity=VERBOSITY):
-    """
-    Attempt to load metadata from path given.
+def load_metadata(
+    path,
+    md_file_type=None,
+    table_number=None,
+    for_table_name=None,
+    preferred_serial_flavour=None,
+    verbosity=VERBOSITY,
+):
+    """Load metadata from a .serial, CSVW, or Frictionless file.
 
     Args:
+        path (str): Path to the metadata file.
+        md_file_type (str): Optional metadata file type. One of
+            'tdda.serial', 'csvw', 'frictionless'.
+        table_number (int): If specified, use the nth table from a
+            multi-table metadata file (indexed from zero). Raises an
+            error if not present.
+        for_table_name (str): If specified, select the metadata from
+            a multi-table metadata file by matching the end of the url
+            in the metadata to this table name.
+        preferred_serial_flavour (str or list): If multiple metadata
+            flavours are found at the same level of a .serial file,
+            the one to choose (or a priority list).
+        verbosity (int): Controls warning/error output.
+            2: errors and warnings to stderr.
+            1: warnings to stderr only.
+            0: silent.
 
-      path    Path to the metadata file
-
-      mdtype    Optional metadata kind. One of
-                'csvmetadata'  (csvmetadata.CSVMETADATA)
-                'csvw'         (csvmetadata.CSVW)
-                'fictionless'  (csvmetadata.FRICTIONLESS)
-
-      table_number  If specified, use the nth table from a CSVW file.
-                    Raise an error if not present, (indexed from zero)
-
-      for_table_name  If specified, use choose the metadata from
-                      a metadata file describing multiple tables
-                      by matching the (end of the) url in the metadata
-                      to this table name
-
-      verbosity:   2: errors and warnings to stderr
-                   1: warnings to stderr
-                   0: don't show errors or warnings
+    Returns:
+        SerialMetadata (or subclass) loaded from the file.
     """
     stem, ext = os.path.splitext(path)
     lcstem, ext = stem.lower(), ext.lower()
-    if ext == '.json':
-        with open(path) as f:
-            md = json.load(f)
-        context = md.get(CONTEXT_KEY)
-        if context == URI.TDDAMETADATA:
-            kind = 'csvmetadata'
-        elif context == URI.CSVW:
-            kind = 'csvw'
-            md = CSVWMetadata(path, table_number=table_number,
-                              for_table_name=for_table_name,
-                              verbosity=verbosity)
+    with open(path) as f:
+        text = f.read().strip()
+    if ext == '.serial':  # tdda.serial file
+        md = json.loads(text)
+        if not isinstance(md, dict):
+            error(f'{path} does not appear to be a tdda.serial file.')
+        kw = md.get('tdda.serial') or {}
+        libs = {}
+        for flavour in SERIAL_METADATA_FLAVOURS:
+            spec = md.get(flavour)
+            if spec:
+                libs[flavour] = spec
+        md = SerialMetadata(libs=libs, source='tdda.serial', **kw)
+    elif ext == '.json' or text.startswith('{'):
+        kind, _ = find_metadata_type_from_path(path)
+        structured = json.loads(text)
+        if kind is None:
+            kind, md = find_metadata_kind(structured)
+        if kind == TDDASERIAL.key:
+            md = SerialMetadata(**md)
+        elif kind == 'csvw':
+            md = CSVWMetadata(
+                path,
+                table_number=table_number,
+                for_table_name=for_table_name,
+                verbosity=verbosity,
+            )
+        elif kind == 'frictionless':
+            md = FrictionlessMetadata(
+                path,
+                table_number=table_number,
+                for_table_name=for_table_name,
+                verbosity=verbosity,
+            )
+        elif kind:
+            md = SerialMetadata(libs={kind: md})
         else:
             kind, _ = find_metadata_type_from_path(path)
             if not kind:
-                raise CSVMetadataError(
-                    f'Unrecognized metadata content in {path}'
-                )
+                if has_csvw_context(path):
+                    kind = 'csvw'
+                else:
+                    error(f'Unrecognized metadata content in {path}')
             if kind == 'csvw':
-                md = CSVWMetadata(path, table_number=table_number,
-                                  for_table_name=for_table_name,
-                                  verbosity=verbosity)
+                md = CSVWMetadata(
+                    path,
+                    table_number=table_number,
+                    for_table_name=for_table_name,
+                    verbosity=verbosity,
+                )
 
     elif ext == '.yaml':
-        with open(path) as f:
-            md = yaml.load(f, yaml.SafeLoader)
-            kind = 'frictionless'
+        md = FrictionlessMetadata(
+            path,
+            table_number=table_number,
+            for_table_name=for_table_name,
+            verbosity=verbosity,
+        )
+        kind = 'frictionless'
     else:
-        raise CSVMetadataError(f'Unexpected file extension {ext} for metadata '
-                               f'file.\nExpected .json or .yaml.')
-    if mdtype and kind != mdtype:
-        raise CSVMetadataError(f'Expected {mdtype} file; found {kind} file.')
-
+        error(
+            f'Unexpected file extension {ext} for metadata '
+            f'file.\nExpected .serial, .json, or .yaml.'
+        )
+    if md_file_type and kind != md_file_type:
+        error(f'Expected {md_file_type} file; found {kind} file.')
     return md
 
 
-def csv2pandas(path=None, mdpath=None, mdtype=None, findmd=False,
-               upgrade_types=True, upgrade_possible_ints=False,
-               return_md=False, table_number=None, use_table_name=False,
-               verbosity=VERBOSITY,
-               **kw):
+def _get_metadata(
+    rw,
+    path,
+    md_path=None,
+    md_file_type=None,
+    find_md=False,
+    table_number=None,
+    use_table_name=None,
+    preferred=TDDASERIAL.key,
+    config=None,
+    verbosity=VERBOSITY,
+):
+    """Locate and load metadata for a CSV read or write operation.
+
+    Internal helper; callers should use ``get_metadata_for_reader`` or
+    ``get_metadata_for_writer`` instead.
+
+    Resolves the data path from metadata (or vice versa) according to
+    the specified preferences, then loads the metadata if found.
+
+    Returns:
+        tuple: ``(metadata, data_path, metadata_path)`` — any path that
+        was None on entry is filled in if it could be determined.
     """
-    Load the data from a CSV file into a Pandas DataFrame use pandas.read_csv
-    and extra metadata.
-
-    Args:
-
-       path     The path to the data file (usually CSV) to be read.
-                If this is None, the mdpath must be set and contain
-                the path to the data.
-
-       mdpath   The optional path to the associated metadata file.
-
-                If path is None, this must be set and contain the
-                path to the data (CSV file).
-
-                If path is not None, the path in the metadata file
-                is ignored.
-
-                If mdpath is None, path must not be None.
-                In this case, if findmd is set to True, this function
-                will try to find an associated metadata file and use
-                that if possible, and will raise an error if it cannot
-                be found.
-
-       mdtype   Optional specification of the kind of metadata file.
-                Should be one of
-                    'csvmetadata'   (csvmetadata.CSVMETADATA)
-                    'csvw'          (csvmetadata.CSVW)
-                    'frictionless'  (csvmetadata.FRICTIONLESS)
-
-       findmd   If this is set to True, the library will try to find
-                associated metadata based on filename conventions.
-                This should not be set if mdpath is provided.
-                If assocaited metadata cannot be found, an error
-                will be raised when this is set.
-
-       upgrade_types   If True (the default), this will upgrade
-                       some columns read_csv will create as object
-                       (dtype object) to stricter types.
-
-       upgrade_possible_ints   If True (not the default), any float
-                               columns with nulls but with no fractional
-                               components will be upgraded to Ints.
-
-       return_md   If true, returns metadata and DataFrame (as tuple)
-
-       table_number  If set, use the specified table number (indexed
-                     from zero) in the metadata
-
-       verbosity   For metadata reader
-
-       **kw     These keyword arguments are passed to pandas.read_csv,
-                and can be used to override values from the
-                metadata file.
-    """
+    assert rw in ('r', 'w')
+    is_for_reader = rw == 'r'
     md = None
     for_table_name = None
     if use_table_name:
         assert path is not None
         for_table_name = os.path.basename(path)
+
     if path is None:
-        if mdpath is None:
-            raise CSVMetadataError('Must provide path or mdpath')
+        if md_path is None:
+            error('Must provide path or md_path')
         else:
-            md = load_metadata(mdpath, mdtype=mdtype,
-                               table_number=table_number,
-                               for_table_name=for_table_name)
+            md = load_metadata(
+                md_path,
+                md_file_type=md_file_type,
+                table_number=table_number,
+                for_table_name=for_table_name,
+                preferred_serial_flavour=preferred,
+                verbosity=verbosity,
+            )
             path = md._fullpath
             if path is None:
-                raise CSVMetadataError('No data specified.')
+                error('No data specified.')
 
+    if md_path is None:
+        if is_for_reader:
+            pi = tdda_path_info(path)
+            path, md_path, find_md = pi.path, pi.md_path, find_md or pi.find_md
+            if md_path is None and find_md:
+                md_path = find_associated_metadata_file(path)
+            elif path is not None:
+                kind, _ = find_metadata_type_from_path(path)
+                if kind:
+                    md = load_metadata(
+                        path,
+                        md_file_type=md_file_type,
+                        table_number=table_number,
+                        for_table_name=for_table_name,
+                        preferred_serial_flavour=preferred,
+                        verbosity=verbosity,
+                    )
+                    actual_path = getattr(md, '_fullpath', md.path)
+                    if actual_path is None:
+                        error('No data specified.')
+                    (
+                        path,
+                        md_path,
+                    ) = actual_path, path
 
-    if mdpath is None and findmd:
-        mdpath = find_associated_metadata_file(path)
-        if mdpath is None:
-            raise CSVMetadataError('Could not find any associated metadata '
-                                   f'for {os.path.abspath(path)}')
-
-    if md is None and mdpath is not None:
-        md = load_metadata(mdpath, mdtype=mdtype, table_number=table_number,
-                           for_table_name=for_table_name, verbosity=verbosity)
-
-    if md:
-        md_kw = to_pandas_read_csv_args(md)
-    if md and kw:
-        md_kw.update(kw)
-        kw = md_kw
-    elif md:
-        kw = md_kw
-    df = pd.read_csv(path, **kw)
-
-    specified_types = kw.get('dtype')
-    dates = (kw.get('date_format') or {}).keys()
-    if upgrade_types and specified_types:
-        for k in df:
-            df[k].dtype == np.dtype('O')
-            specified_type = specified_types.get(k)
-            if specified_type:
-                df[k] = df[k].astype(specified_type)
-            elif k in dates:
-                df[k] = df[k].astype('datetime64[ns]')
-    if upgrade_possible_ints:
-        for k in df:
-            if not k in (specified_types or []):
-                poss_upgrade_to_int(df, k)
-    return (df, md) if return_md else df
-
-
-def poss_upgrade_to_int(df, name):
-    field = df[name]
-    if str(field.dtype).startswith('float'):
-        n_nulls = sum(field.isnull())
-        if n_nulls > 0:
-            # Could be float as result of nulls
-            int_col = field.astype(pd.Int64Dtype())
-            n_same = sum(int_col.dropna() == field.dropna())
-            if n_same + n_nulls == field.shape[0]:
-                # no floats have fractional parts
-                df[name] = int_col
         else:
-            int_col = field.astype('int')
-            n_same = sum(int_col== field)
-            if n_same == field.shape[0]:
-                # no floats have fractional parts
-                df[name] = int_col
+            s_config = get_config(config).serial
+            md_path = s_config._md_inpath(path)
+
+    if md is None and md_path is not None:
+        md = load_metadata(
+            md_path,
+            md_file_type=md_file_type,
+            table_number=table_number,
+            for_table_name=for_table_name,
+            verbosity=verbosity,
+        )
+    return md, path, md_path
+
+
+def get_metadata_for_reader(
+    path,
+    md_path=None,
+    md_file_type=None,
+    find_md=False,
+    table_number=None,
+    use_table_name=None,
+    preferred=TDDASERIAL.key,
+    verbosity=VERBOSITY,
+):
+    return _get_metadata(
+        rw='r',
+        path=path,
+        md_path=md_path,
+        md_file_type=md_file_type,
+        find_md=find_md,
+        table_number=table_number,
+        use_table_name=use_table_name,
+        preferred=preferred,
+        verbosity=verbosity,
+    )
+
+
+def get_metadata_for_writer(
+    path,
+    md_path=None,
+    md_file_type=None,
+    find_md=False,
+    table_number=None,
+    use_table_name=None,
+    preferred=TDDASERIAL.key,
+    verbosity=VERBOSITY,
+):
+    return _get_metadata(
+        rw='w',
+        path=path,
+        md_path=md_path,
+        md_file_type=md_file_type,
+        find_md=find_md,
+        preferred=preferred,
+        verbosity=verbosity,
+    )
+
+
+def find_metadata_kind(mds, preferred=None):
+    """Breadth-first search of a dict (or list of dicts) for metadata.
+
+    Returns the kind and the sub-portion of the structure that
+    represents the metadata. When multiple flavours are found at the
+    same level, the ``preferred`` flavour wins; it may be a single
+    string or a priority list (highest first).
+
+    Returns:
+        tuple: ``(kind, metadata_dict)``, or ``(None, None)`` if not found.
+    """
+    preferred = preferred or []
+    if not is_sequence(preferred):
+        preferred = [preferred]
+    kind = None
+    dicts = []
+    if not mds:
+        return None, None
+    if not isinstance(mds, list):
+        mds = [mds]
+    for md in mds:
+        for preferred in preferred:
+            if preferred in md:
+                kind = preferred
+                return preferred, md[preferred]
+        for k in SERIAL_METADATA_FLAVOURS:
+            if k in md:
+                return k, md[k]
+        if CONTEXT_KEY in md:
+            context = md.get(CONTEXT_KEY)
+            if context == URI.CSVW:
+                kind = 'csvw'
+            return kind, md
+        for key in FRICTIONLESS_TELL_KEYS:
+            if key in md:
+                return key, md[key]
+        dicts.extend([v for v in md.values() if isinstance(v, dict)])
+    return find_metadata_kind(dicts, preferred)
+
+
+def set_delimiter_from_path(kw, path, sep_key):
+    """Set the delimiter in ``kw`` from the file extension if not already set.
+
+    Sets ``kw[sep_key]`` to ``,``, ``\\t``, or ``|`` for ``.csv``,
+    ``.tsv``, or ``.psv`` files respectively, unless a delimiter is
+    already present in ``kw``.
+    """
+    kw = kw or {}
+    if not kw.get('delimiter') and not kw.get(sep_key):
+        ext = os.path.splitext(path)[1]
+        if ext == '.csv':
+            kw[sep_key] = ','
+        elif ext == '.tsv':
+            kw[sep_key] = '\t'
+        elif ext == '.psv':
+            kw[sep_key] = '|'
+    return kw
+
+
+def has_csvw_context(json_path):
+    """Return True if the JSON file contains a CSVW ``@context`` signature."""
+    with open(json_path) as f:
+        d = json.load(f)
+    if isinstance(d, dict):
+        context = d.get('@context')
+        if context and isinstance(context, list):
+            if context[0] == CSVW.CONTEXT:
+                return True
+    return None

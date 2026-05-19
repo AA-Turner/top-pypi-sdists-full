@@ -18,9 +18,10 @@ from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.generation import GenerationMode
+from schemathesis.generation.value import GeneratedValue
 from schemathesis.openapi.generation.filters import is_valid_header
 from schemathesis.specs.openapi._hypothesis import get_default_format_strategies
-from schemathesis.specs.openapi.negative import GeneratedValue, mutated, negative_schema
+from schemathesis.specs.openapi.negative import mutated, negative_schema
 from schemathesis.specs.openapi.negative.mutations import (
     MutationContext,
     MutationResult,
@@ -445,6 +446,40 @@ def test_mutated_body_with_bundled_ref_and_inline_enum_does_not_crash(data):
     )
 
 
+@given(data=st.data())
+@settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=50, derandomize=True)
+def test_mutated_query_with_anyof_null_bundled_ref_and_inline_enum_does_not_crash(data):
+    # FastAPI's `Optional[Enum]` query param shape: `anyOf:[{$ref}, {type:null}]` with a sibling enum.
+    keywords = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "category": {
+                "anyOf": [{"$ref": "#/x-bundled/Category"}, {"type": "null"}],
+                "enum": ["frontend", "backend", "devops", "docs-as-code"],
+            },
+        },
+    }
+    non_keywords = {
+        BUNDLE_STORAGE_KEY: {
+            "Category": {
+                "type": "string",
+                "enum": ["frontend", "backend", "devops", "docs-as-code"],
+            },
+        }
+    }
+    data.draw(
+        mutated(
+            keywords=keywords,
+            non_keywords=non_keywords,
+            location=ParameterLocation.QUERY,
+            media_type=None,
+            allow_extra_parameters=False,
+            target_descriptors=compute_mutation_targets({**keywords, **non_keywords}),
+        )
+    )
+
+
 def test_openapi_31_legacy_exclusive_bounds_in_response_schema(ctx):
     schema = ctx.openapi.load_schema(
         {
@@ -498,7 +533,7 @@ def test_openapi_31_legacy_exclusive_bounds_in_negative_generation(ctx):
     operation = schema["/data"]["POST"]
 
     @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
-    @settings(max_examples=1)
+    @settings(max_examples=1, suppress_health_check=list(HealthCheck))
     def test(case):
         pass
 

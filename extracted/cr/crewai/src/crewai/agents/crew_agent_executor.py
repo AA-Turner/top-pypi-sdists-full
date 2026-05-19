@@ -14,7 +14,9 @@ import contextvars
 import inspect
 import logging
 from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
+import warnings
 
+from crewai_core.printer import PRINTER
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -49,6 +51,7 @@ from crewai.hooks.tool_hooks import (
 )
 from crewai.types.callback import SerializableCallable
 from crewai.utilities.agent_utils import (
+    _llm_stop_words_applied,
     aget_llm_response,
     convert_tools_to_openai_schema,
     enforce_rpm_limit,
@@ -68,7 +71,6 @@ from crewai.utilities.agent_utils import (
 from crewai.utilities.constants import TRAINING_DATA_FILE
 from crewai.utilities.file_store import aget_all_files, get_all_files
 from crewai.utilities.i18n import I18N_DEFAULT
-from crewai.utilities.printer import PRINTER
 from crewai.utilities.string_utils import sanitize_tool_name
 from crewai.utilities.token_counter_callback import TokenCalcHandler
 from crewai.utilities.tool_utils import (
@@ -137,19 +139,17 @@ class CrewAgentExecutor(BaseAgentExecutor):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        warnings.warn(
+            "CrewAgentExecutor is deprecated and will be removed in a future release.\n"
+            "Agents inside Crews now use AgentExecutor (crewai.experimental.AgentExecutor) by default.\n"
+            "To suppress this warning, migrate to AgentExecutor.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self.before_llm_call_hooks:
             self.before_llm_call_hooks.extend(get_before_llm_call_hooks())
         if not self.after_llm_call_hooks:
             self.after_llm_call_hooks.extend(get_after_llm_call_hooks())
-        if self.llm and not isinstance(self.llm, str):
-            existing_stop = getattr(self.llm, "stop", [])
-            self.llm.stop = list(
-                set(
-                    existing_stop + self.stop
-                    if isinstance(existing_stop, list)
-                    else self.stop
-                )
-            )
 
     @property
     def use_stop_words(self) -> bool:
@@ -174,6 +174,8 @@ class CrewAgentExecutor(BaseAgentExecutor):
         if provider.setup_messages(cast(ExecutorContext, cast(object, self))):
             return
 
+        from crewai.llms.cache import mark_cache_breakpoint
+
         if self.prompt is not None and "system" in self.prompt:
             system_prompt = self._format_prompt(
                 cast(str, self.prompt.get("system", "")), inputs
@@ -181,11 +183,22 @@ class CrewAgentExecutor(BaseAgentExecutor):
             user_prompt = self._format_prompt(
                 cast(str, self.prompt.get("user", "")), inputs
             )
-            self.messages.append(format_message_for_llm(system_prompt, role="system"))
-            self.messages.append(format_message_for_llm(user_prompt))
+            # Cache breakpoints: end-of-system caches the per-agent stable
+            # prefix; end-of-user caches the per-task stable prefix across
+            # ReAct-loop iterations.
+            self.messages.append(
+                mark_cache_breakpoint(
+                    format_message_for_llm(system_prompt, role="system")
+                )
+            )
+            self.messages.append(
+                mark_cache_breakpoint(format_message_for_llm(user_prompt))
+            )
         elif self.prompt is not None:
             user_prompt = self._format_prompt(self.prompt.get("prompt", ""), inputs)
-            self.messages.append(format_message_for_llm(user_prompt))
+            self.messages.append(
+                mark_cache_breakpoint(format_message_for_llm(user_prompt))
+            )
 
         provider.post_setup_messages(cast(ExecutorContext, cast(object, self)))
 
@@ -210,21 +223,22 @@ class CrewAgentExecutor(BaseAgentExecutor):
 
         self.ask_for_human_input = bool(inputs.get("ask_for_human_input", False))
 
-        try:
-            formatted_answer = self._invoke_loop()
-        except AssertionError:
-            if self.agent.verbose:
-                PRINTER.print(
-                    content="Agent failed to reach a final answer. This is likely a bug - please report it.",
-                    color="red",
-                )
-            raise
-        except Exception as e:
-            handle_unknown_error(PRINTER, e, verbose=self.agent.verbose)
-            raise
+        with _llm_stop_words_applied(self.llm, self):
+            try:
+                formatted_answer = self._invoke_loop()
+            except AssertionError:
+                if self.agent.verbose:
+                    PRINTER.print(
+                        content="Agent failed to reach a final answer. This is likely a bug - please report it.",
+                        color="red",
+                    )
+                raise
+            except Exception as e:
+                handle_unknown_error(PRINTER, e, verbose=self.agent.verbose)
+                raise
 
-        if self.ask_for_human_input:
-            formatted_answer = self._handle_human_feedback(formatted_answer)
+            if self.ask_for_human_input:
+                formatted_answer = self._handle_human_feedback(formatted_answer)
 
         self._save_to_memory(formatted_answer)
         return {"output": formatted_answer.output}
@@ -1082,21 +1096,22 @@ class CrewAgentExecutor(BaseAgentExecutor):
 
         self.ask_for_human_input = bool(inputs.get("ask_for_human_input", False))
 
-        try:
-            formatted_answer = await self._ainvoke_loop()
-        except AssertionError:
-            if self.agent.verbose:
-                PRINTER.print(
-                    content="Agent failed to reach a final answer. This is likely a bug - please report it.",
-                    color="red",
-                )
-            raise
-        except Exception as e:
-            handle_unknown_error(PRINTER, e, verbose=self.agent.verbose)
-            raise
+        with _llm_stop_words_applied(self.llm, self):
+            try:
+                formatted_answer = await self._ainvoke_loop()
+            except AssertionError:
+                if self.agent.verbose:
+                    PRINTER.print(
+                        content="Agent failed to reach a final answer. This is likely a bug - please report it.",
+                        color="red",
+                    )
+                raise
+            except Exception as e:
+                handle_unknown_error(PRINTER, e, verbose=self.agent.verbose)
+                raise
 
-        if self.ask_for_human_input:
-            formatted_answer = await self._ahandle_human_feedback(formatted_answer)
+            if self.ask_for_human_input:
+                formatted_answer = await self._ahandle_human_feedback(formatted_answer)
 
         self._save_to_memory(formatted_answer)
         return {"output": formatted_answer.output}

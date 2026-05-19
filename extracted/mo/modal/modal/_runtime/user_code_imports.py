@@ -231,7 +231,7 @@ def construct_webhook_callable(
         asgi.wait_for_web_server(host, port, timeout=startup_timeout)
         return asgi.asgi_app_wrapper(asgi.web_server_proxy(host, port), container_io_manager)
     else:
-        raise InvalidError(f"Unrecognized web endpoint type {webhook_config.type}")
+        raise InvalidError(f"Unrecognized Web Function type {webhook_config.type}")
 
 
 def maybe_snapshot(
@@ -451,7 +451,7 @@ def import_single_function_service(
     * Normal functions
     * Methods on classes (in which case we need to instantiate the object)
 
-    This helper also handles web endpoints, ASGI/WSGI servers, and HTTP servers.
+    This helper also handles Web Functions (fastapi_endpoint, asgi_app, wsgi_app, web_server).
 
     In order to locate the app, we try two things:
     * If the function is a Function, we can get the app directly from it
@@ -570,7 +570,7 @@ def import_class_service(
             service_function_hydration_data.object_id,
             _client,
             service_function_hydration_data.function_handle_metadata,
-            is_another_app=True,  # this skips re-loading the function, which is required since it doesn't have a loader
+            skip_reload=True,  # this skips re-loading the function, which is required since it doesn't have a loader
         )
         _cls = modal.cls._Cls.from_local(cls_or_user_cls, active_app, _service_function)
         # hydration of the class itself - just sets the id and triggers some side effects
@@ -625,7 +625,7 @@ def import_server_service(
             service_function_hydration_data.object_id,
             _client,
             service_function_hydration_data.function_handle_metadata,
-            is_another_app=True,  # this skips re-loading the function, which is required since it doesn't have a loader
+            skip_reload=True,  # this skips re-loading the function, which is required since it doesn't have a loader
         )
 
         _server = modal._server._Server._from_local(cls_or_user_cls, active_app, _service_function)

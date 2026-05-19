@@ -13,6 +13,7 @@ from biolib._experiment.experiment import Experiment
 from biolib._internal.file_utils import path_to_renamed_path
 from biolib._result.result import Result
 from biolib._runtime.runtime import Runtime
+from biolib._shared.types.typing import Dict, Optional
 from biolib._shared.utils import parse_resource_uri
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client.app_types import App, AppVersion
@@ -20,7 +21,6 @@ from biolib.biolib_api_client.biolib_app_api import BiolibAppApi
 from biolib.biolib_binary_format import ModuleInput
 from biolib.biolib_errors import BioLibError, JobResultNonZeroExitCodeError
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Dict, Optional
 
 
 class JsonStringIO(io.StringIO):

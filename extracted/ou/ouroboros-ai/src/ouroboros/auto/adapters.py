@@ -15,7 +15,11 @@ from ouroboros.auto.interview_driver import InterviewBackend, InterviewTurn
 from ouroboros.core.seed import Seed
 from ouroboros.mcp.errors import MCPServerError
 from ouroboros.mcp.job_manager import JobManager, JobStatus
-from ouroboros.mcp.tools.authoring_handlers import GenerateSeedHandler, InterviewHandler
+from ouroboros.mcp.tools.authoring_handlers import (
+    REQUIRED_CLIENT_GATES,
+    GenerateSeedHandler,
+    InterviewHandler,
+)
 from ouroboros.mcp.tools.evaluation_handlers import LateralThinkHandler
 from ouroboros.mcp.tools.execution_handlers import StartExecuteSeedHandler
 from ouroboros.mcp.tools.qa import QAHandler
@@ -106,9 +110,14 @@ class HandlerInterviewBackend(InterviewBackend):
         result = _unwrap(outcome, tool_name="ouroboros_interview")
         return _turn_from_result(result)
 
-    async def answer(self, session_id: str, answer: str) -> InterviewTurn:
+    async def answer(
+        self, session_id: str, answer: str, *, last_question: str | None = None
+    ) -> InterviewTurn:
+        arguments = {"session_id": session_id, "answer": answer}
+        if last_question:
+            arguments["last_question"] = last_question
         result = _unwrap(
-            await self.handler.handle({"session_id": session_id, "answer": answer}),
+            await self.handler.handle(arguments),
             tool_name="ouroboros_interview",
         )
         return _turn_from_result(result, fallback_session_id=session_id)
@@ -144,8 +153,17 @@ class HandlerSeedGenerator:
         self.handler = handler
 
     async def __call__(self, session_id: str) -> Seed:
+        # AutoPipeline reaches this adapter only after its own interview driver
+        # closure gate records a seed-ready interview. Pass the maintained
+        # first-party acknowledgement set so the opt-in MCP hard gate can be
+        # enabled without breaking `ooo auto` seed generation.
         result = _unwrap(
-            await self.handler.handle({"session_id": session_id}),
+            await self.handler.handle(
+                {
+                    "session_id": session_id,
+                    "client_gates": REQUIRED_CLIENT_GATES,
+                }
+            ),
             tool_name="ouroboros_generate_seed",
         )
         text = result.content[0].text if result.content else ""
@@ -198,8 +216,9 @@ class HandlerRalphStarter:
     job tools.
     """
 
-    def __init__(self, handler: RalphHandler) -> None:
+    def __init__(self, handler: RalphHandler, *, project_dir: str | None = None) -> None:
         self.handler = handler
+        self.project_dir = project_dir
 
     @property
     def job_event_store(self) -> Any:
@@ -274,6 +293,8 @@ class HandlerRalphStarter:
             "lineage_id": lineage_id,
             "seed_content": seed_yaml,
         }
+        if self.project_dir is not None:
+            arguments["project_dir"] = self.project_dir
         if max_total_seconds is not None:
             arguments["max_total_seconds"] = max_total_seconds
         if per_iteration_timeout_seconds is not None:

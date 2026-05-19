@@ -7,6 +7,12 @@ from requests import HTTPError
 from pycarlo.common import get_logger
 from pycarlo.common.errors import InvalidSessionError
 from pycarlo.core import Client
+from pycarlo.features.ingestion.etl import (
+    EtlAsset,
+    EtlRunEvent,
+    build_etl_metadata_payload,
+    build_etl_runs_payload,
+)
 from pycarlo.features.ingestion.exceptions import IngestionError
 from pycarlo.features.ingestion.models import (
     LineageEvent,
@@ -23,6 +29,8 @@ logger = get_logger(__name__)
 _METADATA_PATH = "/ingest/v1/metadata"
 _LINEAGE_PATH = "/ingest/v1/lineage"
 _QUERY_LOG_PATH = "/ingest/v1/querylogs"
+_ETL_METADATA_PATH = "/ingest/v1/etl/metadata"
+_ETL_RUNS_PATH = "/ingest/v1/etl/runs"
 
 
 class IngestionService:
@@ -264,7 +272,7 @@ class IngestionService:
             response_body = ""
             if exc.response is not None:
                 try:
-                    response_body = exc.response.text
+                    response_body = exc.response.text[:500]
                 except Exception:
                     pass
             raise IngestionError(
@@ -276,4 +284,149 @@ class IngestionService:
             path=_QUERY_LOG_PATH,
             payload=payload,
             label="Query log",
+        )
+
+    # ------------------------------------------------------------------
+    # ETL — metadata
+    # ------------------------------------------------------------------
+
+    def send_etl_metadata(
+        self,
+        resource_uuid: str,
+        resource_type: str,
+        events: list[EtlAsset],
+    ) -> dict | None:
+        """
+        Send declarative ETL job/group definitions to Monte Carlo.
+
+        Maps to ``POST /ingest/v1/etl/metadata``.
+
+        :param resource_uuid: UUID of the Monte Carlo resource.
+        :param resource_type: Resource type identifier, e.g. ``"airflow"``,
+            ``"dbt"`` (lowercase).
+        :param events: One or more :class:`EtlAsset` objects describing the
+            ETL jobs to register. Batch size: 1–100.
+        :return: The JSON response from the API, or ``None`` if the response
+            body was empty.
+        :raises IngestionError: If the API returns an HTTP error.
+        :raises ValueError: If the batch is empty or exceeds 100 events.
+        """
+        payload = build_etl_metadata_payload(
+            resource_uuid=resource_uuid,
+            resource_type=resource_type,
+            events=events,
+        )
+        return self._post_etl_metadata(payload)
+
+    def send_etl_metadata_raw(self, payload: dict) -> dict | None:
+        """
+        Send a raw ETL metadata payload dictionary to the ingest API.
+
+        Use this when you already have a pre-built payload that conforms to the
+        ``POST /ingest/v1/etl/metadata`` schema.
+
+        :param payload: The full request body as a dictionary.
+        :return: The JSON response from the API, or ``None``.
+        :raises IngestionError: If the API returns an HTTP error.
+        :raises ValueError: If the payload fails shape or batch-size validation.
+        """
+        self._validate_etl_raw_payload(payload, expected_event_type="ETL_METADATA")
+        return self._post_etl_metadata(payload)
+
+    # ------------------------------------------------------------------
+    # ETL — runs
+    # ------------------------------------------------------------------
+
+    def send_etl_runs(
+        self,
+        resource_uuid: str,
+        resource_type: str,
+        events: list[EtlRunEvent],
+        event_time: Optional[str] = None,
+    ) -> dict | None:
+        """
+        Send ETL run state-transition events to Monte Carlo.
+
+        Maps to ``POST /ingest/v1/etl/runs``.
+
+        :param resource_uuid: UUID of the Monte Carlo resource. Identifies the
+            owning ETL container for every event in the batch.
+        :param resource_type: Resource type identifier, e.g. ``"airflow"``,
+            ``"dbt"`` (lowercase).
+        :param events: One or more :class:`EtlRunEvent` objects. Batch size:
+            1–100.
+        :param event_time: Optional batch-level ISO8601 timestamp.
+        :return: The JSON response from the API, or ``None`` if the response
+            body was empty.
+        :raises IngestionError: If the API returns an HTTP error.
+        :raises ValueError: If the batch is empty or exceeds 100 events.
+        """
+        payload = build_etl_runs_payload(
+            resource_uuid=resource_uuid,
+            resource_type=resource_type,
+            events=events,
+            event_time=event_time,
+        )
+        return self._post_etl_runs(payload)
+
+    def send_etl_runs_raw(self, payload: dict) -> dict | None:
+        """
+        Send a raw ETL runs payload dictionary to the ingest API.
+
+        Use this when you already have a pre-built payload that conforms to the
+        ``POST /ingest/v1/etl/runs`` schema.
+
+        :param payload: The full request body as a dictionary.
+        :return: The JSON response from the API, or ``None``.
+        :raises IngestionError: If the API returns an HTTP error.
+        :raises ValueError: If the payload fails shape or batch-size validation.
+        """
+        self._validate_etl_raw_payload(payload, expected_event_type="ETLRUN")
+        return self._post_etl_runs(payload)
+
+    @staticmethod
+    def _validate_etl_raw_payload(payload: dict, expected_event_type: str) -> None:
+        """
+        Validate the shape of a raw ETL payload before posting.
+
+        :param payload: The raw payload dict to validate.
+        :param expected_event_type: The ``event_type`` value the payload must
+            carry (e.g. ``"ETL_METADATA"`` or ``"ETLRUN"``).
+        :raises ValueError: If the payload fails any validation check.
+        """
+        if not isinstance(payload, dict):
+            raise ValueError(f"payload must be a dict, got {type(payload).__name__!r}.")
+
+        actual_event_type = payload.get("event_type")
+        if actual_event_type != expected_event_type:
+            raise ValueError(
+                f"payload['event_type'] must be {expected_event_type!r}, got {actual_event_type!r}."
+            )
+
+        resource = payload.get("resource")
+        if not isinstance(resource, dict):
+            raise ValueError(
+                f"payload['resource'] must be a dict, got {type(resource).__name__!r}."
+            )
+
+        events = payload.get("events")
+        if not isinstance(events, list):
+            raise ValueError(f"payload['events'] must be a list, got {type(events).__name__!r}.")
+        if not (1 <= len(events) <= 100):
+            raise ValueError(
+                f"payload['events'] must contain between 1 and 100 items, got {len(events)}."
+            )
+
+    def _post_etl_metadata(self, payload: dict) -> dict | None:
+        return self._post(
+            path=_ETL_METADATA_PATH,
+            payload=payload,
+            label="ETL metadata",
+        )
+
+    def _post_etl_runs(self, payload: dict) -> dict | None:
+        return self._post(
+            path=_ETL_RUNS_PATH,
+            payload=payload,
+            label="ETL runs",
         )

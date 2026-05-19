@@ -103,7 +103,7 @@ class TestGroupAddUser(identity_fakes.TestIdentityv3):
         except exceptions.CommandError as e:
             msg = f"1 of 2 users not added to group {self._group.name}."
             self.assertEqual(msg, str(e))
-        msg = f"{self.users[0].name} not added to group {self._group.name}: {str(sdk_exc.ResourceNotFound())}"
+        msg = f"{self.users[0].name} not added to group {self._group.name}: {sdk_exc.ResourceNotFound()!s}"
         mock_error.assert_called_once_with(msg)
 
 
@@ -553,14 +553,7 @@ class TestGroupList(identity_fakes.TestIdentityv3):
         # containing the data to be listed.
         columns, data = self.cmd.take_action(parsed_args)
 
-        # Set expected values
-        kwargs = {
-            'domain_id': self.domain.id,
-        }
-
-        self.identity_sdk_client.user_groups.assert_called_with(
-            self.user.id, **kwargs
-        )
+        self.identity_sdk_client.user_groups.assert_called_with(self.user.id)
 
         self.assertEqual(self.columns, columns)
 
@@ -587,10 +580,7 @@ class TestGroupList(identity_fakes.TestIdentityv3):
 
         self.identity_sdk_client.groups.assert_called_with()
 
-        long_columns = self.columns + (
-            'Domain ID',
-            'Description',
-        )
+        long_columns = (*self.columns, 'Domain ID', 'Description')
         datalist = (
             (
                 self.group.id,
@@ -687,7 +677,7 @@ class TestGroupRemoveUser(identity_fakes.TestIdentityv3):
         except exceptions.CommandError as e:
             msg = f"1 of 2 users not removed from group {self._group.id}."
             self.assertEqual(msg, str(e))
-        msg = f"{self.users[0].id} not removed from group {self._group.id}: {str(sdk_exc.ResourceNotFound())}"
+        msg = f"{self.users[0].id} not removed from group {self._group.id}: {sdk_exc.ResourceNotFound()!s}"
         mock_error.assert_called_once_with(msg)
 
 

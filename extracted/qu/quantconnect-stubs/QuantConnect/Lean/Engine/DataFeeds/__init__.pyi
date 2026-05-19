@@ -2572,6 +2572,20 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
     """Implementation of the ISynchronizer interface which provides the mechanism to stream data to the algorithm"""
 
     @property
+    def warmup_end_utc(self) -> datetime.datetime:
+        """
+        UTC time at which the warm up period ends
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @warmup_end_utc.setter
+    def warmup_end_utc(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
     def algorithm(self) -> QuantConnect.Interfaces.IAlgorithm:
         """
         The algorithm instance
@@ -2659,6 +2673,16 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
     def post_initialize(self) -> None:
         """
         Performs additional initialization steps after algorithm initialization
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def should_emit_warmup_end_pulse(self, time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice) -> bool:
+        """
+        Returns true when the first post warmup slice skips past StartDate
+        so a time pulse can be emitted to align algorithm time before OnWarmupFinished fires
         
         
         This Class is protected.

@@ -1,6 +1,6 @@
 [package]
 name = "uv-distribution"
-version = "0.0.47"
+version = "0.0.48"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -61,7 +61,6 @@ toml = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 walkdir = { workspace = true }
-zip = { workspace = true }
 
 [dev-dependencies]
 indoc = { workspace = true }

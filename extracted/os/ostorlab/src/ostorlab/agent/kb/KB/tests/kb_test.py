@@ -3,9 +3,14 @@
 import glob
 import json
 import pathlib
+import datetime
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import pytest
+
+TIMEOUT = datetime.timedelta(seconds=60)
 
 CATEGORY_GROUPS = [
     "OWASP_MASVS_L1",
@@ -1258,7 +1263,7 @@ def testJsonFiles_whenFileHasCategories_shouldBeValid() -> None:
                 all(group_key in CATEGORY_GROUPS for group_key in categories.keys())
                 is True
             ), [
-                group_key in CATEGORY_GROUPS
+                group_key
                 for group_key in categories.keys()
                 if group_key not in CATEGORY_GROUPS
             ]
@@ -1277,6 +1282,17 @@ def testMetaFiles_always_referencesShouldHaveValidLinks() -> None:
         "Accept-Language": "en-US,en;q=0.5",
     }
 
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
     for meta_file in json_files:
         with open(meta_file, "r", encoding="utf-8") as file:
             data = json.load(file)
@@ -1290,7 +1306,9 @@ def testMetaFiles_always_referencesShouldHaveValidLinks() -> None:
                     invalid_urls.add(url)
             else:
                 try:
-                    response = requests.get(url, headers=headers, timeout=30)
+                    response = session.get(
+                        url, headers=headers, timeout=TIMEOUT.total_seconds()
+                    )
                     is_valid = response.status_code < 404
                 except requests.RequestException:
                     is_valid = False

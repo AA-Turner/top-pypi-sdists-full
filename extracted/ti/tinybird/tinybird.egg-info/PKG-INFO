@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.5.7
+Version: 4.5.8
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.5.8
+*******
+
+- `Changed` `tb migrate-to-forward` removes the need to add a dummy pipe on first deployment
 
 4.5.7
 *******

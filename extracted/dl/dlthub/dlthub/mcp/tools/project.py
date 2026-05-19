@@ -15,18 +15,26 @@ Importantly, this could clash with mypy requirements
 # mypy: disable-error-code="return-value, no-any-return"
 
 import pathlib
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 import sqlglot
-from mcp.server.fastmcp import Context
+from fastmcp import Context
 
 from dlt._workspace.cli import DEFAULT_VERIFIED_SOURCES_REPO
 from dlt._workspace.cli.echo import suppress_echo, always_choose
-from dlt._workspace.mcp.tools import helpers
+
+from dlthub.mcp.tools import helpers
 
 from dlthub.project import PipelineManager, Catalog
 from dlthub.project.cli.write_state import ProjectWriteState
 from dlthub.project.project_context import ensure_project
 from dlthub.project.cli import helpers as cli_helpers
+
+if TYPE_CHECKING:
+    from dlthub.mcp.server import ProjectMCP
+
+
+def _project_mcp(ctx: Context) -> "ProjectMCP":
+    return cast("ProjectMCP", ctx.fastmcp)
 
 
 def current_profile() -> str:
@@ -56,7 +64,7 @@ def add_source(
             source code.
     """
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     state = ProjectWriteState.from_run_context(run_context)
     with suppress_echo():
@@ -80,7 +88,7 @@ def add_destination(destination_name: str, destination_type: str, ctx: Context =
     Returns the destination configuration.
     """
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     state = ProjectWriteState.from_run_context(run_context)
     cli_helpers.add_destination(state, destination_name, destination_type)
@@ -97,7 +105,7 @@ def add_pipeline(
     Returns the pipeline configuration.
     """
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     state = ProjectWriteState.from_run_context(run_context)
     cli_helpers.add_pipeline(state, pipeline_name, source_name, destination_name)
@@ -114,7 +122,7 @@ def get_configuration(
 ) -> Any:
     """Get the configuration of dlthub project entity (source, destination, pipeline, dataset)"""
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     return run_context.project.config.get(entity_type, {}).get(entity_name)
 
@@ -136,7 +144,7 @@ def available_destinations() -> list[str]:
 def available_datasets(ctx: Context = None) -> list[str]:
     """List all available datasets in the project"""
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     catalog = Catalog(run_context)
     return list(catalog.datasets.keys())
@@ -145,7 +153,7 @@ def available_datasets(ctx: Context = None) -> list[str]:
 def available_tables(dataset_name: str, ctx: Context = None) -> list[str]:
     """List all available tables in the dataset"""
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     catalog = Catalog(run_context)
     return catalog[dataset_name].schema.data_table_names()
@@ -157,7 +165,7 @@ def run_pipeline_preview(pipeline_name: str, ctx: Context = None) -> dict[str, A
     This only processes the first 10 rows to assess if the pipeline is working properly.
     """
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     updated_context = ensure_project(run_context.run_dir, run_context.profile)
     pipeline_manager = PipelineManager(updated_context.project)
@@ -171,7 +179,7 @@ def run_pipeline_preview(pipeline_name: str, ctx: Context = None) -> dict[str, A
 def table_preview(dataset_name: str, table: str, ctx: Context = None) -> dict[str, Any]:
     """Get the first row from the specified table."""
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     updated_context = ensure_project(run_context.run_dir, run_context.profile)
 
@@ -193,7 +201,7 @@ def table_schema(dataset_name: str, table_name: str, ctx: Context = None) -> dic
     from dlt.destinations.impl.duckdb.sql_client import DuckDbSqlClient
 
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
 
     # TODO refactor try/except to specific line or at the tool manager level
@@ -239,7 +247,7 @@ def execute_sql_query(dataset_name: str, sql_query: str, ctx: Context = None) ->
     `table_schema`. Do not qualify table names with schema names.
     """
     # TODO use conditional tools once dynamic tool definition is widely supported by client
-    if (run_context := ctx.fastmcp.project_context) is None:
+    if (run_context := _project_mcp(ctx).project_context) is None:
         return "No dlthub project is selected. Use `select_project()` first."
     catalog = Catalog(run_context)
     dataset = catalog[dataset_name]
@@ -279,7 +287,7 @@ def select_project(project_dir: str, ctx: Context = None) -> str:
     if pathlib.Path(project_dir).exists():
         try:
             project_context = ensure_project(run_dir=project_dir)
-            ctx.fastmcp.project_context = project_context
+            _project_mcp(ctx).project_context = project_context
             return f"project {project_context.name} found"
         except Exception:
             pass

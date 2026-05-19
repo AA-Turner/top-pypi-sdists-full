@@ -164,6 +164,7 @@ __all__ = (
     "DescribeInstanceTypesPaginatorName",
     "DescribeInstancesPaginatorName",
     "DescribeInternetGatewaysPaginatorName",
+    "DescribeIpamPoolAllocationsPaginatorName",
     "DescribeIpamPoolsPaginatorName",
     "DescribeIpamPrefixListResolverTargetsPaginatorName",
     "DescribeIpamPrefixListResolversPaginatorName",
@@ -988,6 +989,7 @@ DescribeInstanceTypeOfferingsPaginatorName = Literal["describe_instance_type_off
 DescribeInstanceTypesPaginatorName = Literal["describe_instance_types"]
 DescribeInstancesPaginatorName = Literal["describe_instances"]
 DescribeInternetGatewaysPaginatorName = Literal["describe_internet_gateways"]
+DescribeIpamPoolAllocationsPaginatorName = Literal["describe_ipam_pool_allocations"]
 DescribeIpamPoolsPaginatorName = Literal["describe_ipam_pools"]
 DescribeIpamPrefixListResolverTargetsPaginatorName = Literal[
     "describe_ipam_prefix_list_resolver_targets"
@@ -3054,6 +3056,7 @@ ResourceTypeType = Literal[
     "ipam-external-resource-verification-token",
     "ipam-policy",
     "ipam-pool",
+    "ipam-pool-allocation",
     "ipam-prefix-list-resolver",
     "ipam-prefix-list-resolver-target",
     "ipam-resource-discovery",
@@ -3948,6 +3951,7 @@ PaginatorName = Literal[
     "describe_instance_types",
     "describe_instances",
     "describe_internet_gateways",
+    "describe_ipam_pool_allocations",
     "describe_ipam_pools",
     "describe_ipam_prefix_list_resolver_targets",
     "describe_ipam_prefix_list_resolvers",

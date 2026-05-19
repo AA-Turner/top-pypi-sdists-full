@@ -9,11 +9,11 @@ from biolib._internal.utils import open_browser_window_from_notebook
 from biolib._internal.utils.experiment import fetch_experiment_by_uri
 from biolib._result.result import Result
 from biolib._shared.types import DeprecatedExperimentDict, ExperimentDict, ResourceDetailedDict
+from biolib._shared.types.typing import Dict, List, Optional, Union
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_errors import BioLibError, WaitTimeoutError
 from biolib.tables import BioLibTable
-from biolib.typing_utils import Dict, List, Optional, Union
 from biolib.utils import IS_RUNNING_IN_NOTEBOOK
 
 

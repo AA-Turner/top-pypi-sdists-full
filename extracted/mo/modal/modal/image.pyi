@@ -29,6 +29,8 @@ class _AutoDockerIgnoreSentinel:
 
 AUTO_DOCKERIGNORE: _AutoDockerIgnoreSentinel
 
+P = typing_extensions.ParamSpec("P")
+
 def _validate_python_version(
     python_version: typing.Optional[str],
     builder_version: typing.Literal["2023.12", "2024.04", "2024.10", "2025.06", "PREVIEW"],
@@ -1041,6 +1043,32 @@ class _Image(modal._object._Object):
         """
         ...
 
+    def pipe(
+        self,
+        func: collections.abc.Callable[typing_extensions.Concatenate[_Image, P], _Image],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> _Image:
+        """Apply a local function to expand the Image recipe.
+
+        This method can be useful for defining reusable Image build
+        recipes that compose well with the fluent Image builder interface.
+
+        **Example**
+
+        ```python
+        def workspace_setup(image: modal.Image, repo: str) -> modal.Image:
+            return image.run_commands(f"git clone {repo}").uv_pip_install(".")
+
+        image = (
+            modal.Image.debian_slim()
+            .apt_install("git")
+            .pipe(workspace_setup, "https://github.com/example/repo.git")
+        )
+        ```
+        """
+        ...
+
     def imports(self):
         """Used to import packages in global scope that are only available when running remotely.
         By using this context manager you can avoid an `ImportError` due to not having certain
@@ -2033,6 +2061,32 @@ class Image(modal.object.Object):
         ```python
         image = (
             modal.Image.debian_slim().cmd(["python", "app.py"])
+        )
+        ```
+        """
+        ...
+
+    def pipe(
+        self,
+        func: collections.abc.Callable[typing_extensions.Concatenate[Image, P], Image],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> Image:
+        """Apply a local function to expand the Image recipe.
+
+        This method can be useful for defining reusable Image build
+        recipes that compose well with the fluent Image builder interface.
+
+        **Example**
+
+        ```python
+        def workspace_setup(image: modal.Image, repo: str) -> modal.Image:
+            return image.run_commands(f"git clone {repo}").uv_pip_install(".")
+
+        image = (
+            modal.Image.debian_slim()
+            .apt_install("git")
+            .pipe(workspace_setup, "https://github.com/example/repo.git")
         )
         ```
         """

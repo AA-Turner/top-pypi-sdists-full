@@ -1,5 +1,6 @@
 from typing import Optional
 
+from dlt.common import logger
 from dlt._workspace.mcp import DltMCP
 
 from dlthub.project.project_context import ProjectRunContext
@@ -15,7 +16,7 @@ class ProjectMCP(DltMCP):
         self, project_context: Optional[ProjectRunContext], port: int = 8000, path: str = "/"
     ) -> None:
         self._project_context = project_context
-        super().__init__(name="", port=port, path=path)
+        super().__init__(name="", features=set(), port=port, path=path)
 
     def _register_features(self) -> None:
         # NOTE: at this moment there's no way to launch this server without valid project context
@@ -23,19 +24,19 @@ class ProjectMCP(DltMCP):
             self.add_tool(tools.project.select_project)
 
         for tool in tools.project.__tools__:
-            self.logger.debug(f"add tool: {tool}")
+            logger.debug(f"add tool: {tool}")
             self.add_tool(tool)
-        self.logger.debug("project tools registered.")
+        logger.debug("project tools registered.")
 
         for resource_fn in resources.docs.__resources__:
             self.add_resource(resource_fn())
-        self.logger.debug("project resources registered.")
+        logger.debug("project resources registered.")
 
-        from mcp.server.fastmcp.prompts.base import Prompt
+        from fastmcp.prompts import Prompt
 
         for prompt_fn in prompts.project.__prompts__:
             self.add_prompt(Prompt.from_function(prompt_fn))
-        self.logger.debug("project prompts registered.")
+        logger.debug("project prompts registered.")
 
     @property
     def project_context(self) -> Optional[ProjectRunContext]:

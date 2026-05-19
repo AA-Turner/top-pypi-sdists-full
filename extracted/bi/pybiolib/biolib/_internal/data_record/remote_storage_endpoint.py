@@ -3,10 +3,10 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from biolib._shared.types import ResourceDetailedDict
+from biolib._shared.types.typing import Optional
 from biolib.api import client as api_client
 from biolib.biolib_binary_format.utils import RemoteEndpoint
 from biolib.biolib_logging import logger
-from biolib.typing_utils import Optional
 
 
 class DataRecordRemoteStorageEndpoint(RemoteEndpoint):

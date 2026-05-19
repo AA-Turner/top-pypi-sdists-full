@@ -1,4 +1,4 @@
-.PHONY: build test clean fmt check doc build-python build-wheel dev-install setup-mise dev-setup dev-verify update-dependencies update-rust-version build-static-linux-x64 build-static-linux-arm64 build-static-all schema check-schema check-versions benchmark benchmark-run benchmark-chart lint-actions lint-actions-all fuzz fuzz-long check-links docs-check docs-smoke release-patch release-minor release-major test-idempotency
+.PHONY: build test clean fmt check doc build-python build-wheel dev-install setup-mise dev-setup dev-verify update-dependencies update-rust-version build-static-linux-x64 build-static-linux-arm64 build-static-all schema check-schema check-versions benchmark benchmark-run benchmark-chart lint-actions lint-actions-all fuzz fuzz-long check-links docs-check docs-smoke sync-rule-docs check-rule-docs release-patch release-minor release-major test-idempotency
 
 # Development environment setup
 setup-mise:
@@ -177,6 +177,18 @@ check-schema:
 # {prev} pattern drifts out of the file.
 check-versions:
 	python3 scripts/check-versions.py
+
+# Sync rule-count sentinels in the README and docs/ from the rule registry.
+sync-rule-docs:
+	python3 scripts/check-rule-docs.py --write
+
+# Verify rule-count claims in docs match the registry and docs/rules.md
+# lists every rule. Guards against doc drift when rules are added/removed.
+# Runs the guard's own regression suite first: the guard is the thing that
+# prevents drift, so its logic must be verified wherever it runs.
+check-rule-docs:
+	python3 scripts/test_check_rule_docs.py
+	python3 scripts/check-rule-docs.py
 
 doc:
 	cargo doc --no-deps

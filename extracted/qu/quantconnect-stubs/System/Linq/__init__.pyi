@@ -138,6 +138,10 @@ System_Linq_Enumerable_RightJoin_TResult = typing.TypeVar("System_Linq_Enumerabl
 System_Linq_Enumerable_RightJoin_TInner = typing.TypeVar("System_Linq_Enumerable_RightJoin_TInner")
 System_Linq_Enumerable_RightJoin_TKey = typing.TypeVar("System_Linq_Enumerable_RightJoin_TKey")
 System_Linq_Enumerable_Shuffle_TSource = typing.TypeVar("System_Linq_Enumerable_Shuffle_TSource")
+System_Linq_Enumerable_FullJoin_TOuter = typing.TypeVar("System_Linq_Enumerable_FullJoin_TOuter")
+System_Linq_Enumerable_FullJoin_TResult = typing.TypeVar("System_Linq_Enumerable_FullJoin_TResult")
+System_Linq_Enumerable_FullJoin_TInner = typing.TypeVar("System_Linq_Enumerable_FullJoin_TInner")
+System_Linq_Enumerable_FullJoin_TKey = typing.TypeVar("System_Linq_Enumerable_FullJoin_TKey")
 System_Linq_Enumerable_Aggregate_TSource = typing.TypeVar("System_Linq_Enumerable_Aggregate_TSource")
 System_Linq_Enumerable_Aggregate_TAccumulate = typing.TypeVar("System_Linq_Enumerable_Aggregate_TAccumulate")
 System_Linq_Enumerable_Aggregate_TResult = typing.TypeVar("System_Linq_Enumerable_Aggregate_TResult")
@@ -1832,6 +1836,25 @@ class _Enumerable_Shuffle:
         ...
 
 
+class _Typed_Enumerable_FullJoin(typing.Generic[System_Linq_Enumerable_FullJoin_TOuter]):
+    """"""
+
+    @overload
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FullJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FullJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_FullJoin_TOuter], System_Linq_Enumerable_FullJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_FullJoin_TInner], System_Linq_Enumerable_FullJoin_TKey], result_selector: typing.Callable[[System_Linq_Enumerable_FullJoin_TOuter, System_Linq_Enumerable_FullJoin_TInner], System_Linq_Enumerable_FullJoin_TResult], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_FullJoin_TKey] = None) -> System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FullJoin_TResult]:
+        ...
+
+    @overload
+    def __call__(self, outer: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FullJoin_TOuter], inner: System.Collections.Generic.IEnumerable[System_Linq_Enumerable_FullJoin_TInner], outer_key_selector: typing.Callable[[System_Linq_Enumerable_FullJoin_TOuter], System_Linq_Enumerable_FullJoin_TKey], inner_key_selector: typing.Callable[[System_Linq_Enumerable_FullJoin_TInner], System_Linq_Enumerable_FullJoin_TKey], comparer: System.Collections.Generic.IEqualityComparer[System_Linq_Enumerable_FullJoin_TKey] = None) -> System.Collections.Generic.IEnumerable[System.ValueTuple[System_Linq_Enumerable_FullJoin_TOuter, System_Linq_Enumerable_FullJoin_TInner]]:
+        ...
+
+
+class _Enumerable_FullJoin:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Linq_Enumerable_FullJoin_TOuter]) -> System.Linq._Typed_Enumerable_FullJoin[System_Linq_Enumerable_FullJoin_TOuter]:
+        ...
+
+
 class _Typed_Enumerable_Aggregate(typing.Generic[System_Linq_Enumerable_Aggregate_TSource]):
     """"""
 
@@ -2287,6 +2310,8 @@ class Enumerable(System.Object):
     right_join: System.Linq._Enumerable_RightJoin
 
     shuffle: System.Linq._Enumerable_Shuffle
+
+    full_join: System.Linq._Enumerable_FullJoin
 
     aggregate: System.Linq._Enumerable_Aggregate
 

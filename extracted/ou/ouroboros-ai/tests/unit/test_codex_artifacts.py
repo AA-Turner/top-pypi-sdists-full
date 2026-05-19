@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from ouroboros.codex.artifacts import (
+    _SKILL_CAPABILITY_GUIDE_MARKER,
     CODEX_RULE_FILENAME,
     CODEX_SKILL_NAMESPACE,
     CodexManagedArtifact,
@@ -58,7 +59,9 @@ class TestInstallCodexRules:
         installed_path = install_codex_rules(codex_dir=codex_dir, rules_dir=packaged_rules_dir)
 
         assert installed_path == target_path
-        assert installed_path.read_text(encoding="utf-8") == "# fresh rules\n"
+        installed_content = installed_path.read_text(encoding="utf-8")
+        assert installed_content.startswith("# fresh rules\n")
+        assert _SKILL_CAPABILITY_GUIDE_MARKER in installed_content
         assert secondary_target_path.read_text(encoding="utf-8") == "# status rules\n"
         assert not rules_dir.joinpath("team.md").exists()
 
@@ -77,7 +80,9 @@ class TestInstallCodexRules:
         installed_path = install_codex_rules(codex_dir=codex_dir, rules_dir=packaged_rules_dir)
 
         assert installed_path == rules_dir / CODEX_RULE_FILENAME
-        assert installed_path.read_text(encoding="utf-8") == "# fresh rules\n"
+        installed_content = installed_path.read_text(encoding="utf-8")
+        assert installed_content.startswith("# fresh rules\n")
+        assert _SKILL_CAPABILITY_GUIDE_MARKER in installed_content
         assert stale_namespaced_rule.read_text(encoding="utf-8") == "keep for refresh-only"
         assert unrelated_rule.read_text(encoding="utf-8") == "keep me"
 
@@ -101,12 +106,79 @@ class TestInstallCodexRules:
         )
 
         assert installed_path == rules_dir / CODEX_RULE_FILENAME
-        assert installed_path.read_text(encoding="utf-8") == "# upgraded rules\n"
+        installed_content = installed_path.read_text(encoding="utf-8")
+        assert installed_content.startswith("# upgraded rules\n")
+        assert _SKILL_CAPABILITY_GUIDE_MARKER in installed_content
         assert rules_dir.joinpath("ouroboros-status.md").read_text(encoding="utf-8") == (
             "# upgraded status\n"
         )
         assert not stale_namespaced_rule.exists()
         assert unrelated_rule.read_text(encoding="utf-8") == "keep me"
+
+    def test_refuses_symlinked_rules_root(self, tmp_path: Path) -> None:
+        """Rule install must not follow a symlinked managed rules directory."""
+        codex_dir = tmp_path / ".codex"
+        outside_dir = tmp_path / "outside-rules"
+        packaged_rules_dir = tmp_path / "packaged-rules"
+        outside_dir.mkdir()
+        (codex_dir).mkdir()
+        (codex_dir / "rules").symlink_to(outside_dir, target_is_directory=True)
+        self._write_rule(packaged_rules_dir, CODEX_RULE_FILENAME, "# fresh rules\n")
+
+        with pytest.raises(OSError, match="symlinked directory"):
+            install_codex_rules(codex_dir=codex_dir, rules_dir=packaged_rules_dir)
+
+        assert not (outside_dir / CODEX_RULE_FILENAME).exists()
+
+    def test_refuses_symlinked_codex_dir_for_rules(self, tmp_path: Path) -> None:
+        """Rule install must not follow a symlinked Codex root ancestor."""
+        codex_dir = tmp_path / ".codex"
+        outside_codex_dir = tmp_path / "outside-codex"
+        packaged_rules_dir = tmp_path / "packaged-rules"
+        outside_codex_dir.mkdir()
+        codex_dir.symlink_to(outside_codex_dir, target_is_directory=True)
+        self._write_rule(packaged_rules_dir, CODEX_RULE_FILENAME, "# fresh rules\n")
+
+        with pytest.raises(OSError, match="symlinked"):
+            install_codex_rules(codex_dir=codex_dir, rules_dir=packaged_rules_dir)
+
+        assert not outside_codex_dir.joinpath("rules", CODEX_RULE_FILENAME).exists()
+
+    def test_replaces_dangling_symlinked_rule_leaf(self, tmp_path: Path) -> None:
+        """Rule refresh should replace a dangling managed rule symlink leaf."""
+        codex_dir = tmp_path / ".codex"
+        rules_dir = codex_dir / "rules"
+        packaged_rules_dir = tmp_path / "packaged-rules"
+        missing_target = tmp_path / "missing-outside-rule.md"
+        target_path = rules_dir / CODEX_RULE_FILENAME
+        rules_dir.mkdir(parents=True)
+        target_path.symlink_to(missing_target)
+        self._write_rule(packaged_rules_dir, CODEX_RULE_FILENAME, "# fresh rules\n")
+
+        installed_path = install_codex_rules(codex_dir=codex_dir, rules_dir=packaged_rules_dir)
+
+        assert installed_path == target_path
+        assert not installed_path.is_symlink()
+        assert installed_path.read_text(encoding="utf-8").startswith("# fresh rules\n")
+        assert not missing_target.exists()
+
+    def test_refuses_relative_rules_root_from_symlinked_cwd(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Relative rule installs must not resolve through a symlinked cwd."""
+        real_workspace = tmp_path / "real-workspace"
+        symlink_workspace = tmp_path / "linked-workspace"
+        packaged_rules_dir = tmp_path / "packaged-rules"
+        real_workspace.mkdir()
+        symlink_workspace.symlink_to(real_workspace, target_is_directory=True)
+        self._write_rule(packaged_rules_dir, CODEX_RULE_FILENAME, "# fresh rules\n")
+        monkeypatch.chdir(symlink_workspace)
+        monkeypatch.setenv("PWD", str(symlink_workspace))
+
+        with pytest.raises(OSError, match="symlinked"):
+            install_codex_rules(codex_dir=".codex", rules_dir=packaged_rules_dir)
+
+        assert not real_workspace.joinpath(".codex", "rules", CODEX_RULE_FILENAME).exists()
 
     def test_packaged_rules_fail_closed_for_ooo_auto(self) -> None:
         """Codex rules must route ``ooo auto`` to the real MCP tool, not manual work."""
@@ -115,6 +187,35 @@ class TestInstallCodexRules:
         assert "| `ooo auto ...` | `ouroboros_auto`" in rules
         assert "Do not emulate it with manual" in rules
         assert "If that MCP tool\nis unavailable" in rules
+        assert "Do not call a `blocked` or `failed` auto-session result a dispatch" in rules
+
+    def test_packaged_rules_include_rendered_skill_capability_guide(self) -> None:
+        """Codex rules should include the generated runtime skill capability guide."""
+        rules = load_packaged_codex_rules()
+
+        assert _SKILL_CAPABILITY_GUIDE_MARKER in rules
+        assert "## Ouroboros Skill Capability Guide: Codex" in rules
+        assert "### When a skill requires `ask_user`" in rules
+        assert "### When a skill requires `run_closure_gate`" in rules
+        assert "MCP `seed-ready`" in rules
+
+    def test_rendered_skill_capability_guide_is_idempotent(self, tmp_path: Path) -> None:
+        """Refreshing from an already rendered rule source should not duplicate the guide."""
+        packaged_rules_dir = tmp_path / "packaged-rules"
+        rendered_once = (
+            f"# custom rules\n\n{_SKILL_CAPABILITY_GUIDE_MARKER}\n## stale generated guide\n"
+        )
+        self._write_rule(packaged_rules_dir, CODEX_RULE_FILENAME, rendered_once)
+
+        installed_path = install_codex_rules(
+            codex_dir=tmp_path / ".codex",
+            rules_dir=packaged_rules_dir,
+        )
+        installed_content = installed_path.read_text(encoding="utf-8")
+
+        assert installed_content.count(_SKILL_CAPABILITY_GUIDE_MARKER) == 1
+        assert "## stale generated guide" not in installed_content
+        assert "## Ouroboros Skill Capability Guide: Codex" in installed_content
 
 
 class TestLoadPackagedCodexSkills:
@@ -153,6 +254,18 @@ class TestLoadPackagedCodexSkills:
 
         assert "must be executed by invoking MCP tool `ouroboros_auto`" in skill
         assert "manual fallback is not an `ooo auto` run" in skill
+        assert "Do not label that outcome as MCP dispatch failure" in skill
+
+    def test_packaged_interview_skill_uses_runtime_capability_terms(self) -> None:
+        """Runtime skill instructions should not hardcode Claude-only tool surfaces."""
+        skill = load_packaged_codex_skill("interview")
+
+        assert "AskUserQuestion" not in skill
+        assert "ToolSearch" not in skill
+        assert "Read/Glob/Grep" not in skill
+        assert "WebFetch/WebSearch" not in skill
+        assert "active runtime's `ask_user` capability" in skill
+        assert "active runtime's tool-discovery capability" in skill
 
     def test_raises_when_explicit_packaged_skill_is_missing(self, tmp_path: Path) -> None:
         """Missing skill entrypoints should fail fast."""
@@ -377,6 +490,87 @@ class TestInstallCodexSkills:
             "installed status"
         )
 
+    def test_refuses_symlinked_skills_root(self, tmp_path: Path) -> None:
+        """Skill install must not copy or prune through a symlinked managed root."""
+        source_skills_dir = tmp_path / "packaged-skills"
+        self._write_skill(source_skills_dir, "status", body="fresh status skill")
+
+        codex_dir = tmp_path / ".codex"
+        outside_dir = tmp_path / "outside-skills"
+        outside_dir.mkdir()
+        codex_dir.mkdir()
+        (codex_dir / "skills").symlink_to(outside_dir, target_is_directory=True)
+        legacy_skill = outside_dir / f"{CODEX_SKILL_NAMESPACE}legacy"
+        legacy_skill.mkdir()
+        legacy_skill.joinpath("SKILL.md").write_text("outside stale", encoding="utf-8")
+
+        with pytest.raises(OSError, match="symlinked directory"):
+            install_codex_skills(codex_dir=codex_dir, skills_dir=source_skills_dir, prune=True)
+
+        assert legacy_skill.joinpath("SKILL.md").read_text(encoding="utf-8") == "outside stale"
+        assert not outside_dir.joinpath(f"{CODEX_SKILL_NAMESPACE}status").exists()
+
+    def test_refuses_symlinked_codex_dir_for_skills(self, tmp_path: Path) -> None:
+        """Skill install must not copy or prune through a symlinked Codex root ancestor."""
+        source_skills_dir = tmp_path / "packaged-skills"
+        self._write_skill(source_skills_dir, "status", body="fresh status skill")
+
+        codex_dir = tmp_path / ".codex"
+        outside_codex_dir = tmp_path / "outside-codex"
+        outside_skills_dir = outside_codex_dir / "skills"
+        outside_skills_dir.mkdir(parents=True)
+        legacy_skill = outside_skills_dir / f"{CODEX_SKILL_NAMESPACE}legacy"
+        legacy_skill.mkdir()
+        legacy_skill.joinpath("SKILL.md").write_text("outside stale", encoding="utf-8")
+        codex_dir.symlink_to(outside_codex_dir, target_is_directory=True)
+
+        with pytest.raises(OSError, match="symlinked"):
+            install_codex_skills(codex_dir=codex_dir, skills_dir=source_skills_dir, prune=True)
+
+        assert legacy_skill.joinpath("SKILL.md").read_text(encoding="utf-8") == "outside stale"
+        assert not outside_skills_dir.joinpath(f"{CODEX_SKILL_NAMESPACE}status").exists()
+
+    def test_replaces_dangling_symlinked_skill_leaf(self, tmp_path: Path) -> None:
+        """Skill refresh should replace a dangling managed skill symlink leaf."""
+        source_skills_dir = tmp_path / "packaged-skills"
+        self._write_skill(source_skills_dir, "status", body="fresh status skill")
+
+        codex_dir = tmp_path / ".codex"
+        skills_dir = codex_dir / "skills"
+        missing_target = tmp_path / "missing-outside-skill"
+        target_path = skills_dir / f"{CODEX_SKILL_NAMESPACE}status"
+        skills_dir.mkdir(parents=True)
+        target_path.symlink_to(missing_target, target_is_directory=True)
+
+        installed_paths = install_codex_skills(codex_dir=codex_dir, skills_dir=source_skills_dir)
+
+        assert installed_paths == (target_path,)
+        assert not target_path.is_symlink()
+        assert target_path.joinpath("SKILL.md").read_text(encoding="utf-8") == (
+            "fresh status skill"
+        )
+        assert not missing_target.exists()
+
+    def test_refuses_relative_skills_root_from_symlinked_cwd(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Relative skill installs must not resolve through a symlinked cwd."""
+        source_skills_dir = tmp_path / "packaged-skills"
+        self._write_skill(source_skills_dir, "status", body="fresh status skill")
+        real_workspace = tmp_path / "real-workspace"
+        symlink_workspace = tmp_path / "linked-workspace"
+        real_workspace.mkdir()
+        symlink_workspace.symlink_to(real_workspace, target_is_directory=True)
+        monkeypatch.chdir(symlink_workspace)
+        monkeypatch.setenv("PWD", str(symlink_workspace))
+
+        with pytest.raises(OSError, match="symlinked"):
+            install_codex_skills(codex_dir=".codex", skills_dir=source_skills_dir)
+
+        assert not real_workspace.joinpath(
+            ".codex", "skills", f"{CODEX_SKILL_NAMESPACE}status"
+        ).exists()
+
 
 class TestResolvePackagedCodexAssets:
     """Test packaged asset resolution used by Codex setup/update flows."""
@@ -597,7 +791,9 @@ class TestCodexAssetSyncSmoke:
         )
 
         assert installed_rule == codex_dir / "rules" / CODEX_RULE_FILENAME
-        assert installed_rule.read_text(encoding="utf-8") == "# codex rules v1\n"
+        installed_content = installed_rule.read_text(encoding="utf-8")
+        assert installed_content.startswith("# codex rules v1\n")
+        assert _SKILL_CAPABILITY_GUIDE_MARKER in installed_content
         assert installed_skills == (
             codex_dir / "skills" / f"{CODEX_SKILL_NAMESPACE}run",
             codex_dir / "skills" / f"{CODEX_SKILL_NAMESPACE}setup",
@@ -680,7 +876,9 @@ class TestCodexAssetSyncSmoke:
         )
 
         assert installed_rule == codex_dir / "rules" / CODEX_RULE_FILENAME
-        assert installed_rule.read_text(encoding="utf-8") == "# codex rules v2\n"
+        installed_content = installed_rule.read_text(encoding="utf-8")
+        assert installed_content.startswith("# codex rules v2\n")
+        assert _SKILL_CAPABILITY_GUIDE_MARKER in installed_content
         assert installed_skills == (
             codex_dir / "skills" / f"{CODEX_SKILL_NAMESPACE}interview",
             codex_dir / "skills" / f"{CODEX_SKILL_NAMESPACE}run",

@@ -89,34 +89,21 @@ class AlgebraArgs(BaseModel):
     op: AlgebraOp = Field(description=_OP_HELP)
     expression: str = Field(
         description=(
-            "Symbolic expression. Python-style: `x**2 + 2*x + 1` or "
-            "`sin(theta)/cos(theta)` or `log(x) - 1`. Variables become "
-            "sympy Symbols automatically. Constants: pi, E, oo, I. "
-            "Functions: sin, cos, tan, asin, log, exp, sqrt, factorial, "
-            "binomial(n,k), Rational(p,q), Abs."
+            "Python-style sympy expression (e.g. 'x**2 + 2*x + 1'). "
+            "Free names auto-bind to sympy Symbols."
         )
     )
     variable: str = Field(
         default="x",
-        description=(
-            "Free variable name (default 'x'). Used by solve/diff/"
-            "integrate/limit/series/evaluate/collect."
-        ),
+        description="Free variable (default 'x'). For solve/diff/integrate/limit/series.",
     )
     value: str = Field(
         default="",
-        description=(
-            "For `evaluate`: the value to substitute (e.g. '2', 'pi/4', "
-            "'sqrt(3)'). For `limit`: the point to approach (e.g. 'oo', "
-            "'0', '1'). For `series`: the expansion point (default 0)."
-        ),
+        description="For evaluate: value to substitute. For limit/series: the point.",
     )
     a: str = Field(
         default="",
-        description=(
-            "Lower bound for definite integration. If empty, integrate "
-            "indefinitely. Format: any sympy expression like '0', 'pi/2'."
-        ),
+        description="Lower bound for definite integration. Empty = indefinite.",
     )
     b: str = Field(
         default="",
@@ -345,14 +332,10 @@ class Algebra(
     ToolUIData[AlgebraArgs, AlgebraResult],
 ):
     description: ClassVar[str] = (
-        "Symbolic algebra via sympy — solve equations, simplify, expand, "
-        "factor, differentiate, integrate, take limits, generate Taylor "
-        "series, substitute values. Use INSTEAD of doing CAS work in "
-        "your head when the answer needs to be exact. Variables auto-bind "
-        "to sympy Symbols, so `x**2 - 4` and `sin(theta)/cos(theta)` "
-        "just work. Functions available: sin/cos/tan, log/exp/sqrt, "
-        "factorial, binomial, gamma, erf, Sum/Product. Constants: pi, "
-        "E, oo (infinity), I, Rational(p,q). Sandboxed — no imports."
+        "Symbolic algebra via sympy: solve equations, simplify, expand, "
+        "factor, differentiate, integrate, limits, Taylor series, "
+        "substitute. Variables auto-bind to sympy Symbols. Constants: "
+        "pi, E, oo, I, Rational(p,q)."
     )
 
     @classmethod

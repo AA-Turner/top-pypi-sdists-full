@@ -9,7 +9,6 @@ use crate::engine::profile::EngineProfile;
 use crate::engine::stats::ProcessingStats;
 use crate::engine::target_state::TargetStateProvider;
 use crate::prelude::*;
-use crate::state::db_schema;
 use crate::state::stable_path::StablePath;
 use crate::state::target_state_path::TargetStatePath;
 use cocoindex_utils::error::{SharedError, SharedResult};
@@ -133,14 +132,14 @@ impl<Prof: EngineProfile> MountLivePending<Prof> {
         ));
 
         // 6. Install ordering (matters for drop_app race coverage):
-        //    (i)   store the new state in `child.live_state` (strong-ref anchor)
+        //    (i)   app_store the new state in `child.live_state` (strong-ref anchor)
         //    (ii)  register Weak in `app_ctx.live_components` (compaction-on-push)
         //
         // The DB `ChildExistence` row is written separately:
         //   - For `coco.mount(LiveCompClass)` from inside `process()`: by
         //     submit/commit, via `update_building_state`'s `child_path_set`.
         //   - For `operator.update(LiveCompClass)` from `process_live`: by
-        //     `mount_inner_live` directly via `txn_batcher`, just below this
+        //     `mount_inner_live` directly via `Storage::run_txn`, just below this
         //     `complete()` call. (See `LiveComponentController::mount_inner_live`.)
         // Both paths produce the same on-disk state.
         //
@@ -546,7 +545,7 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
         // Synchronously remove the existence entry and write a tombstone,
         // matching the prior implementation's contract.
         if let Some((parent_ref, child_key)) = subpath.as_ref().split_parent() {
-            let db = self.component.app_ctx().db().clone();
+            let app_store = self.component.app_ctx().app_store().clone();
             let parent_path: StablePath = parent_ref.into();
             let child_key = child_key.clone();
             let component_path = self.component.stable_path().clone();
@@ -555,22 +554,18 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
             self.component
                 .app_ctx()
                 .env()
-                .txn_batcher()
-                .run(move |wtxn| {
-                    let existence_key = db_schema::DbEntryKey::StablePath(
-                        parent_path,
-                        db_schema::StablePathEntryKey::ChildExistence(child_key),
-                    )
-                    .encode()?;
-                    db.delete(wtxn, &existence_key)?;
-
-                    let tombstone_key = db_schema::DbEntryKey::StablePath(
-                        component_path,
-                        db_schema::StablePathEntryKey::ChildComponentTombstone(relative_child),
-                    )
-                    .encode()?;
-                    db.put(wtxn, &tombstone_key, &[])?;
-                    Ok(())
+                .run_txn(move |wtxn| {
+                    Box::pin(async move {
+                        app_store
+                            .remove_child_with_tombstone(
+                                wtxn,
+                                &parent_path,
+                                &child_key,
+                                &component_path,
+                                &relative_child,
+                            )
+                            .await
+                    })
                 })
                 .await?;
         }
@@ -800,21 +795,23 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
         // operator.update call. With this row, the install/tombstone
         // state machine is symmetric across both installer paths.
         if let Some((parent_path_ref, child_key)) = child_path.as_ref().split_parent() {
-            let db = self.component.app_ctx().db().clone();
+            let app_store = self.component.app_ctx().app_store().clone();
             let parent_path: StablePath = parent_path_ref.into();
             let child_key = child_key.clone();
             self.component
                 .app_ctx()
                 .env()
-                .txn_batcher()
-                .run(move |wtxn| {
-                    crate::engine::execution::ensure_path_node_type(
-                        &db,
-                        wtxn,
-                        parent_path.as_ref(),
-                        &child_key,
-                        crate::state::db_schema::StablePathNodeType::Component,
-                    )
+                .run_txn(move |wtxn| {
+                    Box::pin(async move {
+                        crate::engine::execution::ensure_path_node_type(
+                            &app_store,
+                            wtxn,
+                            parent_path.as_ref(),
+                            &child_key,
+                            crate::state::db_schema::StablePathNodeType::Component,
+                        )
+                        .await
+                    })
                 })
                 .await?;
         }

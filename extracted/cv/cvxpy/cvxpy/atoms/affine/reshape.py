@@ -16,7 +16,7 @@ limitations under the License.
 from __future__ import annotations
 
 import numbers
-from typing import List, Literal, Tuple
+from typing import Literal
 
 import numpy as np
 
@@ -27,6 +27,7 @@ from cvxpy.atoms.affine.affine_atom import AffAtom
 from cvxpy.atoms.affine.hstack import hstack
 from cvxpy.constraints.constraint import Constraint
 from cvxpy.expressions.expression import DEFAULT_ORDER_DEPRECATION_MSG, Expression
+from cvxpy.utilities import bounds as bounds_utils
 from cvxpy.utilities.shape import size_from_shape
 from cvxpy.utilities.warn import warn
 
@@ -51,7 +52,7 @@ class reshape(AffAtom):
     def __init__(
         self,
         expr,
-        shape: int | Tuple[int, ...],
+        shape: int | tuple[int, ...],
         order: Literal["F", "C", None] = None
     ) -> None:
         if isinstance(shape, numbers.Integral):
@@ -72,7 +73,7 @@ class reshape(AffAtom):
         super(reshape, self).__init__(expr)
 
     @staticmethod
-    def _infer_shape(shape: Tuple[int, ...], size: int) -> Tuple[int, ...]:
+    def _infer_shape(shape: tuple[int, ...], size: int) -> tuple[int, ...]:
         assert shape.count(-1) == 1, "Only one dimension can be -1."
         if len(shape) == 1:
             shape = (size,)
@@ -100,6 +101,11 @@ class reshape(AffAtom):
         """
         return True
 
+    def bounds_from_args(self) -> tuple[np.ndarray, np.ndarray]:
+        """Returns bounds for reshaped expression."""
+        lb, ub = self.args[0].get_bounds()
+        return bounds_utils.reshape_bounds(lb, ub, self._shape, order=self.order)
+
     @AffAtom.numpy_numeric
     def numeric(self, values):
         """Reshape the value.
@@ -116,7 +122,7 @@ class reshape(AffAtom):
                 "Invalid reshape dimensions %s." % (self._shape,)
             )
 
-    def shape_from_args(self) -> Tuple[int, ...]:
+    def shape_from_args(self) -> tuple[int, ...]:
         """Returns the shape argument.
         """
         return self._shape
@@ -127,8 +133,8 @@ class reshape(AffAtom):
         return [self._shape, self.order]
 
     def graph_implementation(
-        self, arg_objs, shape: Tuple[int, ...], data=None
-    ) -> Tuple[lo.LinOp, List[Constraint]]:
+        self, arg_objs, shape: tuple[int, ...], data=None
+    ) -> tuple[lo.LinOp, list[Constraint]]:
         """Reshape
 
         Parameters

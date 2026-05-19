@@ -160,7 +160,7 @@ class AdmiralWorker:
                 "directive-source",
                 f"{finding.code} :: source={source}",
             )
-            finding_with_text = type(finding)(code=finding.code, directive=directive)
+            finding_with_text = type(finding)(code=finding.code, directive=directive, force_stop=finding.force_stop)
             interventions.apply(self.agent_loop, finding_with_text)
 
             # Watch for re-fires within the fail window to classify this

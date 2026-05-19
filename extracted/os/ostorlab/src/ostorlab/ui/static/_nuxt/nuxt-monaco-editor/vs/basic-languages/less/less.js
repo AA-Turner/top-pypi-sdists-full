@@ -1,13 +1,4 @@
-/*!-----------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Version: 0.49.0(383fdf3fc0e1e1a024068b8d0fd4f3dcbae74d04)
- * Released under the MIT license
- * https://github.com/microsoft/monaco-editor/blob/main/LICENSE.txt
- *-----------------------------------------------------------------------------*/
-
-
-// src/basic-languages/less/less.ts
-var conf = {
+const conf = {
   wordPattern: /(#?-?\d*\.\d\w*%?)|([@#!.:]?[\w-?]+%?)|[@#!.]/g,
   comments: {
     blockComment: ["/*", "*/"],
@@ -39,7 +30,7 @@ var conf = {
     }
   }
 };
-var language = {
+const language = {
   defaultToken: "",
   tokenPostfix: ".less",
   identifier: "-?-?([a-zA-Z]|(\\\\(([0-9a-fA-F]{1,6}\\s?)|[^[0-9a-fA-F])))([\\w\\-]|(\\\\(([0-9a-fA-F]{1,6}\\s?)|[^[0-9a-fA-F])))*",
@@ -165,7 +156,5 @@ var language = {
     ]
   }
 };
-export {
-  conf,
-  language
-};
+
+export { conf, language };

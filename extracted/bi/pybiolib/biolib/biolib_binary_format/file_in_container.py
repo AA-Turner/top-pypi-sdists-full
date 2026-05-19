@@ -2,7 +2,7 @@ import os.path
 import tarfile
 import tempfile
 
-from biolib.typing_utils import TYPE_CHECKING, Iterable, Optional
+from biolib._shared.types.typing import TYPE_CHECKING, Iterable, Optional
 
 if TYPE_CHECKING:
     from docker.models.containers import Container  # type: ignore

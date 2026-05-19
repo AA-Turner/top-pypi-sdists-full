@@ -5,6 +5,7 @@ import json
 import socket
 import ssl
 import time
+import typing
 import urllib.parse
 import weakref
 from contextlib import suppress
@@ -16,7 +17,7 @@ from grpclib import GRPCError, Status
 from grpclib.exceptions import StreamTerminatedError
 
 from modal.config import logger
-from modal.exception import ConflictError, ExecTimeoutError
+from modal.exception import ExecTimeoutError, TimeoutError as ModalTimeoutError
 from modal_proto import api_pb2, task_command_router_pb2 as sr_pb2
 from modal_proto.task_command_router_grpc import TaskCommandRouterStub
 
@@ -72,18 +73,48 @@ async def call_with_retries_on_transient_errors(
     base_delay_secs: float = 0.01,
     delay_factor: float = 2,
     max_retries: Optional[int] = 10,
+    exclude_status_codes: Optional[list[Status]] = None,
+    timeout_deadline: Optional[float] = None,
 ):
     """Call func() with transient error retries and exponential backoff.
 
     Authentication retries are expected to be handled by the caller.
+
+    Args:
+        exclude_status_codes: gRPC status codes to exclude from retry logic even if
+            they are in RETRYABLE_GRPC_STATUS_CODES. Use this to let certain errors
+            (e.g. DEADLINE_EXCEEDED) propagate immediately rather than being retried.
+        timeout_deadline: Optional monotonic deadline (`time.monotonic()` value).
+            When set, retries are not attempted once the deadline is reached and
+            the backoff sleep is clamped so we don't sleep past it. It's up to
+            the caller to decide whether to further translate the surfaced
+            exception (e.g., into a TimeoutError) based on the deadline check.
+            The caller is also responsible for propagating the remaining budget
+            into `func()` (typically as the per-call gRPC timeout).
     """
     delay_secs = base_delay_secs
     num_retries = 0
+    exclude_status_codes = exclude_status_codes or []
 
-    async def sleep_and_update_delay_and_num_retries_remaining(e: Exception):
+    def is_retryable_status(status: Status) -> bool:
+        return status in RETRYABLE_GRPC_STATUS_CODES and status not in exclude_status_codes
+
+    def can_retry() -> bool:
+        if max_retries is not None and num_retries >= max_retries:
+            return False
+        if timeout_deadline is not None and time.monotonic() >= timeout_deadline:
+            return False
+        return True
+
+    async def sleep_and_advance(e: Exception):
         nonlocal delay_secs, num_retries
-        logger.debug(f"Retrying RPC with delay {delay_secs}s due to error: {e}")
-        await asyncio.sleep(delay_secs)
+        # Clamp the backoff sleep to the remaining deadline so we don't sleep
+        # past it just to fail on the next iteration's deadline check.
+        sleep_for = delay_secs
+        if timeout_deadline is not None:
+            sleep_for = min(sleep_for, max(0.0, timeout_deadline - time.monotonic()))
+        logger.debug(f"Retrying RPC with delay {sleep_for}s due to error: {e}")
+        await asyncio.sleep(sleep_for)
         delay_secs *= delay_factor
         num_retries += 1
 
@@ -91,28 +122,28 @@ async def call_with_retries_on_transient_errors(
         try:
             return await func()
         except GRPCError as e:
-            if (max_retries is None or num_retries < max_retries) and e.status in RETRYABLE_GRPC_STATUS_CODES:
-                await sleep_and_update_delay_and_num_retries_remaining(e)
-            else:
-                raise e
+            if not is_retryable_status(e.status) or not can_retry():
+                raise
+            await sleep_and_advance(e)
         except AttributeError as e:
             # StreamTerminatedError are not properly raised in grpclib<=0.4.7
             # fixed in https://github.com/vmagamedov/grpclib/issues/185
             # TODO: update to newer version (>=0.4.8) once stable
-            if (max_retries is None or num_retries < max_retries) and "_write_appdata" in str(e):
-                await sleep_and_update_delay_and_num_retries_remaining(e)
-            else:
-                raise e
+            if "_write_appdata" not in str(e) or not can_retry():
+                raise
+            await sleep_and_advance(e)
         except StreamTerminatedError as e:
-            if max_retries is None or num_retries < max_retries:
-                await sleep_and_update_delay_and_num_retries_remaining(e)
-            else:
-                raise e
-        except (OSError, asyncio.TimeoutError) as e:
-            if max_retries is None or num_retries < max_retries:
-                await sleep_and_update_delay_and_num_retries_remaining(e)
-            else:
+            if not can_retry():
+                raise
+            await sleep_and_advance(e)
+        except (asyncio.TimeoutError, OSError) as e:
+            if not can_retry():
+                # Client-side timeout / network OSError surfaces as a generic
+                # ConnectionError once we stop retrying. Callers that pass
+                # `timeout_deadline` can further translate this based on
+                # whether the deadline has elapsed.
                 raise ConnectionError(str(e))
+            await sleep_and_advance(e)
 
 
 async def fetch_command_router_access(server_client, task_id: str) -> api_pb2.TaskGetCommandRouterAccessResponse:
@@ -186,6 +217,15 @@ class TaskCommandRouterClient:
             closed_error_message="Unable to perform operation on a detached sandbox",
         )
 
+        async def send_request(event: grpclib.events.SendRequest) -> None:
+            idempotency_key = typing.cast(Optional[str], event.metadata.get("x-idempotency-key"))
+            if idempotency_key is None:
+                logger.debug(f"Sending request to {event.method_name}")
+            else:
+                logger.debug(f"Sending request to {event.method_name} ({idempotency_key[:8]})")
+
+        grpclib.events.listen(channel, grpclib.events.SendRequest, send_request)
+
         try:
             await _connect_channel(channel)
         except socket.gaierror as exc:
@@ -196,21 +236,12 @@ class TaskCommandRouterClient:
         return cls(server_client, task_id, url, jwt, channel, loop, jwt_refresh_lock, sandbox_id=sandbox_id)
 
     @classmethod
-    async def try_init(
+    async def init(
         cls,
         server_client,
         task_id: str,
-    ) -> Optional["TaskCommandRouterClient"]:
-        """Attempt to initialize a TaskCommandRouterClient by fetching direct access.
-
-        Returns None if command router access is not enabled (FAILED_PRECONDITION).
-        """
-        try:
-            resp = await fetch_command_router_access(server_client, task_id)
-        except ConflictError:
-            logger.debug(f"Command router access is not enabled for task {task_id}")
-            return None
-
+    ) -> "TaskCommandRouterClient":
+        resp = await fetch_command_router_access(server_client, task_id)
         logger.debug(f"Using command router access for task {task_id}")
         return await cls._connect(server_client, task_id, resp.url, resp.jwt)
 
@@ -241,7 +272,7 @@ class TaskCommandRouterClient:
         stream_stdio_retry_delay_factor: float = 2,
         stream_stdio_max_retries: int = 10,
     ) -> None:
-        """Callers should not use this directly. Use TaskCommandRouterClient.try_init() instead."""
+        """Callers should not use this directly. Use TaskCommandRouterClient.init() instead."""
         # Record the loop this instance is bound to so __del__ can safely schedule cleanup
         # even if finalization happens from a different thread (e.g. via synchronicity).
         self._loop = loop
@@ -627,9 +658,42 @@ class TaskCommandRouterClient:
             )
 
     async def snapshot_directory(
-        self, request: sr_pb2.TaskSnapshotDirectoryRequest
+        self, request: sr_pb2.TaskSnapshotDirectoryRequest, **kwargs
     ) -> sr_pb2.TaskSnapshotDirectoryResponse:
         with grpc_error_converter():
             return await call_with_retries_on_transient_errors(
-                lambda: self._call_with_auth_retry(self._stub.TaskSnapshotDirectory, request)
+                lambda: self._call_with_auth_retry(self._stub.TaskSnapshotDirectory, request, **kwargs)
             )
+
+    async def snapshot_filesystem(
+        self, request: sr_pb2.TaskSnapshotFilesystemRequest, *, timeout: float, **kwargs
+    ) -> sr_pb2.TaskSnapshotFilesystemResponse:
+        # Compute the overall deadline once; each retry attempt passes the
+        # remaining budget as the per-call gRPC timeout so we honor the
+        # caller-specified `timeout` across retries instead of giving each
+        # attempt a fresh full window.
+        timeout_deadline = time.monotonic() + timeout
+
+        def call():
+            call_timeout = timeout_deadline - time.monotonic()
+            if call_timeout <= 0.0:
+                # doesn't matter which exception type this is
+                # as it will be caught by the catch all below
+                raise ModalTimeoutError("Timeout expired")
+
+            return self._call_with_auth_retry(
+                self._stub.TaskSnapshotFilesystem, request, timeout=call_timeout, **kwargs
+            )
+
+        # Any failure observed at or after the deadline is treated as a timeout
+        try:
+            with grpc_error_converter():
+                return await call_with_retries_on_transient_errors(
+                    call,
+                    exclude_status_codes=[Status.DEADLINE_EXCEEDED, Status.CANCELLED],
+                    timeout_deadline=timeout_deadline,
+                )
+        except Exception:
+            if time.monotonic() >= timeout_deadline:
+                raise ModalTimeoutError("Timeout expired")
+            raise

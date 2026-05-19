@@ -2164,3 +2164,98 @@ def test_auto_save_seed_accepts_default_seed_id_inside_seed_dir(tmp_path: Path) 
     assert path == (seeds_dir / "seed_safe_123.yaml").resolve()
     assert path.exists()
     assert load_seed(path).metadata.seed_id == "seed_safe_123"
+
+
+@pytest.mark.asyncio
+async def test_auto_handler_complete_product_uses_configured_ralph_factory(
+    monkeypatch, tmp_path
+) -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+    from ouroboros.auto.state import AutoStore
+    from ouroboros.mcp.tools import auto_handler as auto_module
+
+    class FakeRalphHandler:
+        pass
+
+    configured_ralph = FakeRalphHandler()
+    captured: dict[str, object] = {}
+
+    def build_ralph(runtime_backend, opencode_mode):  # noqa: ANN001
+        captured["factory_runtime_backend"] = runtime_backend
+        captured["factory_opencode_mode"] = opencode_mode
+        return configured_ralph
+
+    class FakePipeline:
+        def __init__(self, driver, _seed_generator, **kwargs):  # noqa: ANN001, ANN003, ARG002
+            captured["ralph_starter_handler"] = kwargs["ralph_starter"].handler
+            captured["ralph_resumer_handler"] = kwargs["ralph_resumer"].handler
+
+        async def run(self, run_state):  # noqa: ANN001
+            return AutoPipelineResult(
+                status="complete",
+                auto_session_id=run_state.auto_session_id,
+                phase="complete",
+            )
+
+    monkeypatch.setattr(auto_module, "AutoStore", lambda: AutoStore(tmp_path / "store"))
+    monkeypatch.setattr(auto_module, "AutoPipeline", FakePipeline)
+
+    result = await AutoHandler(
+        agent_runtime_backend="opencode",
+        opencode_mode="plugin",
+        ralph_handler_factory=build_ralph,
+    ).handle({"goal": "Build a CLI", "cwd": str(tmp_path), "complete_product": True})
+
+    assert result.is_ok
+    assert captured["factory_runtime_backend"] == "opencode"
+    assert captured["factory_opencode_mode"] == "plugin"
+    assert captured["ralph_starter_handler"] is configured_ralph
+    assert captured["ralph_resumer_handler"] is configured_ralph
+
+
+def test_auto_handler_attached_completion_is_not_handoff_started() -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+    from ouroboros.mcp.tools.auto_handler import _format_result, _result_meta
+
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_attached",
+        phase="complete",
+        run_handoff_status="attached",
+        attached_run_handle="exec_existing",
+        attached_run_source="operator",
+        attached_at="2026-05-07T00:00:00+00:00",
+    )
+
+    meta = _result_meta(result)
+    text = _format_result(result)
+
+    assert meta["status"] == "complete"
+    assert "presentation_status" not in meta
+    assert "product_status" not in meta
+    assert "Status: complete" in text
+    assert "Status: run_handoff_started" not in text
+    assert "Product status: not verified complete" not in text
+
+
+def test_auto_handler_meta_and_text_distinguish_handoff_from_product_completion() -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+    from ouroboros.mcp.tools.auto_handler import _format_result, _result_meta
+
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_handoff",
+        phase="complete",
+        run_handoff_status="started",
+        job_id="job_123",
+        execution_id="exec_123",
+    )
+
+    meta = _result_meta(result)
+    text = _format_result(result)
+
+    assert meta["status"] == "complete"
+    assert meta["presentation_status"] == "run_handoff_started"
+    assert meta["product_status"] == "not_verified_complete"
+    assert "Status: run_handoff_started" in text
+    assert "Product status: not verified complete" in text

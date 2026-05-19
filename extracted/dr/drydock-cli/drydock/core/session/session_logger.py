@@ -366,19 +366,54 @@ class SessionLogger:
             pass
 
     def _publish_current_session(self) -> None:
-        """Write the active session_dir path to ~/.drydock/current_session.txt
-        so external watchers don't have to mtime-scan the whole history.
+        """Write the active session_dir path to per-project AND per-pid
+        marker files so external watchers can find the right drydock.
+
+        Three write targets:
+          1. `<cwd>/.drydock/current_session.txt` — per-project. A watcher
+             that knows the cwd it's targeting reads this. Concurrent
+             drydocks in different folders don't clobber each other.
+          2. `~/.drydock/sessions_by_pid/<pid>.txt` — per-process. Lets a
+             watcher addressing a specific drydock PID find its session
+             without depending on cwd state.
+          3. `~/.drydock/current_session.txt` — last-writer-wins legacy
+             marker. Kept for back-compat with watchers that don't know
+             the cwd yet; future code should prefer #1 or #2.
 
         Atomic via write-then-rename. Fail-silent — publishing is an
         observability convenience, never block the session on it.
         """
         if self.session_dir is None:
             return
+        contents = str(self.session_dir) + "\n"
+        # (1) per-project
+        try:
+            cwd = Path.cwd()
+            project_pub = cwd / ".drydock" / "current_session.txt"
+            project_pub.parent.mkdir(parents=True, exist_ok=True)
+            tmp = project_pub.with_suffix(".txt.tmp")
+            tmp.write_text(contents)
+            tmp.replace(project_pub)
+        except Exception:  # noqa: BLE001
+            pass
+        # (2) per-pid
+        try:
+            import os as _os
+            pid_dir = Path.home() / ".drydock" / "sessions_by_pid"
+            pid_dir.mkdir(parents=True, exist_ok=True)
+            pid_pub = pid_dir / f"{_os.getpid()}.txt"
+            tmp = pid_pub.with_suffix(".txt.tmp")
+            tmp.write_text(contents)
+            tmp.replace(pid_pub)
+        except Exception:  # noqa: BLE001
+            pass
+        # (3) legacy global — last writer wins. Kept ONLY for watchers
+        # that haven't been updated to look at the per-project path yet.
         try:
             pub_path = Path.home() / ".drydock" / "current_session.txt"
             pub_path.parent.mkdir(parents=True, exist_ok=True)
             tmp_path = pub_path.with_suffix(".txt.tmp")
-            tmp_path.write_text(str(self.session_dir) + "\n")
+            tmp_path.write_text(contents)
             tmp_path.replace(pub_path)
         except Exception:  # noqa: BLE001
             pass
@@ -393,6 +428,18 @@ class SessionLogger:
 
         if self.session_metadata.start_time:
             self.session_start_time = self.session_metadata.start_time
+
+        # 2026-05-18: also publish on resume. Without this, drydocks
+        # that auto-resume an existing session (the common path when
+        # the user re-launches in a directory with a recent session)
+        # never write per-pid or per-project markers — and external
+        # watchers (tui_capture, shakedown SessionWatcher) couldn't
+        # bind to those drydocks. Both running drydocks observed in
+        # the operator's session were resumed and missing markers.
+        try:
+            self._publish_current_session()
+        except Exception:  # noqa: BLE001
+            pass
 
     def cleanup_tmp_files(self) -> None:
         """Delete temporary files created more than 5 minutes ago"""

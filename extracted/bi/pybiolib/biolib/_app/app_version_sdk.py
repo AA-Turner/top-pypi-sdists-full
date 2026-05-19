@@ -1,9 +1,9 @@
 import biolib.api
 from biolib._data_record.data_record import DataRecord
 from biolib._shared.types import ResourceDetailedDict
+from biolib._shared.types.typing import Optional
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client.app_types import AppVersion
-from biolib.typing_utils import Optional
 
 
 class AppVersionSdk:

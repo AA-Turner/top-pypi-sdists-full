@@ -13,8 +13,12 @@
 
 """Identity v3 IdentityProvider action implementations"""
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
+from openstack import utils as sdk_utils
 from osc_lib.cli import format_columns
 from osc_lib import exceptions
 from osc_lib import utils
@@ -27,10 +31,35 @@ from openstackclient.identity import common
 LOG = logging.getLogger(__name__)
 
 
+def _format_identity_provider(idp):
+    columns = (
+        'authorization_ttl',
+        'description',
+        'domain_id',
+        'is_enabled',
+        'name',
+        'remote_ids',
+    )
+    column_headers = (
+        'authorization_ttl',
+        'description',
+        'domain_id',
+        'enabled',
+        'id',
+        'remote_ids',
+    )
+    return (
+        column_headers,
+        utils.get_item_properties(
+            idp, columns, formatters={'remote_ids': format_columns.ListColumn}
+        ),
+    )
+
+
 class CreateIdentityProvider(command.ShowOne):
     _description = _("Create new identity provider")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'identity_provider_id',
@@ -98,26 +127,34 @@ class CreateIdentityProvider(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.identity
-        remote_ids: list[str] | None = None
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
+        kwargs = {'is_enabled': parsed_args.enabled}
+        if parsed_args.identity_provider_id:
+            kwargs['id'] = parsed_args.identity_provider_id
+        if parsed_args.description:
+            kwargs['description'] = parsed_args.description
+
         if parsed_args.remote_id_file:
             file_content = utils.read_blob_file_contents(
                 parsed_args.remote_id_file
             )
             remote_ids = file_content.splitlines()
-            remote_ids = list(map(str.strip, remote_ids))
+            kwargs['remote_ids'] = list(map(str.strip, remote_ids))
         elif parsed_args.remote_ids:
-            remote_ids = parsed_args.remote_ids
+            kwargs['remote_ids'] = parsed_args.remote_ids
 
-        domain_id = None
         if parsed_args.domain:
-            domain_id = common.find_domain(
-                identity_client, parsed_args.domain
-            ).id
+            kwargs['domain_id'] = common.find_domain_id_sdk(
+                identity_client,
+                parsed_args.domain,
+                validate_actor_existence=False,
+            )
 
-        # TODO(pas-ha) actually check for 3.14 microversion
-        kwargs = {}
         auth_ttl = parsed_args.authorization_ttl
         if auth_ttl is not None:
             if auth_ttl < 0:
@@ -127,26 +164,15 @@ class CreateIdentityProvider(command.ShowOne):
                 raise exceptions.CommandError(msg)
             kwargs['authorization_ttl'] = auth_ttl
 
-        idp = identity_client.federation.identity_providers.create(
-            id=parsed_args.identity_provider_id,
-            remote_ids=remote_ids,
-            description=parsed_args.description,
-            domain_id=domain_id,
-            enabled=parsed_args.enabled,
-            **kwargs,
-        )
+        idp = identity_client.create_identity_provider(**kwargs)
 
-        idp._info.pop('links', None)
-        idp._info['remote_ids'] = format_columns.ListColumn(
-            idp._info.pop('remote_ids', [])
-        )
-        return zip(*sorted(idp._info.items()))
+        return _format_identity_provider(idp)
 
 
 class DeleteIdentityProvider(command.Command):
     _description = _("Delete identity provider(s)")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'identity_provider',
@@ -156,17 +182,19 @@ class DeleteIdentityProvider(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.identity
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
         result = 0
         for i in parsed_args.identity_provider:
             try:
-                identity_client.federation.identity_providers.delete(i)
+                identity_client.delete_identity_provider(i)
             except Exception as e:
                 result += 1
                 LOG.error(
                     _(
-                        "Failed to delete identity providers with "
+                        "Failed to delete identity provider with "
                         "name or ID '%(provider)s': %(e)s"
                     ),
                     {'provider': i, 'e': e},
@@ -183,34 +211,39 @@ class DeleteIdentityProvider(command.Command):
 class ListIdentityProvider(command.Lister):
     _description = _("List identity providers")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             '--id',
             metavar='<id>',
-            help=_('The Identity Providers’ ID attribute'),
+            help=_('Filter identity providers by ID'),
         )
         parser.add_argument(
             '--enabled',
             dest='enabled',
             action='store_true',
-            help=_('The Identity Providers that are enabled will be returned'),
+            help=_('List only enabled identity providers'),
         )
         return parser
 
-    def take_action(self, parsed_args):
-        columns = ('ID', 'Enabled', 'Domain ID', 'Description')
-        identity_client = self.app.client_manager.identity
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
+        columns = ('id', 'is_enabled', 'domain_id', 'description')
+        column_headers = ('ID', 'Enabled', 'Domain ID', 'Description')
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         kwargs = {}
         if parsed_args.id:
             kwargs['id'] = parsed_args.id
         if parsed_args.enabled:
-            kwargs['enabled'] = True
+            kwargs['is_enabled'] = True
 
-        data = identity_client.federation.identity_providers.list(**kwargs)
+        data = identity_client.identity_providers(**kwargs)
         return (
-            columns,
+            column_headers,
             (
                 utils.get_item_properties(
                     s,
@@ -225,7 +258,7 @@ class ListIdentityProvider(command.Lister):
 class SetIdentityProvider(command.Command):
     _description = _("Set identity provider properties")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'identity_provider',
@@ -279,8 +312,10 @@ class SetIdentityProvider(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        federation_client = self.app.client_manager.identity.federation
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
 
         # Always set remote_ids if either is passed in
         if parsed_args.remote_id_file:
@@ -297,13 +332,14 @@ class SetIdentityProvider(command.Command):
         if parsed_args.description:
             kwargs['description'] = parsed_args.description
         if parsed_args.enable:
-            kwargs['enabled'] = True
+            kwargs['is_enabled'] = True
         if parsed_args.disable:
-            kwargs['enabled'] = False
+            kwargs['is_enabled'] = False
         if parsed_args.remote_id_file or parsed_args.remote_ids:
             kwargs['remote_ids'] = remote_ids
 
-        # TODO(pas-ha) actually check for 3.14 microversion
+        # NOTE(0weng): This is now possible in SDK! An option should be added.
+        # Original comment:
         # TODO(pas-ha) make it possible to reset authorization_ttl
         # back to None value.
         # Currently not possible as filter_kwargs decorator in
@@ -318,7 +354,7 @@ class SetIdentityProvider(command.Command):
                 raise exceptions.CommandError(msg)
             kwargs['authorization_ttl'] = auth_ttl
 
-        federation_client.identity_providers.update(
+        identity_client.update_identity_provider(
             parsed_args.identity_provider, **kwargs
         )
 
@@ -326,7 +362,7 @@ class SetIdentityProvider(command.Command):
 class ShowIdentityProvider(command.ShowOne):
     _description = _("Display identity provider details")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'identity_provider',
@@ -335,15 +371,14 @@ class ShowIdentityProvider(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
-        identity_client = self.app.client_manager.identity
-        idp = utils.find_resource(
-            identity_client.federation.identity_providers,
-            parsed_args.identity_provider,
-            id=parsed_args.identity_provider,
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
+        identity_client = sdk_utils.ensure_service_version(
+            self.app.client_manager.sdk_connection.identity, '3'
+        )
+        idp = identity_client.get_identity_provider(
+            parsed_args.identity_provider
         )
 
-        idp._info.pop('links', None)
-        remote_ids = format_columns.ListColumn(idp._info.pop('remote_ids', []))
-        idp._info['remote_ids'] = remote_ids
-        return zip(*sorted(idp._info.items()))
+        return _format_identity_provider(idp)

@@ -21208,7 +21208,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: JobconfigresponseResponse
+        :return: JobconfigresponseWithMetadataResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -21235,7 +21235,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(JobconfigresponseResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(JobconfigresponseWithMetadataResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -21296,7 +21296,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='JobconfigresponseResponse',  # noqa: E501
+            response_type='JobconfigresponseWithMetadataResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -23829,6 +23829,8 @@ class DefaultApi(object):
         :param str session_name: The name of the session to fetch nodes for.
         :param str text_filter: The text to filter the nodes by. Search for case-insensitive substring match in node id, name, node_ip, labels, or resources.
         :param list[NodeStatus] states_filter: The states to filter the nodes by.
+        :param NodeSortField sort_field: Optional sort override. END_TIME_DESC orders the full result by end_time_ms desc (nulls last) before paginating; omit for the default session/start-time ordering.
+        :param int since_end_time_ms: Retention cutoff in milliseconds since epoch. When set, only nodes whose end_time_ms is >= the cutoff are returned; nodes with no end_time_ms (alive/pending) are dropped. Used by the cluster topology view's recently-dead-nodes walker.
         :param int page: The page number to fetch.
         :param int page_size: The number of nodes to fetch per page.
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -23858,6 +23860,8 @@ class DefaultApi(object):
         :param str session_name: The name of the session to fetch nodes for.
         :param str text_filter: The text to filter the nodes by. Search for case-insensitive substring match in node id, name, node_ip, labels, or resources.
         :param list[NodeStatus] states_filter: The states to filter the nodes by.
+        :param NodeSortField sort_field: Optional sort override. END_TIME_DESC orders the full result by end_time_ms desc (nulls last) before paginating; omit for the default session/start-time ordering.
+        :param int since_end_time_ms: Retention cutoff in milliseconds since epoch. When set, only nodes whose end_time_ms is >= the cutoff are returned; nodes with no end_time_ms (alive/pending) are dropped. Used by the cluster topology view's recently-dead-nodes walker.
         :param int page: The page number to fetch.
         :param int page_size: The number of nodes to fetch per page.
         :param _return_http_data_only: response data without head status code
@@ -23881,6 +23885,8 @@ class DefaultApi(object):
             'session_name',
             'text_filter',
             'states_filter',
+            'sort_field',
+            'since_end_time_ms',
             'page',
             'page_size'
         ]
@@ -23920,6 +23926,10 @@ class DefaultApi(object):
         if 'states_filter' in local_var_params and local_var_params['states_filter'] is not None:  # noqa: E501
             query_params.append(('states_filter', local_var_params['states_filter']))  # noqa: E501
             collection_formats['states_filter'] = 'multi'  # noqa: E501
+        if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
+            query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
+        if 'since_end_time_ms' in local_var_params and local_var_params['since_end_time_ms'] is not None:  # noqa: E501
+            query_params.append(('since_end_time_ms', local_var_params['since_end_time_ms']))  # noqa: E501
         if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
             query_params.append(('page', local_var_params['page']))  # noqa: E501
         if 'page_size' in local_var_params and local_var_params['page_size'] is not None:  # noqa: E501
@@ -30095,7 +30105,7 @@ class DefaultApi(object):
     def get_user_group_api_v2_user_groups_group_id_get(self, group_id, **kwargs):  # noqa: E501
         """Get User Group  # noqa: E501
 
-        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id and name  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must be an organization admin  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_user_group_api_v2_user_groups_group_id_get(group_id, async_req=True)
@@ -30120,7 +30130,7 @@ class DefaultApi(object):
     def get_user_group_api_v2_user_groups_group_id_get_with_http_info(self, group_id, **kwargs):  # noqa: E501
         """Get User Group  # noqa: E501
 
-        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id and name  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must be an organization admin  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_user_group_api_v2_user_groups_group_id_get_with_http_info(group_id, async_req=True)
@@ -34519,8 +34529,8 @@ class DefaultApi(object):
             local_var_params[key] = val
         del local_var_params['kwargs']
 
-        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 50:  # noqa: E501
-            raise ApiValueError("Invalid value for parameter `count` when calling `list_decorated_serve_deployments_api_v2_decorated_serve_deployments_get`, must be a value less than or equal to `50`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 1000:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_decorated_serve_deployments_api_v2_decorated_serve_deployments_get`, must be a value less than or equal to `1000`")  # noqa: E501
         if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
             raise ApiValueError("Invalid value for parameter `count` when calling `list_decorated_serve_deployments_api_v2_decorated_serve_deployments_get`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
@@ -37318,10 +37328,12 @@ class DefaultApi(object):
         :param str flavor_name: Filter by flavor_name
         :param str project_id: Filter by project_id
         :param str cloud_resource_id: Filter by cloud_resource_id
+        :param str text_search: Case-insensitive substring filter on scheduler_request_id
         :param list[EventLevel] level: Return events matching any of the specified levels
         :param list[SchedulerEventType] event_type: Return events matching any of the specified event types
         :param datetime start_time: Inclusive lower bound on emission time; beginning of time if unset
         :param datetime end_time: Inclusive upper bound on emission time; now if unset
+        :param bool order_desc: If True, order by emission time DESC (newest first). Default True.
         :param str paging_token:
         :param int count:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -37354,10 +37366,12 @@ class DefaultApi(object):
         :param str flavor_name: Filter by flavor_name
         :param str project_id: Filter by project_id
         :param str cloud_resource_id: Filter by cloud_resource_id
+        :param str text_search: Case-insensitive substring filter on scheduler_request_id
         :param list[EventLevel] level: Return events matching any of the specified levels
         :param list[SchedulerEventType] event_type: Return events matching any of the specified event types
         :param datetime start_time: Inclusive lower bound on emission time; beginning of time if unset
         :param datetime end_time: Inclusive upper bound on emission time; now if unset
+        :param bool order_desc: If True, order by emission time DESC (newest first). Default True.
         :param str paging_token:
         :param int count:
         :param _return_http_data_only: response data without head status code
@@ -37383,10 +37397,12 @@ class DefaultApi(object):
             'flavor_name',
             'project_id',
             'cloud_resource_id',
+            'text_search',
             'level',
             'event_type',
             'start_time',
             'end_time',
+            'order_desc',
             'paging_token',
             'count'
         ]
@@ -37408,8 +37424,8 @@ class DefaultApi(object):
             local_var_params[key] = val
         del local_var_params['kwargs']
 
-        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 50:  # noqa: E501
-            raise ApiValueError("Invalid value for parameter `count` when calling `list_scheduler_events_api_v2_scheduler_events_get`, must be a value less than or equal to `50`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 100:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_scheduler_events_api_v2_scheduler_events_get`, must be a value less than or equal to `100`")  # noqa: E501
         if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
             raise ApiValueError("Invalid value for parameter `count` when calling `list_scheduler_events_api_v2_scheduler_events_get`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
@@ -37429,6 +37445,8 @@ class DefaultApi(object):
             query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
         if 'cloud_resource_id' in local_var_params and local_var_params['cloud_resource_id'] is not None:  # noqa: E501
             query_params.append(('cloud_resource_id', local_var_params['cloud_resource_id']))  # noqa: E501
+        if 'text_search' in local_var_params and local_var_params['text_search'] is not None:  # noqa: E501
+            query_params.append(('text_search', local_var_params['text_search']))  # noqa: E501
         if 'level' in local_var_params and local_var_params['level'] is not None:  # noqa: E501
             query_params.append(('level', local_var_params['level']))  # noqa: E501
             collection_formats['level'] = 'multi'  # noqa: E501
@@ -37439,6 +37457,8 @@ class DefaultApi(object):
             query_params.append(('start_time', local_var_params['start_time']))  # noqa: E501
         if 'end_time' in local_var_params and local_var_params['end_time'] is not None:  # noqa: E501
             query_params.append(('end_time', local_var_params['end_time']))  # noqa: E501
+        if 'order_desc' in local_var_params and local_var_params['order_desc'] is not None:  # noqa: E501
+            query_params.append(('order_desc', local_var_params['order_desc']))  # noqa: E501
         if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
             query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
         if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
@@ -46593,6 +46613,133 @@ class DefaultApi(object):
 
         return self.api_client.call_api(
             '/api/v2/organization_collaborators/{user_id}/roles', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def set_user_group_roles_api_v2_user_groups_group_id_roles_put(self, group_id, set_user_group_roles, **kwargs):  # noqa: E501
+        """Set User Group Roles  # noqa: E501
+
+        Set organization-level roles for a user group.  Assigns a base role and optional additional roles to the specified user group. Uses a revoke-then-grant pattern to ensure idempotent role assignment.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **base_role**: The base role (owner, collaborator) - **additional_roles**: Optional additional roles (image_reader, image_reader_no_base_images)  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_user_group_roles_api_v2_user_groups_group_id_roles_put(group_id, set_user_group_roles, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str group_id: (required)
+        :param SetUserGroupRoles set_user_group_roles: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.set_user_group_roles_api_v2_user_groups_group_id_roles_put_with_http_info(group_id, set_user_group_roles, **kwargs)  # noqa: E501
+
+    def set_user_group_roles_api_v2_user_groups_group_id_roles_put_with_http_info(self, group_id, set_user_group_roles, **kwargs):  # noqa: E501
+        """Set User Group Roles  # noqa: E501
+
+        Set organization-level roles for a user group.  Assigns a base role and optional additional roles to the specified user group. Uses a revoke-then-grant pattern to ensure idempotent role assignment.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **base_role**: The base role (owner, collaborator) - **additional_roles**: Optional additional roles (image_reader, image_reader_no_base_images)  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_user_group_roles_api_v2_user_groups_group_id_roles_put_with_http_info(group_id, set_user_group_roles, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str group_id: (required)
+        :param SetUserGroupRoles set_user_group_roles: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'group_id',
+            'set_user_group_roles'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method set_user_group_roles_api_v2_user_groups_group_id_roles_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'group_id' is set
+        if self.api_client.client_side_validation and ('group_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['group_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `group_id` when calling `set_user_group_roles_api_v2_user_groups_group_id_roles_put`")  # noqa: E501
+        # verify the required parameter 'set_user_group_roles' is set
+        if self.api_client.client_side_validation and ('set_user_group_roles' not in local_var_params or  # noqa: E501
+                                                        local_var_params['set_user_group_roles'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `set_user_group_roles` when calling `set_user_group_roles_api_v2_user_groups_group_id_roles_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'group_id' in local_var_params:
+            path_params['group_id'] = local_var_params['group_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'set_user_group_roles' in local_var_params:
+            body_params = local_var_params['set_user_group_roles']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/user_groups/{group_id}/roles', 'PUT',
             path_params,
             query_params,
             header_params,

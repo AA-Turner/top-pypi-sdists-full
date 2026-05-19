@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-drawio
-Version: 1.15.0
+Version: 1.16.1
 Summary: MkDocs plugin for embedding Drawio files
 License: MIT
 License-File: LICENSE
@@ -21,6 +21,7 @@ Requires-Dist: Jinja2 (>=3.0)
 Requires-Dist: beautifulsoup4 (>=4.0)
 Requires-Dist: lxml (>=4.8)
 Requires-Dist: mkdocs (>=1.4)
+Requires-Dist: pypng (==0.20220715.0)
 Requires-Dist: requests (>=2.0)
 Project-URL: Homepage, https://github.com/tuunit/mkdocs-drawio/
 Project-URL: Repository, https://github.com/tuunit/mkdocs-drawio/

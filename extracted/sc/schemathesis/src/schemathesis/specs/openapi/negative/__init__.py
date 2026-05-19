@@ -18,6 +18,7 @@ from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
 from schemathesis.core.media_types import is_json
 from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import ParameterLocation
+from schemathesis.generation.value import GeneratedValue
 from schemathesis.specs.openapi.negative.mutations import (
     Mutation,
     MutationChannel,
@@ -34,7 +35,6 @@ SYNTAX_FUZZING_PROBABILITY = 0.05
 VALUE_CHANNEL_PROBABILITY = 0.15
 
 if TYPE_CHECKING:
-    from schemathesis.resources import PoolDraw
     from schemathesis.specs.openapi.negative.types import Draw, Schema
 
 
@@ -53,19 +53,6 @@ def _random_non_json_bytes() -> st.SearchStrategy[bytes]:
     Used for syntax-level fuzzing of JSON endpoints.
     """
     return st.binary(min_size=1, max_size=1024).filter(_is_not_valid_json)
-
-
-@dataclass(slots=True)
-class GeneratedValue:
-    """Wrapper for generated values with optional mutation metadata.
-
-    This allows us to pass both the value and metadata through the generation pipeline
-    without using tuples, making the code cleaner and type-safe.
-    """
-
-    value: Any
-    meta: MutationMetadata | None
-    pool_draws: tuple[PoolDraw, ...] = ()
 
 
 def wrap_filter_hook_for_generated_value(hook: Callable) -> Callable:
@@ -89,7 +76,13 @@ def wrap_map_hook_for_generated_value(hook: Callable) -> Callable:
     def wrapper(value: Any) -> Any:
         if isinstance(value, GeneratedValue):
             result = hook(value.value)
-            return GeneratedValue(value=result, meta=value.meta, pool_draws=value.pool_draws)
+            return GeneratedValue(
+                value=result,
+                meta=value.meta,
+                pool_draws=value.pool_draws,
+                semantic_draws=value.semantic_draws,
+                dictionary_draws=value.dictionary_draws,
+            )
         return hook(value)
 
     return wrapper
@@ -107,7 +100,17 @@ def wrap_flatmap_hook_for_generated_value(hook: Callable) -> Callable:
         if isinstance(value, GeneratedValue):
             meta = value.meta
             pool_draws = value.pool_draws
-            return hook(value.value).map(lambda v: GeneratedValue(value=v, meta=meta, pool_draws=pool_draws))
+            semantic_draws = value.semantic_draws
+            dictionary_draws = value.dictionary_draws
+            return hook(value.value).map(
+                lambda v: GeneratedValue(
+                    value=v,
+                    meta=meta,
+                    pool_draws=pool_draws,
+                    semantic_draws=semantic_draws,
+                    dictionary_draws=dictionary_draws,
+                )
+            )
         return hook(value)
 
     return wrapper

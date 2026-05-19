@@ -60,7 +60,7 @@ from .poll import Poll
 from .reaction import Reaction
 from .sticker import StickerItem
 from .threads import Thread
-from .utils import MISSING, escape_mentions, find
+from .utils import MISSING, escape_mentions, find, warn_deprecated
 
 if TYPE_CHECKING:
     from .abc import (
@@ -102,6 +102,7 @@ if TYPE_CHECKING:
 __all__ = (
     "Attachment",
     "Message",
+    "MessagePin",
     "PartialMessage",
     "MessageReference",
     "MessageCall",
@@ -1389,7 +1390,7 @@ class Message(Hashable):
             "interaction",
             "interaction_metadata",
             "2.6",
-            reference="https://discord.com/developers/docs/change-log#userinstallable-apps-preview",
+            reference="https://docs.discord.com/developers/change-log#user-installable-apps-preview",
         )
         return self._interaction
 
@@ -1399,7 +1400,7 @@ class Message(Hashable):
             "interaction",
             "interaction_metadata",
             "2.6",
-            reference="https://discord.com/developers/docs/change-log#userinstallable-apps-preview",
+            reference="https://docs.discord.com/developers/change-log#user-installable-apps-preview",
         )
         self._interaction = value
 
@@ -1737,6 +1738,7 @@ class Message(Hashable):
         files: list[File] | None = ...,
         attachments: list[Attachment] = ...,
         suppress: bool = ...,
+        suppress_embeds: bool = ...,
         delete_after: float | None = ...,
         allowed_mentions: AllowedMentions | None = ...,
         view: BaseView | None = ...,
@@ -1751,6 +1753,7 @@ class Message(Hashable):
         files: list[Sequence[File]] = MISSING,
         attachments: list[Attachment] = MISSING,
         suppress: bool = MISSING,
+        suppress_embeds: bool = MISSING,
         delete_after: float | None = None,
         allowed_mentions: AllowedMentions | None = MISSING,
         view: BaseView | None = MISSING,
@@ -1789,6 +1792,15 @@ class Message(Hashable):
             all the embeds if set to ``True``. If set to ``False``
             this brings the embeds back if they were suppressed.
             Using this parameter requires :attr:`~.Permissions.manage_messages`.
+
+            .. deprecated:: 2.8
+        suppress_embeds: :class:`bool`
+            Whether to suppress embeds for the message. This removes
+            all the embeds if set to ``True``. If set to ``False``
+            this brings the embeds back if they were suppressed.
+            Using this parameter requires :attr:`~.Permissions.manage_messages`.
+
+            .. versionadded:: 2.8
         delete_after: Optional[:class:`float`]
             If provided, the number of seconds to wait in the background
             before deleting the message we just edited. If the deletion fails,
@@ -1837,7 +1849,12 @@ class Message(Hashable):
         flags = MessageFlags._from_value(self.flags.value)
 
         if suppress is not MISSING:
-            flags.suppress_embeds = suppress
+            warn_deprecated("suppress", "suppress_embeds", "2.8")
+            if suppress_embeds is MISSING:
+                suppress_embeds = suppress
+
+        if suppress_embeds is not MISSING:
+            flags.suppress_embeds = suppress_embeds
 
         if allowed_mentions is MISSING:
             if (
@@ -1901,7 +1918,7 @@ class Message(Hashable):
 
         if view and not view.is_finished():
             view.message = message
-            view.refresh(message.components)
+            view._refresh(message.components)
             if view.is_dispatchable():
                 self._state.store_view(view, self.id)
 
@@ -2570,7 +2587,7 @@ class PartialMessage(Hashable):
             msg = self._state.create_message(channel=self.channel, data=data)  # type: ignore
             if view and not view.is_finished():
                 view.message = msg
-                view.refresh(msg.components)
+                view._refresh(msg.components)
                 if view.is_dispatchable():
                     self._state.store_view(view, self.id)
             return msg
