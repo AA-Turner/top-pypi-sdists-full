@@ -126,6 +126,14 @@ describe("puppeteer launch", () => {
     expect(page.authenticate).not.toHaveBeenCalled();
   });
 
+  it("forwards launchOptions to puppeteer launch", async () => {
+    const { launch } = await import("../src/puppeteer.js");
+    await launch({ launchOptions: { slowMo: 50 } });
+
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.slowMo).toBe(50);
+  });
+
   it("reconstructs SOCKS5 dict with auth into --proxy-server URL", async () => {
     const { launch } = await import("../src/puppeteer.js");
     const browser = await launch({
@@ -137,5 +145,97 @@ describe("puppeteer launch", () => {
 
     const page = await browser.newPage();
     expect(page.authenticate).not.toHaveBeenCalled();
+  });
+});
+
+describe("puppeteer launchPersistentContext", () => {
+  let puppeteerMock: any;
+  let mockBrowser: any;
+
+  beforeEach(async () => {
+    delete process.env.CLOAKBROWSER_BINARY_PATH;
+    puppeteerMock = await import("puppeteer-core");
+    mockBrowser = {
+      newPage: vi.fn().mockResolvedValue({
+        authenticate: vi.fn(),
+      }),
+      close: vi.fn(),
+    };
+    vi.mocked(puppeteerMock.default.launch).mockResolvedValue(mockBrowser);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("passes userDataDir to puppeteer launch", async () => {
+    process.env.CLOAKBROWSER_BINARY_PATH = "/fake/chrome";
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+    await launchPersistentContext({ userDataDir: "./my-profile" });
+
+    expect(puppeteerMock.default.launch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userDataDir: "./my-profile",
+        executablePath: "/fake/chrome",
+      })
+    );
+  });
+
+  it("includes stealth args", async () => {
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+    await launchPersistentContext({ userDataDir: "./my-profile" });
+
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.args.some((a: string) => a.startsWith("--fingerprint="))).toBe(true);
+  });
+
+  it("handles proxy auth with persistent context", async () => {
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+    const browser = await launchPersistentContext({
+      userDataDir: "./my-profile",
+      proxy: "http://user:pass@proxy:8080",
+    });
+
+    const page = await browser.newPage();
+    expect(page.authenticate).toHaveBeenCalledWith({
+      username: "user",
+      password: "pass",
+    });
+  });
+
+  it("keeps SOCKS5 credentials in --proxy-server URL", async () => {
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+    const browser = await launchPersistentContext({
+      userDataDir: "./my-profile",
+      proxy: "socks5://user:pass@proxy:1080",
+    });
+
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.args).toContain("--proxy-server=socks5://user:pass@proxy:1080");
+
+    const page = await browser.newPage();
+    expect(page.authenticate).not.toHaveBeenCalled();
+  });
+
+  it("forwards launchOptions to puppeteer launch", async () => {
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+    await launchPersistentContext({ userDataDir: "./my-profile", launchOptions: { slowMo: 50 } });
+
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.slowMo).toBe(50);
+    expect(callArgs.userDataDir).toBe("./my-profile");
+  });
+
+  it("injects timezone and locale as binary flags", async () => {
+    const { launchPersistentContext } = await import("../src/puppeteer.js");
+    await launchPersistentContext({
+      userDataDir: "./my-profile",
+      timezone: "Asia/Tokyo",
+      locale: "ja-JP",
+    });
+
+    const callArgs = vi.mocked(puppeteerMock.default.launch).mock.calls[0][0];
+    expect(callArgs.args).toContain("--fingerprint-timezone=Asia/Tokyo");
+    expect(callArgs.args).toContain("--lang=ja-JP");
   });
 });

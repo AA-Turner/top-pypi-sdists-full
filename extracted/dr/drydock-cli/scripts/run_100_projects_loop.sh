@@ -48,7 +48,11 @@ while true; do
   fi
 
   echo "$(date -Iseconds) iter=${iter} starting run" >> "${LOOP_LOG}"
-  RUN_OUT=$(timeout 360 /home/bobef/miniconda3/bin/python3 scripts/run_100_projects.py --timeout-sec 240 2>&1 || true)
+  # 5-prompt iterative sequence (read→edit→run→debug→re-edit) needs
+  # much longer than the prior 2-prompt 240s budget. Cap at ~15 min
+  # per run; wrapper kill at 16 min so a hung iter doesn't stall the
+  # loop.
+  RUN_OUT=$(timeout 960 /home/bobef/miniconda3/bin/python3 scripts/run_100_projects.py --timeout-sec 900 2>&1 || true)
   echo "$(date -Iseconds) iter=${iter} done" >> "${LOOP_LOG}"
   echo "${RUN_OUT}" >> "${LOOP_LOG}"
   echo "---" >> "${LOOP_LOG}"

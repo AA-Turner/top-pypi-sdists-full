@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Literal, Optional, Union
 
+import requests
+
 from abstra_internals.cloud_api.http_client import HTTPClient
 from abstra_internals.credentials import resolve_headers
 
@@ -77,8 +79,23 @@ class EmailRepository:
         headers = resolve_headers() or {}
         if user_jwt:
             headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
-        self.client.post(
+        response = self.client.post(
             endpoint="/email",
             json=param.to_dict(),
             headers=headers,
-        ).raise_for_status()
+        )
+        if not response.ok:
+            # raise_for_status() drops the response body. cloud-api returns
+            # {"error": "...", "code": "..."} on things like consumption blocks;
+            # surface the actual message so users know what to do.
+            try:
+                payload = response.json()
+                detail = payload.get("error") if isinstance(payload, dict) else None
+            except ValueError:
+                detail = None
+            if not detail:
+                detail = response.text or response.reason
+            raise requests.HTTPError(
+                f"{response.status_code} {response.reason}: {detail}",
+                response=response,
+            )

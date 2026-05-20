@@ -81,6 +81,25 @@ class ReadFile(
             )
             return
 
+        # Handle Jupyter notebooks (.ipynb): strip cell outputs to save
+        # context. Notebook JSON often has 80%+ of bytes in outputs
+        # (base64-encoded images, repr() of large dataframes, etc.) that
+        # the model rarely needs to read code. Operator observed
+        # 2026-05-19: Google_Trends_Analysis/main.ipynb returned 64,073
+        # chars (full read_file cap) and inflated the session to 31K
+        # tokens vs the 7-9K baseline.
+        if file_path.suffix.lower() == ".ipynb":
+            try:
+                slim = self._read_notebook_slim(file_path)
+                yield ReadFileResult(
+                    path=str(file_path), content=slim,
+                    lines_read=slim.count("\n"), was_truncated=False,
+                )
+                return
+            except Exception:
+                # Fall through to plain UTF-8 read on parse error.
+                pass
+
         # Handle image files (describe what we can)
         if file_path.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg"):
             import os
@@ -187,6 +206,44 @@ class ReadFile(
             lines_read=len(read_result.lines),
             was_truncated=read_result.was_truncated,
         )
+
+    def _read_notebook_slim(self, file_path: Path) -> str:
+        """Read a Jupyter notebook and return a compact form: cell type,
+        source, and execution_count only. Outputs are SUMMARIZED (count
+        per type) rather than embedded — they're usually 80%+ of bytes
+        and the model rarely needs them to read code.
+
+        Raises on parse failure; caller falls back to a plain UTF-8 read.
+        """
+        import json as _json
+        data = _json.loads(file_path.read_text(encoding="utf-8"))
+        cells = data.get("cells") or []
+        out_lines: list[str] = [
+            f"# Notebook: {file_path.name} ({len(cells)} cells, "
+            f"outputs stripped — use `bash cat {file_path.name}` to see raw JSON)",
+            "",
+        ]
+        for i, cell in enumerate(cells):
+            ctype = cell.get("cell_type", "?")
+            src = cell.get("source", "")
+            if isinstance(src, list):
+                src = "".join(src)
+            ec = cell.get("execution_count")
+            outputs = cell.get("outputs") or []
+            header = f"## Cell {i} [{ctype}]"
+            if ec is not None:
+                header += f" (exec={ec})"
+            if outputs:
+                kinds: dict[str, int] = {}
+                for o in outputs:
+                    k = o.get("output_type", "?")
+                    kinds[k] = kinds.get(k, 0) + 1
+                summary = ", ".join(f"{n} {k}" for k, n in kinds.items())
+                header += f" — outputs: [{summary}]"
+            out_lines.append(header)
+            out_lines.append(src.rstrip())
+            out_lines.append("")
+        return "\n".join(out_lines)
 
     def _read_pdf(self, file_path: Path) -> str:
         """Extract text from a PDF file."""

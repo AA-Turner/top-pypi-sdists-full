@@ -615,7 +615,7 @@ def _deviation_prerequisites_present(
 
 
 @dataclass(frozen=True)
-class _MaterializedViewSpec:
+class MaterializedViewSpec:
     """A view whose body gets materialized as a Delta table at publish time.
 
     After ``publish_dashboard_views`` submits all view DDLs, each spec
@@ -663,8 +663,8 @@ class _MaterializedViewSpec:
 # and ``v_playbook_archetype_rollup`` (none of which are materialized —
 # they're aggregations small enough to stay live) so it must be
 # materialized first to feed those downstream views.
-_MATERIALIZED_VIEW_SPECS: tuple[_MaterializedViewSpec, ...] = (
-    _MaterializedViewSpec(
+_MATERIALIZED_VIEW_SPECS: tuple[MaterializedViewSpec, ...] = (
+    MaterializedViewSpec(
         view_name="v_account_primary_recommendation",
         table_name="dashboard_account_primary_recommendation",
         zorder_col="entity_id",
@@ -684,13 +684,13 @@ _MATERIALIZED_VIEW_SPECS: tuple[_MaterializedViewSpec, ...] = (
             "v_eligible_all_playbooks",
         ),
     ),
-    _MaterializedViewSpec(
+    MaterializedViewSpec(
         view_name="v_account_explanation",
         table_name="dashboard_account_explanation",
         zorder_col="entity_id",
         requires_composite=False,
     ),
-    _MaterializedViewSpec(
+    MaterializedViewSpec(
         view_name="v_account_feature_deviation",
         table_name="dashboard_account_feature_deviation",
         zorder_col="entity_id",
@@ -702,7 +702,7 @@ _MATERIALIZED_VIEW_SPECS: tuple[_MaterializedViewSpec, ...] = (
         # Delta table the topn's metadata is stale.
         refresh_dependents=("v_account_feature_deviation_topn",),
     ),
-    _MaterializedViewSpec(
+    MaterializedViewSpec(
         view_name="v_account_feature_deviation_topn",
         table_name="dashboard_account_feature_deviation_topn",
         zorder_col="entity_id",
@@ -711,11 +711,11 @@ _MATERIALIZED_VIEW_SPECS: tuple[_MaterializedViewSpec, ...] = (
 )
 
 
-def _materialize_view_as_table(
+def materialize_view_as_table(
     spark: "SparkSession",
     catalog: str,
     schema: str,
-    spec: _MaterializedViewSpec,
+    spec: MaterializedViewSpec,
 ) -> bool:
     """Run the CTAS + OPTIMIZE + re-point sequence for one spec.
 
@@ -864,12 +864,36 @@ def _materialize_hot_views(
     ``refresh_dependents`` can be re-published from the same source as
     the initial publish -- guaranteeing the refreshed view body matches
     what was originally validated.
+
+    Each spec's OWN view DDL is also re-published before its CTAS pass.
+    After a prior materialization, the view body is the trivial
+    ``SELECT * FROM <table_name>`` pass-through; re-running the CTAS as-is
+    would read from the stale table (via that pass-through view) and
+    write the same stale rows back, never picking up upstream changes to
+    ``eligibility_snapshot`` (e.g. project-side ``value_at_risk``
+    backfills run between publishes). Re-publishing the original CTE body
+    immediately before the CTAS forces the source to be the live
+    upstream tables. Idempotent on first publish (the view is already at
+    its original body).
     """
     rewired: List[str] = []
     for spec in _MATERIALIZED_VIEW_SPECS:
         if spec.requires_composite and not include_deviation:
             continue
-        if _materialize_view_as_table(spark, catalog, schema, spec):
+        view_fqn = f"{catalog}.{schema}.{spec.view_name}"
+        original_ddl = _find_view_ddl(statements, view_fqn)
+        if original_ddl is not None:
+            try:
+                spark.sql(original_ddl)
+            except Exception as exc:  # noqa: BLE001 -- best-effort, fall
+                # through to the CTAS even when re-publish fails so the
+                # operator at least sees the warning surface in logs.
+                logger.warning(
+                    "could not re-publish %s before its CTAS; the refresh "
+                    "may read stale rows from the previously-materialized "
+                    "table: %s", view_fqn, exc,
+                )
+        if materialize_view_as_table(spark, catalog, schema, spec):
             rewired.append(spec.view_name)
             _refresh_dependent_views(
                 spark, catalog, schema, statements, spec.refresh_dependents,

@@ -120,11 +120,26 @@ def migrate_user_config(config_file: Path) -> None:
                     "top_k": 40,
                     "top_p": 0.95,
                     "repeat_penalty": 1.1,
-                    "max_tokens": 2048,
+                    "max_tokens": 8192,
                 }
                 fixed.append(
                     f"models.{label}.extra_params: seeded Gemma 4 anti-loop recipe"
                 )
+
+            # 2026-05-19: bump stale max_tokens=2048 → 8192. The article
+            # recipe value was too tight for write_file calls with
+            # nontrivial content (8K+ chars of JSON-encoded source) —
+            # the response got truncated mid-string and the parser
+            # rejected it. 8192 still bounds runaway generation but
+            # leaves room for normal code writes.
+            if "gemma" in model_name:
+                ep = model.get("extra_params")
+                if isinstance(ep, dict) and ep.get("max_tokens") == 2048:
+                    ep["max_tokens"] = 8192
+                    fixed.append(
+                        f"models.{label}.extra_params.max_tokens: 2048 → 8192 "
+                        f"(avoid write_file truncation)"
+                    )
 
     if not added and not fixed:
         return

@@ -14,7 +14,6 @@ import importlib.resources
 import keyword
 import logging
 import os
-import shutil
 import sys
 import webbrowser
 from pathlib import Path
@@ -76,7 +75,7 @@ from cogames.display_detect import has_display
 from cogames.optional_deps import require_neural
 from cogames.replays import ReplayPathRequest, launch_replay_path
 from cogames.seed import seed_rollout_rng
-from softmax.auth import get_login_server, load_current_cogames_token
+from softmax.auth import get_api_server, load_current_cogames_token
 
 # Always add current directory to Python path so optional plugins in the repo are discoverable.
 sys.path.insert(0, ".")
@@ -137,8 +136,9 @@ def _read_doc_text(doc_name: str) -> str:
     return _read_packaged_doc(doc_name)
 
 
-def _register_policies() -> None:
-    if len(sys.argv) <= 1 or sys.argv[1] in _POLICY_FREE_COMMANDS:
+def _register_policies(ctx: typer.Context) -> None:
+    invoked_subcommand = ctx.invoked_subcommand
+    if invoked_subcommand is None or invoked_subcommand in _POLICY_FREE_COMMANDS:
         return
 
     from mettagrid.policy.loader import discover_and_register_policies  # noqa: PLC0415
@@ -628,7 +628,9 @@ def replay_cmd(
 [cyan]cogames tutorial make-policy --scripted -o my_scripted_policy.py[/cyan]  Scripted (rule-based)
 
 [cyan]cogames tutorial make-policy --amongthem -o amongthem_policy.py[/cyan]
-                                                                  AmongThem scripted practice""",
+                                                                  AmongThem scripted practice
+
+[cyan]cogames tutorial make-policy --amongthem --print[/cyan]     Preview template source""",
     add_help_option=False,
 )
 def make_policy(
@@ -658,6 +660,12 @@ def make_policy(
         "-o",
         metavar="FILE",
         help="Output file path.",
+        rich_help_panel="Output",
+    ),
+    print_template: bool = typer.Option(
+        False,
+        "--print",
+        help="Print the policy template instead of writing a file.",
         rich_help_panel="Output",
     ),
     # --- Help ---
@@ -705,37 +713,35 @@ def make_policy(
             console.print(f"[red]Error: {policy_type} policy template not found[/red]")
             raise typer.Exit(1)
 
+        template_text = template_path.read_text()
+        if not trainable:
+            lines = template_text.splitlines()
+            lines = [line for line in lines if not line.strip().startswith("short_names =")]
+            template_text = "\n".join(lines) + "\n"
+
+        if print_template:
+            sys.stdout.write(template_text)
+            return
+
         dest_path = Path.cwd() / output
         _validate_policy_module_name_or_exit(dest_path)
 
         if dest_path.exists():
             console.print(f"[yellow]Warning: {dest_path} already exists. Overwriting...[/yellow]")
 
-        shutil.copy2(template_path, dest_path)
+        dest_path.write_text(template_text)
         console.print(f"[green]{policy_type} policy template copied to: {dest_path}[/green]")
-
-        if not trainable:
-            content = dest_path.read_text()
-            lines = content.splitlines()
-            lines = [line for line in lines if not line.strip().startswith("short_names =")]
-            dest_path.write_text("\n".join(lines) + "\n")
 
         if trainable:
             console.print(
                 f"[dim]Train with: cogames tutorial train -m arena -p class={dest_path.stem}.{policy_class}[/dim]"
             )
         elif amongthem:
-            policy_spec = f"class={dest_path.stem}.{policy_class}"
-            console.print(
-                f"[dim]Dry-run validation: cogames upload -p {policy_spec} -f {output} "
-                "-n $USER-amongthem-practice --season <season> --dry-run[/dim]"
-            )
-            console.print(
-                f"[dim]Ship: cogames ship -p {policy_spec} -f {output} "
-                "-n $USER-amongthem-practice --season <season>[/dim]"
-            )
-            console.print("[dim]Score: cogames leaderboard <season> --policy $USER-amongthem-practice[/dim]")
-            console.print("[dim]Walkthrough: cogames docs amongthem_policy[/dim]")
+            console.print(f"[dim]Edit starter policy: {dest_path}[/dim]", soft_wrap=True)
+            console.print("[dim]Start with: AmongThemPolicy._choose_actions()[/dim]")
+            console.print("[dim]Preview template: cogames tutorial make-policy --amongthem --print[/dim]")
+            console.print("[dim]Wrap it in a Docker player before submitting to Among Them Daily.[/dim]")
+            console.print("[dim]Docker/Coworld submission guide: https://softmax.com/play_amongthem.md[/dim]")
         else:
             console.print(f"[dim]Play with: cogames play -m arena -p class={dest_path.stem}.{policy_class}[/dim]")
 
@@ -1471,7 +1477,7 @@ def diagnose_cmd(ctx: typer.Context) -> None:
 
 
 def _resolve_season(server: str, season_name: str | None = None) -> SeasonDetail:
-    auth_token = load_current_cogames_token(login_server=get_login_server())
+    auth_token = load_current_cogames_token(api_server=server or get_api_server())
     try:
         with TournamentServerClient(server_url=server, token=auth_token) as client:
             if season_name is None:
@@ -1642,7 +1648,7 @@ def validate_bundle_cmd(
     if image == DEFAULT_EPISODE_RUNNER_IMAGE and season_info.compat_version is not None:
         image = f"ghcr.io/metta-ai/episode-runner:compat-v{season_info.compat_version}"
 
-    auth_token = load_current_cogames_token(login_server=get_login_server())
+    auth_token = load_current_cogames_token(api_server=server or get_api_server())
     season_ref = season or season_info.name
     with TournamentServerClient(server_url=server, token=auth_token) as client:
         pool_config = _resolve_validation_pool_config(client, season_ref, season_info)

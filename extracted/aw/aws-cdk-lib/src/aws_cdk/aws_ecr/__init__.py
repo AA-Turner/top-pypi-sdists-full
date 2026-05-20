@@ -6514,7 +6514,7 @@ class Repository(
         evaluation = agentcore.OnlineEvaluationConfig(self, "RuntimeEval",
             online_evaluation_config_name="runtime_evaluation",
             evaluators=[
-                agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
+                agentcore.EvaluatorSelector.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
             ],
             data_source=agentcore.DataSourceConfig.from_agent_runtime_endpoint(runtime)
         )

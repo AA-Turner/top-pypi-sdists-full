@@ -27,7 +27,9 @@ class HealthStatus(BaseModel):
     HealthStatus
     """ # noqa: E501
     message: Optional[StrictStr] = Field(default='ok', description="Successful health check message.")
-    __properties: ClassVar[List[str]] = ["message"]
+    build_version: Optional[StrictStr] = Field(default=None, description="Application build version.")
+    release_version: Optional[StrictStr] = Field(default=None, description="Platform release version.")
+    __properties: ClassVar[List[str]] = ["message", "build_version", "release_version"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,7 +82,9 @@ class HealthStatus(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "message": obj.get("message") if obj.get("message") is not None else 'ok'
+            "message": obj.get("message") if obj.get("message") is not None else 'ok',
+            "build_version": obj.get("build_version"),
+            "release_version": obj.get("release_version")
         })
         return _obj
 

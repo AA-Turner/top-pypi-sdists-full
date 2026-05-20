@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-mlops
-Version: 1.11.0
+Version: 1.12.0
 Summary: SageMaker MLOps package for workflow orchestration and model building
 Author: Amazon Web Services
 License:                                  Apache License
@@ -215,25 +215,26 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sagemaker-core>=2.11.0
-Requires-Dist: sagemaker-train>=1.11.0
-Requires-Dist: sagemaker-serve>=1.11.0
+Requires-Dist: sagemaker-core>=2.12.0
+Requires-Dist: sagemaker-train>=1.12.0
+Requires-Dist: sagemaker-serve>=1.12.0
+Requires-Dist: cryptography>=46.0.0
 Requires-Dist: boto3<2.0,>=1.42.2
 Requires-Dist: botocore<2.0,>=1.42.2
 Requires-Dist: pyiceberg[glue]>=0.8.0
 Requires-Dist: pyarrow>=14.0.0
 Requires-Dist: s3fs
 Provides-Extra: feature-processor
-Requires-Dist: pyspark==3.3.2; extra == "feature-processor"
-Requires-Dist: sagemaker-feature-store-pyspark-3.3; extra == "feature-processor"
+Requires-Dist: pyspark==3.5.1; extra == "feature-processor"
+Requires-Dist: sagemaker-feature-store-pyspark==2.0.0; extra == "feature-processor"
 Requires-Dist: setuptools<82; extra == "feature-processor"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: mock; extra == "test"
 Requires-Dist: setuptools<82; extra == "test"
-Requires-Dist: pyspark==3.3.2; extra == "test"
-Requires-Dist: sagemaker-feature-store-pyspark-3.3; extra == "test"
+Requires-Dist: pyspark==3.5.1; extra == "test"
+Requires-Dist: sagemaker-feature-store-pyspark==2.0.0; extra == "test"
 Requires-Dist: pandas<3.0; extra == "test"
 Requires-Dist: numpy<3.0; extra == "test"
 Provides-Extra: dev

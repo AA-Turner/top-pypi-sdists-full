@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
@@ -46,16 +45,14 @@ func newWeightsImportCommand() *cobra.Command {
 and pushes the layers to a registry.
 
 Import also warms the local content-addressed weight store as a side
-effect, so 'cog predict' can mount the weights immediately without a
+effect, so 'cog run' can mount the weights immediately without a
 separate 'cog weights pull'. Pull is still useful when someone clones
 a repo with a checked-in weights.lock but a cold local cache.
 
 If weight names are provided, only those weights are imported. Otherwise all weights
 defined in cog.yaml are imported.
 
-The registry is determined from the image name, which can be:
-- Set in cog.yaml as the 'image' field
-- Overridden with the --image flag
+` + weightRegistryResolutionHelp + `
 
 Use --dry-run to preview what would change without importing anything.
 Add --verbose to see per-file details including which files pass the filter.`,
@@ -66,7 +63,6 @@ Add --verbose to see per-file details including which files pass the filter.`,
 	}
 
 	addConfigFlag(cmd)
-	cmd.Flags().String("image", "", "Registry repository (overrides cog.yaml image field)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be imported without making changes")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show per-file details")
 	return cmd
@@ -79,18 +75,11 @@ func weightsImportCommand(cmd *cobra.Command, args []string, dryRun, verbose boo
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
+	defer src.Close()
 
 	cfg := src.Config
 
-	imageName, _ := cmd.Flags().GetString("image")
-	if imageName == "" {
-		imageName = cfg.Image
-	}
-	if imageName == "" {
-		return fmt.Errorf("To import weights, you must either set the 'image' option in cog.yaml or pass --image. For example, 'cog weights import --image registry.example.com/your-username/model-name'")
-	}
-
-	repo, err := parseRepoOnly(imageName)
+	repo, err := resolveWeightRepo(src, configFilename)
 	if err != nil {
 		return err
 	}
@@ -127,21 +116,20 @@ func weightsImportCommand(cmd *cobra.Command, args []string, dryRun, verbose boo
 
 	console.Infof("Building %d weight(s)...", len(weightSpecs))
 
-	var artifacts []*model.WeightArtifact
-	if err := lockfile.WithLock(ctx, lockPath, func() error {
-		var buildErr error
-		artifacts, buildErr = buildWeightArtifactsFromPlans(ctx, builder, weightSpecs, plans)
-		if buildErr != nil {
-			return buildErr
-		}
-		// Prune using the full config so orphans clear even when only
-		// some weights are being imported.
-		if err := lockfile.PruneLockfile(lockPath, config.WeightNames(cfg.Weights)); err != nil {
-			return fmt.Errorf("prune lockfile: %w", err)
-		}
-		return nil
-	}); err != nil {
+	release, err := src.DotCog.Lock(ctx)
+	if err != nil {
 		return err
+	}
+	defer release()
+
+	artifacts, err := buildWeightArtifactsFromPlans(ctx, builder, weightSpecs, plans)
+	if err != nil {
+		return err
+	}
+	// Prune using the full config so orphans clear even when only
+	// some weights are being imported.
+	if err := lockfile.PruneLockfile(lockPath, config.WeightNames(cfg.Weights)); err != nil {
+		return fmt.Errorf("prune lockfile: %w", err)
 	}
 
 	for _, wa := range artifacts {
@@ -189,7 +177,7 @@ func buildWeightArtifactsFromPlans(ctx context.Context, builder *model.WeightBui
 func printImportPlan(plans []*model.WeightImportPlan, verbose bool) {
 	for _, p := range plans {
 		statusIcon := planStatusIcon(p.Status)
-		console.Infof("%s %s  %s → %s", statusIcon, p.Spec.Name(), p.Spec.URI, p.Spec.Target)
+		printSourceHeader(statusIcon, p.Spec.Name(), p.Spec.Target, p.Spec.Sources)
 		console.Infof("  status: %s", p.Status)
 
 		if len(p.Changes) > 0 {
@@ -279,19 +267,6 @@ func collectWeightSpecs(src *model.Source, filterNames []string) ([]*model.Weigh
 	return filtered, nil
 }
 
-// parseRepoOnly parses an image string as a bare repository, rejecting
-// tags and digests (weight tags are auto-generated).
-func parseRepoOnly(imageName string) (string, error) {
-	parsedRepo, err := name.NewRepository(imageName, name.Insecure)
-	if err != nil {
-		if ref, refErr := name.ParseReference(imageName, name.Insecure); refErr == nil {
-			return "", fmt.Errorf("image reference %q includes a tag or digest — provide only the repository (e.g., %q)", imageName, ref.Context().Name())
-		}
-		return "", fmt.Errorf("invalid repository %q: %w", imageName, err)
-	}
-	return parsedRepo.Name(), nil
-}
-
 // pushWeightArtifacts pushes weight artifacts to the registry with
 // concurrent layer uploads and progress display. The verb parameter
 // controls the summary message (e.g. "Imported" vs "Pushed").
@@ -355,6 +330,25 @@ func pushWeightArtifacts(ctx context.Context, repo string, artifacts []*model.We
 	console.Infof("Total: %s", formatSize(totalSize))
 
 	return nil
+}
+
+// printSourceHeader prints the weight name + source(s) + target as a
+// header line for plan/status output. Single-source weights render on
+// one line ("name  uri → target"); multi-source weights expand sources
+// onto their own lines so URIs can't run together visually:
+//
+//	~ name  → /target
+//	  source[0]: hf://acme/base
+//	  source[1]: https://github.com/acme/release/v1.0/extras.bin
+func printSourceHeader(statusIcon, name, target string, sources []model.SourceSpec) {
+	if len(sources) == 1 {
+		console.Infof("%s %s  %s → %s", statusIcon, name, sources[0].URI, target)
+		return
+	}
+	console.Infof("%s %s  → %s", statusIcon, name, target)
+	for i, s := range sources {
+		console.Infof("  source[%d]: %s", i, s.URI)
+	}
 }
 
 func formatSize(bytes int64) string {

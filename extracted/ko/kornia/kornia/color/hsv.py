@@ -21,8 +21,7 @@ import math
 from typing import ClassVar
 
 import torch
-
-from kornia.core import ImageModule as Module
+from torch import nn
 
 
 def rgb_to_hsv(image: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
@@ -108,7 +107,7 @@ def hsv_to_rgb(image: torch.Tensor) -> torch.Tensor:
     q: torch.Tensor = v * (1.0 - f * s)
     t: torch.Tensor = v * (1.0 - (1.0 - f) * s)
 
-    hi = hi.long()
+    hi = hi.long().clamp_(0, 5)
     indices: torch.Tensor = torch.stack([hi, hi + 6, hi + 12], dim=-3)
     out = torch.stack((v, q, p, p, t, v, t, v, v, q, p, p, p, p, t, v, v, q), dim=-3)
     out = torch.gather(out, -3, indices)
@@ -116,7 +115,7 @@ def hsv_to_rgb(image: torch.Tensor) -> torch.Tensor:
     return out
 
 
-class RgbToHsv(Module):
+class RgbToHsv(nn.Module):
     r"""Convert an image from RGB to HSV.
 
     The image data is assumed to be in the range of (0, 1).
@@ -146,10 +145,20 @@ class RgbToHsv(Module):
         self.eps = eps
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
+        """Convert an RGB tensor to HSV.
+
+        Args:
+            image: Input tensor with shape :math:`(*, 3, H, W)`.
+                Here, ``*`` means any number of leading dimensions (for example, batch size),
+                ``3`` is the channel dimension, and ``H``/``W`` are height and width.
+
+        Returns:
+            HSV tensor with shape :math:`(*, 3, H, W)`.
+        """
         return rgb_to_hsv(image, self.eps)
 
 
-class HsvToRgb(Module):
+class HsvToRgb(nn.Module):
     r"""Convert an image from HSV to RGB.
 
     H channel values are assumed to be in the range 0..2pi. S and V are in the range 0..1.
@@ -172,4 +181,14 @@ class HsvToRgb(Module):
     ONNX_DEFAULT_OUTPUTSHAPE: ClassVar[list[int]] = [-1, 3, -1, -1]
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
+        """Convert an HSV tensor to RGB.
+
+        Args:
+            image: Input tensor with shape :math:`(*, 3, H, W)`.
+                Here, ``*`` means any number of leading dimensions (for example, batch size),
+                ``3`` is the channel dimension, and ``H``/``W`` are height and width.
+
+        Returns:
+            RGB tensor with shape :math:`(*, 3, H, W)`.
+        """
         return hsv_to_rgb(image)

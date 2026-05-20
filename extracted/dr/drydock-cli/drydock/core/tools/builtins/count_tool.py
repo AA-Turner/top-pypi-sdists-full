@@ -61,31 +61,19 @@ CountMode = Literal[
 class CountArgs(BaseModel):
     mode: CountMode = Field(
         default="substring",
-        description=(
-            "How to count. `substring` = case-sensitive substring (needs "
-            "`pattern`). `substring_ci` = case-insensitive. `regex` = "
-            "Python re.findall (needs `pattern`). `lines` / `words` / "
-            "`chars` / `bytes` = pattern-free."
-        ),
+        description="substring | substring_ci | regex (need pattern); lines | words | chars | bytes (pattern-free).",
     )
     pattern: str = Field(
         default="",
-        description=(
-            "Required for substring / substring_ci / regex. Ignored otherwise."
-        ),
+        description="Required for substring/substring_ci/regex. Ignored otherwise.",
     )
     text: str = Field(
         default="",
-        description=(
-            "Inline text to count in. Provide either `text` OR `path`, not both."
-        ),
+        description="Inline text to count in. Provide either text OR path, not both.",
     )
     path: str = Field(
         default="",
-        description=(
-            "Path to a file to count in. Capped at 10 MB. Use either `text` "
-            "OR `path`."
-        ),
+        description="File path to count in. Capped at 10 MB.",
     )
 
 
@@ -158,14 +146,9 @@ class Count(
     ToolUIData[CountArgs, CountResult],
 ):
     description: ClassVar[str] = (
-        "Exact count of substrings, regex matches, lines, words, chars, "
-        "or bytes in a string OR file. Use INSTEAD of estimating 'how "
-        "many X are in this text' — transformers count poorly. Modes: "
-        "substring (default), substring_ci, regex, lines, words, chars, "
-        "bytes. Source: pass `text=...` OR `path=...` (file capped at "
-        "10 MB). Examples: count(pattern='r', text='strawberry') -> 3; "
-        "count(pattern='^def ', path='foo.py', mode='regex'); "
-        "count(mode='lines', path='foo.txt')."
+        "Exact count of substrings/regex/lines/words/chars/bytes in a string "
+        "OR file. Modes: substring (default), substring_ci, regex, lines, "
+        "words, chars, bytes. Source: text= OR path= (file capped 10 MB)."
     )
 
     @classmethod

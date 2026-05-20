@@ -34,12 +34,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 from labelme import __appname__
 from labelme import __version__
-from labelme._automation import AiOutputFormat
-from labelme._automation import Detection
-from labelme._automation import OsamSession
-from labelme._automation import get_bboxes_from_texts
-from labelme._automation import nms_bboxes
-from labelme._automation import shapes_from_detections
+from labelme import _automation
 from labelme._label_file import LABEL_FILE_SUFFIX
 from labelme._label_file import LabelData
 from labelme._label_file import LabelFileError
@@ -182,7 +177,7 @@ class MainWindow(QtWidgets.QMainWindow):
     _config_file: Path | None
     _config: dict
 
-    _text_osam_session: OsamSession | None = None
+    _text_osam_session: _automation.OsamSession | None = None
     _is_changed: bool = False
     _shape_clipboard: ShapeClipboard
     _zoom_mode: _ZoomMode
@@ -1064,6 +1059,9 @@ class MainWindow(QtWidgets.QMainWindow):
         canvas.pan_request.connect(self._on_pan_request)
 
         canvas.new_shape.connect(self._on_new_shape)
+        canvas.inference_produced_no_shapes.connect(
+            self._on_inference_produced_no_shapes
+        )
         canvas.shape_moved.connect(self.mark_dirty)
         canvas.selection_changed.connect(self._on_shape_selection_changed)
         canvas.drawing_polygon.connect(self._on_drawing_polygon_changed)
@@ -1287,9 +1285,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self._text_osam_session is None
             or self._text_osam_session.model_name != model_name
         ):
-            self._text_osam_session = OsamSession(model_name=model_name)
+            self._text_osam_session = _automation.OsamSession(model_name=model_name)
 
-        boxes, scores, labels, masks = get_bboxes_from_texts(
+        boxes, scores, labels, masks = _automation.get_bboxes_from_texts(
             session=self._text_osam_session,
             image=utils.img_qt_to_arr(self._image)[:, :, :3],
             image_id=str(hash(self._image_path)),
@@ -1300,11 +1298,14 @@ class MainWindow(QtWidgets.QMainWindow):
         for shape in self._canvas_widgets.canvas.shapes:
             if shape.shape_type != shape_type or shape.label not in texts:
                 continue
-            boxes = np.r_[boxes, [_shape_to_xyxy_bbox(shape)]]
+            shape_bbox = _automation.shape_to_xyxy_bbox(shape=shape)
+            if shape_bbox is None:
+                continue
+            boxes = np.r_[boxes, [shape_bbox]]
             scores = np.r_[scores, [SCORE_FOR_EXISTING_SHAPE]]
             labels = np.r_[labels, [texts.index(shape.label)]]
 
-        boxes, scores, labels, indices = nms_bboxes(
+        boxes, scores, labels, indices = _automation.nms_bboxes(
             boxes=boxes,
             scores=scores,
             labels=labels,
@@ -1325,11 +1326,11 @@ class MainWindow(QtWidgets.QMainWindow):
             masks = [masks[i] for i in indices]
         del indices
 
-        detections: list[Detection] = []
+        detections: list[_automation.Detection] = []
         for box, score, label, mask in zip(boxes, scores, labels, masks):
             text: str = texts[label]
             detections.append(
-                Detection(
+                _automation.Detection(
                     bbox=(
                         float(box[0]),
                         float(box[1]),
@@ -1341,7 +1342,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     description=json.dumps(dict(score=score.item(), text=text)),
                 )
             )
-        shapes: list[Shape] = shapes_from_detections(
+        detections = _automation.suppress_detections_greedy(
+            detections=detections,
+            iou_threshold=self._ai_text.get_iou_threshold(),
+        )
+        shapes: list[Shape] = _automation.shapes_from_detections(
             detections=detections, shape_type=shape_type
         )
 
@@ -1803,6 +1808,11 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self._canvas_widgets.canvas.undo_last_line()
             self._canvas_widgets.canvas.shape_backups.pop()
+
+    def _on_inference_produced_no_shapes(self) -> None:
+        self.show_status_message(
+            self.tr("AI inference produced no new annotation."), 5000
+        )
 
     def _on_scroll_request(self, delta: int, orientation: Qt.Orientation) -> None:
         units = -delta * 0.1  # natural scroll
@@ -2608,34 +2618,13 @@ def _shapes_from_dicts(
 
 
 def _resolve_text_annotation_shape_type(
-    *, create_mode: str, ai_output_format: AiOutputFormat
-) -> AiOutputFormat | None:
+    *, create_mode: str, ai_output_format: _automation.AiOutputFormat
+) -> _automation.AiOutputFormat | None:
     if create_mode in _AI_CREATE_MODES:
         return ai_output_format
     if create_mode in get_args(_TextToAnnotationCreateMode):
         return cast(_TextToAnnotationCreateMode, create_mode)
     return None
-
-
-def _shape_to_xyxy_bbox(shape: Shape) -> NDArray[np.float32]:
-    if shape.shape_type == "circle":
-        center, edge = shape.points
-        radius = math.sqrt((edge.x() - center.x()) ** 2 + (edge.y() - center.y()) ** 2)
-        return np.array(
-            [
-                center.x() - radius,
-                center.y() - radius,
-                center.x() + radius,
-                center.y() + radius,
-            ],
-            dtype=np.float32,
-        )
-    if shape.shape_type in ("rectangle", "polygon", "mask"):
-        points = np.array([[p.x(), p.y()] for p in shape.points])
-        xmin, ymin = points.min(axis=0)
-        xmax, ymax = points.max(axis=0)
-        return np.array([xmin, ymin, xmax, ymax], dtype=np.float32)
-    raise ValueError(f"Unsupported shape_type: {shape.shape_type!r}")
 
 
 def _rgb_from_colormap_id(*, label_id: int) -> tuple[int, int, int]:

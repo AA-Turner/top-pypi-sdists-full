@@ -86,12 +86,17 @@ class CheckpointerTestBase:
         self,
         checkpointer: Checkpointer,
         step: int,
-        pytree: tree_types.PyTreeOf[tree_types.LeafType],
+        pytree: tree_types.PyTreeOf[tree_types.Leaf],
         metrics: tree_types.JsonType | None = None,
         custom_metadata: tree_types.JsonType | None = None,
     ) -> bool:
-      """Saves pytree with v0 CheckpointManager or v1 Checkpointer."""
-      raise NotImplementedError()
+      """Saves pytree with v1 Checkpointer."""
+      return checkpointer.save_pytree(
+          step,
+          pytree,
+          metrics=metrics,
+          custom_metadata=custom_metadata,
+      )
 
     def save_checkpointables(
         self,
@@ -101,8 +106,13 @@ class CheckpointerTestBase:
         metrics: tree_types.JsonType | None = None,
         custom_metadata: tree_types.JsonType | None = None,
     ) -> bool:
-      """Saves checkpointables with v0 CheckpointManager or v1 Checkpointer."""
-      raise NotImplementedError()
+      """Saves checkpointables with v1 Checkpointer."""
+      return checkpointer.save_checkpointables(
+          step,
+          checkpointables,
+          metrics=metrics,
+          custom_metadata=custom_metadata,
+      )
 
     def test_properties(self):
       checkpointer = Checkpointer(self.directory)
@@ -121,8 +131,28 @@ class CheckpointerTestBase:
         test_utils.assert_tree_equal(self, self.pytree, loaded)
 
       with self.subTest('without_abstract_pytree'):
+        if multihost.is_pathways_backend():
+          self.skipTest('Must provide abstract_pytree for Pathways.')
         loaded = checkpointer.load_pytree(0)
         test_utils.assert_tree_equal(self, self.pytree, loaded)
+
+    def test_save_load_pytree_with_specific_name(self):
+      checkpointer = Checkpointer(self.directory)
+      self.enter_context(checkpointer)
+      checkpointer.save_pytree(0, self.pytree, checkpointable_name='state')
+      loaded = checkpointer.load_pytree(
+          0, abstract_pytree=self.abstract_pytree, checkpointable_name='state'
+      )
+      test_utils.assert_tree_equal(self, self.pytree, loaded)
+
+    def test_save_checkpointables_load_pytree(self):
+      checkpointer = Checkpointer(self.directory)
+      self.enter_context(checkpointer)
+      checkpointer.save_checkpointables(0, {'state': self.pytree})
+      loaded = checkpointer.load_pytree(
+          0, abstract_pytree=self.abstract_pytree, checkpointable_name='state'
+      )
+      test_utils.assert_tree_equal(self, self.pytree, loaded)
 
     @parameterized.parameters((True,), (False,))
     def test_load_latest_pytree(self, latest_arg_is_none):
@@ -311,6 +341,46 @@ class CheckpointerTestBase:
           )
       )
 
+    def test_save_pytree_async_on_complete(self):
+      save_policy = save_decision_policies.FixedIntervalPolicy(100)
+      checkpointer = Checkpointer(
+          self.directory, save_decision_policy=save_policy
+      )
+      self.enter_context(checkpointer)
+
+      results = []
+      condition = threading.Condition()
+
+      def callback(saved):
+        with condition:
+          results.append(saved)
+          condition.notify_all()
+
+      # Step 0 should save
+      response = checkpointer.save_pytree_async(0, self.pytree)
+      response.on_complete(callback)
+
+      with condition:
+        while not results:
+          if not condition.wait(timeout=10):
+            self.fail('Timed out waiting for callback.')
+
+      self.assertEqual(results, [True])
+      self.assertTrue(response.result())
+      results.clear()
+
+      # Step 1 should not save
+      response = checkpointer.save_pytree_async(1, self.pytree)
+      response.on_complete(callback)
+
+      with condition:
+        while not results:
+          if not condition.wait(timeout=10):
+            self.fail('Timed out waiting for callback.')
+
+      self.assertEqual(results, [False])
+      self.assertFalse(response.result())
+
     def test_close(self):
       checkpointer = Checkpointer(self.directory)
       step_path = self.directory / '0'
@@ -421,10 +491,16 @@ class CheckpointerTestBase:
       )
 
     def test_custom_checkpointables(self):
-      """Test custom checkpointables are saved and loaded.
-
-      Subclasses must call it within custom `checkpointables_options` Context.
-      """
+      """Test custom checkpointables are saved and loaded."""
+      checkpointables_options = (
+          ocp.options.CheckpointablesOptions.create_with_handlers(
+              handler_utils.FooHandler,
+              handler_utils.BarHandler,
+          )
+      )
+      self.enter_context(
+          ocp.Context(checkpointables_options=checkpointables_options)
+      )
       checkpointables = {
           'pytree': self.pytree,
           'foo': Foo(123, 'hi'),
@@ -435,6 +511,8 @@ class CheckpointerTestBase:
       self.save_checkpointables(checkpointer, 0, checkpointables)
 
       with self.subTest('load'):
+        if multihost.is_pathways_backend():
+          self.skipTest('Sharding metadata not present in Pathways.')
         loaded = checkpointer.load_checkpointables(0)
         self.assertSameElements(loaded.keys(), ['pytree', 'foo', 'bar'])
         test_utils.assert_tree_equal(
@@ -443,7 +521,16 @@ class CheckpointerTestBase:
         self.assertEqual(checkpointables['foo'], loaded['foo'])
         self.assertEqual(checkpointables['bar'], loaded['bar'])
       with self.subTest('load_with_free_function'):
-        loaded = ocp.load_checkpointables(self.directory / '0')
+        if multihost.is_pathways_backend():
+          self.skipTest('Sharding metadata not present in Pathways.')
+        checkpointables_options = (
+            ocp.options.CheckpointablesOptions.create_with_handlers(
+                foo=handler_utils.FooHandler,
+                bar=handler_utils.BarHandler,
+            )
+        )
+        with ocp.Context(checkpointables_options=checkpointables_options):
+          loaded = ocp.load_checkpointables(self.directory / '0')
         self.assertSameElements(loaded.keys(), ['pytree', 'foo', 'bar'])
         test_utils.assert_tree_equal(
             self, checkpointables['pytree'], loaded['pytree']
@@ -462,6 +549,8 @@ class CheckpointerTestBase:
         self.assertEqual(checkpointables['foo'], loaded['foo'])
         self.assertEqual(checkpointables['bar'], loaded['bar'])
       with self.subTest('load_with_abstract_checkpointables_none_values'):
+        if multihost.is_pathways_backend():
+          self.skipTest('Sharding metadata not present in Pathways.')
         abstract_checkpointables = {
             'pytree': None,
             'foo': None,
@@ -483,10 +572,16 @@ class CheckpointerTestBase:
         self.assertEqual(checkpointables['foo'], loaded['foo'])
 
     def test_load_with_switched_abstract_checkpointables(self):
-      """Test load with switched abstract checkpointables.
-
-      Subclasses must call it within custom `checkpointables_options` Context.
-      """
+      """Test load with switched abstract checkpointables."""
+      checkpointables_options = (
+          ocp.options.CheckpointablesOptions.create_with_handlers(
+              handler_utils.FooHandler,
+              handler_utils.BarHandler,
+          )
+      )
+      self.enter_context(
+          ocp.Context(checkpointables_options=checkpointables_options)
+      )
       checkpointables = {
           'pytree': self.pytree,
           'foo': Foo(123, 'hi'),
@@ -506,10 +601,16 @@ class CheckpointerTestBase:
       self.assertEqual(Foo(456, 'bye'), loaded['bar'])
 
     def test_different_custom_checkpointables(self):
-      """Test different custom checkpointables are saved and loaded.
-
-      Subclasses must call it within custom `checkpointables_options` Context.
-      """
+      """Test different custom checkpointables are saved and loaded."""
+      checkpointables_options = (
+          ocp.options.CheckpointablesOptions.create_with_handlers(
+              handler_utils.FooHandler,
+              handler_utils.BarHandler,
+          )
+      )
+      self.enter_context(
+          ocp.Context(checkpointables_options=checkpointables_options)
+      )
       checkpointer = Checkpointer(self.directory)
       self.enter_context(checkpointer)
       self.save_checkpointables(checkpointer, 0, {'foo': Foo(123, 'hi')})
@@ -682,6 +783,54 @@ class CheckpointerTestBase:
             checkpointer._manager._options.todelete_full_path, 'trash'
         )
 
+
+    def test_context_constructor_override(self):
+      ctx1 = ocp.Context(
+          array_options=ocp.options.ArrayOptions(
+              saving=ocp.options.ArrayOptions.Saving(use_ocdbt=False)
+          ),
+          pytree_options=ocp.options.PyTreeOptions(
+              loading=ocp.options.PyTreeOptions.Loading(partial_load=True)
+          ),
+      )
+      checkpointer = Checkpointer(self.directory, context=ctx1)
+      self.enter_context(checkpointer)
+      self.save_pytree(checkpointer, 0, self.pytree)
+
+      with self.subTest('constructor_override_ocdbt'):
+        # Default use_ocdbt is True, so set to False to prove constructor arg is
+        # used.
+        pytree_dir = self.directory / '0' / 'pytree'
+        self.assertFalse(
+            (pytree_dir / 'manifest.ocdbt').exists(),
+            f'Expected NO manifest.ocdbt under {pytree_dir}',
+        )
+
+      with self.subTest('constructor_override_partial_load'):
+        loaded = checkpointer.load_pytree(0, self.abstract_pytree)
+        test_utils.assert_tree_equal(self, self.pytree, loaded)
+
+        # Test partial load override.
+        partial_abstract = {'jax_array': self.abstract_pytree['jax_array']}
+        loaded_partial = checkpointer.load_pytree(0, partial_abstract)
+        expected_pytree = {'jax_array': self.pytree['jax_array']}
+        test_utils.assert_tree_equal(self, expected_pytree, loaded_partial)
+
+      with self.subTest('local_context_override'):
+        # Override with local context setting use_ocdbt=True
+        ctx2 = ocp.Context(
+            array_options=ocp.options.ArrayOptions(
+                saving=ocp.options.ArrayOptions.Saving(use_ocdbt=True)
+            )
+        )
+        with ctx2:
+          self.save_pytree(checkpointer, 1, self.pytree)
+
+        pytree_dir_1 = self.directory / '1' / 'pytree'
+        self.assertTrue(
+            (pytree_dir_1 / 'manifest.ocdbt').exists(),
+            f'Expected manifest.ocdbt under {pytree_dir_1}',
+        )
 
     @parameterized.named_parameters(
         dict(

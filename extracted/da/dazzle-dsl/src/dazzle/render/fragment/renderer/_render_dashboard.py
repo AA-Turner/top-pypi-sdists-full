@@ -222,6 +222,14 @@ class _RenderDashboardMixin:
                     if cell.subtitle
                     else ""
                 )
+                # #1148: pre-rendered row_action button HTML, when
+                # present, appears after the primary value. Adapter
+                # pre-escapes attributes; renderer passes through.
+                action_block = (
+                    f'<div class="dz-cohort-strip-cell-action">{cell.action_html}</div>'
+                    if cell.action_html
+                    else ""
+                )
                 inner = (
                     f'<div class="dz-cohort-strip-cell-halo">{initials}</div>'
                     f'<div class="dz-cohort-strip-cell-name">{ctx.escape(cell.member_name)}</div>'
@@ -230,6 +238,7 @@ class _RenderDashboardMixin:
                     f'data-dz-tone="{ctx.escape_attr(tone)}">'
                     f"{ctx.escape(cell.primary_value)}"
                     f"</div>"
+                    f"{action_block}"
                 )
                 if cell.drill_url:
                     cell_parts.append(
@@ -283,6 +292,11 @@ class _RenderDashboardMixin:
                     f'<div class="dz-day-timeline-slot-label">{ctx.escape(slot.label)}</div>'
                     f'<div class="dz-day-timeline-slot-body">{slot.body}</div>'
                 )
+                # #1148: pre-rendered row_action button HTML, when
+                # present, is emitted after the body. Adapter pre-
+                # escaped attributes; renderer just passes through.
+                if slot.action_html:
+                    inner += f'<div class="dz-day-timeline-slot-action">{slot.action_html}</div>'
                 if slot.drill_url:
                     slot_parts.append(
                         f'<a class="{cls}" '

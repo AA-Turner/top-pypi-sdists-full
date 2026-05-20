@@ -61,6 +61,7 @@ async def _run_to_result(tool, args, ctx):
     last = None
     async for event in tool.run(args, ctx):
         last = event
+    assert last is not None, "tool.run yielded nothing"
     return last
 
 

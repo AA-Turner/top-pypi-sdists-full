@@ -575,6 +575,45 @@ class APIToolFormatHandler:
                             if _m:
                                 inferred_path = _m.group(1)
                                 break
+                    # Fallback inference: snake_case from the first top-level
+                    # `class Foo:` / `class Foo(Bar):` definition. Observed
+                    # 2026-05-19 in a /data3/slides session: model looped 5×
+                    # write_file({"content": "class LLMPlanner: ..."}) and
+                    # ignored the error each time. With this rule the call
+                    # resolves to slides/llm_planner.py without bothering the
+                    # model. Bounded to .py content; skip if content has
+                    # multiple classes (ambiguous).
+                    if not inferred_path and content_val:
+                        _class_names = _re.findall(
+                            r'^class\s+(\w+)\s*[\(:]',
+                            content_val,
+                            _re.MULTILINE,
+                        )
+                        if len(_class_names) == 1:
+                            _name = _class_names[0]
+                            _snake = _re.sub(
+                                r'([a-z\d])([A-Z])', r'\1_\2',
+                                _re.sub(
+                                    r'([A-Z]+)([A-Z][a-z])', r'\1_\2', _name
+                                ),
+                            ).lower()
+                            inferred_path = f"{_snake}.py"
+                        elif _class_names:
+                            # multiple classes — use first one, log nothing
+                            _name = _class_names[0]
+                            _snake = _re.sub(
+                                r'([a-z\d])([A-Z])', r'\1_\2',
+                                _re.sub(
+                                    r'([A-Z]+)([A-Z][a-z])', r'\1_\2', _name
+                                ),
+                            ).lower()
+                            inferred_path = f"{_snake}.py"
+                    # Last-resort: `def main(...)` → main.py
+                    if not inferred_path and content_val:
+                        if _re.search(
+                            r'^def\s+main\s*\(', content_val, _re.MULTILINE
+                        ):
+                            inferred_path = "main.py"
                     if inferred_path:
                         try:
                             _new_args = dict(parsed_call.raw_args)

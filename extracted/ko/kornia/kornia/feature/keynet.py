@@ -22,7 +22,6 @@ import torch.nn.functional as F
 from torch import nn
 from typing_extensions import TypedDict
 
-from kornia.core import Module, Tensor, concatenate
 from kornia.filters import SpatialGradient
 from kornia.geometry.transform import pyrdown
 
@@ -30,6 +29,13 @@ from .scale_space_detector import Detector_config, MultiResolutionDetector, get_
 
 
 class KeyNet_conf(TypedDict):
+    """Define the configuration schema for the KeyNet feature detector.
+
+    Attributes:
+        num_filters: The number of filters in the convolutional layers.
+        num_levels: The number of levels in the image pyramid.
+    """
+
     num_filters: int
     num_levels: int
     kernel_size: int
@@ -48,7 +54,7 @@ keynet_default_config: KeyNet_conf = {
 KeyNet_URL = "https://github.com/axelBarroso/Key.Net-Pytorch/raw/main/model/weights/keynet_pytorch.pth"
 
 
-class _FeatureExtractor(Module):
+class _FeatureExtractor(nn.Module):
     """Helper class for KeyNet.
 
     It loads both, the handcrafted and learnable blocks
@@ -60,30 +66,30 @@ class _FeatureExtractor(Module):
         self.hc_block = _HandcraftedBlock()
         self.lb_block = _LearnableBlock()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_hc = self.hc_block(x)
         x_lb = self.lb_block(x_hc)
         return x_lb
 
 
-class _HandcraftedBlock(Module):
+class _HandcraftedBlock(nn.Module):
     """Helper class for KeyNet, it defines the handcrafted filters within the Key.Net handcrafted block."""
 
     def __init__(self) -> None:
         super().__init__()
         self.spatial_gradient = SpatialGradient("sobel", 1)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         sobel = self.spatial_gradient(x)
         dx, dy = sobel[:, :, 0, :, :], sobel[:, :, 1, :, :]
 
         sobel_dx = self.spatial_gradient(dx)
         dxx, dxy = sobel_dx[:, :, 0, :, :], sobel_dx[:, :, 1, :, :]
 
-        sobel_dy = self.spatial_gradient(dy)
-        dyy = sobel_dy[:, :, 1, :, :]
+        # Only dyy is used from sobel_dy; dyx is discarded.
+        dyy = self.spatial_gradient(dy)[:, :, 1, :, :]
 
-        hc_feats = concatenate([dx, dy, dx**2.0, dy**2.0, dx * dy, dxy, dxy**2.0, dxx, dyy, dxx * dyy], 1)
+        hc_feats = torch.cat([dx, dy, dx.square(), dy.square(), dx * dy, dxy, dxy.square(), dxx, dyy, dxx * dyy], 1)
 
         return hc_feats
 
@@ -101,7 +107,7 @@ class _LearnableBlock(nn.Sequential):
         self.conv1 = _KeyNetConvBlock()
         self.conv2 = _KeyNetConvBlock()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv2(self.conv1(self.conv0(x)))
         return x
 
@@ -125,7 +131,7 @@ def _KeyNetConvBlock(
     )
 
 
-class KeyNet(Module):
+class KeyNet(nn.Module):
     """Key.Net model definition -- local feature detector (response function).
 
     This is based on the original code
@@ -147,8 +153,10 @@ class KeyNet(Module):
 
     """
 
-    def __init__(self, pretrained: bool = False, keynet_conf: KeyNet_conf = keynet_default_config) -> None:
+    def __init__(self, pretrained: bool = False, keynet_conf: Optional[KeyNet_conf] = None) -> None:
         super().__init__()
+        if keynet_conf is None:
+            keynet_conf = keynet_default_config
 
         num_filters = keynet_conf["num_filters"]
         self.num_levels = keynet_conf["num_levels"]
@@ -168,16 +176,16 @@ class KeyNet(Module):
             self.load_state_dict(pretrained_dict["state_dict"], strict=True)
         self.eval()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """X - input image."""
-        shape_im = x.shape
-        feats: List[Tensor] = [self.feature_extractor(x)]
+        h, w = x.shape[2], x.shape[3]
+        feats: List[torch.Tensor] = [self.feature_extractor(x)]
         for _ in range(1, self.num_levels):
             x = pyrdown(x, factor=1.2)
             feats_i = self.feature_extractor(x)
-            feats_i = F.interpolate(feats_i, size=(shape_im[2], shape_im[3]), mode="bilinear")
+            feats_i = F.interpolate(feats_i, size=(h, w), mode="bilinear", align_corners=False)
             feats.append(feats_i)
-        scores = self.last_conv(concatenate(feats, 1))
+        scores = self.last_conv(torch.cat(feats, 1))
         return scores
 
 
@@ -205,9 +213,15 @@ class KeyNetDetector(MultiResolutionDetector):
         self,
         pretrained: bool = False,
         num_features: int = 2048,
-        keynet_conf: KeyNet_conf = keynet_default_config,
-        ori_module: Optional[Module] = None,
-        aff_module: Optional[Module] = None,
+        keynet_conf: Optional[KeyNet_conf] = None,
+        ori_module: Optional[nn.Module] = None,
+        aff_module: Optional[nn.Module] = None,
+        compile_model: bool = False,
+        score_threshold: float = 0.0,
     ) -> None:
+        if keynet_conf is None:
+            keynet_conf = keynet_default_config
         model = KeyNet(pretrained, keynet_conf)
-        super().__init__(model, num_features, keynet_conf["Detector_conf"], ori_module, aff_module)
+        super().__init__(
+            model, num_features, keynet_conf["Detector_conf"], ori_module, aff_module, compile_model, score_threshold
+        )

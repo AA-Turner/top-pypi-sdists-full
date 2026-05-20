@@ -12,7 +12,11 @@ from reflex.vars.base import Var, VarData
 from reflex.vars.object import ObjectVar
 
 from reflex_enterprise.components.component import NoSSRComponentEnterprise
+from reflex_enterprise.components.map.events import mouse_event_spec
 from reflex_enterprise.vars import JSAPIVar
+
+# Force this import for the pyi file
+from .types import MouseEvent  # noqa: F401
 
 PACKAGE_NAME = "react-leaflet"
 PACKAGE_VERSION = "5.0.0"
@@ -79,6 +83,47 @@ class BaseLeafletComponent(NoSSRComponentEnterprise):
         return {
             "": "leaflet/dist/leaflet.css",
         }
+
+
+class InteractiveLeafletLayer(BaseLeafletComponent):
+    """Leaflet layer that wires layer mouse events into react-leaflet's eventHandlers prop."""
+
+    on_click: rx.EventHandler[mouse_event_spec]
+    on_dblclick: rx.EventHandler[mouse_event_spec]
+    on_mousedown: rx.EventHandler[mouse_event_spec]
+    on_mouseup: rx.EventHandler[mouse_event_spec]
+    on_mouseover: rx.EventHandler[mouse_event_spec]
+    on_mouseout: rx.EventHandler[mouse_event_spec]
+    on_contextmenu: rx.EventHandler[mouse_event_spec]
+
+    event_handlers: Var[dict]
+
+    _LAYER_EVENT_MAPPING = {
+        "on_click": "click",
+        "on_dblclick": "dblclick",
+        "on_mousedown": "mousedown",
+        "on_mouseup": "mouseup",
+        "on_mouseover": "mouseover",
+        "on_mouseout": "mouseout",
+        "on_contextmenu": "contextmenu",
+    }
+
+    @classmethod
+    def create(cls, *children, **props):
+        """Translate on_<event> props into a single eventHandlers dict that react-leaflet understands."""
+        _instance = super().create(*children, **props)
+        handlers = {}
+        to_remove = []
+        for evt in _instance.event_triggers:
+            if evt in cls._LAYER_EVENT_MAPPING:
+                handlers[cls._LAYER_EVENT_MAPPING[evt]] = _instance.event_triggers[evt]
+                to_remove.append(evt)
+        if not handlers:
+            return _instance
+        for rem in to_remove:
+            props.pop(rem, None)
+        props["event_handlers"] = handlers
+        return super().create(*children, **props)
 
 
 class LazyBaseLeafletComponent(BaseLeafletComponent):

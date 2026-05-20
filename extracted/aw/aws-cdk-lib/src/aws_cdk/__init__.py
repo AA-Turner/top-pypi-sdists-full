@@ -1642,36 +1642,19 @@ validation.
 > etc. It's your responsibility as the consumer of a plugin to verify that it is
 > secure to use.
 
-By default, the report will be printed in a human-readable format. If you want a
-report in JSON format, enable it using the `@aws-cdk/core:validationReportJson`
-context passing it directly to the application:
+By default, the report is output in two ways:
+
+* A JSON file called `policy-validation-report.json` is written to the cloud assembly directory.
+* A human-readable format is printed to the standard error output.
+
+To disable either format, explicitly set the corresponding context key to `false`:
 
 ```python
+# Disable pretty-printed console output (JSON file still written)
 app = App(
-    context={"@aws-cdk/core:validationReportJson": True}
+    context={"@aws-cdk/core:validationReportPrettyPrint": False}
 )
 ```
-
-Alternatively, you can set this context key-value pair using the `cdk.json` or
-`cdk.context.json` files in your project directory (see
-[Runtime context](https://docs.aws.amazon.com/cdk/v2/guide/context.html)).
-
-It is also possible to enable both JSON and human-readable formats by setting
-`@aws-cdk/core:validationReportPrettyPrint` context key explicitly:
-
-```python
-app = App(
-    context={
-        "@aws-cdk/core:validationReportJson": True,
-        "@aws-cdk/core:validationReportPrettyPrint": True
-    }
-)
-```
-
-If you choose the JSON format, the CDK will print the policy validation report
-to a file called `policy-validation-report.json` in the cloud assembly
-directory. For the default, human-readable format, the report will be printed to
-the standard output.
 
 ### For plugin authors
 
@@ -3394,6 +3377,9 @@ class ArrayMergeStrategy(
 
         Matching target elements are replaced (not deep-merged).
         Unmatched source elements are appended.
+
+        Supports Box-backed elements: when target array elements are Boxes, the
+        match is deferred until the Boxes resolve.
 
         :param key: - The property name to match elements on.
 
@@ -11851,19 +11837,28 @@ class CombineStrategyOptions:
 
         :param arrays: Strategy for merging arrays. Default: ArrayMergeStrategy.replace()
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            
-            # array_merge_strategy: cdk.IArrayMergeStrategy
-            
-            combine_strategy_options = cdk.CombineStrategyOptions(
-                arrays=array_merge_strategy
+            from aws_cdk.cfn_property_mixins.aws_dynamodb import CfnGlobalTableMixinProps
+            # TableV2 uses a Box internally for replicas.
+            # The mixin defers the merge and appends the new replica at synthesis time.
+            table = dynamodb.TableV2(scope, "Table",
+                partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+                # L2 prop: pointInTimeRecovery is a boolean
+                replicas=[dynamodb.ReplicaTableProps(region="us-east-1", point_in_time_recovery=True)]
             )
+            
+            # Mixins always use L1 (CloudFormation) property names and shapes,
+            # regardless of what the L2 API looks like.
+            table.with(CfnGlobalTablePropsMixin(CfnGlobalTableMixinProps(
+                replicas=[CfnGlobalTablePropsMixin.ReplicaSpecificationProperty(
+                    region="eu-west-1",
+                    # L1 prop: pointInTimeRecoverySpecification is an object
+                    point_in_time_recovery_specification=CfnGlobalTablePropsMixin.PointInTimeRecoverySpecificationProperty(point_in_time_recovery_enabled=True)
+                )]
+            ), strategy=PropertyMergeStrategy.combine(arrays=ArrayMergeStrategy.append())))
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cde364a9aa77bbd97dd0e769b0644ed38f00875b127819215bc6204d00f9fc38)
@@ -22288,6 +22283,9 @@ class PropertyMergeStrategy(
         When both the existing and new value for a key are plain objects,
         their properties are merged recursively. Primitives, arrays, and
         mismatched types are overridden by the source value.
+
+        Supports Box-backed values: when the target value is a Box, the merge
+        is deferred until the Box resolves.
 
         :param arrays: Strategy for merging arrays. Default: ArrayMergeStrategy.replace()
         '''

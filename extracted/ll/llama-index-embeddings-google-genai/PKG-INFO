@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: llama-index-embeddings-google-genai
-Version: 0.5.0
+Version: 0.5.1
 Summary: llama-index embeddings google genai integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.10
-Requires-Dist: google-genai<2,>=1.24.0
+Requires-Dist: google-genai<3,>=1.24.0
 Requires-Dist: llama-index-core<0.15,>=0.13.0
 Description-Content-Type: text/markdown
 

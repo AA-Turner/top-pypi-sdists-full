@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiodiscover
-Version: 3.0.0
+Version: 3.2.0
 Summary: Discover hosts by arp and ptr lookup
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -18,11 +18,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Dist: aiodns (>=3.1.1)
+Requires-Dist: aiodns (>=3.5.0)
 Requires-Dist: async_timeout (>=4.0.1) ; python_version < "3.11"
-Requires-Dist: cached_ipaddress (>=0.2.0)
+Requires-Dist: cached_ipaddress (>=1.0.1)
 Requires-Dist: ifaddr (>0.0.0)
-Requires-Dist: pyroute2 (>=0.9.6)
+Requires-Dist: pyroute2 (>=0.7.5)
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/aiodiscover/issues
 Project-URL: Changelog, https://github.com/bluetooth-devices/aiodiscover/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://aiodiscover.readthedocs.io
@@ -50,10 +50,56 @@ import asyncio
 import pprint
 from aiodiscover import DiscoverHosts
 
-discover_hosts = DiscoverHosts()
-hosts = asyncio.run(discover_hosts.async_discover())
-pprint.pprint(hosts)
+
+async def main() -> None:
+    async with DiscoverHosts() as discover_hosts:
+        pprint.pprint(await discover_hosts.async_discover())
+
+
+asyncio.run(main())
 ```
+
+For long-lived consumers, reuse a single `DiscoverHosts` instance across
+scans and call `await discover_hosts.close()` at shutdown to release the
+underlying DNS resolver and netlink socket.
+
+## Command-line usage
+
+Installing `aiodiscover` exposes an `aiodiscover` console script (also
+runnable as `python -m aiodiscover`) that scans the local network and
+prints the discovered hosts.
+
+```console
+$ aiodiscover
+Hostname  IP           MAC
+--------  -----------  -----------------
+router    192.168.1.1  aa:bb:cc:dd:ee:ff
+laptop    192.168.1.2  11:22:33:44:55:66
+
+$ aiodiscover --json
+[
+  {"hostname": "router", "ip": "192.168.1.1", "macaddress": "aa:bb:cc:dd:ee:ff"},
+  {"hostname": "laptop", "ip": "192.168.1.2", "macaddress": "11:22:33:44:55:66"}
+]
+```
+
+Rows are sorted by IP. Peer-supplied hostname / MAC / IP values are
+stripped of non-printable characters before display, so a hostile DHCP /
+DNS responder on the LAN can't inject ANSI escapes or control bytes into
+the terminal.
+
+Common flags:
+
+- `--format {table,json,pprint}` — pick output format (default `table`).
+- `--json` — shortcut for `--format json`. Pair with `--indent N` to
+  control JSON indentation.
+- `-v` / `--debug` — bump logging verbosity (shortcuts for
+  `--log-level INFO` / `DEBUG`).
+- `--recurse` — allow recursive PTR queries (the default `--no-recurse`
+  keeps queries from being forwarded to upstream public resolvers).
+- `--version` — print the installed version and exit.
+
+Run `aiodiscover --help` for the full reference.
 
 ## Installation
 

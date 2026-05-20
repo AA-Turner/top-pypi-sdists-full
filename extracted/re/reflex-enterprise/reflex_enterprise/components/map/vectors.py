@@ -6,8 +6,8 @@ from typing import Dict, List, TypedDict
 
 from reflex.vars.base import Var
 
-from .base import BaseLeafletComponent
-from .types import LatLng, LatLngBounds
+from .base import BaseLeafletComponent, InteractiveLeafletLayer
+from .types import LatLng, LatLngBounds, MouseEvent  # noqa: F401
 
 
 class PathOptions(TypedDict, total=False):
@@ -96,7 +96,7 @@ def path_options(
     return options  # type: ignore[return-value]
 
 
-class Circle(BaseLeafletComponent):
+class Circle(InteractiveLeafletLayer):
     """Circle component for displaying a circle on a map."""
 
     tag = "Circle"
@@ -117,7 +117,7 @@ class Circle(BaseLeafletComponent):
     pane: Var[str]
 
 
-class CircleMarker(BaseLeafletComponent):
+class CircleMarker(InteractiveLeafletLayer):
     """CircleMarker component for displaying a small circle marker on a map.
 
     Unlike Circle, CircleMarker uses screen pixels for its radius, not meters.
@@ -141,7 +141,7 @@ class CircleMarker(BaseLeafletComponent):
     pane: Var[str]
 
 
-class Polyline(BaseLeafletComponent):
+class Polyline(InteractiveLeafletLayer):
     """Polyline component for displaying a line on a map."""
 
     tag = "Polyline"
@@ -159,7 +159,7 @@ class Polyline(BaseLeafletComponent):
     pane: Var[str]
 
 
-class Polygon(BaseLeafletComponent):
+class Polygon(InteractiveLeafletLayer):
     """Polygon component for displaying a filled polygon on a map."""
 
     tag = "Polygon"
@@ -177,7 +177,7 @@ class Polygon(BaseLeafletComponent):
     pane: Var[str]
 
 
-class Rectangle(BaseLeafletComponent):
+class Rectangle(InteractiveLeafletLayer):
     """Rectangle component for displaying a rectangle on a map."""
 
     tag = "Rectangle"

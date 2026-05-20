@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: convertbng
-Version: 0.7.11
+Version: 0.7.12
 Summary: Fast lon, lat to and from ETRS89 and BNG (OSGB36) using the OS OSTN15 transform via Rust FFI
 Keywords: Geo,OSTN02,OSTN15,BNG,OSGB36,GIS
-Author-Email: =?utf-8?q?Stephan_H=C3=BCgel?= <urschrei@gmail.com>
+Author: Stephan Hügel
+Maintainer-Email: Unknown <urschrei@gmail.com>
 License-Expression: BlueOak-1.0.0
 License-File: LICENSE.md
 Classifier: Programming Language :: Python

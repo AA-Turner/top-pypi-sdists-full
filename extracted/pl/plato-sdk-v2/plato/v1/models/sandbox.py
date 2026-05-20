@@ -55,6 +55,7 @@ class SimConfigListener(BaseModel):
     db_user: str | None = None
     db_password: str | None = None
     db_database: str | None = None
+    db_schema: str | None = None
     target_dir: str | None = None
     watch_enabled: bool | None = None
     watch_patterns: list[str] | None = None

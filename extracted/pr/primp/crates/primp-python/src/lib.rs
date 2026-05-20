@@ -2,9 +2,7 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use ::primp::{
-    multipart, Body, Client as PrimpClient, Method, Proxy, Response as PrimpResponse, Url,
-};
+use ::primp::{multipart, Body, Client as PrimpClient, Method, Response as PrimpResponse, Url};
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pythonize::depythonize;
@@ -17,8 +15,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 mod client_builder;
 use client_builder::{
-    configure_client_builder, cookies_to_header_values, headers_without_cookie,
-    parse_cookies_from_header, parse_url_or_domain, IndexMapSSR,
+    configure_client_builder, cookies_to_header_values, parse_dns_resolver, IndexMapSSR,
 };
 
 mod error;
@@ -30,8 +27,9 @@ use response::{BytesIterator, LinesIterator, Response, TextIterator};
 
 mod r#async;
 
+mod response_shared;
 mod traits;
-use traits::{HeaderMapExt, HeadersTraits};
+use traits::HeadersTraits;
 
 mod utils;
 use utils::extract_encoding;
@@ -92,6 +90,18 @@ pub fn extract_cookies_to_indexmap(headers: &http::HeaderMap) -> IndexMapSSR {
     cookie_map
 }
 
+/// Convert a non-Object `serde_json::Value` to a raw string body.
+pub(crate) fn body_value_to_string(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Null => String::new(),
+        Value::Array(arr) => serde_json::to_string(arr).unwrap_or_default(),
+        Value::Object(_) => unreachable!("body_value_to_string should not be called with Object"),
+    }
+}
+
 #[pymethods]
 impl Client {
     /// Initializes an HTTP client that can impersonate web browsers.
@@ -150,7 +160,7 @@ impl Client {
         referer=true, proxy=None, timeout=None, connect_timeout=None, read_timeout=None,
         impersonate=None, impersonate_os=None, follow_redirects=true,
         max_redirects=20, verify=true, ca_cert_file=None, https_only=false, http2_only=false,
-        base_url=None, cookies=None))]
+        dns_resolver=None, base_url=None, cookies=None))]
     fn new(
         py: Python<'_>,
         auth: Option<(String, Option<String>)>,
@@ -171,9 +181,11 @@ impl Client {
         ca_cert_file: Option<String>,
         https_only: Option<bool>,
         http2_only: Option<bool>,
+        dns_resolver: Option<pyo3::Bound<'_, pyo3::types::PyAny>>,
         base_url: Option<String>,
         cookies: Option<IndexMapSSR>,
     ) -> PrimpResult<Self> {
+        let dns_resolvers = parse_dns_resolver(dns_resolver)?;
         let (resolved_proxy, client) = py.detach(|| -> PrimpResult<_> {
             let (client_builder, resolved_proxy) = configure_client_builder(
                 PrimpClient::builder(),
@@ -192,6 +204,7 @@ impl Client {
                 ca_cert_file,
                 https_only,
                 http2_only,
+                dns_resolvers,
             )?;
 
             let client = Arc::new(RwLock::new(client_builder.build()?));
@@ -216,32 +229,16 @@ impl Client {
 
     #[getter]
     pub fn get_headers(&self) -> PrimpResult<IndexMapSSR> {
-        let client = self.client.read().expect("client lock was poisoned");
-        Ok(headers_without_cookie(client.headers()))
+        client_builder::client_headers(&self.client)
     }
 
     #[setter]
     pub fn set_headers(&self, new_headers: Option<IndexMapSSR>) -> PrimpResult<()> {
-        let mut client = self.client.write().expect("client lock was poisoned");
-        let headers = client.headers_mut();
-        headers.clear();
-        if let Some(new_headers) = new_headers {
-            for (k, v) in new_headers {
-                headers.insert_key_value(k, v)?;
-            }
-        }
-        Ok(())
+        client_builder::client_set_headers(&self.client, new_headers)
     }
 
     pub fn headers_update(&self, new_headers: Option<IndexMapSSR>) -> PrimpResult<()> {
-        let mut client = self.client.write().expect("client lock was poisoned");
-        let headers = client.headers_mut();
-        if let Some(new_headers) = new_headers {
-            for (k, v) in new_headers {
-                headers.insert_key_value(k, v)?;
-            }
-        }
-        Ok(())
+        client_builder::client_headers_update(&self.client, new_headers)
     }
 
     #[getter]
@@ -251,35 +248,18 @@ impl Client {
 
     #[setter]
     pub fn set_proxy(&mut self, proxy: String) -> PrimpResult<()> {
-        let rproxy = Proxy::all(proxy.clone())?;
-        let mut client = self.client.write().expect("client lock was poisoned");
-        let client_ref = &mut *client;
-        client_ref.set_proxies(vec![rproxy]);
-        self.proxy = Some(proxy);
+        self.proxy = Some(client_builder::client_set_proxy(&self.client, proxy)?);
         Ok(())
     }
 
     #[pyo3(signature = (url))]
     fn get_cookies(&self, url: &str) -> PrimpResult<IndexMapSSR> {
-        let url = Url::parse(url).map_err(|e| PrimpErrorEnum::InvalidURL(e.to_string()))?;
-        let client = self.client.read().expect("client lock was poisoned");
-        let cookie = client
-            .get_cookies(&url)
-            .ok_or_else(|| PrimpErrorEnum::Custom("No cookies found for URL".to_string()))?;
-        let cookie_str = cookie.to_str()?;
-        Ok(parse_cookies_from_header(cookie_str))
+        client_builder::client_get_cookies(&self.client, url)
     }
 
     #[pyo3(signature = (url, cookies))]
     fn set_cookies(&self, url: &str, cookies: Option<IndexMapSSR>) -> PrimpResult<()> {
-        let url =
-            parse_url_or_domain(url).map_err(|e| PrimpErrorEnum::InvalidURL(e.to_string()))?;
-        if let Some(cookies) = cookies {
-            let header_values = cookies_to_header_values(&cookies);
-            let client = self.client.read().expect("client lock was poisoned");
-            client.set_cookies(&url, header_values);
-        }
-        Ok(())
+        client_builder::client_set_cookies(&self.client, url, cookies)
     }
 
     /// Constructs an HTTP request with the given method, URL, and optionally sets a timeout, headers, and query parameters.
@@ -363,7 +343,7 @@ impl Client {
             if !client_cookies.is_empty() {
                 let url_parsed = Url::parse(&resolved_url).map_err(Into::<PrimpErrorEnum>::into)?;
                 let cookie_values = cookies_to_header_values(client_cookies);
-                let client_guard = client.read().expect("client lock was poisoned");
+                let client_guard = client.read().unwrap_or_else(|e| e.into_inner());
                 client_guard.set_cookies(&url_parsed, cookie_values);
             }
         }
@@ -372,13 +352,13 @@ impl Client {
         if let Some(cookies) = cookies.filter(|c| !c.is_empty()) {
             let url_parsed = Url::parse(&resolved_url).map_err(Into::<PrimpErrorEnum>::into)?;
             let cookie_values = cookies_to_header_values(&cookies);
-            let client_guard = client.read().expect("client lock was poisoned");
+            let client_guard = client.read().unwrap_or_else(|e| e.into_inner());
             client_guard.set_cookies(&url_parsed, cookie_values);
         }
 
         // Handle follow_redirects: set policy before cloning client
         if let Some(fr) = follow_redirects {
-            let mut client_guard = client.write().expect("client lock was poisoned");
+            let mut client_guard = client.write().unwrap_or_else(|e| e.into_inner());
             if fr {
                 client_guard.set_redirect_policy(::primp::redirect::Policy::limited(20));
             } else {
@@ -387,37 +367,21 @@ impl Client {
         }
 
         // Clone the inner client to avoid holding the RwLock across await points
-        let client_clone = client.read().expect("client lock was poisoned").clone();
+        let client_clone = client.read().unwrap_or_else(|e| e.into_inner()).clone();
 
-        let self_params = params
-            .as_ref()
-            .is_none()
-            .then_some(self.params.as_ref())
-            .flatten();
-        let self_auth = auth
-            .as_ref()
-            .is_none()
-            .then_some(self.auth.as_ref())
-            .flatten();
-        let self_auth_bearer = auth_bearer
-            .as_ref()
-            .is_none()
-            .then_some(self.auth_bearer.as_ref())
-            .flatten();
+        // Restore redirect policy immediately after cloning if it was changed
+        if follow_redirects.is_some() {
+            let mut client_guard = client.write().unwrap_or_else(|e| e.into_inner());
+            client_guard.set_redirect_policy(::primp::redirect::Policy::limited(20));
+        }
 
         let future = async move {
             // Create request builder using the cloned client
             let mut request_builder = client_clone.request(method, &resolved_url);
 
             // Params
-            match (&params, self_params) {
-                (Some(p), _) => {
-                    request_builder = request_builder.query(p);
-                }
-                (None, Some(sp)) => {
-                    request_builder = request_builder.query(sp);
-                }
-                (None, None) => {}
+            if let Some(p) = params.as_ref().or(self.params.as_ref()) {
+                request_builder = request_builder.query(p);
             }
 
             // Headers
@@ -429,9 +393,17 @@ impl Client {
             if let Some(content) = content {
                 request_builder = request_builder.body(content);
             }
-            // Form data (if provided)
+            // Form data (if provided) — only form-encode objects; send scalars as raw body
             if let Some(form_data) = data_value {
-                request_builder = request_builder.form(&form_data);
+                match form_data {
+                    Value::Object(_) => {
+                        request_builder = request_builder.form(&form_data);
+                    }
+                    other => {
+                        let body = body_value_to_string(&other);
+                        request_builder = request_builder.body(body);
+                    }
+                }
             }
             // JSON (if provided)
             if let Some(json_data) = json_value {
@@ -453,25 +425,10 @@ impl Client {
             }
 
             // Auth
-            match (&auth, self_auth) {
-                (Some((u, p)), _) => {
-                    request_builder = request_builder.basic_auth(u, p.as_deref());
-                }
-                (None, Some((u, p))) => {
-                    request_builder = request_builder.basic_auth(u, p.as_deref());
-                }
-                (None, None) => {
-                    // Try bearer auth if no basic auth
-                    match (&auth_bearer, self_auth_bearer) {
-                        (Some(t), _) => {
-                            request_builder = request_builder.bearer_auth(t);
-                        }
-                        (None, Some(t)) => {
-                            request_builder = request_builder.bearer_auth(t);
-                        }
-                        (None, None) => {}
-                    }
-                }
+            if let Some((u, p)) = auth.as_ref().or(self.auth.as_ref()) {
+                request_builder = request_builder.basic_auth(u, p.as_deref());
+            } else if let Some(t) = auth_bearer.as_ref().or(self.auth_bearer.as_ref()) {
+                request_builder = request_builder.bearer_auth(t);
             }
 
             // Timeout
@@ -501,12 +458,6 @@ impl Client {
         let runtime = get_runtime(py);
         let response: Result<(PrimpResponse, String, u16), PrimpErrorEnum> =
             py.detach(move || runtime.block_on(future));
-
-        // Restore redirect policy if it was changed
-        if follow_redirects.is_some() {
-            let mut client_guard = client.write().expect("client lock was poisoned");
-            client_guard.set_redirect_policy(::primp::redirect::Policy::limited(20));
-        }
 
         let result = response?;
         let resp = result.0;
@@ -878,7 +829,7 @@ fn get(
         None,
         None,
         None,
-        headers.clone(),
+        headers,
         None,
         None,
         None,
@@ -895,12 +846,13 @@ fn get(
         None,
         None,
         None,
+        None,
     )?;
     client.get(
         py,
         url,
         params,
-        headers,
+        None,
         cookies,
         content,
         data,
@@ -966,7 +918,7 @@ fn head(
         None,
         None,
         None,
-        headers.clone(),
+        headers,
         None,
         None,
         None,
@@ -983,12 +935,13 @@ fn head(
         None,
         None,
         None,
+        None,
     )?;
     client.head(
         py,
         url,
         params,
-        headers,
+        None,
         cookies,
         content,
         data,
@@ -1054,7 +1007,7 @@ fn options(
         None,
         None,
         None,
-        headers.clone(),
+        headers,
         None,
         None,
         None,
@@ -1071,12 +1024,13 @@ fn options(
         None,
         None,
         None,
+        None,
     )?;
     client.options(
         py,
         url,
         params,
-        headers,
+        None,
         cookies,
         content,
         data,
@@ -1142,7 +1096,7 @@ fn delete(
         None,
         None,
         None,
-        headers.clone(),
+        headers,
         None,
         None,
         None,
@@ -1159,12 +1113,13 @@ fn delete(
         None,
         None,
         None,
+        None,
     )?;
     client.delete(
         py,
         url,
         params,
-        headers,
+        None,
         cookies,
         content,
         data,
@@ -1230,7 +1185,7 @@ fn post(
         None,
         None,
         None,
-        headers.clone(),
+        headers,
         None,
         None,
         None,
@@ -1247,12 +1202,13 @@ fn post(
         None,
         None,
         None,
+        None,
     )?;
     client.post(
         py,
         url,
         params,
-        headers,
+        None,
         cookies,
         content,
         data,
@@ -1318,7 +1274,7 @@ fn put(
         None,
         None,
         None,
-        headers.clone(),
+        headers,
         None,
         None,
         None,
@@ -1335,12 +1291,13 @@ fn put(
         None,
         None,
         None,
+        None,
     )?;
     client.put(
         py,
         url,
         params,
-        headers,
+        None,
         cookies,
         content,
         data,
@@ -1406,7 +1363,7 @@ fn patch(
         None,
         None,
         None,
-        headers.clone(),
+        headers,
         None,
         None,
         None,
@@ -1423,12 +1380,13 @@ fn patch(
         None,
         None,
         None,
+        None,
     )?;
     client.patch(
         py,
         url,
         params,
-        headers,
+        None,
         cookies,
         content,
         data,
@@ -1496,7 +1454,7 @@ fn request(
         None,
         None,
         None,
-        headers.clone(),
+        headers,
         None,
         None,
         None,
@@ -1513,13 +1471,14 @@ fn request(
         None,
         None,
         None,
+        None,
     )?;
     client.request(
         py,
         method,
         url,
         params,
-        headers,
+        None,
         cookies,
         content,
         data,

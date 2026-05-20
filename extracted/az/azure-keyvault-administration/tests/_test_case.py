@@ -8,7 +8,6 @@ import pytest
 
 from azure.keyvault.administration import ApiVersion
 from azure.keyvault.administration._internal.client_base import DEFAULT_VERSION
-from azure.identity import ManagedIdentityCredential
 from devtools_testutils import AzureRecordedTestCase
 
 
@@ -55,7 +54,7 @@ class BaseClientPreparer(AzureRecordedTestCase):
 
 class KeyVaultBackupClientPreparer(BaseClientPreparer):
     def __init__(self, **kwargs) -> None:
-       super().__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __call__(self, fn):
         def _preparer(test_class, api_version, **kwargs):
@@ -66,6 +65,7 @@ class KeyVaultBackupClientPreparer(BaseClientPreparer):
 
             with client:
                 fn(test_class, client, **kwargs)
+
         return _preparer
 
     def create_backup_client(self, **kwargs):
@@ -79,7 +79,7 @@ class KeyVaultBackupClientPreparer(BaseClientPreparer):
 
 class KeyVaultBackupClientSasPreparer(BaseClientPreparer):
     def __init__(self, **kwargs) -> None:
-       super().__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __call__(self, fn):
         def _preparer(test_class, api_version, **kwargs):
@@ -91,6 +91,7 @@ class KeyVaultBackupClientSasPreparer(BaseClientPreparer):
 
             with client:
                 fn(test_class, client, **kwargs)
+
         return _preparer
 
     def create_backup_client(self, **kwargs):
@@ -113,6 +114,7 @@ class KeyVaultAccessControlClientPreparer(BaseClientPreparer):
 
             with client:
                 fn(test_class, client, **kwargs)
+
         return _preparer
 
     def create_access_control_client(self, **kwargs):
@@ -135,6 +137,7 @@ class KeyVaultSettingsClientPreparer(BaseClientPreparer):
 
             with client:
                 fn(test_class, client, **kwargs)
+
         return _preparer
 
     def create_settings_client(self, **kwargs):

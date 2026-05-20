@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: pyshp
-Version: 3.0.5
+Version: 3.0.7
 Summary: Pure Python read/write support for ESRI Shapefile format
 Project-URL: Repository, https://github.com/GeospatialPython/pyshp
 Author-email: Joel Lawhead <jlawhead@geospatialpython.com>
-Maintainer-email: Karim Bahgat <karim.bahgat.norway@gmail.com>
+Maintainer-email: James Parrott <james@jamesparrott.dev>, Karim Bahgat <karim.bahgat.norway@gmail.com>
 License-Expression: MIT
 License-File: LICENSE.TXT
 Keywords: geographic,geospatial,gis,shapefile,shapefiles
@@ -29,9 +29,9 @@ The Python Shapefile Library (PyShp) reads and writes ESRI Shapefiles in pure Py
 ![build status](https://github.com/GeospatialPython/pyshp/actions/workflows/build.yml/badge.svg)
 
 - **Author**: [Joel Lawhead](https://github.com/GeospatialPython)
-- **Maintainers**: [Karim Bahgat](https://github.com/karimbahgat)
-- **Version**: 3.0.3.dev0
-- **Date**: 10th October, 2025
+- **Maintainers**: [James Parrott](https://github.com/JamesParrott) & [Karim Bahgat](https://github.com/karimbahgat)
+- **Version**: 3.0.7
+- **Date**: 20th May 2026
 - **License**: [MIT](https://github.com/GeospatialPython/pyshp/blob/master/LICENSE.TXT)
 
 ## Contents
@@ -114,6 +114,24 @@ part of your geospatial project.
 
 
 # Version Changes
+
+## 3.0.7
+
+### Testability / separation of concerns.
+ - Separate dbf only reading methods into a new dbfReader class (an instance of which is owned by the regular Shapefile Reader class).
+
+
+## 3.0.6
+
+### URL Downloading
+ - Unify tempfile creation and shapefile download logic.
+ - Check "Content-Type" header and sniff initial bytes 
+   of response in order to possibly reject html responses, before parsing as a shapefile, to give a more useful error to users.
+ - Special case shapefiles hosted in Github repos to suggest appending the query string `?raw=true`.
+
+### Testing:
+ - Add shapefile from Open Natual Hazard Modelling ([Paula Spannring](https://github.com/PaulaSp3)
+   and [Felix Oesterle, Austrian Research Centre for Forests](https://orcid.org/0000-0002-7772-6884)).
 
 ## 3.0.5
 
@@ -1616,6 +1634,7 @@ davidh-ssec
 Edward Kawas
 Evan Heidtmann
 ezcitron
+Felix Oesterle
 fiveham
 geospatialpython
 Hannes
@@ -1638,6 +1657,7 @@ Mike Toews
 Miroslav Šedivý
 Nilo
 pakoun
+Paula Spannring
 Paulo Ernesto
 Raynor Vliegendhart
 Razzi Abuissa

@@ -1,11 +1,10 @@
 """
 Logging decorator for Ansible modules to capture detailed library logs
 """
+
 import logging
 import io
 import functools
-import sys
-import os
 
 
 def _import_setup_logger():
@@ -22,20 +21,17 @@ def _import_setup_logger():
     # Strategy 1: Use Ansible FQCN import (required for Ansible module execution)
     try:
         from ansible_collections.graphiant.naas.plugins.module_utils.libs.logger import setup_logger
+
         return setup_logger
     except ImportError:
         pass
 
-    # Strategy 2: Fallback for direct Python usage
-    module_utils_dir = os.path.dirname(os.path.abspath(__file__))
-    if module_utils_dir not in sys.path:
-        sys.path.append(module_utils_dir)
-
+    # Strategy 2: package-relative import (e.g. unit tests with PYTHONPATH at collection root)
     try:
-        from libs.logger import setup_logger
+        from .libs.logger import setup_logger
+
         return setup_logger
     except ImportError:
-        # Final fallback: return None and use basic logging
         return None
 
 
@@ -58,18 +54,24 @@ def capture_library_logs(func):
             # Your operation code here
             pass
     """
+
     @functools.wraps(func)
     def wrapper(module, *args, **kwargs):
         # Check if detailed logging is enabled
-        detailed_logs = module.params.get('detailed_logs', False)
+        detailed_logs = module.params.get("detailed_logs", False)
 
         if not detailed_logs:
             # If detailed logging is disabled, just run the function normally
             return func(module, *args, **kwargs)
 
-        # Note: For best output formatting with detailed_logs, set:
+        # Note: ansible-playbook with detailed_logs: true embeds newlines in result_msg.
+        # For best output formatting with detailed_logs, set ANSIBLE_STDOUT_CALLBACK=debug:
         # export ANSIBLE_STDOUT_CALLBACK=debug
         # This ensures clean output without literal \n characters
+
+        # The debug task should pass msg as a multiline string (e.g. msg: |), not a list of
+        # strings, or the callback may show literal \n in a one-line list repr. Callback
+        # (default vs ANSIBLE_STDOUT_CALLBACK=debug) does not change that list behavior.
 
         # Set up logging capture
         log_capture = io.StringIO()
@@ -81,12 +83,12 @@ def capture_library_logs(func):
                 self.buffer = buffer
 
             def emit(self, record):
-                self.buffer.write(self.format(record) + '\n')
+                self.buffer.write(self.format(record) + "\n")
 
         # Create and configure the handler
         log_handler = LogCaptureHandler(log_capture)
         log_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         log_handler.setFormatter(formatter)
 
         # Get the library logger using imported setup_logger (same as libs/logger.py)
@@ -105,12 +107,14 @@ def capture_library_logs(func):
 
             # Capture the logs
             captured_logs = log_capture.getvalue()
-            if captured_logs and 'result_msg' in result:
-                result['result_msg'] += f"\n\nDetailed logs:\n{captured_logs}"
+            if captured_logs and "result_msg" in result:
+                result["result_msg"] += f"\n\nDetailed logs:\n{captured_logs}"
 
             return result
 
         except Exception as e:
+            if "Config file not found" in str(e):
+                raise
             # Capture logs even when exception occurs
             captured_logs = log_capture.getvalue()
             if captured_logs:

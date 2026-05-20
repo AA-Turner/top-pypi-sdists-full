@@ -215,6 +215,8 @@ class TestEtlAsset(TestCase):
             "owner",
             "properties",
             "attributes",
+            "inputs",
+            "outputs",
         }
         a = EtlAsset(
             job_source_id="j",
@@ -228,11 +230,56 @@ class TestEtlAsset(TestCase):
             owner=Owner(primary_email="o@x.com"),
             properties=[Tag(key="k", value="v")],
             attributes={"a": 1},
+            inputs=[AssetRef(asset_type="TABLE", role="INPUT", fully_qualified_name="db:s.t_in")],
+            outputs=[
+                AssetRef(asset_type="TABLE", role="OUTPUT", fully_qualified_name="db:s.t_out")
+            ],
         )
         produced = set(a.to_dict().keys())
-        assert produced == wire_fields, (
-            f"extra: {produced - wire_fields}, missing: {wire_fields - produced}"
+        assert (
+            produced == wire_fields
+        ), f"extra: {produced - wire_fields}, missing: {wire_fields - produced}"
+
+    def test_to_dict_omits_empty_inputs_outputs(self):
+        a = EtlAsset(job_source_id="j", name="n", inputs=[], outputs=[])
+        result = a.to_dict()
+        assert "inputs" not in result
+        assert "outputs" not in result
+
+    def test_to_dict_serializes_inputs_outputs(self):
+        a = EtlAsset(
+            job_source_id="j",
+            name="n",
+            inputs=[
+                AssetRef(
+                    asset_type="TABLE",
+                    role="INPUT",
+                    fully_qualified_name="analytics:prod.in_table",
+                )
+            ],
+            outputs=[
+                AssetRef(
+                    asset_type="TABLE",
+                    role="OUTPUT",
+                    fully_qualified_name="analytics:prod.out_table",
+                )
+            ],
         )
+        result = a.to_dict()
+        assert result["inputs"] == [
+            {
+                "asset_type": "TABLE",
+                "role": "INPUT",
+                "fully_qualified_name": "analytics:prod.in_table",
+            }
+        ]
+        assert result["outputs"] == [
+            {
+                "asset_type": "TABLE",
+                "role": "OUTPUT",
+                "fully_qualified_name": "analytics:prod.out_table",
+            }
+        ]
 
 
 class TestEtlMetadataEvent(TestCase):

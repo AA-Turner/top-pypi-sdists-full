@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-barbicanclient
-Version: 7.3.0
+Version: 7.4.0
 Summary: Client Library for OpenStack Barbican Key Management API
 Home-page: https://docs.openstack.org/python-barbicanclient/latest/
 Author: OpenStack

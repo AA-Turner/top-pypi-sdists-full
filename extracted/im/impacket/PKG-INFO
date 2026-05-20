@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: impacket
-Version: 0.13.0
+Version: 0.13.1
 Summary: Network protocols Constructors and Dissectors
 Home-page: https://www.coresecurity.com
 Author: SecureAuth Corporation
@@ -23,7 +23,6 @@ Requires-Dist: six
 Requires-Dist: ldap3!=2.5.0,!=2.5.2,!=2.6,>=2.5
 Requires-Dist: ldapdomaindump>=0.9.0
 Requires-Dist: flask>=1.0
-Requires-Dist: setuptools
 Requires-Dist: charset_normalizer
 Requires-Dist: pyreadline3; sys_platform == "win32"
 Dynamic: author
@@ -38,6 +37,8 @@ Dynamic: platform
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
+
+<img alt="Impacket_light" src="https://github.com/user-attachments/assets/14aed700-0c6e-4865-ac53-686b91874f50" />
 
 Impacket
 ========
@@ -91,7 +92,7 @@ Getting Impacket
 
 ### Latest version
 
-* Impacket v0.13.0
+* Impacket v0.13.1
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 

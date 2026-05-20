@@ -14,16 +14,13 @@ import (
 )
 
 func newWeightsPullCommand() *cobra.Command {
-	var (
-		verbose       bool
-		imageOverride string
-	)
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   "pull [NAME...]",
 		Short: "Populate the local weight cache from the registry",
 		Long: `Downloads weight files from the registry into the local content-addressed
-cache so 'cog predict' and 'cog run' can mount them at runtime.
+cache so 'cog run' can mount them at runtime.
 
 You don't need to run 'cog weights pull' after 'cog weights import' —
 import already warms the local cache. Pull is for the case where
@@ -38,32 +35,34 @@ cheap. The local cache defaults to $HOME/.cache/cog/weights; set
 COG_CACHE_DIR (or XDG_CACHE_HOME) to move it elsewhere — useful if your
 home directory is on a different filesystem than your project.
 
+` + weightRegistryResolutionHelp + `
+
 Use --verbose to show per-layer and per-file progress.`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return weightsPullCommand(cmd, args, verbose, imageOverride)
+			return weightsPullCommand(cmd, args, verbose)
 		},
 	}
 
 	addConfigFlag(cmd)
-	cmd.Flags().StringVar(&imageOverride, "image", "", "Registry repository (overrides cog.yaml image field)")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show per-layer and per-file progress")
 	return cmd
 }
 
-func weightsPullCommand(cmd *cobra.Command, args []string, verbose bool, imageOverride string) error {
+func weightsPullCommand(cmd *cobra.Command, args []string, verbose bool) error {
 	ctx := cmd.Context()
 
 	src, err := model.NewSource(configFilename)
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
+	defer src.Close()
 
 	if len(src.Config.Weights) == 0 {
 		return fmt.Errorf("no weights defined in %s", configFilename)
 	}
 
-	mgr, err := newWeightManager(src, imageOverride)
+	mgr, err := newWeightManager(src)
 	if err != nil {
 		return err
 	}

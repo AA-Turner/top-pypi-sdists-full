@@ -7,19 +7,37 @@ const COLOR_MAP = {
 };
 
 class Icicle extends HTMLElement {
-  connectedCallback() {
-    // this.shadow = this.createShadowRoot();
-    this.data = JSON.parse(this.getAttribute("data"));
-    this.rowHeight = this.getAttribute("row-height");
-    this.svg = d3.select(this).append("svg");
-    this.svg.style("width", "100%");
-    this.render();
-    this.setupExportButtons();
+  #x;
+  #y;
+  #root;
+  #rect;
+  #clipRect;
+  #text;
+  #tspan1;
+  #tspan2;
+  #data;
+  #svg;
+  #rowHeight;
+  #strokeWidth = 1;
+  #resizeController;
+
+  disconnectedCallback() {
+    this.#resizeController?.abort();
   }
 
-  setupExportButtons() {
+  connectedCallback() {
+    this.#data = tunaData;
+    this.#rowHeight = +this.getAttribute("row-height");
+    this.#svg = d3.select(this).append("svg");
+    this.#svg.style("width", "100%");
+    this.#render();
+    this.#setupExportButtons();
+  }
+
+  #setupExportButtons() {
     const svgButton = document.getElementById("exportSvgButton");
     const pngButton = document.getElementById("exportPngButton");
+    const copyButton = document.getElementById("copyPngButton");
 
     if (svgButton) {
       svgButton.addEventListener("click", () => this.exportSvg());
@@ -27,9 +45,12 @@ class Icicle extends HTMLElement {
     if (pngButton) {
       pngButton.addEventListener("click", () => this.exportPng());
     }
+    if (copyButton) {
+      copyButton.addEventListener("click", () => this.copyPng(copyButton));
+    }
   }
 
-  get exportBaseName() {
+  get #exportBaseName() {
     const title = document.title;
     const prefix = "tuna - ";
     const filename = title.startsWith(prefix)
@@ -39,8 +60,8 @@ class Icicle extends HTMLElement {
     return basename.replace(/\.[^.]+$/, "");
   }
 
-  getSvgWithInlinedStyles() {
-    const svgNode = this.svg.node();
+  #getSvgWithInlinedStyles() {
+    const svgNode = this.#svg.node();
     const clone = svgNode.cloneNode(true);
 
     const width = svgNode.getBoundingClientRect().width;
@@ -65,9 +86,9 @@ class Icicle extends HTMLElement {
     // Wrap existing content in a group offset by padding
     const wrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
     wrapper.setAttribute("transform", `translate(${padding},${padding})`);
-    while (clone.childNodes.length > 1) {
-      wrapper.appendChild(clone.childNodes[1]);
-    }
+    [...clone.childNodes]
+      .slice(1)
+      .forEach((child) => wrapper.appendChild(child));
     clone.appendChild(wrapper);
 
     // Inline styles for all groups with color classes
@@ -79,7 +100,6 @@ class Icicle extends HTMLElement {
             rect.setAttribute("fill", fillColor);
             rect.setAttribute("stroke", "#fff");
           }
-          // Also style clip-path rects
           const clipRect = g.querySelector("clipPath rect");
           if (clipRect) {
             clipRect.setAttribute("fill", fillColor);
@@ -92,27 +112,31 @@ class Icicle extends HTMLElement {
     return clone;
   }
 
-  exportSvg() {
-    const clone = this.getSvgWithInlinedStyles();
-    const serializer = new XMLSerializer();
-    const svgString = serializer.serializeToString(clone);
-    const blob = new Blob([svgString], { type: "image/svg+xml" });
+  #triggerDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${this.exportBaseName}.svg`;
+    const a = Object.assign(document.createElement("a"), {
+      href: url,
+      download: filename,
+    });
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
-  exportPng() {
-    const clone = this.getSvgWithInlinedStyles();
-    const serializer = new XMLSerializer();
-    const svgString = serializer.serializeToString(clone);
+  exportSvg() {
+    const svgString = new XMLSerializer().serializeToString(
+      this.#getSvgWithInlinedStyles(),
+    );
+    this.#triggerDownload(
+      new Blob([svgString], { type: "image/svg+xml" }),
+      `${this.#exportBaseName}.svg`,
+    );
+  }
 
+  #getPngBlob() {
+    const clone = this.#getSvgWithInlinedStyles();
+    const svgString = new XMLSerializer().serializeToString(clone);
     const width = parseFloat(clone.getAttribute("width"));
     const height = parseFloat(clone.getAttribute("height"));
 
@@ -123,188 +147,182 @@ class Icicle extends HTMLElement {
     const ctx = canvas.getContext("2d");
     ctx.scale(scale, scale);
 
-    const img = new Image();
-    const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(svgBlob);
+    const url = URL.createObjectURL(
+      new Blob([svgString], { type: "image/svg+xml" }),
+    );
 
-    img.onload = () => {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0);
-      URL.revokeObjectURL(url);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Failed to create PNG blob"));
+          }
+        }, "image/png");
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to load SVG image"));
+      };
+      img.src = url;
+    });
+  }
 
-      canvas.toBlob((blob) => {
-        const pngUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = pngUrl;
-        a.download = `${this.exportBaseName}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(pngUrl);
-      }, "image/png");
+  exportPng() {
+    this.#getPngBlob().then((blob) =>
+      this.#triggerDownload(blob, `${this.#exportBaseName}.png`),
+    );
+  }
+
+  copyPng(button) {
+    const originalText = button.textContent;
+    const restore = () => {
+      setTimeout(() => {
+        button.textContent = originalText;
+      }, 1500);
     };
-
-    img.src = url;
+    // ClipboardItem accepts a Promise so Safari permits async blob generation
+    // inside the user-gesture handler.
+    const item = new ClipboardItem({
+      "image/png": this.#getPngBlob(),
+    });
+    navigator.clipboard
+      .write([item])
+      .then(() => {
+        button.textContent = "Copied!";
+        restore();
+      })
+      .catch((err) => {
+        console.error("Failed to copy PNG to clipboard:", err);
+        button.textContent = "Copy failed";
+        restore();
+      });
   }
 
-  get width() {
-    return this.svg.node().getBoundingClientRect().width;
+  get #width() {
+    return this.#svg.node().getBoundingClientRect().width;
   }
 
-  render() {
-    // const color = d3.scaleOrdinal(d3.schemeCategory10);
-    //
-    const root = d3
-      .hierarchy(this.data)
+  #render() {
+    this.#root = d3
+      .hierarchy(this.#data)
       .sum((d) => d.value)
       .sort((a, b) => b.value - a.value);
 
-    // Give each node a unique id (used for clip paths)
-    let id = 0;
-    root.descendants().forEach(function (d) {
-      d.id = id;
-      id++;
+    this.#root.descendants().forEach((d, i) => {
+      d.id = i;
     });
 
-    // Find the resetZoomButton and call clicked() with root
-    const button = document.getElementById("resetZoomButton");
-    button.addEventListener("click", (evt) => {
-      clicked.bind(this)(evt, root);
-    });
+    document
+      .getElementById("resetZoomButton")
+      .addEventListener("click", () => this.#clicked(this.#root));
 
-    const strokeWidth = 1;
-    const numLevels = root.height + 1;
-    const height = numLevels * this.rowHeight + numLevels * strokeWidth;
+    const numLevels = this.#root.height + 1;
+    const height = numLevels * this.#rowHeight + numLevels * this.#strokeWidth;
+    this.#svg.attr("height", height);
 
-    this.svg.attr("height", height);
+    this.#x = d3.scaleLinear().range([0, this.#width]);
+    this.#y = d3.scaleLinear().range([0, height]);
 
-    const x = d3.scaleLinear().range([0, this.width]);
-    const y = d3.scaleLinear().range([0, height]);
+    const totalRuntime = this.#root.value;
+    const fmtS = d3.format(".3f");
+    const fmtPct = d3.format(".1%");
+    const timeLabel = (d) =>
+      d.data.text.length > 1
+        ? d.data.text[1]
+        : `${fmtS(d.value)} s  (${fmtPct(d.value / totalRuntime)})`;
 
-    const totalRuntime = root.value;
-
-    const partition = d3.partition();
-    // .size([this.width, height])
-    // .round(true);
-    partition(root);
+    d3.partition()(this.#root);
 
     // Put text and rectangle into a group;
     // cf. <https://stackoverflow.com/a/6732550/353337>.
-    const all_g = this.svg.selectAll("g");
-    const g = all_g
+    const g = this.#svg
+      .selectAll("g")
       .data(
-        // Only get the blocks above a certain threshold width
-        root.descendants().filter((d) => x(d.x1 - d.x0) > 1.0),
+        this.#root
+          .descendants()
+          .filter((d) => this.#x(d.x1) - this.#x(d.x0) > 1.0),
       )
       .enter()
       .append("g")
       .attr("class", (d) => "color" + d.data.color)
-      // binding ensures `this` is correct in clicked:
-      .on("click", clicked.bind(this));
+      .on("click", (evt, d) => this.#clicked(d));
 
-    // append <title>, rendered as tooltip
-    g.append("title").text((d) => {
-      let out = d.data.text[0] + " ";
-      if (d.data.text.length > 1) {
-        out += d.data.text[1];
-      } else {
-        out +=
-          d3.format(".3f")(d.value) +
-          " s  (" +
-          d3.format(".1%")(d.value / totalRuntime) +
-          ")";
-      }
-      return out;
-    });
+    g.append("title").text((d) => `${d.data.text[0]} ${timeLabel(d)}`);
 
-    const rect = g
+    this.#rect = g
       .append("rect")
-      .attr("x", (d) => x(d.x0))
-      .attr("y", (d) => y(d.y0))
-      .attr("width", (d) => x(d.x1 - d.x0))
-      .attr("height", this.rowHeight);
-    // .attr("fill", d => color((d.children ? d : d.parent).key))
+      .attr("x", (d) => this.#x(d.x0))
+      .attr("y", (d) => this.#y(d.y0))
+      .attr("width", (d) => this.#x(d.x1) - this.#x(d.x0))
+      .attr("height", this.#rowHeight);
 
     // First, the clip path, same as the rect.
-    // It'd be nice to having to repeat outselves here, but the <use> suggestion from
+    // It'd be nice to not have to repeat ourselves here, but the <use> suggestion from
     // <https://stackoverflow.com/q/23998457/353337> doesn't work.
-    const cp = g.append("clipPath").attr("id", (d) => "cp" + d.id);
-    const clipRect = cp
+    const cp = g.append("clipPath").attr("id", (d) => `cp${d.id}`);
+    this.#clipRect = cp
       .append("rect")
-      .attr("x", (d) => x(d.x0))
-      .attr("y", (d) => y(d.y0))
-      .attr("width", (d) => x(d.x1) - x(d.x0))
-      .attr("height", this.rowHeight);
+      .attr("x", (d) => this.#x(d.x0))
+      .attr("y", (d) => this.#y(d.y0))
+      .attr("width", (d) => this.#x(d.x1) - this.#x(d.x0))
+      .attr("height", this.#rowHeight);
 
     // Now the text. Multiline text is realized with <tspan> in SVG.
-    const text = g
+    this.#text = g
       .append("text")
-      .attr("y", (d) => y(d.y0 + d.y1) / 2)
+      .attr("y", (d) => this.#y((d.y0 + d.y1) / 2))
       .attr("alignment-baseline", "middle")
       .attr("text-anchor", "middle")
       .attr("fill", "white")
-      .attr("clip-path", (d) => "url(#" + "cp" + d.id + ")");
+      .attr("clip-path", (d) => `url(#cp${d.id})`);
 
-    const tspan1 = text
+    this.#tspan1 = this.#text
       .append("tspan")
       .text((d) => d.data.text[0])
-      .attr("x", (d) => x(d.x0 + d.x1) / 2);
+      .attr("x", (d) => this.#x((d.x0 + d.x1) / 2));
 
-    const tspan2 = text
+    this.#tspan2 = this.#text
       .append("tspan")
-      .text((d) => {
-        if (d.data.text.length > 1) {
-          return d.data.text[1];
-        }
-        return (
-          d3.format(".3f")(d.value) +
-          " s  (" +
-          d3.format(".1%")(d.value / totalRuntime) +
-          ")"
-        );
-      })
-      .attr("x", (d) => x(d.x0 + d.x1) / 2)
+      .text(timeLabel)
+      .attr("x", (d) => this.#x((d.x0 + d.x1) / 2))
       .attr("dy", "1.5em");
 
-    function clicked(evt, d) {
-      const offset = d.y0 ? 20 : 0;
-      const height = root.height - d.depth;
-      const newHeight =
-        (height + 1) * this.rowHeight + (height + 1) * strokeWidth;
-      x.domain([d.x0, d.x1]).range([0, this.width]);
-      y.domain([d.y0, 1]).range([offset, newHeight + offset]);
-      const trans = d3.transition().duration(300);
-      rect
-        .transition(trans)
-        .attr("x", (d) => x(d.x0))
-        .attr("y", (d) => y(d.y0))
-        .attr("width", (d) => x(d.x1) - x(d.x0));
-      clipRect
-        .transition(trans)
-        .attr("x", (d) => x(d.x0))
-        .attr("y", (d) => y(d.y0))
-        .attr("width", (d) => x(d.x1) - x(d.x0));
-      text.transition(trans).attr("y", (d) => y((d.y0 + d.y1) / 2));
-      tspan1.transition(trans).attr("x", (d) => x((d.x0 + d.x1) / 2));
-      tspan2.transition(trans).attr("x", (d) => x((d.x0 + d.x1) / 2));
-    }
-
-    // TODO: This repeats much of the content of `clicked`
-    window.addEventListener("resize", (e) => {
-      x.range([0, this.width]);
-      rect
-        .attr("x", (d) => x(d.x0))
-        .attr("y", (d) => y(d.y0))
-        .attr("width", (d) => x(d.x1) - x(d.x0));
-      clipRect
-        .attr("x", (d) => x(d.x0))
-        .attr("y", (d) => y(d.y0))
-        .attr("width", (d) => x(d.x1) - x(d.x0));
-      text.attr("y", (d) => y((d.y0 + d.y1) / 2));
-      tspan1.attr("x", (d) => x((d.x0 + d.x1) / 2));
-      tspan2.attr("x", (d) => x((d.x0 + d.x1) / 2));
+    this.#resizeController = new AbortController();
+    window.addEventListener("resize", () => this.#reposition(), {
+      signal: this.#resizeController.signal,
     });
+  }
+
+  #reposition(trans = null) {
+    const apply = (sel) => (trans ? sel.transition(trans) : sel);
+    apply(this.#rect)
+      .attr("x", (d) => this.#x(d.x0))
+      .attr("y", (d) => this.#y(d.y0))
+      .attr("width", (d) => this.#x(d.x1) - this.#x(d.x0));
+    apply(this.#clipRect)
+      .attr("x", (d) => this.#x(d.x0))
+      .attr("y", (d) => this.#y(d.y0))
+      .attr("width", (d) => this.#x(d.x1) - this.#x(d.x0));
+    apply(this.#text).attr("y", (d) => this.#y((d.y0 + d.y1) / 2));
+    apply(this.#tspan1).attr("x", (d) => this.#x((d.x0 + d.x1) / 2));
+    apply(this.#tspan2).attr("x", (d) => this.#x((d.x0 + d.x1) / 2));
+  }
+
+  #clicked(d) {
+    const offset = d.y0 ? 20 : 0;
+    const numLevels = this.#root.height - d.depth;
+    const newHeight =
+      (numLevels + 1) * this.#rowHeight + (numLevels + 1) * this.#strokeWidth;
+    this.#x.domain([d.x0, d.x1]).range([0, this.#width]);
+    this.#y.domain([d.y0, 1]).range([offset, newHeight + offset]);
+    this.#reposition(d3.transition().duration(300));
   }
 }
 

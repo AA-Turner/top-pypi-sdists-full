@@ -26,8 +26,10 @@ def bash(tmp_path, monkeypatch):
 async def test_four_runs_no_breaker(bash, tmp_path):
     """Running the same command 4 times does not trigger the loop-breaker."""
     cmd = "echo hello_unique_test_marker"
+    result = None
     for _ in range(4):
         result = await collect_result(bash.run(BashArgs(command=cmd)))
+    assert result is not None
     assert "LOOP-BREAKER" not in result.stdout
 
 
@@ -35,8 +37,10 @@ async def test_four_runs_no_breaker(bash, tmp_path):
 async def test_fifth_run_triggers_loop_breaker(bash, tmp_path):
     """5th run of the same exact command triggers the loop-breaker."""
     cmd = "echo identical_cmd_loop_test"
+    result = None
     for _ in range(5):
         result = await collect_result(bash.run(BashArgs(command=cmd)))
+    assert result is not None
     assert "LOOP-BREAKER" in result.stdout
     assert "5" in result.stdout
 
@@ -46,16 +50,20 @@ async def test_write_command_exempt(bash, tmp_path):
     """Commands that write files (> redirect) are exempt from the counter."""
     outfile = tmp_path / "out.txt"
     cmd = f"echo data > {outfile}"
+    result = None
     for _ in range(5):
         result = await collect_result(bash.run(BashArgs(command=cmd)))
+    assert result is not None
     assert "LOOP-BREAKER" not in result.stdout
 
 
 @pytest.mark.asyncio
 async def test_distinct_commands_no_breaker(bash, tmp_path):
     """Different commands don't share the run counter."""
+    result = None
     for i in range(6):
         result = await collect_result(bash.run(BashArgs(command=f"echo cmd_{i}")))
+    assert result is not None
     assert "LOOP-BREAKER" not in result.stdout
 
 
@@ -71,6 +79,8 @@ async def test_sed_i_escape_loop_triggers_breaker(bash, tmp_path):
     target.write_text('print("n")\n')
     # Exact same sed -i command repeated 5 times (same escaping mistake each time)
     cmd = f"sed -i 's/print(\"n/print(\"\\\\n/g' {target}"
+    result = None
     for _ in range(5):
         result = await collect_result(bash.run(BashArgs(command=cmd)))
+    assert result is not None
     assert "LOOP-BREAKER" in result.stdout

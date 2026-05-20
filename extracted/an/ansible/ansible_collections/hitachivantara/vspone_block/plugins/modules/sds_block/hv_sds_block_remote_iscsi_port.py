@@ -4,7 +4,6 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
@@ -28,6 +27,8 @@ attributes:
     support: none
 extends_documentation_fragment:
   - hitachivantara.vspone_block.common.sdsb_connection_info
+notes:
+  - The parameter C(remote_ip_address) will be deprecated in the future. Please use C(remote_storage_ip_address) instead.
 options:
   state:
     description: The desired state of the remote iSCSI port.
@@ -44,10 +45,11 @@ options:
         description: The ID of the remote iSCSI port. Required for delete operation.
         type: str
         required: false
-      local_port:
+      local_port_id:
         description: Port number of the local storage system in CLx-y format. Required for create operation.
         type: str
         required: false
+        aliases: ['local_port']
       remote_serial:
         description: Serial number of the remote storage system. Required for create operation.
         type: str
@@ -57,14 +59,16 @@ options:
         type: str
         required: false
         choices: ['R9', 'M8']
-      remote_port:
+      remote_port_id:
         description: Port number of the remote storage system in CLx-y format. Required for create operation.
         type: str
         required: false
-      remote_ip_address:
+        aliases: ['remote_port']
+      remote_storage_port_ip_address:
         description: iSCSI port IP address for the remote storage system. Required for create operation.
         type: str
         required: false
+        aliases: ['remote_ip_address']
       remote_tcp_port:
         description: TCP port number of the iSCSI target for the remote storage system. Used in create operation.
           If this is omitted, the TCP port number of the iSCSI target for the local storage system is set.
@@ -81,11 +85,11 @@ EXAMPLES = """
       password: "secret"
     state: "present"
     spec:
-      local_port: "CL1-C"
+      local_port_id: "CL1-C"
       remote_serial: "810045"
       remote_storage_system_type: "M8"
-      remote_port: "CL1-C"
-      remote_ip_address: "172.25.59.213"
+      remote_port_id: "CL1-C"
+      remote_storage_ip_address: "172.25.59.213"
 
 - name: Restore storage node from maintenance
   hitachivantara.vspone_block.sds_block.hv_sds_block_remote_iscsi_port:
@@ -148,6 +152,9 @@ from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common
 from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.ansible_common import (
     validate_ansible_product_registration,
 )
+from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.message.sdsb_module_message_catalog import (
+    SdsbMessageCatalog,
+)
 
 
 class SDSBRemoteIscsiPortManager:
@@ -183,9 +190,13 @@ class SDSBRemoteIscsiPortManager:
         if self.state == "absent":
             data.pop("remote_iscsi_ports")
             if remote_iscsi_ports is None:
-                data["message"] = "Successfully removed the remote iSCSI port."
+                data["message"] = (
+                    SdsbMessageCatalog.REMOTE_ISCSI_PORT_REMOVE_SUCCESS.value
+                )
             else:
-                data["message"] = "Failed to remove the remote iSCSI port."
+                data["message"] = (
+                    SdsbMessageCatalog.REMOTE_ISCSI_PORT_REMOVE_FAILURE.value
+                )
         if registration_message:
             data["user_consent_required"] = registration_message
         self.logger.writeInfo(f"{data}")

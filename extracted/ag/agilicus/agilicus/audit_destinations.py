@@ -94,12 +94,16 @@ def _build_routing(existing, properties):
         parts = key.split("routing_", 2)
         if len(parts) != 2 or value is None:
             continue
+        if isinstance(value, tuple):
+            value = list(value)
         existing[parts[1]] = value
     if not existing:
         return None
 
     if not isinstance(existing, dict):
         existing = existing.to_dict()
+    if existing:
+        existing.setdefault("external", False)
     return agilicus_api.AuditDestinationRouting(**existing)
 
 
@@ -205,7 +209,7 @@ def delete_audit_destination(ctx, destination_id, **kwargs):
     return apiclient.audits_api.delete_audit_destination(destination_id, **kwargs)
 
 
-def update_audit_destination(ctx, destination_id, **kwargs):
+def update_audit_destination(ctx, destination_id, clear_extra_locations=False, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     get_args = {}
     update_org_from_input_or_ctx(get_args, ctx, **kwargs)
@@ -229,6 +233,9 @@ def update_audit_destination(ctx, destination_id, **kwargs):
     if auth is not None:
         mapping.spec.authentication = auth
 
+    if clear_extra_locations:
+        kwargs["routing_extra_locations"] = []
+    print(kwargs)
     routing = _build_routing(mapping.spec.routing, kwargs)
     if routing is not None:
         mapping.spec.routing = routing

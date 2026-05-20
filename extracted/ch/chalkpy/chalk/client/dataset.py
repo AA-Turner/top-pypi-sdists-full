@@ -59,6 +59,7 @@ from chalk.features.resolver import Resolver
 from chalk.features.tag import BranchId, EnvironmentId
 from chalk.integrations.catalogs.base_catalog import BaseCatalog
 from chalk.utils.df_utils import read_parquet
+from chalk.utils.duration import translate_windowed_fqn
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.pandas_utils import require_pandas
@@ -974,9 +975,10 @@ class DatasetRevisionImpl(DatasetRevision):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        translate_fqns: bool = False,
         caller_name: str = "to_polars",
     ) -> pl.DataFrame:
-        return self.get_data_as_polars(
+        df = self.get_data_as_polars(
             output_id=output_id,
             output_ts=output_ts,
             ignore_errors=ignore_errors,
@@ -984,6 +986,9 @@ class DatasetRevisionImpl(DatasetRevision):
             show_progress=show_progress,
             caller_name=caller_name,
         ).collect()
+        if translate_fqns:
+            df = df.rename({col: translate_windowed_fqn(col) for col in df.columns})
+        return df
 
     async def to_polars_async(
         self,
@@ -992,6 +997,7 @@ class DatasetRevisionImpl(DatasetRevision):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        translate_fqns: bool = False,
         caller_name: str = "to_polars_async",
     ) -> pl.DataFrame:
         ret = await asyncio.get_running_loop().run_in_executor(
@@ -1002,6 +1008,7 @@ class DatasetRevisionImpl(DatasetRevision):
                 ignore_errors=ignore_errors,
                 show_progress=show_progress,
                 timeout=timeout,
+                translate_fqns=translate_fqns,
                 caller_name=caller_name,
             ),
         )
@@ -1014,9 +1021,10 @@ class DatasetRevisionImpl(DatasetRevision):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        translate_fqns: bool = False,
         caller_name: str = "to_polars_lazyframe",
     ) -> pl.LazyFrame:
-        return self.get_data_as_polars(
+        lf = self.get_data_as_polars(
             output_id=output_id,
             output_ts=output_ts,
             ignore_errors=ignore_errors,
@@ -1024,6 +1032,9 @@ class DatasetRevisionImpl(DatasetRevision):
             timeout=timeout,
             caller_name=caller_name,
         )
+        if translate_fqns:
+            lf = lf.rename({col: translate_windowed_fqn(col) for col in lf.columns})
+        return lf
 
     def get_data_as_pandas(
         self,
@@ -1060,9 +1071,10 @@ class DatasetRevisionImpl(DatasetRevision):
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
         skip_failed_shards: bool = False,
+        translate_fqns: bool = False,
         caller_name: str = "to_pandas",
     ) -> pd.DataFrame:
-        return self.get_data_as_pandas(
+        df = self.get_data_as_pandas(
             output_id=output_id,
             output_ts=output_ts,
             ignore_errors=ignore_errors,
@@ -1071,6 +1083,9 @@ class DatasetRevisionImpl(DatasetRevision):
             caller_name=caller_name,
             skip_failed_shards=skip_failed_shards,
         )
+        if translate_fqns:
+            df = df.rename(columns={col: translate_windowed_fqn(col) for col in df.columns})
+        return df
 
     def get_data_as_dataframe(
         self,
@@ -1618,9 +1633,10 @@ class DatasetImpl(Dataset):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        translate_fqns: bool = False,
         caller_name: str = "to_polars",
     ) -> pl.DataFrame:
-        return self.get_data_as_polars(
+        df = self.get_data_as_polars(
             output_id=output_id,
             output_ts=output_ts,
             ignore_errors=ignore_errors,
@@ -1628,6 +1644,9 @@ class DatasetImpl(Dataset):
             show_progress=show_progress,
             caller_name=caller_name,
         ).collect()
+        if translate_fqns:
+            df = df.rename({col: translate_windowed_fqn(col) for col in df.columns})
+        return df
 
     async def to_polars_async(
         self,
@@ -1636,6 +1655,7 @@ class DatasetImpl(Dataset):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        translate_fqns: bool = False,
         caller_name: str = "to_polars_async",
     ) -> pl.DataFrame:
         ret = await asyncio.get_running_loop().run_in_executor(
@@ -1646,6 +1666,7 @@ class DatasetImpl(Dataset):
                 ignore_errors=ignore_errors,
                 show_progress=show_progress,
                 timeout=timeout,
+                translate_fqns=translate_fqns,
                 caller_name=caller_name,
             ),
         )
@@ -1658,9 +1679,10 @@ class DatasetImpl(Dataset):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
+        translate_fqns: bool = False,
         caller_name: str = "to_polars_lazyframe",
     ) -> pl.LazyFrame:
-        return self.get_data_as_polars(
+        lf = self.get_data_as_polars(
             output_id=output_id,
             output_ts=output_ts,
             ignore_errors=ignore_errors,
@@ -1668,6 +1690,9 @@ class DatasetImpl(Dataset):
             timeout=timeout,
             caller_name=caller_name,
         )
+        if translate_fqns:
+            lf = lf.rename({col: translate_windowed_fqn(col) for col in lf.columns})
+        return lf
 
     def to_arrow(
         self,
@@ -1747,9 +1772,10 @@ class DatasetImpl(Dataset):
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
         skip_failed_shards: bool = False,
+        translate_fqns: bool = False,
         caller_name: str = "to_pandas",
     ) -> pd.DataFrame:
-        return self.get_data_as_pandas(
+        df = self.get_data_as_pandas(
             output_id=output_id,
             output_ts=output_ts,
             ignore_errors=ignore_errors,
@@ -1758,6 +1784,9 @@ class DatasetImpl(Dataset):
             skip_failed_shards=skip_failed_shards,
             caller_name=caller_name,
         )
+        if translate_fqns:
+            df = df.rename(columns={col: translate_windowed_fqn(col) for col in df.columns})
+        return df
 
     def get_data_as_dataframe(
         self,

@@ -64,6 +64,7 @@ def launch(
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
+    extension_paths: list[str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth Chromium browser. Returns a Playwright Browser object.
@@ -75,6 +76,7 @@ def launch(
             Dict: {"server": "http://proxy:8080", "bypass": ".google.com", ...}
             — passed directly to Playwright.
         args: Additional Chromium CLI arguments to pass.
+        extension_paths: List of Chrome extension paths to load.
         stealth_args: Include default stealth fingerprint args (default True).
             Set to False if you want to pass your own --fingerprint flags.
         timezone: IANA timezone (e.g. 'America/New_York'). Sets --fingerprint-timezone binary flag.
@@ -112,7 +114,8 @@ def launch(
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
-    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless)
+        
+    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
 
     logger.debug("Launching stealth Chromium (headless=%s, args=%d)", headless, len(chrome_args))
 
@@ -159,6 +162,7 @@ async def launch_async(  # noqa: C901
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
+    extension_paths: list[str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch(). Returns a Playwright Browser object.
@@ -167,6 +171,7 @@ async def launch_async(  # noqa: C901
         headless: Run in headless mode (default True).
         proxy: Proxy URL string or Playwright proxy dict (see launch() for details).
         args: Additional Chromium CLI arguments to pass.
+        extension_paths: List of Chrome extension paths to load.
         stealth_args: Include default stealth fingerprint args (default True).
         timezone: IANA timezone (e.g. 'America/New_York'). Sets --fingerprint-timezone binary flag.
         locale: BCP 47 locale (e.g. 'en-US'). Sets --lang binary flag.
@@ -202,7 +207,7 @@ async def launch_async(  # noqa: C901
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
-    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless)
+    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
 
     logger.debug("Launching stealth Chromium async (headless=%s, args=%d)", headless, len(chrome_args))
 
@@ -253,6 +258,7 @@ def launch_persistent_context(
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
+    extension_paths: list[str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth browser with a persistent profile and return a BrowserContext.
@@ -268,6 +274,7 @@ def launch_persistent_context(
         headless: Run in headless mode (default True).
         proxy: Proxy URL string or Playwright proxy dict (see launch() for details).
         args: Additional Chromium CLI arguments.
+        extension_paths: List of Chrome extension paths to load.
         stealth_args: Include default stealth fingerprint args (default True).
         user_agent: Custom user agent string.
         viewport: Viewport size dict, e.g. {"width": 1920, "height": 1080}.
@@ -306,7 +313,7 @@ def launch_persistent_context(
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
-    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless)
+    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
 
     logger.debug(
         "Launching persistent stealth Chromium (headless=%s, user_data_dir=%s)",
@@ -377,6 +384,7 @@ async def launch_persistent_context_async(
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
+    extension_paths: list[str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch_persistent_context().
@@ -391,6 +399,7 @@ async def launch_persistent_context_async(
         headless: Run in headless mode (default True).
         proxy: Proxy URL string or Playwright proxy dict (see launch() for details).
         args: Additional Chromium CLI arguments.
+        extension_paths: List of Chrome extension paths to load.
         stealth_args: Include default stealth fingerprint args (default True).
         user_agent: Custom user agent string.
         viewport: Viewport size dict, e.g. {"width": 1920, "height": 1080}.
@@ -432,7 +441,7 @@ async def launch_persistent_context_async(
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
-    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless)
+    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
 
     logger.debug(
         "Launching persistent stealth Chromium async (headless=%s, user_data_dir=%s)",
@@ -502,6 +511,7 @@ def launch_context(
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
+    extension_paths: list[str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Launch stealth browser and return a BrowserContext with common options pre-set.
@@ -513,6 +523,7 @@ def launch_context(
         headless: Run in headless mode (default True).
         proxy: Proxy URL string or Playwright proxy dict (see launch() for details).
         args: Additional Chromium CLI arguments.
+        extension_paths: List of Chrome extension paths to load.
         stealth_args: Include default stealth fingerprint args (default True).
         user_agent: Custom user agent string.
         viewport: Viewport size dict, e.g. {"width": 1920, "height": 1080}.
@@ -544,7 +555,7 @@ def launch_context(
     # so it applies to ALL contexts, not just the default one.
     # locale and timezone are set via binary flags only — no CDP emulation.
     browser = launch(headless=headless, proxy=proxy, args=args, stealth_args=stealth_args,
-                     timezone=timezone, locale=locale, backend=backend)
+                     timezone=timezone, locale=locale, backend=backend, extension_paths=extension_paths)
 
     context_kwargs: dict[str, Any] = {}
     if user_agent:
@@ -601,6 +612,7 @@ async def launch_context_async(
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
+    extension_paths: list[str] | None = None,
     **kwargs: Any,
 ) -> Any:
     """Async version of launch_context().
@@ -614,6 +626,7 @@ async def launch_context_async(
         headless: Run in headless mode (default True).
         proxy: Proxy URL string or Playwright proxy dict (see launch() for details).
         args: Additional Chromium CLI arguments.
+        extension_paths: List of Chrome extension paths to load.
         stealth_args: Include default stealth fingerprint args (default True).
         user_agent: Custom user agent string.
         viewport: Viewport size dict, e.g. {"width": 1920, "height": 1080}.
@@ -662,7 +675,7 @@ async def launch_context_async(
     # so it applies to ALL contexts, not just the default one.
     # locale and timezone are set via binary flags only — no CDP emulation.
     browser = await launch_async(headless=headless, proxy=proxy, args=args, stealth_args=stealth_args,
-                                 timezone=timezone, locale=locale, backend=backend)
+                                 timezone=timezone, locale=locale, backend=backend, extension_paths=extension_paths)
 
     context_kwargs: dict[str, Any] = {}
     if user_agent:
@@ -957,6 +970,7 @@ def build_args(
     timezone: str | None = None,
     locale: str | None = None,
     headless: bool = True,
+    extension_paths: list[str] | None = None,
 ) -> list[str]:
     """Combine stealth args with user-provided args and locale flags.
 
@@ -999,6 +1013,15 @@ def build_args(
             if key in seen:
                 logger.debug("Arg override: %s -> %s", seen[key], flag)
             seen[key] = flag
+
+    if extension_paths:
+        abs_paths = [os.path.abspath(p) for p in extension_paths]
+        ext_val = ",".join(abs_paths)
+    
+        seen["--load-extension"] = f"--load-extension={ext_val}"
+        seen["--disable-extensions-except"] = (
+            f"--disable-extensions-except={ext_val}"
+        )
 
     return list(seen.values())
 

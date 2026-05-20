@@ -27,7 +27,13 @@ from reflex_enterprise.auth.cookie import HTTPCookie
 from reflex_enterprise.auth.oidc.config import ConfigMixin
 from reflex_enterprise.auth.oidc.types import OIDCUserInfo, is_ok
 from reflex_enterprise.auth.oidc.utils import compute_at_hash, verify_jwt
-from reflex_enterprise.components.message_listener import CLOSE_POPUP, WINDOW_OPEN
+from reflex_enterprise.components.message_listener import (
+    CLOSE_POPUP,
+    POST_MESSAGE_AND_CLOSE_POPUP,
+    WINDOW_OPEN,
+    WindowMessage,
+    message_listener,
+)
 from reflex_enterprise.utils import (
     call_event_from_computed_var,
     chain_event_out_of_band,
@@ -64,6 +70,18 @@ COOKIE_GRANTED_SCOPES = HTTPCookie(
     same_site="strict",
     _sync_on_set=False,
 )
+
+
+class UserinfoFetchError(RuntimeError):
+    """Exception raised when fetching userinfo fails."""
+
+
+class MissingUserinfoEndpointError(RuntimeError):
+    """Exception raised when the OIDC issuer does not have a userinfo endpoint."""
+
+
+class MissingAccessTokenError(RuntimeError):
+    """Exception raised when an access token is required but not available."""
 
 
 class NestedExceptionError(Exception):
@@ -548,11 +566,15 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         if not await self._access_token or not self._id_token:
             return False
 
-        async with self._error_context(
-            "ID Token verification",
-            user_error_message=None,
-        ) as errors:
-            await self._verify_jwt(self._id_token)
+        try:
+            async with self._error_context(
+                "ID Token verification",
+                user_error_message=None,
+            ) as errors:
+                await self._verify_jwt(self._id_token)
+        except NestedExceptionError:
+            # Verification failed inside a nested error context; treat as invalid.
+            return False
         return not errors
 
     def _ensure_last_error_txid(self):
@@ -664,27 +686,79 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         """Get the last error transaction ID for logging correlation."""
         return self._last_error_txid
 
+    async def _fetch_userinfo(self) -> OIDCUserInfo:
+        """Retrievfe data from the OIDC userinfo endpoint.
+
+        Returns:
+            The userinfo data as a dictionary.
+
+        Raises:
+            UserinfoFetchError: If the userinfo request is made and returns a non-OK
+                response.
+            MissingUserinfoEndpointError: If the OIDC issuer does not have a userinfo endpoint.
+            MissingAccessTokenError: If there is no access token available to fetch userinfo.
+        """
+        if not (userinfo_endpoint := await self._issuer_endpoint("userinfo_endpoint")):
+            raise MissingUserinfoEndpointError(
+                "OIDC issuer does not have a userinfo endpoint"
+            )
+        if not (access_token := await self._access_token):
+            raise MissingAccessTokenError("No access token available to fetch userinfo")
+        async with self._http_client().get(
+            userinfo_endpoint,
+            headers={"Authorization": f"Bearer {access_token}"},
+        ) as resp:
+            if not is_ok(resp):
+                raise UserinfoFetchError(
+                    f"Userinfo request failed with status {resp.status}: {await resp.text()}"
+                )
+            return await resp.json()  # pyright: ignore[reportReturnType]
+
+    async def _get_id_token_claims(self) -> OIDCUserInfo:
+        """Get the claims from the ID token."""
+        return (await self._verify_jwt(self._id_token)).claims  # pyright: ignore[reportReturnType]
+
+    async def _try_refresh_access_token(self) -> str:
+        """Refresh the access token using the refresh token, if available.
+
+        Wraps `_refresh_access_token` with the current access token's
+        `expires_at` so the de-duplication check is performed when there is
+        existing metadata.
+
+        Returns:
+            The new access token on success, or empty string when no refresh
+            token is available or the refresh failed.
+        """
+        if not self._refresh_token:
+            return ""
+        at_metadata = self._access_token_metadata
+        return await self._refresh_access_token(
+            at_metadata.expires_at if at_metadata is not None else None
+        )
+
     async def _get_userinfo(self) -> OIDCUserInfo | None:
         """Get the authenticated user's information from OIDC token."""
         if not await self._validate_tokens():
-            await call_event_from_computed_var(self, type(self).reset_auth)
-            return None
+            await self._try_refresh_access_token()
+            if not await self._validate_tokens():
+                await call_event_from_computed_var(self, type(self).reset_auth)
+                return None
         # Get the latest userinfo
         async with self._error_context("Fetching userinfo", user_error_message=None):
-            if (
-                userinfo_endpoint := await self._issuer_endpoint("userinfo_endpoint")
-            ) and (access_token := await self._access_token):
-                async with self._http_client().get(
-                    userinfo_endpoint,
-                    headers={"Authorization": f"Bearer {access_token}"},
-                ) as resp:
-                    if not is_ok(resp):
-                        raise RuntimeError(
-                            f"Userinfo request failed with status {resp.status}: {await resp.text()}"
-                        )
-                    return await resp.json()  # pyright: ignore[reportReturnType]
-            # Have to just trust the ID token claims.
-            return (await self._verify_jwt(self._id_token)).claims  # pyright: ignore[reportReturnType]
+            try:
+                return await self._fetch_userinfo()
+            except MissingUserinfoEndpointError:
+                # Have to just trust the ID token claims.
+                return await self._get_id_token_claims()
+            except UserinfoFetchError:
+                # The access token may have been rejected; refresh and retry.
+                if not self._refresh_token:
+                    raise
+                await self._try_refresh_access_token()
+                if not await self._validate_tokens():
+                    await call_event_from_computed_var(self, type(self).reset_auth)
+                    raise
+                return await self._fetch_userinfo()
 
     @rx.var(
         interval=datetime.timedelta(seconds=USERINFO_CACHE_INTERVAL),
@@ -832,6 +906,88 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
     def popup_on_load(self):
         """Handler to run when a popup login or logout page is loaded."""
 
+    async def _post_auth_message_payload(self) -> dict[str, str]:
+        """Get the token payload to send to the opener via postMessage.
+
+        Received by `on_iframe_auth_success` and passed to `_set_tokens`.
+        """
+        return {
+            "access_token": self._access_token_data,
+            "id_token": self._id_token,
+            "refresh_token": self._refresh_token,
+            "scope": self._granted_scopes,
+        }
+
+    @rx.event
+    async def post_auth_message(self):
+        """Post tokens to the opening window and close the popup.
+
+        Used to transfer tokens to an opener that cannot read the popup's
+        cookies or localStorage (e.g., the opener is iframed in a different
+        storage partition).
+        """
+        async with self._error_context("Posting auth message to opener"):
+            payload = {
+                "type": f"post_auth_{self.__provider__}",
+                **(await self._post_auth_message_payload()),
+            }
+            return rx.call_script(
+                POST_MESSAGE_AND_CLOSE_POPUP(payload, self.origin, 500)
+            )
+
+    @rx.event
+    async def post_logout_message(self):
+        """Post a logout notification to the opening window and close the popup."""
+        async with self._error_context("Posting logout message to opener"):
+            payload = {
+                "type": f"post_logout_{self.__provider__}",
+            }
+            return rx.call_script(
+                POST_MESSAGE_AND_CLOSE_POPUP(payload, self.origin, 500)
+            )
+
+    @rx.event
+    async def on_iframe_auth_success(self, event: WindowMessage):
+        """Handle an auth or logout message posted from the popup.
+
+        Persists the tokens to this state's cookies (or clears them on logout)
+        so the opener stays in sync with the popup.
+
+        Args:
+            event: The window message; `data["type"]` must be either
+                `post_auth_<provider>` or `post_logout_<provider>`.
+        """
+        msg_type = event["data"].get("type")
+        if msg_type == f"post_logout_{self.__provider__}":
+            return type(self).reset_auth()
+        if msg_type != f"post_auth_{self.__provider__}":
+            return
+        event_data = dict(event["data"])
+        event_data.pop("type", None)
+        new_access_token = event_data.pop("access_token", "")
+        new_id_token = event_data.pop("id_token", None) or None
+        new_refresh_token = event_data.pop("refresh_token", None) or None
+        new_granted_scopes = event_data.pop("scope", None) or None
+        # Skip the redundant set + cookie sync if the tokens already match.
+        if (
+            new_access_token == self._access_token_data
+            and (new_id_token or "") == (self._id_token or "")
+            and (new_refresh_token or "") == (self._refresh_token or "")
+            and (new_granted_scopes or "") == (self._granted_scopes or "")
+        ):
+            return
+        async with self._error_context(
+            "Processing popup auth success", clear_last_error=True
+        ):
+            await self._set_tokens(
+                access_token=new_access_token,
+                id_token=new_id_token,
+                refresh_token=new_refresh_token,
+                granted_scopes=new_granted_scopes,
+                **event_data,
+            )
+            return self._cookie_sync_token_update()
+
     async def _redirect_to_login_payload(self) -> dict:
         """Get the payload for initial authorization request.
 
@@ -869,11 +1025,13 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         authorization endpoint.
 
         If the user's token is already valid (popup flow), then post the tokens
-        to the opener and display the success toast.
+        to the opener and close the popup.
 
         Returns:
             - If iframed, a script to open the login popup window.
-            - If already authenticated, a post-authentication toast and timed popup window close.
+            - If already authenticated in the popup, a post-authentication
+              message to the opener followed by closing the popup window.
+            - If already authenticated outside the popup, a success toast.
             - If login flow cannot be initiated due to error, None.
             - A redirect response to the provider's OIDC authorization endpoint
         """
@@ -886,9 +1044,10 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
                     # If we had a token and failed to validate, leave the error
                     # message for the user.
                     return
-                events = [rx.toast("You are logged in.")]
+                events: list[IndividualEventType] = [rx.toast("You are logged in.")]
                 if self.from_popup:
-                    events.append(rx.call_script(CLOSE_POPUP(self.origin, 500)))
+                    # Hand off tokens to the opener and close this window.
+                    events.append(type(self).post_auth_message)
                 return events
         async with self._error_context("Building authorization request"):
             query_params = await self._redirect_to_login_payload()
@@ -944,6 +1103,10 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
                     # Reset the tokens and the app is effectively logged out.
                     yield self.reset_auth()
                 return
+            if from_popup and not await self.has_any_token:
+                # Re-entry after provider logout completed; just close.
+                yield rx.call_script(CLOSE_POPUP(self.origin, 500))
+                return
             try:
                 if end_session_endpoint:
                     # Get the logout redirect payload while we still have the tokens.
@@ -956,6 +1119,11 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
             finally:
                 # Clear browser tokens after user requested logout.
                 self._reset_auth()
+            if from_popup:
+                # Notify the opener to clear its tokens too. The window-close
+                # timer scheduled by post_logout_message is cancelled by the
+                # subsequent navigation to the provider's logout endpoint.
+                yield type(self).post_logout_message
             yield self._cookie_sync_token_update(redirect_url=redirect_url)
 
     async def _validate_auth_callback_request_params(
@@ -1220,15 +1388,16 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         If the token is not imminently expiring (i.e. another tab already refreshed),
         then requeue the frontend refresh trigger to check again later.
         """
-        if not (at_metadata := self._access_token_metadata) or not self._refresh_token:
+        if not self._refresh_token:
             return
         self._last_refresh_queued_entry = None
-        expires_in = max(at_metadata.expires_at - time.time(), 0)
-        time_before_refresh = expires_in - ACCESS_TOKEN_CACHE_INTERVAL
-        if time_before_refresh <= 0:
-            await self._refresh_access_token(at_metadata.expires_at)
-        else:
-            return type(self).trigger_access_token_refresh()
+        at_metadata = self._access_token_metadata
+        if at_metadata is not None:
+            expires_in = max(at_metadata.expires_at - time.time(), 0)
+            time_before_refresh = expires_in - ACCESS_TOKEN_CACHE_INTERVAL
+            if time_before_refresh > 0:
+                return type(self).trigger_access_token_refresh()
+        await self._try_refresh_access_token()
 
     async def _refresh_access_token_payload(self) -> dict[str, str]:
         """Get the payload for refreshing the access token.
@@ -1287,12 +1456,14 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
             if refresh:
                 yield await self._on_refresh_access_token(at_metadata.access_token)
 
-    async def _refresh_access_token(self, expires_at: float) -> str:
+    async def _refresh_access_token(self, expires_at: float | None) -> str:
         """Refresh the access token using the refresh token.
 
         Args:
             expires_at: The expiration timestamp of the current access token,
-                used to check if another task has already refreshed it.
+                used to check if another task has already refreshed it. Pass
+                ``None`` to skip the de-duplication check (e.g., when there is
+                no current access token).
 
         Returns:
             The new access token as a string.
@@ -1300,10 +1471,14 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         Raises:
             Exception: If the token refresh fails.
         """
-        if (at_metadata := self._access_token_metadata) is None:
-            # Cannot refresh if there is no existing access token metadata (e.g., missing or malformed cookie).
+        if not self._refresh_token:
+            # Cannot refresh without a refresh token.
             return ""
-        if at_metadata.expires_at != expires_at:
+        if (
+            expires_at is not None
+            and (at_metadata := self._access_token_metadata) is not None
+            and at_metadata.expires_at != expires_at
+        ):
             # The token has already been refreshed by another task, so just return the current token.
             return at_metadata.access_token
         async with self._error_context("Refreshing access token"):
@@ -1393,15 +1568,25 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         """Return a login button component that initiates OIDC auth.
 
         If `children` are provided they will be placed inside the clickable
-        element; otherwise a default button label is used. The component wires
-        up the click handler and a mount handler to check whether the page is
-        embedded in an iframe.
+        element; otherwise a default button label is used. When iframed, the
+        component also mounts a message listener to receive auth tokens
+        posted from the popup window.
         """
         cls.register_auth_endpoints()
         if not children:
             children = [rx.button(f"Login with {cls.display_name()}")]
         return rx.el.div(
             *children,
+            rx.cond(
+                IsIframedState.is_iframed,
+                message_listener(
+                    allowed_origin=cls.origin,
+                    on_message=cls.on_iframe_auth_success,
+                    filter_attributes={
+                        "type": f"^post_(auth|logout)_{cls.__provider__}$",
+                    },
+                ),
+            ),
             on_click=cls.redirect_to_login,
             on_mount=rx.cond(
                 ~IsIframedState.checked_this_session,

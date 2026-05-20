@@ -1,0 +1,91 @@
+---
+name: antsibull-nox
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out collection
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run ansible-lint
+        uses: ansible-community/antsibull-nox@stable-1
+        with:
+          sessions: ansible-lint
+
+# This test validate that the collection can be built and imported in Galaxy.
+# It catches error before they are sent to Zuul, letting us fix mistakes prior to a release.
+  galaxy-importer:
+    name: Galaxy Import
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out collection
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run Galaxy importer
+        uses: ansible-community/antsibull-nox@stable-1
+        with:
+          sessions: build-import-check
+
+  sanity:
+    name: Sanity - ${{ matrix.ansible }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ansible:
+        - "2.17"
+        - "2.18"
+        - "2.19"
+        - "2.20"
+        - "2.21"
+        - "devel"
+    steps:
+      - name: Check out collection
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run sanity tests
+        uses: ansible-community/antsibull-nox@stable-1
+        with:
+          sessions: ansible-test-sanity-${{ matrix.ansible }}
+
+  unit:
+    name: Unit - ${{ matrix.ansible }}
+    runs-on: ubuntu-latest
+    strategy:
+      # As soon as the first unit test fails,
+      # cancel the others to free up the CI queue
+      fail-fast: true
+      matrix:
+        ansible:
+          - "2.17"
+          - "2.18"
+          - "2.19"
+          - "2.20"
+          - "2.21"
+          - "devel"
+    steps:
+      - name: Check out collection
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run unit tests
+        uses: ansible-community/antsibull-nox@stable-1
+        with:
+          sessions: ansible-test-units-${{ matrix.ansible }}

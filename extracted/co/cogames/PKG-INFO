@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cogames
-Version: 0.27.2
+Version: 0.27.3
 Summary: Multi-agent cooperative games
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
@@ -8,8 +8,8 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.13,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mettagrid==0.26.20
-Requires-Dist: softmax-cli==0.26.9
+Requires-Dist: mettagrid==0.26.21
+Requires-Dist: softmax-cli==0.26.12
 Requires-Dist: packaging>=24.0.0
 Requires-Dist: pydantic>=2.11.5
 Requires-Dist: pyyaml>=6.0.2
@@ -253,7 +253,7 @@ Note: `cogames season show` takes only one positional argument (`<SEASON>`).
 Use separate subcommands (`stages`, `progress`, `teams`, `leaderboard`) for details.
 
 ## API Docs
-The tournament API is documented at [api.observatory.softmax-research.net/docs](https://api.observatory.softmax-research.net/docs). The interactive
+The tournament API is documented at [softmax.com/api/observatory/docs](https://softmax.com/api/observatory/docs). The interactive
 OpenAPI spec describes all public endpoints for seasons, matches, leaderboards, and submissions.
 
 ## Intended submit workflow (CLI)
@@ -1023,8 +1023,7 @@ cogames [COMMAND] --help
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL (used to resolve default season).                              <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>                            <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>                              <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                        <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>                            <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                              <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1083,8 +1082,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1166,8 +1164,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1253,8 +1250,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                        <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1331,8 +1327,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                        <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1440,8 +1435,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                        <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1507,8 +1501,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1603,8 +1596,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                        <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>              <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1652,7 +1644,6 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--no-browser</span>            <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">   </span>  Skip opening browser automatically.                                                <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--force</span>         <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-f</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">   </span>  Re-authenticate even if already logged in                                          <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--help</span>                  <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">   </span>  Show this message and exit.                                                        <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
@@ -1685,7 +1676,6 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                         <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--help</span>                <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">   </span>  Show this message and exit.                                                          <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
@@ -1716,7 +1706,6 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                         <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--help</span>                <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">   </span>  Show this message and exit.                                                          <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
@@ -1747,7 +1736,6 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                       <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  API server URL for /whoami verification.                                           <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--help</span>                  <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">   </span>  Show this message and exit.                                                        <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
@@ -1779,7 +1767,6 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                         <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--help</span>                <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">   </span>  Show this message and exit.                                                          <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
@@ -1818,7 +1805,6 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                         <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--help</span>                <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">   </span>  Show this message and exit.                                                          <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
@@ -1857,8 +1843,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1912,8 +1897,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -1967,8 +1951,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2022,8 +2005,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2077,8 +2059,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2135,8 +2116,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2190,8 +2170,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2246,8 +2225,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2302,8 +2280,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2351,7 +2328,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>             <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>             <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2405,7 +2382,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>             <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>             <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2467,7 +2444,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>             <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>             <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2521,8 +2498,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2569,8 +2545,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2624,8 +2599,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 
@@ -2686,8 +2660,7 @@ cogames [COMMAND] --help
 
 
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╭─ Server ────────────────────────────────────────────────────────────────────────────────────────────────────────╮</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--login-server</span>          <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Authentication server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>                      <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
-<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://api.observatory.softmax-research.net]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
+<span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span> <span style="color: #008080; text-decoration-color: #008080; font-weight: bold">--server</span>        <span style="color: #008000; text-decoration-color: #008000; font-weight: bold">-s</span>      <span style="color: #808000; text-decoration-color: #808000; font-weight: bold">URL</span>  Tournament server URL. <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">[default: https://softmax.com/api]</span>     <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">│</span>
 <span style="color: #7f7f7f; text-decoration-color: #7f7f7f">╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</span>
 </pre>
 

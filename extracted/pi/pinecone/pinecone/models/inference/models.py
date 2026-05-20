@@ -17,8 +17,8 @@ class ModelInfoSupportedParameter(Struct, kw_only=True):
         value_type: The value type (e.g. ``"string"``).
         required: Whether the parameter is required.
         allowed_values: Allowed values for enum-style parameters.
-        min: Minimum value for numeric parameters.
-        max: Maximum value for numeric parameters.
+        min: Minimum value (integer or float) for numeric parameters.
+        max: Maximum value (integer or float) for numeric parameters.
         default: Default value for the parameter.
     """
 
@@ -27,8 +27,8 @@ class ModelInfoSupportedParameter(Struct, kw_only=True):
     value_type: str
     required: bool
     allowed_values: list[str | int] | None = None
-    min: float | None = None
-    max: float | None = None
+    min: int | float | None = None
+    max: int | float | None = None
     default: str | int | float | bool | None = None
 
     def __getitem__(self, key: str) -> Any:

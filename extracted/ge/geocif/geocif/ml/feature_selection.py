@@ -83,6 +83,14 @@ def select_features(
     nan_prop = X_clean.isna().mean()
     X_clean = X_clean.loc[:, nan_prop <= threshold_nan]
 
+    if X_clean.shape[1] == 0:
+        logger.warning(
+            f"[select_features] No features survived NaN filter "
+            f"(threshold_nan={threshold_nan}) for region={region}; "
+            f"input had {X.shape[1]} columns. Returning empty selection."
+        )
+        return None, X_clean, []
+
     # 2) fill NaNs with median
     num_cols = X_clean.select_dtypes(include=["number"]).columns  # catches int64, float64, etc.
     X_clean[num_cols] = X_clean[num_cols].fillna(X_clean[num_cols].median())
@@ -278,6 +286,18 @@ def select_features(
         # gOMP returns the top-N residual-correlated features up to the cap.
         gomp_caps = {"gOMP_low": 15, "gOMP_medium": 50, "gOMP_high": 500}
         cap = gomp_caps[method]
+
+        const_cols = int((X_clean.nunique(dropna=True) <= 1).sum())
+        try:
+            y_var = float(np.var(np.asarray(y, dtype=float)))
+        except Exception:
+            y_var = float("nan")
+        logger.info(
+            f"[select_features.{method}] entering gomp_select: "
+            f"shape={X_clean.shape}, constant_cols={const_cols}, "
+            f"y_var={y_var:.6g}, region={region}"
+        )
+
         sel, X_out, selected = gomp_select(
             X_clean, y,
             outcome="continuous",
@@ -410,7 +430,7 @@ def select_features(
     
     # post-filtering: non-EO fallback to SelectKBest
     non_eo = are_all_features_non_eo(selected)
-    if non_eo or method == "SelectKBest":
+    if (non_eo or method == "SelectKBest") and X_clean.shape[1] > 0:
         from sklearn.feature_selection import SelectKBest, f_regression
         k = 15
         skb = SelectKBest(score_func=f_regression, k=k)

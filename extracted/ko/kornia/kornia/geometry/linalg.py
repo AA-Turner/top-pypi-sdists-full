@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import torch
 
-from kornia.core import Tensor
 from kornia.core.check import KORNIA_CHECK_IS_TENSOR, KORNIA_CHECK_SHAPE
 from kornia.geometry.conversions import convert_points_from_homogeneous, convert_points_to_homogeneous
 
@@ -36,7 +35,7 @@ __all__ = [
 ]
 
 
-def compose_transformations(trans_01: Tensor, trans_12: Tensor) -> Tensor:
+def compose_transformations(trans_01: torch.Tensor, trans_12: torch.Tensor) -> torch.Tensor:
     r"""Compose two homogeneous transformations.
 
     .. math::
@@ -89,7 +88,7 @@ def compose_transformations(trans_01: Tensor, trans_12: Tensor) -> Tensor:
     return trans_02
 
 
-def inverse_transformation(trans_12: Tensor) -> Tensor:
+def inverse_transformation(trans_12: torch.Tensor) -> torch.Tensor:
     r"""Invert a 4x4 homogeneous transformation.
 
      :math:`T_1^{2} = \begin{bmatrix} R_1 & t_1 \\ \mathbf{0} & 1 \end{bmatrix}`
@@ -132,7 +131,7 @@ def inverse_transformation(trans_12: Tensor) -> Tensor:
     return trans_21
 
 
-def relative_transformation(trans_01: Tensor, trans_02: Tensor) -> Tensor:
+def relative_transformation(trans_01: torch.Tensor, trans_02: torch.Tensor) -> torch.Tensor:
     r"""Compute the relative homogeneous transformation from a reference transformation.
 
     :math:`T_1^{0} = \begin{bmatrix} R_1 & t_1 \\ \mathbf{0} & 1 \end{bmatrix}` to destination :math:`T_2^{0} =
@@ -181,7 +180,7 @@ def relative_transformation(trans_01: Tensor, trans_02: Tensor) -> Tensor:
     return trans_12
 
 
-def transform_points(trans_01: Tensor, points_1: Tensor) -> Tensor:
+def transform_points(trans_01: torch.Tensor, points_1: torch.Tensor) -> torch.Tensor:
     r"""Apply transformations to a set of points.
 
     Args:
@@ -219,19 +218,22 @@ def transform_points(trans_01: Tensor, points_1: Tensor) -> Tensor:
     trans_01 = torch.repeat_interleave(trans_01, repeats=int(points_1.shape[0] // trans_01.shape[0]), dim=0)
     # to homogeneous
     points_1_h = convert_points_to_homogeneous(points_1)  # BxNxD+1
+    # `torch.bmm` requires both operands to share a scalar type. Callers may pass coordinate
+    # tensors in a different dtype than the transform matrix (e.g. fp32 bbox + fp16 image), so
+    # harmonise at the bmm site and restore the caller's coordinate dtype on return.
+    points_dtype = points_1_h.dtype
     # transform coordinates
-    points_0_h = torch.bmm(points_1_h, trans_01.permute(0, 2, 1))
-    points_0_h = torch.squeeze(points_0_h, dim=-1)
+    points_0_h = torch.bmm(points_1_h.to(trans_01.dtype), trans_01.permute(0, 2, 1))
     # to euclidean
     points_0 = convert_points_from_homogeneous(points_0_h)  # BxNxD
     # reshape to the input shape
     shape_inp[-2] = points_0.shape[-2]
     shape_inp[-1] = points_0.shape[-1]
     points_0 = points_0.reshape(shape_inp)
-    return points_0
+    return points_0.to(points_dtype)
 
 
-def point_line_distance(point: Tensor, line: Tensor, eps: float = 1e-9) -> Tensor:
+def point_line_distance(point: torch.Tensor, line: torch.Tensor, eps: float = 1e-9) -> torch.Tensor:
     r"""Return the distance from points to lines.
 
     Args:
@@ -264,19 +266,19 @@ def point_line_distance(point: Tensor, line: Tensor, eps: float = 1e-9) -> Tenso
     return numerator / (denom_norm + eps)
 
 
-def batched_dot_product(x: Tensor, y: Tensor, keepdim: bool = False) -> Tensor:
+def batched_dot_product(x: torch.Tensor, y: torch.Tensor, keepdim: bool = False) -> torch.Tensor:
     """Return a batched version of .dot()."""
     KORNIA_CHECK_SHAPE(x, ["*", "N"])
     KORNIA_CHECK_SHAPE(y, ["*", "N"])
     return (x * y).sum(-1, keepdim)
 
 
-def batched_squared_norm(x: Tensor, keepdim: bool = False) -> Tensor:
+def batched_squared_norm(x: torch.Tensor, keepdim: bool = False) -> torch.Tensor:
     """Return the squared norm of a vector."""
     return batched_dot_product(x, x, keepdim)
 
 
-def euclidean_distance(x: Tensor, y: Tensor, keepdim: bool = False, eps: float = 1e-6) -> Tensor:
+def euclidean_distance(x: torch.Tensor, y: torch.Tensor, keepdim: bool = False, eps: float = 1e-6) -> torch.Tensor:
     """Compute the Euclidean distance between two set of n-dimensional points.
 
     More: https://en.wikipedia.org/wiki/Euclidean_distance

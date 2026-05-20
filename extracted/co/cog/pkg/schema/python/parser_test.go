@@ -67,6 +67,126 @@ class Predictor(BasePredictor):
 	require.Equal(t, schema.TypeString, info.Output.Primitive)
 }
 
+func TestSimpleStringRunner(t *testing.T) {
+	source := `
+from cog import BasePredictor
+
+class Predictor(BasePredictor):
+    def run(self, s: str) -> str:
+        return "hello " + s
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, 1, info.Inputs.Len())
+
+	s, ok := info.Inputs.Get("s")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeString, s.FieldType.Primitive)
+	require.Equal(t, schema.Required, s.FieldType.Repetition)
+	require.Nil(t, s.Default)
+	require.True(t, s.IsRequired())
+
+	require.Equal(t, schema.SchemaPrimitive, info.Output.Kind)
+	require.Equal(t, schema.TypeString, info.Output.Primitive)
+}
+
+func TestRunnerWithBothRunAndPredictErrors(t *testing.T) {
+	source := `
+from cog import BasePredictor
+
+class Predictor(BasePredictor):
+    def run(self, s: str) -> str:
+        return s
+
+    def predict(self, s: str) -> str:
+        return s
+`
+	se := parseErr(t, source, "Predictor", schema.ModePredict)
+	require.Equal(t, schema.ErrMethodConflict, se.Kind)
+	require.Contains(t, se.Message, "Predictor must define either run() or predict(), not both")
+}
+
+func TestRunnerWithNoRunOrPredictErrors(t *testing.T) {
+	source := `
+from cog import BasePredictor
+
+class Predictor(BasePredictor):
+    def setup(self) -> None:
+        pass
+`
+	se := parseErr(t, source, "Predictor", schema.ModePredict)
+	require.Equal(t, schema.ErrMethodNotFound, se.Kind)
+	require.Contains(t, se.Message, "Predictor must define run() or predict()")
+}
+
+func TestRunnerWithInheritedRun(t *testing.T) {
+	source := `
+from cog import BaseRunner
+
+class Shared(BaseRunner):
+    def run(self, s: str) -> str:
+        return "hello " + s
+
+class Runner(Shared):
+    pass
+`
+	info := parse(t, source, "Runner")
+	require.Equal(t, 1, info.Inputs.Len())
+}
+
+func TestRunnerWithImportedInheritedRun(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "shared.py", `
+from cog import BaseRunner
+
+class SharedRunner(BaseRunner):
+    def run(self, s: str) -> str:
+        return "hello " + s
+`)
+	writeFile(t, dir, "predict.py", `
+from shared import SharedRunner
+
+class Runner(SharedRunner):
+    pass
+`)
+	info := parseFile(t, dir, "predict.py", "Runner")
+	require.Equal(t, 1, info.Inputs.Len())
+}
+
+func TestRunnerWithQualifiedImportedInheritedRun(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "shared.py", `
+from cog import BaseRunner
+
+class SharedRunner(BaseRunner):
+    def run(self, s: str) -> str:
+        return "hello " + s
+`)
+	writeFile(t, dir, "predict.py", `
+import shared
+
+class Runner(shared.SharedRunner):
+    pass
+`)
+	info := parseFile(t, dir, "predict.py", "Runner")
+	require.Equal(t, 1, info.Inputs.Len())
+}
+
+func TestRunnerWithInheritedRunAndDirectPredictErrors(t *testing.T) {
+	source := `
+from cog import BaseRunner
+
+class Shared(BaseRunner):
+    def run(self, s: str) -> str:
+        return s
+
+class Runner(Shared):
+    def predict(self, s: str) -> str:
+        return s
+`
+	se := parseErr(t, source, "Runner", schema.ModePredict)
+	require.Equal(t, schema.ErrMethodConflict, se.Kind)
+}
+
 func TestMultipleInputsWithDefaults(t *testing.T) {
 	source := `
 from cog import BasePredictor, Input, Path
@@ -1743,6 +1863,21 @@ class Predictor(BasePredictor):
 	require.Contains(t, se.Message, ".pyi stub")
 }
 
+func TestUnresolvableImportedTypeSuggestsOpaque(t *testing.T) {
+	source := `
+from cog import BasePredictor
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: ThirdPartyType) -> str:
+        return "ok"
+`
+	se := parseErr(t, source, "Predictor", schema.ModePredict)
+	require.Equal(t, schema.ErrUnresolvableType, se.Kind)
+	require.Contains(t, se.Message, "cannot resolve type 'ThirdPartyType'")
+	require.Contains(t, se.Message, "Annotated[ThirdPartyType, Opaque]")
+}
+
 func TestUnresolvableUndefinedTypeError(t *testing.T) {
 	source := `
 from cog import BasePredictor
@@ -1975,6 +2110,55 @@ class Predictor(BasePredictor):
 	errProp, ok := props["error"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, true, errProp["nullable"])
+}
+
+func TestAnnotatedOptionalStringFieldNullable(t *testing.T) {
+	source := `
+from typing import Annotated, Optional
+from cog import BasePredictor, BaseModel
+
+class Result(BaseModel):
+    payload: Annotated[Optional[str], "metadata"]
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Result:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaObject, info.Output.Kind)
+	require.NotNil(t, info.Output.Fields)
+
+	payload, ok := info.Output.Fields.Get("payload")
+	require.True(t, ok)
+	require.Equal(t, schema.SchemaPrimitive, payload.Type.Kind)
+	require.Equal(t, schema.TypeString, payload.Type.Primitive)
+	require.True(t, payload.Type.Nullable)
+	require.False(t, payload.Required)
+}
+
+func TestOpaqueAnnotatedOptionalImportedFieldNullable(t *testing.T) {
+	source := `
+from typing import Annotated, Optional
+from cog import BasePredictor, BaseModel, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Result(BaseModel):
+    payload: Annotated[Optional[ThirdPartyType], Opaque]
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Result:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaObject, info.Output.Kind)
+	require.NotNil(t, info.Output.Fields)
+
+	payload, ok := info.Output.Fields.Get("payload")
+	require.True(t, ok)
+	require.Equal(t, schema.SchemaPrimitive, payload.Type.Kind)
+	require.Equal(t, schema.TypeAny, payload.Type.Primitive)
+	require.True(t, payload.Type.Nullable)
+	require.False(t, payload.Required)
 }
 
 func TestPydanticOutputWithListField(t *testing.T) {
@@ -2918,6 +3102,428 @@ class Predictor(BasePredictor):
 	require.Equal(t, schema.OptionalRepeated, messages.FieldType.Repetition)
 }
 
+func TestOpaqueImportedInput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: Annotated[ThirdPartyType, Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	value, ok := info.Inputs.Get("value")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, value.FieldType.Primitive)
+	require.Equal(t, schema.Required, value.FieldType.Repetition)
+}
+
+func TestOpaqueImportedListInput(t *testing.T) {
+	source := `
+from typing import Annotated, List
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, values: Annotated[List[ThirdPartyType], Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	values, ok := info.Inputs.Get("values")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, values.FieldType.Primitive)
+	require.Equal(t, schema.Repeated, values.FieldType.Repetition)
+}
+
+func TestOpaqueImportedOptionalUnionInput(t *testing.T) {
+	source := `
+from typing import Annotated, Union
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: Annotated[Union[ThirdPartyType, None], Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	value, ok := info.Inputs.Get("value")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, value.FieldType.Primitive)
+	require.Equal(t, schema.Optional, value.FieldType.Repetition)
+}
+
+func TestOpaqueImportedQualifiedOptionalUnionInput(t *testing.T) {
+	source := `
+import typing
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: typing.Annotated[typing.Union[ThirdPartyType, None], Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	value, ok := info.Inputs.Get("value")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, value.FieldType.Primitive)
+	require.Equal(t, schema.Optional, value.FieldType.Repetition)
+}
+
+func TestOpaqueImportedOptionalUnionListInput(t *testing.T) {
+	source := `
+from typing import Annotated, List, Union
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, values: Annotated[Union[List[ThirdPartyType], None], Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	values, ok := info.Inputs.Get("values")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, values.FieldType.Primitive)
+	require.Equal(t, schema.OptionalRepeated, values.FieldType.Repetition)
+}
+
+func TestOpaqueImportedQualifiedOptionalUnionListInput(t *testing.T) {
+	source := `
+import typing
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, values: typing.Annotated[typing.Union[typing.List[ThirdPartyType], None], Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	values, ok := info.Inputs.Get("values")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, values.FieldType.Primitive)
+	require.Equal(t, schema.OptionalRepeated, values.FieldType.Repetition)
+}
+
+func TestOpaqueImportedBareListInput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+
+class Predictor(BasePredictor):
+    def predict(self, values: Annotated[list, Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	values, ok := info.Inputs.Get("values")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, values.FieldType.Primitive)
+	require.Equal(t, schema.Repeated, values.FieldType.Repetition)
+}
+
+func TestOpaqueImportedQualifiedBareListInput(t *testing.T) {
+	source := `
+import typing
+from cog import BasePredictor, Opaque
+
+class Predictor(BasePredictor):
+    def predict(self, values: typing.Annotated[typing.List, Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	values, ok := info.Inputs.Get("values")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, values.FieldType.Primitive)
+	require.Equal(t, schema.Repeated, values.FieldType.Repetition)
+}
+
+func TestOpaqueOtherLibQualifiedListInput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+import otherlib
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: Annotated[otherlib.List[ThirdPartyType], Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	value, ok := info.Inputs.Get("value")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, value.FieldType.Primitive)
+	require.Equal(t, schema.Required, value.FieldType.Repetition)
+}
+
+func TestOpaqueOtherLibQualifiedOptionalInput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+import otherlib
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: Annotated[otherlib.Optional[ThirdPartyType], Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	value, ok := info.Inputs.Get("value")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, value.FieldType.Primitive)
+	require.Equal(t, schema.Required, value.FieldType.Repetition)
+}
+
+func TestOpaqueOtherLibImportedListInput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+from otherlib import List
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: Annotated[List[ThirdPartyType], Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	value, ok := info.Inputs.Get("value")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, value.FieldType.Primitive)
+	require.Equal(t, schema.Required, value.FieldType.Repetition)
+}
+
+func TestOpaqueImportedBareListPipeNoneInput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+
+class Predictor(BasePredictor):
+    def predict(self, values: Annotated[list, Opaque] | None) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	values, ok := info.Inputs.Get("values")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, values.FieldType.Primitive)
+	require.Equal(t, schema.OptionalRepeated, values.FieldType.Repetition)
+}
+
+func TestOpaqueImportedInputInsideList(t *testing.T) {
+	source := `
+from typing import Annotated, List
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, values: List[Annotated[ThirdPartyType, Opaque]]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	values, ok := info.Inputs.Get("values")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, values.FieldType.Primitive)
+	require.Equal(t, schema.Repeated, values.FieldType.Repetition)
+}
+
+func TestOpaqueImportedOutput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Annotated[ThirdPartyType, Opaque]:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaPrimitive, info.Output.Kind)
+	require.Equal(t, schema.TypeAny, info.Output.Primitive)
+}
+
+func TestOpaqueImportedListOutput(t *testing.T) {
+	source := `
+from typing import Annotated, List
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Annotated[List[ThirdPartyType], Opaque]:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaArray, info.Output.Kind)
+	require.NotNil(t, info.Output.Items)
+	require.Equal(t, schema.SchemaPrimitive, info.Output.Items.Kind)
+	require.Equal(t, schema.TypeAny, info.Output.Items.Primitive)
+}
+
+func TestOpaqueImportedOptionalOutputErrors(t *testing.T) {
+	source := `
+from typing import Annotated, Optional
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Annotated[Optional[ThirdPartyType], Opaque]:
+        pass
+`
+	se := parseErr(t, source, "Predictor", schema.ModePredict)
+	require.Equal(t, schema.ErrOptionalOutput, se.Kind)
+}
+
+func TestOpaqueImportedQualifiedUnionNoneOutputErrors(t *testing.T) {
+	source := `
+import typing
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> typing.Annotated[typing.Union[list[ThirdPartyType], None], Opaque]:
+        pass
+`
+	se := parseErr(t, source, "Predictor", schema.ModePredict)
+	require.Equal(t, schema.ErrOptionalOutput, se.Kind)
+}
+
+func TestAnnotatedStringOutput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Annotated[str, "metadata"]:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaPrimitive, info.Output.Kind)
+	require.Equal(t, schema.TypeString, info.Output.Primitive)
+}
+
+func TestAnnotatedOptionalStringOutputErrors(t *testing.T) {
+	source := `
+from typing import Annotated, Optional
+from cog import BasePredictor
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Annotated[Optional[str], "metadata"]:
+        pass
+`
+	se := parseErr(t, source, "Predictor", schema.ModePredict)
+	require.Equal(t, schema.ErrOptionalOutput, se.Kind)
+}
+
+func TestAnnotatedStringInsideListOutput(t *testing.T) {
+	source := `
+from typing import Annotated, List
+from cog import BasePredictor
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> List[Annotated[str, "metadata"]]:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaArray, info.Output.Kind)
+	require.NotNil(t, info.Output.Items)
+	require.Equal(t, schema.SchemaPrimitive, info.Output.Items.Kind)
+	require.Equal(t, schema.TypeString, info.Output.Items.Primitive)
+}
+
+func TestOpaqueImportedBareListOutput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Annotated[list, Opaque]:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaArray, info.Output.Kind)
+	require.NotNil(t, info.Output.Items)
+	require.Equal(t, schema.SchemaPrimitive, info.Output.Items.Kind)
+	require.Equal(t, schema.TypeAny, info.Output.Items.Primitive)
+}
+
+func TestOpaqueImportedTypingBareListOutput(t *testing.T) {
+	source := `
+from typing import Annotated, List
+from cog import BasePredictor, Opaque
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> Annotated[List, Opaque]:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaArray, info.Output.Kind)
+	require.NotNil(t, info.Output.Items)
+	require.Equal(t, schema.SchemaPrimitive, info.Output.Items.Kind)
+	require.Equal(t, schema.TypeAny, info.Output.Items.Primitive)
+}
+
+func TestOpaqueImportedOutputInsideList(t *testing.T) {
+	source := `
+from typing import Annotated, List
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> List[Annotated[ThirdPartyType, Opaque]]:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaArray, info.Output.Kind)
+	require.NotNil(t, info.Output.Items)
+	require.Equal(t, schema.SchemaPrimitive, info.Output.Items.Kind)
+	require.Equal(t, schema.TypeAny, info.Output.Items.Primitive)
+}
+
+func TestOpaqueOtherLibQualifiedListOutput(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor, Opaque
+import otherlib
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: str) -> otherlib.List[Annotated[ThirdPartyType, Opaque]]:
+        pass
+`
+	se := parseErr(t, source, "Predictor", schema.ModePredict)
+	require.Equal(t, schema.ErrUnsupportedType, se.Kind)
+	require.Contains(t, se.Message, "List")
+}
+
+func TestQualifiedOpaqueImportedInput(t *testing.T) {
+	source := `
+from typing import Annotated
+import cog as c
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(c.BasePredictor):
+    def predict(self, value: Annotated[ThirdPartyType, c.Opaque]) -> str:
+        return "ok"
+`
+	info := parse(t, source, "Predictor")
+	value, ok := info.Inputs.Get("value")
+	require.True(t, ok)
+	require.Equal(t, schema.TypeAny, value.FieldType.Primitive)
+	require.Equal(t, schema.Required, value.FieldType.Repetition)
+}
+
+func TestOtherOpaqueDoesNotMatchCogOpaque(t *testing.T) {
+	source := `
+from typing import Annotated
+from cog import BasePredictor
+import otherlib
+from some_pip_package.deep import ThirdPartyType
+
+class Predictor(BasePredictor):
+    def predict(self, value: Annotated[ThirdPartyType, otherlib.Opaque]) -> str:
+        return "ok"
+`
+	se := parseErr(t, source, "Predictor", schema.ModePredict)
+	require.Equal(t, schema.ErrUnresolvableType, se.Kind)
+	require.Contains(t, se.Message, "ThirdPartyType")
+}
+
 func TestTypedDictOutput(t *testing.T) {
 	source := `
 from typing import TypedDict
@@ -2944,6 +3550,55 @@ class Predictor(BasePredictor):
 	require.True(t, ok)
 	require.True(t, count.Required)
 	require.Equal(t, schema.TypeInteger, count.Type.Primitive)
+}
+
+func TestTypedDictQualifiedAnnotatedOptionalStringFieldNullable(t *testing.T) {
+	source := `
+import typing
+from typing import TypedDict
+from cog import BasePredictor
+
+class Payload(TypedDict):
+    payload: typing.Annotated[typing.Optional[str], "metadata"]
+
+class Predictor(BasePredictor):
+    def predict(self, x: str) -> Payload:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaObject, info.Output.Kind)
+
+	payload, ok := info.Output.Fields.Get("payload")
+	require.True(t, ok)
+	require.True(t, payload.Required)
+	require.True(t, payload.Type.Nullable)
+	require.Equal(t, schema.SchemaPrimitive, payload.Type.Kind)
+	require.Equal(t, schema.TypeString, payload.Type.Primitive)
+}
+
+func TestTypedDictOpaqueAnnotatedOptionalImportedFieldNullable(t *testing.T) {
+	source := `
+import typing
+from typing import TypedDict
+from cog import BasePredictor, Opaque
+from some_pip_package.deep import ThirdPartyType
+
+class Payload(TypedDict):
+    payload: typing.Annotated[typing.Optional[ThirdPartyType], Opaque]
+
+class Predictor(BasePredictor):
+    def predict(self, x: str) -> Payload:
+        pass
+`
+	info := parse(t, source, "Predictor")
+	require.Equal(t, schema.SchemaObject, info.Output.Kind)
+
+	payload, ok := info.Output.Fields.Get("payload")
+	require.True(t, ok)
+	require.True(t, payload.Required)
+	require.True(t, payload.Type.Nullable)
+	require.Equal(t, schema.SchemaPrimitive, payload.Type.Kind)
+	require.Equal(t, schema.TypeAny, payload.Type.Primitive)
 }
 
 func TestTypedDictOutputTotalFalse(t *testing.T) {

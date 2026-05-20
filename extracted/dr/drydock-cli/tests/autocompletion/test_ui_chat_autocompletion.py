@@ -77,6 +77,9 @@ async def test_arrow_navigation_updates_selected_suggestion(drydock_app: Drydock
 
         await pilot.press(*"/c")
 
+        # /checkpoint sorts before /clear; navigate down to /clear then /compact
+        ensure_selected_command(popup, "/checkpoint")
+        await pilot.press("down")
         ensure_selected_command(popup, "/clear")
         await pilot.press("down")
         ensure_selected_command(popup, "/compact")

@@ -28,7 +28,7 @@ pub mod imp;
 pub use imp::{BrowserSettings, Http2Data, Impersonate, ImpersonateOS};
 
 /// Re-export h2 frame types used in the public HTTP/2 API
-#[cfg(feature = "http2")]
+#[cfg(all(feature = "http2", not(target_arch = "wasm32")))]
 pub use h2::frame::{
     PseudoId, PseudoOrder, PseudoOrderBuilder, SettingId, SettingsOrder, SettingsOrderBuilder,
 };
@@ -181,6 +181,7 @@ impl ClientBuilder {
     }
 
     /// Disable auto deflate decompression.
+    #[cfg(feature = "deflate")]
     pub fn no_deflate(mut self) -> Self {
         self.inner = self.inner.no_deflate();
         self
@@ -349,12 +350,14 @@ impl ClientBuilder {
     }
 
     /// Sets the HTTP/2 SETTINGS frame order for fingerprinting.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn http2_settings_order(mut self, order: h2::frame::SettingsOrder) -> Self {
         self.inner = self.inner.http2_settings_order(order);
         self
     }
 
     /// Sets the HTTP/2 pseudo-header order for fingerprinting.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn http2_headers_pseudo_order(mut self, order: h2::frame::PseudoOrder) -> Self {
         self.inner = self.inner.http2_headers_pseudo_order(order);
         self
@@ -439,6 +442,20 @@ impl ClientBuilder {
     /// Override DNS resolution for specific domains to particular IP addresses.
     pub fn resolve_to_addrs(mut self, domain: &str, addrs: &[std::net::SocketAddr]) -> Self {
         self.inner = self.inner.resolve_to_addrs(domain, addrs);
+        self
+    }
+
+    /// Override the DNS resolver implementation.
+    ///
+    /// Accepts any type implementing `IntoResolve`, such as `GaiResolver`,
+    /// or a `Vec` of resolvers for fallback.
+    ///
+    /// **Note:** `DohResolver`, `DotResolver`, and `PlainDnsResolver` require the `hickory-dns` feature.
+    pub fn dns_resolver<R>(mut self, resolver: R) -> Self
+    where
+        R: crate::dns::IntoResolve,
+    {
+        self.inner = self.inner.dns_resolver(resolver);
         self
     }
 }
@@ -568,6 +585,9 @@ fn apply_impersonation(
     if !settings.zstd {
         builder = builder.no_zstd();
     }
+    if !settings.deflate {
+        builder = builder.no_deflate();
+    }
 
     builder.build()
 }
@@ -578,18 +598,26 @@ fn build_impersonate_tls_config(
     custom_certs: &[reqwest::Certificate],
 ) -> crate::Result<rustls::ClientConfig> {
     use rustls::client::EchMode;
-    use std::sync::Arc;
+    use std::sync::{Arc, OnceLock};
 
-    let provider = rustls::crypto::CryptoProvider::get_default()
-        .cloned()
-        .unwrap_or_else(|| Arc::new(rustls::crypto::aws_lc_rs::default_provider()));
+    // Cache the CryptoProvider to avoid repeated lookups and allocations
+    static CRYPTO_PROVIDER: OnceLock<Arc<rustls::crypto::CryptoProvider>> = OnceLock::new();
+    let provider = CRYPTO_PROVIDER
+        .get_or_init(|| {
+            rustls::crypto::CryptoProvider::get_default()
+                .cloned()
+                .unwrap_or_else(|| Arc::new(rustls::crypto::aws_lc_rs::default_provider()))
+        })
+        .clone();
 
-    // Use cached root store with both webpki roots and native OS root CAs.
-    // If custom certs are provided, merge them in.
+    // Cache the default root store to avoid cloning hundreds of certs on every build
+    static DEFAULT_ROOT_STORE: OnceLock<Arc<rustls::RootCertStore>> = OnceLock::new();
     let root_store = if custom_certs.is_empty() {
-        reqwest::tls::default_root_store().clone()
+        DEFAULT_ROOT_STORE
+            .get_or_init(|| Arc::new(reqwest::tls::default_root_store().clone()))
+            .clone()
     } else {
-        reqwest::tls::merged_root_store(custom_certs.to_vec())?
+        Arc::new(reqwest::tls::merged_root_store(custom_certs.to_vec())?)
     };
 
     // ECH GREASE is only used for Chrome-based browsers and Firefox to match JA4 fingerprint
@@ -612,7 +640,7 @@ fn build_impersonate_tls_config(
     };
 
     // Set browser emulation
-    config.browser_emulation = Some(settings.browser_emulator.clone());
+    config.browser_emulation = Some((*settings.browser_emulator).clone());
 
     // Set ALPN protocols
     config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
@@ -686,6 +714,9 @@ fn apply_http2_settings(
     }
     if let Some(stream_id) = http2.initial_stream_id {
         builder = builder.http2_initial_stream_id(stream_id);
+    }
+    if let Some(incr) = http2.initial_stream_window_size_increment {
+        builder = builder.http2_initial_stream_window_size_increment(incr);
     }
 
     builder

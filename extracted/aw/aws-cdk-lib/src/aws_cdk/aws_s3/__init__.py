@@ -268,6 +268,25 @@ bucket = s3.Bucket(self, "Bucket",
 )
 ```
 
+## Bucket Naming
+
+By default, CloudFormation assigns a unique bucket name. You can also specify a `bucketName` directly, but this creates a globally unique name that could conflict with other accounts.
+
+### Account-Regional Bucket Namespace
+
+Using `bucketNamePrefix` with `bucketNamespace` set to `ACCOUNT_REGIONAL`, the bucket name is scoped to your account and region, reducing the risk of name conflicts. CloudFormation appends `-<accountId>-<region>-an` to the prefix to form the full name.
+
+```python
+s3.Bucket(self, "MyBucket",
+    bucket_name_prefix="my-app",
+    bucket_namespace=s3.BucketNamespace.ACCOUNT_REGIONAL
+)
+```
+
+Note that `bucketName` cannot be used together with `bucketNamePrefix` or `bucketNamespace`.
+
+For more information, see the [AWS documentation on bucket namespaces](https://docs.aws.amazon.com/AmazonS3/latest/userguide/gpbucketnamespaces.html).
+
 ## Sharing buckets between stacks
 
 To use a bucket in a different stack in the same CDK application, pass the object to the other stack:
@@ -2213,6 +2232,28 @@ class BucketMetrics:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_s3.BucketNamespace")
+class BucketNamespace(enum.Enum):
+    '''The namespace for the bucket name when using ``bucketNamePrefix``.
+
+    Determines how CloudFormation generates the unique portion of the bucket name.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        s3.Bucket(self, "MyBucket",
+            bucket_name_prefix="my-app",
+            bucket_namespace=s3.BucketNamespace.ACCOUNT_REGIONAL
+        )
+    '''
+
+    GLOBAL = "GLOBAL"
+    '''The bucket name is globally unique.'''
+    ACCOUNT_REGIONAL = "ACCOUNT_REGIONAL"
+    '''The bucket name is unique within the account and region.'''
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_s3.BucketNotificationDestinationConfig",
     jsii_struct_bases=[],
@@ -2570,6 +2611,8 @@ class BucketPolicyProps:
         "block_public_access": "blockPublicAccess",
         "bucket_key_enabled": "bucketKeyEnabled",
         "bucket_name": "bucketName",
+        "bucket_name_prefix": "bucketNamePrefix",
+        "bucket_namespace": "bucketNamespace",
         "cors": "cors",
         "encryption": "encryption",
         "encryption_key": "encryptionKey",
@@ -2612,6 +2655,8 @@ class BucketProps:
         block_public_access: typing.Optional["BlockPublicAccess"] = None,
         bucket_key_enabled: typing.Optional[builtins.bool] = None,
         bucket_name: typing.Optional[builtins.str] = None,
+        bucket_name_prefix: typing.Optional[builtins.str] = None,
+        bucket_namespace: typing.Optional["BucketNamespace"] = None,
         cors: typing.Optional[typing.Sequence[typing.Union["CorsRule", typing.Dict[builtins.str, typing.Any]]]] = None,
         encryption: typing.Optional["BucketEncryption"] = None,
         encryption_key: typing.Optional["_IKey_5f11635f"] = None,
@@ -2649,7 +2694,9 @@ class BucketProps:
         :param blocked_encryption_types: Encryption types that should be blocked for this bucket. Use ``NONE`` to allow all encryption types. At least one ``BlockedEncryptionType`` must be given. If ``NONE`` is given, it must be the only ``BlockedEncryptionType`` in the list. Default: - Amazon S3 determines which encryption types to block.
         :param block_public_access: The block public access configuration of this bucket. Default: - CloudFormation defaults will apply. New buckets and objects don't allow public access, but users can modify bucket policies or object permissions to allow public access
         :param bucket_key_enabled: Whether Amazon S3 should use its own intermediary key to generate data keys. Only relevant when using KMS for encryption. - If not enabled, every object GET and PUT will cause an API call to KMS (with the attendant cost implications of that). - If enabled, S3 will use its own time-limited key instead. Only relevant, when Encryption is not set to ``BucketEncryption.UNENCRYPTED``. Default: - false
-        :param bucket_name: Physical name of this bucket. Default: - Assigned by CloudFormation (recommended).
+        :param bucket_name: Physical name of this bucket. Cannot be used together with ``bucketNamePrefix`` or ``bucketNamespace``. Default: - Assigned by CloudFormation (recommended).
+        :param bucket_name_prefix: A prefix for the bucket name in the account-regional namespace. Requires ``bucketNamespace`` to be set to ``ACCOUNT_REGIONAL``. Cannot be used together with ``bucketName``. CloudFormation appends ``-<accountId>-<region>-an`` to form the full name. For example, ``my-app`` becomes ``my-app-123456789012-us-east-1-an``. Must contain only lowercase letters, numbers, and hyphens. Must start and end with a lowercase letter or number. Default: - No prefix.
+        :param bucket_namespace: The namespace for the bucket name. AWS recommends ``ACCOUNT_REGIONAL`` for improved security, as bucket names are scoped to your account and cannot be claimed by other accounts. When set to ``ACCOUNT_REGIONAL``, ``bucketNamePrefix`` is required. When set to ``GLOBAL``, it can be used standalone to explicitly specify the default namespace. Default: - Global namespace.
         :param cors: The CORS configuration of this bucket. Default: - No CORS configuration.
         :param encryption: The kind of server-side encryption to apply to this bucket. If you choose KMS, you can specify a KMS key via ``encryptionKey``. If encryption key is not specified, a key will automatically be created. Default: - ``KMS`` if ``encryptionKey`` is specified, or ``S3_MANAGED`` otherwise.
         :param encryption_key: External KMS key to use for bucket encryption. The ``encryption`` property must be either not specified or set to ``KMS`` or ``DSSE``. An error will be emitted if ``encryption`` is set to ``UNENCRYPTED`` or ``S3_MANAGED``. Default: - If ``encryption`` is set to ``KMS`` and this property is undefined, a new KMS key will be created and associated with this bucket.
@@ -2711,6 +2758,8 @@ class BucketProps:
             check_type(argname="argument block_public_access", value=block_public_access, expected_type=type_hints["block_public_access"])
             check_type(argname="argument bucket_key_enabled", value=bucket_key_enabled, expected_type=type_hints["bucket_key_enabled"])
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument bucket_name_prefix", value=bucket_name_prefix, expected_type=type_hints["bucket_name_prefix"])
+            check_type(argname="argument bucket_namespace", value=bucket_namespace, expected_type=type_hints["bucket_namespace"])
             check_type(argname="argument cors", value=cors, expected_type=type_hints["cors"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
@@ -2755,6 +2804,10 @@ class BucketProps:
             self._values["bucket_key_enabled"] = bucket_key_enabled
         if bucket_name is not None:
             self._values["bucket_name"] = bucket_name
+        if bucket_name_prefix is not None:
+            self._values["bucket_name_prefix"] = bucket_name_prefix
+        if bucket_namespace is not None:
+            self._values["bucket_namespace"] = bucket_namespace
         if cors is not None:
             self._values["cors"] = cors
         if encryption is not None:
@@ -2903,10 +2956,46 @@ class BucketProps:
     def bucket_name(self) -> typing.Optional[builtins.str]:
         '''Physical name of this bucket.
 
+        Cannot be used together with ``bucketNamePrefix`` or ``bucketNamespace``.
+
         :default: - Assigned by CloudFormation (recommended).
         '''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bucket_name_prefix(self) -> typing.Optional[builtins.str]:
+        '''A prefix for the bucket name in the account-regional namespace.
+
+        Requires ``bucketNamespace`` to be set to ``ACCOUNT_REGIONAL``.
+        Cannot be used together with ``bucketName``.
+
+        CloudFormation appends ``-<accountId>-<region>-an`` to form the full name.
+        For example, ``my-app`` becomes ``my-app-123456789012-us-east-1-an``.
+
+        Must contain only lowercase letters, numbers, and hyphens.
+        Must start and end with a lowercase letter or number.
+
+        :default: - No prefix.
+        '''
+        result = self._values.get("bucket_name_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bucket_namespace(self) -> typing.Optional["BucketNamespace"]:
+        '''The namespace for the bucket name.
+
+        AWS recommends ``ACCOUNT_REGIONAL`` for improved security, as bucket names
+        are scoped to your account and cannot be claimed by other accounts.
+        When set to ``ACCOUNT_REGIONAL``, ``bucketNamePrefix`` is required.
+        When set to ``GLOBAL``, it can be used standalone to explicitly specify the default namespace.
+
+        :default: - Global namespace.
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/gpbucketnamespaces.html
+        '''
+        result = self._values.get("bucket_namespace")
+        return typing.cast(typing.Optional["BucketNamespace"], result)
 
     @builtins.property
     def cors(self) -> typing.Optional[typing.List["CorsRule"]]:
@@ -20753,7 +20842,7 @@ class Location:
             
             # Create a custom semantic memory strategy
             self_managed_strategy = agentcore.MemoryStrategy.using_self_managed(
-                name="selfManagedStrategy",
+                strategy_name="selfManagedStrategy",
                 description="self managed memory strategy",
                 historical_context_window_size=5,
                 invocation_configuration=agentcore.InvocationConfiguration(
@@ -23490,6 +23579,8 @@ class Bucket(
         block_public_access: typing.Optional["BlockPublicAccess"] = None,
         bucket_key_enabled: typing.Optional[builtins.bool] = None,
         bucket_name: typing.Optional[builtins.str] = None,
+        bucket_name_prefix: typing.Optional[builtins.str] = None,
+        bucket_namespace: typing.Optional["BucketNamespace"] = None,
         cors: typing.Optional[typing.Sequence[typing.Union["CorsRule", typing.Dict[builtins.str, typing.Any]]]] = None,
         encryption: typing.Optional["BucketEncryption"] = None,
         encryption_key: typing.Optional["_IKey_5f11635f"] = None,
@@ -23529,7 +23620,9 @@ class Bucket(
         :param blocked_encryption_types: Encryption types that should be blocked for this bucket. Use ``NONE`` to allow all encryption types. At least one ``BlockedEncryptionType`` must be given. If ``NONE`` is given, it must be the only ``BlockedEncryptionType`` in the list. Default: - Amazon S3 determines which encryption types to block.
         :param block_public_access: The block public access configuration of this bucket. Default: - CloudFormation defaults will apply. New buckets and objects don't allow public access, but users can modify bucket policies or object permissions to allow public access
         :param bucket_key_enabled: Whether Amazon S3 should use its own intermediary key to generate data keys. Only relevant when using KMS for encryption. - If not enabled, every object GET and PUT will cause an API call to KMS (with the attendant cost implications of that). - If enabled, S3 will use its own time-limited key instead. Only relevant, when Encryption is not set to ``BucketEncryption.UNENCRYPTED``. Default: - false
-        :param bucket_name: Physical name of this bucket. Default: - Assigned by CloudFormation (recommended).
+        :param bucket_name: Physical name of this bucket. Cannot be used together with ``bucketNamePrefix`` or ``bucketNamespace``. Default: - Assigned by CloudFormation (recommended).
+        :param bucket_name_prefix: A prefix for the bucket name in the account-regional namespace. Requires ``bucketNamespace`` to be set to ``ACCOUNT_REGIONAL``. Cannot be used together with ``bucketName``. CloudFormation appends ``-<accountId>-<region>-an`` to form the full name. For example, ``my-app`` becomes ``my-app-123456789012-us-east-1-an``. Must contain only lowercase letters, numbers, and hyphens. Must start and end with a lowercase letter or number. Default: - No prefix.
+        :param bucket_namespace: The namespace for the bucket name. AWS recommends ``ACCOUNT_REGIONAL`` for improved security, as bucket names are scoped to your account and cannot be claimed by other accounts. When set to ``ACCOUNT_REGIONAL``, ``bucketNamePrefix`` is required. When set to ``GLOBAL``, it can be used standalone to explicitly specify the default namespace. Default: - Global namespace.
         :param cors: The CORS configuration of this bucket. Default: - No CORS configuration.
         :param encryption: The kind of server-side encryption to apply to this bucket. If you choose KMS, you can specify a KMS key via ``encryptionKey``. If encryption key is not specified, a key will automatically be created. Default: - ``KMS`` if ``encryptionKey`` is specified, or ``S3_MANAGED`` otherwise.
         :param encryption_key: External KMS key to use for bucket encryption. The ``encryption`` property must be either not specified or set to ``KMS`` or ``DSSE``. An error will be emitted if ``encryption`` is set to ``UNENCRYPTED`` or ``S3_MANAGED``. Default: - If ``encryption`` is set to ``KMS`` and this property is undefined, a new KMS key will be created and associated with this bucket.
@@ -23572,6 +23665,8 @@ class Bucket(
             block_public_access=block_public_access,
             bucket_key_enabled=bucket_key_enabled,
             bucket_name=bucket_name,
+            bucket_name_prefix=bucket_name_prefix,
+            bucket_namespace=bucket_namespace,
             cors=cors,
             encryption=encryption,
             encryption_key=encryption_key,
@@ -24002,6 +24097,7 @@ __all__ = [
     "BucketEncryption",
     "BucketGrants",
     "BucketMetrics",
+    "BucketNamespace",
     "BucketNotificationDestinationConfig",
     "BucketNotificationDestinationType",
     "BucketPolicy",
@@ -24270,6 +24366,8 @@ def _typecheckingstub__f2ff878f2dca3dd037442155369c2fcc7bd194425c0967a7fd7bfa576
     block_public_access: typing.Optional[BlockPublicAccess] = None,
     bucket_key_enabled: typing.Optional[builtins.bool] = None,
     bucket_name: typing.Optional[builtins.str] = None,
+    bucket_name_prefix: typing.Optional[builtins.str] = None,
+    bucket_namespace: typing.Optional[BucketNamespace] = None,
     cors: typing.Optional[typing.Sequence[typing.Union[CorsRule, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption: typing.Optional[BucketEncryption] = None,
     encryption_key: typing.Optional[_IKey_5f11635f] = None,
@@ -26687,6 +26785,8 @@ def _typecheckingstub__25f24cbf29544d9c579e765350a7b51ec4ec81bc2cc07a21660738a1e
     block_public_access: typing.Optional[BlockPublicAccess] = None,
     bucket_key_enabled: typing.Optional[builtins.bool] = None,
     bucket_name: typing.Optional[builtins.str] = None,
+    bucket_name_prefix: typing.Optional[builtins.str] = None,
+    bucket_namespace: typing.Optional[BucketNamespace] = None,
     cors: typing.Optional[typing.Sequence[typing.Union[CorsRule, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption: typing.Optional[BucketEncryption] = None,
     encryption_key: typing.Optional[_IKey_5f11635f] = None,

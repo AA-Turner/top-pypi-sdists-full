@@ -9,6 +9,8 @@ try:
         normalize_ldev_id,
         volume_id_to_hex_format,
     )
+    from ..common.vsp_constants import DEFAULT_NAME_PREFIX
+    from ..message.vsp_lun_msgs import VSPVolValidationMsg
 
 except ImportError:
     from .common_base_models import BaseDataClass, SingleBaseClass
@@ -86,7 +88,35 @@ class VolumeQosParamsSpec:
 
 
 @dataclass
-class CreateVolumeSpec:
+class LdevNamespec(SingleBaseClass):
+    base_name: Optional[str] = None
+    start_number: Optional[int] = None
+    number_of_digits: Optional[int] = None
+
+    def __post_init__(self):
+        if self.base_name is None:
+            self.base_name = DEFAULT_NAME_PREFIX
+        if self.start_number is None:
+            self.start_number = 0
+        if self.number_of_digits is None:
+            self.number_of_digits = 3
+
+        if self.number_of_digits is not None and self.number_of_digits > 5:
+            raise ValueError(VSPVolValidationMsg.NUMBER_OF_DIGITS_INVALID.value)
+
+        # Validation: total length of base_name + start_number (zero-padded to number_of_digits) <= 32
+        start_number_str = str(self.start_number).zfill(self.number_of_digits)
+        total_length = len(self.base_name) + len(start_number_str)
+        if total_length > 32:
+            raise ValueError(
+                VSPVolValidationMsg.NAME_SPEC_LENGTH_EXCEEDED.value.format(
+                    self.base_name, start_number_str, total_length
+                )
+            )
+
+
+@dataclass
+class CreateVolumeSpec(SingleBaseClass):
     data_reduction_share: Optional[bool] = None
     name: Optional[str] = None
     size: Optional[str] = None
@@ -96,6 +126,7 @@ class CreateVolumeSpec:
     pool_id: Optional[int] = None
     capacity_saving: Optional[str] = None
     parity_group: Optional[str] = None
+    parity_group_id: Optional[str] = None
     force: Optional[bool] = None
     is_relocation_enabled: Optional[bool] = None
     is_compression_acceleration_enabled: Optional[bool] = None
@@ -129,10 +160,19 @@ class CreateVolumeSpec:
     is_ese_volume: Optional[bool] = None
     ssid: Optional[str] = None
     should_stop_all_volume_format: Optional[bool] = None
+    number_of_ldevs: Optional[int] = None
+    names: Optional[LdevNamespec] = None
+    ldev_ids: Optional[List[int]] = None
+    vldev_ids: Optional[List[int]] = None
+    resource_group_id: Optional[int] = None
     # added comment for ldev module
     comment: Optional[str] = None
+    comments: Optional[List[str]] = None
 
     def __post_init__(self):
+        if self.number_of_ldevs is not None and not (1 <= self.number_of_ldevs <= 500):
+            raise ValueError(VSPVolValidationMsg.NUMBER_OF_LDEVS_INVALID.value)
+
         if self.qos_settings:
             self.qos_settings = VolumeQosParamsSpec(**self.qos_settings)
         if self.ldev_id:
@@ -143,6 +183,47 @@ class CreateVolumeSpec:
             self.start_ldev_id = normalize_ldev_id(self.start_ldev_id)
         if self.end_ldev_id:
             self.end_ldev_id = normalize_ldev_id(self.end_ldev_id)
+        if self.names and isinstance(self.names, dict):
+            self.names = LdevNamespec(**self.names)
+        if self.names and isinstance(self.names, LdevNamespec):
+            self.names = self.names
+        if self.names is None:
+            self.names = LdevNamespec()
+
+        if self.parity_group_id is not None:
+            self.parity_group = self.parity_group_id
+
+        if (
+            self.ldev_ids is not None
+            and self.start_ldev_id is not None
+            and self.end_ldev_id is not None
+        ):
+            raise ValueError(VSPVolValidationMsg.LDEV_IDS_START_LDEV_RANGE.value)
+
+        if (
+            self.start_ldev_id is not None
+            and self.end_ldev_id is not None
+            and (self.end_ldev_id < self.start_ldev_id)
+        ):
+            raise ValueError(VSPVolValidationMsg.END_LDEV_LESS_THAN_START_LDEV.value)
+
+        if (
+            self.ldev_ids is None
+            and self.start_ldev_id is not None
+            and self.end_ldev_id is not None
+        ):
+            self.ldev_ids = list(range(self.start_ldev_id, self.end_ldev_id + 1))
+            self.start_ldev_id = None
+            self.end_ldev_id = None
+
+        if self.capacity_saving != "" and self.capacity_saving is not None:
+            if self.capacity_saving.lower() not in [
+                "compression",
+                "compression_deduplication",
+                "disabled",
+            ]:
+                raise ValueError(VSPVolValidationMsg.CAPACITY_SAVING_INVALID.value)
+            self.capacity_saving = self.capacity_saving.lower()
 
 
 @dataclass
@@ -262,7 +343,7 @@ class VSPVolumeInfo(SingleBaseClass):
         try:
 
             self.isDataReductionShareEnabled = (
-                True if "DRS" in self.attributes else None
+                True if self.attributes and "DRS" in self.attributes else False
             )
 
             if self.qosSettings is not None:
@@ -271,10 +352,12 @@ class VSPVolumeInfo(SingleBaseClass):
             if self.parentLdevId is not None and self.parentVolumeId is None:
                 self.parentVolumeId = self.parentLdevId
 
+            if self.naaId:
+                self.canonicalName = self.naaId
+
             storage_info = get_basic_storage_details()
             if storage_info is None:
                 return
-            self.storageSerialNumber = storage_info.serialNumber
             if self.naaId is None:
                 if storage_info.firstWWN and self.canonicalName is None:
                     self.canonicalName = NAIDCalculator(
@@ -284,6 +367,8 @@ class VSPVolumeInfo(SingleBaseClass):
                     ).calculate_naid(kwargs.get("ldevId", None))
             else:
                 self.canonicalName = self.naaId
+
+            self.storageSerialNumber = storage_info.serialNumber
 
         except Exception as ex:
             logger.writeDebug(f"MODEL: exception in initializing VSPVolumeInfo {ex}")
@@ -418,7 +503,7 @@ class VSPUndefinedVolumeInfo(SingleBaseClass):
     ssid: str = None
     attributes: List[str] = None
     resourceGroupId: int = 0
-    virtualLdevId: int = 0
+    virtualLdevId: int = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -497,6 +582,26 @@ class PavAttribute(SingleBaseClass):
 
 
 @dataclass
+class ActiveActiveMirroringInfo(SingleBaseClass):
+    ssid: Optional[int] = None
+    portNumber: Optional[int] = None
+    absoluteLun: Optional[int] = None
+    storageTypeNumber: Optional[int] = None
+
+
+@dataclass
+class VirtualizationInfo(SingleBaseClass):
+    id: Optional[int] = None
+    isVirtualStorageAutoAssigned: Optional[bool] = None
+    storageType: Optional[str] = None
+    storageSerial: Optional[str] = None
+    activeActiveMirroringPairReserved: Optional[str] = None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+@dataclass
 class SalamanderSimpleVolumeInfo(SingleBaseClass):
     id: Optional[int] = None
     nickname: Optional[str] = None
@@ -531,6 +636,8 @@ class SalamanderSimpleVolumeInfo(SingleBaseClass):
     currentMpu: Optional[int] = None
     currentMpuLocId: Optional[str] = None
     pav: Optional[PavAttribute] = None
+    activeActiveMirroringInfo: Optional[ActiveActiveMirroringInfo] = None
+    virtualization: Optional[VirtualizationInfo] = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -555,6 +662,13 @@ class SalamanderSimpleVolumeInfo(SingleBaseClass):
         if self.pav is not None:
             self.pav = PavAttribute(**self.pav)
 
+        if self.activeActiveMirroringInfo is not None:
+            self.activeActiveMirroringInfo = ActiveActiveMirroringInfo(
+                **self.activeActiveMirroringInfo
+            )
+        if self.virtualization is not None:
+            self.virtualization = VirtualizationInfo(**self.virtualization)
+
     def camel_to_snake_dict(self):
         camel_dict = super().camel_to_snake_dict()
         camel_dict.pop("saving_setting")
@@ -562,6 +676,10 @@ class SalamanderSimpleVolumeInfo(SingleBaseClass):
         camel_dict["parent_volume_id_hex"] = volume_id_to_hex_format(
             self.parentVolumeId
         )
+        if self.activeActiveMirroringInfo is not None:
+            camel_dict.pop("active_active_mirroring_info")
+        if self.virtualization is not None:
+            camel_dict.pop("virtualization")
         return camel_dict
 
 
@@ -687,6 +805,7 @@ class SimpleAPIVolumeFactsSpec(SingleBaseClass):
     count: Optional[int] = None
     volume_id: Optional[int] = None
     comments: Optional[List[str]] = None
+    begin_volume_id: Optional[int] = None  # Alias for start_volume_id
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -712,7 +831,74 @@ class SimpleAPIVolumeFactsSpec(SingleBaseClass):
             self.min_used_capacity = convert_capacity_to_mib(self.min_used_capacity)
         if self.max_used_capacity is not None:
             self.max_used_capacity = convert_capacity_to_mib(self.max_used_capacity)
-        if self.start_volume_id:
+        if self.start_volume_id is not None:
             self.start_volume_id = normalize_ldev_id(self.start_volume_id)
-        if self.volume_id:
+
+        if self.begin_volume_id is not None:
+            self.start_volume_id = normalize_ldev_id(self.begin_volume_id)
+
+        if self.volume_id is not None:
             self.volume_id = normalize_ldev_id(self.volume_id)
+
+
+@dataclass
+class VolumeDetailItemSpec:
+    capacity: Optional[int] = None
+    nickname: Optional[str] = None
+    saving_setting: Optional[str] = None
+    is_data_reduction_share_enabled: Optional[bool] = None
+    resource_id: Optional[str] = None
+
+    def to_dict(self):
+        item = {}
+        if self.capacity is not None:
+            item["capacity"] = self.capacity
+        if self.resource_id is not None:
+            item["extraDetail"] = {"resourceId": self.resource_id}
+        if self.nickname is not None:
+            item["nickname"] = self.nickname
+        if self.saving_setting is not None:
+            item["savingSetting"] = self.saving_setting
+        if self.is_data_reduction_share_enabled is not None:
+            item["isDataReductionShareEnabled"] = self.is_data_reduction_share_enabled
+        return item
+
+
+@dataclass
+class CreateVolumeSpecwithDeatilsSetting(SingleBaseClass):
+    create_volume_details: Optional[List[VolumeDetailItemSpec]] = None
+    capacity_unit: Optional[str] = None
+    id_range_start_id: Optional[str] = None
+    id_range_end_id: Optional[str] = None
+    pool_id: Optional[str] = None
+    virtualization_active_active_mirroring_pair_reserved: Optional[str] = None
+
+    def __post_init__(self):
+        if self.create_volume_details:
+            self.create_volume_details = [
+                VolumeDetailItemSpec(**v) if isinstance(v, dict) else v
+                for v in self.create_volume_details
+            ]
+
+    def create_payload(self):
+        payload = {}
+        if self.create_volume_details is not None:
+            payload["createVolumeDetails"] = [
+                v.to_dict() for v in self.create_volume_details
+            ]
+        if self.capacity_unit is not None:
+            payload["capacityUnit"] = self.capacity_unit
+        if self.id_range_start_id is not None or self.id_range_end_id is not None:
+            id_range = {}
+            if self.id_range_start_id is not None:
+                id_range["startId"] = self.id_range_start_id
+            if self.id_range_end_id is not None:
+                id_range["endId"] = self.id_range_end_id
+            payload["idRange"] = id_range
+        if self.pool_id is not None:
+            payload["poolId"] = self.pool_id
+        if self.virtualization_active_active_mirroring_pair_reserved is not None:
+            payload["virtualization"] = {
+                "activeActiveMirroringPairReserved": self.virtualization_active_active_mirroring_pair_reserved
+            }
+        return payload

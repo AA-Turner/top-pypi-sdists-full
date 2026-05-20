@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyserde
-Version: 0.31.2
+Version: 0.31.3
 Summary: Yet another serialization library on top of dataclasses
 Project-URL: Repository, https://github.com/yukinarit/pyserde
 Project-URL: Homepage, https://github.com/yukinarit/pyserde

@@ -12,71 +12,55 @@ import { ensureBinary } from "./download.js";
 import { isSocksProxy, parseProxyUrl, resolveProxyConfig } from "./proxy.js";
 import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
 
-/**
- * Launch stealth Chromium browser via Puppeteer.
- *
- * @example
- * ```ts
- * import { launch } from 'cloakbrowser/puppeteer';
- * * // With humanize — human-like mouse, keyboard, scroll
- * const browser = await launch({ humanize: true });
- * const page = await browser.newPage();
- * await page.goto('[https://example.com](https://example.com)');
- * await page.click('#login');  // Bézier curve mouse movement
- * await page.type('#email', 'user@example.com');  // Per-character timing
- * ```
- */
-export async function launch(options: LaunchOptions = {}): Promise<Browser> {
-  const puppeteer = await import("puppeteer-core");
-
+/** Resolve binary path, geoip, webrtc, and build final Chrome args. */
+async function resolveArgs(options: LaunchOptions): Promise<{ binaryPath: string; args: string[] }> {
   const binaryPath = process.env.CLOAKBROWSER_BINARY_PATH || (await ensureBinary());
   const { exitIp, ...resolved } = (await maybeResolveGeoip(options)) ?? {};
   let resolvedArgs = (await resolveWebrtcArgs(options)) ?? options.args;
-  
+
   if (exitIp && !(resolvedArgs ?? []).some(a => a.startsWith("--fingerprint-webrtc-ip"))) {
     resolvedArgs = [...(resolvedArgs ?? []), `--fingerprint-webrtc-ip=${exitIp}`];
   }
-  const args = buildArgs({ ...options, ...resolved, args: resolvedArgs });
+  return { binaryPath, args: buildArgs({ ...options, ...resolved, args: resolvedArgs }) };
+}
 
-  // Puppeteer handles proxy via CLI args, not a separate option.
-  // SOCKS5: Chrome supports inline credentials natively (RFC 1929 auth).
-  // HTTP: Chrome does NOT support inline credentials — strip them and
-  // use page.authenticate() for Proxy-Authorization headers instead.
-  let proxyAuth: { username: string; password: string } | undefined;
-  if (options.proxy) {
-    if (isSocksProxy(options.proxy)) {
-      // SOCKS5: pass full URL with credentials to Chrome directly
-      const { proxyArgs } = resolveProxyConfig(options.proxy);
-      args.push(...proxyArgs);
-    } else if (typeof options.proxy === "string") {
-      const { server, username, password } = parseProxyUrl(options.proxy);
-      args.push(`--proxy-server=${server}`);
-      if (username) {
-        proxyAuth = { username, password: password ?? "" };
-      }
-    } else {
-      const parsed = parseProxyUrl(options.proxy.server);
-      args.push(`--proxy-server=${parsed.server}`);
-      if (options.proxy.bypass) {
-        args.push(`--proxy-bypass-list=${options.proxy.bypass}`);
-      }
-      const username = options.proxy.username ?? parsed.username;
-      const password = options.proxy.password ?? parsed.password;
-      if (username) {
-        proxyAuth = { username, password: password ?? "" };
-      }
-    }
+/**
+ * Resolve proxy into Chrome CLI args and optional HTTP auth credentials.
+ * SOCKS5: Chrome supports inline credentials natively (RFC 1929 auth).
+ * HTTP: Chrome does NOT support inline credentials — strip them and
+ * use page.authenticate() for Proxy-Authorization headers instead.
+ */
+function resolveProxy(options: LaunchOptions, args: string[]): { username: string; password: string } | undefined {
+  if (!options.proxy) return undefined;
+
+  if (isSocksProxy(options.proxy)) {
+    const { proxyArgs } = resolveProxyConfig(options.proxy);
+    args.push(...proxyArgs);
+    return undefined;
   }
 
-  const browser = await puppeteer.default.launch({
-    executablePath: binaryPath,
-    headless: options.headless ?? true,
-    args,
-    ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
-    ...options.launchOptions,
-  });
+  if (typeof options.proxy === "string") {
+    const { server, username, password } = parseProxyUrl(options.proxy);
+    args.push(`--proxy-server=${server}`);
+    return username ? { username, password: password ?? "" } : undefined;
+  }
 
-  // Monkey-patch newPage() to auto-authenticate proxy credentials
+  const parsed = parseProxyUrl(options.proxy.server);
+  args.push(`--proxy-server=${parsed.server}`);
+  if (options.proxy.bypass) {
+    args.push(`--proxy-bypass-list=${options.proxy.bypass}`);
+  }
+  const username = options.proxy.username ?? parsed.username;
+  const password = options.proxy.password ?? parsed.password;
+  return username ? { username, password: password ?? "" } : undefined;
+}
+
+/** Apply proxy auth monkey-patch and humanize behavioral patching. */
+async function applyPostLaunch(
+  browser: Browser,
+  options: LaunchOptions,
+  proxyAuth?: { username: string; password: string },
+): Promise<void> {
   if (proxyAuth) {
     const origNewPage = browser.newPage.bind(browser);
     const auth = proxyAuth;
@@ -87,9 +71,6 @@ export async function launch(options: LaunchOptions = {}): Promise<Browser> {
     };
   }
 
-  // Human-like behavioral patching — FULL coverage, same as Playwright.
-  // This enables Bézier mouse movements, organic typing rhythms, and 
-  // natural scrolling to bypass advanced anti-bot detection.
   if (options.humanize) {
     const { patchBrowser } = await import('./human-puppeteer/index.js');
     const { resolveConfig } = await import('./human/config.js');
@@ -99,6 +80,73 @@ export async function launch(options: LaunchOptions = {}): Promise<Browser> {
     );
     patchBrowser(browser, cfg);
   }
+}
 
+/**
+ * Launch stealth Chromium browser via Puppeteer.
+ *
+ * @example
+ * ```ts
+ * import { launch } from 'cloakbrowser/puppeteer';
+ * // With humanize — human-like mouse, keyboard, scroll
+ * const browser = await launch({ humanize: true });
+ * const page = await browser.newPage();
+ * await page.goto('https://example.com');
+ * await page.click('#login');  // Bézier curve mouse movement
+ * await page.type('#email', 'user@example.com');  // Per-character timing
+ * ```
+ */
+export async function launch(options: LaunchOptions = {}): Promise<Browser> {
+  const puppeteer = await import("puppeteer-core");
+  const { binaryPath, args } = await resolveArgs(options);
+  const proxyAuth = resolveProxy(options, args);
+
+  const browser = await puppeteer.default.launch({
+    ...options.launchOptions,
+    executablePath: binaryPath,
+    headless: options.headless ?? true,
+    args,
+    ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
+  });
+
+  await applyPostLaunch(browser, options, proxyAuth);
+  return browser;
+}
+
+/**
+ * Launch stealth Chromium with a persistent user profile via Puppeteer.
+ * Passes `userDataDir` to Puppeteer's launch options so cookies,
+ * localStorage, and session data persist across launches.
+ *
+ * @example
+ * ```ts
+ * import { launchPersistentContext } from 'cloakbrowser/puppeteer';
+ * const browser = await launchPersistentContext({
+ *   userDataDir: './chrome-profile',
+ *   headless: false,
+ *   proxy: 'http://user:pass@proxy:8080',
+ * });
+ * const page = await browser.newPage();
+ * await page.goto('https://example.com');
+ * await browser.close();
+ * ```
+ */
+export async function launchPersistentContext(
+  options: LaunchOptions & { userDataDir: string }
+): Promise<Browser> {
+  const puppeteer = await import("puppeteer-core");
+  const { binaryPath, args } = await resolveArgs(options);
+  const proxyAuth = resolveProxy(options, args);
+
+  const browser = await puppeteer.default.launch({
+    ...options.launchOptions,
+    executablePath: binaryPath,
+    headless: options.headless ?? true,
+    args,
+    ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
+    userDataDir: options.userDataDir,
+  });
+
+  await applyPostLaunch(browser, options, proxyAuth);
   return browser;
 }

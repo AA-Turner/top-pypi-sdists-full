@@ -20,9 +20,11 @@ from any_llm.exceptions import BatchNotCompleteError
 from any_llm.logging import logger
 from any_llm.providers.openai.utils import (
     _convert_chat_completion,
+    _convert_moderation_response_from_openai,
     _convert_parsed_chat_completion,
     _normalize_openai_dict_response,
 )
+from any_llm.types.audio import AudioSpeechParams, AudioTranscriptionParams, Transcription
 from any_llm.types.batch import Batch, BatchResult, BatchResultError, BatchResultItem
 from any_llm.types.completion import (
     ChatCompletion,
@@ -31,7 +33,9 @@ from any_llm.types.completion import (
     CreateEmbeddingResponse,
     ReasoningEffort,
 )
+from any_llm.types.image import ImageGenerationParams, ImagesResponse
 from any_llm.types.model import Model
+from any_llm.types.moderation import ModerationResponse
 from any_llm.types.responses import Response, ResponsesParams, ResponseStreamEvent
 from any_llm.utils.structured_output import get_json_schema, is_structured_output_type
 
@@ -52,8 +56,11 @@ class BaseOpenAIProvider(AnyLLM):
     SUPPORTS_COMPLETION_IMAGE = True
     SUPPORTS_COMPLETION_PDF = True
     SUPPORTS_EMBEDDING = True
+    SUPPORTS_MODERATION = True
     SUPPORTS_LIST_MODELS = True
     SUPPORTS_BATCH = False
+    SUPPORTS_IMAGE_GENERATION = False
+    SUPPORTS_RERANK = False
 
     _DEFAULT_REASONING_EFFORT: ReasoningEffort | None = None
 
@@ -255,6 +262,61 @@ class BaseOpenAIProvider(AnyLLM):
                 **embedding_kwargs,
             )
         )
+
+    @override
+    async def _aimage_generation(self, params: ImageGenerationParams, **kwargs: Any) -> ImagesResponse:
+        api_kwargs = params.to_api_kwargs()
+        api_kwargs.update(kwargs)
+
+        return await self.client.images.generate(  # type: ignore[no-any-return]
+            model=params.model_id,
+            **api_kwargs,
+        )
+
+    @override
+    async def _atranscription(self, params: AudioTranscriptionParams, **kwargs: Any) -> Transcription:
+        api_kwargs = params.to_api_kwargs()
+        api_kwargs.update(kwargs)
+
+        return await self.client.audio.transcriptions.create(  # type: ignore[no-any-return]
+            model=params.model_id,
+            file=params.file,
+            **api_kwargs,
+        )
+
+    @override
+    async def _aspeech(self, params: AudioSpeechParams, **kwargs: Any) -> bytes:
+        api_kwargs = params.to_api_kwargs()
+        api_kwargs.update(kwargs)
+
+        response = await self.client.audio.speech.create(
+            model=params.model_id,
+            input=params.input,
+            voice=params.voice,
+            **api_kwargs,
+        )
+        return response.content
+
+    @override
+    async def _amoderation(
+        self,
+        model: str,
+        input: str | list[str] | list[dict[str, Any]],
+        **kwargs: Any,
+    ) -> ModerationResponse:
+        if not self.SUPPORTS_MODERATION:
+            msg = f"Provider {self.PROVIDER_NAME} does not support moderation"
+            raise NotImplementedError(msg)
+
+        include_raw = kwargs.pop("include_raw", False)
+        model_name = model or "omni-moderation-latest"
+
+        raw = await self.client.moderations.create(
+            model=model_name,
+            input=cast("Any", input),
+            **kwargs,
+        )
+        return _convert_moderation_response_from_openai(raw, include_raw=include_raw)
 
     @override
     async def _alist_models(self, **kwargs: Any) -> Sequence[Model]:

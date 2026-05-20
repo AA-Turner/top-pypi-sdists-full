@@ -421,6 +421,56 @@ class LazyFramePlaceholder:
             partition_column=partition_column,
         )
 
+    def write_iceberg(
+        self,
+        table: str,
+        *,
+        storage_options: typing.Optional[typing.Mapping[str, str]] = None,
+        shard_id: int = 0,
+        num_retries: int = 3,
+        num_internal_retries: int = 3,
+        partition_spec: typing.Optional[typing.List[typing.Tuple[str, str]]] = None,
+    ) -> "LazyFramePlaceholder":
+        """Write this DataFrame to an Iceberg table.
+
+        Parameters
+        ----------
+        table
+            Either a catalog-qualified identifier (``"namespace.name"``) or a
+            direct URI (``s3://…``, ``file://…``).
+        storage_options
+            Iceberg catalog + FileIO properties. See :meth:`scan_iceberg`. For
+            catalog-mode writes ``"warehouse"`` is the storage prefix under
+            which new tables are materialized at ``<warehouse>/<namespace>/<name>``.
+            ``None`` uses ambient configuration from the host engine's environment.
+        shard_id
+            Shard identifier for the write (used for partitioned writes).
+        num_retries
+            Number of end-to-end retries for the write operation.
+        num_internal_retries
+            Number of retries for the catalog commit step.
+        partition_spec
+            List of ``(column_name, transform)`` pairs defining how the table is partitioned.
+            Supported transforms: ``"identity"``, ``"year"``, ``"month"``, ``"day"``, ``"hour"``,
+            ``"bucket[N]"``, ``"truncate[N]"``. If omitted, new tables are created unpartitioned
+            and existing tables reuse their current partition spec.
+
+        Returns
+        -------
+        DataFrame
+            A passthrough DataFrame (same data as input); run it to execute the write.
+        """
+        return LazyFramePlaceholder._construct(
+            self_dataframe=self,
+            function_name="write_iceberg",
+            table=table,
+            storage_options=storage_options,
+            shard_id=shard_id,
+            num_retries=num_retries,
+            num_internal_retries=num_internal_retries,
+            partition_spec=partition_spec,
+        )
+
     def write_glue_iceberg(
         self,
         glue_table_name: str,

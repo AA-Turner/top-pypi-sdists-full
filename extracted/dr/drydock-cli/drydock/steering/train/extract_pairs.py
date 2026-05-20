@@ -379,7 +379,7 @@ def extract_pairs(
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="drydock.steering.train.extract_pairs",
-        description=__doc__.split("\n")[0],
+        description=(__doc__ or "").split("\n")[0],
     )
     ap.add_argument(
         "--admiral-state", required=True, type=Path,

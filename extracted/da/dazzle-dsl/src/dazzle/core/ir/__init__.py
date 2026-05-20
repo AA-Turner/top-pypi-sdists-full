@@ -13,6 +13,10 @@ All types are re-exported from this package for backward compatibility.
 # App Specification
 # Approvals (v0.25.0)
 # Analytics (v0.61.0 Phase 3 + Phase 5)
+from .aggregates import (
+    AggregateFunc,
+    AggregateRef,
+)
 from .analytics import (
     AnalyticsConsentSpec,
     AnalyticsProviderInstance,
@@ -800,6 +804,8 @@ from .workspaces import (
     BucketRef,
     CohortStripConfig,
     CohortStripLens,
+    CompositePrimaryPart,
+    CompositePrimarySpec,
     ConfirmationItemSpec,
     ContextSelectorSpec,
     DayTimelineConfig,
@@ -808,6 +814,7 @@ from .workspaces import (
     EntityCardConfig,
     EntityCardSection,
     EntityCardSectionMode,
+    LensAggregatePrimary,
     NavGroupSpec,
     NavItemIR,
     NavSpec,
@@ -817,10 +824,12 @@ from .workspaces import (
     ProfileCardStatSpec,
     ReferenceBand,
     ReferenceLine,
+    RowActionSpec,
     StatusListEntrySpec,
     TaskInboxConfig,
     TaskSource,
     TaskSourceTemplate,
+    ToneBandSpec,
     WorkspaceAccessLevel,
     WorkspaceAccessSpec,
     WorkspaceRegion,
@@ -828,6 +837,9 @@ from .workspaces import (
 )
 
 __all__ = [
+    # Aggregate expression IR (ADR-0024)
+    "AggregateFunc",
+    "AggregateRef",
     # Fidelity Scoring
     "FidelityGap",
     "FidelityGapCategory",
@@ -923,7 +935,10 @@ __all__ = [
     "ActionCardSpec",
     "CohortStripConfig",
     "CohortStripLens",
+    "CompositePrimaryPart",
+    "CompositePrimarySpec",
     "ConfirmationItemSpec",
+    "LensAggregatePrimary",
     "DayTimelineConfig",
     "EntityCardConfig",
     "EntityCardSection",
@@ -937,7 +952,9 @@ __all__ = [
     "ProfileCardStatSpec",
     "ReferenceBand",
     "ReferenceLine",
+    "RowActionSpec",
     "StatusListEntrySpec",
+    "ToneBandSpec",
     "WorkspaceRegion",
     "WorkspaceSpec",
     # Experiences

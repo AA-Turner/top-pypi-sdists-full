@@ -169,13 +169,9 @@ class Memory(
     ToolUIData[MemoryArgs, MemoryResult],
 ):
     description: ClassVar[str] = (
-        "Persistent cross-session memory. Save notes (key+value+tags), "
-        "recall by free-text query, list saved keys, forget by key. "
-        "Use to remember per-project patterns, decisions, and recurring "
-        "answers so the next session doesn't have to rediscover them. "
-        "Storage: ~/.drydock/agent_memory/notes.jsonl (append-only). "
-        "Examples: memory(op='save', key='build cmd', value='make test'); "
-        "memory(op='recall', query='how to run tests'); memory(op='stats')."
+        "Persistent cross-session memory. Ops: save (key+value+tags), "
+        "recall (free-text query), list_keys, forget (by key), stats. "
+        "Storage: ~/.drydock/agent_memory/notes.jsonl (append-only)."
     )
 
     @classmethod

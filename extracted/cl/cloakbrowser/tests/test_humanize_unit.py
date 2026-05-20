@@ -14,6 +14,26 @@ import time
 import sys
 import asyncio
 import pytest
+from unittest.mock import MagicMock
+
+
+def _mock_el_evaluate(is_input=False):
+    """Mock evaluate that returns is_input for tagName checks and {hit: True} for pointer events."""
+    def _eval(js, *args, **kwargs):
+        if isinstance(js, str) and "elementFromPoint" in js:
+            return {"hit": True}
+        return is_input
+    return MagicMock(side_effect=_eval)
+
+
+def _async_mock_el_evaluate(is_input=False):
+    """Async version of _mock_el_evaluate."""
+    from unittest.mock import AsyncMock
+    async def _eval(js, *args, **kwargs):
+        if isinstance(js, str) and "elementFromPoint" in js:
+            return {"hit": True}
+        return is_input
+    return AsyncMock(side_effect=_eval)
 
 
 # =========================================================================
@@ -191,6 +211,59 @@ class TestAsyncCompat:
         from cloakbrowser.human.config import async_sleep_ms
         import asyncio
         assert asyncio.iscoroutinefunction(async_sleep_ms)
+
+    def test_patch_page_async_does_not_crash(self):
+        """patch_page_async must not raise NameError for missing definitions."""
+        import cloakbrowser.human as h
+        from cloakbrowser.human import _CursorState
+        from cloakbrowser.human.config import resolve_config
+        from unittest.mock import MagicMock, AsyncMock
+
+        cfg = resolve_config("default", {"idle_between_actions": False})
+        cursor = _CursorState()
+        cursor.initialized = True
+        cursor.x = 100
+        cursor.y = 100
+
+        page = MagicMock()
+        page.click = AsyncMock()
+        page.dblclick = AsyncMock()
+        page.hover = AsyncMock()
+        page.type = AsyncMock()
+        page.fill = AsyncMock()
+        page.goto = AsyncMock()
+        page.check = AsyncMock()
+        page.uncheck = AsyncMock()
+        page.select_option = AsyncMock()
+        page.press = AsyncMock()
+        page.is_checked = AsyncMock(return_value=False)
+        page.viewport_size = {"width": 1280, "height": 720}
+        page.evaluate = AsyncMock(return_value={"hit": True})
+        page.context.new_cdp_session = AsyncMock(side_effect=Exception("no cdp"))
+        page.mouse = MagicMock()
+        page.mouse.move = AsyncMock()
+        page.mouse.click = AsyncMock()
+        page.mouse.wheel = AsyncMock()
+        page.mouse.down = AsyncMock()
+        page.mouse.up = AsyncMock()
+        page.keyboard = MagicMock()
+        page.keyboard.type = AsyncMock()
+        page.keyboard.down = AsyncMock()
+        page.keyboard.up = AsyncMock()
+        page.keyboard.press = AsyncMock()
+        page.keyboard.insert_text = AsyncMock()
+        page.query_selector = AsyncMock(return_value=None)
+        page.query_selector_all = AsyncMock(return_value=[])
+        page.wait_for_selector = AsyncMock(return_value=None)
+        page.main_frame = MagicMock()
+        page.main_frame.return_value = MagicMock()
+        page.main_frame.return_value.child_frames = MagicMock(return_value=[])
+        page.main_frame.child_frames = MagicMock(return_value=[])
+
+        h.patch_page_async(page, cfg, cursor)
+
+        assert hasattr(page, '_original')
+        assert page.select_option != AsyncMock
 
 
 # =========================================================================
@@ -707,7 +780,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 50, "y": 50, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=True)  # is_input
+        el.evaluate = _mock_el_evaluate(is_input=True)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -738,7 +811,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 200, "y": 200, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=False)
+        el.evaluate = _mock_el_evaluate(is_input=False)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -779,7 +852,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 200, "y": 200, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=False)
+        el.evaluate = _mock_el_evaluate(is_input=False)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -819,7 +892,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 200, "y": 200, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=True)  # is input
+        el.evaluate = _mock_el_evaluate(is_input=True)  # is input
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -867,7 +940,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 200, "y": 200, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=True)
+        el.evaluate = _mock_el_evaluate(is_input=True)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -947,7 +1020,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 50, "y": 50, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=False)
+        el.evaluate = _mock_el_evaluate(is_input=False)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=child)
         el.query_selector_all = MagicMock(return_value=[])
@@ -971,7 +1044,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 50, "y": 50, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=False)
+        el.evaluate = _mock_el_evaluate(is_input=False)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -1036,7 +1109,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 50, "y": 50, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=False)
+        el.evaluate = _mock_el_evaluate(is_input=False)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -1069,7 +1142,7 @@ class TestElementHandlePatchingSync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = MagicMock(return_value={"x": 50, "y": 50, "width": 100, "height": 30})
-        el.evaluate = MagicMock(return_value=False)
+        el.evaluate = _mock_el_evaluate(is_input=False)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -1114,8 +1187,9 @@ class TestElementHandlePatchingAsync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = AsyncMock(return_value={"x": 200, "y": 200, "width": 100, "height": 30})
-        el.evaluate = AsyncMock(return_value=False)
+        el.evaluate = _async_mock_el_evaluate(is_input=False)
         el.is_checked = AsyncMock(return_value=False)
+        el.wait_for_element_state = AsyncMock()
         el.query_selector = AsyncMock(return_value=None)
         el.query_selector_all = AsyncMock(return_value=[])
         el.wait_for_selector = AsyncMock(return_value=None)
@@ -1155,8 +1229,9 @@ class TestElementHandlePatchingAsync:
         el = MagicMock()
         el._human_patched = False
         el.bounding_box = AsyncMock(return_value={"x": 50, "y": 50, "width": 100, "height": 30})
-        el.evaluate = AsyncMock(return_value=False)
+        el.evaluate = _async_mock_el_evaluate(is_input=False)
         el.is_checked = AsyncMock(return_value=False)
+        el.wait_for_element_state = AsyncMock()
         el.query_selector = AsyncMock(return_value=None)
         el.query_selector_all = AsyncMock(return_value=[])
         el.wait_for_selector = AsyncMock(return_value=None)
@@ -1376,7 +1451,7 @@ class TestPerCallTimeoutForwarding:
         page.goto = MagicMock()
         page.is_checked = MagicMock(return_value=False)
         page.viewport_size = {"width": 1280, "height": 720}
-        page.evaluate = MagicMock(return_value=False)
+        page.evaluate = MagicMock(return_value={"hit": True})
         page.context.new_cdp_session = MagicMock(side_effect=Exception("no cdp"))
         page.mouse = MagicMock()
         page.keyboard = MagicMock()
@@ -1389,13 +1464,14 @@ class TestPerCallTimeoutForwarding:
         captured = {}
         def fake_scroll(page_arg, raw, selector, cx, cy, cfg_arg, timeout=30000):
             captured["timeout"] = timeout
-            return ({"x": 100, "y": 100, "width": 50, "height": 30}, cx, cy)
+            return ({"x": 100, "y": 100, "width": 50, "height": 30}, cx, cy, False)
 
-        with patch.object(h, "scroll_to_element", side_effect=fake_scroll):
+        with patch.object(h, "scroll_to_element", side_effect=fake_scroll), \
+             patch.object(h, "ensure_actionable"):
             h.patch_page(page, cfg, cursor)
             page.click("#slow-button", timeout=5000)
 
-        assert captured.get("timeout") == 5000, f"expected 5000, got {captured}"
+        assert 4900 <= captured.get("timeout", 0) <= 5000, f"expected ~5000, got {captured}"
 
 
 # =========================================================================
@@ -1462,7 +1538,7 @@ class TestPerCallHumanConfigOverride:
         page.goto = MagicMock()
         page.is_checked = MagicMock(return_value=False)
         page.viewport_size = {"width": 1280, "height": 720}
-        page.evaluate = MagicMock(return_value=False)
+        page.evaluate = MagicMock(return_value={"hit": True})
         page.context.new_cdp_session = MagicMock(side_effect=Exception("no cdp"))
         page.mouse = MagicMock()
         page.keyboard = MagicMock()
@@ -1478,10 +1554,12 @@ class TestPerCallHumanConfigOverride:
             captured["mistype_chance"] = cfg_arg.mistype_chance
 
         def fake_scroll(*args, **kwargs):
-            return ({"x": 100, "y": 100, "width": 50, "height": 30}, 100, 100)
+            return ({"x": 100, "y": 100, "width": 50, "height": 30}, 100, 100, False)
 
         with patch.object(h, "human_type", side_effect=fake_human_type), \
-             patch.object(h, "scroll_to_element", side_effect=fake_scroll):
+             patch.object(h, "scroll_to_element", side_effect=fake_scroll), \
+             patch.object(h, "ensure_actionable"), \
+             patch.object(h, "check_pointer_events"):
             h.patch_page(page, cfg, cursor)
             page.type(
                 "#email", "hi",
@@ -1490,7 +1568,6 @@ class TestPerCallHumanConfigOverride:
 
         assert captured["typing_delay"] == 30
         assert captured["mistype_chance"] == 0
-        # Global cfg untouched — per-call override doesn't leak
         assert cfg.typing_delay == 70
 
     def test_page_fill_uses_per_call_typing_delay(self):
@@ -1512,7 +1589,7 @@ class TestPerCallHumanConfigOverride:
         page = MagicMock()
         page.viewport_size = {"width": 1280, "height": 720}
         page.is_checked = MagicMock(return_value=False)
-        page.evaluate = MagicMock(return_value=False)
+        page.evaluate = MagicMock(return_value={"hit": True})
         page.context.new_cdp_session = MagicMock(side_effect=Exception("no cdp"))
         page.mouse = MagicMock()
         page.keyboard = MagicMock()
@@ -1527,10 +1604,12 @@ class TestPerCallHumanConfigOverride:
             captured["typing_delay"] = cfg_arg.typing_delay
 
         def fake_scroll(*args, **kwargs):
-            return ({"x": 100, "y": 100, "width": 50, "height": 30}, 100, 100)
+            return ({"x": 100, "y": 100, "width": 50, "height": 30}, 100, 100, False)
 
         with patch.object(h, "human_type", side_effect=fake_human_type), \
-             patch.object(h, "scroll_to_element", side_effect=fake_scroll):
+             patch.object(h, "scroll_to_element", side_effect=fake_scroll), \
+             patch.object(h, "ensure_actionable"), \
+             patch.object(h, "check_pointer_events"):
             h.patch_page(page, cfg, cursor)
             page.fill("#password", "secret", human_config={"typing_delay": 150})
 
@@ -1562,7 +1641,7 @@ class TestPerCallHumanConfigOverride:
         el.bounding_box = MagicMock(
             return_value={"x": 200, "y": 200, "width": 100, "height": 30}
         )
-        el.evaluate = MagicMock(return_value=True)
+        el.evaluate = _mock_el_evaluate(is_input=True)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -1608,9 +1687,10 @@ class TestScrollIntoViewIfNeeded:
         # Box is dead-center of viewport — squarely in scroll_target_zone
         in_view_box = {"x": 200, "y": 300, "width": 50, "height": 30}
 
-        box, cx, cy = human_scroll_into_view(
+        box, cx, cy, did_scroll = human_scroll_into_view(
             page, raw, lambda: in_view_box, 0, 0, cfg,
         )
+        assert not did_scroll, "In-viewport elements shouldn't report scrolling"
         assert box == in_view_box
         assert not raw.wheel.called, "In-viewport elements shouldn't trigger wheel events"
 
@@ -1672,7 +1752,7 @@ class TestScrollIntoViewIfNeeded:
         el.bounding_box = MagicMock(
             return_value={"x": 200, "y": 200, "width": 50, "height": 30}
         )
-        el.evaluate = MagicMock(return_value=False)
+        el.evaluate = _mock_el_evaluate(is_input=False)
         el.is_checked = MagicMock(return_value=False)
         el.query_selector = MagicMock(return_value=None)
         el.query_selector_all = MagicMock(return_value=[])
@@ -1683,14 +1763,13 @@ class TestScrollIntoViewIfNeeded:
         called = {"count": 0}
         def fake(*args, **kwargs):
             called["count"] += 1
-            return ({"x": 200, "y": 200, "width": 50, "height": 30}, 100, 100)
+            return ({"x": 200, "y": 200, "width": 50, "height": 30}, 100, 100, False)
 
         with patch.object(h, "human_scroll_into_view", side_effect=fake):
             _patch_single_element_handle_sync(
                 el, page, cfg, cursor, MagicMock(), MagicMock(),
                 page._original, None, None,
             )
-            # Patched method should now invoke our humanized helper
             el.scroll_into_view_if_needed()
 
         assert called["count"] >= 1, "humanized scroll helper was never called"
@@ -1735,7 +1814,7 @@ class TestScrollIntoViewIfNeeded:
             called["count"] += 1
             # cfg is the 6th positional arg (page, raw, get_box, cx, cy, cfg)
             called["cfg"] = args[5] if len(args) >= 6 else kwargs.get("cfg")
-            return ({"x": 100, "y": 100, "width": 50, "height": 30}, 200, 200)
+            return ({"x": 100, "y": 100, "width": 50, "height": 30}, 200, 200, False)
 
         with patch.object(h, "human_scroll_into_view", side_effect=fake):
             Locator.scroll_into_view_if_needed(

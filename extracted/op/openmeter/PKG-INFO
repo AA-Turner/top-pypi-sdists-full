@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmeter
-Version: 1.0.0b227
+Version: 1.0.0b228
 Summary: Client for OpenMeter: Real-Time and Scalable Usage Metering
 License: Apache-2.0
 Keywords: openmeter,api,client,usage,usage-based,metering,ai,aggregation,real-time,billing,cloud
@@ -15,11 +15,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: cloudevents (>=1.10.0,<2.0.0)
-Requires-Dist: corehttp[aiohttp,requests] (>=1.0.0b6)
-Requires-Dist: isodate (>=0.6.1,<0.8.0)
-Requires-Dist: typing-extensions (>=4.6.0)
-Requires-Dist: urllib3 (>=2.0.0,<3.0.0)
+Requires-Dist: cloudevents (>=1.12.1,<2.0.0)
+Requires-Dist: corehttp[aiohttp,requests] (>=1.0.0b7)
+Requires-Dist: isodate (>=0.7.2,<0.8.0)
+Requires-Dist: typing-extensions (>=4.15.0)
+Requires-Dist: urllib3 (>=2.6.3,<3.0.0)
 Project-URL: Homepage, https://openmeter.io
 Project-URL: Repository, https://github.com/openmeter/openmeter
 Description-Content-Type: text/markdown

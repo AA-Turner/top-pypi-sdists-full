@@ -28,4 +28,5 @@ class AutomaticSpeechRecognitionTaskHandler(_task_handler.HuggingFaceTaskHandler
     ) -> Any:
         input_col = signature.inputs[0].name
         audio_inputs = X[input_col].to_list()
-        return [getattr(raw_model, target_method)(audio) for audio in audio_inputs]
+        filtered_kwargs = _task_handler._filter_none_kwargs(kwargs)
+        return [getattr(raw_model, target_method)(audio, **filtered_kwargs) for audio in audio_inputs]

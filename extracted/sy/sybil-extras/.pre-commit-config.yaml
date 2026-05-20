@@ -38,6 +38,7 @@ ci:
     - shfmt
     - shfmt-docs
     - sphinx-lint
+    - strict-kwargs-fix
     - vulture
     - vulture-docs
     - yamlfix
@@ -154,7 +155,7 @@ repos:
       - id: mypy
         name: mypy
         stages: [pre-push]
-        entry: uv run --extra=dev -m mypy
+        entry: uv run --extra=dev mypy --num-workers=4
         language: python
         types_or: [python, toml]
         pass_filenames: false
@@ -166,7 +167,7 @@ repos:
         name: mypy-docs
         stages: [pre-push]
         entry: uvx --python=3.13 doccmd --no-write-to-file --language=python --command="uv
-          run --extra=dev mypy"
+          run --extra=dev mypy --num-workers=4"
         language: python
         types_or: [markdown, rst]
         additional_dependencies:
@@ -288,6 +289,16 @@ repos:
         types_or: [markdown, rst]
         additional_dependencies:
           - *uv_version
+
+      - id: strict-kwargs-fix
+        name: strict-kwargs
+        entry: uv run --extra=dev strict-kwargs fix --diff
+        language: python
+        types_or: [python]
+        additional_dependencies:
+          - *uv_version
+        stages: [pre-commit]
+        require_serial: true
 
       - id: ruff-check-fix
         name: Ruff check fix

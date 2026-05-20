@@ -24,6 +24,7 @@ from pinecone.preview._internal.adapters.indexes import (
     PreviewListIndexesAdapter,
 )
 from pinecone.preview._internal.constants import INDEXES_API_VERSION
+from pinecone.preview._internal.validation import validate_tags
 from pinecone.preview.models.backups import PreviewBackupModel, PreviewCreateBackupRequest
 from pinecone.preview.models.indexes import PreviewIndexModel
 from pinecone.preview.models.requests import PreviewConfigureIndexRequest, PreviewCreateIndexRequest
@@ -111,6 +112,9 @@ class AsyncPreviewIndexes:
         read_capacity: dict[str, Any] | None = None,
         deletion_protection: str | None = None,
         tags: dict[str, str] | None = None,
+        source_collection: str | None = None,
+        source_backup_id: str | None = None,
+        cmek_id: str | None = None,
     ) -> PreviewIndexModel:
         """Create a new preview index.
 
@@ -144,7 +148,15 @@ class AsyncPreviewIndexes:
                 ``"enabled"`` or ``"disabled"``. Defaults to ``"disabled"``
                 if not provided.
             tags: Optional key-value tags for the index. Keys must be at most
-                80 characters; values must be at most 120 characters.
+                80 characters and contain only alphanumeric characters,
+                underscores, or hyphens. Values must be at most 120 printable
+                ASCII characters. A maximum of 20 tags is allowed.
+            source_collection: Optional name of an existing collection to
+                create the index from.
+            source_backup_id: Optional ID of an existing backup to create
+                the index from.
+            cmek_id: Optional Customer-Managed Encryption Key ID. Valid for
+                managed and BYOC indexes; returns 400 for pod indexes.
 
         Returns:
             :class:`PreviewIndexModel` describing the newly created index. The
@@ -153,7 +165,9 @@ class AsyncPreviewIndexes:
 
         Raises:
             :exc:`~pinecone.errors.exceptions.PineconeValueError`: If a tag key
-                exceeds 80 characters or a tag value exceeds 120 characters.
+                exceeds 80 characters, contains invalid characters, if a tag
+                value exceeds 120 characters or contains non-ASCII/non-printable
+                characters, or if more than 20 tags are provided.
             :exc:`~pinecone.errors.exceptions.ApiError`: If the API returns an
                 error response.
 
@@ -165,14 +179,7 @@ class AsyncPreviewIndexes:
                     name="my-preview-index",
                 )
         """
-        if tags is not None:
-            for key, value in tags.items():
-                if len(key) > 80:
-                    raise PineconeValueError(f"Tag key {key!r} exceeds the 80-character limit.")
-                if len(value) > 120:
-                    raise PineconeValueError(
-                        f"Tag value for key {key!r} exceeds the 120-character limit."
-                    )
+        validate_tags(tags)
 
         req = PreviewCreateIndexRequest(
             schema=schema,
@@ -181,6 +188,9 @@ class AsyncPreviewIndexes:
             read_capacity=read_capacity,
             deletion_protection=deletion_protection,
             tags=tags,
+            source_collection=source_collection,
+            source_backup_id=source_backup_id,
+            cmek_id=cmek_id,
         )
 
         logger.info("Creating preview index name=%r", name)
@@ -199,6 +209,7 @@ class AsyncPreviewIndexes:
         deletion_protection: str | None = None,
         tags: dict[str, str] | None = None,
         read_capacity: dict[str, Any] | None = None,
+        deployment: dict[str, Any] | None = None,
     ) -> PreviewIndexModel:
         """Update configuration of an existing preview index.
 
@@ -224,7 +235,7 @@ class AsyncPreviewIndexes:
                     await pc.preview.indexes.configure(
                         "my-index",
                         schema={"fields": {
-                            "summary": {"type": "string", "full_text_search": {}},
+                            "summary": {"type": "semantic_text", "model": "multilingual-e5-large"},
                         }},
                     )
 
@@ -234,15 +245,18 @@ class AsyncPreviewIndexes:
                 be at most 80 characters; values at most 120 characters.
             read_capacity: Updated read capacity configuration dict.  Must
                 include a ``"mode"`` key (``"OnDemand"`` or ``"Dedicated"``).
+            deployment: Updated pod deployment configuration dict. For pod
+                indexes only. May include ``"replicas"`` (int) and/or
+                ``"pod_type"`` (str).
 
         Returns:
             :class:`PreviewIndexModel` reflecting the updated index state.
 
         Raises:
             :exc:`~pinecone.errors.exceptions.PineconeValueError`: If *name*
-                is empty; if all kwargs are ``None``; if *schema*, *tags*, or
-                *read_capacity* is an empty dict; or if a tag key/value
-                exceeds the length limit.
+                is empty; if all kwargs are ``None``; if *schema*, *tags*,
+                *read_capacity*, or *deployment* is an empty dict; or if a
+                tag key/value exceeds the length limit.
             :exc:`~pinecone.errors.exceptions.ApiError`: If the API returns
                 an error response.
 
@@ -253,7 +267,12 @@ class AsyncPreviewIndexes:
                 async def main():
                     await pc.preview.indexes.configure(
                         "my-index",
-                        schema={"fields": {"summary": {"type": "string"}}},
+                        schema={"fields": {
+                            "summary": {
+                                "type": "semantic_text",
+                                "model": "multilingual-e5-large",
+                            },
+                        }},
                     )
 
             Update read capacity to dedicated::
@@ -287,32 +306,38 @@ class AsyncPreviewIndexes:
             raise PineconeValueError("tags cannot be an empty dict")
         if read_capacity is not None and not read_capacity:
             raise PineconeValueError("read_capacity cannot be an empty dict")
+        if deployment is not None and not deployment:
+            raise PineconeValueError("deployment cannot be an empty dict")
+
+        if schema is not None:
+            fields = schema.get("fields", {})
+            for field_name, field_def in fields.items():
+                if field_def.get("type") != "semantic_text":
+                    raise PineconeValueError(
+                        f"Schema field {field_name!r} has type {field_def.get('type')!r}; "
+                        "configure() only supports adding 'semantic_text' fields."
+                    )
 
         if (
             schema is None
             and deletion_protection is None
             and tags is None
             and read_capacity is None
+            and deployment is None
         ):
             raise PineconeValueError(
                 "at least one configuration parameter must be provided: "
-                "schema, deletion_protection, tags, or read_capacity"
+                "schema, deletion_protection, tags, read_capacity, or deployment"
             )
 
-        if tags is not None:
-            for key, value in tags.items():
-                if len(key) > 80:
-                    raise PineconeValueError(f"Tag key {key!r} exceeds the 80-character limit.")
-                if len(value) > 120:
-                    raise PineconeValueError(
-                        f"Tag value for key {key!r} exceeds the 120-character limit."
-                    )
+        validate_tags(tags)
 
         req = PreviewConfigureIndexRequest(
             schema=schema,
             read_capacity=read_capacity,
             deletion_protection=deletion_protection,
             tags=tags,
+            deployment=deployment,
         )
 
         provided = [
@@ -322,6 +347,7 @@ class AsyncPreviewIndexes:
                 "deletion_protection": deletion_protection,
                 "tags": tags,
                 "read_capacity": read_capacity,
+                "deployment": deployment,
             }.items()
             if v is not None
         ]
@@ -654,9 +680,52 @@ class AsyncPreviewIndexes:
             require_positive("limit", limit)
 
         async def fetch_page(token: str | None) -> Page[PreviewBackupModel]:
-            params: dict[str, str] = {"paginationToken": token} if token is not None else {}
+            params: dict[str, str | int] = {}
+            if token is not None:
+                params["paginationToken"] = token
+            if limit is not None:
+                params["limit"] = limit
             response = await self._http.get(f"/indexes/{index_name}/backups", params=params)
             items, next_token = PreviewListBackupsAdapter.from_response(response.content)
             return Page(items=items, pagination_token=next_token)
 
         return AsyncPaginator(fetch_page=fetch_page, initial_token=pagination_token, limit=limit)
+
+    async def describe_backup(self, backup_id: str) -> PreviewBackupModel:
+        """Describe a backup by its ID.
+
+        .. admonition:: Preview
+           :class: warning
+
+           Uses Pinecone API version ``2026-01.alpha``.
+           Preview surface is not covered by SemVer — signatures and behavior
+           may change in any minor SDK release. Pin your SDK version when
+           relying on preview features.
+
+        Args:
+            backup_id: The unique identifier of the backup to describe.
+
+        Returns:
+            :class:`~pinecone.preview.models.backups.PreviewBackupModel`
+            with the current state of the backup.
+
+        Raises:
+            :exc:`~pinecone.errors.exceptions.PineconeValueError`: If
+                *backup_id* is empty.
+            :exc:`~pinecone.errors.exceptions.ApiError`: If the API returns an
+                error response.
+
+        Examples:
+            .. code-block:: python
+
+                backup = await pc.preview.indexes.create_backup("my-index", name="nightly")
+                # Poll until ready
+                import asyncio
+                while backup.status != "Ready":
+                    await asyncio.sleep(5)
+                    backup = await pc.preview.indexes.describe_backup(backup.backup_id)
+        """
+        require_non_empty("backup_id", backup_id)
+        logger.info("Describing backup backup_id=%r", backup_id)
+        response = await self._http.get(f"/backups/{backup_id}")
+        return PreviewDescribeBackupAdapter.from_response(response.content)

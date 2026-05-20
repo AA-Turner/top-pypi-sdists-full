@@ -1543,9 +1543,10 @@ async def _build_mcps_for_sim(
     mcps: list[dict] = []
     base_url = _get_base_url()
 
+    browser_backend = "browserbase" if DEFAULT_BROWSERBASE_KEY else "anchor"
     for mcp_type in mcps_required:
         if mcp_type == "browser":
-            mcps.append({"type": "browser", "name": "browser", "backend": "browserbase"})
+            mcps.append({"type": "browser", "name": "browser", "backend": browser_backend})
         elif mcp_type == "vm":
             mcps.append({"type": "vm", "name": "vm"})
         elif mcp_type == "db":
@@ -2262,6 +2263,51 @@ def start_checker(
     handle_async(_start())
 
 
+@start_app.command(name="blank")
+def start_blank(
+    simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
+    artifact: str = typer.Option(
+        "",
+        "-a",
+        "--artifact-id",
+        help="Explicit artifact UUID. Requires exactly one simulator name.",
+    ),
+    use_base: bool = typer.Option(
+        False,
+        "--base",
+        help="Use base_artifact_id (pre-datagen snapshot).",
+    ),
+    use_data: bool = typer.Option(
+        False,
+        "--data",
+        help="Use data_artifact_id (post-datagen snapshot). Default behavior already falls back to base if missing.",
+    ),
+):
+    """Run the blankdata pipeline on one or more simulators.
+
+    Strips synthetic data from a sim's artifact, leaving the app in a
+    "fresh deploy + admin user" state, and promotes the cleaned artifact
+    as the new base_artifact_id.
+
+    Thin wrapper around ``start from-template`` with the bundled
+    ``datagen-blank-launch.json`` template.
+
+    Examples:
+        plato pm start blank espocrm
+        plato pm start blank espocrm memos --base
+        plato pm start blank espocrm -a 56f85a14-8e82-4053-a7df-8490c31a14e3
+    """
+    template_path = _find_templates_dir() / "datagen-blank-launch.json"
+    start_from_template(
+        template=str(template_path),
+        simulators=simulators,
+        artifact=artifact,
+        use_base=use_base,
+        use_data=use_data,
+        unified=False,
+    )
+
+
 @start_app.command(name="from-template")
 def start_from_template(
     template: str = typer.Argument(
@@ -2639,6 +2685,42 @@ def set_status(
                     console.print(f"[green]✅ {sim_name}:[/green] → {status}")
                 except Exception as e:
                     console.print(f"[red]❌ {sim_name}: {e}[/red]")
+
+    handle_async(_run())
+
+
+@pm_app.command(name="update-base")
+def update_base(
+    simulator: str = typer.Argument(..., help="Simulator name"),
+    artifact_id: str = typer.Argument(..., help="Artifact UUID to set as base_artifact_id"),
+):
+    """Set a simulator's base_artifact_id to the given artifact UUID.
+
+    Useful for manually promoting a snapshot when the blank pipeline's
+    auto-promotion failed, or for populating an empty base slot.
+
+    Example:
+        plato pm update-base espocrm 56f85a14-8e82-4053-a7df-8490c31a14e3
+    """
+    api_key = require_api_key()
+    base_url = _get_base_url()
+
+    async def _run():
+        async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
+            sim = await get_simulator_by_name.asyncio(client=client, name=simulator, x_api_key=api_key)
+            if not sim:
+                console.print(f"[red]❌ {simulator}: not found[/red]")
+                return
+            try:
+                await update_simulator.asyncio(
+                    client=client,
+                    simulator_id=sim.id,
+                    x_api_key=api_key,
+                    body=AppApiV1SimulatorRoutesUpdateSimulatorRequest(base_artifact_id=artifact_id),
+                )
+                console.print(f"[green]✅ {simulator}:[/green] base_artifact_id → {artifact_id}")
+            except Exception as e:
+                console.print(f"[red]❌ {simulator}: {e}[/red]")
 
     handle_async(_run())
 

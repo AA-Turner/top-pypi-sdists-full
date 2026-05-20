@@ -139,6 +139,7 @@ class Graph(_message.Message):
         "stream_sources_v2",
         "model_references",
         "online_store_configs",
+        "captured_global_values",
     )
     FEATURE_SETS_FIELD_NUMBER: _ClassVar[int]
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
@@ -152,6 +153,7 @@ class Graph(_message.Message):
     STREAM_SOURCES_V2_FIELD_NUMBER: _ClassVar[int]
     MODEL_REFERENCES_FIELD_NUMBER: _ClassVar[int]
     ONLINE_STORE_CONFIGS_FIELD_NUMBER: _ClassVar[int]
+    CAPTURED_GLOBAL_VALUES_FIELD_NUMBER: _ClassVar[int]
     feature_sets: _containers.RepeatedCompositeFieldContainer[FeatureSet]
     resolvers: _containers.RepeatedCompositeFieldContainer[Resolver]
     stream_resolvers: _containers.RepeatedCompositeFieldContainer[StreamResolver]
@@ -164,6 +166,7 @@ class Graph(_message.Message):
     stream_sources_v2: _containers.RepeatedCompositeFieldContainer[_sources_pb2_1.StreamSource]
     model_references: _containers.RepeatedCompositeFieldContainer[ModelReference]
     online_store_configs: _containers.RepeatedCompositeFieldContainer[OnlineStoreConfig]
+    captured_global_values: _containers.RepeatedCompositeFieldContainer[CapturedGlobalValue]
     def __init__(
         self,
         feature_sets: _Optional[_Iterable[_Union[FeatureSet, _Mapping]]] = ...,
@@ -178,6 +181,7 @@ class Graph(_message.Message):
         stream_sources_v2: _Optional[_Iterable[_Union[_sources_pb2_1.StreamSource, _Mapping]]] = ...,
         model_references: _Optional[_Iterable[_Union[ModelReference, _Mapping]]] = ...,
         online_store_configs: _Optional[_Iterable[_Union[OnlineStoreConfig, _Mapping]]] = ...,
+        captured_global_values: _Optional[_Iterable[_Union[CapturedGlobalValue, _Mapping]]] = ...,
     ) -> None: ...
 
 class OverlayGraph(_message.Message):
@@ -1432,6 +1436,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
         "struct",
         "variable",
         "proto",
+        "value_ref",
         "source_reference",
     )
     GLOBAL_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -1444,6 +1449,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
     STRUCT_FIELD_NUMBER: _ClassVar[int]
     VARIABLE_FIELD_NUMBER: _ClassVar[int]
     PROTO_FIELD_NUMBER: _ClassVar[int]
+    VALUE_REF_FIELD_NUMBER: _ClassVar[int]
     SOURCE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     global_name: str
     builtin: FunctionGlobalCapturedBuiltin
@@ -1455,6 +1461,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
     struct: FunctionGlobalCapturedStruct
     variable: FunctionGlobalCapturedVariable
     proto: FunctionGlobalCapturedProto
+    value_ref: FunctionGlobalCapturedValueRef
     source_reference: SourceFileReference
     def __init__(
         self,
@@ -1468,6 +1475,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
         struct: _Optional[_Union[FunctionGlobalCapturedStruct, _Mapping]] = ...,
         variable: _Optional[_Union[FunctionGlobalCapturedVariable, _Mapping]] = ...,
         proto: _Optional[_Union[FunctionGlobalCapturedProto, _Mapping]] = ...,
+        value_ref: _Optional[_Union[FunctionGlobalCapturedValueRef, _Mapping]] = ...,
         source_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
     ) -> None: ...
 
@@ -1564,6 +1572,22 @@ class FunctionGlobalCapturedFunction(_message.Message):
         captured_globals: _Optional[_Iterable[_Union[FunctionReferenceCapturedGlobal, _Mapping]]] = ...,
         module: _Optional[str] = ...,
         name: _Optional[str] = ...,
+    ) -> None: ...
+
+class FunctionGlobalCapturedValueRef(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class CapturedGlobalValue(_message.Message):
+    __slots__ = ("id", "value")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    value: FunctionReferenceCapturedGlobal
+    def __init__(
+        self, id: _Optional[str] = ..., value: _Optional[_Union[FunctionReferenceCapturedGlobal, _Mapping]] = ...
     ) -> None: ...
 
 class FunctionGlobalCapturedProto(_message.Message):

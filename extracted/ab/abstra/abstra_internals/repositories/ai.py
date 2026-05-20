@@ -212,7 +212,23 @@ class ProductionAIRepository(AIRepository):
             json=body.to_dict(),
             timeout=600,
         )
-        response.raise_for_status()
+
+        if not response.ok:
+            # raise_for_status() drops the response body, leaving the user with
+            # a generic message like "403 Client Error: Forbidden for url: ...".
+            # cloud-api returns {"error": "...", "code": "...", "details": {...}}
+            # for things like consumption-blocking; surface the actual message.
+            try:
+                payload = response.json()
+                detail = payload.get("error") if isinstance(payload, dict) else None
+            except ValueError:
+                detail = None
+            if not detail:
+                detail = response.text or response.reason
+            raise requests.HTTPError(
+                f"{response.status_code} {response.reason}: {detail}",
+                response=response,
+            )
 
         try:
             return response.json()
@@ -395,5 +411,21 @@ class LocalAIRepository(AIRepository):
             json=body.to_dict(),
             timeout=600,
         )
-        response.raise_for_status()
+
+        if not response.ok:
+            # raise_for_status() drops the response body — bad UX when cloud-api
+            # returns a meaningful {"error": "...", "code": "..."} (e.g. for
+            # consumption blocking). Surface the actual message.
+            try:
+                payload = response.json()
+                detail = payload.get("error") if isinstance(payload, dict) else None
+            except ValueError:
+                detail = None
+            if not detail:
+                detail = response.text or response.reason
+            raise requests.HTTPError(
+                f"{response.status_code} {response.reason}: {detail}",
+                response=response,
+            )
+
         return response.json()

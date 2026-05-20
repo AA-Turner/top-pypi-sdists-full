@@ -20,7 +20,7 @@ from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 
 def resolve_storage_options(
     keypath: tree_types.PyTreeKeyPath,
-    value: tree_types.LeafType,
+    value: tree_types.Leaf,
     array_saving_options: options_lib.ArrayOptions.Saving,
 ) -> options_lib.ArrayOptions.Saving.StorageOptions:
   """Resolves storage options using a global default and a per-leaf creator.
@@ -74,4 +74,3 @@ def resolve_storage_options(
       chunk_byte_size=resolved_chunk_byte_size,
       shard_axes=resolved_shard_axes if resolved_shard_axes is not None else (),
   )
-

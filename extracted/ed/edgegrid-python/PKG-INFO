@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edgegrid-python
-Version: 2.0.6
+Version: 2.0.7
 Summary: {OPEN} client authentication protocol for python-requests
 Home-page: https://github.com/akamai/AkamaiOPEN-edgegrid-python
 License: Apache 2.0

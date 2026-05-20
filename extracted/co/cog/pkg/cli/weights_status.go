@@ -74,6 +74,8 @@ Status values:
 
 Every non-ready status is resolved by running 'cog weights import'.
 
+` + weightRegistryResolutionHelp + `
+
 Use --verbose to show per-layer status for each weight.
 
 Exit code is 0 when all weights are ready, 1 otherwise.`,
@@ -97,6 +99,16 @@ func weightsStatusCommand(cmd *cobra.Command, jsonOutput, verbose bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
+	defer src.Close()
+
+	if len(src.Config.Weights) == 0 {
+		return fmt.Errorf("no weights defined in %s", configFilename)
+	}
+
+	repo, err := resolveWeightRepo(src, configFilename)
+	if err != nil {
+		return err
+	}
 
 	// Load lockfile — missing is fine (weights may not be built yet), but
 	// a present-but-corrupt file gets a warning so it doesn't fail silently.
@@ -104,15 +116,6 @@ func weightsStatusCommand(cmd *cobra.Command, jsonOutput, verbose bool) error {
 	lock, lockErr := lockfile.LoadWeightsLock(lockPath)
 	if lockErr != nil && !errors.Is(lockErr, os.ErrNotExist) {
 		console.Warnf("Failed to load %s: %s", lockfile.WeightsLockFilename, lockErr)
-	}
-
-	// Resolve registry repo — required for status checks.
-	if src.Config.Image == "" {
-		return fmt.Errorf("no 'image' configured in %s — cannot check registry state", configFilename)
-	}
-	repo, err := parseRepoOnly(src.Config.Image)
-	if err != nil {
-		return fmt.Errorf("invalid image %q: %w", src.Config.Image, err)
 	}
 
 	reg := registry.NewRegistryClient()
@@ -163,7 +166,7 @@ func statusResultsToEntries(results []model.WeightStatusResult) []WeightStatusEn
 			entries[i].LayerCount = len(le.Layers)
 			entries[i].FileCount = len(le.Files)
 			entries[i].Digest = le.Digest
-			entries[i].Source = lockSourceToStatus(le.Source)
+			entries[i].Source = lockSourcesToStatus(le.Sources)
 		}
 		for _, l := range r.Layers {
 			entries[i].Layers = append(entries[i].Layers, LayerStatusEntry{
@@ -176,13 +179,24 @@ func statusResultsToEntries(results []model.WeightStatusResult) []WeightStatusEn
 	return entries
 }
 
-func lockSourceToStatus(s lockfile.WeightLockSource) *WeightStatusSource {
+func lockSourcesToStatus(sources []lockfile.WeightLockSource) *WeightStatusSource {
+	if len(sources) == 0 {
+		return nil
+	}
+	// For display, show the first source's URI and fingerprint, with
+	// a "(+N more)" indicator for multi-source weights so the
+	// truncation is visible. Full details are in the lockfile.
+	s := sources[0]
 	fp := string(s.Fingerprint)
 	if s.URI == "" && fp == "" {
 		return nil
 	}
+	uri := s.URI
+	if len(sources) > 1 {
+		uri = fmt.Sprintf("%s (+%d more)", s.URI, len(sources)-1)
+	}
 	return &WeightStatusSource{
-		URI:         s.URI,
+		URI:         uri,
 		Fingerprint: fp,
 	}
 }

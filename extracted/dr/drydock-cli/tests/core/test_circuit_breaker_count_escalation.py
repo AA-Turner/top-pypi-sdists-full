@@ -70,6 +70,7 @@ class TestCircuitBreakerCountEscalation(unittest.TestCase):
 
         # After a second fire, last_result should still be the original output
         msg2 = loop._circuit_breaker_check(tc)
+        assert msg2 is not None, "circuit breaker should fire on 10th call"
         self.assertIn("hello", msg2)
         # Not the prior NOTE text
         self.assertNotIn("NOTE: this exact call", msg2.split("Last result:")[1])

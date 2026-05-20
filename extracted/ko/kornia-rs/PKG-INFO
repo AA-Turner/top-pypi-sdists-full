@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kornia_rs
-Version: 0.1.13
+Version: 0.1.14
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: GPU
 Classifier: Intended Audience :: Science/Research

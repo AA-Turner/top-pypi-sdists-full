@@ -75,6 +75,20 @@ def build_sample_asset(job_source_id: str) -> EtlAsset:
             Tag(key="team", value="data-eng"),
             Tag(key="env", value="prod"),
         ],
+        inputs=[
+            AssetRef(
+                asset_type="TABLE",
+                role="INPUT",
+                fully_qualified_name="analytics:prod_internal_bi.tam_weekly_customer_health_score",
+            )
+        ],
+        outputs=[
+            AssetRef(
+                asset_type="TABLE",
+                role="OUTPUT",
+                fully_qualified_name="analytics:prod_internal_bi.account_health_scoring",
+            )
+        ],
     )
 
 

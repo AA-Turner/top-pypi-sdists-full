@@ -26,7 +26,7 @@ def _get_element_box(page: Any, selector: str, timeout: float = 30000) -> Option
     """
     try:
         el = page.locator(selector).first
-        return el.bounding_box(timeout=timeout)
+        return el.bounding_box(timeout=max(1, timeout))
     except Exception:
         return None
 
@@ -50,7 +50,7 @@ def human_scroll_into_view(
     get_box: Callable[[], Optional[dict]],
     cursor_x: float, cursor_y: float,
     cfg: HumanConfig,
-) -> Tuple[dict, float, float]:
+) -> Tuple[dict, float, float, bool]:
     """Humanized scrolling that uses an arbitrary ``get_box`` callable
     instead of a CSS selector.
 
@@ -58,6 +58,9 @@ def human_scroll_into_view(
     ``ElementHandle.scroll_into_view_if_needed`` / ``Locator.scroll_into_view_if_needed``
     (handle-based) so the same accelerate \u2192 cruise \u2192 decelerate \u2192 overshoot
     behavior runs everywhere.
+
+    Returns ``(box, cursor_x, cursor_y, did_scroll)`` \u2014 *did_scroll* is False
+    when the element was already in the viewport.
     """
     viewport = page.viewport_size
     if not viewport:
@@ -71,7 +74,7 @@ def human_scroll_into_view(
         raise RuntimeError("Element not found while scrolling into view")
 
     if _is_in_viewport(box, viewport_height, cfg):
-        return box, cursor_x, cursor_y
+        return box, cursor_x, cursor_y, False
 
     # Move cursor into scroll area
     scroll_area_x = round(viewport_width * rand(0.3, 0.7))
@@ -139,7 +142,7 @@ def human_scroll_into_view(
     if box is None:
         raise RuntimeError("Element lost after scrolling into view")
 
-    return box, cursor_x, cursor_y
+    return box, cursor_x, cursor_y, True
 
 
 def scroll_to_element(
@@ -149,12 +152,14 @@ def scroll_to_element(
     cursor_x: float, cursor_y: float,
     cfg: HumanConfig,
     timeout: float = 30000,
-) -> Tuple[dict, float, float]:
+) -> Tuple[dict, float, float, bool]:
     """Selector-based humanized scroll.
 
     ``timeout`` is forwarded to ``locator.bounding_box(timeout=...)`` so callers
     such as ``page.click('#x', timeout=5000)`` can wait longer for slow elements
     (#172). Default matches Playwright's 30000ms when not specified.
+
+    Returns ``(box, cursor_x, cursor_y, did_scroll)``.
     """
     return human_scroll_into_view(
         page, raw,

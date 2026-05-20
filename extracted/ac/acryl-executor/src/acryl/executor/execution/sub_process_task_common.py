@@ -221,7 +221,16 @@ class SubProcessTaskUtil:
 
     @staticmethod
     def _remove_directory(dir_path: str) -> None:
-        shutil.rmtree(dir_path)
+        try:
+            shutil.rmtree(dir_path)
+        except FileNotFoundError:
+            logger.error(
+                "Cleanup: expected directory %s to exist but it was missing. "
+                "This is non-fatal, but indicates that either the directory was "
+                "never created during task setup or it was removed by another "
+                "process before cleanup ran.",
+                dir_path,
+            )
 
 
 class SubProcessRecipeTaskArgs(PermissiveConfigModel):

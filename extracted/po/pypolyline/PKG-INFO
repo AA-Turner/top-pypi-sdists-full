@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pypolyline
-Version: 0.5.6
+Version: 0.5.8
 Summary: Fast Google Polyline encoding and decoding using Rust FFI
-Author-email: Stephan Hügel <urschrei@gmail.com>
-License-Expression: BlueOak-1.0.0
-Project-URL: Repository, https://github.com/urschrei/pypolyline
-Project-URL: Tracker, https://github.com/urschrei/pypolyline/issues
 Keywords: Geo,Polyline
+Author: Stephan Hügel
+Maintainer-Email: Unknown <urschrei@gmail.com>
+License-Expression: BlueOak-1.0.0
+License-File: LICENSE.md
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -20,22 +20,28 @@ Classifier: Intended Audience :: Education
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
+Project-URL: Repository, https://github.com/urschrei/pypolyline
+Project-URL: Tracker, https://github.com/urschrei/pypolyline/issues
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE.md
 Requires-Dist: numpy>=2.0.0
-Provides-Extra: test
-Requires-Dist: pytest>=7.4.2; extra == "test"
-Dynamic: license-file
+Description-Content-Type: text/markdown
 
 ![example workflow](https://github.com/urschrei/pypolyline/actions/workflows/wheels.yml/badge.svg) [![Coverage Status](https://coveralls.io/repos/github/urschrei/pypolyline/badge.svg?branch=master)](https://coveralls.io/github/urschrei/pypolyline?branch=master) [![Downloads](https://pepy.tech/badge/pypolyline)](https://pepy.tech/project/pypolyline)[![DOI](https://zenodo.org/badge/63355673.svg)](https://zenodo.org/badge/latestdoi/63355673)
 
 # Fast Google [Polyline](https://developers.google.com/maps/documentation/utilities/polylinealgorithm) Encoding and Decoding
 
-## Installation
+# Installation
+`uv add pypolyline`  
 `pip install pypolyline`  
 
-### Supported Python Versions
+## Installing for local development
+1. Ensure you have a copy of `libpolylineffi` and `header.h` from https://github.com/urschrei/polyline-ffi/releases, and it's in the `src/pypolyline` subdir
+2. run `uv sync --dev`
+3. run `pytest .`
+
+Changes in `pyx` and `pxd` files, and the Rust library and header will bust the cache, triggering a rebuild when `uv` commands are run.
+
+## Supported Python Versions
 All [_currently_ supported Python versions](https://devguide.python.org/versions/).
 
 ### Supported Platforms

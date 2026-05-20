@@ -23,6 +23,7 @@ USA
 from __future__ import annotations
 
 import asyncio
+import platform
 import socket
 import time
 from functools import cache
@@ -34,6 +35,8 @@ from zeroconf import DNSIncoming, DNSQuestion, DNSRecord, Zeroconf
 from zeroconf._history import QuestionHistory
 
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
+
+_IS_PYPY = platform.python_implementation() == "PyPy"
 
 # get_service_info / async_request timeout for tests using the
 # `quick_request_timing` fixture. The fixture cuts the initial-query
@@ -49,7 +52,17 @@ QUICK_REQUEST_TIMEOUT_MS = 50
 # the `quick_timing` fixture, which shrinks the browser's first-query
 # delay from RFC 6762 §5.2's 20-120ms window to 1-5ms; with that shave
 # the registrar's response lands inside ~10ms and 75ms is ~7x headroom.
-LOOPBACK_FIND_TIMEOUT = 0.075
+# PyPy's JIT is still warming up the first time this path runs early in
+# the suite, so the round trip is too slow for 75ms; give it more room.
+LOOPBACK_FIND_TIMEOUT = 0.3 if _IS_PYPY else 0.075
+
+# IPv6-only `find()` on Linux GitHub runners can hit `[Errno 101] Network
+# is unreachable` on the `::1` socket and falls back to the `fe80::` link-
+# local interface, which adds latency the IPv4 loopback path never pays.
+# PyPy widens that further with JIT warmup. The 75ms budget that works on
+# IPv4 loopback is too tight for the V6Only path under those conditions
+# — give it more headroom.
+IPV6_LOOPBACK_FIND_TIMEOUT = 0.5
 
 
 class QuestionHistoryWithoutSuppression(QuestionHistory):

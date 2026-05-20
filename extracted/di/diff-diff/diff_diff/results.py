@@ -355,6 +355,190 @@ def _get_significance_stars(p_value: float) -> str:
 
 
 @dataclass
+class SpilloverDiDResults(DiDResults):
+    """Results from a ring-indicator spillover-aware DiD estimation (Butts 2021).
+
+    Extends :class:`DiDResults` with per-ring spillover effect estimates and
+    diagnostic counts for the identifying control population.
+
+    Attributes
+    ----------
+    att : float
+        Total effect on the treated, ``tau_total`` (inherited from DiDResults).
+    spillover_effects : pd.DataFrame, optional
+        Per-ring spillover-on-control estimates. Columns: ``["coef", "se",
+        "t_stat", "p_value", "ci_low", "ci_high"]``. Index: ring label
+        like ``"[0, 50)"``; for event-study output the index is a
+        ``MultiIndex`` over ``(ring_label, event_time)``.
+    ring_breakpoints : list of float
+        Sorted distance breakpoints used to construct the rings.
+    d_bar : float
+        Far-away cutoff (Butts Assumption 5). Equals ``max(ring_breakpoints)``
+        unless explicitly overridden.
+    n_units_ever_in_ring : dict[str, int]
+        Counts of UNIQUE units that appear in each ring AT LEAST ONCE
+        across observed periods. Under staggered timing the ring
+        membership is time-varying, so a unit can be counted in
+        multiple rings (one per period it visits). Under non-staggered
+        timing the rings are unit-static, so this is a clean partition
+        (each unit appears in exactly one ring or the far-away group).
+        Includes treated units in Ring_1 by geometric construction
+        even though the ``(1 - D_it)`` factor zeros their stage-2
+        contribution.
+    n_far_away_obs : int
+        Number of observations with ``D_it = 0`` AND ``d_it > d_bar``;
+        these observations identify the counterfactual trend (Butts
+        Assumption 5(ii)).
+    is_staggered : bool
+        True if multiple distinct treatment-onset times were detected.
+    event_study : bool
+        True if per-event-time ring coefficients were emitted (i.e.,
+        ``self.event_study=True`` was set on the estimator).
+    stage1_n_obs : int
+        Number of observations in the stage-1 untreated-and-unexposed
+        subsample (``Omega_0_butts``).
+    """
+
+    spillover_effects: Optional[pd.DataFrame] = field(default=None)
+    ring_breakpoints: Optional[List[float]] = field(default=None)
+    d_bar: Optional[float] = field(default=None)
+    n_units_ever_in_ring: Optional[Dict[str, int]] = field(default=None)
+    n_far_away_obs: Optional[int] = field(default=None)
+    is_staggered: Optional[bool] = field(default=None)
+    event_study: Optional[bool] = field(default=None)
+    stage1_n_obs: Optional[int] = field(default=None)
+    anticipation: Optional[int] = field(default=None)
+    # Wave C event-study fields (None when event_study=False):
+    att_dynamic: Optional[pd.DataFrame] = field(default=None)
+    # Per-event-time direct effects DataFrame indexed by integer k.
+    # Columns: ["coef", "se", "t_stat", "p_value", "ci_low", "ci_high", "n_obs"].
+    # Includes the reference period row with coef=0.0, se=0.0, n_obs=0.
+    event_study_effects: Optional[Dict[int, Dict[str, Any]]] = field(default=None)
+    # TwoStageDiD-compatible alias for ``att_dynamic`` consumable by
+    # ``plot_event_study`` (wired in Wave C via the ``reference_period``
+    # attribute fallback in ``_extract_plot_data``). ``DiagnosticReport``
+    # routing is NOT yet wired — registering ``SpilloverDiDResults`` in
+    # ``DiagnosticReport``'s applicability/method tables is a planned
+    # follow-up (see TODO.md).
+    # Schema mirrors ``two_stage.py:1355-1389``:
+    #   {k: {"effect", "se", "n_obs", "t_stat", "p_value", "conf_int": (low, high)}}
+    # Reference row uses ``conf_int = (0.0, 0.0)`` (TwoStageDiD parity).
+    horizon_max: Optional[int] = field(default=None)
+    reference_period: Optional[int] = field(default=None)
+
+    def summary(self, alpha: Optional[float] = None) -> str:
+        """Extended summary with ATT row, per-event-time direct block, and
+        per-(ring, event-time) spillover block."""
+        base = super().summary(alpha=alpha)
+        insert_blocks: List[str] = []
+
+        # Wave C event-study: per-event-time direct effects block.
+        if self.att_dynamic is not None and not self.att_dynamic.empty:
+            insert_blocks.append("")
+            insert_blocks.append("Dynamic Direct Effects by Event Time".center(70))
+            insert_blocks.append("-" * 70)
+            insert_blocks.append(
+                f"{'k':<15} {'Estimate':>12} {'Std. Err.':>12} "
+                f"{'t-stat':>10} {'P>|t|':>10} {'':>5}"
+            )
+            insert_blocks.append("-" * 70)
+            for k, row in self.att_dynamic.iterrows():
+                coef = row.get("coef", np.nan)
+                se = row.get("se", np.nan)
+                t_stat = row.get("t_stat", np.nan)
+                p_value = row.get("p_value", np.nan)
+                stars = _get_significance_stars(p_value)
+                k_str = f"{int(k):+d}"
+                insert_blocks.append(
+                    f"{k_str:<15} {coef:>12.4f} {se:>12.4f} "
+                    f"{t_stat:>10.3f} {p_value:>10.4f} {stars:>5}"
+                )
+            insert_blocks.append("-" * 70)
+
+        # Spillover block (per-ring OR per-(ring, k) under MultiIndex).
+        # When the index is a MultiIndex (event-study mode), the ring and `k`
+        # are rendered as separate columns so distinct horizons within the same
+        # ring remain visually distinguishable. The non-MultiIndex aggregate
+        # path retains the single `Ring` column for Wave B compatibility.
+        if self.spillover_effects is not None and not self.spillover_effects.empty:
+            insert_blocks.append("")
+            insert_blocks.append("Spillover Effects (ring-indicator, Butts 2021)".center(70))
+            insert_blocks.append("-" * 70)
+            is_multi = isinstance(self.spillover_effects.index, pd.MultiIndex)
+            if is_multi:
+                header = (
+                    f"{'Ring':<15} {'k':>5} {'Estimate':>12} {'Std. Err.':>12} "
+                    f"{'t-stat':>10} {'P>|t|':>10} {'':>5}"
+                )
+            else:
+                header = (
+                    f"{'Ring':<15} {'Estimate':>12} {'Std. Err.':>12} "
+                    f"{'t-stat':>10} {'P>|t|':>10} {'':>5}"
+                )
+            insert_blocks.append(header)
+            insert_blocks.append("-" * len(header.rstrip()))
+            for label, row in self.spillover_effects.iterrows():
+                coef = row.get("coef", np.nan)
+                se = row.get("se", np.nan)
+                t_stat = row.get("t_stat", np.nan)
+                p_value = row.get("p_value", np.nan)
+                stars = _get_significance_stars(p_value)
+                if is_multi and isinstance(label, tuple):
+                    ring_str = str(label[0])[:15]
+                    k_str = f"{int(label[1]):+d}"
+                    insert_blocks.append(
+                        f"{ring_str:<15} {k_str:>5} {coef:>12.4f} {se:>12.4f} "
+                        f"{t_stat:>10.3f} {p_value:>10.4f} {stars:>5}"
+                    )
+                else:
+                    label_str = str(label)[:15]
+                    insert_blocks.append(
+                        f"{label_str:<15} {coef:>12.4f} {se:>12.4f} "
+                        f"{t_stat:>10.3f} {p_value:>10.4f} {stars:>5}"
+                    )
+            insert_blocks.append("-" * len(header.rstrip()))
+
+        if not insert_blocks:
+            return base
+        lines = base.split("\n")
+        for idx in range(len(lines) - 1, -1, -1):
+            if lines[idx].startswith("="):
+                lines = lines[:idx] + insert_blocks + lines[idx:]
+                break
+        return "\n".join(lines)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Override to serialize ``spillover_effects`` DataFrame as list-of-dicts."""
+        base = super().to_dict()
+        base.update(
+            {
+                "spillover_effects": (
+                    self.spillover_effects.reset_index().to_dict(orient="records")
+                    if self.spillover_effects is not None
+                    else None
+                ),
+                "ring_breakpoints": self.ring_breakpoints,
+                "d_bar": self.d_bar,
+                "n_units_ever_in_ring": self.n_units_ever_in_ring,
+                "n_far_away_obs": self.n_far_away_obs,
+                "is_staggered": self.is_staggered,
+                "event_study": self.event_study,
+                "stage1_n_obs": self.stage1_n_obs,
+                "anticipation": self.anticipation,
+                "att_dynamic": (
+                    self.att_dynamic.reset_index().to_dict(orient="records")
+                    if self.att_dynamic is not None
+                    else None
+                ),
+                "event_study_effects": self.event_study_effects,
+                "horizon_max": self.horizon_max,
+                "reference_period": self.reference_period,
+            }
+        )
+        return base
+
+
+@dataclass
 class PeriodEffect:
     """
     Treatment effect for a single time period.

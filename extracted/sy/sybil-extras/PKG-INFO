@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sybil-extras
-Version: 2026.5.6
+Version: 2026.5.19
 Summary: Additions to Sybil, the documentation testing tool.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -27,40 +27,41 @@ Provides-Extra: dev
 Requires-Dist: actionlint-py==1.7.12.24; extra == "dev"
 Requires-Dist: charset-normalizer==3.4.7; extra == "dev"
 Requires-Dist: check-manifest==0.51; extra == "dev"
-Requires-Dist: click==8.3.3; extra == "dev"
+Requires-Dist: click==8.4.0; extra == "dev"
 Requires-Dist: deptry==0.25.1; extra == "dev"
 Requires-Dist: doc8==2.0.0; extra == "dev"
 Requires-Dist: furo==2025.12.19; extra == "dev"
 Requires-Dist: interrogate==1.7.0; extra == "dev"
-Requires-Dist: mypy[faster-cache]==1.20.2; extra == "dev"
+Requires-Dist: mypy[faster-cache]==2.1.0; extra == "dev"
 Requires-Dist: mypy-strict-kwargs==2026.1.12; extra == "dev"
-Requires-Dist: prek==0.3.13; extra == "dev"
+Requires-Dist: prek==0.4.0; extra == "dev"
 Requires-Dist: pydocstringformatter==0.7.5; extra == "dev"
 Requires-Dist: pydocstyle==6.3; extra == "dev"
 Requires-Dist: pylint[spelling]==4.0.5; extra == "dev"
 Requires-Dist: pylint-per-file-ignores==3.2.1; extra == "dev"
-Requires-Dist: pyproject-fmt==2.21.1; extra == "dev"
-Requires-Dist: pyrefly==0.63.1; extra == "dev"
+Requires-Dist: pyproject-fmt==2.21.2; extra == "dev"
+Requires-Dist: pyrefly==1.0.0; extra == "dev"
 Requires-Dist: pyright==1.1.409; extra == "dev"
 Requires-Dist: pyroma==5.0.1; extra == "dev"
 Requires-Dist: pytest==9.0.3; extra == "dev"
 Requires-Dist: pytest-beartype-tests==2026.4.26; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
-Requires-Dist: ruff==0.15.12; extra == "dev"
+Requires-Dist: ruff==0.15.13; extra == "dev"
 Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
-Requires-Dist: shfmt-py==3.12.0.2; extra == "dev"
+Requires-Dist: shfmt-py==4.0.0; extra == "dev"
 Requires-Dist: sphinx>=8.1.3; extra == "dev"
 Requires-Dist: sphinx-copybutton==0.5.2; extra == "dev"
 Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
 Requires-Dist: sphinx-pyproject==0.3.0; extra == "dev"
 Requires-Dist: sphinx-substitution-extensions==2026.1.12; extra == "dev"
 Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "dev"
+Requires-Dist: strict-kwargs==2026.5.19.post1; extra == "dev"
 Requires-Dist: sybil==10.0.1; extra == "dev"
-Requires-Dist: ty==0.0.34; extra == "dev"
-Requires-Dist: uv==0.11.9; extra == "dev"
+Requires-Dist: ty==0.0.37; extra == "dev"
+Requires-Dist: uv==0.11.15; extra == "dev"
 Requires-Dist: vulture==2.16; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"
-Requires-Dist: zizmor==1.24.1; extra == "dev"
+Requires-Dist: zizmor==1.25.2; extra == "dev"
 Provides-Extra: release
 Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
 Dynamic: license-file
@@ -281,6 +282,49 @@ the Sybil documentation for skipping examples in
 `Markdown <https://sybil.readthedocs.io/en/latest/rest.html#skipping-examples>`_ ,
 MDX, and `MyST <https://sybil.readthedocs.io/en/latest/myst.html#skipping-examples>`_ files,
 but with custom text, e.g. ``custom-marker-skip`` replacing the word ``skip``.
+
+ThreadSafeSkipParser
+^^^^^^^^^^^^^^^^^^^^
+
+The ``ThreadSafeSkipParser`` is a thread-safe drop-in replacement for the standard skip parser.
+Use it when examples from a single document may be evaluated concurrently (e.g. dispatched across a thread pool).
+
+The upstream ``sybil.evaluators.skip.Skipper`` mutates per-document state as examples are evaluated,
+so concurrent evaluation can race and produce non-deterministic skip decisions
+(see `simplistix/sybil#166 <https://github.com/simplistix/sybil/issues/166>`_).
+``ThreadSafeSkipParser`` resolves each non-skip example to its governing skip directive at parse time,
+and caches conditional ``if`` decisions per directive so concurrent evaluators all see the same result.
+
+.. code-block:: python
+
+    """Use ThreadSafeSkipParser for concurrent example evaluation."""
+
+    from sybil import Sybil
+    from sybil.parsers.rest.codeblock import PythonCodeBlockParser
+
+    # Similar parsers are available at
+    # sybil_extras.parsers.djot.thread_safe_skip,
+    # sybil_extras.parsers.markdown.thread_safe_skip,
+    # sybil_extras.parsers.markdown_it.thread_safe_skip,
+    # sybil_extras.parsers.mdx.thread_safe_skip,
+    # sybil_extras.parsers.myst.thread_safe_skip,
+    # sybil_extras.parsers.myst_parser.thread_safe_skip,
+    # sybil_extras.parsers.norg.thread_safe_skip.
+    from sybil_extras.parsers.rest.thread_safe_skip import (
+        ThreadSafeSkipParser,
+    )
+
+    skip_parser = ThreadSafeSkipParser(directive="skip")
+    code_block_parser = PythonCodeBlockParser()
+
+    sybil = Sybil(parsers=[skip_parser, code_block_parser])
+
+    pytest_collect_file = sybil.pytest()
+
+The directive syntax (``skip: start`` / ``skip: next`` / ``skip: end``,
+including conditional ``skip: next if(...)`` reasons) matches upstream Sybil exactly,
+so existing documents do not need to change.
+The directive name is configurable, so the parser can also be used as a thread-safe replacement for custom skip markers.
 
 GroupedSourceParser
 ^^^^^^^^^^^^^^^^^^^

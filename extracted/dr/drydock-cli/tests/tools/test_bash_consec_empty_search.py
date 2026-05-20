@@ -41,6 +41,7 @@ async def test_consec_empty_search_triggers_at_5(bash):
         'find . -name "test_h.py" 2>/dev/null',
         'ls -F | grep "component_g"',
     ]
+    result = ""
     for cmd in cmds:
         result = await _run(bash, cmd)
     assert "LOOP-BREAKER" in result

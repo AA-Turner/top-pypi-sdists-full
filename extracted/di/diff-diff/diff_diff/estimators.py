@@ -67,8 +67,11 @@ class DifferenceInDifferences:
           ``cluster=``; use ``"hc2_bm"`` for clustered Bell-McCaffrey.
         - ``"hc2_bm"``: one-way HC2 + Imbens-Kolesar (2016) Satterthwaite DOF;
           with ``cluster=``, Pustejovsky-Tipton (2018) CR2 cluster-robust.
-          (Note: ``MultiPeriodDiD`` does NOT yet support ``cluster=`` with
-          ``"hc2_bm"`` — see ``MultiPeriodDiD`` docstring and REGISTRY.md.)
+          ``MultiPeriodDiD(cluster=..., vcov_type="hc2_bm")`` is supported and
+          uses a cluster-aware Bell-McCaffrey contrast DOF for the
+          post-period-average ATT (see ``_compute_cr2_bm_contrast_dof`` in
+          ``linalg.py`` and the REGISTRY.md note). Weighted CR2-BM
+          (``survey_design=`` paths) is a separate gate.
         - ``"conley"``: Conley 1999 spatial-HAC sandwich. Pass
           ``conley_coords=(lat_col, lon_col)``, ``conley_cutoff_km=<float>``,
           and ``conley_lag_cutoff=<int>`` on the constructor; pass
@@ -344,16 +347,13 @@ class DifferenceInDifferences:
         n_treated_raw = int(np.sum(data[treatment].values.astype(float)))
         n_control_raw = len(data) - n_treated_raw
 
-        # Reject multi-absorb with survey weights (single-pass demeaning is
-        # not the correct weighted FWL projection for N > 1 dimensions)
-        if absorb and len(absorb) > 1 and survey_weights is not None:
-            raise ValueError(
-                f"Multiple absorbed fixed effects (absorb={absorb}) with survey "
-                "weights is not supported. Single-pass sequential demeaning is not "
-                "the correct weighted FWL projection for multiple absorbed dimensions. "
-                "Use absorb with a single variable, or use fixed_effects= instead."
-            )
-
+        # Reject the `absorb + fixed_effects` mutual-exclusion combination
+        # BEFORE any auto-route. R4 review caught a contract-drift where the
+        # auto-route silently merged the two arguments on the HC2/HC2-BM
+        # path — the public API has always treated this combination as
+        # invalid (different FE-handling paths; mixing them violates the
+        # FWL theorem on the demeaned half), so keep the explicit rejection
+        # in front of the auto-route to preserve user-facing behavior.
         if absorb and fixed_effects:
             raise ValueError(
                 "Cannot use both absorb and fixed_effects. "
@@ -363,23 +363,47 @@ class DifferenceInDifferences:
                 "or fixed_effects alone (for low-dimensional FE)."
             )
 
-        # Reject HC2 / HC2 + Bell-McCaffrey on absorbed-FE fits.
-        # `absorb=` demeans regressors via within-transformation before OLS,
-        # and the HC2 leverage correction / CR2 Bell-McCaffrey DOF depend on
-        # the FULL FE hat matrix, not the residualized one (FWL preserves
-        # coefficients but not the hat matrix). Applying HC2/CR2-BM to the
-        # demeaned design would produce silently-wrong small-sample SEs.
-        # HC1 and CR1 are unaffected (no leverage term). Tracked in TODO.md.
+        # Auto-route absorb → fixed_effects when vcov_type needs the FULL FE
+        # hat matrix. HC2 leverage and CR2 Bell-McCaffrey DOF both depend on
+        # the full-design hat; FWL preserves coefficients and residuals but
+        # not the hat matrix, so the demeaned design's leverage is wrong for
+        # these vcov families. Building the full-dummy design and routing
+        # through the existing fixed_effects= branch produces the algebraically
+        # correct vcov. Empirically matches `lm() + sandwich::vcovHC` and
+        # `lm() + clubSandwich::vcovCR` (singleton-cluster trick for one-way
+        # HC2-BM; PT2018 §3.3 unweighted CR2 algebra) at ~1e-14.
+        # Conley vcov is unaffected: the absorb+Conley path (Wave A) computes
+        # the panel sandwich on demeaned scores, which is FWL-correct because
+        # Conley's meat uses only residuals (no leverage term).
+        # HC1/CR1 paths remain on the demeaned design (no leverage term).
+        # Note: the user-facing `result.coefficients` under this auto-route
+        # will include the FE-dummy entries (matching the fixed_effects= path),
+        # not the slope-only view that a plain `absorb=` returns.
+        #
+        # Placement: this auto-route runs BEFORE the legacy multi-absorb +
+        # survey-weights guard because that guard's rationale ("single-pass
+        # demeaning is not the correct weighted FWL projection for N > 1
+        # dimensions") doesn't apply when we're about to swap absorb for
+        # fixed_effects: the fixed_effects= path builds the full-dummy design
+        # and solves WLS directly, with no within-transform step. R2 review
+        # surfaced the scope mismatch (REGISTRY/CHANGELOG said "SUPPORTED" but
+        # the survey guard fired first on weighted multi-absorb fits).
         if absorb and self.vcov_type in ("hc2", "hc2_bm"):
-            raise NotImplementedError(
-                f"DifferenceInDifferences(absorb=..., "
-                f"vcov_type={self.vcov_type!r}) is not yet supported: "
-                "absorbed fixed effects are handled by demeaning, and the "
-                "HC2 / CR2 Bell-McCaffrey leverage corrections depend on "
-                "the full FE hat matrix, not the residualized one. Use "
-                "vcov_type='hc1' with absorb=, or switch to "
-                "fixed_effects= dummies for a full-dummy design where "
-                "HC2/CR2-BM are computed on the full projection."
+            fixed_effects = list(fixed_effects or []) + list(absorb)
+            absorb = None
+            absorbed_vars = []
+            n_absorbed_effects = 0
+
+        # Reject multi-absorb with survey weights (single-pass demeaning is
+        # not the correct weighted FWL projection for N > 1 dimensions). Only
+        # fires when absorb is still set — i.e., the auto-route above didn't
+        # consume it.
+        if absorb and len(absorb) > 1 and survey_weights is not None:
+            raise ValueError(
+                f"Multiple absorbed fixed effects (absorb={absorb}) with survey "
+                "weights is not supported. Single-pass sequential demeaning is not "
+                "the correct weighted FWL projection for multiple absorbed dimensions. "
+                "Use absorb with a single variable, or use fixed_effects= instead."
             )
 
         # Validate vcov_type="conley" wire-up. DiD.fit() accepts `unit`
@@ -1084,16 +1108,13 @@ class MultiPeriodDiD(DifferenceInDifferences):
         contradictory (e.g. ``robust=False, vcov_type="hc2"`` raises).
     cluster : str, optional
         Column name for cluster-robust standard errors. With ``vcov_type="hc1"``
-        dispatches to CR1 (Liang-Zeger).
-
-        **Not supported with** ``vcov_type="hc2_bm"``: the cluster-aware CR2
-        Bell-McCaffrey contrast DOF for the post-period-average ATT is not
-        yet implemented, and pairing CR2 SEs with one-way Imbens-Kolesar DOF
-        would be a broken hybrid, so the combination raises
-        ``NotImplementedError`` with a pointer to workarounds. Tracked in
-        ``TODO.md``; also documented as a Note in
-        ``docs/methodology/REGISTRY.md`` under the HeterogeneousAdoptionDiD
-        requirements-checklist block.
+        dispatches to CR1 (Liang-Zeger). With ``vcov_type="hc2_bm"`` dispatches
+        to CR2 cluster-robust SEs with Bell-McCaffrey Satterthwaite DOF on both
+        per-period coefficients and the post-period-average ATT contrast (the
+        latter via the new ``_compute_cr2_bm_contrast_dof`` helper in
+        ``linalg.py``; matches clubSandwich's
+        ``Wald_test(test="HTZ")$df_denom`` at atol=1e-10). Weighted CR2-BM
+        (``survey_design=``) is a separate, still-gated path.
     vcov_type : {"classical", "hc1", "hc2", "hc2_bm", "conley"}, optional
         Variance-covariance family. Defaults to the ``robust`` alias.
 
@@ -1104,7 +1125,10 @@ class MultiPeriodDiD(DifferenceInDifferences):
           ``cluster=``; use ``"hc2_bm"`` without cluster for Bell-McCaffrey.
         - ``"hc2_bm"``: one-way HC2 + Imbens-Kolesar (2016) Satterthwaite DOF
           per coefficient plus a contrast-aware DOF for the post-period-average
-          ATT. **Unsupported with** ``cluster=`` — see ``cluster`` above.
+          ATT. With ``cluster=``, dispatches to Pustejovsky-Tipton (2018)
+          CR2 cluster-robust with a Bell-McCaffrey Satterthwaite contrast DOF
+          on the post-period average (see ``cluster`` above for parity
+          details). Weighted CR2-BM (``survey_design=``) is still gated.
         - ``"conley"``: Conley 1999 spatial-HAC sandwich via the panel
           block-decomposed form (matches R ``conleyreg`` with
           ``lag_cutoff > 0``). Pass ``conley_coords=(lat_col, lon_col)``,
@@ -1428,16 +1452,9 @@ class MultiPeriodDiD(DifferenceInDifferences):
         n_treated_raw = int(np.sum(data[treatment].values.astype(float)))
         n_control_raw = len(data) - n_treated_raw
 
-        # Reject multi-absorb with survey weights (single-pass demeaning is
-        # not the correct weighted FWL projection for N > 1 dimensions)
-        if absorb and len(absorb) > 1 and survey_weights is not None:
-            raise ValueError(
-                f"Multiple absorbed fixed effects (absorb={absorb}) with survey "
-                "weights is not supported. Single-pass sequential demeaning is not "
-                "the correct weighted FWL projection for multiple absorbed dimensions. "
-                "Use absorb with a single variable, or use fixed_effects= instead."
-            )
-
+        # Mutual-exclusion check runs ABOVE the auto-route below so that the
+        # `absorb=..., fixed_effects=...` combination still rejects rather
+        # than being silently merged.
         if absorb and fixed_effects:
             raise ValueError(
                 "Cannot use both absorb and fixed_effects. "
@@ -1447,19 +1464,50 @@ class MultiPeriodDiD(DifferenceInDifferences):
                 "or fixed_effects alone (for low-dimensional FE)."
             )
 
-        # Reject HC2 / HC2 + Bell-McCaffrey on absorbed-FE fits (see the
-        # matching guard in DifferenceInDifferences.fit / twfe.py for the
-        # methodology reasoning: HC2/CR2 leverage corrections depend on the
-        # full FE hat matrix, not the residualized design from within-
-        # transformation). Tracked in TODO.md.
+        # Auto-route absorb → fixed_effects when vcov_type needs the FULL FE
+        # hat matrix. Mirrors the identical pattern in
+        # DifferenceInDifferences.fit (PR #458). HC2 leverage and CR2
+        # Bell-McCaffrey DOF both depend on the full-design hat; FWL
+        # preserves coefficients and residuals but not the hat matrix, so
+        # the demeaned design's leverage is wrong for these vcov families.
+        # Building the full-dummy design and routing through the existing
+        # fixed_effects= branch produces the algebraically correct vcov.
+        # Empirically matches `lm() + sandwich::vcovHC` and
+        # `lm() + clubSandwich::vcovCR` (singleton-cluster trick for one-way
+        # HC2-BM; PT2018 §3.3 unweighted CR2 algebra) at ~1e-15.
+        # Conley vcov is unaffected: the absorb+Conley path computes the
+        # panel sandwich on demeaned scores, which is FWL-correct because
+        # Conley's meat uses only residuals (no leverage term).
+        # HC1/CR1 paths remain on the demeaned design (no leverage term).
+        #
+        # Survey-replicate scope: this also short-circuits the absorb-refit
+        # replicate-variance branch below (search "compute_replicate_refit_variance").
+        # Correct: with a fixed full-dummy design, replicate variance doesn't
+        # need per-replicate refit — the standard compute_replicate_vcov
+        # path applies directly because the design matrix does not depend
+        # on the replicate weights.
+        #
+        # Placement: this auto-route runs BEFORE the multi-absorb +
+        # survey-weights guard because that guard's rationale ("single-pass
+        # demeaning is not the correct weighted FWL projection for N > 1
+        # dimensions") doesn't apply when we're about to swap absorb for
+        # fixed_effects: the fixed_effects= path builds the full-dummy
+        # design and solves WLS directly, with no within-transform step.
         if absorb and self.vcov_type in ("hc2", "hc2_bm"):
-            raise NotImplementedError(
-                f"MultiPeriodDiD(absorb=..., vcov_type={self.vcov_type!r}) "
-                "is not yet supported: absorbed fixed effects are handled "
-                "by demeaning, and the HC2 / CR2 Bell-McCaffrey leverage "
-                "corrections depend on the full FE hat matrix, not the "
-                "residualized one. Use vcov_type='hc1' with absorb=, or "
-                "switch to fixed_effects= dummies for a full-dummy design."
+            fixed_effects = list(fixed_effects or []) + list(absorb)
+            absorb = None
+            n_absorbed_effects = 0
+
+        # Reject multi-absorb with survey weights (single-pass demeaning is
+        # not the correct weighted FWL projection for N > 1 dimensions).
+        # Only fires when absorb is still set — i.e., the auto-route above
+        # didn't consume it.
+        if absorb and len(absorb) > 1 and survey_weights is not None:
+            raise ValueError(
+                f"Multiple absorbed fixed effects (absorb={absorb}) with survey "
+                "weights is not supported. Single-pass sequential demeaning is not "
+                "the correct weighted FWL projection for multiple absorbed dimensions. "
+                "Use absorb with a single variable, or use fixed_effects= instead."
             )
 
         # MultiPeriodDiD is intrinsically a multi-period panel estimator;
@@ -1555,9 +1603,22 @@ class MultiPeriodDiD(DifferenceInDifferences):
                 X = np.column_stack([X, working_data[cov].values.astype(float)])
                 var_names.append(cov)
 
-        # Add fixed effects as dummy variables
+        # Add fixed effects as dummy variables.
+        #
+        # MPD's design already absorbs the time dimension via non-reference
+        # period dummies (the `period_<X>` columns above) and the treatment-
+        # period interactions. If the caller passes the same column as a
+        # fixed effect (either explicitly or via the absorb -> fixed_effects
+        # auto-route for HC2/HC2-BM), the resulting `<time>_<X>` dummies
+        # would be perfectly redundant with the existing period dummies,
+        # NaN'd by `solve_ols`'s rank-deficiency handling, AND collide on
+        # name with the event-study columns in `coef_dict` (silently
+        # collapsing the dict and breaking the coefficients-vs-vcov
+        # alignment that downstream consumers rely on). Skip those FEs.
         if fixed_effects:
             for fe in fixed_effects:
+                if fe == time:
+                    continue
                 dummies = pd.get_dummies(working_data[fe], prefix=fe, drop_first=True)
                 for col in dummies.columns:
                     X = np.column_stack([X, dummies[col].values.astype(float)])
@@ -1588,27 +1649,6 @@ class MultiPeriodDiD(DifferenceInDifferences):
 
         # Determine if survey vcov should be used
         _use_survey_vcov = resolved_survey is not None and resolved_survey.needs_survey_vcov
-
-        # Reject cluster + vcov_type="hc2_bm": `_compute_cr2_bm` produces CR2
-        # per-coefficient DOF, but the post-period-average contrast needs a
-        # cluster-aware contrast-BM DOF that isn't implemented yet. Pairing
-        # CR2 SEs with one-way BM DOF would be a broken hybrid — reject with
-        # a clear error until the cluster-aware contrast DOF is in place.
-        # Tracked in TODO.md. Users can drop cluster for one-way HC2+BM, or
-        # drop vcov_type for CR1 cluster-robust.
-        if (
-            self.vcov_type == "hc2_bm"
-            and effective_cluster_ids is not None
-            and not _use_survey_vcov
-        ):
-            raise NotImplementedError(
-                "MultiPeriodDiD(cluster=..., vcov_type='hc2_bm') is not yet "
-                "supported: the cluster-aware CR2 Bell-McCaffrey contrast DOF "
-                "for the post-period average has not been implemented. "
-                "Workarounds: use vcov_type='hc2_bm' without cluster (one-way "
-                "HC2 + BM DOF), or use vcov_type='hc1' with cluster (CR1 "
-                "Liang-Zeger cluster-robust)."
-            )
 
         # Remap implicit "classical" + cluster to CR1 (legacy backward compat).
         _fit_vcov_type = self._resolve_effective_vcov_type(effective_cluster_ids)
@@ -1812,6 +1852,7 @@ class MultiPeriodDiD(DifferenceInDifferences):
         ):
             from diff_diff.linalg import (
                 _compute_bm_dof_from_contrasts,
+                _compute_cr2_bm_contrast_dof,
                 _compute_hat_diagonals,
             )
 
@@ -1822,7 +1863,6 @@ class MultiPeriodDiD(DifferenceInDifferences):
                 bread_kept = X_kept.T @ (
                     X_kept * survey_weights[:, np.newaxis] if survey_weights is not None else X_kept
                 )
-                h_diag_kept = _compute_hat_diagonals(X_kept, bread_kept, weights=survey_weights)
                 # Build the contrast matrix: one column per identified coefficient
                 # plus one column for the post-period average contrast (1/n_post
                 # on each post-period interaction column, 0 elsewhere).
@@ -1835,13 +1875,30 @@ class MultiPeriodDiD(DifferenceInDifferences):
                         post_contrast_full[interaction_indices[_p]] = 1.0 / _n_post
                 post_contrast_kept = post_contrast_full[_kept]
                 contrasts = np.column_stack([np.eye(n_kept), post_contrast_kept[:, np.newaxis]])
-                _dof_all = _compute_bm_dof_from_contrasts(
-                    X_kept,
-                    bread_kept,
-                    h_diag_kept,
-                    contrasts,
-                    weights=survey_weights,
-                )
+                # Branch on cluster: one-way HC2-BM vs cluster-aware CR2-BM.
+                # Cluster IDs are per-observation length n and are unchanged
+                # by the column-drop applied to X (`_kept` indexes columns
+                # only); pass `effective_cluster_ids` unmodified.
+                if effective_cluster_ids is None:
+                    h_diag_kept = _compute_hat_diagonals(X_kept, bread_kept, weights=survey_weights)
+                    _dof_all = _compute_bm_dof_from_contrasts(
+                        X_kept,
+                        bread_kept,
+                        h_diag_kept,
+                        contrasts,
+                        weights=survey_weights,
+                    )
+                else:
+                    # Cluster-aware CR2 BM Satterthwaite DOF for per-coefficient
+                    # AND post-period-average compound contrast (Gate 6 lift).
+                    # Weighted CR2-BM is a separate gate; survey paths never
+                    # reach this block (outer `not _use_survey_vcov` guard).
+                    _dof_all = _compute_cr2_bm_contrast_dof(
+                        X_kept,
+                        effective_cluster_ids,
+                        bread_kept,
+                        contrasts,
+                    )
                 # Expand per-coefficient DOF back to full width (NaN for dropped).
                 _bm_dof_per_coef = np.full(X.shape[1], np.nan)
                 _bm_dof_per_coef[_kept] = _dof_all[:n_kept]

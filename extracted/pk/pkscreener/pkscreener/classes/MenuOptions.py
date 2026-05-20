@@ -821,6 +821,7 @@ class menus:
             if "{0}" in menuText and substitutes and substituteIndex < len(substitutes):
                 if isinstance(substitutes[substituteIndex], int) and substitutes[substituteIndex] == 0:
                     substituteIndex += 1
+                    filtered_skip.append(list(rawDictionary.keys())[-2]) # skip the 2nd last item that showed output
                     continue
                 menuText = menuText.format(f"{colorText.WARN}{substitutes[substituteIndex]}{colorText.END}")
                 substituteIndex += 1

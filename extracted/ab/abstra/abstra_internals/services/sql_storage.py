@@ -116,6 +116,18 @@ class SqlStorage(Generic[T]):
             self._tables_instance = FileSystemJsonTables(workdir=self.directory_path)
         return self._tables_instance
 
+    def _table_exists(self) -> bool:
+        metadata_path = self.directory_path / "__schema__.json"
+        if not metadata_path.exists():
+            return False
+        try:
+            metadata = json.loads(metadata_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return False
+        return any(
+            info.get("table_name") == self.table_name for info in metadata.values()
+        )
+
     def _ensure_table_exists(self) -> None:
         """Ensure the table exists in the database."""
         try:
@@ -251,15 +263,15 @@ class SqlStorage(Generic[T]):
         return recovered
 
     def health_check(self) -> None:
-        """Validate data files on startup and recover if corrupted."""
-        with self._locked():
-            for data_file in self._find_data_files():
-                try:
-                    raw = data_file.read_bytes()
-                    json.loads(raw)
-                except (json.JSONDecodeError, OSError):
+        """Validate data files on startup. Locks only if recovery is needed."""
+        for data_file in self._find_data_files():
+            try:
+                raw = data_file.read_bytes()
+                json.loads(raw)
+            except (json.JSONDecodeError, OSError):
+                with self._locked():
                     self._try_recover_corrupted_data()
-                    return
+                return
 
     def save(self, id: str, data: T) -> None:
         with self._locked():
@@ -326,7 +338,6 @@ class SqlStorage(Generic[T]):
                 self._execute_with_retry(sql_command)
 
     def _load_all_rows(self) -> List[T]:
-        self._ensure_table_exists()
         result = self._execute_with_retry(f"SELECT * FROM {self.table_name}")
         data_list = []
         if result is not None:
@@ -340,10 +351,12 @@ class SqlStorage(Generic[T]):
         return data_list
 
     def load_all(self) -> List[T]:
-        with self._locked():
-            try:
-                return self._load_all_rows()
-            except json.JSONDecodeError:
+        if not self._table_exists():
+            return []
+        try:
+            return self._load_all_rows()
+        except json.JSONDecodeError:
+            with self._locked():
                 if self._try_recover_corrupted_data():
                     try:
                         return self._load_all_rows()
@@ -351,13 +364,14 @@ class SqlStorage(Generic[T]):
                         AbstraLogger.capture_exception(e)
                         return []
                 return []
-            except Exception as e:
-                AbstraLogger.capture_exception(e)
-                return []
+        except Exception as e:
+            AbstraLogger.capture_exception(e)
+            return []
 
     def load(self, id: str) -> Optional[T]:
-        with self._locked():
-            return self._load(id)
+        if not self._table_exists():
+            return None
+        return self._load(id)
 
     def delete(self, id: str) -> None:
         with self._locked():
@@ -399,8 +413,6 @@ class SqlStorage(Generic[T]):
 
     def _load(self, id: str) -> Optional[T]:
         try:
-            self._ensure_table_exists()
-
             result = self._execute_with_retry(
                 f"SELECT * FROM {self.table_name} WHERE \"id\" = '{self._escape_sql_string(id)}'"
             )

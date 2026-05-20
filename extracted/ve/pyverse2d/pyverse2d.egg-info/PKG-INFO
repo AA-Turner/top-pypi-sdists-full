@@ -1,11 +1,18 @@
 Metadata-Version: 2.4
 Name: pyverse2d
-Version: 1.2.3
+Version: 1.2.14
 Summary: 2D Game Engine using pyglet (OpenGL) for rendering
 Author: WhiteWolf45380
-License-Expression: MIT
-Project-URL: Homepage, https://github.com/WhiteWolf45380/pyverse2d
+License: MIT
+Project-URL: Homepage, https://pypi.org/project/pyverse2d/
+Project-URL: Repository, https://github.com/WhiteWolf45380/pyverse2d
+Project-URL: Issues, https://github.com/WhiteWolf45380/pyverse2d/issues
 Keywords: game,engine,2d,pyglet,opengl
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -14,6 +21,320 @@ Requires-Dist: numpy>=1.20
 Requires-Dist: av>=12.0
 Dynamic: license-file
 
-Installation:
-  - from PyPi: pip install pyverse2d
-  - from GitHub: pip install https://github.com/WhiteWolf45380/PyVerse2D/archive/refs/heads/main.zip
+# PyVerse2D
+
+**A batteries-included 2D game engine for Python**, built on top of [pyglet](https://pyglet.org/).
+
+PyVerse2D gives you a complete ECS-based runtime: physics, lighting, particles, tilemaps, GUI, audio... behind a clean and minimal API.
+
+[![PyPI version](https://img.shields.io/pypi/v/pyverse2d)](https://pypi.org/project/pyverse2d/)
+[![Python](https://img.shields.io/pypi/pyversions/pyverse2d?cacheSeconds=60)](https://pypi.org/project/pyverse2d/)
+[![License](https://img.shields.io/github/license/WhiteWolf45380/PyVerse2D)](LICENSE)
+
+---
+
+## Features
+
+- **ECS architecture** - entities, components, and systems with dependency/conflict validation
+- **Physics engine** - rigid bodies, gravity, collision detection and resolution (circles, capsules, polygons, ellipses, rounded rects)
+- **Rendering pipeline** - layered scenes, cameras with letterboxing, viewport transforms, z-ordering
+- **Lighting system** - ambient, point lights, cone lights, bloom, vignette, tint
+- **Particle system** - line, circle, cone and point emitters with modifiers (wind, drag, gravity, attractor)
+- **Tilemap support** - Tiled TMX loader, automatic collision injection, parallax cameras
+- **GUI system** - widgets, tweens, behaviors (click, hover, focus, select), toggle buttons, scrollbars, labels
+- **Asset management** - images, animations, fonts, sounds, music, playlists, video
+- **Input system** - keyboard, mouse, combo listeners, repeat and condition support
+- **Built-in profiler** - frame-accurate profiling with export
+
+---
+
+## Installation
+
+```bash
+pip install pyverse2d
+```
+
+Or install the latest dev version directly from GitHub:
+
+```bash
+pip install https://github.com/WhiteWolf45380/PyVerse2D/archive/refs/heads/main.zip
+```
+
+**Requirements:** Python 3.11+, pyglet 2.x
+
+---
+
+## Hello World
+
+The minimal setup: open a window and draw a bouncing ball.
+
+```python
+import pyverse2d as pv
+from pyverse2d import Window, LogicalScreen, Camera, Viewport
+from pyverse2d import world, scene
+
+# --- Window ---
+screen = LogicalScreen(1920, 1080)
+window = Window(screen=screen, caption="Hello World", vsync=True)
+pv.set_window(window)
+
+# --- Scene ---
+camera = Camera(anchor=(0.5, 0.5), view_width=40, view_height=22.5)
+viewport = Viewport(width=1920, height=1080, origin=(0.5, 0.5))
+main_scene = scene.Scene(camera=camera, viewport=viewport)
+scene.push(main_scene)
+
+main_world = world.World()
+main_scene.add_layer(scene.WorldLayer(main_world), z=0)
+
+# --- Systems ---
+main_world.add_system(world.RenderSystem())
+main_world.add_system(world.PhysicsSystem())
+main_world.add_system(world.GravitySystem(pv.math.Vector(0.0, -9.8)))
+main_world.add_system(world.CollisionSystem())
+
+# --- Ground ---
+ground_shape = pv.shape.Rect(30.0, 1.0)
+ground = world.Entity(
+    world.Transform(position=(0.0, -8.0), anchor=(0.5, 0.5)),
+    world.ShapeRenderer(shape=ground_shape, filling_color=(80, 80, 80)),
+    world.Collider(shape=ground_shape),
+    world.RigidBody(restitution=0.5, friction=0.4),
+)
+main_world.add_entity(ground)
+
+# --- Ball ---
+ball_shape = pv.shape.Circle(1.0)
+ball = world.Entity(
+    world.Transform(position=(0.0, 8.0), anchor=(0.5, 0.5)),
+    world.ShapeRenderer(shape=ball_shape, filling_color=(80, 180, 255)),
+    world.Collider(shape=ball_shape),
+    world.RigidBody(mass=1.0, restitution=0.8, friction=0.2),
+)
+main_world.add_entity(ball)
+
+# --- Run ---
+pv.preload()
+pv.run()
+```
+
+---
+
+## Core concepts
+
+### Window & screen
+
+`LogicalScreen` defines the virtual resolution your game is designed for. `Window` wraps the OS window and handles letterboxing automatically: your game scales cleanly to any physical window size.
+
+```python
+screen = LogicalScreen(1920, 1080)   # virtual canvas
+window = Window(screen=screen, resizable=True, vsync=True)
+pv.set_window(window)
+```
+
+### Scene & layers
+
+A `Scene` is a self-contained game state. Layers stack inside a scene at a given z-index. `WorldLayer`, `TileLayer`, `GuiLayer`, `LightLayer` and `ParticleLayer` each handle a specific rendering domain.
+
+```python
+main_scene = scene.Scene(camera=camera, viewport=viewport)
+scene.push(main_scene)                                     # push onto the scene stack
+
+main_scene.add_layer(scene.WorldLayer(main_world), z=0)    # ECS world
+main_scene.add_layer(scene.GuiLayer(), z=100)              # UI on top
+```
+
+### Entities & components
+
+An `Entity` is a container of components. Components are plain data objects, logic lives in systems.
+
+```python
+player = world.Entity(
+    world.Transform(position=(0.0, 5.0), anchor=(0.5, 0.0)),
+    world.ShapeRenderer(shape=pv.shape.Capsule(0.4, 2.0), filling_color=(255, 120, 60)),
+    world.Collider(shape=pv.shape.Capsule(0.4, 2.0)),
+    world.RigidBody(mass=60.0, friction=0.4),
+    world.GroundSensor(),
+)
+main_world.add_entity(player)
+```
+
+Available components: `Transform`, `ShapeRenderer`, `SpriteRenderer`, `TextRenderer`, `Animator`, `Collider`, `RigidBody`, `GroundSensor`, `Follow`, `SoundEmitter`, `VideoPlayer`.
+
+### Systems
+
+Systems process entities every frame. Add them to a `World` and they run in order:
+
+```python
+main_world.add_system(world.RenderSystem())
+main_world.add_system(world.PhysicsSystem())
+main_world.add_system(world.GravitySystem(pv.math.Vector(0.0, -9.8)))
+main_world.add_system(world.CollisionSystem())
+main_world.add_system(world.AnimationSystem())
+main_world.add_system(world.SteeringSystem())
+main_world.add_system(world.SoundSystem(origin=camera))
+```
+
+### Camera
+
+Cameras define the point of view. They support smooth following, animated transitions, and parallax attachment.
+
+```python
+# Follow a target with smooth lag
+camera.follow(player.transform, offset=(0.0, 1.0), smoothing=0.05)
+
+# Animated transition to a position
+camera.goto((10.0, 0.0), duration=1.5, easing=pv.math.easing.ease_in_out_quad)
+
+# Parallax-derived camera (e.g. for a background layer)
+background_camera = Camera.derived_from(camera, parallax_x=0.3)
+```
+
+### Physics
+
+Entities with a `Collider` and a `RigidBody` participate in the physics simulation. Set `gravity=False` on a `RigidBody` to opt out of gravity. Use `apply_force` and `apply_impulse` for runtime interactions.
+
+```python
+rb = entity.rigid_body
+rb.apply_force(pv.math.Vector(500.0, 0.0))    # continuous force
+rb.apply_impulse(pv.math.Vector(0.0, 300.0))  # instant impulse (e.g. jump)
+```
+
+Supported shapes: `Circle`, `Rect`, `RoundedRect`, `Ellipse`, `Capsule`, `Polygon`, `RegularPolygon`.
+
+### Inputs
+
+```python
+# Single key listener
+pv.inputs.add_listener(pv.key.K_SPACE, player.jump)
+
+# Held key (repeat=True fires every frame)
+pv.inputs.add_listener(pv.key.K_D, player.move_right, repeat=True)
+
+# Combo
+pv.inputs.when_all_of([pv.key.K_LEFT, pv.key.K_DOWN], move_downleft, repeat=True)
+
+# Mouse
+pv.inputs.add_listener(pv.mouse.B_LEFT, on_click)
+```
+
+### Assets
+
+```python
+# Image
+img = pv.asset.Image("player.png", height=2.5)
+
+# Animation from a folder (files matching a prefix)
+anim = pv.asset.Animation.from_folder("assets/", prefix="run_", framerate=12, height=2.5)
+
+# Sound with random variations
+footstep = pv.asset.Sound.from_variations("assets/audio/", prefix="step_", cooldown=0.4)
+
+# Music
+music = pv.asset.Music("theme.ogg")
+pv.audio.play_music(music, loop=True, fade_s=2.0)
+```
+
+### Lighting
+
+```python
+light_layer = pv.scene.LightLayer(
+    pv.fx.Ambient(intensity=0.2, color=(0, 0, 30)),
+    gamma=1.0,
+    exposure=3.0,
+)
+main_scene.add_layer(light_layer, z=3)
+
+# Point light attached to the player
+point = pv.fx.PointLight(radius=10, intensity=1.0)
+point.attach_to(player.transform, offset=(0.0, 1.0))
+light_layer.add_source(point)
+
+# Cone light (e.g. spotlight from above)
+cone = pv.fx.ConeLight(position=(0.0, 30.0), direction=(0.0, -1.0), angle=20, intensity=1.2)
+light_layer.add_source(cone)
+```
+
+### Particles
+
+```python
+particle_layer = pv.scene.ParticleLayer(additive=True)
+main_scene.add_layer(particle_layer, z=-1)
+
+particle = pv.fx.Particle(
+    lifetime=(4, 8), speed=(5, 10),
+    size=(0.3, 0.8), size_end=0.1,
+    color_start=(0, 100, 255), color_end=(255, 255, 255),
+)
+emitter = pv.fx.LineEmitter(p1=(-50, 30), p2=(50, 30), normal=True, particle=particle, rate=80)
+emitter.add_modifier(pv.fx.Wind(direction=-45, strength=1.5, turbulence=8))
+particle_layer.add_emitter(emitter)
+```
+
+### Tilemaps
+
+```python
+# Load a Tiled .tmx file
+stage = pv.tile.MapLoader.from_tiled_tmx("map/stage_0.tmx", tile_width=1.5, tile_height=1.5)
+
+# Add layers to the scene
+ground = stage["ground"]
+main_scene.add_layer(pv.scene.TileLayer(ground), z=4)
+
+# Inject tile colliders automatically into the world
+pv.tile.CollisionMapper(ground).inject(main_world)
+```
+
+### Profiling
+
+```python
+pv.preload()
+pv.profile(duration=10.0, on_update=on_update, export_path="profile_report.txt")
+```
+
+---
+
+## Game loop
+
+```python
+def on_update(dt: float):
+    # your update logic
+    pass
+
+def on_draw():
+    # your extra draw logic
+    pass
+
+pv.preload()
+pv.run(on_update=on_update, on_draw=on_draw)
+```
+
+`pv.stop()` cleanly shuts down the engine and closes the window.
+
+---
+
+## Project structure
+
+```
+pyverse2d/
+├── abc/            # Abstract base classes (Space, Component, System, Asset…)
+├── asset/          # Image, Animation, Font, Sound, Music, Video, Text, Playlist
+├── fx/
+│   ├── light/      # Ambient, PointLight, ConeLight, Bloom, Vignette, Tint
+│   └── particle/   # Emitters (Line, Circle, Cone, Point) + Modifiers
+├── gui/            # Widgets, Tweens, Behaviors, SelectionGroup
+├── math/           # Point, Vector, Line, easing functions, vertex helpers
+├── scene/          # Scene, WorldLayer, TileLayer, GuiLayer, LightLayer, ParticleLayer
+├── shape/          # Circle, Rect, RoundedRect, Ellipse, Capsule, Polygon, RegularPolygon
+├── tile/           # Tiled TMX loader, CollisionMapper, TileMap
+├── typing/         # Type aliases
+└── world/
+    ├── _component/ # Transform, Collider, RigidBody, Renderers, Animator, Follow…
+    └── _system/    # Physics, Gravity, Collision, Render, Animation, Steering, Sound, Video
+```
+
+---
+
+## License
+
+[MIT](LICENSE) — © WhiteWolf45380

@@ -5,7 +5,7 @@ import importlib
 import os
 import warnings
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, cast, overload
+from typing import IO, TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, cast, overload
 
 from openresponses_types import ResponseResource
 from pydantic import BaseModel
@@ -18,6 +18,7 @@ from any_llm.exceptions import (
     UnsupportedProviderError,
 )
 from any_llm.tools import prepare_tools
+from any_llm.types.audio import AudioSpeechParams, AudioTranscriptionParams, Transcription
 from any_llm.types.completion import (
     ChatCompletion,
     ChatCompletionMessage,
@@ -25,6 +26,7 @@ from any_llm.types.completion import (
     ParsedChatCompletion,
     ReasoningEffort,
 )
+from any_llm.types.image import ImageGenerationParams, ImagesResponse
 from any_llm.types.messages import (
     ContentBlockStopEvent,
     MessageDelta,
@@ -49,6 +51,8 @@ if TYPE_CHECKING:
     from any_llm.types.batch import Batch, BatchResult
     from any_llm.types.completion import ChatCompletionChunk, CreateEmbeddingResponse
     from any_llm.types.model import Model
+    from any_llm.types.moderation import ModerationResponse
+    from any_llm.types.rerank import RerankResponse
 
 
 class AnyLLM(ABC):
@@ -86,6 +90,9 @@ class AnyLLM(ABC):
     SUPPORTS_EMBEDDING: bool
     """OpenAI Embedding API"""
 
+    SUPPORTS_MODERATION: bool = False
+    """OpenAI-compatible moderation API."""
+
     SUPPORTS_RESPONSES: bool
     """OpenAI Responses API"""
 
@@ -94,6 +101,18 @@ class AnyLLM(ABC):
 
     SUPPORTS_BATCH: bool
     """OpenAI Batch Completion API"""
+
+    SUPPORTS_IMAGE_GENERATION: bool = False
+    """Image Generation API (e.g., OpenAI DALL-E)"""
+
+    SUPPORTS_AUDIO_TRANSCRIPTION: bool = False
+    """Audio Transcription API (e.g., OpenAI Whisper)"""
+
+    SUPPORTS_AUDIO_SPEECH: bool = False
+    """Audio Speech / TTS API (e.g., OpenAI TTS)"""
+
+    SUPPORTS_RERANK: bool = False
+    """Rerank API - reorder documents by relevance to a query."""
 
     SUPPORTS_MESSAGES: bool = True
     """Anthropic Messages API (all providers support it via conversion)"""
@@ -356,6 +375,16 @@ class AnyLLM(ABC):
         msg = "Subclasses must implement this method"
         raise NotImplementedError(msg)
 
+    @staticmethod
+    def _convert_rerank_params(model: str, query: str, documents: list[str], **kwargs: Any) -> dict[str, Any]:
+        msg = "Subclasses must implement this method"
+        raise NotImplementedError(msg)
+
+    @staticmethod
+    def _convert_rerank_response(response: Any) -> RerankResponse:
+        msg = "Subclasses must implement this method"
+        raise NotImplementedError(msg)
+
     @classmethod
     def get_provider_metadata(cls) -> ProviderMetadata:
         """Get provider metadata without requiring instantiation.
@@ -376,9 +405,14 @@ class AnyLLM(ABC):
             image=cls.SUPPORTS_COMPLETION_IMAGE,
             pdf=cls.SUPPORTS_COMPLETION_PDF,
             embedding=cls.SUPPORTS_EMBEDDING,
+            moderation=cls.SUPPORTS_MODERATION,
             responses=cls.SUPPORTS_RESPONSES,
             list_models=cls.SUPPORTS_LIST_MODELS,
             batch_completion=cls.SUPPORTS_BATCH,
+            image_generation=cls.SUPPORTS_IMAGE_GENERATION,
+            audio_transcription=cls.SUPPORTS_AUDIO_TRANSCRIPTION,
+            audio_speech=cls.SUPPORTS_AUDIO_SPEECH,
+            rerank=cls.SUPPORTS_RERANK,
             messages=cls.SUPPORTS_MESSAGES,
             class_name=cls.__name__,
         )
@@ -938,6 +972,185 @@ class AnyLLM(ABC):
             msg = "Provider doesn't support embedding."
             raise NotImplementedError(msg)
         msg = "Subclasses must implement _aembedding method"
+        raise NotImplementedError(msg)
+
+    def _image_generation(self, model: str, prompt: str, **kwargs: Any) -> ImagesResponse:
+        allow_running_loop = kwargs.pop("allow_running_loop", INSIDE_NOTEBOOK)
+        return run_async_in_sync(self.aimage_generation(model, prompt, **kwargs), allow_running_loop=allow_running_loop)
+
+    @handle_exceptions()
+    async def aimage_generation(self, model: str, prompt: str, **kwargs: Any) -> ImagesResponse:
+        """Create an image asynchronously.
+
+        Args:
+            model: Model identifier for the chosen provider (e.g., model='dall-e-3' for LLMProvider.OPENAI).
+            prompt: A text description of the desired image(s).
+            **kwargs: Additional parameters (n, size, quality, style, response_format, user).
+
+        Returns:
+            The image generation response from the provider.
+
+        """
+        params = ImageGenerationParams(model_id=model, prompt=prompt, **kwargs)
+        return await self._aimage_generation(params)
+
+    async def _aimage_generation(self, params: ImageGenerationParams, **kwargs: Any) -> ImagesResponse:
+        if not self.SUPPORTS_IMAGE_GENERATION:
+            msg = "Provider doesn't support image generation."
+            raise NotImplementedError(msg)
+        msg = "Subclasses must implement _aimage_generation method"
+        raise NotImplementedError(msg)
+
+    def _transcription(self, model: str, file: bytes | IO[bytes], **kwargs: Any) -> Transcription:
+        """Transcribe audio synchronously.
+
+        See [AnyLLM.atranscription][any_llm.any_llm.AnyLLM.atranscription]
+        """
+        allow_running_loop = kwargs.pop("allow_running_loop", INSIDE_NOTEBOOK)
+        return run_async_in_sync(self.atranscription(model, file, **kwargs), allow_running_loop=allow_running_loop)
+
+    @handle_exceptions()
+    async def atranscription(self, model: str, file: bytes | IO[bytes], **kwargs: Any) -> Transcription:
+        """Transcribe audio asynchronously.
+
+        Args:
+            model: Model identifier for the chosen provider (e.g., model='whisper-1' for LLMProvider.OPENAI).
+            file: Audio file content as bytes or file-like object.
+                Supported formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm.
+            **kwargs: Additional parameters (language, prompt, response_format, temperature, timestamp_granularities).
+
+        Returns:
+            The transcription response from the provider.
+
+        """
+        params = AudioTranscriptionParams(model_id=model, file=file, **kwargs)
+        return await self._atranscription(params)
+
+    async def _atranscription(self, params: AudioTranscriptionParams, **kwargs: Any) -> Transcription:
+        if not self.SUPPORTS_AUDIO_TRANSCRIPTION:
+            msg = "Provider doesn't support audio transcription."
+            raise NotImplementedError(msg)
+        msg = "Subclasses must implement _atranscription method"
+        raise NotImplementedError(msg)
+
+    def _speech(
+        self,
+        model: str,
+        input: str,  # noqa: A002
+        voice: str,
+        **kwargs: Any,
+    ) -> bytes:
+        """Generate speech from text synchronously.
+
+        See [AnyLLM.aspeech][any_llm.any_llm.AnyLLM.aspeech]
+        """
+        allow_running_loop = kwargs.pop("allow_running_loop", INSIDE_NOTEBOOK)
+        return run_async_in_sync(self.aspeech(model, input, voice, **kwargs), allow_running_loop=allow_running_loop)
+
+    @handle_exceptions()
+    async def aspeech(self, model: str, input: str, voice: str, **kwargs: Any) -> bytes:  # noqa: A002
+        """Generate speech from text asynchronously.
+
+        Args:
+            model: Model identifier for the chosen provider (e.g., model='tts-1' for LLMProvider.OPENAI).
+            input: The text to generate audio for. Maximum 4096 characters.
+            voice: The voice to use for generation (e.g., 'alloy', 'echo', 'shimmer').
+            **kwargs: Additional parameters (instructions, response_format, speed).
+
+        Returns:
+            The generated audio content as bytes.
+
+        """
+        params = AudioSpeechParams(model_id=model, input=input, voice=voice, **kwargs)
+        return await self._aspeech(params)
+
+    async def _aspeech(self, params: AudioSpeechParams, **kwargs: Any) -> bytes:
+        if not self.SUPPORTS_AUDIO_SPEECH:
+            msg = "Provider doesn't support audio speech."
+            raise NotImplementedError(msg)
+        msg = "Subclasses must implement _aspeech method"
+        raise NotImplementedError(msg)
+
+    def _moderation(
+        self,
+        model: str,
+        input: str | list[str] | list[dict[str, Any]],  # noqa: A002
+        **kwargs: Any,
+    ) -> ModerationResponse:
+        """Run a moderation check synchronously.
+
+        See [AnyLLM.amoderation][any_llm.any_llm.AnyLLM.amoderation]
+        """
+        allow_running_loop = kwargs.pop("allow_running_loop", INSIDE_NOTEBOOK)
+        return run_async_in_sync(
+            self.amoderation(model, input, **kwargs),
+            allow_running_loop=allow_running_loop,
+        )
+
+    @handle_exceptions()
+    async def amoderation(
+        self,
+        model: str,
+        input: str | list[str] | list[dict[str, Any]],  # noqa: A002
+        **kwargs: Any,
+    ) -> ModerationResponse:
+        """Run a moderation check asynchronously.
+
+        Args:
+            model: Provider-specific moderation model identifier.
+            input: A string, list of strings, or list of OpenAI-style content-part
+                dicts (for multimodal moderation).
+            **kwargs: Additional provider-specific arguments. Pass
+                ``include_raw=True`` to populate ``ModerationResult.provider_raw``.
+
+        Returns:
+            A ModerationResponse with one ``ModerationResult`` per input item.
+
+        Raises:
+            NotImplementedError: If the provider does not support moderation.
+        """
+        return await self._amoderation(model, input, **kwargs)
+
+    async def _amoderation(
+        self,
+        model: str,
+        input: str | list[str] | list[dict[str, Any]],  # noqa: A002
+        **kwargs: Any,
+    ) -> ModerationResponse:
+        if not self.SUPPORTS_MODERATION:
+            msg = f"Provider {self.PROVIDER_NAME} does not support moderation"
+            raise NotImplementedError(msg)
+        msg = "Subclasses must implement _amoderation method"
+        raise NotImplementedError(msg)
+
+    def _rerank(self, model: str, query: str, documents: list[str], **kwargs: Any) -> RerankResponse:
+        allow_running_loop = kwargs.pop("allow_running_loop", INSIDE_NOTEBOOK)
+        return run_async_in_sync(self.arerank(model, query, documents, **kwargs), allow_running_loop=allow_running_loop)
+
+    @handle_exceptions()
+    async def arerank(self, model: str, query: str, documents: list[str], **kwargs: Any) -> RerankResponse:
+        """Rerank documents by relevance to a query.
+
+        Args:
+            model: Model identifier for the rerank model.
+            query: The search query string.
+            documents: List of document strings to rerank.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            RerankResponse with results sorted by relevance_score descending.
+
+        Raises:
+            NotImplementedError: If the provider does not support reranking.
+
+        """
+        return await self._arerank(model, query, documents, **kwargs)
+
+    async def _arerank(self, model: str, query: str, documents: list[str], **kwargs: Any) -> RerankResponse:
+        if not self.SUPPORTS_RERANK:
+            msg = "Provider doesn't support rerank."
+            raise NotImplementedError(msg)
+        msg = "Subclasses must implement _arerank method"
         raise NotImplementedError(msg)
 
     def list_models(self, **kwargs: Any) -> Sequence[Model]:

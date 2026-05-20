@@ -152,8 +152,6 @@ class Geocif:
             self.use_yield_trend_as_feature = "past"
         else:
             self.use_yield_trend_as_feature = None
-        self.panel_model = self.parser.getboolean("ML", "panel_model")
-        self.panel_model_region = self.parser.get("ML", "panel_model_region")
         self.use_outlook_as_feature = self.parser.getboolean("ML", "use_outlook_as_feature")
         self.use_single_time_period_as_feature = self.parser.getboolean(
             "ML", "use_single_time_period_as_feature"
@@ -336,7 +334,7 @@ class Geocif:
 
     def _setup_regression_flags(self):
         """Setup flags for regression models."""
-        if not self.ml_model or self.model_name in ["linear", "gam", "merf", "cubist"]:
+        if not self.ml_model or self.model_name in ["linear", "gam", "merf", "cubist", "gpr"]:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
@@ -1926,49 +1924,83 @@ class Geocif:
             raise TypeError("stages_features should be a list")
         
         self.feature_names = []
-        
-        method = "latest" if self.model_name.startswith("cumulative_") else "fraction"
-        
-        #stages_features = stages.select_stages_for_ml(
-        #    stages_features, method=method, n=60
-        #)
-        
-        for stage in stages_features:
-            _stage = "_".join(map(str, stage))
-            _tmp = [f"{col}_{_stage}" for col in self.combined_keys]
-            
-            for _t in _tmp:
-                parts = _t.split("_")
-                # Find where numeric stage numbers begin (AEF_N band is part of name)
-                _skip = 2 if parts[0] == "AEF" else 1
-                _idx = next(
-                    (i for i in range(_skip, len(parts)) if parts[i].isdigit()),
-                    len(parts),
-                )
-                cid = "_".join(parts[:_idx])
 
-                try:
-                    if self.model_name.startswith("cumulative_"):
-                        dict_fn = stages.get_stage_information_dict(_t, self.method)
-                        tmp_col = f"{dict_fn['CID']}"
+        if not stages_features:
+            # Forecast-only mode (pre-season / in-season init month) — df_train
+            # carries unstaged FLDAS/S2S CID columns named like
+            # MEAN_FLDAS_*_LEAD{0..5} / MEAN_S2S_*_LEAD{1..6}.  Skip the stage-
+            # suffixed loop and use all CID columns directly.  Engineered
+            # features below are appended as usual.
+            self.feature_names = list(self.get_cid_column_names(self.df_train))
+        else:
+            method = "latest" if self.model_name.startswith("cumulative_") else "fraction"
 
-                        if tmp_col in self.df_train.columns:
-                            self.feature_names.append(tmp_col)
-                    else:
-                        if selected_features["CID"].any():
-                            for x in selected_features["CID"].values:
-                                if x not in cid:
-                                    continue
+            #stages_features = stages.select_stages_for_ml(
+            #    stages_features, method=method, n=60
+            #)
 
-                                dict_fn = stages.get_stage_information_dict(_t, self.method)
-                                tmp_col = f"{dict_fn['CID']} {dict_fn['Stage Name']}"
-                                
-                                if tmp_col in self.df_train.columns:
-                                    self.feature_names.append(tmp_col)
-                except Exception as e:
-                    self.logger.error(f"Error creating feature name for {_t}: {e}")
-        
-        self.feature_names = list(set(self.feature_names))
+            cid_cols_in_df = self.get_cid_column_names(self.df_train)
+            self.logger.warning(
+                f"[create_feature_names] starting loop ({self.country} {self.crop} "
+                f"forecast_season={getattr(self, 'forecast_season', '?')}): "
+                f"len(stages_features)={len(stages_features)}, "
+                f"len(combined_keys)={len(self.combined_keys)}, "
+                f"df_train.shape={self.df_train.shape}, "
+                f"cid_cols_in_df={len(cid_cols_in_df)}, "
+                f"selected_features.shape="
+                f"{getattr(selected_features, 'shape', '?')}"
+            )
+
+            candidates_seen = 0
+            candidates_matched = 0
+            for stage in stages_features:
+                _stage = "_".join(map(str, stage))
+                _tmp = [f"{col}_{_stage}" for col in self.combined_keys]
+
+                for _t in _tmp:
+                    candidates_seen += 1
+                    parts = _t.split("_")
+                    # Find where numeric stage numbers begin (AEF_N band is part of name)
+                    _skip = 2 if parts[0] == "AEF" else 1
+                    _idx = next(
+                        (i for i in range(_skip, len(parts)) if parts[i].isdigit()),
+                        len(parts),
+                    )
+                    cid = "_".join(parts[:_idx])
+
+                    try:
+                        if self.model_name.startswith("cumulative_"):
+                            dict_fn = stages.get_stage_information_dict(_t, self.method)
+                            tmp_col = f"{dict_fn['CID']}"
+
+                            if tmp_col in self.df_train.columns:
+                                self.feature_names.append(tmp_col)
+                                candidates_matched += 1
+                        else:
+                            if selected_features["CID"].any():
+                                for x in selected_features["CID"].values:
+                                    if x not in cid:
+                                        continue
+
+                                    dict_fn = stages.get_stage_information_dict(_t, self.method)
+                                    tmp_col = f"{dict_fn['CID']} {dict_fn['Stage Name']}"
+
+                                    if tmp_col in self.df_train.columns:
+                                        self.feature_names.append(tmp_col)
+                                        candidates_matched += 1
+                    except Exception:
+                        self.logger.exception(
+                            f"Error creating feature name for {_t}"
+                        )
+
+            self.feature_names = list(set(self.feature_names))
+            self.logger.warning(
+                f"[create_feature_names] loop done ({self.country} {self.crop} "
+                f"forecast_season={getattr(self, 'forecast_season', '?')}): "
+                f"candidates_seen={candidates_seen}, "
+                f"candidates_matched={candidates_matched}, "
+                f"feature_names={len(self.feature_names)}"
+            )
         
         if self.median_yield_as_feature:
             self.feature_names.append(f"Median {self.target}")
@@ -1992,6 +2024,12 @@ class Geocif:
         if self.use_spatial_neighbors:
             nbr_cols = [c for c in self.df_train.columns if c.startswith("nbr_")]
             self.feature_names.extend(nbr_cols)
+
+        # Final dedup: the empty-stages branch above can pick up engineered
+        # features (e.g. "Yield Trend") via get_cid_column_names, and then the
+        # appends here would duplicate them.  Preserve insertion order.
+        seen = set()
+        self.feature_names = [c for c in self.feature_names if not (c in seen or seen.add(c))]
 
         self.selected_features = []
 
@@ -2056,8 +2094,28 @@ class Geocif:
             self.selected_features = X_for_selection.columns.tolist()
             self.logger.info(f"Using all {len(self.selected_features)} features")
         else:
-            self.logger.info(f"Selecting features for {self.country} {self.crop}")
             X_for_selection = self.X_train.drop(columns=["Region"], errors="ignore")
+            stage_id_dbg = str(getattr(self, "stage_info", {}).get("Stage_ID", ""))
+            self.logger.warning(
+                f"[apply_feature_selector] selecting features for "
+                f"{self.country} {self.crop} "
+                f"forecast_season={getattr(self, 'forecast_season', '?')} "
+                f"region_id={region} stage_id={stage_id_dbg!r}: "
+                f"X_for_selection.shape={X_for_selection.shape}, "
+                f"feature_names={len(self.feature_names)}, "
+                f"df_train.shape={getattr(self.df_train, 'shape', '?')}"
+            )
+            if X_for_selection.shape[1] == 0:
+                raise RuntimeError(
+                    f"[apply_feature_selector] X_for_selection has 0 columns — "
+                    f"upstream pipeline produced no CID features. "
+                    f"country={self.country} crop={self.crop} "
+                    f"forecast_season={getattr(self, 'forecast_season', '?')} "
+                    f"region_id={region} stage_id={stage_id_dbg!r} "
+                    f"X_train.columns={list(self.X_train.columns)[:12]} "
+                    f"feature_names[:12]={list(self.feature_names)[:12]} "
+                    f"df_train.shape={getattr(self.df_train, 'shape', '?')}"
+                )
             _, _, self.selected_features = fs.select_features(
                 X_for_selection,
                 self.y_train,
@@ -2257,7 +2315,7 @@ class Geocif:
 
     def _preprocess_test_data(self, X_test: pd.DataFrame, scaler) -> pd.DataFrame:
         """Preprocess test data based on model requirements."""
-        if self.model_name == "linear":
+        if self.model_name in ("linear", "gpr"):
             X_test = X_test.drop(
                 columns=[item for item in self.cat_features if item != "Harvest Year"]
             )
@@ -2828,7 +2886,7 @@ class Geocif:
         integer levels, not standard-scaled values.  Handling scaling
         outside the model would break ``f()`` on Harvest Year.
         """
-        if self.model_name == "linear":
+        if self.model_name in ("linear", "gpr"):
             return StandardScaler()
         return None
 
@@ -2862,7 +2920,14 @@ class Geocif:
             return
 
         self._setup_training_data(df_region_train)
-        self._select_features(region_id, dir_output)
+        if self.ml_model:
+            self._select_features(region_id, dir_output)
+        else:
+            # Non-ML baselines (null, trend, median, analog) have predetermined
+            # feature lists set in _create_feature_names_for_region. Feature
+            # selection (gOMP etc.) is meaningless for them — skip to avoid
+            # dispatching gOMP on an empty X_for_selection.
+            self.selected_features = list(self.feature_names)
         
         self._update_progress_bar(pbar, idx)
         
@@ -2894,6 +2959,14 @@ class Geocif:
             else:
                 # No correlation-based selection — use all CID features
                 self.feature_names = self.get_cid_column_names(self.df_train)
+                self.logger.warning(
+                    f"[_create_feature_names_for_region] correlation-selection "
+                    f"empty for region_id={region_id} ({self.country} {self.crop} "
+                    f"forecast_season={getattr(self, 'forecast_season', '?')}); "
+                    f"falling back to all CID columns: "
+                    f"df_train.shape={self.df_train.shape}, "
+                    f"feature_names={len(self.feature_names)}"
+                )
         elif self.model_name == "median":
             self.feature_names = [f"Median {self.target}"]
             self.last_year_yield_as_feature = False
@@ -2992,7 +3065,7 @@ class Geocif:
         
         self.X_train = self._clean_training_features(self.X_train)
         
-        if self.model_name in ["gam", "linear"]:
+        if self.model_name in ["gam", "linear", "gpr"]:
             self._fill_missing_values()
         
         self.y_train = df_region_train[self.target_column]
@@ -3010,13 +3083,20 @@ class Geocif:
 
     # Add debug logging in _clean_training_features
     def _clean_training_features(self, X_train: pd.DataFrame) -> pd.DataFrame:
-        """Replace ±inf with NaN, drop columns with NaN, preserve lag/neighbor cols.
+        """Replace ±inf with NaN, drop columns that are ENTIRELY NaN, preserve lag/neighbor cols.
 
         Inf can leak in from feature paths that bypass the per-feature
         ``np.isfinite`` guard in ``cid/indices.py`` (REV/MAR division on
         repeated forecasts, neighbor-correlation features on constant series,
         etc.).  Sanitizing at this boundary catches all sources at once and
         lets the existing NaN-handling decide whether to drop or impute.
+
+        Only fully all-NaN columns are dropped here; partial-NaN columns
+        survive and are handled downstream:
+        - gam/linear/gpr → ``_fill_missing_values`` median/mode imputes.
+        - tabpfn/catboost → handle NaN natively.
+        - feature_selection (gOMP etc.) → drops cols with > threshold_nan
+          proportion of NaN and median-fills the rest.
         """
         inf_mask = ~np.isfinite(X_train.select_dtypes(include=[np.number]).to_numpy())
         if inf_mask.any():
@@ -3033,12 +3113,24 @@ class Geocif:
             if c.startswith("t -") or c.startswith("nbr_")
         ]
 
+        non_preserve_before = [c for c in X_train.columns if c not in preserve_cols]
+
         X_train = (
             X_train
             .drop(columns=preserve_cols)
-            .dropna(axis=1, how="any")
+            .dropna(axis=1, how="all")
             .join(X_train[preserve_cols])
         )
+
+        non_preserve_after = [c for c in X_train.columns if c not in preserve_cols]
+        dropped = sorted(set(non_preserve_before) - set(non_preserve_after))
+        if dropped:
+            self.logger.warning(
+                f"[_clean_training_features] dropna(all) removed {len(dropped)}/"
+                f"{len(non_preserve_before)} all-NaN non-preserve cols "
+                f"(forecast_season={getattr(self, 'forecast_season', '?')}); "
+                f"first 10: {dropped[:10]}"
+            )
 
         return X_train
 
@@ -3269,6 +3361,7 @@ class ModelTrainer:
             "linear": LinearFitter(self.obj),
             "gam": GAMFitter(self.obj),
             "cubist": CubistFitter(self.obj),
+            "gpr": GPRFitter(self.obj),
         }
         
         if self.obj.model_name.startswith("cumulative_"):
@@ -3515,9 +3608,14 @@ class MERFFitter(BaseFitter):
 
 class LinearFitter(BaseFitter):
     """Linear model fitter (uses scaled data)."""
-    
+
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
         self.obj.model.fit(X_train_scaled, self.obj.y_train)
+
+
+class GPRFitter(LinearFitter):
+    """Gaussian Process Regressor fitter — same as linear (scaled, no cats)."""
+    pass
 
 
 class GAMFitter(BaseFitter):

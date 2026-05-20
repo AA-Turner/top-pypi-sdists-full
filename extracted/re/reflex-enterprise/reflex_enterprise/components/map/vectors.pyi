@@ -10,8 +10,8 @@ from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.vars.base import Var
 from reflex_components_core.core.breakpoints import Breakpoints
 
-from .base import BaseLeafletComponent
-from .types import LatLng, LatLngBounds
+from .base import BaseLeafletComponent, InteractiveLeafletLayer
+from .types import LatLng, LatLngBounds, MouseEvent
 
 class PathOptions(TypedDict, total=False):
     stroke: bool
@@ -45,7 +45,7 @@ def path_options(
     class_name: str | None = None,
 ) -> PathOptions: ...
 
-class Circle(BaseLeafletComponent):
+class Circle(InteractiveLeafletLayer):
     @classmethod
     def create(
         cls,
@@ -55,6 +55,7 @@ class Circle(BaseLeafletComponent):
         path_options: PathOptions | Var[PathOptions] | None = None,
         attribution: Var[str] | str | None = None,
         pane: Var[str] | str | None = None,
+        event_handlers: Var[dict] | dict | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -66,8 +67,10 @@ class Circle(BaseLeafletComponent):
         class_name: Any | None = None,
         custom_attrs: dict[str, Any | Var] | None = None,
         on_blur: Optional[EventType[()]] = None,
-        on_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_click: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_contextmenu: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_dblclick: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
         on_focus: Optional[EventType[()]] = None,
         on_mount: Optional[EventType[()]] = None,
@@ -78,15 +81,19 @@ class Circle(BaseLeafletComponent):
         on_mouse_out: Optional[EventType[()]] = None,
         on_mouse_over: Optional[EventType[()]] = None,
         on_mouse_up: Optional[EventType[()]] = None,
+        on_mousedown: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseout: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseover: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseup: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_scroll: Optional[EventType[()]] = None,
         on_scroll_end: Optional[EventType[()]] = None,
         on_unmount: Optional[EventType[()]] = None,
         **props,
     ) -> "Circle":
-        """Create the Reflex Enterprise component."""
+        """Translate on_<event> props into a single eventHandlers dict that react-leaflet understands."""
         ...
 
-class CircleMarker(BaseLeafletComponent):
+class CircleMarker(InteractiveLeafletLayer):
     @classmethod
     def create(
         cls,
@@ -96,6 +103,7 @@ class CircleMarker(BaseLeafletComponent):
         path_options: PathOptions | Var[PathOptions] | None = None,
         attribution: Var[str] | str | None = None,
         pane: Var[str] | str | None = None,
+        event_handlers: Var[dict] | dict | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -107,8 +115,10 @@ class CircleMarker(BaseLeafletComponent):
         class_name: Any | None = None,
         custom_attrs: dict[str, Any | Var] | None = None,
         on_blur: Optional[EventType[()]] = None,
-        on_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_click: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_contextmenu: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_dblclick: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
         on_focus: Optional[EventType[()]] = None,
         on_mount: Optional[EventType[()]] = None,
@@ -119,15 +129,19 @@ class CircleMarker(BaseLeafletComponent):
         on_mouse_out: Optional[EventType[()]] = None,
         on_mouse_over: Optional[EventType[()]] = None,
         on_mouse_up: Optional[EventType[()]] = None,
+        on_mousedown: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseout: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseover: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseup: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_scroll: Optional[EventType[()]] = None,
         on_scroll_end: Optional[EventType[()]] = None,
         on_unmount: Optional[EventType[()]] = None,
         **props,
     ) -> "CircleMarker":
-        """Create the Reflex Enterprise component."""
+        """Translate on_<event> props into a single eventHandlers dict that react-leaflet understands."""
         ...
 
-class Polyline(BaseLeafletComponent):
+class Polyline(InteractiveLeafletLayer):
     @classmethod
     def create(
         cls,
@@ -136,6 +150,7 @@ class Polyline(BaseLeafletComponent):
         path_options: PathOptions | Var[PathOptions] | None = None,
         attribution: Var[str] | str | None = None,
         pane: Var[str] | str | None = None,
+        event_handlers: Var[dict] | dict | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -147,8 +162,10 @@ class Polyline(BaseLeafletComponent):
         class_name: Any | None = None,
         custom_attrs: dict[str, Any | Var] | None = None,
         on_blur: Optional[EventType[()]] = None,
-        on_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_click: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_contextmenu: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_dblclick: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
         on_focus: Optional[EventType[()]] = None,
         on_mount: Optional[EventType[()]] = None,
@@ -159,15 +176,19 @@ class Polyline(BaseLeafletComponent):
         on_mouse_out: Optional[EventType[()]] = None,
         on_mouse_over: Optional[EventType[()]] = None,
         on_mouse_up: Optional[EventType[()]] = None,
+        on_mousedown: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseout: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseover: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseup: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_scroll: Optional[EventType[()]] = None,
         on_scroll_end: Optional[EventType[()]] = None,
         on_unmount: Optional[EventType[()]] = None,
         **props,
     ) -> "Polyline":
-        """Create the Reflex Enterprise component."""
+        """Translate on_<event> props into a single eventHandlers dict that react-leaflet understands."""
         ...
 
-class Polygon(BaseLeafletComponent):
+class Polygon(InteractiveLeafletLayer):
     @classmethod
     def create(
         cls,
@@ -176,6 +197,7 @@ class Polygon(BaseLeafletComponent):
         path_options: PathOptions | Var[PathOptions] | None = None,
         attribution: Var[str] | str | None = None,
         pane: Var[str] | str | None = None,
+        event_handlers: Var[dict] | dict | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -187,8 +209,10 @@ class Polygon(BaseLeafletComponent):
         class_name: Any | None = None,
         custom_attrs: dict[str, Any | Var] | None = None,
         on_blur: Optional[EventType[()]] = None,
-        on_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_click: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_contextmenu: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_dblclick: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
         on_focus: Optional[EventType[()]] = None,
         on_mount: Optional[EventType[()]] = None,
@@ -199,15 +223,19 @@ class Polygon(BaseLeafletComponent):
         on_mouse_out: Optional[EventType[()]] = None,
         on_mouse_over: Optional[EventType[()]] = None,
         on_mouse_up: Optional[EventType[()]] = None,
+        on_mousedown: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseout: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseover: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseup: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_scroll: Optional[EventType[()]] = None,
         on_scroll_end: Optional[EventType[()]] = None,
         on_unmount: Optional[EventType[()]] = None,
         **props,
     ) -> "Polygon":
-        """Create the Reflex Enterprise component."""
+        """Translate on_<event> props into a single eventHandlers dict that react-leaflet understands."""
         ...
 
-class Rectangle(BaseLeafletComponent):
+class Rectangle(InteractiveLeafletLayer):
     @classmethod
     def create(
         cls,
@@ -216,6 +244,7 @@ class Rectangle(BaseLeafletComponent):
         path_options: PathOptions | Var[PathOptions] | None = None,
         attribution: Var[str] | str | None = None,
         pane: Var[str] | str | None = None,
+        event_handlers: Var[dict] | dict | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -227,8 +256,10 @@ class Rectangle(BaseLeafletComponent):
         class_name: Any | None = None,
         custom_attrs: dict[str, Any | Var] | None = None,
         on_blur: Optional[EventType[()]] = None,
-        on_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_click: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_contextmenu: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_dblclick: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
         on_focus: Optional[EventType[()]] = None,
         on_mount: Optional[EventType[()]] = None,
@@ -239,12 +270,16 @@ class Rectangle(BaseLeafletComponent):
         on_mouse_out: Optional[EventType[()]] = None,
         on_mouse_over: Optional[EventType[()]] = None,
         on_mouse_up: Optional[EventType[()]] = None,
+        on_mousedown: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseout: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseover: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseup: Optional[EventType[()] | EventType[MouseEvent]] = None,
         on_scroll: Optional[EventType[()]] = None,
         on_scroll_end: Optional[EventType[()]] = None,
         on_unmount: Optional[EventType[()]] = None,
         **props,
     ) -> "Rectangle":
-        """Create the Reflex Enterprise component."""
+        """Translate on_<event> props into a single eventHandlers dict that react-leaflet understands."""
         ...
 
 class SVGOverlay(BaseLeafletComponent):

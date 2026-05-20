@@ -175,17 +175,32 @@ def test_make_policy_examples_use_valid_arena_mission(tmp_path) -> None:
     assert "class=my_trainable_policy.MyTrainablePolicy" in trainable.stdout
     assert "machina_1.basic" not in trainable.stdout
 
-    amongthem_path = tmp_path / "amongthem_policy.py"
+    amongthem_path = tmp_path / "pytest-4" / "test_make_policy_examples_use_0" / "amongthem_policy.py"
+    amongthem_path.parent.mkdir(parents=True)
     amongthem = runner.invoke(
         main_module.app,
         ["tutorial", "make-policy", "--amongthem", "-o", str(amongthem_path)],
+        terminal_width=80,
     )
 
     assert amongthem.exit_code == 0, amongthem.output
-    assert "Dry-run validation: cogames upload -p class=amongthem_policy.AmongThemPolicy" in amongthem.stdout
-    assert "Ship: cogames ship -p class=amongthem_policy.AmongThemPolicy" in amongthem.stdout
-    assert "Score: cogames leaderboard <season> --policy $USER-amongthem-practice" in amongthem.stdout
-    assert "Walkthrough: cogames docs amongthem_policy" in amongthem.stdout
+    normalized_amongthem = _normalize_cli_text(amongthem.stdout)
+    assert "Edit starter policy:" in normalized_amongthem
+    assert "amongthem_policy.py" in normalized_amongthem
+    assert "Start with: AmongThemPolicy._choose_actions()" in normalized_amongthem
+    assert "Preview template: cogames tutorial make-policy --amongthem --print" in normalized_amongthem
+    assert "Docker/Coworld submission guide: https://softmax.com/play_amongthem.md" in normalized_amongthem
+    assert "cogames upload" not in amongthem.stdout
+    assert "cogames ship" not in amongthem.stdout
+
+
+def test_make_policy_can_print_template_source() -> None:
+    result = runner.invoke(main_module.app, ["tutorial", "make-policy", "--amongthem", "--print"])
+
+    assert result.exit_code == 0, result.output
+    assert "class AmongThemPolicy(MultiAgentPolicy):" in result.stdout
+    assert "def _choose_actions(self, raw_observations: np.ndarray) -> np.ndarray:" in result.stdout
+    assert "policy template copied" not in result.stdout
 
 
 def test_make_policy_rejects_unimportable_output_stem(tmp_path) -> None:
@@ -204,9 +219,12 @@ def test_amongthem_policy_walkthrough_is_packaged() -> None:
     result = runner.invoke(main_module.app, ["docs", "amongthem_policy"])
 
     assert result.exit_code == 0, result.output
-    assert "AmongThem Policy Practice" in result.stdout
+    assert "Among Them Starter Policy" in result.stdout
+    assert "coworld make-policy among_them -o amongthemstarter" in result.stdout
     assert "cogames tutorial make-policy --amongthem" in result.stdout
-    assert "cogames leaderboard <season>" in result.stdout
+    assert "https://softmax.com/play_amongthem.md" in result.stdout
+    assert "cogames upload" not in result.stdout
+    assert "cogames ship" not in result.stdout
 
 
 def test_pickup_uses_arena_as_default_mission(monkeypatch) -> None:

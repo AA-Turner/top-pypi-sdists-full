@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: capsule-sdk
-Version: 0.4.13
+Version: 0.4.14
 Summary: Python SDK for Capsule
 License-Expression: Apache-2.0
 Requires-Python: >=3.10
@@ -202,23 +202,25 @@ qualifies the config ID with the tenant project automatically.
 
 ## Credential Broker Proxy
 
-To route runner traffic through a credential broker proxy, pass `proxy_addr`
-during allocation:
+To route runner traffic through the credential broker, register a sandbox with
+QE to obtain a `sandbox_token`, then pass it as `proxy_token` during allocation.
+The control plane resolves the per-tenant proxy address from
+`tenant_credential_broker.proxy_addr`.
 
 ```python
 with CapsuleClient() as client:
     runner = client.runners.allocate_ready(
         "my-workload-key",
         session_id="session-abc",
-        proxy_addr="10.0.16.7:3128",
+        proxy_token=sandbox_token,
     )
 ```
 
 This configures the runner to:
 
-- Route all egress through the proxy (deny-all except proxy IP)
-- Fetch the proxy CA certificate from the proxy host
-- Use `session_id` as the basic-auth username in proxy requests
+- Route all egress through the tenant's broker proxy (deny-all except proxy IP)
+- Fetch the proxy CA certificate from Secret Manager
+- Use `proxy_token` as the basic-auth username in proxy requests
 
 The same parameters are available on `allocate()`, `allocate_ready()`,
 `from_config()`, and `workloads.start()` / `workloads.allocate()`.

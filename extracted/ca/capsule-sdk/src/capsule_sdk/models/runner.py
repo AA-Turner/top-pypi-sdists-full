@@ -51,7 +51,7 @@ class AllocateRunnerRequest(CapsuleModel):
     session_id: str | None = None
     network_policy_preset: str | None = None
     network_policy_json: str | None = None
-    proxy_addr: str | None = None
+    proxy_token: str | None = None
     tenant_id: str | None = None
 
 

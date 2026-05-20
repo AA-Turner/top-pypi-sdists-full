@@ -1686,11 +1686,11 @@ async def test_8166(async_conn, test_env):
     assert [data] == test_env.get_data_from_df(fetched_df)
 
 
-async def test_8167(conn, test_env):
+async def test_8167(async_conn, test_env):
     "8167 - test fetching NCHAR and NVARCHAR data"
     value = "test_8167"
     value_len = len(value)
-    ora_df = conn.fetch_df_all(f"""
+    ora_df = await async_conn.fetch_df_all(f"""
         select
             cast('{value}' as nchar({value_len})),
             cast('{value}' as nvarchar2({value_len}))
@@ -1698,3 +1698,17 @@ async def test_8167(conn, test_env):
         """)
     fetched_df = pyarrow.table(ora_df).to_pandas()
     assert test_env.get_data_from_df(fetched_df) == [(value, value)]
+
+
+async def test_8168(async_conn, test_env):
+    "8168 - test fetching JSON constrained data via Arrow backed data frame"
+    expected_data = [("[1, 2, 3]", "[4, 5, 6]", b"[7, 8, 9]")]
+    ora_df = await async_conn.fetch_df_all("""
+        select
+            JsonVarchar,
+            JsonClob,
+            JsonBlob
+        from TestJsonCols
+        where IntCol = 1""")
+    fetched_df = pyarrow.table(ora_df).to_pandas()
+    assert test_env.get_data_from_df(fetched_df) == expected_data

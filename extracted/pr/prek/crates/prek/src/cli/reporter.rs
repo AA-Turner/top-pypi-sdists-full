@@ -155,9 +155,7 @@ impl HookInstallReporter {
         set_current_reporter(Some(&reporter));
         Self { reporter }
     }
-}
 
-impl HookInstallReporter {
     pub fn on_install_start(&self, hook: &Hook) -> usize {
         self.reporter
             .root

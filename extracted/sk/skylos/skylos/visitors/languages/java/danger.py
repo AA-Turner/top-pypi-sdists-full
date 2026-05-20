@@ -12,6 +12,7 @@ from skylos.constants import (
     MIN_SECRET_LENGTH,
     get_non_library_dir_kind,
 )
+from skylos.visitors.languages.statement_scan import iter_semicolon_assignments
 from skylos.visitors.languages.java.flow import scan_java_security_flows
 
 try:
@@ -94,10 +95,6 @@ _ARCHIVE_GUARD_HINTS = (
     "toRealPath(",
     "getCanonicalPath(",
     "getCanonicalFile(",
-)
-
-_LOCAL_ALIAS_PATTERN = re.compile(
-    r"(?ms)^\s*(?:(?:final)\s+)*(?:[\w<>\[\],.?]+\s+)?(?P<var>[A-Za-z_]\w*)\s*=\s*(?P<expr>.*?);",
 )
 
 _REQUEST_SOURCE_PATTERNS = (
@@ -350,11 +347,10 @@ def _collect_canonical_string_vars(lines: list[str]) -> tuple[set[str], set[str]
     slash_terminated_vars: set[str] = set()
 
     for line in lines:
-        match = _LOCAL_ALIAS_PATTERN.match(line)
-        if not match:
+        assignments = iter_semicolon_assignments(line)
+        if not assignments:
             continue
-        var = match.group("var")
-        expr = match.group("expr")
+        _, var, expr = assignments[0]
         if "getCanonicalPath(" not in expr:
             continue
         canonical_vars.add(var)
@@ -362,6 +358,24 @@ def _collect_canonical_string_vars(lines: list[str]) -> tuple[set[str], set[str]
             slash_terminated_vars.add(var)
 
     return canonical_vars, slash_terminated_vars
+
+
+def _collect_canonical_string_vars_for_names(
+    lines: list[str], names: set[str]
+) -> set[str]:
+    canonical_vars: set[str] = set()
+
+    for line in lines:
+        assignments = iter_semicolon_assignments(line)
+        if not assignments:
+            continue
+        _, var, expr = assignments[0]
+        if "getCanonicalPath(" not in expr:
+            continue
+        if _line_mentions_names(expr, names | canonical_vars):
+            canonical_vars.add(var)
+
+    return canonical_vars
 
 
 def _expr_is_slash_terminated_base(expr: str) -> bool:
@@ -403,7 +417,7 @@ def _has_named_path_guard(
 ) -> bool:
     has_normalize = False
     canonical_vars, slash_terminated_vars = _collect_canonical_string_vars(lines)
-    known_guard_vars = canonical_vars | slash_terminated_vars
+    sink_canonical_vars = _collect_canonical_string_vars_for_names(lines, names)
 
     for idx, line in enumerate(lines):
         mentioned = _names_in_line(line, names)
@@ -411,7 +425,7 @@ def _has_named_path_guard(
         if not mentioned and not (
             has_normalize
             and startswith_line
-            and _line_mentions_names(line, known_guard_vars)
+            and _line_mentions_names(line, sink_canonical_vars)
         ):
             continue
         if any(hint in line for hint in hints):
@@ -484,10 +498,7 @@ def _extract_call_args(line: str, token: str) -> list[str]:
 
 
 def _iter_assignment_events(text: str) -> list[tuple[int, str, str]]:
-    return [
-        (text[: match.start()].count("\n"), match.group("var"), match.group("expr"))
-        for match in _LOCAL_ALIAS_PATTERN.finditer(text)
-    ]
+    return iter_semicolon_assignments(text)
 
 
 def _iter_sink_calls(

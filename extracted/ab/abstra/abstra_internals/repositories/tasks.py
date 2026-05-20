@@ -1,7 +1,7 @@
 import datetime
 import json
 from abc import ABC, abstractmethod
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import uuid4
 
 from abstra_internals.cloud_api.http_client import HTTPClient
@@ -17,7 +17,7 @@ from abstra_internals.utils.datetime import to_utc_iso_string
 from abstra_internals.utils.serializable import Serializable
 
 TaskStatus = Literal["pending", "locked", "completed"]
-TaskPayload = Dict[str, Union[str, object, Dict[str, object], List, Dict]]
+TaskPayload = Dict[str, Any]
 
 
 class TaskLockFailed(Exception):

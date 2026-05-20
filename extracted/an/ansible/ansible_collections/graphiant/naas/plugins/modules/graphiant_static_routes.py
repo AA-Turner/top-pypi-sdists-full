@@ -9,7 +9,7 @@ Ansible module for managing Graphiant static routes under:
   edge.segments.<segment>.staticRoutes
 """
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: graphiant_static_routes
 short_description: Manage Graphiant static routes (edge.segments.*.staticRoutes)
@@ -24,9 +24,13 @@ notes:
   - "Configuration files support Jinja2 templating syntax for dynamic configuration generation."
   - "The module automatically resolves device names to IDs."
   - "YAML schema uses camelCase keys (for example: C(staticRoutes), C(lanSegment), C(destinationPrefix), C(nextHops))."
-  - "Configure idempotency: compares intended routes to existing device state per segment + prefix; skips push when already matched (V(changed)=V(false))."
+  - >-
+    Configure idempotency: compares intended routes to existing device state per segment + prefix;
+    skips push when already matched (V(changed)=V(false)).
   - "Deconfigure deletes only the prefixes listed in the YAML (per segment)."
-  - "Deconfigure payload uses C(route: null) per prefix; this module preserves nulls in the final payload pushed to the API."
+  - >-
+    Deconfigure payload uses C(route: null) per prefix; this module preserves nulls in the final
+    payload pushed to the API.
 version_added: "26.2.0"
 extends_documentation_fragment:
   - graphiant.naas.graphiant_portal_auth
@@ -71,7 +75,7 @@ attributes:
 
 requirements:
   - python >= 3.7
-  - graphiant-sdk >= 26.3.0
+  - graphiant-sdk >= 26.4.0
 
 seealso:
   - module: graphiant.naas.graphiant_global_config
@@ -83,9 +87,9 @@ seealso:
 
 author:
   - Graphiant Team (@graphiant)
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 - name: Configure static routes
   graphiant.naas.graphiant_static_routes:
     operation: configure
@@ -110,9 +114,9 @@ EXAMPLES = r'''
     password: "{{ graphiant_password }}"
     detailed_logs: true
 
-'''
+"""
 
-RETURN = r'''
+RETURN = r"""
 msg:
   description:
     - Result message from the operation, including detailed logs when O(detailed_logs) is enabled.
@@ -153,11 +157,12 @@ details:
   description: Raw manager result details (includes changed/configured_devices/skipped_devices).
   type: dict
   returned: when supported
-'''
+"""
 
 from ansible.module_utils.basic import AnsibleModule  # noqa: E402
 
 from ansible_collections.graphiant.naas.plugins.module_utils.graphiant_utils import (  # noqa: E402
+    ansible_module_log,
     graphiant_portal_auth_argument_spec,
     get_graphiant_connection,
     handle_graphiant_exception,
@@ -169,13 +174,22 @@ from ansible_collections.graphiant.naas.plugins.module_utils.logging_decorator i
 
 @capture_library_logs
 def execute_with_logging(module, func, *args, **kwargs):
-    success_msg = kwargs.pop('success_msg', 'Operation completed successfully')
-    no_change_msg = kwargs.pop('no_change_msg', 'No changes needed')
-    result = func(*args, **kwargs)
-    if isinstance(result, dict) and 'changed' in result:
-        changed = bool(result.get('changed'))
-        configured = result.get('configured_devices') or []
-        skipped = result.get('skipped_devices') or []
+    success_msg = kwargs.pop("success_msg", "Operation completed successfully")
+    no_change_msg = kwargs.pop("no_change_msg", "No changes needed")
+    try:
+        result = func(*args, **kwargs)
+    except Exception as e:
+        if module.params.get("detailed_logs"):
+            name = getattr(func, "__name__", str(func))
+            ansible_module_log(
+                module,
+                f"graphiant_static_routes: manager {name!s} failed: {type(e).__name__}: {e!s}",
+            )
+        raise
+    if isinstance(result, dict) and "changed" in result:
+        changed = bool(result.get("changed"))
+        configured = result.get("configured_devices") or []
+        skipped = result.get("skipped_devices") or []
 
         if changed:
             msg = success_msg
@@ -185,39 +199,58 @@ def execute_with_logging(module, func, *args, **kwargs):
             if skipped:
                 msg += f" (skipped {len(skipped)} device(s))"
 
-        return {'changed': changed, 'result_msg': msg, 'details': result, 'configured_devices': configured, 'skipped_devices': skipped}
-    return {'changed': True, 'result_msg': success_msg, 'details': result}
+        return {
+            "changed": changed,
+            "result_msg": msg,
+            "details": result,
+            "configured_devices": configured,
+            "skipped_devices": skipped,
+        }
+    return {"changed": True, "result_msg": success_msg, "details": result}
 
 
 def main():
     argument_spec = dict(
         **graphiant_portal_auth_argument_spec(),
-        static_routes_config_file=dict(type='str', required=True, aliases=['static_route_config_file']),
-        operation=dict(type='str', required=False, choices=['configure', 'deconfigure']),
-        state=dict(type='str', required=False, default='present', choices=['present', 'absent']),
-        detailed_logs=dict(type='bool', required=False, default=False),
+        static_routes_config_file=dict(type="str", required=True, aliases=["static_route_config_file"]),
+        operation=dict(type="str", required=False, choices=["configure", "deconfigure"]),
+        state=dict(type="str", required=False, default="present", choices=["present", "absent"]),
+        detailed_logs=dict(type="bool", required=False, default=False),
     )
 
     module = AnsibleModule(argument_spec=argument_spec, supports_check_mode=True)
 
     params = module.params
-    operation = params.get('operation')
-    state = params.get('state', 'present')
-    cfg_file = params['static_routes_config_file']
+    operation = params.get("operation")
+    state = params.get("state", "present")
+    cfg_file = params["static_routes_config_file"]
 
     if not operation:
-        operation = 'configure' if state == 'present' else 'deconfigure'
+        operation = "configure" if state == "present" else "deconfigure"
 
     try:
+        if params.get("detailed_logs"):
+            ansible_module_log(
+                module,
+                (
+                    f"graphiant_static_routes: start operation={operation!r} "
+                    f"static_routes_config_file={cfg_file!r} check_mode={module.check_mode!r}"
+                ),
+            )
         # In check_mode, connection runs all logic but gsdk skips API writes and logs payloads only.
         connection = get_graphiant_connection(params, check_mode=module.check_mode)
         graphiant_config = connection.graphiant_config
+        if params.get("detailed_logs"):
+            ansible_module_log(
+                module,
+                "graphiant_static_routes: GraphiantConfig obtained; dispatching to static_routes manager",
+            )
 
         # Execute the requested operation
         changed = False
         result_msg = ""
 
-        if operation == 'configure':
+        if operation == "configure":
             result = execute_with_logging(
                 module,
                 graphiant_config.static_routes.configure,
@@ -225,9 +258,9 @@ def main():
                 success_msg="Successfully configured static routes",
                 no_change_msg="Static routes already match desired state; no changes needed",
             )
-            changed = result['changed']
-            result_msg = result['result_msg']
-        elif operation == 'deconfigure':
+            changed = result["changed"]
+            result_msg = result["result_msg"]
+        elif operation == "deconfigure":
             result = execute_with_logging(
                 module,
                 graphiant_config.static_routes.deconfigure,
@@ -235,28 +268,47 @@ def main():
                 success_msg="Successfully deconfigured static routes",
                 no_change_msg="Static routes already absent (or already removed); no changes needed",
             )
-            changed = result['changed']
-            result_msg = result['result_msg']
+            changed = result["changed"]
+            result_msg = result["result_msg"]
         else:
             module.fail_json(
                 msg=f"Unsupported operation '{operation}'. Supported operations: configure, deconfigure.",
                 operation=operation,
             )
+            return
 
+        if params.get("detailed_logs"):
+            preview = result_msg if len(result_msg) <= 200 else (result_msg[:200] + "…")
+            ansible_module_log(
+                module,
+                f"graphiant_static_routes: success changed={changed!r} result_msg_preview={preview!r}",
+            )
         module.exit_json(
             changed=changed,
             msg=result_msg,
             operation=operation,
             static_routes_config_file=cfg_file,
-            configured_devices=result.get('configured_devices', []),
-            skipped_devices=result.get('skipped_devices', []),
-            details=result.get('details', {}),
+            configured_devices=result.get("configured_devices", []),
+            skipped_devices=result.get("skipped_devices", []),
+            details=result.get("details", {}),
         )
 
     except Exception as e:
+        if module.params.get("detailed_logs"):
+            import traceback
+
+            ansible_module_log(
+                module,
+                f"graphiant_static_routes: {type(e).__name__}: {e!s}\n{traceback.format_exc()}",
+            )
+        else:
+            ansible_module_log(
+                module,
+                f"graphiant_static_routes: failed {type(e).__name__}: {e!s}",
+            )
         error_msg = handle_graphiant_exception(e, operation)
         module.fail_json(msg=error_msg, operation=operation)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

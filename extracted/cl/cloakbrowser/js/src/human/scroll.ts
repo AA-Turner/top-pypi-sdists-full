@@ -52,7 +52,7 @@ export async function humanScrollIntoView(
   cursorX: number,
   cursorY: number,
   cfg: HumanConfig,
-): Promise<{ box: ElementBounds; cursorX: number; cursorY: number }> {
+): Promise<{ box: ElementBounds; cursorX: number; cursorY: number; didScroll: boolean }> {
   const viewport = page.viewportSize();
   if (!viewport) throw new Error('Viewport size not available');
 
@@ -60,7 +60,7 @@ export async function humanScrollIntoView(
   if (!box) throw new Error('Element not found while scrolling into view');
 
   if (isInViewport(box, viewport.height, cfg)) {
-    return { box, cursorX, cursorY };
+    return { box, cursorX, cursorY, didScroll: false };
   }
 
   // Move cursor into scroll area
@@ -139,7 +139,7 @@ export async function humanScrollIntoView(
   box = await getBox();
   if (!box) throw new Error('Element lost after scrolling into view');
 
-  return { box, cursorX, cursorY };
+  return { box, cursorX, cursorY, didScroll: true };
 }
 
 /**
@@ -148,6 +148,8 @@ export async function humanScrollIntoView(
  * ``timeout`` is forwarded to Playwright's ``boundingBox({ timeout })`` so
  * callers like ``page.click('#x', { timeout: 5000 })`` can wait longer for
  * slow-loading elements (#172). Default matches Playwright's 30000ms when not specified.
+ *
+ * Returns `{ box, cursorX, cursorY, didScroll }`.
  */
 export async function scrollToElement(
   page: Page,
@@ -157,7 +159,7 @@ export async function scrollToElement(
   cursorY: number,
   cfg: HumanConfig,
   timeout?: number,
-): Promise<{ box: ElementBounds; cursorX: number; cursorY: number }> {
+): Promise<{ box: ElementBounds; cursorX: number; cursorY: number; didScroll: boolean }> {
   return humanScrollIntoView(
     page, raw,
     () => getElementBox(page, selector, timeout),
@@ -172,7 +174,7 @@ async function getElementBox(
 ): Promise<ElementBounds | null> {
   const el = page.locator(selector).first();
   try {
-    const box = await el.boundingBox({ timeout });
+    const box = await el.boundingBox({ timeout: Math.max(1, timeout) });
     return box;
   } catch {
     return null;

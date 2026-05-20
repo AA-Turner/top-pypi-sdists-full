@@ -11162,30 +11162,30 @@ class StreamGrants(
         # table_ref: interfaces_dynamodb.ITableRef
         
         stream_grants = dynamodb.StreamGrants(
-            table=table_ref,
             table_stream_arn="tableStreamArn",
         
             # the properties below are optional
-            encryption_key=key
+            encryption_key=key,
+            table=table_ref
         )
     '''
 
     def __init__(
         self,
         *,
-        table: "_ITableRef_4478f0ad",
         table_stream_arn: builtins.str,
         encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        table: typing.Optional["_ITableRef_4478f0ad"] = None,
     ) -> None:
         '''
-        :param table: The table this stream is for.
         :param table_stream_arn: The ARN of the Stream.
         :param encryption_key: The encryption key of the table. Required permissions will be added to the key as well. Default: - No key
+        :param table: (deprecated) The table this stream is for. Default: - None, no longer required
         '''
         props = StreamGrantsProps(
-            table=table,
             table_stream_arn=table_stream_arn,
             encryption_key=encryption_key,
+            table=table,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -11240,24 +11240,24 @@ class StreamGrants(
     jsii_type="aws-cdk-lib.aws_dynamodb.StreamGrantsProps",
     jsii_struct_bases=[],
     name_mapping={
-        "table": "table",
         "table_stream_arn": "tableStreamArn",
         "encryption_key": "encryptionKey",
+        "table": "table",
     },
 )
 class StreamGrantsProps:
     def __init__(
         self,
         *,
-        table: "_ITableRef_4478f0ad",
         table_stream_arn: builtins.str,
         encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        table: typing.Optional["_ITableRef_4478f0ad"] = None,
     ) -> None:
         '''Construction properties for StreamGrants.
 
-        :param table: The table this stream is for.
         :param table_stream_arn: The ARN of the Stream.
         :param encryption_key: The encryption key of the table. Required permissions will be added to the key as well. Default: - No key
+        :param table: (deprecated) The table this stream is for. Default: - None, no longer required
 
         :exampleMetadata: fixture=_generated
 
@@ -11273,31 +11273,25 @@ class StreamGrantsProps:
             # table_ref: interfaces_dynamodb.ITableRef
             
             stream_grants_props = dynamodb.StreamGrantsProps(
-                table=table_ref,
                 table_stream_arn="tableStreamArn",
             
                 # the properties below are optional
-                encryption_key=key
+                encryption_key=key,
+                table=table_ref
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a6d760e3ed3b3e82fd5e28804a7ae7cd94c4ebaafc4a6ab3eb0a090aac614bf)
-            check_type(argname="argument table", value=table, expected_type=type_hints["table"])
             check_type(argname="argument table_stream_arn", value=table_stream_arn, expected_type=type_hints["table_stream_arn"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
+            check_type(argname="argument table", value=table, expected_type=type_hints["table"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "table": table,
             "table_stream_arn": table_stream_arn,
         }
         if encryption_key is not None:
             self._values["encryption_key"] = encryption_key
-
-    @builtins.property
-    def table(self) -> "_ITableRef_4478f0ad":
-        '''The table this stream is for.'''
-        result = self._values.get("table")
-        assert result is not None, "Required property 'table' is missing"
-        return typing.cast("_ITableRef_4478f0ad", result)
+        if table is not None:
+            self._values["table"] = table
 
     @builtins.property
     def table_stream_arn(self) -> builtins.str:
@@ -11316,6 +11310,19 @@ class StreamGrantsProps:
         '''
         result = self._values.get("encryption_key")
         return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+
+    @builtins.property
+    def table(self) -> typing.Optional["_ITableRef_4478f0ad"]:
+        '''(deprecated) The table this stream is for.
+
+        :default: - None, no longer required
+
+        :deprecated: This property is not used anymore
+
+        :stability: deprecated
+        '''
+        result = self._values.get("table")
+        return typing.cast(typing.Optional["_ITableRef_4478f0ad"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20549,9 +20556,9 @@ def _typecheckingstub__01b8ff1aba3f9dd3ce7997b6402e6cc41ec1d0cf91555c4a83dab59b0
 
 def _typecheckingstub__7a6d760e3ed3b3e82fd5e28804a7ae7cd94c4ebaafc4a6ab3eb0a090aac614bf(
     *,
-    table: _ITableRef_4478f0ad,
     table_stream_arn: builtins.str,
     encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    table: typing.Optional[_ITableRef_4478f0ad] = None,
 ) -> None:
     """Type checking stubs"""
     pass

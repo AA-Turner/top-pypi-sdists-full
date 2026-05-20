@@ -17,11 +17,11 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, Union
 
 import torch
+from torch.utils import dlpack
 
-from kornia.core import Device, Tensor
 from kornia.core.check import KORNIA_CHECK, KORNIA_CHECK_SAME_DEVICES, KORNIA_CHECK_SHAPE
 
 from .utils import download_onnx_from_url, normalize_keypoints
@@ -49,7 +49,7 @@ class OnnxLightGlue:
         weights: Pretrained weights, or a path to your own exported ONNX model. Available pretrained weights
           are ``'disk'``, ``'superpoint'``, ``'disk_fp16'``, and ``'superpoint_fp16'``. `Note that FP16 requires CUDA.`
           Defaults to ``'disk_fp16'`` if ``device`` is CUDA, and ``'disk'`` if CPU.
-        device: Device to run inference on.
+        device: Union[str, torch.device, None] to run inference on.
 
     """
 
@@ -62,7 +62,7 @@ class OnnxLightGlue:
 
     required_data_keys: ClassVar[list[str]] = ["image0", "image1"]
 
-    def __init__(self, weights: str | None = None, device: Device = "cpu") -> None:
+    def __init__(self, weights: str | None = None, device: Union[str, torch.device, None] = "cpu") -> None:
         KORNIA_CHECK(ort is not None, "onnxruntime is not installed.")
         KORNIA_CHECK(np is not None, "numpy is not installed.")
 
@@ -91,10 +91,10 @@ class OnnxLightGlue:
 
         self.session = ort.InferenceSession(weights, providers=providers)
 
-    def __call__(self, data: dict[str, dict[str, Tensor]]) -> dict[str, Tensor]:
+    def __call__(self, data: dict[str, dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
         return self.forward(data)
 
-    def forward(self, data: dict[str, dict[str, Tensor]]) -> dict[str, Tensor]:
+    def forward(self, data: dict[str, dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
         r"""Match keypoints and descriptors between two images.
 
         The output contains the matches (the indices of the matching keypoint pairs between the first and second image)
@@ -177,12 +177,16 @@ class OnnxLightGlue:
         self.session.run_with_iobinding(binding)
 
         matches, mscores = binding.get_outputs()
-
-        # TODO: The following is an unnecessary copy. Replace with a better solution when torch supports
-        # constructing a tensor from a data pointer, or when ORT supports converting to torch tensor.
-        # https://github.com/microsoft/onnxruntime/issues/15963
-        outputs = {
-            "matches": torch.from_dlpack(matches.numpy()).to(self.device),
-            "scores": torch.from_dlpack(mscores.numpy()).to(self.device),
-        }
+        # Prefer DLPack-based conversion when available for zero-copy transfer between them
+        # The fallback path uses NumPy, which incurs a device-to-host copy and is slower.
+        if hasattr(matches, "to_dlpack"):
+            outputs = {
+                "matches": dlpack.from_dlpack(matches.to_dlpack()).to(self.device),
+                "scores": dlpack.from_dlpack(mscores.to_dlpack()).to(self.device),
+            }
+        else:
+            outputs = {
+                "matches": torch.from_numpy(matches.numpy()).to(self.device),
+                "scores": torch.from_numpy(mscores.numpy()).to(self.device),
+            }
         return outputs

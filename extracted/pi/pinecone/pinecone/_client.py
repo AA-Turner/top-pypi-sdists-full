@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, cast
 
@@ -23,7 +24,11 @@ if TYPE_CHECKING:
     from pinecone.index import Index
     from pinecone.inference.models.index_embed import IndexEmbed
     from pinecone.models.backups.list import BackupList, RestoreJobList
-    from pinecone.models.backups.model import BackupModel, RestoreJobModel
+    from pinecone.models.backups.model import (
+        BackupModel,
+        CreateIndexFromBackupResponse,
+        RestoreJobModel,
+    )
     from pinecone.models.collections.list import CollectionList
     from pinecone.models.collections.model import CollectionModel
     from pinecone.models.enums import (
@@ -54,10 +59,10 @@ class Pinecone:
         api_key (str | None): Pinecone API key. Falls back to ``PINECONE_API_KEY`` env var.
         host (str | None): Control-plane API host. Falls back to ``PINECONE_CONTROLLER_HOST``
             env var, then defaults to ``https://api.pinecone.io``.
-        additional_headers (dict[str, str] | None): Extra headers included in every request.
+        additional_headers (Mapping[str, str] | None): Extra headers included in every request.
         source_tag (str | None): Tag appended to the User-Agent string for request attribution.
         proxy_url (str | None): HTTP proxy URL for outgoing requests.
-        proxy_headers (dict[str, str] | None): Custom headers for proxy authentication.
+        proxy_headers (Mapping[str, str] | None): Custom headers for proxy authentication.
         ssl_ca_certs (str | None): Path to a CA certificate bundle for SSL verification.
         ssl_verify (bool): Whether to verify SSL certificates. Defaults to ``True``.
         timeout (float): Request timeout in seconds. Defaults to ``30.0``.
@@ -98,10 +103,10 @@ class Pinecone:
         api_key: str | None = None,
         *,
         host: str | None = None,
-        additional_headers: dict[str, str] | None = None,
+        additional_headers: Mapping[str, str] | None = None,
         source_tag: str | None = None,
         proxy_url: str | None = None,
-        proxy_headers: dict[str, str] | None = None,
+        proxy_headers: Mapping[str, str] | None = None,
         ssl_ca_certs: str | None = None,
         ssl_verify: bool = True,
         timeout: float = 30.0,
@@ -116,10 +121,10 @@ class Pinecone:
             api_key=api_key or "",
             host=host or "",
             timeout=timeout,
-            additional_headers=additional_headers or {},
+            additional_headers=dict(additional_headers or {}),
             source_tag=source_tag or "",
             proxy_url=proxy_url or "",
-            proxy_headers=proxy_headers or {},
+            proxy_headers=dict(proxy_headers or {}),
             ssl_ca_certs=ssl_ca_certs,
             ssl_verify=ssl_verify,
             connection_pool_maxsize=connection_pool_maxsize,
@@ -177,7 +182,7 @@ class Pinecone:
 
     @property
     def collections(self) -> Collections:
-        """Access the Collections namespace for collection operations.
+        """Access the Collections namespace for control-plane collection operations.
 
         Lazily imported and instantiated on first access.
 
@@ -196,7 +201,7 @@ class Pinecone:
 
     @property
     def backups(self) -> Backups:
-        """Access the Backups namespace for backup operations.
+        """Access the Backups namespace for control-plane backup operations.
 
         Lazily imported and instantiated on first access.
 
@@ -205,7 +210,7 @@ class Pinecone:
 
         Examples:
 
-            >>> ids = [b.backup_id for b in pc.backups.list()]  # doctest: +SKIP
+            >>> ids = [backup.backup_id for backup in pc.backups.list()]  # doctest: +SKIP
         """
         if self._backups is None:
             from pinecone.client.backups import Backups as _Backups
@@ -244,7 +249,8 @@ class Pinecone:
         Examples:
 
             >>> embeddings = pc.inference.embed(  # doctest: +SKIP
-            ...     model="multilingual-e5-large", inputs=["Hello, world!"]
+            ...     model="multilingual-e5-large",
+            ...     inputs=["Solar panels reduce energy costs and lower carbon emissions."],
             ... )
         """
         if self._inference is None:
@@ -264,7 +270,7 @@ class Pinecone:
 
         Examples:
 
-            >>> names = [a.name for a in pc.assistants.list()]  # doctest: +SKIP
+            >>> names = [assistant.name for assistant in pc.assistants.list()]  # doctest: +SKIP
         """
         if self._assistants is None:
             from pinecone.client.assistants import Assistants as _Assistants
@@ -274,7 +280,7 @@ class Pinecone:
 
     @property
     def assistant(self) -> _AssistantNamespaceProxy:
-        """Convenience alias for :attr:`Pinecone.assistants`.
+        """Return a callable proxy alias for :attr:`Pinecone.assistants`.
 
         Returns a proxy that supports both namespace-style access
         (``pc.assistant.create_assistant(...)``) and the convenience call
@@ -284,6 +290,18 @@ class Pinecone:
         The canonical entry point is :attr:`Pinecone.assistants`; this
         alias is provided for ergonomic singular-form access and is not
         deprecated.
+
+        Returns:
+            Proxy supporting namespace-style access (``pc.assistant.create_assistant(...)``)
+            and the shorthand call form (``pc.assistant("my-name")``).
+
+        Examples:
+
+            >>> bot = pc.assistant("acme-support-bot")  # doctest: +SKIP
+            >>> pc.assistant.create_assistant(  # doctest: +SKIP
+            ...     name="support-bot",
+            ...     instructions="Help users with billing questions.",
+            ... )
         """
         from pinecone.client._assistant_namespace_proxy import _AssistantNamespaceProxy
 
@@ -302,10 +320,7 @@ class Pinecone:
 
         Examples:
 
-            .. code-block:: python
-
-                pc = Pinecone(api_key="your-api-key")
-                pc.preview.indexes.create(...)  # when a preview area exists
+            >>> info = pc.preview.indexes.describe("articles-en-preview")  # doctest: +SKIP
         """
         if self._preview is None:
             from pinecone.preview import Preview as _Preview
@@ -337,24 +352,32 @@ class Pinecone:
             grpc (bool): If ``True``, return a :class:`~pinecone.grpc.GrpcIndex`
                 that routes data-plane operations over gRPC instead of HTTP.
                 Defaults to ``False``.
+            pool_threads (int | None): Maximum number of threads in the connection pool
+                used by the underlying HTTP client. Pass ``None`` to use the client-level
+                default set at :class:`Pinecone` construction time. Has no effect when
+                ``grpc=True``. Defaults to ``None``.
 
         Returns:
             A sync :class:`Index` (HTTP) or :class:`~pinecone.grpc.GrpcIndex`
             (gRPC) data plane client.
 
         Raises:
-            :exc:`PineconeValueError`: If neither *name* nor *host* is provided.
+            :exc:`PineconeValueError`: If neither ``name`` nor ``host`` is provided.
+            :exc:`~pinecone.errors.NotFoundError`: If ``name`` is given but no index with that
+                name exists.
 
         Examples:
 
             .. code-block:: python
 
-                pc = Pinecone(api_key="...")
-                idx = pc.index(host="my-index-abc123.svc.pinecone.io")
-                # or
-                idx = pc.index(name="my-index")
-                # gRPC transport
-                idx = pc.index(name="my-index", grpc=True)
+                from pinecone import Pinecone
+
+                pc = Pinecone(api_key="your-api-key")
+                idx = pc.index(host="product-search-abc123.svc.pinecone.io")
+                # or resolve the host by name
+                idx = pc.index(name="product-search")
+                # gRPC transport for high-throughput upserts
+                idx = pc.index(name="product-search", grpc=True)
         """
         resolved_host = self._resolve_index_host(name=name, host=host)
 
@@ -417,6 +440,12 @@ class Pinecone:
                 return cached_host
 
             desc = self.indexes.describe(name)
+            if desc.host is None:
+                raise ValidationError(
+                    f"Index {name!r} does not yet have a host assigned — "
+                    "the index may still be initializing. "
+                    "Wait until the index status is 'Ready' before connecting."
+                )
             self._host_cache[name] = desc.host
             return desc.host
 
@@ -428,9 +457,9 @@ class Pinecone:
         name: str,
         backup_id: str,
         deletion_protection: DeletionProtection | str | None = None,
-        tags: dict[str, str] | None = None,
+        tags: Mapping[str, str] | None = None,
         timeout: int | None = None,
-    ) -> IndexModel:
+    ) -> CreateIndexFromBackupResponse | IndexModel:
         """Create a new index by restoring from a backup.
 
         Sends a POST to ``/backups/{backup_id}/create-index`` and then
@@ -441,16 +470,21 @@ class Pinecone:
             backup_id (str): Identifier of the backup to restore from.
             deletion_protection (DeletionProtection | str | None): ``"enabled"`` or
                 ``"disabled"``. Defaults to ``"disabled"`` server-side when omitted.
-            tags (dict[str, str] | None): Optional key-value tags for the new index.
+            tags (Mapping[str, str] | None): Optional key-value tags for the new index.
             timeout (int | None): Seconds to wait for readiness. ``None`` (default)
-                blocks up to 300 s. ``-1`` returns immediately without polling.
+                blocks up to 300 s. ``-1`` returns a :class:`CreateIndexFromBackupResponse`
+                immediately (contains ``restore_job_id`` and ``index_id``) without polling.
 
         Returns:
-            An :class:`IndexModel` describing the restored index.
+            A :class:`CreateIndexFromBackupResponse` when *timeout* is ``-1`` (contains
+            ``restore_job_id`` and ``index_id``), or an :class:`IndexModel` describing
+            the restored index once it is ready.
 
         Raises:
             :exc:`PineconeValueError`: If *name* or *backup_id* is empty.
             :exc:`PineconeTimeoutError`: If the index is not ready within the timeout.
+            :exc:`IndexInitFailedError`: If the index enters ``InitializationFailed`` state.
+            :exc:`IndexTerminatedError`: If the index enters ``Terminating`` or ``Disabled`` state.
             :exc:`ApiError`: If the API returns an error response.
 
         Examples:
@@ -461,12 +495,12 @@ class Pinecone:
             ...     backup_id="bk-daily-20240115",
             ... )
 
-            >>> index = pc.create_index_from_backup(  # doctest: +SKIP
+            >>> result = pc.create_index_from_backup(  # doctest: +SKIP
             ...     name="product-search-restored",
             ...     backup_id="bk-daily-20240115",
-            ...     deletion_protection="enabled",
-            ...     tags={"env": "production", "team": "search"},
+            ...     timeout=-1,
             ... )
+            >>> print(result.restore_job_id)  # doctest: +SKIP
         """
         require_non_empty("name", name)
         require_non_empty("backup_id", backup_id)
@@ -485,17 +519,28 @@ class Pinecone:
         from pinecone._internal.adapters.backups_adapter import BackupsAdapter
 
         response = self._http.post(f"/backups/{backup_id}/create-index", json=body)
-        BackupsAdapter.to_create_index_from_backup_response(response.content)
+        create_response = BackupsAdapter.to_create_index_from_backup_response(response.content)
 
         if timeout == -1:
-            return self.indexes.describe(name)
+            return create_response
 
         effective_timeout = timeout if timeout is not None else 300
         return poll_index_until_ready(self.indexes.describe, name, effective_timeout)
 
     @property
     def config(self) -> PineconeConfig:
-        """The resolved configuration for this client."""
+        """Return the resolved configuration for this client.
+
+        Returns:
+            :class:`~pinecone._internal.config.PineconeConfig` containing the
+            resolved API key, host, timeout, and connection settings.
+
+        Examples:
+
+            >>> cfg = pc.config
+            >>> cfg.timeout
+            30.0
+        """
         return self._config
 
     # ---- Backcompat flat-method delegates (:meta private:) ----
@@ -509,12 +554,15 @@ class Pinecone:
         timeout: int | None = None,
         deletion_protection: DeletionProtection | str | None = "disabled",
         vector_type: VectorType | str = "dense",
-        tags: dict[str, str] | None = None,
+        tags: Mapping[str, str] | None = None,
+        schema: dict[str, Any] | None = None,
     ) -> IndexModel:
         """Backwards-compatibility shim for :meth:`Pinecone.indexes.create`.
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.indexes.create()`` instead of ``pc.create_index()``.
+
+        :meta private:
         """
         resolved_dp = deletion_protection if deletion_protection is not None else "disabled"
         return self.indexes.create(
@@ -525,6 +573,7 @@ class Pinecone:
             vector_type=vector_type,
             deletion_protection=resolved_dp,
             tags=tags,
+            schema=schema,
             timeout=timeout,
         )
 
@@ -534,18 +583,20 @@ class Pinecone:
         cloud: CloudProvider | str,
         region: AwsRegion | GcpRegion | AzureRegion | str,
         embed: IndexEmbed | EmbedConfig | dict[str, Any],
-        tags: dict[str, str] | None = None,
+        tags: Mapping[str, str] | None = None,
         deletion_protection: DeletionProtection | str | None = "disabled",
         read_capacity: dict[str, Any] | None = None,
         schema: dict[str, Any] | None = None,
         timeout: int | None = None,
     ) -> IndexModel:
-        """Backwards-compatibility shim for creating an integrated (model-backed) index.
+        """Backwards-compatibility shim for :meth:`Pinecone.indexes.create`.
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New
         code should use ``pc.indexes.create()`` with an ``IntegratedSpec``
         (``IntegratedSpec(cloud=..., region=..., embed=EmbedConfig(...))``)
         instead of ``pc.create_index_for_model()``.
+
+        :meta private:
         """
         from pinecone.inference.models.index_embed import IndexEmbed as _IndexEmbed
         from pinecone.models.indexes.specs import EmbedConfig as _EmbedConfig
@@ -574,6 +625,7 @@ class Pinecone:
             tags=tags,
             deletion_protection=resolved_dp,
             schema=schema,
+            read_capacity=read_capacity,
             timeout=timeout,
         )
 
@@ -582,6 +634,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.indexes.describe()`` instead of ``pc.describe_index()``.
+
+        :meta private:
         """
         return self.indexes.describe(name)
 
@@ -590,6 +644,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New
         code should use ``pc.indexes.list()`` instead of ``pc.list_indexes()``.
+
+        :meta private:
         """
         return self.indexes.list()
 
@@ -598,6 +654,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.indexes.exists()`` instead of ``pc.has_index()``.
+
+        :meta private:
         """
         return self.indexes.exists(name)
 
@@ -607,14 +665,34 @@ class Pinecone:
         replicas: int | None = None,
         pod_type: str | None = None,
         deletion_protection: DeletionProtection | str | None = None,
-        tags: dict[str, str] | None = None,
+        tags: Mapping[str, str] | None = None,
         embed: dict[str, Any] | None = None,
         read_capacity: dict[str, Any] | None = None,
+        serverless_read_capacity: dict[str, Any] | None = None,
     ) -> None:
         """Backwards-compatibility shim for :meth:`Pinecone.indexes.configure`.
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.indexes.configure()`` instead of ``pc.configure_index()``.
+
+        Args:
+            name (str): Name of the index to configure.
+            replicas (int | None): Number of replicas. Only applies to pod-based indexes.
+                Defaults to ``None`` (no change).
+            pod_type (str | None): Pod type (e.g. ``"p1.x1"``). Only applies to pod-based
+                indexes. Defaults to ``None`` (no change).
+            deletion_protection (DeletionProtection | str | None): Whether to enable deletion
+                protection (``"enabled"`` or ``"disabled"``). Defaults to ``None`` (no change).
+            tags (Mapping[str, str] | None): Key-value tags to apply to the index. Defaults to
+                ``None`` (no change).
+            embed (dict[str, Any] | None): Integrated inference embedding configuration.
+                Defaults to ``None`` (no change).
+            read_capacity (dict[str, Any] | None): Read capacity settings for the index.
+                Defaults to ``None`` (no change).
+            serverless_read_capacity (dict[str, Any] | None): Serverless read capacity settings.
+                Defaults to ``None`` (no change).
+
+        :meta private:
         """
         self.indexes.configure(
             name=name,
@@ -624,6 +702,7 @@ class Pinecone:
             tags=tags,
             embed=embed,
             read_capacity=read_capacity,
+            serverless_read_capacity=serverless_read_capacity,
         )
 
     def delete_index(self, name: str, timeout: int | None = None) -> None:
@@ -631,6 +710,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.indexes.delete()`` instead of ``pc.delete_index()``.
+
+        :meta private:
         """
         self.indexes.delete(name, timeout=timeout)
 
@@ -639,6 +720,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.collections.create()`` instead of ``pc.create_collection()``.
+
+        :meta private:
         """
         return self.collections.create(name=name, source=source)
 
@@ -647,6 +730,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.collections.list()`` instead of ``pc.list_collections()``.
+
+        :meta private:
         """
         return self.collections.list()
 
@@ -655,6 +740,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.collections.describe()`` instead of ``pc.describe_collection()``.
+
+        :meta private:
         """
         return self.collections.describe(name)
 
@@ -663,6 +750,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.collections.delete()`` instead of ``pc.delete_collection()``.
+
+        :meta private:
         """
         self.collections.delete(name)
 
@@ -671,12 +760,14 @@ class Pinecone:
         *,
         index_name: str,
         backup_name: str | None = None,
-        description: str = "",
+        description: str | None = None,
     ) -> BackupModel:
         """Backwards-compatibility shim for :meth:`Pinecone.backups.create`.
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.backups.create()`` instead of ``pc.create_backup()``.
+
+        :meta private:
         """
         return self.backups.create(
             index_name=index_name,
@@ -688,17 +779,19 @@ class Pinecone:
         self,
         *,
         index_name: str | None = None,
-        limit: int | None = 10,
+        limit: int | None = None,
         pagination_token: str | None = None,
     ) -> BackupList:
         """Backwards-compatibility shim for :meth:`Pinecone.backups.list`.
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.backups.list()`` instead of ``pc.list_backups()``.
+
+        :meta private:
         """
         return self.backups.list(
             index_name=index_name,
-            limit=limit if limit is not None else 10,
+            limit=limit,
             pagination_token=pagination_token,
         )
 
@@ -707,6 +800,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.backups.describe()`` instead of ``pc.describe_backup()``.
+
+        :meta private:
         """
         return self.backups.describe(backup_id=backup_id)
 
@@ -715,22 +810,26 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.backups.delete()`` instead of ``pc.delete_backup()``.
+
+        :meta private:
         """
         self.backups.delete(backup_id=backup_id)
 
     def list_restore_jobs(
         self,
         *,
-        limit: int | None = 10,
+        limit: int | None = None,
         pagination_token: str | None = None,
     ) -> RestoreJobList:
         """Backwards-compatibility shim for :meth:`Pinecone.restore_jobs.list`.
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.restore_jobs.list()`` instead of ``pc.list_restore_jobs()``.
+
+        :meta private:
         """
         return self.restore_jobs.list(
-            limit=limit if limit is not None else 10,
+            limit=limit,
             pagination_token=pagination_token,
         )
 
@@ -739,6 +838,8 @@ class Pinecone:
 
         Preserved to ease migration from the legacy Pinecone Python SDK. New code
         should use ``pc.restore_jobs.describe()`` instead of ``pc.describe_restore_job()``.
+
+        :meta private:
         """
         return self.restore_jobs.describe(job_id=job_id)
 
@@ -749,6 +850,8 @@ class Pinecone:
         should use ``pc.index(name=..., host=...)`` instead of ``pc.Index(...)``.
         Accepts a legacy ``pool_threads=`` kwarg and forwards it to size the
         ``async_req=True`` thread pool; other unknown kwargs raise ``TypeError``.
+
+        :meta private:
         """
         pool_threads = kwargs.pop("pool_threads", None)
         if kwargs:
@@ -766,6 +869,8 @@ class Pinecone:
         code should construct an :class:`AsyncPinecone` and call ``.index(host=...)``
         on it (or instantiate :class:`AsyncIndex` directly) instead of
         ``Pinecone.IndexAsyncio(...)``.
+
+        :meta private:
         """
         from pinecone.async_client.async_index import AsyncIndex as _AsyncIndex
 
@@ -783,7 +888,26 @@ class Pinecone:
         )
 
     def close(self) -> None:
-        """Close the underlying HTTP client."""
+        """Close all open HTTP connections.
+
+        Closes the main control-plane client and any namespace clients (inference,
+        assistants, preview) that were initialized during this session.
+
+        Prefer the context manager form (``with Pinecone(...) as pc:``) which calls
+        :meth:`close` automatically on exit.
+
+        Examples:
+            Close the client explicitly after use:
+
+            >>> from pinecone import Pinecone
+            >>> client = Pinecone(api_key="your-api-key")
+            >>> client.close()
+
+            Use Pinecone as a context manager (``close`` is called automatically):
+
+            >>> with Pinecone(api_key="your-api-key") as pinecone_client:
+            ...     _ = pinecone_client.indexes.list()
+        """
         self._http.close()
         if self._inference is not None:
             self._inference.close()

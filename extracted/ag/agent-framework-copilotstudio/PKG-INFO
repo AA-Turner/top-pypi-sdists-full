@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-copilotstudio
-Version: 1.0.0b260514
+Version: 1.0.0b260519
 Summary: Copilot Studio integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.4.0,<2
+Requires-Dist: agent-framework-core>=1.5.0,<2
 Requires-Dist: microsoft-agents-copilotstudio-client>=0.3.1,<0.3.2
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues

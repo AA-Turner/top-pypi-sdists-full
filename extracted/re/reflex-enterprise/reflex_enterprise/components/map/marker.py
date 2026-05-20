@@ -2,11 +2,11 @@
 
 from reflex.vars.base import Var
 
-from .base import BaseLeafletComponent
-from .types import LatLng
+from .base import InteractiveLeafletLayer
+from .types import LatLng, MouseEvent  # noqa: F401
 
 
-class Marker(BaseLeafletComponent):
+class Marker(InteractiveLeafletLayer):
     """Marker component for displaying a marker on a map."""
 
     tag = "Marker"

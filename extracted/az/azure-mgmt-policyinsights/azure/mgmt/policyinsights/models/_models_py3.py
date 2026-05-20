@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 # coding=utf-8
 # --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
@@ -6,88 +7,102 @@
 # Changes may cause incorrect behavior and will be lost if the code is regenerated.
 # --------------------------------------------------------------------------
 
+from collections.abc import MutableMapping
 import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Optional, TYPE_CHECKING, Union
 
-from azure.core.exceptions import HttpResponseError
-import msrest.serialization
+from .._utils import serialization as _serialization
 
-from ._policy_insights_client_enums import *
+if TYPE_CHECKING:
+    from .. import models as _models
+JSON = MutableMapping[str, Any]
 
 
-class CheckRestrictionsRequest(msrest.serialization.Model):
+class CheckRestrictionsRequest(_serialization.Model):
     """The check policy restrictions parameters describing the resource that is being evaluated.
 
-    All required parameters must be populated in order to send to Azure.
+    All required parameters must be populated in order to send to server.
 
-    :param resource_details: Required. The information about the resource that will be evaluated.
-    :type resource_details: ~azure.mgmt.policyinsights.models.CheckRestrictionsResourceDetails
-    :param pending_fields: The list of fields and values that should be evaluated for potential
+    :ivar resource_details: The information about the resource that will be evaluated. Required.
+    :vartype resource_details: ~azure.mgmt.policyinsights.models.CheckRestrictionsResourceDetails
+    :ivar pending_fields: The list of fields and values that should be evaluated for potential
      restrictions.
-    :type pending_fields: list[~azure.mgmt.policyinsights.models.PendingField]
+    :vartype pending_fields: list[~azure.mgmt.policyinsights.models.PendingField]
     """
 
     _validation = {
-        'resource_details': {'required': True},
+        "resource_details": {"required": True},
     }
 
     _attribute_map = {
-        'resource_details': {'key': 'resourceDetails', 'type': 'CheckRestrictionsResourceDetails'},
-        'pending_fields': {'key': 'pendingFields', 'type': '[PendingField]'},
+        "resource_details": {"key": "resourceDetails", "type": "CheckRestrictionsResourceDetails"},
+        "pending_fields": {"key": "pendingFields", "type": "[PendingField]"},
     }
 
     def __init__(
         self,
         *,
-        resource_details: "CheckRestrictionsResourceDetails",
-        pending_fields: Optional[List["PendingField"]] = None,
-        **kwargs
-    ):
-        super(CheckRestrictionsRequest, self).__init__(**kwargs)
+        resource_details: "_models.CheckRestrictionsResourceDetails",
+        pending_fields: Optional[list["_models.PendingField"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword resource_details: The information about the resource that will be evaluated. Required.
+        :paramtype resource_details: ~azure.mgmt.policyinsights.models.CheckRestrictionsResourceDetails
+        :keyword pending_fields: The list of fields and values that should be evaluated for potential
+         restrictions.
+        :paramtype pending_fields: list[~azure.mgmt.policyinsights.models.PendingField]
+        """
+        super().__init__(**kwargs)
         self.resource_details = resource_details
         self.pending_fields = pending_fields
 
 
-class CheckRestrictionsResourceDetails(msrest.serialization.Model):
+class CheckRestrictionsResourceDetails(_serialization.Model):
     """The information about the resource that will be evaluated.
 
-    All required parameters must be populated in order to send to Azure.
+    All required parameters must be populated in order to send to server.
 
-    :param resource_content: Required. The resource content. This should include whatever
-     properties are already known and can be a partial set of all resource properties.
-    :type resource_content: object
-    :param api_version: The api-version of the resource content.
-    :type api_version: str
-    :param scope: The scope where the resource is being created. For example, if the resource is a
+    :ivar resource_content: The resource content. This should include whatever properties are
+     already known and can be a partial set of all resource properties. Required.
+    :vartype resource_content: JSON
+    :ivar api_version: The api-version of the resource content.
+    :vartype api_version: str
+    :ivar scope: The scope where the resource is being created. For example, if the resource is a
      child resource this would be the parent resource's resource ID.
-    :type scope: str
+    :vartype scope: str
     """
 
     _validation = {
-        'resource_content': {'required': True},
+        "resource_content": {"required": True},
     }
 
     _attribute_map = {
-        'resource_content': {'key': 'resourceContent', 'type': 'object'},
-        'api_version': {'key': 'apiVersion', 'type': 'str'},
-        'scope': {'key': 'scope', 'type': 'str'},
+        "resource_content": {"key": "resourceContent", "type": "object"},
+        "api_version": {"key": "apiVersion", "type": "str"},
+        "scope": {"key": "scope", "type": "str"},
     }
 
     def __init__(
-        self,
-        *,
-        resource_content: object,
-        api_version: Optional[str] = None,
-        scope: Optional[str] = None,
-        **kwargs
-    ):
-        super(CheckRestrictionsResourceDetails, self).__init__(**kwargs)
+        self, *, resource_content: JSON, api_version: Optional[str] = None, scope: Optional[str] = None, **kwargs: Any
+    ) -> None:
+        """
+        :keyword resource_content: The resource content. This should include whatever properties are
+         already known and can be a partial set of all resource properties. Required.
+        :paramtype resource_content: JSON
+        :keyword api_version: The api-version of the resource content.
+        :paramtype api_version: str
+        :keyword scope: The scope where the resource is being created. For example, if the resource is
+         a child resource this would be the parent resource's resource ID.
+        :paramtype scope: str
+        """
+        super().__init__(**kwargs)
         self.resource_content = resource_content
         self.api_version = api_version
         self.scope = scope
 
 
-class CheckRestrictionsResult(msrest.serialization.Model):
+class CheckRestrictionsResult(_serialization.Model):
     """The result of a check policy restrictions evaluation on a resource.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -101,120 +116,143 @@ class CheckRestrictionsResult(msrest.serialization.Model):
     """
 
     _validation = {
-        'field_restrictions': {'readonly': True},
-        'content_evaluation_result': {'readonly': True},
+        "field_restrictions": {"readonly": True},
+        "content_evaluation_result": {"readonly": True},
     }
 
     _attribute_map = {
-        'field_restrictions': {'key': 'fieldRestrictions', 'type': '[FieldRestrictions]'},
-        'content_evaluation_result': {'key': 'contentEvaluationResult', 'type': 'CheckRestrictionsResultContentEvaluationResult'},
+        "field_restrictions": {"key": "fieldRestrictions", "type": "[FieldRestrictions]"},
+        "content_evaluation_result": {
+            "key": "contentEvaluationResult",
+            "type": "CheckRestrictionsResultContentEvaluationResult",
+        },
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(CheckRestrictionsResult, self).__init__(**kwargs)
-        self.field_restrictions = None
-        self.content_evaluation_result = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.field_restrictions: Optional[list["_models.FieldRestrictions"]] = None
+        self.content_evaluation_result: Optional["_models.CheckRestrictionsResultContentEvaluationResult"] = None
 
 
-class CheckRestrictionsResultContentEvaluationResult(msrest.serialization.Model):
+class CheckRestrictionsResultContentEvaluationResult(_serialization.Model):  # pylint: disable=name-too-long
     """Evaluation results for the provided partial resource content.
 
-    :param policy_evaluations: Policy evaluation results against the given resource content. This
+    :ivar policy_evaluations: Policy evaluation results against the given resource content. This
      will indicate if the partial content that was provided will be denied as-is.
-    :type policy_evaluations: list[~azure.mgmt.policyinsights.models.PolicyEvaluationResult]
+    :vartype policy_evaluations: list[~azure.mgmt.policyinsights.models.PolicyEvaluationResult]
     """
 
     _attribute_map = {
-        'policy_evaluations': {'key': 'policyEvaluations', 'type': '[PolicyEvaluationResult]'},
+        "policy_evaluations": {"key": "policyEvaluations", "type": "[PolicyEvaluationResult]"},
     }
 
     def __init__(
-        self,
-        *,
-        policy_evaluations: Optional[List["PolicyEvaluationResult"]] = None,
-        **kwargs
-    ):
-        super(CheckRestrictionsResultContentEvaluationResult, self).__init__(**kwargs)
+        self, *, policy_evaluations: Optional[list["_models.PolicyEvaluationResult"]] = None, **kwargs: Any
+    ) -> None:
+        """
+        :keyword policy_evaluations: Policy evaluation results against the given resource content. This
+         will indicate if the partial content that was provided will be denied as-is.
+        :paramtype policy_evaluations: list[~azure.mgmt.policyinsights.models.PolicyEvaluationResult]
+        """
+        super().__init__(**kwargs)
         self.policy_evaluations = policy_evaluations
 
 
-class ComplianceDetail(msrest.serialization.Model):
+class ComplianceDetail(_serialization.Model):
     """The compliance state rollup.
 
-    :param compliance_state: The compliance state.
-    :type compliance_state: str
-    :param count: Summarized count value for this compliance state.
-    :type count: int
+    :ivar compliance_state: The compliance state.
+    :vartype compliance_state: str
+    :ivar count: Summarized count value for this compliance state.
+    :vartype count: int
     """
 
     _attribute_map = {
-        'compliance_state': {'key': 'complianceState', 'type': 'str'},
-        'count': {'key': 'count', 'type': 'int'},
+        "compliance_state": {"key": "complianceState", "type": "str"},
+        "count": {"key": "count", "type": "int"},
     }
 
-    def __init__(
-        self,
-        *,
-        compliance_state: Optional[str] = None,
-        count: Optional[int] = None,
-        **kwargs
-    ):
-        super(ComplianceDetail, self).__init__(**kwargs)
+    def __init__(self, *, compliance_state: Optional[str] = None, count: Optional[int] = None, **kwargs: Any) -> None:
+        """
+        :keyword compliance_state: The compliance state.
+        :paramtype compliance_state: str
+        :keyword count: Summarized count value for this compliance state.
+        :paramtype count: int
+        """
+        super().__init__(**kwargs)
         self.compliance_state = compliance_state
         self.count = count
 
 
-class ComponentEventDetails(msrest.serialization.Model):
+class ComponentEventDetails(_serialization.Model):
     """Component event details.
 
-    :param additional_properties: Unmatched properties from the message are deserialized to this
+    :ivar additional_properties: Unmatched properties from the message are deserialized to this
      collection.
-    :type additional_properties: dict[str, object]
-    :param id: Component Id.
-    :type id: str
-    :param type: Component type.
-    :type type: str
-    :param name: Component name.
-    :type name: str
-    :param timestamp: Timestamp for component policy event record.
-    :type timestamp: ~datetime.datetime
-    :param tenant_id: Tenant ID for the policy event record.
-    :type tenant_id: str
-    :param principal_oid: Principal object ID for the user who initiated the resource component
+    :vartype additional_properties: dict[str, any]
+    :ivar id: Component Id.
+    :vartype id: str
+    :ivar type: Component type.
+    :vartype type: str
+    :ivar name: Component name.
+    :vartype name: str
+    :ivar timestamp: Timestamp for component policy event record.
+    :vartype timestamp: ~datetime.datetime
+    :ivar tenant_id: Tenant ID for the policy event record.
+    :vartype tenant_id: str
+    :ivar principal_oid: Principal object ID for the user who initiated the resource component
      operation that triggered the policy event.
-    :type principal_oid: str
-    :param policy_definition_action: Policy definition action, i.e. effect.
-    :type policy_definition_action: str
+    :vartype principal_oid: str
+    :ivar policy_definition_action: Policy definition action, i.e. effect.
+    :vartype policy_definition_action: str
     """
 
     _attribute_map = {
-        'additional_properties': {'key': '', 'type': '{object}'},
-        'id': {'key': 'id', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'timestamp': {'key': 'timestamp', 'type': 'iso-8601'},
-        'tenant_id': {'key': 'tenantId', 'type': 'str'},
-        'principal_oid': {'key': 'principalOid', 'type': 'str'},
-        'policy_definition_action': {'key': 'policyDefinitionAction', 'type': 'str'},
+        "additional_properties": {"key": "", "type": "{object}"},
+        "id": {"key": "id", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "timestamp": {"key": "timestamp", "type": "iso-8601"},
+        "tenant_id": {"key": "tenantId", "type": "str"},
+        "principal_oid": {"key": "principalOid", "type": "str"},
+        "policy_definition_action": {"key": "policyDefinitionAction", "type": "str"},
     }
 
     def __init__(
         self,
         *,
-        additional_properties: Optional[Dict[str, object]] = None,
-        id: Optional[str] = None,
+        additional_properties: Optional[dict[str, Any]] = None,
+        id: Optional[str] = None,  # pylint: disable=redefined-builtin
         type: Optional[str] = None,
         name: Optional[str] = None,
         timestamp: Optional[datetime.datetime] = None,
         tenant_id: Optional[str] = None,
         principal_oid: Optional[str] = None,
         policy_definition_action: Optional[str] = None,
-        **kwargs
-    ):
-        super(ComponentEventDetails, self).__init__(**kwargs)
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword additional_properties: Unmatched properties from the message are deserialized to this
+         collection.
+        :paramtype additional_properties: dict[str, any]
+        :keyword id: Component Id.
+        :paramtype id: str
+        :keyword type: Component type.
+        :paramtype type: str
+        :keyword name: Component name.
+        :paramtype name: str
+        :keyword timestamp: Timestamp for component policy event record.
+        :paramtype timestamp: ~datetime.datetime
+        :keyword tenant_id: Tenant ID for the policy event record.
+        :paramtype tenant_id: str
+        :keyword principal_oid: Principal object ID for the user who initiated the resource component
+         operation that triggered the policy event.
+        :paramtype principal_oid: str
+        :keyword policy_definition_action: Policy definition action, i.e. effect.
+        :paramtype policy_definition_action: str
+        """
+        super().__init__(**kwargs)
         self.additional_properties = additional_properties
         self.id = id
         self.type = type
@@ -225,45 +263,60 @@ class ComponentEventDetails(msrest.serialization.Model):
         self.policy_definition_action = policy_definition_action
 
 
-class ComponentStateDetails(msrest.serialization.Model):
+class ComponentStateDetails(_serialization.Model):
     """Component state details.
 
-    :param additional_properties: Unmatched properties from the message are deserialized to this
+    :ivar additional_properties: Unmatched properties from the message are deserialized to this
      collection.
-    :type additional_properties: dict[str, object]
-    :param id: Component Id.
-    :type id: str
-    :param type: Component type.
-    :type type: str
-    :param name: Component name.
-    :type name: str
-    :param timestamp: Component compliance evaluation timestamp.
-    :type timestamp: ~datetime.datetime
-    :param compliance_state: Component compliance state.
-    :type compliance_state: str
+    :vartype additional_properties: dict[str, any]
+    :ivar id: Component Id.
+    :vartype id: str
+    :ivar type: Component type.
+    :vartype type: str
+    :ivar name: Component name.
+    :vartype name: str
+    :ivar timestamp: Component compliance evaluation timestamp.
+    :vartype timestamp: ~datetime.datetime
+    :ivar compliance_state: Component compliance state.
+    :vartype compliance_state: str
     """
 
     _attribute_map = {
-        'additional_properties': {'key': '', 'type': '{object}'},
-        'id': {'key': 'id', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'timestamp': {'key': 'timestamp', 'type': 'iso-8601'},
-        'compliance_state': {'key': 'complianceState', 'type': 'str'},
+        "additional_properties": {"key": "", "type": "{object}"},
+        "id": {"key": "id", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "timestamp": {"key": "timestamp", "type": "iso-8601"},
+        "compliance_state": {"key": "complianceState", "type": "str"},
     }
 
     def __init__(
         self,
         *,
-        additional_properties: Optional[Dict[str, object]] = None,
-        id: Optional[str] = None,
+        additional_properties: Optional[dict[str, Any]] = None,
+        id: Optional[str] = None,  # pylint: disable=redefined-builtin
         type: Optional[str] = None,
         name: Optional[str] = None,
         timestamp: Optional[datetime.datetime] = None,
         compliance_state: Optional[str] = None,
-        **kwargs
-    ):
-        super(ComponentStateDetails, self).__init__(**kwargs)
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword additional_properties: Unmatched properties from the message are deserialized to this
+         collection.
+        :paramtype additional_properties: dict[str, any]
+        :keyword id: Component Id.
+        :paramtype id: str
+        :keyword type: Component type.
+        :paramtype type: str
+        :keyword name: Component name.
+        :paramtype name: str
+        :keyword timestamp: Component compliance evaluation timestamp.
+        :paramtype timestamp: ~datetime.datetime
+        :keyword compliance_state: Component compliance state.
+        :paramtype compliance_state: str
+        """
+        super().__init__(**kwargs)
         self.additional_properties = additional_properties
         self.id = id
         self.type = type
@@ -272,7 +325,7 @@ class ComponentStateDetails(msrest.serialization.Model):
         self.compliance_state = compliance_state
 
 
-class ErrorDefinition(msrest.serialization.Model):
+class ErrorDefinition(_serialization.Model):
     """Error definition.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -290,34 +343,32 @@ class ErrorDefinition(msrest.serialization.Model):
     """
 
     _validation = {
-        'code': {'readonly': True},
-        'message': {'readonly': True},
-        'target': {'readonly': True},
-        'details': {'readonly': True},
-        'additional_info': {'readonly': True},
+        "code": {"readonly": True},
+        "message": {"readonly": True},
+        "target": {"readonly": True},
+        "details": {"readonly": True},
+        "additional_info": {"readonly": True},
     }
 
     _attribute_map = {
-        'code': {'key': 'code', 'type': 'str'},
-        'message': {'key': 'message', 'type': 'str'},
-        'target': {'key': 'target', 'type': 'str'},
-        'details': {'key': 'details', 'type': '[ErrorDefinition]'},
-        'additional_info': {'key': 'additionalInfo', 'type': '[TypedErrorInfo]'},
+        "code": {"key": "code", "type": "str"},
+        "message": {"key": "message", "type": "str"},
+        "target": {"key": "target", "type": "str"},
+        "details": {"key": "details", "type": "[ErrorDefinition]"},
+        "additional_info": {"key": "additionalInfo", "type": "[TypedErrorInfo]"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(ErrorDefinition, self).__init__(**kwargs)
-        self.code = None
-        self.message = None
-        self.target = None
-        self.details = None
-        self.additional_info = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.code: Optional[str] = None
+        self.message: Optional[str] = None
+        self.target: Optional[str] = None
+        self.details: Optional[list["_models.ErrorDefinition"]] = None
+        self.additional_info: Optional[list["_models.TypedErrorInfo"]] = None
 
 
-class ErrorDefinitionAutoGenerated(msrest.serialization.Model):
+class ErrorDefinitionAutoGenerated(_serialization.Model):
     """Error definition.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -335,108 +386,104 @@ class ErrorDefinitionAutoGenerated(msrest.serialization.Model):
     """
 
     _validation = {
-        'code': {'readonly': True},
-        'message': {'readonly': True},
-        'target': {'readonly': True},
-        'details': {'readonly': True},
-        'additional_info': {'readonly': True},
+        "code": {"readonly": True},
+        "message": {"readonly": True},
+        "target": {"readonly": True},
+        "details": {"readonly": True},
+        "additional_info": {"readonly": True},
     }
 
     _attribute_map = {
-        'code': {'key': 'code', 'type': 'str'},
-        'message': {'key': 'message', 'type': 'str'},
-        'target': {'key': 'target', 'type': 'str'},
-        'details': {'key': 'details', 'type': '[ErrorDefinitionAutoGenerated]'},
-        'additional_info': {'key': 'additionalInfo', 'type': '[TypedErrorInfo]'},
+        "code": {"key": "code", "type": "str"},
+        "message": {"key": "message", "type": "str"},
+        "target": {"key": "target", "type": "str"},
+        "details": {"key": "details", "type": "[ErrorDefinitionAutoGenerated]"},
+        "additional_info": {"key": "additionalInfo", "type": "[TypedErrorInfo]"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(ErrorDefinitionAutoGenerated, self).__init__(**kwargs)
-        self.code = None
-        self.message = None
-        self.target = None
-        self.details = None
-        self.additional_info = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.code: Optional[str] = None
+        self.message: Optional[str] = None
+        self.target: Optional[str] = None
+        self.details: Optional[list["_models.ErrorDefinitionAutoGenerated"]] = None
+        self.additional_info: Optional[list["_models.TypedErrorInfo"]] = None
 
 
-class ErrorResponse(msrest.serialization.Model):
+class ErrorResponse(_serialization.Model):
     """Error response.
 
-    :param error: The error details.
-    :type error: ~azure.mgmt.policyinsights.models.ErrorDefinition
+    :ivar error: The error details.
+    :vartype error: ~azure.mgmt.policyinsights.models.ErrorDefinition
     """
 
     _attribute_map = {
-        'error': {'key': 'error', 'type': 'ErrorDefinition'},
+        "error": {"key": "error", "type": "ErrorDefinition"},
     }
 
-    def __init__(
-        self,
-        *,
-        error: Optional["ErrorDefinition"] = None,
-        **kwargs
-    ):
-        super(ErrorResponse, self).__init__(**kwargs)
+    def __init__(self, *, error: Optional["_models.ErrorDefinition"] = None, **kwargs: Any) -> None:
+        """
+        :keyword error: The error details.
+        :paramtype error: ~azure.mgmt.policyinsights.models.ErrorDefinition
+        """
+        super().__init__(**kwargs)
         self.error = error
 
 
-class ErrorResponseAutoGenerated(msrest.serialization.Model):
+class ErrorResponseAutoGenerated(_serialization.Model):
     """Error response.
 
-    :param error: The error details.
-    :type error: ~azure.mgmt.policyinsights.models.ErrorDefinitionAutoGenerated
+    :ivar error: The error details.
+    :vartype error: ~azure.mgmt.policyinsights.models.ErrorDefinitionAutoGenerated
     """
 
     _attribute_map = {
-        'error': {'key': 'error', 'type': 'ErrorDefinitionAutoGenerated'},
+        "error": {"key": "error", "type": "ErrorDefinitionAutoGenerated"},
     }
 
-    def __init__(
-        self,
-        *,
-        error: Optional["ErrorDefinitionAutoGenerated"] = None,
-        **kwargs
-    ):
-        super(ErrorResponseAutoGenerated, self).__init__(**kwargs)
+    def __init__(self, *, error: Optional["_models.ErrorDefinitionAutoGenerated"] = None, **kwargs: Any) -> None:
+        """
+        :keyword error: The error details.
+        :paramtype error: ~azure.mgmt.policyinsights.models.ErrorDefinitionAutoGenerated
+        """
+        super().__init__(**kwargs)
         self.error = error
 
 
-class ExpressionEvaluationDetails(msrest.serialization.Model):
+class ExpressionEvaluationDetails(_serialization.Model):
     """Evaluation details of policy language expressions.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
-    :param result: Evaluation result.
-    :type result: str
-    :param expression: Expression evaluated.
-    :type expression: str
+    :ivar result: Evaluation result.
+    :vartype result: str
+    :ivar expression: Expression evaluated.
+    :vartype expression: str
     :ivar expression_kind: The kind of expression that was evaluated.
     :vartype expression_kind: str
-    :param path: Property path if the expression is a field or an alias.
-    :type path: str
-    :param expression_value: Value of the expression.
-    :type expression_value: object
-    :param target_value: Target value to be compared with the expression value.
-    :type target_value: object
-    :param operator: Operator to compare the expression value and the target value.
-    :type operator: str
+    :ivar path: Property path if the expression is a field or an alias.
+    :vartype path: str
+    :ivar expression_value: Value of the expression.
+    :vartype expression_value: JSON
+    :ivar target_value: Target value to be compared with the expression value.
+    :vartype target_value: JSON
+    :ivar operator: Operator to compare the expression value and the target value.
+    :vartype operator: str
     """
 
     _validation = {
-        'expression_kind': {'readonly': True},
+        "expression_kind": {"readonly": True},
     }
 
     _attribute_map = {
-        'result': {'key': 'result', 'type': 'str'},
-        'expression': {'key': 'expression', 'type': 'str'},
-        'expression_kind': {'key': 'expressionKind', 'type': 'str'},
-        'path': {'key': 'path', 'type': 'str'},
-        'expression_value': {'key': 'expressionValue', 'type': 'object'},
-        'target_value': {'key': 'targetValue', 'type': 'object'},
-        'operator': {'key': 'operator', 'type': 'str'},
+        "result": {"key": "result", "type": "str"},
+        "expression": {"key": "expression", "type": "str"},
+        "expression_kind": {"key": "expressionKind", "type": "str"},
+        "path": {"key": "path", "type": "str"},
+        "expression_value": {"key": "expressionValue", "type": "object"},
+        "target_value": {"key": "targetValue", "type": "object"},
+        "operator": {"key": "operator", "type": "str"},
     }
 
     def __init__(
@@ -445,28 +492,42 @@ class ExpressionEvaluationDetails(msrest.serialization.Model):
         result: Optional[str] = None,
         expression: Optional[str] = None,
         path: Optional[str] = None,
-        expression_value: Optional[object] = None,
-        target_value: Optional[object] = None,
+        expression_value: Optional[JSON] = None,
+        target_value: Optional[JSON] = None,
         operator: Optional[str] = None,
-        **kwargs
-    ):
-        super(ExpressionEvaluationDetails, self).__init__(**kwargs)
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword result: Evaluation result.
+        :paramtype result: str
+        :keyword expression: Expression evaluated.
+        :paramtype expression: str
+        :keyword path: Property path if the expression is a field or an alias.
+        :paramtype path: str
+        :keyword expression_value: Value of the expression.
+        :paramtype expression_value: JSON
+        :keyword target_value: Target value to be compared with the expression value.
+        :paramtype target_value: JSON
+        :keyword operator: Operator to compare the expression value and the target value.
+        :paramtype operator: str
+        """
+        super().__init__(**kwargs)
         self.result = result
         self.expression = expression
-        self.expression_kind = None
+        self.expression_kind: Optional[str] = None
         self.path = path
         self.expression_value = expression_value
         self.target_value = target_value
         self.operator = operator
 
 
-class FieldRestriction(msrest.serialization.Model):
+class FieldRestriction(_serialization.Model):
     """The restrictions on a field imposed by a specific policy.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
-    :ivar result: The type of restriction that is imposed on the field. Possible values include:
-     "Required", "Removed", "Deny".
+    :ivar result: The type of restriction that is imposed on the field. Known values are:
+     "Required", "Removed", and "Deny".
     :vartype result: str or ~azure.mgmt.policyinsights.models.FieldRestrictionResult
     :ivar default_value: The value that policy will set for the field if the user does not provide
      a value.
@@ -478,31 +539,29 @@ class FieldRestriction(msrest.serialization.Model):
     """
 
     _validation = {
-        'result': {'readonly': True},
-        'default_value': {'readonly': True},
-        'values': {'readonly': True},
-        'policy': {'readonly': True},
+        "result": {"readonly": True},
+        "default_value": {"readonly": True},
+        "values": {"readonly": True},
+        "policy": {"readonly": True},
     }
 
     _attribute_map = {
-        'result': {'key': 'result', 'type': 'str'},
-        'default_value': {'key': 'defaultValue', 'type': 'str'},
-        'values': {'key': 'values', 'type': '[str]'},
-        'policy': {'key': 'policy', 'type': 'PolicyReference'},
+        "result": {"key": "result", "type": "str"},
+        "default_value": {"key": "defaultValue", "type": "str"},
+        "values": {"key": "values", "type": "[str]"},
+        "policy": {"key": "policy", "type": "PolicyReference"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(FieldRestriction, self).__init__(**kwargs)
-        self.result = None
-        self.default_value = None
-        self.values = None
-        self.policy = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.result: Optional[Union[str, "_models.FieldRestrictionResult"]] = None
+        self.default_value: Optional[str] = None
+        self.values: Optional[list[str]] = None
+        self.policy: Optional["_models.PolicyReference"] = None
 
 
-class FieldRestrictions(msrest.serialization.Model):
+class FieldRestrictions(_serialization.Model):
     """The restrictions that will be placed on a field in the resource by policy.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -510,101 +569,105 @@ class FieldRestrictions(msrest.serialization.Model):
     :ivar field: The name of the field. This can be a top-level property like 'name' or 'type' or
      an Azure Policy field alias.
     :vartype field: str
-    :param restrictions: The restrictions placed on that field by policy.
-    :type restrictions: list[~azure.mgmt.policyinsights.models.FieldRestriction]
+    :ivar restrictions: The restrictions placed on that field by policy.
+    :vartype restrictions: list[~azure.mgmt.policyinsights.models.FieldRestriction]
     """
 
     _validation = {
-        'field': {'readonly': True},
+        "field": {"readonly": True},
     }
 
     _attribute_map = {
-        'field': {'key': 'field', 'type': 'str'},
-        'restrictions': {'key': 'restrictions', 'type': '[FieldRestriction]'},
+        "field": {"key": "field", "type": "str"},
+        "restrictions": {"key": "restrictions", "type": "[FieldRestriction]"},
     }
 
-    def __init__(
-        self,
-        *,
-        restrictions: Optional[List["FieldRestriction"]] = None,
-        **kwargs
-    ):
-        super(FieldRestrictions, self).__init__(**kwargs)
-        self.field = None
+    def __init__(self, *, restrictions: Optional[list["_models.FieldRestriction"]] = None, **kwargs: Any) -> None:
+        """
+        :keyword restrictions: The restrictions placed on that field by policy.
+        :paramtype restrictions: list[~azure.mgmt.policyinsights.models.FieldRestriction]
+        """
+        super().__init__(**kwargs)
+        self.field: Optional[str] = None
         self.restrictions = restrictions
 
 
-class IfNotExistsEvaluationDetails(msrest.serialization.Model):
+class IfNotExistsEvaluationDetails(_serialization.Model):
     """Evaluation details of IfNotExists effect.
 
-    :param resource_id: ID of the last evaluated resource for IfNotExists effect.
-    :type resource_id: str
-    :param total_resources: Total number of resources to which the existence condition is
+    :ivar resource_id: ID of the last evaluated resource for IfNotExists effect.
+    :vartype resource_id: str
+    :ivar total_resources: Total number of resources to which the existence condition is
      applicable.
-    :type total_resources: int
+    :vartype total_resources: int
     """
 
     _attribute_map = {
-        'resource_id': {'key': 'resourceId', 'type': 'str'},
-        'total_resources': {'key': 'totalResources', 'type': 'int'},
+        "resource_id": {"key": "resourceId", "type": "str"},
+        "total_resources": {"key": "totalResources", "type": "int"},
     }
 
     def __init__(
-        self,
-        *,
-        resource_id: Optional[str] = None,
-        total_resources: Optional[int] = None,
-        **kwargs
-    ):
-        super(IfNotExistsEvaluationDetails, self).__init__(**kwargs)
+        self, *, resource_id: Optional[str] = None, total_resources: Optional[int] = None, **kwargs: Any
+    ) -> None:
+        """
+        :keyword resource_id: ID of the last evaluated resource for IfNotExists effect.
+        :paramtype resource_id: str
+        :keyword total_resources: Total number of resources to which the existence condition is
+         applicable.
+        :paramtype total_resources: int
+        """
+        super().__init__(**kwargs)
         self.resource_id = resource_id
         self.total_resources = total_resources
 
 
-class Operation(msrest.serialization.Model):
+class Operation(_serialization.Model):
     """Operation definition.
 
-    :param name: Operation name.
-    :type name: str
-    :param display: Display metadata associated with the operation.
-    :type display: ~azure.mgmt.policyinsights.models.OperationDisplay
+    :ivar name: Operation name.
+    :vartype name: str
+    :ivar display: Display metadata associated with the operation.
+    :vartype display: ~azure.mgmt.policyinsights.models.OperationDisplay
     """
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'display': {'key': 'display', 'type': 'OperationDisplay'},
+        "name": {"key": "name", "type": "str"},
+        "display": {"key": "display", "type": "OperationDisplay"},
     }
 
     def __init__(
-        self,
-        *,
-        name: Optional[str] = None,
-        display: Optional["OperationDisplay"] = None,
-        **kwargs
-    ):
-        super(Operation, self).__init__(**kwargs)
+        self, *, name: Optional[str] = None, display: Optional["_models.OperationDisplay"] = None, **kwargs: Any
+    ) -> None:
+        """
+        :keyword name: Operation name.
+        :paramtype name: str
+        :keyword display: Display metadata associated with the operation.
+        :paramtype display: ~azure.mgmt.policyinsights.models.OperationDisplay
+        """
+        super().__init__(**kwargs)
         self.name = name
         self.display = display
 
 
-class OperationDisplay(msrest.serialization.Model):
+class OperationDisplay(_serialization.Model):
     """Display metadata associated with the operation.
 
-    :param provider: Resource provider name.
-    :type provider: str
-    :param resource: Resource name on which the operation is performed.
-    :type resource: str
-    :param operation: Operation name.
-    :type operation: str
-    :param description: Operation description.
-    :type description: str
+    :ivar provider: Resource provider name.
+    :vartype provider: str
+    :ivar resource: Resource name on which the operation is performed.
+    :vartype resource: str
+    :ivar operation: Operation name.
+    :vartype operation: str
+    :ivar description: Operation description.
+    :vartype description: str
     """
 
     _attribute_map = {
-        'provider': {'key': 'provider', 'type': 'str'},
-        'resource': {'key': 'resource', 'type': 'str'},
-        'operation': {'key': 'operation', 'type': 'str'},
-        'description': {'key': 'description', 'type': 'str'},
+        "provider": {"key": "provider", "type": "str"},
+        "resource": {"key": "resource", "type": "str"},
+        "operation": {"key": "operation", "type": "str"},
+        "description": {"key": "description", "type": "str"},
     }
 
     def __init__(
@@ -614,101 +677,115 @@ class OperationDisplay(msrest.serialization.Model):
         resource: Optional[str] = None,
         operation: Optional[str] = None,
         description: Optional[str] = None,
-        **kwargs
-    ):
-        super(OperationDisplay, self).__init__(**kwargs)
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword provider: Resource provider name.
+        :paramtype provider: str
+        :keyword resource: Resource name on which the operation is performed.
+        :paramtype resource: str
+        :keyword operation: Operation name.
+        :paramtype operation: str
+        :keyword description: Operation description.
+        :paramtype description: str
+        """
+        super().__init__(**kwargs)
         self.provider = provider
         self.resource = resource
         self.operation = operation
         self.description = description
 
 
-class OperationsListResults(msrest.serialization.Model):
+class OperationsListResults(_serialization.Model):
     """List of available operations.
 
-    :param odata_count: OData entity count; represents the number of operations returned.
-    :type odata_count: int
-    :param value: List of available operations.
-    :type value: list[~azure.mgmt.policyinsights.models.Operation]
+    :ivar odata_count: OData entity count; represents the number of operations returned.
+    :vartype odata_count: int
+    :ivar value: List of available operations.
+    :vartype value: list[~azure.mgmt.policyinsights.models.Operation]
     """
 
     _validation = {
-        'odata_count': {'minimum': 1},
+        "odata_count": {"minimum": 1},
     }
 
     _attribute_map = {
-        'odata_count': {'key': '@odata\\.count', 'type': 'int'},
-        'value': {'key': 'value', 'type': '[Operation]'},
+        "odata_count": {"key": "@odata\\.count", "type": "int"},
+        "value": {"key": "value", "type": "[Operation]"},
     }
 
     def __init__(
-        self,
-        *,
-        odata_count: Optional[int] = None,
-        value: Optional[List["Operation"]] = None,
-        **kwargs
-    ):
-        super(OperationsListResults, self).__init__(**kwargs)
+        self, *, odata_count: Optional[int] = None, value: Optional[list["_models.Operation"]] = None, **kwargs: Any
+    ) -> None:
+        """
+        :keyword odata_count: OData entity count; represents the number of operations returned.
+        :paramtype odata_count: int
+        :keyword value: List of available operations.
+        :paramtype value: list[~azure.mgmt.policyinsights.models.Operation]
+        """
+        super().__init__(**kwargs)
         self.odata_count = odata_count
         self.value = value
 
 
-class PendingField(msrest.serialization.Model):
+class PendingField(_serialization.Model):
     """A field that should be evaluated against Azure Policy to determine restrictions.
 
-    All required parameters must be populated in order to send to Azure.
+    All required parameters must be populated in order to send to server.
 
-    :param field: Required. The name of the field. This can be a top-level property like 'name' or
-     'type' or an Azure Policy field alias.
-    :type field: str
-    :param values: The list of potential values for the field that should be evaluated against
-     Azure Policy.
-    :type values: list[str]
+    :ivar field: The name of the field. This can be a top-level property like 'name' or 'type' or
+     an Azure Policy field alias. Required.
+    :vartype field: str
+    :ivar values: The list of potential values for the field that should be evaluated against Azure
+     Policy.
+    :vartype values: list[str]
     """
 
     _validation = {
-        'field': {'required': True},
+        "field": {"required": True},
     }
 
     _attribute_map = {
-        'field': {'key': 'field', 'type': 'str'},
-        'values': {'key': 'values', 'type': '[str]'},
+        "field": {"key": "field", "type": "str"},
+        "values": {"key": "values", "type": "[str]"},
     }
 
-    def __init__(
-        self,
-        *,
-        field: str,
-        values: Optional[List[str]] = None,
-        **kwargs
-    ):
-        super(PendingField, self).__init__(**kwargs)
+    def __init__(self, *, field: str, values: Optional[list[str]] = None, **kwargs: Any) -> None:
+        """
+        :keyword field: The name of the field. This can be a top-level property like 'name' or 'type'
+         or an Azure Policy field alias. Required.
+        :paramtype field: str
+        :keyword values: The list of potential values for the field that should be evaluated against
+         Azure Policy.
+        :paramtype values: list[str]
+        """
+        super().__init__(**kwargs)
         self.field = field
         self.values = values
 
 
-class PolicyAssignmentSummary(msrest.serialization.Model):
+class PolicyAssignmentSummary(_serialization.Model):
     """Policy assignment summary.
 
-    :param policy_assignment_id: Policy assignment ID.
-    :type policy_assignment_id: str
-    :param policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
+    :ivar policy_assignment_id: Policy assignment ID.
+    :vartype policy_assignment_id: str
+    :ivar policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
      policy set.
-    :type policy_set_definition_id: str
-    :param results: Compliance summary for the policy assignment.
-    :type results: ~azure.mgmt.policyinsights.models.SummaryResults
-    :param policy_definitions: Policy definitions summary.
-    :type policy_definitions: list[~azure.mgmt.policyinsights.models.PolicyDefinitionSummary]
-    :param policy_groups: Policy definition group summary.
-    :type policy_groups: list[~azure.mgmt.policyinsights.models.PolicyGroupSummary]
+    :vartype policy_set_definition_id: str
+    :ivar results: Compliance summary for the policy assignment.
+    :vartype results: ~azure.mgmt.policyinsights.models.SummaryResults
+    :ivar policy_definitions: Policy definitions summary.
+    :vartype policy_definitions: list[~azure.mgmt.policyinsights.models.PolicyDefinitionSummary]
+    :ivar policy_groups: Policy definition group summary.
+    :vartype policy_groups: list[~azure.mgmt.policyinsights.models.PolicyGroupSummary]
     """
 
     _attribute_map = {
-        'policy_assignment_id': {'key': 'policyAssignmentId', 'type': 'str'},
-        'policy_set_definition_id': {'key': 'policySetDefinitionId', 'type': 'str'},
-        'results': {'key': 'results', 'type': 'SummaryResults'},
-        'policy_definitions': {'key': 'policyDefinitions', 'type': '[PolicyDefinitionSummary]'},
-        'policy_groups': {'key': 'policyGroups', 'type': '[PolicyGroupSummary]'},
+        "policy_assignment_id": {"key": "policyAssignmentId", "type": "str"},
+        "policy_set_definition_id": {"key": "policySetDefinitionId", "type": "str"},
+        "results": {"key": "results", "type": "SummaryResults"},
+        "policy_definitions": {"key": "policyDefinitions", "type": "[PolicyDefinitionSummary]"},
+        "policy_groups": {"key": "policyGroups", "type": "[PolicyGroupSummary]"},
     }
 
     def __init__(
@@ -716,12 +793,25 @@ class PolicyAssignmentSummary(msrest.serialization.Model):
         *,
         policy_assignment_id: Optional[str] = None,
         policy_set_definition_id: Optional[str] = None,
-        results: Optional["SummaryResults"] = None,
-        policy_definitions: Optional[List["PolicyDefinitionSummary"]] = None,
-        policy_groups: Optional[List["PolicyGroupSummary"]] = None,
-        **kwargs
-    ):
-        super(PolicyAssignmentSummary, self).__init__(**kwargs)
+        results: Optional["_models.SummaryResults"] = None,
+        policy_definitions: Optional[list["_models.PolicyDefinitionSummary"]] = None,
+        policy_groups: Optional[list["_models.PolicyGroupSummary"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword policy_assignment_id: Policy assignment ID.
+        :paramtype policy_assignment_id: str
+        :keyword policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
+         policy set.
+        :paramtype policy_set_definition_id: str
+        :keyword results: Compliance summary for the policy assignment.
+        :paramtype results: ~azure.mgmt.policyinsights.models.SummaryResults
+        :keyword policy_definitions: Policy definitions summary.
+        :paramtype policy_definitions: list[~azure.mgmt.policyinsights.models.PolicyDefinitionSummary]
+        :keyword policy_groups: Policy definition group summary.
+        :paramtype policy_groups: list[~azure.mgmt.policyinsights.models.PolicyGroupSummary]
+        """
+        super().__init__(**kwargs)
         self.policy_assignment_id = policy_assignment_id
         self.policy_set_definition_id = policy_set_definition_id
         self.results = results
@@ -729,27 +819,27 @@ class PolicyAssignmentSummary(msrest.serialization.Model):
         self.policy_groups = policy_groups
 
 
-class PolicyDefinitionSummary(msrest.serialization.Model):
+class PolicyDefinitionSummary(_serialization.Model):
     """Policy definition summary.
 
-    :param policy_definition_id: Policy definition ID.
-    :type policy_definition_id: str
-    :param policy_definition_reference_id: Policy definition reference ID.
-    :type policy_definition_reference_id: str
-    :param policy_definition_group_names: Policy definition group names.
-    :type policy_definition_group_names: list[str]
-    :param effect: Policy effect, i.e. policy definition action.
-    :type effect: str
-    :param results: Compliance summary for the policy definition.
-    :type results: ~azure.mgmt.policyinsights.models.SummaryResults
+    :ivar policy_definition_id: Policy definition ID.
+    :vartype policy_definition_id: str
+    :ivar policy_definition_reference_id: Policy definition reference ID.
+    :vartype policy_definition_reference_id: str
+    :ivar policy_definition_group_names: Policy definition group names.
+    :vartype policy_definition_group_names: list[str]
+    :ivar effect: Policy effect, i.e. policy definition action.
+    :vartype effect: str
+    :ivar results: Compliance summary for the policy definition.
+    :vartype results: ~azure.mgmt.policyinsights.models.SummaryResults
     """
 
     _attribute_map = {
-        'policy_definition_id': {'key': 'policyDefinitionId', 'type': 'str'},
-        'policy_definition_reference_id': {'key': 'policyDefinitionReferenceId', 'type': 'str'},
-        'policy_definition_group_names': {'key': 'policyDefinitionGroupNames', 'type': '[str]'},
-        'effect': {'key': 'effect', 'type': 'str'},
-        'results': {'key': 'results', 'type': 'SummaryResults'},
+        "policy_definition_id": {"key": "policyDefinitionId", "type": "str"},
+        "policy_definition_reference_id": {"key": "policyDefinitionReferenceId", "type": "str"},
+        "policy_definition_group_names": {"key": "policyDefinitionGroupNames", "type": "[str]"},
+        "effect": {"key": "effect", "type": "str"},
+        "results": {"key": "results", "type": "SummaryResults"},
     }
 
     def __init__(
@@ -757,12 +847,24 @@ class PolicyDefinitionSummary(msrest.serialization.Model):
         *,
         policy_definition_id: Optional[str] = None,
         policy_definition_reference_id: Optional[str] = None,
-        policy_definition_group_names: Optional[List[str]] = None,
+        policy_definition_group_names: Optional[list[str]] = None,
         effect: Optional[str] = None,
-        results: Optional["SummaryResults"] = None,
-        **kwargs
-    ):
-        super(PolicyDefinitionSummary, self).__init__(**kwargs)
+        results: Optional["_models.SummaryResults"] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword policy_definition_id: Policy definition ID.
+        :paramtype policy_definition_id: str
+        :keyword policy_definition_reference_id: Policy definition reference ID.
+        :paramtype policy_definition_reference_id: str
+        :keyword policy_definition_group_names: Policy definition group names.
+        :paramtype policy_definition_group_names: list[str]
+        :keyword effect: Policy effect, i.e. policy definition action.
+        :paramtype effect: str
+        :keyword results: Compliance summary for the policy definition.
+        :paramtype results: ~azure.mgmt.policyinsights.models.SummaryResults
+        """
+        super().__init__(**kwargs)
         self.policy_definition_id = policy_definition_id
         self.policy_definition_reference_id = policy_definition_reference_id
         self.policy_definition_group_names = policy_definition_group_names
@@ -770,7 +872,7 @@ class PolicyDefinitionSummary(msrest.serialization.Model):
         self.results = results
 
 
-class PolicyDetails(msrest.serialization.Model):
+class PolicyDetails(_serialization.Model):
     """The policy details.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -791,64 +893,70 @@ class PolicyDetails(msrest.serialization.Model):
     """
 
     _validation = {
-        'policy_definition_id': {'readonly': True},
-        'policy_assignment_id': {'readonly': True},
-        'policy_assignment_display_name': {'readonly': True},
-        'policy_assignment_scope': {'readonly': True},
-        'policy_set_definition_id': {'readonly': True},
-        'policy_definition_reference_id': {'readonly': True},
+        "policy_definition_id": {"readonly": True},
+        "policy_assignment_id": {"readonly": True},
+        "policy_assignment_display_name": {"readonly": True},
+        "policy_assignment_scope": {"readonly": True},
+        "policy_set_definition_id": {"readonly": True},
+        "policy_definition_reference_id": {"readonly": True},
     }
 
     _attribute_map = {
-        'policy_definition_id': {'key': 'policyDefinitionId', 'type': 'str'},
-        'policy_assignment_id': {'key': 'policyAssignmentId', 'type': 'str'},
-        'policy_assignment_display_name': {'key': 'policyAssignmentDisplayName', 'type': 'str'},
-        'policy_assignment_scope': {'key': 'policyAssignmentScope', 'type': 'str'},
-        'policy_set_definition_id': {'key': 'policySetDefinitionId', 'type': 'str'},
-        'policy_definition_reference_id': {'key': 'policyDefinitionReferenceId', 'type': 'str'},
+        "policy_definition_id": {"key": "policyDefinitionId", "type": "str"},
+        "policy_assignment_id": {"key": "policyAssignmentId", "type": "str"},
+        "policy_assignment_display_name": {"key": "policyAssignmentDisplayName", "type": "str"},
+        "policy_assignment_scope": {"key": "policyAssignmentScope", "type": "str"},
+        "policy_set_definition_id": {"key": "policySetDefinitionId", "type": "str"},
+        "policy_definition_reference_id": {"key": "policyDefinitionReferenceId", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyDetails, self).__init__(**kwargs)
-        self.policy_definition_id = None
-        self.policy_assignment_id = None
-        self.policy_assignment_display_name = None
-        self.policy_assignment_scope = None
-        self.policy_set_definition_id = None
-        self.policy_definition_reference_id = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.policy_definition_id: Optional[str] = None
+        self.policy_assignment_id: Optional[str] = None
+        self.policy_assignment_display_name: Optional[str] = None
+        self.policy_assignment_scope: Optional[str] = None
+        self.policy_set_definition_id: Optional[str] = None
+        self.policy_definition_reference_id: Optional[str] = None
 
 
-class PolicyEvaluationDetails(msrest.serialization.Model):
+class PolicyEvaluationDetails(_serialization.Model):
     """Policy evaluation details.
 
-    :param evaluated_expressions: Details of the evaluated expressions.
-    :type evaluated_expressions:
+    :ivar evaluated_expressions: Details of the evaluated expressions.
+    :vartype evaluated_expressions:
      list[~azure.mgmt.policyinsights.models.ExpressionEvaluationDetails]
-    :param if_not_exists_details: Evaluation details of IfNotExists effect.
-    :type if_not_exists_details: ~azure.mgmt.policyinsights.models.IfNotExistsEvaluationDetails
+    :ivar if_not_exists_details: Evaluation details of IfNotExists effect.
+    :vartype if_not_exists_details: ~azure.mgmt.policyinsights.models.IfNotExistsEvaluationDetails
     """
 
     _attribute_map = {
-        'evaluated_expressions': {'key': 'evaluatedExpressions', 'type': '[ExpressionEvaluationDetails]'},
-        'if_not_exists_details': {'key': 'ifNotExistsDetails', 'type': 'IfNotExistsEvaluationDetails'},
+        "evaluated_expressions": {"key": "evaluatedExpressions", "type": "[ExpressionEvaluationDetails]"},
+        "if_not_exists_details": {"key": "ifNotExistsDetails", "type": "IfNotExistsEvaluationDetails"},
     }
 
     def __init__(
         self,
         *,
-        evaluated_expressions: Optional[List["ExpressionEvaluationDetails"]] = None,
-        if_not_exists_details: Optional["IfNotExistsEvaluationDetails"] = None,
-        **kwargs
-    ):
-        super(PolicyEvaluationDetails, self).__init__(**kwargs)
+        evaluated_expressions: Optional[list["_models.ExpressionEvaluationDetails"]] = None,
+        if_not_exists_details: Optional["_models.IfNotExistsEvaluationDetails"] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword evaluated_expressions: Details of the evaluated expressions.
+        :paramtype evaluated_expressions:
+         list[~azure.mgmt.policyinsights.models.ExpressionEvaluationDetails]
+        :keyword if_not_exists_details: Evaluation details of IfNotExists effect.
+        :paramtype if_not_exists_details:
+         ~azure.mgmt.policyinsights.models.IfNotExistsEvaluationDetails
+        """
+        super().__init__(**kwargs)
         self.evaluated_expressions = evaluated_expressions
         self.if_not_exists_details = if_not_exists_details
 
 
-class PolicyEvaluationResult(msrest.serialization.Model):
+class PolicyEvaluationResult(_serialization.Model):
     """The result of a non-compliant policy evaluation against the given resource content.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -864,148 +972,146 @@ class PolicyEvaluationResult(msrest.serialization.Model):
     """
 
     _validation = {
-        'policy_info': {'readonly': True},
-        'evaluation_result': {'readonly': True},
-        'evaluation_details': {'readonly': True},
+        "policy_info": {"readonly": True},
+        "evaluation_result": {"readonly": True},
+        "evaluation_details": {"readonly": True},
     }
 
     _attribute_map = {
-        'policy_info': {'key': 'policyInfo', 'type': 'PolicyReference'},
-        'evaluation_result': {'key': 'evaluationResult', 'type': 'str'},
-        'evaluation_details': {'key': 'evaluationDetails', 'type': 'PolicyEvaluationDetails'},
+        "policy_info": {"key": "policyInfo", "type": "PolicyReference"},
+        "evaluation_result": {"key": "evaluationResult", "type": "str"},
+        "evaluation_details": {"key": "evaluationDetails", "type": "PolicyEvaluationDetails"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyEvaluationResult, self).__init__(**kwargs)
-        self.policy_info = None
-        self.evaluation_result = None
-        self.evaluation_details = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.policy_info: Optional["_models.PolicyReference"] = None
+        self.evaluation_result: Optional[str] = None
+        self.evaluation_details: Optional["_models.PolicyEvaluationDetails"] = None
 
 
-class PolicyEvent(msrest.serialization.Model):
+class PolicyEvent(_serialization.Model):
     """Policy event record.
 
-    :param additional_properties: Unmatched properties from the message are deserialized to this
+    :ivar additional_properties: Unmatched properties from the message are deserialized to this
      collection.
-    :type additional_properties: dict[str, object]
-    :param odata_id: OData entity ID; always set to null since policy event records do not have an
+    :vartype additional_properties: dict[str, any]
+    :ivar odata_id: OData entity ID; always set to null since policy event records do not have an
      entity ID.
-    :type odata_id: str
-    :param odata_context: OData context string; used by OData clients to resolve type information
+    :vartype odata_id: str
+    :ivar odata_context: OData context string; used by OData clients to resolve type information
      based on metadata.
-    :type odata_context: str
-    :param timestamp: Timestamp for the policy event record.
-    :type timestamp: ~datetime.datetime
-    :param resource_id: Resource ID.
-    :type resource_id: str
-    :param policy_assignment_id: Policy assignment ID.
-    :type policy_assignment_id: str
-    :param policy_definition_id: Policy definition ID.
-    :type policy_definition_id: str
-    :param effective_parameters: Effective parameters for the policy assignment.
-    :type effective_parameters: str
-    :param is_compliant: Flag which states whether the resource is compliant against the policy
+    :vartype odata_context: str
+    :ivar timestamp: Timestamp for the policy event record.
+    :vartype timestamp: ~datetime.datetime
+    :ivar resource_id: Resource ID.
+    :vartype resource_id: str
+    :ivar policy_assignment_id: Policy assignment ID.
+    :vartype policy_assignment_id: str
+    :ivar policy_definition_id: Policy definition ID.
+    :vartype policy_definition_id: str
+    :ivar effective_parameters: Effective parameters for the policy assignment.
+    :vartype effective_parameters: str
+    :ivar is_compliant: Flag which states whether the resource is compliant against the policy
      assignment it was evaluated against.
-    :type is_compliant: bool
-    :param subscription_id: Subscription ID.
-    :type subscription_id: str
-    :param resource_type: Resource type.
-    :type resource_type: str
-    :param resource_location: Resource location.
-    :type resource_location: str
-    :param resource_group: Resource group name.
-    :type resource_group: str
-    :param resource_tags: List of resource tags.
-    :type resource_tags: str
-    :param policy_assignment_name: Policy assignment name.
-    :type policy_assignment_name: str
-    :param policy_assignment_owner: Policy assignment owner.
-    :type policy_assignment_owner: str
-    :param policy_assignment_parameters: Policy assignment parameters.
-    :type policy_assignment_parameters: str
-    :param policy_assignment_scope: Policy assignment scope.
-    :type policy_assignment_scope: str
-    :param policy_definition_name: Policy definition name.
-    :type policy_definition_name: str
-    :param policy_definition_action: Policy definition action, i.e. effect.
-    :type policy_definition_action: str
-    :param policy_definition_category: Policy definition category.
-    :type policy_definition_category: str
-    :param policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
+    :vartype is_compliant: bool
+    :ivar subscription_id: Subscription ID.
+    :vartype subscription_id: str
+    :ivar resource_type: Resource type.
+    :vartype resource_type: str
+    :ivar resource_location: Resource location.
+    :vartype resource_location: str
+    :ivar resource_group: Resource group name.
+    :vartype resource_group: str
+    :ivar resource_tags: List of resource tags.
+    :vartype resource_tags: str
+    :ivar policy_assignment_name: Policy assignment name.
+    :vartype policy_assignment_name: str
+    :ivar policy_assignment_owner: Policy assignment owner.
+    :vartype policy_assignment_owner: str
+    :ivar policy_assignment_parameters: Policy assignment parameters.
+    :vartype policy_assignment_parameters: str
+    :ivar policy_assignment_scope: Policy assignment scope.
+    :vartype policy_assignment_scope: str
+    :ivar policy_definition_name: Policy definition name.
+    :vartype policy_definition_name: str
+    :ivar policy_definition_action: Policy definition action, i.e. effect.
+    :vartype policy_definition_action: str
+    :ivar policy_definition_category: Policy definition category.
+    :vartype policy_definition_category: str
+    :ivar policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
      policy set.
-    :type policy_set_definition_id: str
-    :param policy_set_definition_name: Policy set definition name, if the policy assignment is for
+    :vartype policy_set_definition_id: str
+    :ivar policy_set_definition_name: Policy set definition name, if the policy assignment is for a
+     policy set.
+    :vartype policy_set_definition_name: str
+    :ivar policy_set_definition_owner: Policy set definition owner, if the policy assignment is for
      a policy set.
-    :type policy_set_definition_name: str
-    :param policy_set_definition_owner: Policy set definition owner, if the policy assignment is
-     for a policy set.
-    :type policy_set_definition_owner: str
-    :param policy_set_definition_category: Policy set definition category, if the policy assignment
+    :vartype policy_set_definition_owner: str
+    :ivar policy_set_definition_category: Policy set definition category, if the policy assignment
      is for a policy set.
-    :type policy_set_definition_category: str
-    :param policy_set_definition_parameters: Policy set definition parameters, if the policy
+    :vartype policy_set_definition_category: str
+    :ivar policy_set_definition_parameters: Policy set definition parameters, if the policy
      assignment is for a policy set.
-    :type policy_set_definition_parameters: str
-    :param management_group_ids: Comma separated list of management group IDs, which represent the
+    :vartype policy_set_definition_parameters: str
+    :ivar management_group_ids: Comma separated list of management group IDs, which represent the
      hierarchy of the management groups the resource is under.
-    :type management_group_ids: str
-    :param policy_definition_reference_id: Reference ID for the policy definition inside the policy
+    :vartype management_group_ids: str
+    :ivar policy_definition_reference_id: Reference ID for the policy definition inside the policy
      set, if the policy assignment is for a policy set.
-    :type policy_definition_reference_id: str
-    :param compliance_state: Compliance state of the resource.
-    :type compliance_state: str
-    :param tenant_id: Tenant ID for the policy event record.
-    :type tenant_id: str
-    :param principal_oid: Principal object ID for the user who initiated the resource operation
-     that triggered the policy event.
-    :type principal_oid: str
-    :param components: Components events records populated only when URL contains
-     $expand=components clause.
-    :type components: list[~azure.mgmt.policyinsights.models.ComponentEventDetails]
+    :vartype policy_definition_reference_id: str
+    :ivar compliance_state: Compliance state of the resource.
+    :vartype compliance_state: str
+    :ivar tenant_id: Tenant ID for the policy event record.
+    :vartype tenant_id: str
+    :ivar principal_oid: Principal object ID for the user who initiated the resource operation that
+     triggered the policy event.
+    :vartype principal_oid: str
+    :ivar components: Components events records populated only when URL contains $expand=components
+     clause.
+    :vartype components: list[~azure.mgmt.policyinsights.models.ComponentEventDetails]
     """
 
     _attribute_map = {
-        'additional_properties': {'key': '', 'type': '{object}'},
-        'odata_id': {'key': '@odata\\.id', 'type': 'str'},
-        'odata_context': {'key': '@odata\\.context', 'type': 'str'},
-        'timestamp': {'key': 'timestamp', 'type': 'iso-8601'},
-        'resource_id': {'key': 'resourceId', 'type': 'str'},
-        'policy_assignment_id': {'key': 'policyAssignmentId', 'type': 'str'},
-        'policy_definition_id': {'key': 'policyDefinitionId', 'type': 'str'},
-        'effective_parameters': {'key': 'effectiveParameters', 'type': 'str'},
-        'is_compliant': {'key': 'isCompliant', 'type': 'bool'},
-        'subscription_id': {'key': 'subscriptionId', 'type': 'str'},
-        'resource_type': {'key': 'resourceType', 'type': 'str'},
-        'resource_location': {'key': 'resourceLocation', 'type': 'str'},
-        'resource_group': {'key': 'resourceGroup', 'type': 'str'},
-        'resource_tags': {'key': 'resourceTags', 'type': 'str'},
-        'policy_assignment_name': {'key': 'policyAssignmentName', 'type': 'str'},
-        'policy_assignment_owner': {'key': 'policyAssignmentOwner', 'type': 'str'},
-        'policy_assignment_parameters': {'key': 'policyAssignmentParameters', 'type': 'str'},
-        'policy_assignment_scope': {'key': 'policyAssignmentScope', 'type': 'str'},
-        'policy_definition_name': {'key': 'policyDefinitionName', 'type': 'str'},
-        'policy_definition_action': {'key': 'policyDefinitionAction', 'type': 'str'},
-        'policy_definition_category': {'key': 'policyDefinitionCategory', 'type': 'str'},
-        'policy_set_definition_id': {'key': 'policySetDefinitionId', 'type': 'str'},
-        'policy_set_definition_name': {'key': 'policySetDefinitionName', 'type': 'str'},
-        'policy_set_definition_owner': {'key': 'policySetDefinitionOwner', 'type': 'str'},
-        'policy_set_definition_category': {'key': 'policySetDefinitionCategory', 'type': 'str'},
-        'policy_set_definition_parameters': {'key': 'policySetDefinitionParameters', 'type': 'str'},
-        'management_group_ids': {'key': 'managementGroupIds', 'type': 'str'},
-        'policy_definition_reference_id': {'key': 'policyDefinitionReferenceId', 'type': 'str'},
-        'compliance_state': {'key': 'complianceState', 'type': 'str'},
-        'tenant_id': {'key': 'tenantId', 'type': 'str'},
-        'principal_oid': {'key': 'principalOid', 'type': 'str'},
-        'components': {'key': 'components', 'type': '[ComponentEventDetails]'},
+        "additional_properties": {"key": "", "type": "{object}"},
+        "odata_id": {"key": "@odata\\.id", "type": "str"},
+        "odata_context": {"key": "@odata\\.context", "type": "str"},
+        "timestamp": {"key": "timestamp", "type": "iso-8601"},
+        "resource_id": {"key": "resourceId", "type": "str"},
+        "policy_assignment_id": {"key": "policyAssignmentId", "type": "str"},
+        "policy_definition_id": {"key": "policyDefinitionId", "type": "str"},
+        "effective_parameters": {"key": "effectiveParameters", "type": "str"},
+        "is_compliant": {"key": "isCompliant", "type": "bool"},
+        "subscription_id": {"key": "subscriptionId", "type": "str"},
+        "resource_type": {"key": "resourceType", "type": "str"},
+        "resource_location": {"key": "resourceLocation", "type": "str"},
+        "resource_group": {"key": "resourceGroup", "type": "str"},
+        "resource_tags": {"key": "resourceTags", "type": "str"},
+        "policy_assignment_name": {"key": "policyAssignmentName", "type": "str"},
+        "policy_assignment_owner": {"key": "policyAssignmentOwner", "type": "str"},
+        "policy_assignment_parameters": {"key": "policyAssignmentParameters", "type": "str"},
+        "policy_assignment_scope": {"key": "policyAssignmentScope", "type": "str"},
+        "policy_definition_name": {"key": "policyDefinitionName", "type": "str"},
+        "policy_definition_action": {"key": "policyDefinitionAction", "type": "str"},
+        "policy_definition_category": {"key": "policyDefinitionCategory", "type": "str"},
+        "policy_set_definition_id": {"key": "policySetDefinitionId", "type": "str"},
+        "policy_set_definition_name": {"key": "policySetDefinitionName", "type": "str"},
+        "policy_set_definition_owner": {"key": "policySetDefinitionOwner", "type": "str"},
+        "policy_set_definition_category": {"key": "policySetDefinitionCategory", "type": "str"},
+        "policy_set_definition_parameters": {"key": "policySetDefinitionParameters", "type": "str"},
+        "management_group_ids": {"key": "managementGroupIds", "type": "str"},
+        "policy_definition_reference_id": {"key": "policyDefinitionReferenceId", "type": "str"},
+        "compliance_state": {"key": "complianceState", "type": "str"},
+        "tenant_id": {"key": "tenantId", "type": "str"},
+        "principal_oid": {"key": "principalOid", "type": "str"},
+        "components": {"key": "components", "type": "[ComponentEventDetails]"},
     }
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-locals
         self,
         *,
-        additional_properties: Optional[Dict[str, object]] = None,
+        additional_properties: Optional[dict[str, Any]] = None,
         odata_id: Optional[str] = None,
         odata_context: Optional[str] = None,
         timestamp: Optional[datetime.datetime] = None,
@@ -1036,10 +1142,89 @@ class PolicyEvent(msrest.serialization.Model):
         compliance_state: Optional[str] = None,
         tenant_id: Optional[str] = None,
         principal_oid: Optional[str] = None,
-        components: Optional[List["ComponentEventDetails"]] = None,
-        **kwargs
-    ):
-        super(PolicyEvent, self).__init__(**kwargs)
+        components: Optional[list["_models.ComponentEventDetails"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword additional_properties: Unmatched properties from the message are deserialized to this
+         collection.
+        :paramtype additional_properties: dict[str, any]
+        :keyword odata_id: OData entity ID; always set to null since policy event records do not have
+         an entity ID.
+        :paramtype odata_id: str
+        :keyword odata_context: OData context string; used by OData clients to resolve type information
+         based on metadata.
+        :paramtype odata_context: str
+        :keyword timestamp: Timestamp for the policy event record.
+        :paramtype timestamp: ~datetime.datetime
+        :keyword resource_id: Resource ID.
+        :paramtype resource_id: str
+        :keyword policy_assignment_id: Policy assignment ID.
+        :paramtype policy_assignment_id: str
+        :keyword policy_definition_id: Policy definition ID.
+        :paramtype policy_definition_id: str
+        :keyword effective_parameters: Effective parameters for the policy assignment.
+        :paramtype effective_parameters: str
+        :keyword is_compliant: Flag which states whether the resource is compliant against the policy
+         assignment it was evaluated against.
+        :paramtype is_compliant: bool
+        :keyword subscription_id: Subscription ID.
+        :paramtype subscription_id: str
+        :keyword resource_type: Resource type.
+        :paramtype resource_type: str
+        :keyword resource_location: Resource location.
+        :paramtype resource_location: str
+        :keyword resource_group: Resource group name.
+        :paramtype resource_group: str
+        :keyword resource_tags: List of resource tags.
+        :paramtype resource_tags: str
+        :keyword policy_assignment_name: Policy assignment name.
+        :paramtype policy_assignment_name: str
+        :keyword policy_assignment_owner: Policy assignment owner.
+        :paramtype policy_assignment_owner: str
+        :keyword policy_assignment_parameters: Policy assignment parameters.
+        :paramtype policy_assignment_parameters: str
+        :keyword policy_assignment_scope: Policy assignment scope.
+        :paramtype policy_assignment_scope: str
+        :keyword policy_definition_name: Policy definition name.
+        :paramtype policy_definition_name: str
+        :keyword policy_definition_action: Policy definition action, i.e. effect.
+        :paramtype policy_definition_action: str
+        :keyword policy_definition_category: Policy definition category.
+        :paramtype policy_definition_category: str
+        :keyword policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
+         policy set.
+        :paramtype policy_set_definition_id: str
+        :keyword policy_set_definition_name: Policy set definition name, if the policy assignment is
+         for a policy set.
+        :paramtype policy_set_definition_name: str
+        :keyword policy_set_definition_owner: Policy set definition owner, if the policy assignment is
+         for a policy set.
+        :paramtype policy_set_definition_owner: str
+        :keyword policy_set_definition_category: Policy set definition category, if the policy
+         assignment is for a policy set.
+        :paramtype policy_set_definition_category: str
+        :keyword policy_set_definition_parameters: Policy set definition parameters, if the policy
+         assignment is for a policy set.
+        :paramtype policy_set_definition_parameters: str
+        :keyword management_group_ids: Comma separated list of management group IDs, which represent
+         the hierarchy of the management groups the resource is under.
+        :paramtype management_group_ids: str
+        :keyword policy_definition_reference_id: Reference ID for the policy definition inside the
+         policy set, if the policy assignment is for a policy set.
+        :paramtype policy_definition_reference_id: str
+        :keyword compliance_state: Compliance state of the resource.
+        :paramtype compliance_state: str
+        :keyword tenant_id: Tenant ID for the policy event record.
+        :paramtype tenant_id: str
+        :keyword principal_oid: Principal object ID for the user who initiated the resource operation
+         that triggered the policy event.
+        :paramtype principal_oid: str
+        :keyword components: Components events records populated only when URL contains
+         $expand=components clause.
+        :paramtype components: list[~azure.mgmt.policyinsights.models.ComponentEventDetails]
+        """
+        super().__init__(**kwargs)
         self.additional_properties = additional_properties
         self.odata_id = odata_id
         self.odata_context = odata_context
@@ -1074,29 +1259,29 @@ class PolicyEvent(msrest.serialization.Model):
         self.components = components
 
 
-class PolicyEventsQueryResults(msrest.serialization.Model):
+class PolicyEventsQueryResults(_serialization.Model):
     """Query results.
 
-    :param odata_context: OData context string; used by OData clients to resolve type information
+    :ivar odata_context: OData context string; used by OData clients to resolve type information
      based on metadata.
-    :type odata_context: str
-    :param odata_count: OData entity count; represents the number of policy event records returned.
-    :type odata_count: int
-    :param odata_next_link: Odata next link; URL to get the next set of results.
-    :type odata_next_link: str
-    :param value: Query results.
-    :type value: list[~azure.mgmt.policyinsights.models.PolicyEvent]
+    :vartype odata_context: str
+    :ivar odata_count: OData entity count; represents the number of policy event records returned.
+    :vartype odata_count: int
+    :ivar odata_next_link: Odata next link; URL to get the next set of results.
+    :vartype odata_next_link: str
+    :ivar value: Query results.
+    :vartype value: list[~azure.mgmt.policyinsights.models.PolicyEvent]
     """
 
     _validation = {
-        'odata_count': {'minimum': 0},
+        "odata_count": {"minimum": 0},
     }
 
     _attribute_map = {
-        'odata_context': {'key': '@odata\\.context', 'type': 'str'},
-        'odata_count': {'key': '@odata\\.count', 'type': 'int'},
-        'odata_next_link': {'key': '@odata\\.nextLink', 'type': 'str'},
-        'value': {'key': 'value', 'type': '[PolicyEvent]'},
+        "odata_context": {"key": "@odata\\.context", "type": "str"},
+        "odata_count": {"key": "@odata\\.count", "type": "int"},
+        "odata_next_link": {"key": "@odata\\.nextLink", "type": "str"},
+        "value": {"key": "value", "type": "[PolicyEvent]"},
     }
 
     def __init__(
@@ -1105,43 +1290,61 @@ class PolicyEventsQueryResults(msrest.serialization.Model):
         odata_context: Optional[str] = None,
         odata_count: Optional[int] = None,
         odata_next_link: Optional[str] = None,
-        value: Optional[List["PolicyEvent"]] = None,
-        **kwargs
-    ):
-        super(PolicyEventsQueryResults, self).__init__(**kwargs)
+        value: Optional[list["_models.PolicyEvent"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword odata_context: OData context string; used by OData clients to resolve type information
+         based on metadata.
+        :paramtype odata_context: str
+        :keyword odata_count: OData entity count; represents the number of policy event records
+         returned.
+        :paramtype odata_count: int
+        :keyword odata_next_link: Odata next link; URL to get the next set of results.
+        :paramtype odata_next_link: str
+        :keyword value: Query results.
+        :paramtype value: list[~azure.mgmt.policyinsights.models.PolicyEvent]
+        """
+        super().__init__(**kwargs)
         self.odata_context = odata_context
         self.odata_count = odata_count
         self.odata_next_link = odata_next_link
         self.value = value
 
 
-class PolicyGroupSummary(msrest.serialization.Model):
+class PolicyGroupSummary(_serialization.Model):
     """Policy definition group summary.
 
-    :param policy_group_name: Policy group name.
-    :type policy_group_name: str
-    :param results: Compliance summary for the policy definition group.
-    :type results: ~azure.mgmt.policyinsights.models.SummaryResults
+    :ivar policy_group_name: Policy group name.
+    :vartype policy_group_name: str
+    :ivar results: Compliance summary for the policy definition group.
+    :vartype results: ~azure.mgmt.policyinsights.models.SummaryResults
     """
 
     _attribute_map = {
-        'policy_group_name': {'key': 'policyGroupName', 'type': 'str'},
-        'results': {'key': 'results', 'type': 'SummaryResults'},
+        "policy_group_name": {"key": "policyGroupName", "type": "str"},
+        "results": {"key": "results", "type": "SummaryResults"},
     }
 
     def __init__(
         self,
         *,
         policy_group_name: Optional[str] = None,
-        results: Optional["SummaryResults"] = None,
-        **kwargs
-    ):
-        super(PolicyGroupSummary, self).__init__(**kwargs)
+        results: Optional["_models.SummaryResults"] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword policy_group_name: Policy group name.
+        :paramtype policy_group_name: str
+        :keyword results: Compliance summary for the policy definition group.
+        :paramtype results: ~azure.mgmt.policyinsights.models.SummaryResults
+        """
+        super().__init__(**kwargs)
         self.policy_group_name = policy_group_name
         self.results = results
 
 
-class PolicyMetadata(msrest.serialization.Model):
+class PolicyMetadata(_serialization.Model):
     """Policy metadata resource definition.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1163,7 +1366,7 @@ class PolicyMetadata(msrest.serialization.Model):
     :ivar additional_content_url: Url for getting additional content about the resource metadata.
     :vartype additional_content_url: str
     :ivar metadata: Additional metadata.
-    :vartype metadata: object
+    :vartype metadata: JSON
     :ivar description: The description of the policy metadata.
     :vartype description: str
     :ivar requirements: The requirements of the policy metadata.
@@ -1171,52 +1374,50 @@ class PolicyMetadata(msrest.serialization.Model):
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'type': {'readonly': True},
-        'name': {'readonly': True},
-        'metadata_id': {'readonly': True},
-        'category': {'readonly': True},
-        'title': {'readonly': True},
-        'owner': {'readonly': True},
-        'additional_content_url': {'readonly': True},
-        'metadata': {'readonly': True},
-        'description': {'readonly': True},
-        'requirements': {'readonly': True},
+        "id": {"readonly": True},
+        "type": {"readonly": True},
+        "name": {"readonly": True},
+        "metadata_id": {"readonly": True},
+        "category": {"readonly": True},
+        "title": {"readonly": True},
+        "owner": {"readonly": True},
+        "additional_content_url": {"readonly": True},
+        "metadata": {"readonly": True},
+        "description": {"readonly": True},
+        "requirements": {"readonly": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'metadata_id': {'key': 'properties.metadataId', 'type': 'str'},
-        'category': {'key': 'properties.category', 'type': 'str'},
-        'title': {'key': 'properties.title', 'type': 'str'},
-        'owner': {'key': 'properties.owner', 'type': 'str'},
-        'additional_content_url': {'key': 'properties.additionalContentUrl', 'type': 'str'},
-        'metadata': {'key': 'properties.metadata', 'type': 'object'},
-        'description': {'key': 'properties.description', 'type': 'str'},
-        'requirements': {'key': 'properties.requirements', 'type': 'str'},
+        "id": {"key": "id", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "metadata_id": {"key": "properties.metadataId", "type": "str"},
+        "category": {"key": "properties.category", "type": "str"},
+        "title": {"key": "properties.title", "type": "str"},
+        "owner": {"key": "properties.owner", "type": "str"},
+        "additional_content_url": {"key": "properties.additionalContentUrl", "type": "str"},
+        "metadata": {"key": "properties.metadata", "type": "object"},
+        "description": {"key": "properties.description", "type": "str"},
+        "requirements": {"key": "properties.requirements", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyMetadata, self).__init__(**kwargs)
-        self.id = None
-        self.type = None
-        self.name = None
-        self.metadata_id = None
-        self.category = None
-        self.title = None
-        self.owner = None
-        self.additional_content_url = None
-        self.metadata = None
-        self.description = None
-        self.requirements = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.id: Optional[str] = None
+        self.type: Optional[str] = None
+        self.name: Optional[str] = None
+        self.metadata_id: Optional[str] = None
+        self.category: Optional[str] = None
+        self.title: Optional[str] = None
+        self.owner: Optional[str] = None
+        self.additional_content_url: Optional[str] = None
+        self.metadata: Optional[JSON] = None
+        self.description: Optional[str] = None
+        self.requirements: Optional[str] = None
 
 
-class PolicyMetadataCollection(msrest.serialization.Model):
+class PolicyMetadataCollection(_serialization.Model):
     """Collection of policy metadata resources.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1228,25 +1429,23 @@ class PolicyMetadataCollection(msrest.serialization.Model):
     """
 
     _validation = {
-        'value': {'readonly': True},
-        'next_link': {'readonly': True},
+        "value": {"readonly": True},
+        "next_link": {"readonly": True},
     }
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[SlimPolicyMetadata]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[SlimPolicyMetadata]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyMetadataCollection, self).__init__(**kwargs)
-        self.value = None
-        self.next_link = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.value: Optional[list["_models.SlimPolicyMetadata"]] = None
+        self.next_link: Optional[str] = None
 
 
-class PolicyMetadataSlimProperties(msrest.serialization.Model):
+class PolicyMetadataSlimProperties(_serialization.Model):
     """The properties of the policy metadata, excluding properties containing large strings.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1262,38 +1461,36 @@ class PolicyMetadataSlimProperties(msrest.serialization.Model):
     :ivar additional_content_url: Url for getting additional content about the resource metadata.
     :vartype additional_content_url: str
     :ivar metadata: Additional metadata.
-    :vartype metadata: object
+    :vartype metadata: JSON
     """
 
     _validation = {
-        'metadata_id': {'readonly': True},
-        'category': {'readonly': True},
-        'title': {'readonly': True},
-        'owner': {'readonly': True},
-        'additional_content_url': {'readonly': True},
-        'metadata': {'readonly': True},
+        "metadata_id": {"readonly": True},
+        "category": {"readonly": True},
+        "title": {"readonly": True},
+        "owner": {"readonly": True},
+        "additional_content_url": {"readonly": True},
+        "metadata": {"readonly": True},
     }
 
     _attribute_map = {
-        'metadata_id': {'key': 'metadataId', 'type': 'str'},
-        'category': {'key': 'category', 'type': 'str'},
-        'title': {'key': 'title', 'type': 'str'},
-        'owner': {'key': 'owner', 'type': 'str'},
-        'additional_content_url': {'key': 'additionalContentUrl', 'type': 'str'},
-        'metadata': {'key': 'metadata', 'type': 'object'},
+        "metadata_id": {"key": "metadataId", "type": "str"},
+        "category": {"key": "category", "type": "str"},
+        "title": {"key": "title", "type": "str"},
+        "owner": {"key": "owner", "type": "str"},
+        "additional_content_url": {"key": "additionalContentUrl", "type": "str"},
+        "metadata": {"key": "metadata", "type": "object"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyMetadataSlimProperties, self).__init__(**kwargs)
-        self.metadata_id = None
-        self.category = None
-        self.title = None
-        self.owner = None
-        self.additional_content_url = None
-        self.metadata = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.metadata_id: Optional[str] = None
+        self.category: Optional[str] = None
+        self.title: Optional[str] = None
+        self.owner: Optional[str] = None
+        self.additional_content_url: Optional[str] = None
+        self.metadata: Optional[JSON] = None
 
 
 class PolicyMetadataProperties(PolicyMetadataSlimProperties):
@@ -1312,7 +1509,7 @@ class PolicyMetadataProperties(PolicyMetadataSlimProperties):
     :ivar additional_content_url: Url for getting additional content about the resource metadata.
     :vartype additional_content_url: str
     :ivar metadata: Additional metadata.
-    :vartype metadata: object
+    :vartype metadata: JSON
     :ivar description: The description of the policy metadata.
     :vartype description: str
     :ivar requirements: The requirements of the policy metadata.
@@ -1320,37 +1517,35 @@ class PolicyMetadataProperties(PolicyMetadataSlimProperties):
     """
 
     _validation = {
-        'metadata_id': {'readonly': True},
-        'category': {'readonly': True},
-        'title': {'readonly': True},
-        'owner': {'readonly': True},
-        'additional_content_url': {'readonly': True},
-        'metadata': {'readonly': True},
-        'description': {'readonly': True},
-        'requirements': {'readonly': True},
+        "metadata_id": {"readonly": True},
+        "category": {"readonly": True},
+        "title": {"readonly": True},
+        "owner": {"readonly": True},
+        "additional_content_url": {"readonly": True},
+        "metadata": {"readonly": True},
+        "description": {"readonly": True},
+        "requirements": {"readonly": True},
     }
 
     _attribute_map = {
-        'metadata_id': {'key': 'metadataId', 'type': 'str'},
-        'category': {'key': 'category', 'type': 'str'},
-        'title': {'key': 'title', 'type': 'str'},
-        'owner': {'key': 'owner', 'type': 'str'},
-        'additional_content_url': {'key': 'additionalContentUrl', 'type': 'str'},
-        'metadata': {'key': 'metadata', 'type': 'object'},
-        'description': {'key': 'description', 'type': 'str'},
-        'requirements': {'key': 'requirements', 'type': 'str'},
+        "metadata_id": {"key": "metadataId", "type": "str"},
+        "category": {"key": "category", "type": "str"},
+        "title": {"key": "title", "type": "str"},
+        "owner": {"key": "owner", "type": "str"},
+        "additional_content_url": {"key": "additionalContentUrl", "type": "str"},
+        "metadata": {"key": "metadata", "type": "object"},
+        "description": {"key": "description", "type": "str"},
+        "requirements": {"key": "requirements", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyMetadataProperties, self).__init__(**kwargs)
-        self.description = None
-        self.requirements = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.description: Optional[str] = None
+        self.requirements: Optional[str] = None
 
 
-class PolicyReference(msrest.serialization.Model):
+class PolicyReference(_serialization.Model):
     """Resource identifiers for a policy.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1367,112 +1562,110 @@ class PolicyReference(msrest.serialization.Model):
     """
 
     _validation = {
-        'policy_definition_id': {'readonly': True},
-        'policy_set_definition_id': {'readonly': True},
-        'policy_definition_reference_id': {'readonly': True},
-        'policy_assignment_id': {'readonly': True},
+        "policy_definition_id": {"readonly": True},
+        "policy_set_definition_id": {"readonly": True},
+        "policy_definition_reference_id": {"readonly": True},
+        "policy_assignment_id": {"readonly": True},
     }
 
     _attribute_map = {
-        'policy_definition_id': {'key': 'policyDefinitionId', 'type': 'str'},
-        'policy_set_definition_id': {'key': 'policySetDefinitionId', 'type': 'str'},
-        'policy_definition_reference_id': {'key': 'policyDefinitionReferenceId', 'type': 'str'},
-        'policy_assignment_id': {'key': 'policyAssignmentId', 'type': 'str'},
+        "policy_definition_id": {"key": "policyDefinitionId", "type": "str"},
+        "policy_set_definition_id": {"key": "policySetDefinitionId", "type": "str"},
+        "policy_definition_reference_id": {"key": "policyDefinitionReferenceId", "type": "str"},
+        "policy_assignment_id": {"key": "policyAssignmentId", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyReference, self).__init__(**kwargs)
-        self.policy_definition_id = None
-        self.policy_set_definition_id = None
-        self.policy_definition_reference_id = None
-        self.policy_assignment_id = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.policy_definition_id: Optional[str] = None
+        self.policy_set_definition_id: Optional[str] = None
+        self.policy_definition_reference_id: Optional[str] = None
+        self.policy_assignment_id: Optional[str] = None
 
 
-class PolicyState(msrest.serialization.Model):
+class PolicyState(_serialization.Model):
     """Policy state record.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
-    :param additional_properties: Unmatched properties from the message are deserialized to this
+    :ivar additional_properties: Unmatched properties from the message are deserialized to this
      collection.
-    :type additional_properties: dict[str, object]
-    :param odata_id: OData entity ID; always set to null since policy state records do not have an
+    :vartype additional_properties: dict[str, any]
+    :ivar odata_id: OData entity ID; always set to null since policy state records do not have an
      entity ID.
-    :type odata_id: str
-    :param odata_context: OData context string; used by OData clients to resolve type information
+    :vartype odata_id: str
+    :ivar odata_context: OData context string; used by OData clients to resolve type information
      based on metadata.
-    :type odata_context: str
-    :param timestamp: Timestamp for the policy state record.
-    :type timestamp: ~datetime.datetime
-    :param resource_id: Resource ID.
-    :type resource_id: str
-    :param policy_assignment_id: Policy assignment ID.
-    :type policy_assignment_id: str
-    :param policy_definition_id: Policy definition ID.
-    :type policy_definition_id: str
-    :param effective_parameters: Effective parameters for the policy assignment.
-    :type effective_parameters: str
-    :param is_compliant: Flag which states whether the resource is compliant against the policy
+    :vartype odata_context: str
+    :ivar timestamp: Timestamp for the policy state record.
+    :vartype timestamp: ~datetime.datetime
+    :ivar resource_id: Resource ID.
+    :vartype resource_id: str
+    :ivar policy_assignment_id: Policy assignment ID.
+    :vartype policy_assignment_id: str
+    :ivar policy_definition_id: Policy definition ID.
+    :vartype policy_definition_id: str
+    :ivar effective_parameters: Effective parameters for the policy assignment.
+    :vartype effective_parameters: str
+    :ivar is_compliant: Flag which states whether the resource is compliant against the policy
      assignment it was evaluated against. This property is deprecated; please use ComplianceState
      instead.
-    :type is_compliant: bool
-    :param subscription_id: Subscription ID.
-    :type subscription_id: str
-    :param resource_type: Resource type.
-    :type resource_type: str
-    :param resource_location: Resource location.
-    :type resource_location: str
-    :param resource_group: Resource group name.
-    :type resource_group: str
-    :param resource_tags: List of resource tags.
-    :type resource_tags: str
-    :param policy_assignment_name: Policy assignment name.
-    :type policy_assignment_name: str
-    :param policy_assignment_owner: Policy assignment owner.
-    :type policy_assignment_owner: str
-    :param policy_assignment_parameters: Policy assignment parameters.
-    :type policy_assignment_parameters: str
-    :param policy_assignment_scope: Policy assignment scope.
-    :type policy_assignment_scope: str
-    :param policy_definition_name: Policy definition name.
-    :type policy_definition_name: str
-    :param policy_definition_action: Policy definition action, i.e. effect.
-    :type policy_definition_action: str
-    :param policy_definition_category: Policy definition category.
-    :type policy_definition_category: str
-    :param policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
+    :vartype is_compliant: bool
+    :ivar subscription_id: Subscription ID.
+    :vartype subscription_id: str
+    :ivar resource_type: Resource type.
+    :vartype resource_type: str
+    :ivar resource_location: Resource location.
+    :vartype resource_location: str
+    :ivar resource_group: Resource group name.
+    :vartype resource_group: str
+    :ivar resource_tags: List of resource tags.
+    :vartype resource_tags: str
+    :ivar policy_assignment_name: Policy assignment name.
+    :vartype policy_assignment_name: str
+    :ivar policy_assignment_owner: Policy assignment owner.
+    :vartype policy_assignment_owner: str
+    :ivar policy_assignment_parameters: Policy assignment parameters.
+    :vartype policy_assignment_parameters: str
+    :ivar policy_assignment_scope: Policy assignment scope.
+    :vartype policy_assignment_scope: str
+    :ivar policy_definition_name: Policy definition name.
+    :vartype policy_definition_name: str
+    :ivar policy_definition_action: Policy definition action, i.e. effect.
+    :vartype policy_definition_action: str
+    :ivar policy_definition_category: Policy definition category.
+    :vartype policy_definition_category: str
+    :ivar policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
      policy set.
-    :type policy_set_definition_id: str
-    :param policy_set_definition_name: Policy set definition name, if the policy assignment is for
+    :vartype policy_set_definition_id: str
+    :ivar policy_set_definition_name: Policy set definition name, if the policy assignment is for a
+     policy set.
+    :vartype policy_set_definition_name: str
+    :ivar policy_set_definition_owner: Policy set definition owner, if the policy assignment is for
      a policy set.
-    :type policy_set_definition_name: str
-    :param policy_set_definition_owner: Policy set definition owner, if the policy assignment is
-     for a policy set.
-    :type policy_set_definition_owner: str
-    :param policy_set_definition_category: Policy set definition category, if the policy assignment
+    :vartype policy_set_definition_owner: str
+    :ivar policy_set_definition_category: Policy set definition category, if the policy assignment
      is for a policy set.
-    :type policy_set_definition_category: str
-    :param policy_set_definition_parameters: Policy set definition parameters, if the policy
+    :vartype policy_set_definition_category: str
+    :ivar policy_set_definition_parameters: Policy set definition parameters, if the policy
      assignment is for a policy set.
-    :type policy_set_definition_parameters: str
-    :param management_group_ids: Comma separated list of management group IDs, which represent the
+    :vartype policy_set_definition_parameters: str
+    :ivar management_group_ids: Comma separated list of management group IDs, which represent the
      hierarchy of the management groups the resource is under.
-    :type management_group_ids: str
-    :param policy_definition_reference_id: Reference ID for the policy definition inside the policy
+    :vartype management_group_ids: str
+    :ivar policy_definition_reference_id: Reference ID for the policy definition inside the policy
      set, if the policy assignment is for a policy set.
-    :type policy_definition_reference_id: str
-    :param compliance_state: Compliance state of the resource.
-    :type compliance_state: str
-    :param policy_evaluation_details: Policy evaluation details.
-    :type policy_evaluation_details: ~azure.mgmt.policyinsights.models.PolicyEvaluationDetails
-    :param policy_definition_group_names: Policy definition group names.
-    :type policy_definition_group_names: list[str]
-    :param components: Components state compliance records populated only when URL contains
+    :vartype policy_definition_reference_id: str
+    :ivar compliance_state: Compliance state of the resource.
+    :vartype compliance_state: str
+    :ivar policy_evaluation_details: Policy evaluation details.
+    :vartype policy_evaluation_details: ~azure.mgmt.policyinsights.models.PolicyEvaluationDetails
+    :ivar policy_definition_group_names: Policy definition group names.
+    :vartype policy_definition_group_names: list[str]
+    :ivar components: Components state compliance records populated only when URL contains
      $expand=components clause.
-    :type components: list[~azure.mgmt.policyinsights.models.ComponentStateDetails]
+    :vartype components: list[~azure.mgmt.policyinsights.models.ComponentStateDetails]
     :ivar policy_definition_version: Evaluated policy definition version.
     :vartype policy_definition_version: str
     :ivar policy_set_definition_version: Evaluated policy set definition version.
@@ -1482,53 +1675,53 @@ class PolicyState(msrest.serialization.Model):
     """
 
     _validation = {
-        'policy_definition_version': {'readonly': True},
-        'policy_set_definition_version': {'readonly': True},
-        'policy_assignment_version': {'readonly': True},
+        "policy_definition_version": {"readonly": True},
+        "policy_set_definition_version": {"readonly": True},
+        "policy_assignment_version": {"readonly": True},
     }
 
     _attribute_map = {
-        'additional_properties': {'key': '', 'type': '{object}'},
-        'odata_id': {'key': '@odata\\.id', 'type': 'str'},
-        'odata_context': {'key': '@odata\\.context', 'type': 'str'},
-        'timestamp': {'key': 'timestamp', 'type': 'iso-8601'},
-        'resource_id': {'key': 'resourceId', 'type': 'str'},
-        'policy_assignment_id': {'key': 'policyAssignmentId', 'type': 'str'},
-        'policy_definition_id': {'key': 'policyDefinitionId', 'type': 'str'},
-        'effective_parameters': {'key': 'effectiveParameters', 'type': 'str'},
-        'is_compliant': {'key': 'isCompliant', 'type': 'bool'},
-        'subscription_id': {'key': 'subscriptionId', 'type': 'str'},
-        'resource_type': {'key': 'resourceType', 'type': 'str'},
-        'resource_location': {'key': 'resourceLocation', 'type': 'str'},
-        'resource_group': {'key': 'resourceGroup', 'type': 'str'},
-        'resource_tags': {'key': 'resourceTags', 'type': 'str'},
-        'policy_assignment_name': {'key': 'policyAssignmentName', 'type': 'str'},
-        'policy_assignment_owner': {'key': 'policyAssignmentOwner', 'type': 'str'},
-        'policy_assignment_parameters': {'key': 'policyAssignmentParameters', 'type': 'str'},
-        'policy_assignment_scope': {'key': 'policyAssignmentScope', 'type': 'str'},
-        'policy_definition_name': {'key': 'policyDefinitionName', 'type': 'str'},
-        'policy_definition_action': {'key': 'policyDefinitionAction', 'type': 'str'},
-        'policy_definition_category': {'key': 'policyDefinitionCategory', 'type': 'str'},
-        'policy_set_definition_id': {'key': 'policySetDefinitionId', 'type': 'str'},
-        'policy_set_definition_name': {'key': 'policySetDefinitionName', 'type': 'str'},
-        'policy_set_definition_owner': {'key': 'policySetDefinitionOwner', 'type': 'str'},
-        'policy_set_definition_category': {'key': 'policySetDefinitionCategory', 'type': 'str'},
-        'policy_set_definition_parameters': {'key': 'policySetDefinitionParameters', 'type': 'str'},
-        'management_group_ids': {'key': 'managementGroupIds', 'type': 'str'},
-        'policy_definition_reference_id': {'key': 'policyDefinitionReferenceId', 'type': 'str'},
-        'compliance_state': {'key': 'complianceState', 'type': 'str'},
-        'policy_evaluation_details': {'key': 'policyEvaluationDetails', 'type': 'PolicyEvaluationDetails'},
-        'policy_definition_group_names': {'key': 'policyDefinitionGroupNames', 'type': '[str]'},
-        'components': {'key': 'components', 'type': '[ComponentStateDetails]'},
-        'policy_definition_version': {'key': 'policyDefinitionVersion', 'type': 'str'},
-        'policy_set_definition_version': {'key': 'policySetDefinitionVersion', 'type': 'str'},
-        'policy_assignment_version': {'key': 'policyAssignmentVersion', 'type': 'str'},
+        "additional_properties": {"key": "", "type": "{object}"},
+        "odata_id": {"key": "@odata\\.id", "type": "str"},
+        "odata_context": {"key": "@odata\\.context", "type": "str"},
+        "timestamp": {"key": "timestamp", "type": "iso-8601"},
+        "resource_id": {"key": "resourceId", "type": "str"},
+        "policy_assignment_id": {"key": "policyAssignmentId", "type": "str"},
+        "policy_definition_id": {"key": "policyDefinitionId", "type": "str"},
+        "effective_parameters": {"key": "effectiveParameters", "type": "str"},
+        "is_compliant": {"key": "isCompliant", "type": "bool"},
+        "subscription_id": {"key": "subscriptionId", "type": "str"},
+        "resource_type": {"key": "resourceType", "type": "str"},
+        "resource_location": {"key": "resourceLocation", "type": "str"},
+        "resource_group": {"key": "resourceGroup", "type": "str"},
+        "resource_tags": {"key": "resourceTags", "type": "str"},
+        "policy_assignment_name": {"key": "policyAssignmentName", "type": "str"},
+        "policy_assignment_owner": {"key": "policyAssignmentOwner", "type": "str"},
+        "policy_assignment_parameters": {"key": "policyAssignmentParameters", "type": "str"},
+        "policy_assignment_scope": {"key": "policyAssignmentScope", "type": "str"},
+        "policy_definition_name": {"key": "policyDefinitionName", "type": "str"},
+        "policy_definition_action": {"key": "policyDefinitionAction", "type": "str"},
+        "policy_definition_category": {"key": "policyDefinitionCategory", "type": "str"},
+        "policy_set_definition_id": {"key": "policySetDefinitionId", "type": "str"},
+        "policy_set_definition_name": {"key": "policySetDefinitionName", "type": "str"},
+        "policy_set_definition_owner": {"key": "policySetDefinitionOwner", "type": "str"},
+        "policy_set_definition_category": {"key": "policySetDefinitionCategory", "type": "str"},
+        "policy_set_definition_parameters": {"key": "policySetDefinitionParameters", "type": "str"},
+        "management_group_ids": {"key": "managementGroupIds", "type": "str"},
+        "policy_definition_reference_id": {"key": "policyDefinitionReferenceId", "type": "str"},
+        "compliance_state": {"key": "complianceState", "type": "str"},
+        "policy_evaluation_details": {"key": "policyEvaluationDetails", "type": "PolicyEvaluationDetails"},
+        "policy_definition_group_names": {"key": "policyDefinitionGroupNames", "type": "[str]"},
+        "components": {"key": "components", "type": "[ComponentStateDetails]"},
+        "policy_definition_version": {"key": "policyDefinitionVersion", "type": "str"},
+        "policy_set_definition_version": {"key": "policySetDefinitionVersion", "type": "str"},
+        "policy_assignment_version": {"key": "policyAssignmentVersion", "type": "str"},
     }
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-locals
         self,
         *,
-        additional_properties: Optional[Dict[str, object]] = None,
+        additional_properties: Optional[dict[str, Any]] = None,
         odata_id: Optional[str] = None,
         odata_context: Optional[str] = None,
         timestamp: Optional[datetime.datetime] = None,
@@ -1557,12 +1750,91 @@ class PolicyState(msrest.serialization.Model):
         management_group_ids: Optional[str] = None,
         policy_definition_reference_id: Optional[str] = None,
         compliance_state: Optional[str] = None,
-        policy_evaluation_details: Optional["PolicyEvaluationDetails"] = None,
-        policy_definition_group_names: Optional[List[str]] = None,
-        components: Optional[List["ComponentStateDetails"]] = None,
-        **kwargs
-    ):
-        super(PolicyState, self).__init__(**kwargs)
+        policy_evaluation_details: Optional["_models.PolicyEvaluationDetails"] = None,
+        policy_definition_group_names: Optional[list[str]] = None,
+        components: Optional[list["_models.ComponentStateDetails"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword additional_properties: Unmatched properties from the message are deserialized to this
+         collection.
+        :paramtype additional_properties: dict[str, any]
+        :keyword odata_id: OData entity ID; always set to null since policy state records do not have
+         an entity ID.
+        :paramtype odata_id: str
+        :keyword odata_context: OData context string; used by OData clients to resolve type information
+         based on metadata.
+        :paramtype odata_context: str
+        :keyword timestamp: Timestamp for the policy state record.
+        :paramtype timestamp: ~datetime.datetime
+        :keyword resource_id: Resource ID.
+        :paramtype resource_id: str
+        :keyword policy_assignment_id: Policy assignment ID.
+        :paramtype policy_assignment_id: str
+        :keyword policy_definition_id: Policy definition ID.
+        :paramtype policy_definition_id: str
+        :keyword effective_parameters: Effective parameters for the policy assignment.
+        :paramtype effective_parameters: str
+        :keyword is_compliant: Flag which states whether the resource is compliant against the policy
+         assignment it was evaluated against. This property is deprecated; please use ComplianceState
+         instead.
+        :paramtype is_compliant: bool
+        :keyword subscription_id: Subscription ID.
+        :paramtype subscription_id: str
+        :keyword resource_type: Resource type.
+        :paramtype resource_type: str
+        :keyword resource_location: Resource location.
+        :paramtype resource_location: str
+        :keyword resource_group: Resource group name.
+        :paramtype resource_group: str
+        :keyword resource_tags: List of resource tags.
+        :paramtype resource_tags: str
+        :keyword policy_assignment_name: Policy assignment name.
+        :paramtype policy_assignment_name: str
+        :keyword policy_assignment_owner: Policy assignment owner.
+        :paramtype policy_assignment_owner: str
+        :keyword policy_assignment_parameters: Policy assignment parameters.
+        :paramtype policy_assignment_parameters: str
+        :keyword policy_assignment_scope: Policy assignment scope.
+        :paramtype policy_assignment_scope: str
+        :keyword policy_definition_name: Policy definition name.
+        :paramtype policy_definition_name: str
+        :keyword policy_definition_action: Policy definition action, i.e. effect.
+        :paramtype policy_definition_action: str
+        :keyword policy_definition_category: Policy definition category.
+        :paramtype policy_definition_category: str
+        :keyword policy_set_definition_id: Policy set definition ID, if the policy assignment is for a
+         policy set.
+        :paramtype policy_set_definition_id: str
+        :keyword policy_set_definition_name: Policy set definition name, if the policy assignment is
+         for a policy set.
+        :paramtype policy_set_definition_name: str
+        :keyword policy_set_definition_owner: Policy set definition owner, if the policy assignment is
+         for a policy set.
+        :paramtype policy_set_definition_owner: str
+        :keyword policy_set_definition_category: Policy set definition category, if the policy
+         assignment is for a policy set.
+        :paramtype policy_set_definition_category: str
+        :keyword policy_set_definition_parameters: Policy set definition parameters, if the policy
+         assignment is for a policy set.
+        :paramtype policy_set_definition_parameters: str
+        :keyword management_group_ids: Comma separated list of management group IDs, which represent
+         the hierarchy of the management groups the resource is under.
+        :paramtype management_group_ids: str
+        :keyword policy_definition_reference_id: Reference ID for the policy definition inside the
+         policy set, if the policy assignment is for a policy set.
+        :paramtype policy_definition_reference_id: str
+        :keyword compliance_state: Compliance state of the resource.
+        :paramtype compliance_state: str
+        :keyword policy_evaluation_details: Policy evaluation details.
+        :paramtype policy_evaluation_details: ~azure.mgmt.policyinsights.models.PolicyEvaluationDetails
+        :keyword policy_definition_group_names: Policy definition group names.
+        :paramtype policy_definition_group_names: list[str]
+        :keyword components: Components state compliance records populated only when URL contains
+         $expand=components clause.
+        :paramtype components: list[~azure.mgmt.policyinsights.models.ComponentStateDetails]
+        """
+        super().__init__(**kwargs)
         self.additional_properties = additional_properties
         self.odata_id = odata_id
         self.odata_context = odata_context
@@ -1595,34 +1867,34 @@ class PolicyState(msrest.serialization.Model):
         self.policy_evaluation_details = policy_evaluation_details
         self.policy_definition_group_names = policy_definition_group_names
         self.components = components
-        self.policy_definition_version = None
-        self.policy_set_definition_version = None
-        self.policy_assignment_version = None
+        self.policy_definition_version: Optional[str] = None
+        self.policy_set_definition_version: Optional[str] = None
+        self.policy_assignment_version: Optional[str] = None
 
 
-class PolicyStatesQueryResults(msrest.serialization.Model):
+class PolicyStatesQueryResults(_serialization.Model):
     """Query results.
 
-    :param odata_context: OData context string; used by OData clients to resolve type information
+    :ivar odata_context: OData context string; used by OData clients to resolve type information
      based on metadata.
-    :type odata_context: str
-    :param odata_count: OData entity count; represents the number of policy state records returned.
-    :type odata_count: int
-    :param odata_next_link: Odata next link; URL to get the next set of results.
-    :type odata_next_link: str
-    :param value: Query results.
-    :type value: list[~azure.mgmt.policyinsights.models.PolicyState]
+    :vartype odata_context: str
+    :ivar odata_count: OData entity count; represents the number of policy state records returned.
+    :vartype odata_count: int
+    :ivar odata_next_link: Odata next link; URL to get the next set of results.
+    :vartype odata_next_link: str
+    :ivar value: Query results.
+    :vartype value: list[~azure.mgmt.policyinsights.models.PolicyState]
     """
 
     _validation = {
-        'odata_count': {'minimum': 0},
+        "odata_count": {"minimum": 0},
     }
 
     _attribute_map = {
-        'odata_context': {'key': '@odata\\.context', 'type': 'str'},
-        'odata_count': {'key': '@odata\\.count', 'type': 'int'},
-        'odata_next_link': {'key': '@odata\\.nextLink', 'type': 'str'},
-        'value': {'key': 'value', 'type': '[PolicyState]'},
+        "odata_context": {"key": "@odata\\.context", "type": "str"},
+        "odata_count": {"key": "@odata\\.count", "type": "int"},
+        "odata_next_link": {"key": "@odata\\.nextLink", "type": "str"},
+        "value": {"key": "value", "type": "[PolicyState]"},
     }
 
     def __init__(
@@ -1631,17 +1903,29 @@ class PolicyStatesQueryResults(msrest.serialization.Model):
         odata_context: Optional[str] = None,
         odata_count: Optional[int] = None,
         odata_next_link: Optional[str] = None,
-        value: Optional[List["PolicyState"]] = None,
-        **kwargs
-    ):
-        super(PolicyStatesQueryResults, self).__init__(**kwargs)
+        value: Optional[list["_models.PolicyState"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword odata_context: OData context string; used by OData clients to resolve type information
+         based on metadata.
+        :paramtype odata_context: str
+        :keyword odata_count: OData entity count; represents the number of policy state records
+         returned.
+        :paramtype odata_count: int
+        :keyword odata_next_link: Odata next link; URL to get the next set of results.
+        :paramtype odata_next_link: str
+        :keyword value: Query results.
+        :paramtype value: list[~azure.mgmt.policyinsights.models.PolicyState]
+        """
+        super().__init__(**kwargs)
         self.odata_context = odata_context
         self.odata_count = odata_count
         self.odata_next_link = odata_next_link
         self.value = value
 
 
-class PolicyTrackedResource(msrest.serialization.Model):
+class PolicyTrackedResource(_serialization.Model):
     """Policy tracked resource record.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1661,34 +1945,32 @@ class PolicyTrackedResource(msrest.serialization.Model):
     """
 
     _validation = {
-        'tracked_resource_id': {'readonly': True},
-        'policy_details': {'readonly': True},
-        'created_by': {'readonly': True},
-        'last_modified_by': {'readonly': True},
-        'last_update_utc': {'readonly': True},
+        "tracked_resource_id": {"readonly": True},
+        "policy_details": {"readonly": True},
+        "created_by": {"readonly": True},
+        "last_modified_by": {"readonly": True},
+        "last_update_utc": {"readonly": True},
     }
 
     _attribute_map = {
-        'tracked_resource_id': {'key': 'trackedResourceId', 'type': 'str'},
-        'policy_details': {'key': 'policyDetails', 'type': 'PolicyDetails'},
-        'created_by': {'key': 'createdBy', 'type': 'TrackedResourceModificationDetails'},
-        'last_modified_by': {'key': 'lastModifiedBy', 'type': 'TrackedResourceModificationDetails'},
-        'last_update_utc': {'key': 'lastUpdateUtc', 'type': 'iso-8601'},
+        "tracked_resource_id": {"key": "trackedResourceId", "type": "str"},
+        "policy_details": {"key": "policyDetails", "type": "PolicyDetails"},
+        "created_by": {"key": "createdBy", "type": "TrackedResourceModificationDetails"},
+        "last_modified_by": {"key": "lastModifiedBy", "type": "TrackedResourceModificationDetails"},
+        "last_update_utc": {"key": "lastUpdateUtc", "type": "iso-8601"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyTrackedResource, self).__init__(**kwargs)
-        self.tracked_resource_id = None
-        self.policy_details = None
-        self.created_by = None
-        self.last_modified_by = None
-        self.last_update_utc = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.tracked_resource_id: Optional[str] = None
+        self.policy_details: Optional["_models.PolicyDetails"] = None
+        self.created_by: Optional["_models.TrackedResourceModificationDetails"] = None
+        self.last_modified_by: Optional["_models.TrackedResourceModificationDetails"] = None
+        self.last_update_utc: Optional[datetime.datetime] = None
 
 
-class PolicyTrackedResourcesQueryResults(msrest.serialization.Model):
+class PolicyTrackedResourcesQueryResults(_serialization.Model):
     """Query results.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1700,46 +1982,43 @@ class PolicyTrackedResourcesQueryResults(msrest.serialization.Model):
     """
 
     _validation = {
-        'value': {'readonly': True},
-        'next_link': {'readonly': True},
+        "value": {"readonly": True},
+        "next_link": {"readonly": True},
     }
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[PolicyTrackedResource]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[PolicyTrackedResource]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(PolicyTrackedResourcesQueryResults, self).__init__(**kwargs)
-        self.value = None
-        self.next_link = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.value: Optional[list["_models.PolicyTrackedResource"]] = None
+        self.next_link: Optional[str] = None
 
 
-class QueryFailure(msrest.serialization.Model):
+class QueryFailure(_serialization.Model):
     """Error response.
 
-    :param error: Error definition.
-    :type error: ~azure.mgmt.policyinsights.models.QueryFailureError
+    :ivar error: Error definition.
+    :vartype error: ~azure.mgmt.policyinsights.models.QueryFailureError
     """
 
     _attribute_map = {
-        'error': {'key': 'error', 'type': 'QueryFailureError'},
+        "error": {"key": "error", "type": "QueryFailureError"},
     }
 
-    def __init__(
-        self,
-        *,
-        error: Optional["QueryFailureError"] = None,
-        **kwargs
-    ):
-        super(QueryFailure, self).__init__(**kwargs)
+    def __init__(self, *, error: Optional["_models.QueryFailureError"] = None, **kwargs: Any) -> None:
+        """
+        :keyword error: Error definition.
+        :paramtype error: ~azure.mgmt.policyinsights.models.QueryFailureError
+        """
+        super().__init__(**kwargs)
         self.error = error
 
 
-class QueryFailureError(msrest.serialization.Model):
+class QueryFailureError(_serialization.Model):
     """Error definition.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1751,75 +2030,73 @@ class QueryFailureError(msrest.serialization.Model):
     """
 
     _validation = {
-        'code': {'readonly': True},
-        'message': {'readonly': True},
+        "code": {"readonly": True},
+        "message": {"readonly": True},
     }
 
     _attribute_map = {
-        'code': {'key': 'code', 'type': 'str'},
-        'message': {'key': 'message', 'type': 'str'},
+        "code": {"key": "code", "type": "str"},
+        "message": {"key": "message", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(QueryFailureError, self).__init__(**kwargs)
-        self.code = None
-        self.message = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.code: Optional[str] = None
+        self.message: Optional[str] = None
 
 
-class QueryOptions(msrest.serialization.Model):
+class QueryOptions(_serialization.Model):
     """Parameter group.
 
-    :param top: Maximum number of records to return.
-    :type top: int
-    :param filter: OData filter expression.
-    :type filter: str
-    :param order_by: Ordering expression using OData notation. One or more comma-separated column
+    :ivar top: Maximum number of records to return.
+    :vartype top: int
+    :ivar filter: OData filter expression.
+    :vartype filter: str
+    :ivar order_by: Ordering expression using OData notation. One or more comma-separated column
      names with an optional "desc" (the default) or "asc", e.g. "$orderby=PolicyAssignmentId,
      ResourceId asc".
-    :type order_by: str
-    :param select: Select expression using OData notation. Limits the columns on each record to
-     just those requested, e.g. "$select=PolicyAssignmentId, ResourceId".
-    :type select: str
-    :param from_property: ISO 8601 formatted timestamp specifying the start time of the interval to
+    :vartype order_by: str
+    :ivar select: Select expression using OData notation. Limits the columns on each record to just
+     those requested, e.g. "$select=PolicyAssignmentId, ResourceId".
+    :vartype select: str
+    :ivar from_property: ISO 8601 formatted timestamp specifying the start time of the interval to
      query. When not specified, the service uses ($to - 1-day).
-    :type from_property: ~datetime.datetime
-    :param to: ISO 8601 formatted timestamp specifying the end time of the interval to query. When
+    :vartype from_property: ~datetime.datetime
+    :ivar to: ISO 8601 formatted timestamp specifying the end time of the interval to query. When
      not specified, the service uses request time.
-    :type to: ~datetime.datetime
-    :param apply: OData apply expression for aggregations.
-    :type apply: str
-    :param skip_token: Skiptoken is only provided if a previous response returned a partial result
+    :vartype to: ~datetime.datetime
+    :ivar apply: OData apply expression for aggregations.
+    :vartype apply: str
+    :ivar skip_token: Skiptoken is only provided if a previous response returned a partial result
      as a part of nextLink element.
-    :type skip_token: str
-    :param expand: The $expand query parameter. For example, to expand components use
+    :vartype skip_token: str
+    :ivar expand: The $expand query parameter. For example, to expand components use
      $expand=components.
-    :type expand: str
+    :vartype expand: str
     """
 
     _validation = {
-        'top': {'minimum': 0},
+        "top": {"minimum": 0},
     }
 
     _attribute_map = {
-        'top': {'key': 'Top', 'type': 'int'},
-        'filter': {'key': 'Filter', 'type': 'str'},
-        'order_by': {'key': 'OrderBy', 'type': 'str'},
-        'select': {'key': 'Select', 'type': 'str'},
-        'from_property': {'key': 'FromProperty', 'type': 'iso-8601'},
-        'to': {'key': 'To', 'type': 'iso-8601'},
-        'apply': {'key': 'Apply', 'type': 'str'},
-        'skip_token': {'key': 'SkipToken', 'type': 'str'},
-        'expand': {'key': 'Expand', 'type': 'str'},
+        "top": {"key": "Top", "type": "int"},
+        "filter": {"key": "Filter", "type": "str"},
+        "order_by": {"key": "OrderBy", "type": "str"},
+        "select": {"key": "Select", "type": "str"},
+        "from_property": {"key": "FromProperty", "type": "iso-8601"},
+        "to": {"key": "To", "type": "iso-8601"},
+        "apply": {"key": "Apply", "type": "str"},
+        "skip_token": {"key": "SkipToken", "type": "str"},
+        "expand": {"key": "Expand", "type": "str"},
     }
 
     def __init__(
         self,
         *,
         top: Optional[int] = None,
-        filter: Optional[str] = None,
+        filter: Optional[str] = None,  # pylint: disable=redefined-builtin
         order_by: Optional[str] = None,
         select: Optional[str] = None,
         from_property: Optional[datetime.datetime] = None,
@@ -1827,9 +2104,36 @@ class QueryOptions(msrest.serialization.Model):
         apply: Optional[str] = None,
         skip_token: Optional[str] = None,
         expand: Optional[str] = None,
-        **kwargs
-    ):
-        super(QueryOptions, self).__init__(**kwargs)
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword top: Maximum number of records to return.
+        :paramtype top: int
+        :keyword filter: OData filter expression.
+        :paramtype filter: str
+        :keyword order_by: Ordering expression using OData notation. One or more comma-separated column
+         names with an optional "desc" (the default) or "asc", e.g. "$orderby=PolicyAssignmentId,
+         ResourceId asc".
+        :paramtype order_by: str
+        :keyword select: Select expression using OData notation. Limits the columns on each record to
+         just those requested, e.g. "$select=PolicyAssignmentId, ResourceId".
+        :paramtype select: str
+        :keyword from_property: ISO 8601 formatted timestamp specifying the start time of the interval
+         to query. When not specified, the service uses ($to - 1-day).
+        :paramtype from_property: ~datetime.datetime
+        :keyword to: ISO 8601 formatted timestamp specifying the end time of the interval to query.
+         When not specified, the service uses request time.
+        :paramtype to: ~datetime.datetime
+        :keyword apply: OData apply expression for aggregations.
+        :paramtype apply: str
+        :keyword skip_token: Skiptoken is only provided if a previous response returned a partial
+         result as a part of nextLink element.
+        :paramtype skip_token: str
+        :keyword expand: The $expand query parameter. For example, to expand components use
+         $expand=components.
+        :paramtype expand: str
+        """
+        super().__init__(**kwargs)
         self.top = top
         self.filter = filter
         self.order_by = order_by
@@ -1841,7 +2145,7 @@ class QueryOptions(msrest.serialization.Model):
         self.expand = expand
 
 
-class Remediation(msrest.serialization.Model):
+class Remediation(_serialization.Model):
     """The remediation definition.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1852,52 +2156,52 @@ class Remediation(msrest.serialization.Model):
     :vartype type: str
     :ivar name: The name of the remediation.
     :vartype name: str
-    :param policy_assignment_id: The resource ID of the policy assignment that should be
-     remediated.
-    :type policy_assignment_id: str
-    :param policy_definition_reference_id: The policy definition reference ID of the individual
+    :ivar policy_assignment_id: The resource ID of the policy assignment that should be remediated.
+    :vartype policy_assignment_id: str
+    :ivar policy_definition_reference_id: The policy definition reference ID of the individual
      definition that should be remediated. Required when the policy assignment being remediated
      assigns a policy set definition.
-    :type policy_definition_reference_id: str
-    :param resource_discovery_mode: The way resources to remediate are discovered. Defaults to
-     ExistingNonCompliant if not specified. Possible values include: "ExistingNonCompliant",
+    :vartype policy_definition_reference_id: str
+    :ivar resource_discovery_mode: The way resources to remediate are discovered. Defaults to
+     ExistingNonCompliant if not specified. Known values are: "ExistingNonCompliant" and
      "ReEvaluateCompliance".
-    :type resource_discovery_mode: str or ~azure.mgmt.policyinsights.models.ResourceDiscoveryMode
+    :vartype resource_discovery_mode: str or
+     ~azure.mgmt.policyinsights.models.ResourceDiscoveryMode
     :ivar provisioning_state: The status of the remediation.
     :vartype provisioning_state: str
     :ivar created_on: The time at which the remediation was created.
     :vartype created_on: ~datetime.datetime
     :ivar last_updated_on: The time at which the remediation was last updated.
     :vartype last_updated_on: ~datetime.datetime
-    :param filters: The filters that will be applied to determine which resources to remediate.
-    :type filters: ~azure.mgmt.policyinsights.models.RemediationFilters
+    :ivar filters: The filters that will be applied to determine which resources to remediate.
+    :vartype filters: ~azure.mgmt.policyinsights.models.RemediationFilters
     :ivar deployment_status: The deployment status summary for all deployments created by the
      remediation.
     :vartype deployment_status: ~azure.mgmt.policyinsights.models.RemediationDeploymentSummary
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'type': {'readonly': True},
-        'name': {'readonly': True},
-        'provisioning_state': {'readonly': True},
-        'created_on': {'readonly': True},
-        'last_updated_on': {'readonly': True},
-        'deployment_status': {'readonly': True},
+        "id": {"readonly": True},
+        "type": {"readonly": True},
+        "name": {"readonly": True},
+        "provisioning_state": {"readonly": True},
+        "created_on": {"readonly": True},
+        "last_updated_on": {"readonly": True},
+        "deployment_status": {"readonly": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'policy_assignment_id': {'key': 'properties.policyAssignmentId', 'type': 'str'},
-        'policy_definition_reference_id': {'key': 'properties.policyDefinitionReferenceId', 'type': 'str'},
-        'resource_discovery_mode': {'key': 'properties.resourceDiscoveryMode', 'type': 'str'},
-        'provisioning_state': {'key': 'properties.provisioningState', 'type': 'str'},
-        'created_on': {'key': 'properties.createdOn', 'type': 'iso-8601'},
-        'last_updated_on': {'key': 'properties.lastUpdatedOn', 'type': 'iso-8601'},
-        'filters': {'key': 'properties.filters', 'type': 'RemediationFilters'},
-        'deployment_status': {'key': 'properties.deploymentStatus', 'type': 'RemediationDeploymentSummary'},
+        "id": {"key": "id", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "policy_assignment_id": {"key": "properties.policyAssignmentId", "type": "str"},
+        "policy_definition_reference_id": {"key": "properties.policyDefinitionReferenceId", "type": "str"},
+        "resource_discovery_mode": {"key": "properties.resourceDiscoveryMode", "type": "str"},
+        "provisioning_state": {"key": "properties.provisioningState", "type": "str"},
+        "created_on": {"key": "properties.createdOn", "type": "iso-8601"},
+        "last_updated_on": {"key": "properties.lastUpdatedOn", "type": "iso-8601"},
+        "filters": {"key": "properties.filters", "type": "RemediationFilters"},
+        "deployment_status": {"key": "properties.deploymentStatus", "type": "RemediationDeploymentSummary"},
     }
 
     def __init__(
@@ -1905,25 +2209,41 @@ class Remediation(msrest.serialization.Model):
         *,
         policy_assignment_id: Optional[str] = None,
         policy_definition_reference_id: Optional[str] = None,
-        resource_discovery_mode: Optional[Union[str, "ResourceDiscoveryMode"]] = None,
-        filters: Optional["RemediationFilters"] = None,
-        **kwargs
-    ):
-        super(Remediation, self).__init__(**kwargs)
-        self.id = None
-        self.type = None
-        self.name = None
+        resource_discovery_mode: Optional[Union[str, "_models.ResourceDiscoveryMode"]] = None,
+        filters: Optional["_models.RemediationFilters"] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword policy_assignment_id: The resource ID of the policy assignment that should be
+         remediated.
+        :paramtype policy_assignment_id: str
+        :keyword policy_definition_reference_id: The policy definition reference ID of the individual
+         definition that should be remediated. Required when the policy assignment being remediated
+         assigns a policy set definition.
+        :paramtype policy_definition_reference_id: str
+        :keyword resource_discovery_mode: The way resources to remediate are discovered. Defaults to
+         ExistingNonCompliant if not specified. Known values are: "ExistingNonCompliant" and
+         "ReEvaluateCompliance".
+        :paramtype resource_discovery_mode: str or
+         ~azure.mgmt.policyinsights.models.ResourceDiscoveryMode
+        :keyword filters: The filters that will be applied to determine which resources to remediate.
+        :paramtype filters: ~azure.mgmt.policyinsights.models.RemediationFilters
+        """
+        super().__init__(**kwargs)
+        self.id: Optional[str] = None
+        self.type: Optional[str] = None
+        self.name: Optional[str] = None
         self.policy_assignment_id = policy_assignment_id
         self.policy_definition_reference_id = policy_definition_reference_id
         self.resource_discovery_mode = resource_discovery_mode
-        self.provisioning_state = None
-        self.created_on = None
-        self.last_updated_on = None
+        self.provisioning_state: Optional[str] = None
+        self.created_on: Optional[datetime.datetime] = None
+        self.last_updated_on: Optional[datetime.datetime] = None
         self.filters = filters
-        self.deployment_status = None
+        self.deployment_status: Optional["_models.RemediationDeploymentSummary"] = None
 
 
-class RemediationDeployment(msrest.serialization.Model):
+class RemediationDeployment(_serialization.Model):
     """Details of a single deployment created by the remediation.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1946,40 +2266,38 @@ class RemediationDeployment(msrest.serialization.Model):
     """
 
     _validation = {
-        'remediated_resource_id': {'readonly': True},
-        'deployment_id': {'readonly': True},
-        'status': {'readonly': True},
-        'resource_location': {'readonly': True},
-        'error': {'readonly': True},
-        'created_on': {'readonly': True},
-        'last_updated_on': {'readonly': True},
+        "remediated_resource_id": {"readonly": True},
+        "deployment_id": {"readonly": True},
+        "status": {"readonly": True},
+        "resource_location": {"readonly": True},
+        "error": {"readonly": True},
+        "created_on": {"readonly": True},
+        "last_updated_on": {"readonly": True},
     }
 
     _attribute_map = {
-        'remediated_resource_id': {'key': 'remediatedResourceId', 'type': 'str'},
-        'deployment_id': {'key': 'deploymentId', 'type': 'str'},
-        'status': {'key': 'status', 'type': 'str'},
-        'resource_location': {'key': 'resourceLocation', 'type': 'str'},
-        'error': {'key': 'error', 'type': 'ErrorDefinition'},
-        'created_on': {'key': 'createdOn', 'type': 'iso-8601'},
-        'last_updated_on': {'key': 'lastUpdatedOn', 'type': 'iso-8601'},
+        "remediated_resource_id": {"key": "remediatedResourceId", "type": "str"},
+        "deployment_id": {"key": "deploymentId", "type": "str"},
+        "status": {"key": "status", "type": "str"},
+        "resource_location": {"key": "resourceLocation", "type": "str"},
+        "error": {"key": "error", "type": "ErrorDefinition"},
+        "created_on": {"key": "createdOn", "type": "iso-8601"},
+        "last_updated_on": {"key": "lastUpdatedOn", "type": "iso-8601"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(RemediationDeployment, self).__init__(**kwargs)
-        self.remediated_resource_id = None
-        self.deployment_id = None
-        self.status = None
-        self.resource_location = None
-        self.error = None
-        self.created_on = None
-        self.last_updated_on = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.remediated_resource_id: Optional[str] = None
+        self.deployment_id: Optional[str] = None
+        self.status: Optional[str] = None
+        self.resource_location: Optional[str] = None
+        self.error: Optional["_models.ErrorDefinition"] = None
+        self.created_on: Optional[datetime.datetime] = None
+        self.last_updated_on: Optional[datetime.datetime] = None
 
 
-class RemediationDeploymentsListResult(msrest.serialization.Model):
+class RemediationDeploymentsListResult(_serialization.Model):
     """List of deployments for a remediation.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1991,25 +2309,23 @@ class RemediationDeploymentsListResult(msrest.serialization.Model):
     """
 
     _validation = {
-        'value': {'readonly': True},
-        'next_link': {'readonly': True},
+        "value": {"readonly": True},
+        "next_link": {"readonly": True},
     }
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[RemediationDeployment]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[RemediationDeployment]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(RemediationDeploymentsListResult, self).__init__(**kwargs)
-        self.value = None
-        self.next_link = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.value: Optional[list["_models.RemediationDeployment"]] = None
+        self.next_link: Optional[str] = None
 
 
-class RemediationDeploymentSummary(msrest.serialization.Model):
+class RemediationDeploymentSummary(_serialization.Model):
     """The deployment status summary for all deployments created by the remediation.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -2025,49 +2341,46 @@ class RemediationDeploymentSummary(msrest.serialization.Model):
     """
 
     _validation = {
-        'total_deployments': {'readonly': True},
-        'successful_deployments': {'readonly': True},
-        'failed_deployments': {'readonly': True},
+        "total_deployments": {"readonly": True},
+        "successful_deployments": {"readonly": True},
+        "failed_deployments": {"readonly": True},
     }
 
     _attribute_map = {
-        'total_deployments': {'key': 'totalDeployments', 'type': 'int'},
-        'successful_deployments': {'key': 'successfulDeployments', 'type': 'int'},
-        'failed_deployments': {'key': 'failedDeployments', 'type': 'int'},
+        "total_deployments": {"key": "totalDeployments", "type": "int"},
+        "successful_deployments": {"key": "successfulDeployments", "type": "int"},
+        "failed_deployments": {"key": "failedDeployments", "type": "int"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(RemediationDeploymentSummary, self).__init__(**kwargs)
-        self.total_deployments = None
-        self.successful_deployments = None
-        self.failed_deployments = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.total_deployments: Optional[int] = None
+        self.successful_deployments: Optional[int] = None
+        self.failed_deployments: Optional[int] = None
 
 
-class RemediationFilters(msrest.serialization.Model):
+class RemediationFilters(_serialization.Model):
     """The filters that will be applied to determine which resources to remediate.
 
-    :param locations: The resource locations that will be remediated.
-    :type locations: list[str]
+    :ivar locations: The resource locations that will be remediated.
+    :vartype locations: list[str]
     """
 
     _attribute_map = {
-        'locations': {'key': 'locations', 'type': '[str]'},
+        "locations": {"key": "locations", "type": "[str]"},
     }
 
-    def __init__(
-        self,
-        *,
-        locations: Optional[List[str]] = None,
-        **kwargs
-    ):
-        super(RemediationFilters, self).__init__(**kwargs)
+    def __init__(self, *, locations: Optional[list[str]] = None, **kwargs: Any) -> None:
+        """
+        :keyword locations: The resource locations that will be remediated.
+        :paramtype locations: list[str]
+        """
+        super().__init__(**kwargs)
         self.locations = locations
 
 
-class RemediationListResult(msrest.serialization.Model):
+class RemediationListResult(_serialization.Model):
     """List of remediations.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -2079,25 +2392,23 @@ class RemediationListResult(msrest.serialization.Model):
     """
 
     _validation = {
-        'value': {'readonly': True},
-        'next_link': {'readonly': True},
+        "value": {"readonly": True},
+        "next_link": {"readonly": True},
     }
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[Remediation]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[Remediation]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(RemediationListResult, self).__init__(**kwargs)
-        self.value = None
-        self.next_link = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.value: Optional[list["_models.Remediation"]] = None
+        self.next_link: Optional[str] = None
 
 
-class SlimPolicyMetadata(msrest.serialization.Model):
+class SlimPolicyMetadata(_serialization.Model):
     """Slim version of policy metadata resource definition, excluding properties with large strings.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -2119,70 +2430,68 @@ class SlimPolicyMetadata(msrest.serialization.Model):
     :ivar additional_content_url: Url for getting additional content about the resource metadata.
     :vartype additional_content_url: str
     :ivar metadata: Additional metadata.
-    :vartype metadata: object
+    :vartype metadata: JSON
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'type': {'readonly': True},
-        'name': {'readonly': True},
-        'metadata_id': {'readonly': True},
-        'category': {'readonly': True},
-        'title': {'readonly': True},
-        'owner': {'readonly': True},
-        'additional_content_url': {'readonly': True},
-        'metadata': {'readonly': True},
+        "id": {"readonly": True},
+        "type": {"readonly": True},
+        "name": {"readonly": True},
+        "metadata_id": {"readonly": True},
+        "category": {"readonly": True},
+        "title": {"readonly": True},
+        "owner": {"readonly": True},
+        "additional_content_url": {"readonly": True},
+        "metadata": {"readonly": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'metadata_id': {'key': 'properties.metadataId', 'type': 'str'},
-        'category': {'key': 'properties.category', 'type': 'str'},
-        'title': {'key': 'properties.title', 'type': 'str'},
-        'owner': {'key': 'properties.owner', 'type': 'str'},
-        'additional_content_url': {'key': 'properties.additionalContentUrl', 'type': 'str'},
-        'metadata': {'key': 'properties.metadata', 'type': 'object'},
+        "id": {"key": "id", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "metadata_id": {"key": "properties.metadataId", "type": "str"},
+        "category": {"key": "properties.category", "type": "str"},
+        "title": {"key": "properties.title", "type": "str"},
+        "owner": {"key": "properties.owner", "type": "str"},
+        "additional_content_url": {"key": "properties.additionalContentUrl", "type": "str"},
+        "metadata": {"key": "properties.metadata", "type": "object"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(SlimPolicyMetadata, self).__init__(**kwargs)
-        self.id = None
-        self.type = None
-        self.name = None
-        self.metadata_id = None
-        self.category = None
-        self.title = None
-        self.owner = None
-        self.additional_content_url = None
-        self.metadata = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.id: Optional[str] = None
+        self.type: Optional[str] = None
+        self.name: Optional[str] = None
+        self.metadata_id: Optional[str] = None
+        self.category: Optional[str] = None
+        self.title: Optional[str] = None
+        self.owner: Optional[str] = None
+        self.additional_content_url: Optional[str] = None
+        self.metadata: Optional[JSON] = None
 
 
-class SummarizeResults(msrest.serialization.Model):
+class SummarizeResults(_serialization.Model):
     """Summarize action results.
 
-    :param odata_context: OData context string; used by OData clients to resolve type information
+    :ivar odata_context: OData context string; used by OData clients to resolve type information
      based on metadata.
-    :type odata_context: str
-    :param odata_count: OData entity count; represents the number of summaries returned; always set
+    :vartype odata_context: str
+    :ivar odata_count: OData entity count; represents the number of summaries returned; always set
      to 1.
-    :type odata_count: int
-    :param value: Summarize action results.
-    :type value: list[~azure.mgmt.policyinsights.models.Summary]
+    :vartype odata_count: int
+    :ivar value: Summarize action results.
+    :vartype value: list[~azure.mgmt.policyinsights.models.Summary]
     """
 
     _validation = {
-        'odata_count': {'maximum': 1, 'minimum': 1},
+        "odata_count": {"maximum": 1, "minimum": 1},
     }
 
     _attribute_map = {
-        'odata_context': {'key': '@odata\\.context', 'type': 'str'},
-        'odata_count': {'key': '@odata\\.count', 'type': 'int'},
-        'value': {'key': 'value', 'type': '[Summary]'},
+        "odata_context": {"key": "@odata\\.context", "type": "str"},
+        "odata_count": {"key": "@odata\\.count", "type": "int"},
+        "value": {"key": "value", "type": "[Summary]"},
     }
 
     def __init__(
@@ -2190,34 +2499,44 @@ class SummarizeResults(msrest.serialization.Model):
         *,
         odata_context: Optional[str] = None,
         odata_count: Optional[int] = None,
-        value: Optional[List["Summary"]] = None,
-        **kwargs
-    ):
-        super(SummarizeResults, self).__init__(**kwargs)
+        value: Optional[list["_models.Summary"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword odata_context: OData context string; used by OData clients to resolve type information
+         based on metadata.
+        :paramtype odata_context: str
+        :keyword odata_count: OData entity count; represents the number of summaries returned; always
+         set to 1.
+        :paramtype odata_count: int
+        :keyword value: Summarize action results.
+        :paramtype value: list[~azure.mgmt.policyinsights.models.Summary]
+        """
+        super().__init__(**kwargs)
         self.odata_context = odata_context
         self.odata_count = odata_count
         self.value = value
 
 
-class Summary(msrest.serialization.Model):
+class Summary(_serialization.Model):
     """Summary results.
 
-    :param odata_id: OData entity ID; always set to null since summaries do not have an entity ID.
-    :type odata_id: str
-    :param odata_context: OData context string; used by OData clients to resolve type information
+    :ivar odata_id: OData entity ID; always set to null since summaries do not have an entity ID.
+    :vartype odata_id: str
+    :ivar odata_context: OData context string; used by OData clients to resolve type information
      based on metadata.
-    :type odata_context: str
-    :param results: Compliance summary for all policy assignments.
-    :type results: ~azure.mgmt.policyinsights.models.SummaryResults
-    :param policy_assignments: Policy assignments summary.
-    :type policy_assignments: list[~azure.mgmt.policyinsights.models.PolicyAssignmentSummary]
+    :vartype odata_context: str
+    :ivar results: Compliance summary for all policy assignments.
+    :vartype results: ~azure.mgmt.policyinsights.models.SummaryResults
+    :ivar policy_assignments: Policy assignments summary.
+    :vartype policy_assignments: list[~azure.mgmt.policyinsights.models.PolicyAssignmentSummary]
     """
 
     _attribute_map = {
-        'odata_id': {'key': '@odata\\.id', 'type': 'str'},
-        'odata_context': {'key': '@odata\\.context', 'type': 'str'},
-        'results': {'key': 'results', 'type': 'SummaryResults'},
-        'policy_assignments': {'key': 'policyAssignments', 'type': '[PolicyAssignmentSummary]'},
+        "odata_id": {"key": "@odata\\.id", "type": "str"},
+        "odata_context": {"key": "@odata\\.context", "type": "str"},
+        "results": {"key": "results", "type": "SummaryResults"},
+        "policy_assignments": {"key": "policyAssignments", "type": "[PolicyAssignmentSummary]"},
     }
 
     def __init__(
@@ -2225,50 +2544,62 @@ class Summary(msrest.serialization.Model):
         *,
         odata_id: Optional[str] = None,
         odata_context: Optional[str] = None,
-        results: Optional["SummaryResults"] = None,
-        policy_assignments: Optional[List["PolicyAssignmentSummary"]] = None,
-        **kwargs
-    ):
-        super(Summary, self).__init__(**kwargs)
+        results: Optional["_models.SummaryResults"] = None,
+        policy_assignments: Optional[list["_models.PolicyAssignmentSummary"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword odata_id: OData entity ID; always set to null since summaries do not have an entity
+         ID.
+        :paramtype odata_id: str
+        :keyword odata_context: OData context string; used by OData clients to resolve type information
+         based on metadata.
+        :paramtype odata_context: str
+        :keyword results: Compliance summary for all policy assignments.
+        :paramtype results: ~azure.mgmt.policyinsights.models.SummaryResults
+        :keyword policy_assignments: Policy assignments summary.
+        :paramtype policy_assignments: list[~azure.mgmt.policyinsights.models.PolicyAssignmentSummary]
+        """
+        super().__init__(**kwargs)
         self.odata_id = odata_id
         self.odata_context = odata_context
         self.results = results
         self.policy_assignments = policy_assignments
 
 
-class SummaryResults(msrest.serialization.Model):
+class SummaryResults(_serialization.Model):
     """Compliance summary on a particular summary level.
 
-    :param query_results_uri: HTTP POST URI for queryResults action on Microsoft.PolicyInsights to
+    :ivar query_results_uri: HTTP POST URI for queryResults action on Microsoft.PolicyInsights to
      retrieve raw results for the compliance summary. This property will not be available by default
      in future API versions, but could be queried explicitly.
-    :type query_results_uri: str
-    :param non_compliant_resources: Number of non-compliant resources.
-    :type non_compliant_resources: int
-    :param non_compliant_policies: Number of non-compliant policies.
-    :type non_compliant_policies: int
-    :param resource_details: The resources summary at this level.
-    :type resource_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
-    :param policy_details: The policy artifact summary at this level. For query scope level, it
+    :vartype query_results_uri: str
+    :ivar non_compliant_resources: Number of non-compliant resources.
+    :vartype non_compliant_resources: int
+    :ivar non_compliant_policies: Number of non-compliant policies.
+    :vartype non_compliant_policies: int
+    :ivar resource_details: The resources summary at this level.
+    :vartype resource_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
+    :ivar policy_details: The policy artifact summary at this level. For query scope level, it
      represents policy assignment summary. For policy assignment level, it represents policy
      definitions summary.
-    :type policy_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
-    :param policy_group_details: The policy definition group summary at this level.
-    :type policy_group_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
+    :vartype policy_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
+    :ivar policy_group_details: The policy definition group summary at this level.
+    :vartype policy_group_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
     """
 
     _validation = {
-        'non_compliant_resources': {'minimum': 0},
-        'non_compliant_policies': {'minimum': 0},
+        "non_compliant_resources": {"minimum": 0},
+        "non_compliant_policies": {"minimum": 0},
     }
 
     _attribute_map = {
-        'query_results_uri': {'key': 'queryResultsUri', 'type': 'str'},
-        'non_compliant_resources': {'key': 'nonCompliantResources', 'type': 'int'},
-        'non_compliant_policies': {'key': 'nonCompliantPolicies', 'type': 'int'},
-        'resource_details': {'key': 'resourceDetails', 'type': '[ComplianceDetail]'},
-        'policy_details': {'key': 'policyDetails', 'type': '[ComplianceDetail]'},
-        'policy_group_details': {'key': 'policyGroupDetails', 'type': '[ComplianceDetail]'},
+        "query_results_uri": {"key": "queryResultsUri", "type": "str"},
+        "non_compliant_resources": {"key": "nonCompliantResources", "type": "int"},
+        "non_compliant_policies": {"key": "nonCompliantPolicies", "type": "int"},
+        "resource_details": {"key": "resourceDetails", "type": "[ComplianceDetail]"},
+        "policy_details": {"key": "policyDetails", "type": "[ComplianceDetail]"},
+        "policy_group_details": {"key": "policyGroupDetails", "type": "[ComplianceDetail]"},
     }
 
     def __init__(
@@ -2277,12 +2608,30 @@ class SummaryResults(msrest.serialization.Model):
         query_results_uri: Optional[str] = None,
         non_compliant_resources: Optional[int] = None,
         non_compliant_policies: Optional[int] = None,
-        resource_details: Optional[List["ComplianceDetail"]] = None,
-        policy_details: Optional[List["ComplianceDetail"]] = None,
-        policy_group_details: Optional[List["ComplianceDetail"]] = None,
-        **kwargs
-    ):
-        super(SummaryResults, self).__init__(**kwargs)
+        resource_details: Optional[list["_models.ComplianceDetail"]] = None,
+        policy_details: Optional[list["_models.ComplianceDetail"]] = None,
+        policy_group_details: Optional[list["_models.ComplianceDetail"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword query_results_uri: HTTP POST URI for queryResults action on Microsoft.PolicyInsights
+         to retrieve raw results for the compliance summary. This property will not be available by
+         default in future API versions, but could be queried explicitly.
+        :paramtype query_results_uri: str
+        :keyword non_compliant_resources: Number of non-compliant resources.
+        :paramtype non_compliant_resources: int
+        :keyword non_compliant_policies: Number of non-compliant policies.
+        :paramtype non_compliant_policies: int
+        :keyword resource_details: The resources summary at this level.
+        :paramtype resource_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
+        :keyword policy_details: The policy artifact summary at this level. For query scope level, it
+         represents policy assignment summary. For policy assignment level, it represents policy
+         definitions summary.
+        :paramtype policy_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
+        :keyword policy_group_details: The policy definition group summary at this level.
+        :paramtype policy_group_details: list[~azure.mgmt.policyinsights.models.ComplianceDetail]
+        """
+        super().__init__(**kwargs)
         self.query_results_uri = query_results_uri
         self.non_compliant_resources = non_compliant_resources
         self.non_compliant_policies = non_compliant_policies
@@ -2291,7 +2640,7 @@ class SummaryResults(msrest.serialization.Model):
         self.policy_group_details = policy_group_details
 
 
-class TrackedResourceModificationDetails(msrest.serialization.Model):
+class TrackedResourceModificationDetails(_serialization.Model):
     """The details of the policy triggered deployment that created or modified the tracked resource.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -2306,28 +2655,26 @@ class TrackedResourceModificationDetails(msrest.serialization.Model):
     """
 
     _validation = {
-        'policy_details': {'readonly': True},
-        'deployment_id': {'readonly': True},
-        'deployment_time': {'readonly': True},
+        "policy_details": {"readonly": True},
+        "deployment_id": {"readonly": True},
+        "deployment_time": {"readonly": True},
     }
 
     _attribute_map = {
-        'policy_details': {'key': 'policyDetails', 'type': 'PolicyDetails'},
-        'deployment_id': {'key': 'deploymentId', 'type': 'str'},
-        'deployment_time': {'key': 'deploymentTime', 'type': 'iso-8601'},
+        "policy_details": {"key": "policyDetails", "type": "PolicyDetails"},
+        "deployment_id": {"key": "deploymentId", "type": "str"},
+        "deployment_time": {"key": "deploymentTime", "type": "iso-8601"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(TrackedResourceModificationDetails, self).__init__(**kwargs)
-        self.policy_details = None
-        self.deployment_id = None
-        self.deployment_time = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.policy_details: Optional["_models.PolicyDetails"] = None
+        self.deployment_id: Optional[str] = None
+        self.deployment_time: Optional[datetime.datetime] = None
 
 
-class TypedErrorInfo(msrest.serialization.Model):
+class TypedErrorInfo(_serialization.Model):
     """Scenario specific error details.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -2335,23 +2682,21 @@ class TypedErrorInfo(msrest.serialization.Model):
     :ivar type: The type of included error details.
     :vartype type: str
     :ivar info: The scenario specific error details.
-    :vartype info: object
+    :vartype info: any
     """
 
     _validation = {
-        'type': {'readonly': True},
-        'info': {'readonly': True},
+        "type": {"readonly": True},
+        "info": {"readonly": True},
     }
 
     _attribute_map = {
-        'type': {'key': 'type', 'type': 'str'},
-        'info': {'key': 'info', 'type': 'object'},
+        "type": {"key": "type", "type": "str"},
+        "info": {"key": "info", "type": "object"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        super(TypedErrorInfo, self).__init__(**kwargs)
-        self.type = None
-        self.info = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.type: Optional[str] = None
+        self.info: Optional[Any] = None

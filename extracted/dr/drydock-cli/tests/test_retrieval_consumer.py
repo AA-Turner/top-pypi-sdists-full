@@ -30,6 +30,7 @@ def _load_consumer(monkeypatch, dispatch_dir: Path, session_root: Path):
     """Import the script as a module with HOME redirected so its module-level
     paths point at the tmp dirs."""
     spec = importlib.util.spec_from_file_location("consume_retrieval_queue", SCRIPT)
+    assert spec is not None and spec.loader is not None, f"failed to build spec for {SCRIPT}"
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setenv("HOME", str(dispatch_dir.parent.parent))
     spec.loader.exec_module(module)

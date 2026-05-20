@@ -143,5 +143,5 @@ def patch_config_for_local(
                     # llama.cpp's native repetition knob, not the
                     # OpenAI-style frequency_penalty.
                     extra.setdefault("repeat_penalty", 1.1)
-                    extra.setdefault("max_tokens", 2048)
+                    extra.setdefault("max_tokens", 8192)
                 break

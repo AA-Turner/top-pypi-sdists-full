@@ -22,6 +22,10 @@ import { rand, randRange, sleep, mergeConfig } from './config.js';
 import { RawMouse, RawKeyboard, humanMove, humanClick, clickTarget, humanIdle } from './mouse.js';
 import { humanType } from './keyboard.js';
 import { humanScrollIntoView } from './scroll.js';
+import {
+  ensureActionableHandle, checkPointerEventsHandle,
+  CHECKS_CLICK, CHECKS_HOVER, CHECKS_INPUT, CHECKS_FOCUS, CHECKS_CHECK,
+} from './actionability.js';
 
 // --- Platform-aware select-all shortcut ---
 const SELECT_ALL = process.platform === 'darwin' ? 'Meta+a' : 'Control+a';
@@ -190,8 +194,12 @@ export function patchSingleElementHandle(
     trial?: boolean;
   }) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const force = options?.force ?? false;
+    const timeout = options?.timeout ?? 30000;
+    if (!force) await ensureActionableHandle(el, CHECKS_CLICK, timeout, force);
     const info = await moveToElement(callCfg);
     if (!info) return origElClick(options);
+    if (!force) await checkPointerEventsHandle(el, cursor.x, cursor.y, Math.min(timeout, 5000));
     await humanClick(raw, info.isInp, callCfg);
   };
 
@@ -206,8 +214,12 @@ export function patchSingleElementHandle(
     trial?: boolean;
   }) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const force = options?.force ?? false;
+    const timeout = options?.timeout ?? 30000;
+    if (!force) await ensureActionableHandle(el, CHECKS_CLICK, timeout, force);
     const info = await moveToElement(callCfg);
     if (!info) return origElDblclick(options);
+    if (!force) await checkPointerEventsHandle(el, cursor.x, cursor.y, Math.min(timeout, 5000));
     await raw.down({ clickCount: 2 });
     await sleep(rand(30, 60));
     await raw.up({ clickCount: 2 });
@@ -221,9 +233,11 @@ export function patchSingleElementHandle(
     trial?: boolean;
   }) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const force = options?.force ?? false;
+    const timeout = options?.timeout ?? 30000;
+    if (!force) await ensureActionableHandle(el, CHECKS_HOVER, timeout, force);
     const info = await moveToElement(callCfg);
     if (!info) return origElHover(options);
-    // Just move — no click
   };
 
   // --- el.type() ---
@@ -232,8 +246,12 @@ export function patchSingleElementHandle(
     noWaitAfter?: boolean;
   }) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const force = (options as any)?.force ?? false;
+    const timeout = options?.timeout ?? 30000;
+    if (!force) await ensureActionableHandle(el, CHECKS_INPUT, timeout, force);
     const info = await moveToElement(callCfg);
     if (!info) return origElType(text, options);
+    if (!force) await checkPointerEventsHandle(el, cursor.x, cursor.y, Math.min(timeout, 5000));
     await humanClick(raw, info.isInp, callCfg);
     await sleep(rand(100, 250));
     let cdpSession: CDPSession | null = null;
@@ -247,11 +265,14 @@ export function patchSingleElementHandle(
     noWaitAfter?: boolean;
   }) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const force = options?.force ?? false;
+    const timeout = options?.timeout ?? 30000;
+    if (!force) await ensureActionableHandle(el, CHECKS_INPUT, timeout, force);
     const info = await moveToElement(callCfg);
     if (!info) return origElFill(value, options);
+    if (!force) await checkPointerEventsHandle(el, cursor.x, cursor.y, Math.min(timeout, 5000));
     await humanClick(raw, info.isInp, callCfg);
     await sleep(rand(100, 250));
-    // Clear existing content
     await originals.keyboardPress(SELECT_ALL);
     await sleep(rand(30, 80));
     await originals.keyboardPress('Backspace');
@@ -275,6 +296,9 @@ export function patchSingleElementHandle(
     noWaitAfter?: boolean;
     timeout?: number;
   }) => {
+    const force = options?.force ?? false;
+    const timeout = options?.timeout ?? 30000;
+    if (!force) await ensureActionableHandle(el, CHECKS_FOCUS, timeout, force);
     const info = await moveToElement();
     if (!info) return origElSelectOption(values, options);
     await humanClick(raw, false, cfg);
@@ -290,12 +314,16 @@ export function patchSingleElementHandle(
     timeout?: number;
     trial?: boolean;
   }) => {
+    const force = options?.force ?? false;
+    const timeout = options?.timeout ?? 30000;
+    if (!force) await ensureActionableHandle(el, CHECKS_CHECK, timeout, force);
     try {
       const checked = await el.isChecked();
-      if (checked) return; // Already checked
+      if (checked) return;
     } catch {}
     const info = await moveToElement();
     if (!info) return origElCheck(options);
+    if (!force) await checkPointerEventsHandle(el, cursor.x, cursor.y, Math.min(timeout, 5000));
     await humanClick(raw, info.isInp, cfg);
   };
 
@@ -307,12 +335,16 @@ export function patchSingleElementHandle(
     timeout?: number;
     trial?: boolean;
   }) => {
+    const force = options?.force ?? false;
+    const timeout = options?.timeout ?? 30000;
+    if (!force) await ensureActionableHandle(el, CHECKS_CHECK, timeout, force);
     try {
       const checked = await el.isChecked();
-      if (!checked) return; // Already unchecked
+      if (!checked) return;
     } catch {}
     const info = await moveToElement();
     if (!info) return origElUncheck(options);
+    if (!force) await checkPointerEventsHandle(el, cursor.x, cursor.y, Math.min(timeout, 5000));
     await humanClick(raw, info.isInp, cfg);
   };
 
@@ -325,12 +357,16 @@ export function patchSingleElementHandle(
       timeout?: number;
       trial?: boolean;
     }) => {
+      const force = options?.force ?? false;
+      const timeout = options?.timeout ?? 30000;
+      if (!force) await ensureActionableHandle(el, CHECKS_CHECK, timeout, force);
       try {
         const current = await el.isChecked();
         if (current === checked) return;
       } catch {}
       const info = await moveToElement();
       if (!info) return origElSetChecked(checked, options);
+      if (!force) await checkPointerEventsHandle(el, cursor.x, cursor.y, Math.min(timeout, 5000));
       await humanClick(raw, info.isInp, cfg);
     };
   }

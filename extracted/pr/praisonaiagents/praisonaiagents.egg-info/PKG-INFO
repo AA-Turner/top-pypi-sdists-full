@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.6.40
+Version: 1.6.42
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -54,6 +54,10 @@ Requires-Dist: ddgs>=9.0.0; extra == "search"
 Provides-Extra: crawl
 Requires-Dist: crawl4ai>=0.4.0; extra == "crawl"
 Requires-Dist: playwright>=1.47.0; extra == "crawl"
+Provides-Extra: sandbox
+Requires-Dist: e2b-code-interpreter>=1.0.0; extra == "sandbox"
+Provides-Extra: sandbox-docker
+Requires-Dist: docker>=7.0.0; extra == "sandbox-docker"
 Provides-Extra: all
 Requires-Dist: praisonaiagents[memory]; extra == "all"
 Requires-Dist: praisonaiagents[knowledge]; extra == "all"
@@ -64,6 +68,7 @@ Requires-Dist: praisonaiagents[api]; extra == "all"
 Requires-Dist: praisonaiagents[telemetry]; extra == "all"
 Requires-Dist: praisonaiagents[mongodb]; extra == "all"
 Requires-Dist: praisonaiagents[auth]; extra == "all"
+Requires-Dist: praisonaiagents[sandbox]; extra == "all"
 Requires-Dist: praisonaiagents[search]; extra == "all"
 Requires-Dist: praisonaiagents[crawl]; extra == "all"
 Requires-Dist: praisonaiagents[autonomy]; extra == "all"

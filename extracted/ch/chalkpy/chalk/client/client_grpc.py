@@ -2913,6 +2913,7 @@ class ChalkGRPCClient:
                     upload_chalk_handler_artifacts(
                         volume_name=chalk_handler_volume_name(name, response.model_version),
                         uploads=artifact_uploads,
+                        chalk_client=self,
                     )
                 return response
             finally:
@@ -2963,7 +2964,7 @@ class ChalkGRPCClient:
         except ImportError:
             raise ImportError("Please install `chalkcompute` to enable model image builds.")
 
-        return build_image(image)
+        return build_image(image, chalk_client=self)
 
     def _register_model_with_image(
         self,
@@ -3924,7 +3925,7 @@ class ChalkGRPCClient:
             # (legacy `model_image=<uri>` registrations work unchanged).
             volume_name = chalk_handler_volume_name(model_name, model_version)
             volume_mounts: List[Dict[str, str]] = []
-            if chalk_handler_volume_exists(volume_name):
+            if chalk_handler_volume_exists(volume_name, chalk_client=self):
                 volume_mounts = [
                     {
                         "name": volume_name,
@@ -3983,6 +3984,7 @@ class ChalkGRPCClient:
                 volume_name=vol_name,
                 model_filename=model_filename,
                 model_file_path=model_files[0],
+                chalk_client=self,
             )
         finally:
             import shutil

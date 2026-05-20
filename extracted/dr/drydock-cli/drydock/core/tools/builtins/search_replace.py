@@ -103,10 +103,32 @@ class SearchReplace(
                     message=event.result.content[:120].split("\n")[0],
                     warnings=event.result.warnings,
                 )
+            # 2026-05-19: ALREADY-APPLIED blocks count toward
+            # blocks_applied so the model doesn't see an error — but the
+            # UI used to show "✓ Applied N block(s)" with green check
+            # even when nothing actually changed. That contradicted the
+            # ⚠ ALREADY-APPLIED warnings underneath and confused
+            # operators ("did it apply or not?"). When every applied
+            # block was a no-op (lines_changed == 0 AND all warnings
+            # start with "Block N: ALREADY"), downgrade to no-success
+            # so the icon matches the substance.
+            warns = event.result.warnings or []
+            all_noop = (
+                event.result.lines_changed == 0
+                and warns
+                and all(w.startswith(f"Block {i+1}: ALREADY")
+                        for i, w in enumerate(warns[:event.result.blocks_applied]))
+            )
+            if all_noop:
+                return ToolResultDisplay(
+                    success=False,  # rendered as ⚠ warning, not ✓ success
+                    message=f"No-op: {event.result.blocks_applied} block(s) already applied",
+                    warnings=warns,
+                )
             return ToolResultDisplay(
                 success=True,
                 message=f"Applied {event.result.blocks_applied} block{'' if event.result.blocks_applied == 1 else 's'}",
-                warnings=event.result.warnings,
+                warnings=warns,
             )
 
         return ToolResultDisplay(success=True, message="Patch applied")

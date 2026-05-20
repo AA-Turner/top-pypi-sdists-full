@@ -85,11 +85,14 @@ def _sort_into_tree(lst):
 
     for entry in lst:
         name, level, time = entry
-        # find the last entry with level-1
-        last[level - 1]["children"] += [
+        # find the closest ancestor level that exists (handles excessive indentation)
+        parent_level = level - 1
+        while parent_level > 0 and parent_level not in last:
+            parent_level -= 1
+        last[parent_level]["children"] += [
             {"text": [name], "value": time * 1.0e-6, "children": []},
         ]
-        last[level] = last[level - 1]["children"][-1]
+        last[level] = last[parent_level]["children"][-1]
 
     _remove_empty_children(main)
     return [main]

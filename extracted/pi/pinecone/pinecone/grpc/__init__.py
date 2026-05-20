@@ -5,7 +5,7 @@ from __future__ import annotations
 import builtins
 import logging
 import os
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +26,13 @@ from pinecone.errors.exceptions import (
 )
 from pinecone.grpc._protocol import GrpcChannelProtocol
 from pinecone.grpc.future import PineconeFuture
+from pinecone.models.namespaces.models import (
+    IndexedFields,
+    ListNamespacesResponse,
+    NamespaceDescription,
+    NamespaceFieldConfig,
+    NamespaceSchema,
+)
 from pinecone.models.vectors.responses import (
     DescribeIndexStatsResponse,
     FetchResponse,
@@ -108,6 +115,36 @@ def _dict_to_usage(data: dict[str, Any] | None) -> Usage | None:
     if data is None:
         return None
     return Usage(read_units=data.get("read_units", 0))
+
+
+def _dict_to_namespace_description(data: dict[str, Any]) -> NamespaceDescription:
+    """Convert a GrpcChannel namespace dict to a NamespaceDescription model.
+
+    Shared by create_namespace, describe_namespace, and list_namespaces_paginated
+    to convert the dict payload returned by the Rust-backed GrpcChannel into a
+    typed NamespaceDescription, including optional schema and indexed_fields.
+    """
+    schema: NamespaceSchema | None = None
+    raw_schema = data.get("schema")
+    if raw_schema is not None:
+        schema = NamespaceSchema(
+            fields={
+                k: NamespaceFieldConfig(filterable=v["filterable"])
+                for k, v in raw_schema.get("fields", {}).items()
+            }
+        )
+
+    indexed_fields: IndexedFields | None = None
+    raw_indexed = data.get("indexed_fields")
+    if raw_indexed is not None:
+        indexed_fields = IndexedFields(fields=list(raw_indexed))
+
+    return NamespaceDescription(
+        name=data.get("name", ""),
+        record_count=data.get("record_count", 0),
+        schema=schema,
+        indexed_fields=indexed_fields,
+    )
 
 
 class GrpcIndex:
@@ -219,9 +256,9 @@ class GrpcIndex:
         *,
         vectors: Sequence[
             Vector
-            | tuple[str, builtins.list[float]]
-            | tuple[str, builtins.list[float], dict[str, Any]]
-            | dict[str, Any]
+            | tuple[str, Sequence[float]]
+            | tuple[str, Sequence[float], Mapping[str, Any]]
+            | Mapping[str, Any]
         ],
         namespace: str = "",
         batch_size: int | None = None,
@@ -336,13 +373,13 @@ class GrpcIndex:
         self,
         *,
         top_k: int,
-        vector: list[float] | None = None,
+        vector: Sequence[float] | None = None,
         id: str | None = None,
         namespace: str = "",
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         include_values: bool = False,
         include_metadata: bool = False,
-        sparse_vector: SparseValues | dict[str, Any] | None = None,
+        sparse_vector: SparseValues | Mapping[str, Any] | None = None,
         scan_factor: float | None = None,
         max_candidates: int | None = None,
         timeout: float | None = None,
@@ -371,8 +408,8 @@ class GrpcIndex:
             :class:`QueryResponse` with matches, namespace, and usage info.
 
         Raises:
-            :exc:`ValidationError`: If top_k < 1, both vector and id are provided,
-                or none of vector, id, or sparse_vector are provided.
+            :exc:`ValidationError`: If top_k is not between 1 and 10000, both vector
+                and id are provided, or none of vector, id, or sparse_vector are provided.
             :exc:`PineconeTimeoutError`: If the call exceeds *timeout* or the server
                 returns CANCELLED with a timeout cause.
 
@@ -387,8 +424,7 @@ class GrpcIndex:
                 for match in response.matches:
                     print(match.id, match.score)
         """
-        if top_k < 1:
-            raise ValidationError(f"top_k must be a positive integer, got {top_k}")
+        require_in_range("top_k", top_k, 1, 10_000)
 
         has_vector = vector is not None
         has_id = id is not None
@@ -399,7 +435,7 @@ class GrpcIndex:
             raise ValidationError("At least one of vector, id, or sparse_vector must be provided")
 
         # Convert SparseValues model to dict for GrpcChannel
-        sv_dict: dict[str, Any] | None = None
+        sv_dict: Mapping[str, Any] | None = None
         if sparse_vector is not None:
             if isinstance(sparse_vector, SparseValues):
                 sv_dict = {
@@ -435,7 +471,7 @@ class GrpcIndex:
     def fetch(
         self,
         *,
-        ids: list[str],
+        ids: Sequence[str],
         namespace: str = "",
         timeout: float | None = None,
     ) -> FetchResponse:
@@ -483,9 +519,9 @@ class GrpcIndex:
     def delete(
         self,
         *,
-        ids: list[str] | None = None,
+        ids: Sequence[str] | None = None,
         delete_all: bool = False,
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         namespace: str = "",
         timeout: float | None = None,
     ) -> None:
@@ -542,11 +578,11 @@ class GrpcIndex:
         self,
         *,
         id: str | None = None,
-        values: list[float] | None = None,
-        sparse_values: SparseValues | dict[str, Any] | None = None,
-        set_metadata: dict[str, Any] | None = None,
+        values: Sequence[float] | None = None,
+        sparse_values: SparseValues | Mapping[str, Any] | None = None,
+        set_metadata: Mapping[str, Any] | None = None,
         namespace: str = "",
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         dry_run: bool = False,
         timeout: float | None = None,
     ) -> UpdateResponse:
@@ -592,7 +628,7 @@ class GrpcIndex:
             raise ValidationError("Exactly one of id or filter must be provided, got neither")
 
         # Convert SparseValues model to dict for GrpcChannel
-        sv_dict: dict[str, Any] | None = None
+        sv_dict: Mapping[str, Any] | None = None
         if sparse_values is not None:
             if isinstance(sparse_values, SparseValues):
                 sv_dict = {
@@ -728,7 +764,7 @@ class GrpcIndex:
     def describe_index_stats(
         self,
         *,
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> DescribeIndexStatsResponse:
         """Return statistics for this index.
@@ -889,9 +925,9 @@ class GrpcIndex:
         *,
         vectors: Sequence[
             Vector
-            | tuple[str, builtins.list[float]]
-            | tuple[str, builtins.list[float], dict[str, Any]]
-            | dict[str, Any]
+            | tuple[str, Sequence[float]]
+            | tuple[str, Sequence[float], Mapping[str, Any]]
+            | Mapping[str, Any]
         ],
         namespace: str = "",
         timeout: float | None = None,
@@ -926,13 +962,13 @@ class GrpcIndex:
         self,
         *,
         top_k: int,
-        vector: builtins.list[float] | None = None,
+        vector: Sequence[float] | None = None,
         id: str | None = None,
         namespace: str = "",
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         include_values: bool = False,
         include_metadata: bool = False,
-        sparse_vector: SparseValues | dict[str, Any] | None = None,
+        sparse_vector: SparseValues | Mapping[str, Any] | None = None,
         scan_factor: float | None = None,
         max_candidates: int | None = None,
         timeout: float | None = None,
@@ -979,7 +1015,7 @@ class GrpcIndex:
     def fetch_async(
         self,
         *,
-        ids: builtins.list[str],
+        ids: Sequence[str],
         namespace: str = "",
         timeout: float | None = None,
     ) -> PineconeFuture[FetchResponse]:
@@ -1008,9 +1044,9 @@ class GrpcIndex:
     def delete_async(
         self,
         *,
-        ids: builtins.list[str] | None = None,
+        ids: Sequence[str] | None = None,
         delete_all: bool = False,
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         namespace: str = "",
         timeout: float | None = None,
     ) -> PineconeFuture[None]:
@@ -1051,10 +1087,10 @@ class GrpcIndex:
         self,
         *,
         id: str | None = None,
-        values: builtins.list[float] | None = None,
-        sparse_values: SparseValues | dict[str, Any] | None = None,
-        set_metadata: dict[str, Any] | None = None,
-        filter: dict[str, Any] | None = None,
+        values: Sequence[float] | None = None,
+        sparse_values: SparseValues | Mapping[str, Any] | None = None,
+        set_metadata: Mapping[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         namespace: str = "",
         dry_run: bool = False,
         timeout: float | None = None,
@@ -1161,13 +1197,13 @@ class GrpcIndex:
         *,
         namespace: str,
         top_k: int,
-        inputs: SearchInputs | dict[str, Any] | None = None,
-        vector: builtins.list[float] | None = None,
+        inputs: SearchInputs | Mapping[str, Any] | None = None,
+        vector: Sequence[float] | None = None,
         id: str | None = None,
-        filter: dict[str, Any] | None = None,
-        fields: builtins.list[str] | None = None,
-        rerank: RerankConfig | dict[str, Any] | None = None,
-        match_terms: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
+        fields: Sequence[str] | None = None,
+        rerank: RerankConfig | Mapping[str, Any] | None = None,
+        match_terms: Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
         """Search records by text, vector, or ID with optional reranking.
@@ -1291,13 +1327,13 @@ class GrpcIndex:
         *,
         namespace: str,
         top_k: int,
-        inputs: SearchInputs | dict[str, Any] | None = None,
-        vector: builtins.list[float] | None = None,
+        inputs: SearchInputs | Mapping[str, Any] | None = None,
+        vector: Sequence[float] | None = None,
         id: str | None = None,
-        filter: dict[str, Any] | None = None,
-        fields: builtins.list[str] | None = None,
-        rerank: RerankConfig | dict[str, Any] | None = None,
-        match_terms: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
+        fields: Sequence[str] | None = None,
+        rerank: RerankConfig | Mapping[str, Any] | None = None,
+        match_terms: Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
         """Alias for :meth:`search`.
@@ -1316,6 +1352,196 @@ class GrpcIndex:
             match_terms=match_terms,
             timeout=timeout,
         )
+
+    def list_namespaces_paginated(
+        self,
+        *,
+        prefix: str | None = None,
+        limit: int | None = None,
+        pagination_token: str | None = None,
+        timeout: float | None = None,
+    ) -> ListNamespacesResponse:
+        """Fetch a single page of namespace descriptions via gRPC.
+
+        Args:
+            prefix (str | None): Return only namespaces whose names start with this prefix.
+            limit (int | None): Maximum number of namespaces to return in this page.
+            pagination_token (str | None): Token from a previous response to fetch the next page.
+            timeout (float | None): Per-call timeout in seconds.
+
+        Returns:
+            :class:`ListNamespacesResponse` with namespace descriptions, pagination info,
+            and total count.
+        """
+        logger.info("Listing namespaces (paginated) via gRPC")
+        result = self._channel.list_namespaces(
+            prefix=prefix,
+            limit=limit,
+            pagination_token=pagination_token,
+            timeout_s=timeout,
+        )
+
+        namespaces = [
+            _dict_to_namespace_description(ns_data) for ns_data in result.get("namespaces", [])
+        ]
+
+        pagination: Pagination | None = None
+        raw_pag = result.get("pagination")
+        if raw_pag is not None:
+            pagination = Pagination(next=raw_pag.get("next"))
+
+        return ListNamespacesResponse(
+            namespaces=namespaces,
+            pagination=pagination,
+            total_count=result.get("total_count", 0),
+        )
+
+    def list_namespaces(
+        self,
+        *,
+        prefix: str | None = None,
+        limit: int | None = None,
+        timeout: float | None = None,
+    ) -> Iterator[ListNamespacesResponse]:
+        """List namespaces, automatically following pagination.
+
+        Yields one :class:`ListNamespacesResponse` per page. The generator
+        automatically follows pagination tokens until all pages have been
+        retrieved.
+
+        Args:
+            prefix (str | None): Return only namespaces whose names start with this prefix.
+            limit (int | None): Maximum number of namespaces to return per page.
+            timeout (float | None): Per-call timeout in seconds.
+
+        Yields:
+            :class:`ListNamespacesResponse` for each page of results.
+
+        Examples:
+            .. code-block:: python
+
+                for page in idx.list_namespaces(prefix="prod-"):
+                    for ns in page.namespaces:
+                        print(ns.name, ns.record_count)
+        """
+        pagination_token: str | None = None
+        while True:
+            page = self.list_namespaces_paginated(
+                prefix=prefix,
+                limit=limit,
+                pagination_token=pagination_token,
+                timeout=timeout,
+            )
+            if page.namespaces:
+                yield page
+            if page.pagination is not None and page.pagination.next is not None:
+                pagination_token = page.pagination.next
+            else:
+                break
+
+    def create_namespace(
+        self,
+        *,
+        name: str,
+        schema: dict[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> NamespaceDescription:
+        """Create a named namespace in the index via gRPC.
+
+        Args:
+            name (str): Name for the new namespace (must be non-empty).
+            schema (dict[str, Any] | None): Optional schema configuration
+                with metadata field indexing settings.
+            timeout (float | None): Per-call timeout in seconds.
+
+        Returns:
+            :class:`NamespaceDescription` with the namespace name and record count.
+
+        Raises:
+            :exc:`ValidationError`: If the name is not a string or is empty/whitespace.
+        """
+        if not isinstance(name, str):
+            raise ValidationError("namespace name must be a string")
+        if not name or not name.strip():
+            raise ValidationError("namespace name must be a non-empty string")
+
+        logger.info("Creating namespace %r via gRPC", name)
+        result = self._channel.create_namespace(name, schema, timeout_s=timeout)
+        return _dict_to_namespace_description(result)
+
+    def describe_namespace(
+        self,
+        *,
+        name: str | None = None,
+        timeout: float | None = None,
+        **kwargs: str,
+    ) -> NamespaceDescription:
+        """Describe a namespace by name.
+
+        Args:
+            name (str): Name of the namespace to describe.
+            timeout (float | None): Per-call timeout in seconds.
+
+        Returns:
+            :class:`NamespaceDescription` with the namespace name, record count,
+            and schema information.
+
+        Raises:
+            :exc:`ValidationError`: If the name is not a string or is empty/whitespace.
+            :exc:`TypeError`: If unexpected keyword arguments are passed.
+        """
+        legacy_namespace: str | None = kwargs.pop("namespace", None)
+        if kwargs:
+            raise TypeError(
+                f"describe_namespace() got unexpected keyword arguments: {sorted(kwargs)!r}"
+            )
+        if name is not None and legacy_namespace is not None:
+            raise ValidationError("Provide either name= or namespace=, not both")
+        effective: str = name if name is not None else (legacy_namespace or "")
+        if not isinstance(effective, str):
+            raise ValidationError("namespace name must be a string")
+        if not effective or not effective.strip():
+            raise ValidationError("namespace name must be a non-empty string")
+
+        logger.info("Describing namespace %r via gRPC", effective)
+        result = self._channel.describe_namespace(effective, timeout_s=timeout)
+        return _dict_to_namespace_description(result)
+
+    def delete_namespace(
+        self,
+        *,
+        name: str | None = None,
+        timeout: float | None = None,
+        **kwargs: str,
+    ) -> None:
+        """Delete a namespace by name, removing all its vectors.
+
+        Args:
+            name (str): Name of the namespace to delete.
+            timeout (float | None): Per-call timeout in seconds.
+
+        Returns:
+            None — a successful delete returns no payload.
+
+        Raises:
+            :exc:`ValidationError`: If the name is not a string or is empty/whitespace.
+            :exc:`TypeError`: If unexpected keyword arguments are passed.
+        """
+        legacy_namespace: str | None = kwargs.pop("namespace", None)
+        if kwargs:
+            raise TypeError(
+                f"delete_namespace() got unexpected keyword arguments: {sorted(kwargs)!r}"
+            )
+        if name is not None and legacy_namespace is not None:
+            raise ValidationError("Provide either name= or namespace=, not both")
+        effective: str = name if name is not None else (legacy_namespace or "")
+        if not isinstance(effective, str):
+            raise ValidationError("namespace name must be a string")
+        if not effective or not effective.strip():
+            raise ValidationError("namespace name must be a non-empty string")
+
+        logger.info("Deleting namespace %r via gRPC", effective)
+        self._channel.delete_namespace(effective, timeout_s=timeout)
 
     def close(self) -> None:
         """Close the underlying gRPC channel, REST client, and release resources."""

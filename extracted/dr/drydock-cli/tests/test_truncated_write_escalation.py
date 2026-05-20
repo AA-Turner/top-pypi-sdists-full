@@ -69,10 +69,12 @@ class TestTruncatedWriteEscalation:
         target = tmp_path / "utils.py"
         target.write_text("x = 1\n")
         handler = APIToolFormatHandler()
+        result = None
         for i in range(3):
             result = handler.resolve_tool_calls(
                 _truncated_call(str(target), f"tc{i}"), _make_tm()
             )
+        assert result is not None
         err = result.failed_calls[0].error
         assert "REPEATED FAILURE #3" in err
 

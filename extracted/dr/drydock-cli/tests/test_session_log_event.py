@@ -59,6 +59,7 @@ def test_log_event_creates_session_dir_if_missing():
         # may not exist yet (save_folder is computed, save_dir.mkdir is
         # called but session_dir is a subdir).
         sl.log_event({"event": "early"})
+        assert sl.session_dir is not None, "enabled SessionLogger should set session_dir"
         assert sl.session_dir.is_dir()
         assert (sl.session_dir / "events.jsonl").is_file()
 

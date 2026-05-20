@@ -15,21 +15,19 @@
 # limitations under the License.
 #
 
-from typing import Callable, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar
 
 import torch
 from torch import nn
-from torch.autograd import Function
 from torch.distributions import Bernoulli, RelaxedBernoulli
 from typing_extensions import Self
 
 from kornia.augmentation.base import _AugmentationBase
-from kornia.core import Module, Tensor
 
 T = TypeVar("T", bound="OperationBase")
 
 
-class OperationBase(Module):
+class OperationBase(nn.Module):
     """Base class of differentiable augmentation operations.
 
     Args:
@@ -50,8 +48,7 @@ class OperationBase(Module):
         initial_magnitude: Optional[List[Tuple[str, Optional[float]]]] = None,
         temperature: float = 0.1,
         is_batch_operation: bool = False,
-        magnitude_fn: Optional[Callable[[Tensor], Tensor]] = None,
-        gradient_estimator: Optional[Type[Function]] = None,
+        magnitude_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
         symmetric_megnitude: bool = False,
     ) -> None:
         super().__init__()
@@ -76,14 +73,15 @@ class OperationBase(Module):
 
         self.symmetric_megnitude = symmetric_megnitude
         self._magnitude_fn = self._init_magnitude_fn(magnitude_fn)
-        self._gradient_estimator = gradient_estimator
 
-    def _init_magnitude_fn(self, magnitude_fn: Optional[Callable[[Tensor], Tensor]]) -> Callable[[Tensor], Tensor]:
-        def _identity(x: Tensor) -> Tensor:
+    def _init_magnitude_fn(
+        self, magnitude_fn: Optional[Callable[[torch.Tensor], torch.Tensor]]
+    ) -> Callable[[torch.Tensor], torch.Tensor]:
+        def _identity(x: torch.Tensor) -> torch.Tensor:
             return x
 
-        def _random_flip(fn: Callable[[Tensor], Tensor]) -> Callable[[Tensor], Tensor]:
-            def f(x: Tensor) -> Tensor:
+        def _random_flip(fn: Callable[[torch.Tensor], torch.Tensor]) -> Callable[[torch.Tensor], torch.Tensor]:
+            def f(x: torch.Tensor) -> torch.Tensor:
                 flip = torch.rand((x.shape[0],), device=x.device) > 0.5
                 return fn(x) * flip
 
@@ -131,25 +129,47 @@ class OperationBase(Module):
             self.op._p_gen = Bernoulli(self.probability)
 
     def train(self, mode: bool = True) -> Self:
-        self._update_probability_gen(relaxation=mode)
+        """Switch training mode and refresh probability samplers.
 
+        Args:
+            mode: ``True`` for training mode, ``False`` for evaluation mode.
+
+        Returns:
+            This module.
+        """
+        self._update_probability_gen(relaxation=mode)
         return super().train(mode=mode)
 
     def eval(self) -> Self:
+        """Switch to evaluation mode.
+
+        Returns:
+            This module.
+        """
         return self.train(False)
 
-    def forward_parameters(self, batch_shape: torch.Size, mag: Optional[Tensor] = None) -> Dict[str, Tensor]:
+    def forward_parameters(
+        self, batch_shape: torch.Size, mag: Optional[torch.Tensor] = None
+    ) -> Dict[str, torch.Tensor]:
+        """Sample parameters for the wrapped augmentation op.
+
+        Args:
+            batch_shape: Input batch shape used for sampling.
+            mag: Optional magnitude override. When set, it replaces the sampled
+                factor before the magnitude mapping function is applied.
+
+        Returns:
+            Parameter dictionary consumed by :meth:`forward`.
+        """
         if mag is None:
             mag = self.magnitude
-        # Need to setup the sampler again for each update.
-        # Otherwise, an error for updating the same graph twice will be thrown.
+
         self._update_probability_gen(relaxation=True)
         params = self.op.forward_parameters(batch_shape)
 
         if mag is not None:
             if self._factor_name is None:
                 raise RuntimeError("No factor found in the params while `mag` is provided.")
-            # For single factor operations, this is equivalent to `same_on_batch=True`
             params[self._factor_name] = params[self._factor_name].zero_() + mag
 
         if self._factor_name is not None:
@@ -157,32 +177,45 @@ class OperationBase(Module):
 
         return params
 
-    def forward(self, input: Tensor, params: Optional[Dict[str, Tensor]] = None) -> Tensor:
+    def forward(self, input: torch.Tensor, params: Optional[Dict[str, torch.Tensor]] = None) -> torch.Tensor:
+        """Apply the operation with probabilistic gating.
+
+        Args:
+            input: Input tensor.
+            params: Optional precomputed parameters. If omitted, parameters are
+                sampled from ``input.shape``.
+
+        Returns:
+            Tensor where each sample is either transformed or left unchanged
+            according to ``batch_prob``.
+        """
         if params is None:
             params = self.forward_parameters(input.shape)
 
         batch_prob = params["batch_prob"][(...,) + ((None,) * (len(input.shape) - 1))].to(device=input.device)
 
-        if self._gradient_estimator is not None:
-            # skip the gradient computation if gradient estimator is provided.
-            with torch.no_grad():
-                output = self.op(input, params=params)
-            output = batch_prob * output + (1 - batch_prob) * input
-            if self.magnitude is None:
-                # If magnitude is None, make the grad w.r.t the input
-                return self._gradient_estimator.apply(input, output)
-            # If magnitude is not None, make the grad w.r.t the magnitude
-            return self._gradient_estimator.apply(self.magnitude, output)
         return batch_prob * self.op(input, params=params) + (1 - batch_prob) * input
 
     @property
-    def transform_matrix(self) -> Optional[Tensor]:
+    def transform_matrix(self) -> Optional[torch.Tensor]:
+        """Return the latest transform matrix from the wrapped op, if available.
+
+        Returns:
+            Transform matrix tensor or ``None`` for non-geometric operations.
+        """
         if hasattr(self.op, "transform_matrix"):
             return self.op.transform_matrix
         return None
 
     @property
-    def magnitude(self) -> Optional[Tensor]:
+    def magnitude(self) -> Optional[torch.Tensor]:
+        """Return the learned magnitude value for the operation.
+
+        Returns:
+            Magnitude tensor, clamped to ``magnitude_range`` when defined; otherwise
+            the raw learnable value. Returns ``None`` when this operation has no
+            magnitude parameter.
+        """
         if self._magnitude is None:
             return None
         mag = self._magnitude
@@ -191,6 +224,11 @@ class OperationBase(Module):
         return mag
 
     @property
-    def probability(self) -> Tensor:
+    def probability(self) -> torch.Tensor:
+        """Return the operation probability after applying configured bounds.
+
+        Returns:
+            Probability tensor clamped to ``probability_range``.
+        """
         p = self._probability.clamp(*self.probability_range)
         return p

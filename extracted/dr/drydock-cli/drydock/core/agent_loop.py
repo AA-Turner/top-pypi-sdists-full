@@ -2092,7 +2092,7 @@ class AgentLoop:
             # RECOVERY: Warn when editing test files
             if tool_call.tool_name == "search_replace":
                 try:
-                    sr_args = json.loads(tool_call.raw_arguments or "{}")
+                    sr_args = tool_call.args_dict
                     sr_path = sr_args.get("file_path", sr_args.get("path", ""))
                     if sr_path and ("/test_" in sr_path or "/tests/" in sr_path or sr_path.endswith("_test.py")):
                         error_msg += (
@@ -2100,7 +2100,7 @@ class AgentLoop:
                             "The bug is in LIBRARY SOURCE code, not tests. "
                             "Use grep to find the corresponding source file and edit that instead.]"
                         )
-                except (json.JSONDecodeError, AttributeError):
+                except Exception:
                     pass
 
             # RECOVERY: Add actionable guidance for common tool failures
@@ -2108,7 +2108,7 @@ class AgentLoop:
                 # Try to extract the file path from the tool args
                 sr_file_hint = ""
                 try:
-                    sr_args = json.loads(tool_call.raw_arguments or "{}")
+                    sr_args = tool_call.args_dict
                     sr_path = sr_args.get("file_path", sr_args.get("path", ""))
                     if sr_path:
                         sr_file_hint = (
@@ -2117,13 +2117,13 @@ class AgentLoop:
                             f"different module at a deeper or shallower path. "
                             f"Use grep to search for the function/class name across the codebase to confirm."
                         )
-                except (json.JSONDecodeError, AttributeError):
+                except Exception:
                     pass
                 # AUTO-READ: Automatically read the target file so the model has
                 # the actual content — don't just tell it to read, DO it for it
                 auto_read_content = ""
                 try:
-                    sr_args = json.loads(tool_call.raw_arguments or "{}")
+                    sr_args = tool_call.args_dict
                     sr_path = sr_args.get("file_path", sr_args.get("path", ""))
                     if sr_path and Path(sr_path).exists():
                         with open(sr_path, "r", encoding="utf-8", errors="replace") as f:
@@ -2198,9 +2198,9 @@ class AgentLoop:
                 try:
                     target_path = ""
                     try:
-                        wf_args = json.loads(tool_call.raw_arguments or "{}")
+                        wf_args = tool_call.args_dict
                         target_path = wf_args.get("path", "")
-                    except (json.JSONDecodeError, AttributeError):
+                    except Exception:
                         pass
                     if target_path:
                         self._prune_duplicate_writes(target_path)
@@ -2567,12 +2567,25 @@ class AgentLoop:
                     args = tc.function.arguments
                     if len(args) <= SOFT_CAP_BYTES:
                         continue
-                    if '"_truncated"' in args:
+                    if '"_truncated"' in args or '"_drydock_placeholder"' in args:
                         continue
                     # Try to keep the most-useful field (path / file_path /
                     # command / cmd) plus a marker, rebuild as valid JSON.
+                    # 2026-05-19: marker keys renamed from `_truncated`/
+                    # `_original_bytes` to self-warning forms so the model
+                    # is less likely to copy them back as real tool args
+                    # (observed loop on operator's slides session — Gemma 4
+                    # treated old markers as if they were valid write_file
+                    # arguments and re-emitted them). format.py:429 still
+                    # detects both old and new keys so legacy history
+                    # stays handled.
                     stub: dict[str, Any] = {
-                        "_truncated": True,
+                        "_drydock_placeholder": (
+                            "this entry was compacted to save context — "
+                            "do NOT copy; re-read the file with read_file "
+                            "and emit a fresh tool call"
+                        ),
+                        "_truncated": True,  # keep for backward-compat with format.py detector
                         "_original_bytes": len(args),
                     }
                     try:
@@ -2734,6 +2747,7 @@ class AgentLoop:
         provider = self.config.get_provider_for_model(active_model)
 
         available_tools = self.format_handler.get_available_tools(self.tool_manager)
+        available_tools = self._hide_specialist_math_tools(available_tools, active_model)
         tool_choice = self.format_handler.get_tool_choice()
 
         # Loop-break when FORCE_STOP detected. Two-tier:
@@ -2944,6 +2958,7 @@ class AgentLoop:
         provider = self.config.get_provider_for_model(active_model)
 
         available_tools = self.format_handler.get_available_tools(self.tool_manager)
+        available_tools = self._hide_specialist_math_tools(available_tools, active_model)
         tool_choice = self.format_handler.get_tool_choice()
         try:
             start_time = time.perf_counter()
@@ -3232,6 +3247,54 @@ class AgentLoop:
         "compute ", "calculate ", "evaluate the", "what is the value",
         "show that", "prove that", "let x", "find the",
     )
+
+    # Specialist math/science/logic tools that get hidden from API tools[]
+    # when the user's prompt isn't math-flavored. Saves ~6.5K tokens per
+    # request on a typical coding session. The general-purpose tools
+    # math/count/memory/verify/retrieve stay always-available.
+    _SPECIALIST_MATH_TOOLS = frozenset({
+        "logic", "algebra", "number_theory", "set",
+        "linear_algebra", "stats", "units", "chemistry",
+        "solve", "prolog",
+    })
+
+    def _hide_specialist_math_tools(
+        self, available_tools: list, active_model: Any | None = None
+    ) -> list:
+        """Drop specialist math/science tools from the API tools[] payload
+        unless the user's first message was math-flavored.
+
+        Mirrors the gating in `_maybe_inject_math_docs`: same trigger,
+        same session-scope flag. Only applies to Gemma-family models;
+        other models keep the full tool list (their context budget can
+        absorb it, and they don't have the bloated gemma4_math.md
+        cheat sheet to compensate).
+        """
+        if getattr(self, "_math_docs_injected", False):
+            return available_tools  # math-flavored prompt — keep all tools
+        try:
+            name = (active_model.name or "").lower() if active_model else ""
+        except Exception:  # noqa: BLE001
+            return available_tools
+        if "gemma" not in name:
+            return available_tools
+        filtered = [
+            t for t in available_tools
+            if getattr(getattr(t, "function", None), "name", None)
+            not in self._SPECIALIST_MATH_TOOLS
+        ]
+        if len(filtered) != len(available_tools):
+            # WARNING because the existing drydock.log filter swallows
+            # info. This log is sparse (once per math-tool-hiding turn)
+            # so the noise cost is negligible vs. confirmation value.
+            logger.warning(
+                "[math-tools] hidden %d specialist tool(s) from API "
+                "tools[] (non-mathy prompt). %d → %d.",
+                len(available_tools) - len(filtered),
+                len(available_tools),
+                len(filtered),
+            )
+        return filtered
 
     def _maybe_inject_math_docs(self, user_msg: str) -> None:
         """Append the math/science tool cheat sheet (gemma4_math.md) to
@@ -4139,29 +4202,11 @@ is a living document.
 - **Purpose:** _(TODO: one sentence on what this project does)_
 - **Entry point:** _(TODO: e.g., `python -m mypkg`, `npm start`, `cargo run`)_
 
-## What the harness can do for you
+## Tools at hand
 
-DryDock ships these direct built-in tools (one entry each in the model's
-tool list — no MCP overhead):
-
-- **Reads / search:** `read_file`, `glob`, `grep`, `retrieve` (GraphRAG
-  semantic search if the project is indexed), `web_search`, `web_fetch`.
-- **Writes:** `write_file`, `search_replace` (preferred for edits),
-  `bash`, `notebook_edit`.
-- **Exact computation (don't compute in your head):**
-  - `math(expression="...")` — sandboxed Python: `math.factorial(20)`,
-    `Fraction(1,3)+Fraction(1,6)`, `statistics.mean([...])`.
-  - `count(pattern="...", text=... OR path=..., mode=...)` —
-    substring / regex / lines / words / chars / bytes.
-- **Persistent memory across sessions:** `memory(op="save"|"recall"|...)`
-  — store and recall key/value notes at `~/.drydock/agent_memory/`.
-- **Verify before claiming done:**
-  `verify(criterion="...", command="...", expect="...", expect_mode="contains")`
-  — runs a check, returns pass/fail. Operationalizes "Loop until
-  verified."
-- **Delegation:** `task(agent="builder"|"explore"|"diagnostic"|"planner",
-  task="...")` — only for genuinely large work (9+ files); inline for
-  smaller.
+Direct (no MCP): `read_file`, `glob`, `grep`, `retrieve`,
+`write_file`, `search_replace`, `bash`, `math`, `count`, `memory`,
+`verify`, `task`. See each tool's own description for usage.
 
 ## Behavioral rules (defaults)
 

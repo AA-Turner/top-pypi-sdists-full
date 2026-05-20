@@ -103,18 +103,6 @@ firewall_group_id-path-required:
   in: path
   required: true
   type: string
-firewall_id:
-  description: |
-    The ID of the firewall.
-  in: path
-  required: true
-  type: string
-firewall_log_id:
-  description: |
-    The ID of the firewall log resource.
-  in: path
-  required: true
-  type: string
 firewall_policy_id-path:
   description: |
     The ID of the firewall policy.
@@ -190,12 +178,6 @@ local_ip_association-fixed_port_id-path:
 log_id-path:
   description: |
     The ID of the log resource.
-  in: path
-  required: true
-  type: string
-logging_resource_id:
-  description: |
-    The ID of the logging resource.
   in: path
   required: true
   type: string
@@ -336,6 +318,12 @@ segment_id-path:
 sfc_service_graph_id-path:
   description: |
     The UUID of the service graph
+  in: path
+  required: true
+  type: string
+sg_default_statefulness-id-path:
+  description: |
+    The ID of the security groups default statefulness configuration.
   in: path
   required: true
   type: string
@@ -1605,6 +1593,24 @@ service_profile-sort_key:
   in: query
   required: false
   type: string
+sg_default_statefulness-sort_key:
+  description: |
+    Sorts by a security groups default statefulness attribute. You can specify
+    multiple pairs of sort key and sort direction query parameters. The sort
+    keys are limited to:
+
+    - ``id``
+    - ``project_id``
+    - ``stateful``
+  in: query
+  required: false
+  type: string
+sg_default_statefulness-stateful-query:
+  description: |
+    Filter the list result by the default statefulness value.
+  in: query
+  required: false
+  type: boolean
 shared-query:
   description: |
     Admin-only. Filter the list result based on whether the resource is
@@ -3412,34 +3418,10 @@ firewall_groups_object:
   in: body
   required: true
   type: array
-firewall_id-body:
-  description: |
-    The ID of the FWaaS v1 firewall.
-  in: body
-  required: true
-  type: string
 firewall_list:
   description: |
     A list of the IDs of firewalls associated with
     the firewall policy.
-  in: body
-  required: true
-  type: array
-firewall_log:
-  description: |
-    A ``firewall_log`` object.
-  in: body
-  required: true
-  type: object
-firewall_log_id-body:
-  description: |
-    The ID of the firewall log resource.
-  in: body
-  required: true
-  type: string
-firewall_logs:
-  description: |
-    A list of ``firewall_log`` objects.
   in: body
   required: true
   type: array
@@ -4036,28 +4018,6 @@ flow_classifiers:
   in: body
   required: false
   type: array
-fw_event:
-  description: |
-    Type of firewall events to log.
-    ``ACCEPT``, ``DROP``, or ``ALL``.
-  in: body
-  required: true
-  type: string
-fw_event-request:
-  description: |
-    Type of firewall events to log.
-    ``ACCEPT``, ``DROP``, or ``ALL``.
-    Default is ``ALL``.
-  in: body
-  required: false
-  type: string
-fw_event-request-put:
-  description: |
-    Type of firewall events to log.
-    ``ACCEPT``, ``DROP``, or ``ALL``.
-  in: body
-  required: false
-  type: string
 heartbeat_timestamp:
   description: |
     Time at which the last heartbeat was received.
@@ -4590,43 +4550,6 @@ loggable_resources:
   in: body
   required: true
   type: object
-logging_resource:
-  description: |
-    A ``logging_resource`` object.
-  in: body
-  required: true
-  type: object
-logging_resource_enabled:
-  description: |
-    Indicates whether this logging resource is enabled or disabled.
-  in: body
-  required: true
-  type: boolean
-logging_resource_enabled-request:
-  description: |
-    Indicates whether this logging resource is enabled or disabled.
-    Default is false.
-  in: body
-  required: false
-  type: boolean
-logging_resource_enabled-request-put:
-  description: |
-    Indicates whether this logging resource is enabled or disabled.
-  in: body
-  required: false
-  type: boolean
-logging_resource_id-body:
-  description: |
-    The ID of the logging resource.
-  in: body
-  required: true
-  type: string
-logging_resources:
-  description: |
-    A list of ``logging_resource`` objects.
-  in: body
-  required: true
-  type: array
 logs:
   description: |
     A list of ``log`` objects.
@@ -6343,6 +6266,22 @@ router:
   in: body
   required: true
   type: object
+router-advertise_host:
+  description: |
+    Whether connected routes from this subnet are advertised as host routes
+    via EVPN Type-5. It is available when the ``evpn`` extension is enabled.
+  in: body
+  required: true
+  type: boolean
+router-advertise_host-request:
+  description: |
+    When ``true``, connected routes from this subnet are advertised as /32
+    (IPv4) or /128 (IPv6) host routes via EVPN Type-5. When ``false`` or
+    omitted, no host route advertisement takes place. It is available when
+    the ``evpn`` extension is enabled.
+  in: body
+  required: false
+  type: boolean
 router-availability_zone_hints:
   description: |
     The availability zone candidates for the router.
@@ -6926,6 +6865,52 @@ sfc_tap_enabled:
   description: |
     True if passive Tap service functions support is enabled, default is
     False.
+  in: body
+  required: false
+  type: boolean
+sg_default_statefulness-id:
+  description: |
+    The ID of the security groups default statefulness configuration.
+  in: body
+  required: true
+  type: string
+sg_default_statefulness-list:
+  description: |
+    A list of ``security_groups_default_statefulness`` objects.
+  in: body
+  required: true
+  type: array
+sg_default_statefulness-obj:
+  description: |
+    A ``security_groups_default_statefulness`` object.
+  in: body
+  required: true
+  type: object
+sg_default_statefulness-project_id:
+  description: |
+    The ID of the project that owns the resource. If not specified, the
+    configuration applies system-wide as the global default.
+  in: body
+  required: true
+  type: string
+sg_default_statefulness-project_id-request:
+  description: |
+    The ID of the project for this default statefulness configuration. If not
+    specified (or ``null``), the configuration applies system-wide.
+  in: body
+  required: false
+  type: string
+sg_default_statefulness-stateful:
+  description: |
+    The default value of the ``stateful`` attribute for new security groups
+    created in the scope of this configuration.
+  in: body
+  required: true
+  type: boolean
+sg_default_statefulness-stateful-request:
+  description: |
+    The default value of the ``stateful`` attribute for new security groups.
+    Defaults to ``true``.
   in: body
   required: false
   type: boolean

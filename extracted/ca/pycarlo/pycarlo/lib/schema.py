@@ -219,6 +219,7 @@ class AgentGraphInsightCategory(pycarlo.lib.types.Enum):
     * `ERROR_CONCENTRATION`None
     * `LOOP_SATURATION`None
     * `MODEL_INCONSISTENCY`None
+    * `POLLING_GAP`None
     * `SEQUENTIAL_BOTTLENECK`None
     * `TOOL_HOTSPOT`None
     * `TOOL_TIMEOUT`None
@@ -230,6 +231,7 @@ class AgentGraphInsightCategory(pycarlo.lib.types.Enum):
         "ERROR_CONCENTRATION",
         "LOOP_SATURATION",
         "MODEL_INCONSISTENCY",
+        "POLLING_GAP",
         "SEQUENTIAL_BOTTLENECK",
         "TOOL_HOTSPOT",
         "TOOL_TIMEOUT",
@@ -289,6 +291,8 @@ class AgentModelAuthType(pycarlo.lib.types.Enum):
     * `AWS_IAM_AUTH`: AWS IAM Authorization
     * `AWS_VPCE`: AWS VPC Endpoint
     * `AZURE_FUNCTION_APP_KEY`: Azure Function App Key
+    * `AZURE_FUNCTION_SERVICE_PRINCIPAL`: Azure Function Service
+      Principal
     * `AZURE_STORAGE_ACCOUNT_KEYS`: Azure Storage Account Shared Key
     * `AZURE_STORAGE_SERVICE_PRINCIPAL`: Azure Storage Service
       Principal
@@ -306,6 +310,7 @@ class AgentModelAuthType(pycarlo.lib.types.Enum):
         "AWS_IAM_AUTH",
         "AWS_VPCE",
         "AZURE_FUNCTION_APP_KEY",
+        "AZURE_FUNCTION_SERVICE_PRINCIPAL",
         "AZURE_STORAGE_ACCOUNT_KEYS",
         "AZURE_STORAGE_SERVICE_PRINCIPAL",
         "GCP_JSON_SERVICE_ACCOUNT_KEY",
@@ -1068,6 +1073,7 @@ class AuthTypeEnum(pycarlo.lib.types.Enum):
     * `AWS_IAM_AUTH`None
     * `AWS_VPCE`None
     * `AZURE_FUNCTION_APP_KEY`None
+    * `AZURE_FUNCTION_SERVICE_PRINCIPAL`None
     * `AZURE_STORAGE_ACCOUNT_KEYS`None
     * `AZURE_STORAGE_SERVICE_PRINCIPAL`None
     * `GCP_JSON_SERVICE_ACCOUNT_KEY`None
@@ -1083,6 +1089,7 @@ class AuthTypeEnum(pycarlo.lib.types.Enum):
         "AWS_IAM_AUTH",
         "AWS_VPCE",
         "AZURE_FUNCTION_APP_KEY",
+        "AZURE_FUNCTION_SERVICE_PRINCIPAL",
         "AZURE_STORAGE_ACCOUNT_KEYS",
         "AZURE_STORAGE_SERVICE_PRINCIPAL",
         "GCP_JSON_SERVICE_ACCOUNT_KEY",
@@ -4469,7 +4476,9 @@ class LineageNodeJobType(pycarlo.lib.types.Enum):
     * `DBT_CORE`None
     * `FIVETRAN`None
     * `INFORMATICA`None
+    * `INFORMATICA_V2`None
     * `MSK_KAFKA_CONNECT`None
+    * `MULESOFT`None
     * `SELF_HOSTED_KAFKA_CONNECT`None
     * `UNKNOWN`None
     """
@@ -4484,7 +4493,9 @@ class LineageNodeJobType(pycarlo.lib.types.Enum):
         "DBT_CORE",
         "FIVETRAN",
         "INFORMATICA",
+        "INFORMATICA_V2",
         "MSK_KAFKA_CONNECT",
+        "MULESOFT",
         "SELF_HOSTED_KAFKA_CONNECT",
         "UNKNOWN",
     )
@@ -7318,6 +7329,21 @@ class TriageAgentRunStatus(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("COMPLETED", "ERROR", "PENDING")
+
+
+class TriageBatchSource(pycarlo.lib.types.Enum):
+    """Where a triage batch was initiated from — used by the FE to
+    reconstruct     the user's view when the completion notification
+    is clicked.
+
+    Enumeration Choices:
+
+    * `ALERT`None
+    * `FEED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ALERT", "FEED")
 
 
 class TriageScore(pycarlo.lib.types.Enum):
@@ -14208,12 +14234,28 @@ class TransformInput(sgqlc.types.Input):
 
 class TriageAlertsInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("incident_ids",)
+    __field_names__ = ("incident_ids", "source", "feed_search_params")
     incident_ids = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
         graphql_name="incidentIds",
     )
     """UUIDs of incidents to triage. Maximum 50 per call."""
+
+    source = sgqlc.types.Field(TriageBatchSource, graphql_name="source")
+    """Where the triage was initiated from. Drives the deep-link target
+    of the completion notification — ``ALERT`` lands the user on the
+    alert detail page, ``FEED`` restores the alerts-feed cohort the
+    user submitted from. Optional for backward compatibility with
+    older clients; defaults to ``FEED`` server-side when omitted,
+    which matches the historical caller (the alerts feed).
+    """
+
+    feed_search_params = sgqlc.types.Field(String, graphql_name="feedSearchParams")
+    """Serialized URL search params from the alerts feed at submit time,
+    used to reconstruct the original cohort when the completion
+    notification is clicked. Only meaningful when ``source == FEED``;
+    ignored otherwise. Capped at 2048 characters.
+    """
 
 
 class UCSAutomatedAlertConditionInput(sgqlc.types.Input):

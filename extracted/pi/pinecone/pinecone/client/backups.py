@@ -47,14 +47,15 @@ class Backups:
         *,
         index_name: str,
         name: str | None = None,
-        description: str = "",
+        description: str | None = None,
     ) -> BackupModel:
         """Create a backup of an existing index.
 
         Args:
             index_name (str): Name of the index to back up.
             name (str | None): Optional name for the backup.
-            description (str): Description for the backup (defaults to empty string).
+            description (str | None): Description for the backup. When ``None``
+                (the default), no description is sent and the backend stores ``None``.
 
         Returns:
             A :class:`BackupModel` describing the created backup.
@@ -80,7 +81,8 @@ class Backups:
         body: dict[str, Any] = {}
         if name is not None:
             body["name"] = name
-        body["description"] = description
+        if description is not None:
+            body["description"] = description
         logger.info("Creating backup for index %r", index_name)
         response = self._http.post(f"/indexes/{index_name}/backups", json=body)
         result = self._adapter.to_backup(response.content)
@@ -91,7 +93,7 @@ class Backups:
         self,
         *,
         index_name: str | None = None,
-        limit: int = 10,
+        limit: int | None = None,
         pagination_token: str | None = None,
     ) -> BackupList:
         """List backups.
@@ -101,7 +103,8 @@ class Backups:
 
         Args:
             index_name (str | None): Index name to filter by, or ``None`` for all.
-            limit (int): Maximum number of results per page. Defaults to 10.
+            limit (int | None): Maximum number of results per page. When ``None``,
+                the backend applies its own default (100).
             pagination_token (str | None): Token for cursor-based pagination.
 
         Returns:
@@ -119,7 +122,9 @@ class Backups:
             >>> for backup in pc.backups.list(index_name="product-search"):  # doctest: +SKIP
             ...     print(backup.name)
         """
-        params: dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
         if pagination_token is not None:
             params["paginationToken"] = pagination_token
 

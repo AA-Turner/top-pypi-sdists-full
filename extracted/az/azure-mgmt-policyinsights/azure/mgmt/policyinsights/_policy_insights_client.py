@@ -6,33 +6,41 @@
 # Changes may cause incorrect behavior and will be lost if the code is regenerated.
 # --------------------------------------------------------------------------
 
-from typing import TYPE_CHECKING
+from copy import deepcopy
+from typing import Any, Optional, TYPE_CHECKING, cast
+from typing_extensions import Self
 
+from azure.core.pipeline import policies
+from azure.core.rest import HttpRequest, HttpResponse
+from azure.core.settings import settings
 from azure.mgmt.core import ARMPipelineClient
-from msrest import Deserializer, Serializer
+from azure.mgmt.core.policies import ARMAutoResourceProviderRegistrationPolicy
+from azure.mgmt.core.tools import get_arm_endpoints
+
+from . import models as _models
+from ._configuration import PolicyInsightsClientConfiguration
+from ._utils.serialization import Deserializer, Serializer
+from .operations import (
+    Operations,
+    PolicyEventsOperations,
+    PolicyMetadataOperations,
+    PolicyRestrictionsOperations,
+    PolicyStatesOperations,
+    PolicyTrackedResourcesOperations,
+    RemediationsOperations,
+)
 
 if TYPE_CHECKING:
-    # pylint: disable=unused-import,ungrouped-imports
-    from typing import Any, Optional
-
+    from azure.core import AzureClouds
     from azure.core.credentials import TokenCredential
 
-from ._configuration import PolicyInsightsClientConfiguration
-from .operations import PolicyTrackedResourcesOperations
-from .operations import RemediationsOperations
-from .operations import PolicyEventsOperations
-from .operations import PolicyStatesOperations
-from .operations import Operations
-from .operations import PolicyMetadataOperations
-from .operations import PolicyRestrictionsOperations
-from . import models
 
-
-class PolicyInsightsClient(object):
+class PolicyInsightsClient:  # pylint: disable=client-accepts-api-version-keyword,too-many-instance-attributes
     """PolicyInsightsClient.
 
     :ivar policy_tracked_resources: PolicyTrackedResourcesOperations operations
-    :vartype policy_tracked_resources: azure.mgmt.policyinsights.operations.PolicyTrackedResourcesOperations
+    :vartype policy_tracked_resources:
+     azure.mgmt.policyinsights.operations.PolicyTrackedResourcesOperations
     :ivar remediations: RemediationsOperations operations
     :vartype remediations: azure.mgmt.policyinsights.operations.RemediationsOperations
     :ivar policy_events: PolicyEventsOperations operations
@@ -45,56 +53,105 @@ class PolicyInsightsClient(object):
     :vartype policy_metadata: azure.mgmt.policyinsights.operations.PolicyMetadataOperations
     :ivar policy_restrictions: PolicyRestrictionsOperations operations
     :vartype policy_restrictions: azure.mgmt.policyinsights.operations.PolicyRestrictionsOperations
-    :param credential: Credential needed for the client to connect to Azure.
+    :param credential: Credential needed for the client to connect to Azure. Required.
     :type credential: ~azure.core.credentials.TokenCredential
-    :param subscription_id: Microsoft Azure subscription ID.
+    :param subscription_id: Microsoft Azure subscription ID. Required.
     :type subscription_id: str
-    :param str base_url: Service URL
-    :keyword int polling_interval: Default waiting time between two polls for LRO operations if no Retry-After header is present.
+    :param base_url: Service URL. Default value is None.
+    :type base_url: str
+    :keyword cloud_setting: The cloud setting for which to get the ARM endpoint. Default value is
+     None.
+    :paramtype cloud_setting: ~azure.core.AzureClouds
+    :keyword int polling_interval: Default waiting time between two polls for LRO operations if no
+     Retry-After header is present.
     """
 
     def __init__(
         self,
-        credential,  # type: "TokenCredential"
-        subscription_id,  # type: str
-        base_url=None,  # type: Optional[str]
-        **kwargs  # type: Any
-    ):
-        # type: (...) -> None
+        credential: "TokenCredential",
+        subscription_id: str,
+        base_url: Optional[str] = None,
+        *,
+        cloud_setting: Optional["AzureClouds"] = None,
+        **kwargs: Any
+    ) -> None:
+        _cloud = cloud_setting or settings.current.azure_cloud  # type: ignore
+        _endpoints = get_arm_endpoints(_cloud)
         if not base_url:
-            base_url = 'https://management.azure.com'
-        self._config = PolicyInsightsClientConfiguration(credential, subscription_id, **kwargs)
-        self._client = ARMPipelineClient(base_url=base_url, config=self._config, **kwargs)
+            base_url = _endpoints["resource_manager"]
+        credential_scopes = kwargs.pop("credential_scopes", _endpoints["credential_scopes"])
+        self._config = PolicyInsightsClientConfiguration(
+            credential=credential,
+            subscription_id=subscription_id,
+            cloud_setting=cloud_setting,
+            credential_scopes=credential_scopes,
+            **kwargs
+        )
 
-        client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
+        _policies = kwargs.pop("policies", None)
+        if _policies is None:
+            _policies = [
+                policies.RequestIdPolicy(**kwargs),
+                self._config.headers_policy,
+                self._config.user_agent_policy,
+                self._config.proxy_policy,
+                policies.ContentDecodePolicy(**kwargs),
+                ARMAutoResourceProviderRegistrationPolicy(),
+                self._config.redirect_policy,
+                self._config.retry_policy,
+                self._config.authentication_policy,
+                self._config.custom_hook_policy,
+                self._config.logging_policy,
+                policies.DistributedTracingPolicy(**kwargs),
+                policies.SensitiveHeaderCleanupPolicy(**kwargs) if self._config.redirect_policy else None,
+                self._config.http_logging_policy,
+            ]
+        self._client: ARMPipelineClient = ARMPipelineClient(base_url=cast(str, base_url), policies=_policies, **kwargs)
+
+        client_models = {k: v for k, v in _models.__dict__.items() if isinstance(v, type)}
         self._serialize = Serializer(client_models)
-        self._serialize.client_side_validation = False
         self._deserialize = Deserializer(client_models)
-
+        self._serialize.client_side_validation = False
         self.policy_tracked_resources = PolicyTrackedResourcesOperations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.remediations = RemediationsOperations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.policy_events = PolicyEventsOperations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.policy_states = PolicyStatesOperations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.operations = Operations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.policy_metadata = PolicyMetadataOperations(
-            self._client, self._config, self._serialize, self._deserialize)
+            self._client, self._config, self._serialize, self._deserialize
+        )
+        self.remediations = RemediationsOperations(self._client, self._config, self._serialize, self._deserialize)
+        self.policy_events = PolicyEventsOperations(self._client, self._config, self._serialize, self._deserialize)
+        self.policy_states = PolicyStatesOperations(self._client, self._config, self._serialize, self._deserialize)
+        self.operations = Operations(self._client, self._config, self._serialize, self._deserialize)
+        self.policy_metadata = PolicyMetadataOperations(self._client, self._config, self._serialize, self._deserialize)
         self.policy_restrictions = PolicyRestrictionsOperations(
-            self._client, self._config, self._serialize, self._deserialize)
+            self._client, self._config, self._serialize, self._deserialize
+        )
 
-    def close(self):
-        # type: () -> None
+    def _send_request(self, request: HttpRequest, *, stream: bool = False, **kwargs: Any) -> HttpResponse:
+        """Runs the network request through the client's chained policies.
+
+        >>> from azure.core.rest import HttpRequest
+        >>> request = HttpRequest("GET", "https://www.example.org/")
+        <HttpRequest [GET], url: 'https://www.example.org/'>
+        >>> response = client._send_request(request)
+        <HttpResponse: 200 OK>
+
+        For more information on this code flow, see https://aka.ms/azsdk/dpcodegen/python/send_request
+
+        :param request: The network request you want to make. Required.
+        :type request: ~azure.core.rest.HttpRequest
+        :keyword bool stream: Whether the response payload will be streamed. Defaults to False.
+        :return: The response of your network call. Does not do error handling on your response.
+        :rtype: ~azure.core.rest.HttpResponse
+        """
+
+        request_copy = deepcopy(request)
+        request_copy.url = self._client.format_url(request_copy.url)
+        return self._client.send_request(request_copy, stream=stream, **kwargs)  # type: ignore
+
+    def close(self) -> None:
         self._client.close()
 
-    def __enter__(self):
-        # type: () -> PolicyInsightsClient
+    def __enter__(self) -> Self:
         self._client.__enter__()
         return self
 
-    def __exit__(self, *exc_details):
-        # type: (Any) -> None
+    def __exit__(self, *exc_details: Any) -> None:
         self._client.__exit__(*exc_details)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wagtail
-Version: 7.4
+Version: 7.4.1
 Summary: A Django content management system.
 Author-email: Wagtail core team + contributors <hello@wagtail.org>
 License-Expression: BSD-3-Clause

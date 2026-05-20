@@ -40,6 +40,7 @@ from neutron_lib.api.definitions import dns_domain_ports
 from neutron_lib.api.definitions import dvr
 from neutron_lib.api.definitions import ecmp_routes
 from neutron_lib.api.definitions import empty_string_filtering
+from neutron_lib.api.definitions import evpn
 from neutron_lib.api.definitions import expose_l3_conntrack_helper
 from neutron_lib.api.definitions import expose_port_forwarding_in_fip
 from neutron_lib.api.definitions import external_net
@@ -47,7 +48,6 @@ from neutron_lib.api.definitions import extra_dhcp_opt
 from neutron_lib.api.definitions import extraroute
 from neutron_lib.api.definitions import extraroute_atomic
 from neutron_lib.api.definitions import filter_validation
-from neutron_lib.api.definitions import fip64
 from neutron_lib.api.definitions import fip_distributed
 from neutron_lib.api.definitions import fip_pf_description
 from neutron_lib.api.definitions import fip_pf_detail
@@ -64,6 +64,7 @@ from neutron_lib.api.definitions import ip_allocation
 from neutron_lib.api.definitions import ip_substring_port_filtering
 from neutron_lib.api.definitions import l2_adjacency
 from neutron_lib.api.definitions import l3
+from neutron_lib.api.definitions import l3_agent_scheduler_ha_chassis_priority
 from neutron_lib.api.definitions import l3_conntrack_helper
 from neutron_lib.api.definitions import l3_enable_default_route_bfd
 from neutron_lib.api.definitions import l3_enable_default_route_ecmp
@@ -76,7 +77,6 @@ from neutron_lib.api.definitions import l3_ndp_proxy
 from neutron_lib.api.definitions import l3_port_ip_change_not_allowed
 from neutron_lib.api.definitions import local_ip
 from neutron_lib.api.definitions import logging
-from neutron_lib.api.definitions import logging_resource
 from neutron_lib.api.definitions import metering
 from neutron_lib.api.definitions import metering_source_and_destination_filters
 from neutron_lib.api.definitions import multiprovidernet
@@ -135,8 +135,8 @@ from neutron_lib.api.definitions import revisionifmatch
 from neutron_lib.api.definitions import router_admin_state_down_before_update
 from neutron_lib.api.definitions import router_availability_zone
 from neutron_lib.api.definitions import router_enable_snat
-from neutron_lib.api.definitions import router_interface_fip
 from neutron_lib.api.definitions import routerservicetype
+from neutron_lib.api.definitions import security_groups_default_statefulness
 from neutron_lib.api.definitions import security_groups_normalized_cidr
 from neutron_lib.api.definitions import security_groups_port_filtering
 from neutron_lib.api.definitions import security_groups_remote_address_group
@@ -210,6 +210,7 @@ _ALL_API_DEFINITIONS = {
     dvr,
     ecmp_routes,
     empty_string_filtering,
+    evpn,
     expose_l3_conntrack_helper,
     expose_port_forwarding_in_fip,
     external_net,
@@ -217,7 +218,6 @@ _ALL_API_DEFINITIONS = {
     extraroute,
     extraroute_atomic,
     filter_validation,
-    fip64,
     firewall_v2,
     firewall_v2_stdattrs,
     fip_distributed,
@@ -234,6 +234,7 @@ _ALL_API_DEFINITIONS = {
     l2_adjacency,
     flowclassifier,
     l3,
+    l3_agent_scheduler_ha_chassis_priority,
     l3_conntrack_helper,
     l3_ext_gw_mode,
     l3_ext_ha_mode,
@@ -246,7 +247,6 @@ _ALL_API_DEFINITIONS = {
     l3_port_ip_change_not_allowed,
     local_ip,
     logging,
-    logging_resource,
     metering,
     metering_source_and_destination_filters,
     multiprovidernet,
@@ -305,8 +305,8 @@ _ALL_API_DEFINITIONS = {
     router_admin_state_down_before_update,
     router_availability_zone,
     router_enable_snat,
-    router_interface_fip,
     routerservicetype,
+    security_groups_default_statefulness,
     security_groups_normalized_cidr,
     security_groups_port_filtering,
     security_groups_remote_address_group,

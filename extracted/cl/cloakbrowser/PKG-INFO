@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloakbrowser
-Version: 0.3.28
+Version: 0.3.29
 Summary: Stealth Chromium that passes every bot detection test. Drop-in Playwright replacement with source-level fingerprint patches.
 Project-URL: Homepage, https://github.com/CloakHQ/CloakBrowser
 Project-URL: Documentation, https://github.com/CloakHQ/CloakBrowser#readme
@@ -168,7 +168,7 @@ Open [http://localhost:8080](http://localhost:8080). Create a profile. Click **L
 
 ---
 
-## Latest: v0.3.26 (Chromium 146.0.7680.177.4)
+## Latest: v0.3.29 (Chromium 146.0.7680.177.4)
 
 - **`launch_context_async()`** — async counterpart to `launch_context()`. Forwards kwargs to `browser.new_context()` for `storage_state`, `permissions`, `extra_http_headers` without a persistent profile folder.
 - **JS `contextOptions` escape hatch** — forward arbitrary options (including `storageState`) to Playwright's `newContext()` from `launchContext()` / `launchPersistentContext()`.
@@ -411,9 +411,16 @@ ctx.close()  # profile saved
 
 # Next run — cookies, localStorage restored automatically
 ctx = launch_persistent_context("./my-profile", headless=False)
+
+# Load Chrome extensions
+ctx = launch_persistent_context(
+    "./my-profile",
+    headless=False,
+    extension_paths=["./my-extension"],
+)
 ```
 
-Supports all the same options as `launch_context()`: `proxy`, `user_agent`, `viewport`, `locale`, `timezone`, `color_scheme`, `geoip`.
+Supports all the same options as `launch_context()`: `proxy`, `user_agent`, `viewport`, `locale`, `timezone`, `color_scheme`, `geoip`, `extension_paths`.
 
 Async version: `launch_persistent_context_async()`.
 
@@ -1236,4 +1243,11 @@ Issues and PRs welcome. If something isn't working, [open an issue](https://gith
 - [@eofreternal](https://github.com/eofreternal) — humanConfig type fix, humanized method option types
 - [@manaskarra](https://github.com/manaskarra) — iframe scope fix for humanized frame actions, GeoIP timeout guard
 - [@Youhai020616](https://github.com/Youhai020616) — SOCKS5 credential encoding logging
-- [@AlexTech314](https://github.com/AlexTech314) — AWS Lambda integration
+- [@AlexTech314](https://github.com/AlexTech314) — AWS Lambda integration, cold-start hardening
+- [@dgtlmoon](https://github.com/dgtlmoon) — graceful pw.stop() cleanup
+- [@zackycodes](https://github.com/zackycodes) — Chrome extension loading
+- [@aaronjmars](https://github.com/aaronjmars) — security fixes (shell injection, dep bumps)
+- [@Seryiza](https://github.com/Seryiza) — Nix/NixOS flake
+- [@245678000000](https://github.com/245678000000) — package-lock sync
+- [@honor2030](https://github.com/honor2030) — cloakserve WebSocket origin guard, composable JS launch helpers
+- [@0xlally](https://github.com/0xlally) — security reports (cloakserve path traversal, WebSocket origin bypass)

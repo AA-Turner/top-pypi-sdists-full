@@ -191,7 +191,7 @@ def test_patch_bakes_llama_cpp_anti_loop_recipe():
     assert local["extra_params"]["top_k"] == 40
     assert local["extra_params"]["top_p"] == 0.95
     assert local["extra_params"]["repeat_penalty"] == 1.1
-    assert local["extra_params"]["max_tokens"] == 2048
+    assert local["extra_params"]["max_tokens"] == 8192
 
 
 def test_patch_bakes_context_window_for_llama_cpp():
@@ -241,7 +241,7 @@ def test_patch_does_not_overwrite_user_extra_params():
     # Missing keys filled in with article defaults
     assert local["extra_params"]["top_p"] == 0.95
     assert local["extra_params"]["repeat_penalty"] == 1.1
-    assert local["extra_params"]["max_tokens"] == 2048
+    assert local["extra_params"]["max_tokens"] == 8192
 
 
 def test_patch_does_not_inject_for_non_llama_backends():

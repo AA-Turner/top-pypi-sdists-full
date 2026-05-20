@@ -17,10 +17,11 @@
 
 from typing import Any, Callable
 
-from kornia.core import Module, Tensor
+import torch
+from torch import nn
 
 
-class Lambda(Module):
+class Lambda(nn.Module):
     """Applies user-defined lambda as a transform.
 
     Args:
@@ -38,12 +39,29 @@ class Lambda(Module):
 
     """
 
-    def __init__(self, func: Callable[..., Tensor]) -> None:
+    def __init__(self, func: Callable[..., torch.Tensor]) -> None:
         super().__init__()
         if not callable(func):
             raise TypeError(f"Argument lambd should be callable, got {type(func).__name__!r}")
 
         self.func = func
 
-    def forward(self, img: Tensor, *args: Any, **kwargs: Any) -> Tensor:
+    def forward(self, img: torch.Tensor, *args: Any, **kwargs: Any) -> torch.Tensor:
+        """Run the user-provided transform function.
+
+        This method simply forwards all arguments to ``self.func``.
+        It is useful when you want to insert a custom Python callable inside a
+        ``torch.nn.Module`` pipeline.
+
+        Args:
+            img: Primary input tensor passed as the first positional argument.
+                For image tasks this is commonly shaped ``(B, C, H, W)``, where
+                ``B`` = batch size, ``C`` = number of channels,
+                ``H`` = height, and ``W`` = width.
+            *args: Additional positional arguments forwarded to ``self.func``.
+            **kwargs: Additional keyword arguments forwarded to ``self.func``.
+
+        Returns:
+            The output tensor returned by ``self.func``.
+        """
         return self.func(img, *args, **kwargs)

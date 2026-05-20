@@ -105,7 +105,7 @@ class EventHandler:
                 await self._handle_tool_stream(event)
             case CompactStartEvent():
                 await self.finalize_streaming()
-                await self._handle_compact_start()
+                await self._handle_compact_start(event)
             case CompactEndEvent():
                 await self.finalize_streaming()
                 await self._handle_compact_end(event)
@@ -200,8 +200,8 @@ class EventHandler:
         else:
             await self.current_streaming_reasoning.append_content(event.content)
 
-    async def _handle_compact_start(self) -> None:
-        compact_msg = CompactMessage()
+    async def _handle_compact_start(self, event: CompactStartEvent) -> None:
+        compact_msg = CompactMessage(input_tokens=event.current_context_tokens)
         self.current_compact = compact_msg
         await self.mount_callback(compact_msg)
 

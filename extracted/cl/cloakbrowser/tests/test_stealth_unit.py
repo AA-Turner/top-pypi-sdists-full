@@ -1010,7 +1010,11 @@ class TestPatchPageStealthWiring:
         fake_box = {"x": 100, "y": 200, "width": 200, "height": 30}
         with mock_patch(
             "cloakbrowser.human.scroll_to_element",
-            return_value=(fake_box, 200.0, 215.0),
+            return_value=(fake_box, 200.0, 215.0, False),
+        ), mock_patch(
+            "cloakbrowser.human.ensure_actionable",
+        ), mock_patch(
+            "cloakbrowser.human.check_pointer_events",
         ):
             try:
                 page.click("#btn")

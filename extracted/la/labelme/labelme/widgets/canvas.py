@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import collections
 import enum
+import typing
 from collections.abc import Callable
 from typing import Any
 from typing import Final
+from typing import Literal
+from typing import cast
 
 import imgviz
 import numpy as np
@@ -19,11 +22,8 @@ from PyQt5.QtCore import QRectF
 from PyQt5.QtCore import Qt
 
 import labelme.utils
+from labelme import _automation
 from labelme import _shape
-from labelme._automation import AiOutputFormat
-from labelme._automation import Detection
-from labelme._automation import OsamSession
-from labelme._automation import shapes_from_detections
 from labelme._shape import POLYLINE_SHAPE_TYPES
 from labelme._shape import Shape
 
@@ -36,6 +36,23 @@ CURSOR_MOVE = Qt.ClosedHandCursor
 CURSOR_GRAB = Qt.OpenHandCursor
 
 MOVE_SPEED: float = 5.0
+
+_CreateMode = Literal[
+    "polygon",
+    "rectangle",
+    "oriented_rectangle",
+    "circle",
+    "line",
+    "point",
+    "linestrip",
+    "ai_points_to_shape",
+    "ai_box_to_shape",
+]
+
+_AI_CREATE_MODES: Final[tuple[_CreateMode, ...]] = (
+    "ai_points_to_shape",
+    "ai_box_to_shape",
+)
 
 
 class _CanvasMode(enum.Enum):
@@ -66,6 +83,7 @@ class Canvas(QtWidgets.QWidget):
     scroll_request = QtCore.pyqtSignal(int, int)
     pan_request = QtCore.pyqtSignal(QPoint)
     new_shape = QtCore.pyqtSignal()
+    inference_produced_no_shapes = QtCore.pyqtSignal()
     selection_changed = QtCore.pyqtSignal(list)
     shape_moved = QtCore.pyqtSignal()
     drawing_polygon = QtCore.pyqtSignal(bool)
@@ -76,8 +94,7 @@ class Canvas(QtWidgets.QWidget):
 
     mode: _CanvasMode = _CanvasMode.EDIT
 
-    # polygon, rectangle, line, or point
-    _create_mode = "polygon"
+    _create_mode: _CreateMode = "polygon"
 
     _fill_drawing = False
 
@@ -91,8 +108,8 @@ class Canvas(QtWidgets.QWidget):
     _pan_anchor: QPointF | None
 
     _osam_session_model_name: str = "sam2:latest"
-    _osam_session: OsamSession | None
-    _ai_output_format: AiOutputFormat = "polygon"
+    _osam_session: _automation.OsamSession | None
+    _ai_output_format: _automation.AiOutputFormat = "polygon"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         self._epsilon: float = kwargs.pop("epsilon", 10.0)
@@ -135,8 +152,6 @@ class Canvas(QtWidgets.QWidget):
         self._rotation_original_points = []
         self.scale: float = 1.0
         self._osam_session = None
-        self._hide_background: bool = False
-        self._hide_background_enabled: bool = False
         self._snapping = True
         self._hovered_shape_is_selected: bool = False
         self._painter = QtGui.QPainter()
@@ -152,24 +167,14 @@ class Canvas(QtWidgets.QWidget):
         self._fill_drawing = value
 
     @property
-    def create_mode(self) -> str:
+    def create_mode(self) -> _CreateMode:
         return self._create_mode
 
     @create_mode.setter
     def create_mode(self, value: str) -> None:
-        if value not in [
-            "polygon",
-            "rectangle",
-            "oriented_rectangle",
-            "circle",
-            "line",
-            "point",
-            "linestrip",
-            "ai_points_to_shape",
-            "ai_box_to_shape",
-        ]:
+        if value not in typing.get_args(_CreateMode):
             raise ValueError(f"Unsupported create_mode: {value}")
-        self._create_mode = value
+        self._create_mode = cast(_CreateMode, value)
 
     def get_ai_model_name(self) -> str:
         return self._osam_session_model_name
@@ -177,18 +182,20 @@ class Canvas(QtWidgets.QWidget):
     def set_ai_model_name(self, model_name: str) -> None:
         self._osam_session_model_name = model_name
 
-    def set_ai_output_format(self, output_format: AiOutputFormat) -> None:
+    def set_ai_output_format(self, output_format: _automation.AiOutputFormat) -> None:
         self._ai_output_format = output_format
 
-    def _get_osam_session(self) -> OsamSession:
+    def _get_osam_session(self) -> _automation.OsamSession:
         if (
             self._osam_session is None
             or self._osam_session.model_name != self._osam_session_model_name
         ):
-            self._osam_session = OsamSession(model_name=self._osam_session_model_name)
+            self._osam_session = _automation.OsamSession(
+                model_name=self._osam_session_model_name
+            )
         return self._osam_session
 
-    def _shapes_from_points_ai(
+    def _shapes_from_ai_points(
         self, points: list[QPointF], point_labels: list[int]
     ) -> list[Shape]:
         image: np.ndarray = labelme.utils.img_qt_to_arr(img_qt=self.pixmap.toImage())
@@ -198,23 +205,19 @@ class Canvas(QtWidgets.QWidget):
             points=np.array([[p.x(), p.y()] for p in points]),
             point_labels=np.array(point_labels),
         )
-        return shapes_from_detections(
+        # iou_threshold is hardcoded here because the ai-points/box flow has
+        # no user-facing IoU control (unlike app.py's ai-text flow). 0.5 is
+        # the same default the ai-text widget ships with.
+        detections = _automation.suppress_detections_greedy(
             detections=_detections_from_annotations(response.annotations),
-            shape_type=self._ai_output_format,
+            iou_threshold=0.5,
         )
-
-    def _shapes_from_bbox_ai(self, bbox_points: list[QPointF]) -> list[Shape]:
-        bbox_points = _normalize_bbox_points(bbox_points=bbox_points)
-        image: np.ndarray = labelme.utils.img_qt_to_arr(img_qt=self.pixmap.toImage())
-        response: osam.types.GenerateResponse = self._get_osam_session().run(
-            image=imgviz.asrgb(image),  # type: ignore[arg-type]
-            image_id=str(self._pixmap_hash),
-            points=np.array([[p.x(), p.y()] for p in bbox_points]),
-            # point_labels: 2=box corner, 3=opposite box corner (SAM convention)
-            point_labels=np.array([2, 3]),
+        detections = _automation.suppress_detections_overlapping_existing_shapes(
+            detections=detections,
+            existing_shapes=self.shapes,
         )
-        return shapes_from_detections(
-            detections=_detections_from_annotations(response.annotations),
+        return _automation.shapes_from_detections(
+            detections=detections,
             shape_type=self._ai_output_format,
         )
 
@@ -750,22 +753,22 @@ class Canvas(QtWidgets.QWidget):
             current.add_point(self._line.points[1], autoclose=True)
             self._line.points[0] = current.points[-1]
             if current.is_closed():
-                self._finalise()
+                self._finalize()
         elif mode == "oriented_rectangle":
             if len(current.points) == 4:
-                self._finalise()
+                self._finalize()
             else:
                 assert len(current.points) == 1
                 self._lock_oriented_rectangle_first_edge(current=current)
         elif mode in ("rectangle", "circle", "line", "ai_box_to_shape"):
             assert len(current.points) == 1
             current.points = self._line.points
-            self._finalise()
+            self._finalize()
         elif mode == "linestrip":
             current.add_point(self._line.points[1])
             self._line.points[0] = current.points[-1]
             if int(modifiers) == Qt.ControlModifier:
-                self._finalise()
+                self._finalize()
         elif mode == "ai_points_to_shape":
             current.add_point(
                 self._line.points[1],
@@ -774,7 +777,7 @@ class Canvas(QtWidgets.QWidget):
             self._line.points[0] = current.points[-1]
             self._line.point_labels[0] = current.point_labels[-1]
             if modifiers & Qt.ControlModifier:
-                self._finalise()
+                self._finalize()
 
     def _lock_oriented_rectangle_first_edge(self, current: Shape) -> None:
         first_corner = self._line.points[0]
@@ -815,10 +818,10 @@ class Canvas(QtWidgets.QWidget):
         self._current = new_shape
 
         if mode == "point":
-            self._finalise()
+            self._finalize()
             return
         if mode == "ai_points_to_shape" and event.modifiers() & Qt.ControlModifier:
-            self._finalise()
+            self._finalize()
             return
 
         if mode == "circle":
@@ -827,7 +830,6 @@ class Canvas(QtWidgets.QWidget):
         self._line.point_labels = (
             [0, 0] if mode == "ai_points_to_shape" and is_shift_pressed else [1, 1]
         )
-        self._set_hide_background()
         self.drawing_polygon.emit(True)
         self.update()
 
@@ -972,16 +974,6 @@ class Canvas(QtWidgets.QWidget):
         for original, copy in zip(self.selected_shapes, self._selected_shapes_copy):
             original.points = copy.points
 
-    def hide_background_shapes(self, value: bool) -> None:
-        self._hide_background_enabled = value
-        if not self.selected_shapes:
-            return
-        self._set_hide_background(True)
-        self.update()
-
-    def _set_hide_background(self, enable: bool = True) -> None:
-        self._hide_background = self._hide_background_enabled if enable else False
-
     def _can_close_shape(self) -> bool:
         if self.mode != _CanvasMode.CREATE:
             return False
@@ -1006,10 +998,9 @@ class Canvas(QtWidgets.QWidget):
             return
         if not self._can_close_shape():
             return
-        self._finalise()
+        self._finalize()
 
     def select_shapes(self, shapes: list[Shape]) -> None:
-        self._set_hide_background()
         self.selection_changed.emit(shapes)
         self.update()
 
@@ -1029,7 +1020,6 @@ class Canvas(QtWidgets.QWidget):
                 self.update()
             return
 
-        self._set_hide_background()
         already_selected = clicked_shape in self.selected_shapes
         if already_selected:
             self._hovered_shape_is_selected = True
@@ -1160,7 +1150,6 @@ class Canvas(QtWidgets.QWidget):
     def deselect_shape(self) -> bool:
         if not self.selected_shapes:
             return False
-        self._set_hide_background(False)
         self.selection_changed.emit([])
         self._hovered_shape_is_selected = False
         return True
@@ -1254,11 +1243,7 @@ class Canvas(QtWidgets.QWidget):
 
     def _draw_committed_shapes_layer(self, painter: QtGui.QPainter) -> None:
         for shape in self.shapes:
-            if not _is_shape_paintable(
-                shape=shape,
-                visible=shape.visible,
-                hide_background=self._hide_background,
-            ):
+            if not shape.visible:
                 continue
             shape.fill = _is_shape_filled(shape=shape, hovered_shape=self.hovered_shape)
             _shape.paint(shape=shape, painter=painter)
@@ -1313,7 +1298,7 @@ class Canvas(QtWidgets.QWidget):
             point=self._line.points[1],
             label=self._line.point_labels[1],
         )
-        ai_shapes = self._shapes_from_points_ai(
+        ai_shapes = self._shapes_from_ai_points(
             points=preview.points,
             point_labels=preview.point_labels,
         )
@@ -1344,31 +1329,38 @@ class Canvas(QtWidgets.QWidget):
             return True
         return False
 
-    def _finalise(self) -> None:
+    def _finalize(self) -> None:
         assert self._current is not None
-        new_shapes: list[Shape] = self._build_new_shapes_from_current()
-        if not new_shapes:
-            self._current = None
-            return
+        if self.create_mode in _AI_CREATE_MODES:
+            new_shapes = self._build_new_shapes_from_ai_inference()
+            if not new_shapes:
+                self.inference_produced_no_shapes.emit()
+                self._cancel_current_shape()
+                return
+        else:
+            self._current.close()
+            new_shapes = [self._current]
         self.shapes.extend(new_shapes)
         self.backup_shapes()
         self._reset_after_shape_creation()
 
-    def _build_new_shapes_from_current(self) -> list[Shape]:
+    def _build_new_shapes_from_ai_inference(self) -> list[Shape]:
         assert self._current is not None
         if self.create_mode == "ai_points_to_shape":
-            return self._shapes_from_points_ai(
+            return self._shapes_from_ai_points(
                 points=self._current.points,
                 point_labels=self._current.point_labels,
             )
         if self.create_mode == "ai_box_to_shape":
-            return self._shapes_from_bbox_ai(bbox_points=self._current.points)
-        self._current.close()
-        return [self._current]
+            # point_labels: 2=box corner, 3=opposite box corner (SAM convention)
+            return self._shapes_from_ai_points(
+                points=_normalize_bbox_points(bbox_points=self._current.points),
+                point_labels=[2, 3],
+            )
+        raise AssertionError(f"unreachable: {self.create_mode}")
 
     def _reset_after_shape_creation(self) -> None:
         self._current = None
-        self._set_hide_background(False)
         self.new_shape.emit()
         self.update()
 
@@ -1395,7 +1387,7 @@ class Canvas(QtWidgets.QWidget):
         if viewport is None:
             return QtCore.QSize(scaled_w, scaled_h)
         # Overscroll only along axes where the image actually overflows the
-        # viewport. Half a viewport of slack (split evenly around the centred
+        # viewport. Half a viewport of slack (split evenly around the centered
         # image) lets each edge be panned a quarter-viewport past the viewport
         # boundary, derived from the viewport rather than a fixed multiplier.
         slack_w = viewport.width() // 2 if scaled_w > viewport.width() else 0
@@ -1440,7 +1432,7 @@ class Canvas(QtWidgets.QWidget):
             if key == Qt.Key_Escape and self._current is not None:
                 self._cancel_current_shape()
             elif key in (Qt.Key_Return, Qt.Key_Space) and self._can_close_shape():
-                self._finalise()
+                self._finalize()
             elif modifiers == Qt.AltModifier:
                 self._snapping = False
         elif self.mode == _CanvasMode.EDIT:
@@ -1492,7 +1484,7 @@ class Canvas(QtWidgets.QWidget):
 
     def undo_last_line(self) -> None:
         assert self.shapes
-        if self.create_mode in ("ai_points_to_shape", "ai_box_to_shape"):
+        if self.create_mode in _AI_CREATE_MODES:
             # Remove all unlabeled shapes at the tail (added by AI in one shot)
             while self.shapes and self.shapes[-1].label is None:
                 self.shapes.pop()
@@ -1596,7 +1588,7 @@ class Canvas(QtWidgets.QWidget):
 
 def _detections_from_annotations(
     annotations: list[osam.types.Annotation],
-) -> list[Detection]:
+) -> list[_automation.Detection]:
     if not annotations:
         logger.warning("No annotations returned")
         return []
@@ -1605,13 +1597,13 @@ def _detections_from_annotations(
         key=lambda a: a.score if a.score is not None else 0,
         reverse=True,
     )
-    detections: list[Detection] = []
+    detections: list[_automation.Detection] = []
     for annotation in sorted_annotations:
         bbox: tuple[float, float, float, float] | None = None
         if annotation.bounding_box is not None:
             bb = annotation.bounding_box
             bbox = (bb.xmin, bb.ymin, bb.xmax, bb.ymax)
-        detections.append(Detection(bbox=bbox, mask=annotation.mask))
+        detections.append(_automation.Detection(bbox=bbox, mask=annotation.mask))
     return detections
 
 
@@ -1688,14 +1680,6 @@ def _pick_pending_moved_shape(
     if hovered_shape not in shapes:
         return None
     return hovered_shape
-
-
-def _is_shape_paintable(shape: Shape, visible: bool, hide_background: bool) -> bool:
-    if not visible:
-        return False
-    if hide_background and not shape.selected:
-        return False
-    return True
 
 
 def _is_shape_filled(shape: Shape, hovered_shape: Shape | None) -> bool:

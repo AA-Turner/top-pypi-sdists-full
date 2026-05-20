@@ -1815,8 +1815,8 @@ class PKAssetsManager:
             isIntraday, forceLoad=forceLoad
         )
         initialLoadCount = len(stockDict)
-        leftOutStocks = None
-        recentDownloadFromOriginAttempted = False
+        # leftOutStocks = None
+        # recentDownloadFromOriginAttempted = False
         srcFilePath = os.path.join(Archiver.get_user_data_dir(), cache_file)
         isTrading = PKDateUtilities.isTradingTime() and (PKDateUtilities.wasTradedOn() or not PKDateUtilities.isTodayHoliday()[0])
         # if isTrading or not os.path.exists(srcFilePath):
@@ -1830,17 +1830,17 @@ class PKAssetsManager:
         if userDownloadOption is not None and "B" in userDownloadOption: # Backtests
             isTrading = False
         # Check if NSEI data is requested
-        if configManager.baseIndex not in stockCodes:
-            stockCodes.insert(0,configManager.baseIndex)
+        # if configManager.baseIndex not in stockCodes:
+        #     stockCodes.insert(0,configManager.baseIndex)
         # stockCodes is not None mandates that we start our work based on the downloaded data from yesterday
-        if (stockCodes is not None and len(stockCodes) > 0) and (isTrading or downloadOnly):
-            recentDownloadFromOriginAttempted = True
-            stockDict, leftOutStocks = PKAssetsManager.downloadLatestData(stockDict,configManager,stockCodes,exchangeSuffix=exchangeSuffix,downloadOnly=downloadOnly,numStocksPerIteration=len(stockCodes) if stockCodes is not None else 0)
-            if len(leftOutStocks) > int(len(stockCodes)*0.05) and not PKAssetsManager.had_rate_limit_errors():
-                # During live market hours, we may not really get additional data if we didn't
-                # get it the first time
-                # More than 5 % of stocks are still remaining
-                stockDict, _ = PKAssetsManager.downloadLatestData(stockDict,configManager,leftOutStocks,exchangeSuffix=exchangeSuffix,downloadOnly=downloadOnly,numStocksPerIteration=len(leftOutStocks) if leftOutStocks is not None else 0)
+        # if (stockCodes is not None and len(stockCodes) > 0) and (isTrading or downloadOnly):
+        #     recentDownloadFromOriginAttempted = True
+        #     stockDict, leftOutStocks = PKAssetsManager.downloadLatestData(stockDict,configManager,stockCodes,exchangeSuffix=exchangeSuffix,downloadOnly=downloadOnly,numStocksPerIteration=len(stockCodes) if stockCodes is not None else 0)
+        #     if len(leftOutStocks) > int(len(stockCodes)*0.05) and not PKAssetsManager.had_rate_limit_errors():
+        #         # During live market hours, we may not really get additional data if we didn't
+        #         # get it the first time
+        #         # More than 5 % of stocks are still remaining
+        #         stockDict, _ = PKAssetsManager.downloadLatestData(stockDict,configManager,leftOutStocks,exchangeSuffix=exchangeSuffix,downloadOnly=downloadOnly,numStocksPerIteration=len(leftOutStocks) if leftOutStocks is not None else 0)
             # return stockDict
         
         # Filter stockDict to only include requested stocks after download
@@ -1853,12 +1853,12 @@ class PKAssetsManager:
             stockDict = filtered_stockDict
             default_logger().debug(f"Filtered to {len(stockDict)} requested stocks")
         
-        if downloadOnly or isTrading:
-            # We don't want to download from local stale pkl file or stale file at server
-            if downloadOnly and stockDict:
-                PKAssetsManager.saveStockData(stockDict, configManager, initialLoadCount, isIntraday, downloadOnly, forceSave=True)
-            # start_backup()
-            return stockDict
+        # if downloadOnly or isTrading:
+        #     # We don't want to download from local stale pkl file or stale file at server
+        #     if downloadOnly and stockDict:
+        #         PKAssetsManager.saveStockData(stockDict, configManager, initialLoadCount, isIntraday, downloadOnly, forceSave=True)
+        #     # start_backup()
+        #     return stockDict
         
         default_logger().debug(
             f"Stock data cache file:{cache_file} exists ->{str(exists)}"
@@ -1889,7 +1889,7 @@ class PKAssetsManager:
                             sample_stock = list(sample_data.keys())[0]
                         
                         sample_stock_data = sample_data[sample_stock]
-                        is_fresh, data_date, trading_days_old = PKAssetsManager.is_data_fresh(sample_stock_data, max_stale_trading_days=1)
+                        is_fresh, data_date, trading_days_old = PKAssetsManager.is_data_fresh(sample_stock_data, max_stale_trading_days=0)
                         if not is_fresh:
                             is_local_stale = True
                             default_logger().info(f"Local cache is stale (data_date={data_date}, trading_days_old={trading_days_old}), will download fresh data")
@@ -2058,7 +2058,7 @@ class PKAssetsManager:
         try:
             with open(srcFilePath, "rb") as f:
                 stockData = pickle.load(f)
-            if not stockData:
+            if not stockData or len(stockData) == 0:
                 return stockDict, stockDataLoaded
             if not downloadOnly:
                 OutputControls().printOutput(
@@ -2072,16 +2072,18 @@ class PKAssetsManager:
                 listStockCodes = sorted(set(multiIndex.get_level_values(0)))
             else:
                 listStockCodes = list(stockData.keys())
-            if exchangeSuffix and any(exchangeSuffix in code for code in listStockCodes):
-                listStockCodes = [x.replace(exchangeSuffix, "") for x in listStockCodes]
+            # if exchangeSuffix and any(exchangeSuffix in code for code in listStockCodes):
+            #     listStockCodes_v1 = [x.replace(exchangeSuffix, "") for x in listStockCodes]
+            #     listStockCodes = listStockCodes_v1
             # Filter out numeric keys (instrument tokens) - they have stale data
             # and the same stocks exist with proper symbol keys with fresh data
-            listStockCodes = [code for code in listStockCodes if not str(code).isdigit()]
-            
+            listStockCodes_v2 = [code for code in listStockCodes if not str(code).isdigit()]
+            listStockCodes = listStockCodes_v2
             # Apply stockCodes filter if provided
-            if stockCodes and len(stockCodes) > 0:
-                listStockCodes = [code for code in listStockCodes if code in stockCodes]
-                default_logger().debug(f"Filtered local pickle to {len(listStockCodes)} requested stocks")
+            # if stockCodes and len(stockCodes) > 0:
+            #     listStockCodes_v3 = [code for code in listStockCodes if code in stockCodes]
+            #     listStockCodes = listStockCodes_v3
+            #     default_logger().debug(f"Filtered local pickle to {len(listStockCodes)} requested stocks")
             
             for stock in listStockCodes:
                 df_or_dict = stockData.get(stock)
@@ -2117,9 +2119,9 @@ class PKAssetsManager:
                         stockDict[stock] = existingPreLoadedData
                     else:
                         stockDict[stock] = {**existingPreLoadedData, **df_or_dict}
-                elif not isTrading:
+                else: #if not isTrading:
                     stockDict[stock] = df_or_dict
-            stockDataLoaded = True
+            stockDataLoaded = len(stockDict) > 0
             
             # Always try to apply fresh real-time data or update timestamps
             # During trading hours: use current time for latest timestamps
@@ -2158,7 +2160,7 @@ class PKAssetsManager:
                     if sample_count >= 5:
                         break
                 default_logger().debug("=" * 60)
-            if stockDict and isTrading:                
+            if stockDict and len(stockDict) > 0:                
                 # Save updated stockDict back to PKL file if we're in downloadOnly mode or GitHub Actions
                 # This ensures PKL files committed to actions-data-download branch contain the latest tick data
                 if downloadOnly or ("RUNNER" in os.environ.keys()):

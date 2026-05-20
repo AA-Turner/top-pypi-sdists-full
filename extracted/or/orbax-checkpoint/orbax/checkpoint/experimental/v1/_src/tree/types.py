@@ -14,23 +14,63 @@
 
 """Types for PyTree utilities."""
 
-from typing import Any
+import typing
+from typing import Any, Generic, TypeVar
 import jax
 import numpy as np
-from orbax.checkpoint._src.tree import types
+from orbax.checkpoint._src.tree import types as tree_types
+from orbax.checkpoint.experimental.v1._src.arrays import types as array_types
 
-JsonType = types.JsonType
+JsonType = tree_types.JsonType
 
-PyTree = Any
-PyTreeOf = types.PyTreeOf
+T = TypeVar("T")
 
-PyTreeKey = types.PyTreeKey
-PyTreeKeyPath = types.PyTreePath
+if typing.TYPE_CHECKING:
+  PyTreeOf = Any
+  PyTree = Any
 
-ScalarType = int | float | bool
-LeafType = jax.Array | np.ndarray | str | ScalarType | Any
-AbstractLeafType = Any  # TODO(cpgaffney): Add a type for abstract leaves.
+else:
 
-JsonType = types.JsonType
+  class PyTreeOf(Generic[T]):
+    """A PyTree with leaf types of type `T`.
+
+    Functionally this type is treated as `Any` since JAX PyTrees cannot be
+    identified by static type checkers.
+
+    See https://jax.readthedocs.io/en/latest/pytrees.html for information on
+    PyTrees.
+
+    At a very high level, a PyTree is a container-like object such as a dict,
+    list, or `flax.struct.dataclass`.
+    The elements of these containers can be traversed as
+    a nested tree using `jax.tree.*` functions.
+
+    In a checkpointing context, tree leaves are typically arrays or scalars.
+    Even though arrays are logically lists, they are treated by JAX as leaf
+    nodes.
+
+    Note that all leaf nodes are definitionally PyTrees.
+    """
+
+    pass
+
+  class PyTree:
+    """A PyTree with any leaf type (:py:class:`~.PyTreeOf[Any]`)."""
+
+    pass
+
+
+PyTreeKey = tree_types.PyTreeKey
+PyTreeKeyPath = tree_types.PyTreePath
+
+Leaf = jax.Array | np.ndarray | array_types.Scalar | str
+AbstractLeaf = (
+    array_types.AbstractArray
+    | array_types.AbstractShardedArray
+    | array_types.AbstractScalar
+    | str
+)
+
+JsonType = tree_types.JsonType
 
 PLACEHOLDER = ...

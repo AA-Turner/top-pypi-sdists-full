@@ -61,7 +61,11 @@ try:
         StoragePoolEncryptionSettingsSpec,
     )
     from ..message.sdsb_encryption_key_msgs import SDSBEncryptionKeyValidationMsg
-    from ..model.sdsb_license_models import LicenseManagementSpec, SDSBLicenseFactsSpec
+    from ..model.sdsb_license_models import (
+        LicenseManagementSpec,
+        SDSBLicenseFactsSpec,
+        LicenseSpec,
+    )
     from ..model.sdsb_protection_domain_model import SDSBProtectionDomainFactSpec
     from ..model.sdsb_storage_controller_model import (
         get_snmp_settings_args,
@@ -156,6 +160,7 @@ except ImportError:
     from model.sdsb_license_models import (
         LicenseManagementSpec,
         SDSBLicenseFactsSpec,
+        LicenseSpec,
     )
     from model.sdsb_protection_domain_model import SDSBProtectionDomainFactSpec
     from model.sdsb_session_models import (
@@ -169,6 +174,7 @@ except ImportError:
     from model.sdsb_audit_log_models import AuditLogSettingsSpec
     from model.sdsb_event_log_models import EventLogSettingsSpec
     from model.sdsb_external_auth_server_models import SDSBExternalAuthServerSettingSpec
+    from model.sdsb_dump_log_models import CreateDumpFileSpec, DumpLogStatusSpec
 
 
 # SDSB Parameter manager
@@ -310,7 +316,7 @@ class SDSBParametersManager:
             input_spec = StoragePoolFactSpec(**self.params["spec"])
             return input_spec
         else:
-            return None
+            return StoragePoolFactSpec()
 
     def get_storage_node_bmc_access_setting_spec(self):
         if "spec" in self.params and self.params["spec"] is not None:
@@ -398,6 +404,20 @@ class SDSBParametersManager:
             input_spec = SDSBUserSpec(**self.params["spec"])
         else:
             input_spec = SDSBUserSpec()
+        return input_spec
+
+    def get_license_setting_spec(self):
+        if "spec" in self.params and self.params["spec"] is not None:
+            input_spec = LicenseManagementSpec(**self.params["spec"])
+        else:
+            input_spec = LicenseManagementSpec()
+        return input_spec
+
+    def get_license_spec(self):
+        if "spec" in self.params and self.params["spec"] is not None:
+            input_spec = LicenseSpec(**self.params["spec"])
+        else:
+            input_spec = LicenseSpec()
         return input_spec
 
     def get_storage_controller_spec(self):
@@ -519,14 +539,6 @@ class SDSBParametersManager:
     def get_storage_pool_encryption_settings_spec(self):
         if "spec" in self.params and self.params["spec"] is not None:
             input_spec = StoragePoolEncryptionSettingsSpec(**self.params["spec"])
-            return input_spec
-        else:
-            return None
-
-    def get_license_management_spec(self):
-        if "spec" in self.params and self.params["spec"] is not None:
-            spec_dict = self.params["spec"]
-            input_spec = LicenseManagementSpec(**spec_dict)
             return input_spec
         else:
             return None
@@ -660,15 +672,13 @@ class SDSBCommonParameters:
         }
 
 
-class UAIGTokenArguments:
-
+class SDSBNoSpecArguments:
     common_arguments = {
         "connection_info": SDSBCommonParameters.get_connection_info(),
     }
-    common_arguments["connection_info"]["options"].pop("connection_type")
 
     @classmethod
-    def get_arguments(cls):
+    def get_no_spec_fact_arguments(cls):
         return cls.common_arguments
 
 
@@ -1372,9 +1382,17 @@ class SDSBPortArguments:
                 "required": False,
                 "type": "str",
             },
-            "nick_name": {
+            "nickname": {
                 "required": False,
                 "type": "str",
+                "aliases": ["nick_name"],
+                "deprecated_aliases": [
+                    {
+                        "name": "nick_name",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ],
             },
             "protocol": {
                 "required": False,
@@ -2163,7 +2181,18 @@ class SDSBUserArguments:
     @classmethod
     def users(cls):
         spec_options = {
-            "id": {"required": False, "type": "str", "aliases": ["user_id"]},
+            "id": {
+                "required": False,
+                "type": "str",
+                "aliases": ["user_id"],
+                "deprecated_aliases": [
+                    {
+                        "name": "user_id",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ]
+            },
             # "user_id": {
             #     "required": False,
             #     "type": "str",
@@ -2589,9 +2618,17 @@ class SDSBRemoteIscsiPortArguments:
                 "required": False,
                 "type": "str",
             },
-            "local_port": {
+            "local_port_id": {
                 "required": False,
                 "type": "str",
+                "aliases": ["local_port"],
+                "deprecated_aliases": [
+                    {
+                        "name": "local_port",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ]
             },
             "remote_serial": {
                 "required": False,
@@ -2602,13 +2639,29 @@ class SDSBRemoteIscsiPortArguments:
                 "type": "str",
                 "choices": ["R9", "M8"],
             },
-            "remote_port": {
+            "remote_port_id": {
                 "required": False,
                 "type": "str",
+                "aliases": ["remote_port"],
+                "deprecated_aliases": [
+                    {
+                        "name": "remote_port",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ]
             },
-            "remote_ip_address": {
+            "remote_storage_port_ip_address": {
                 "required": False,
                 "type": "str",
+                "aliases": ["remote_ip_address"],
+                "deprecated_aliases": [
+                    {
+                        "name": "remote_ip_address",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ]
             },
             "remote_tcp_port": {
                 "required": False,
@@ -2625,9 +2678,17 @@ class SDSBRemoteIscsiPortArguments:
                 "required": False,
                 "type": "str",
             },
-            "local_port": {
+            "local_port_id": {
                 "required": False,
                 "type": "str",
+                "aliases": ["local_port"],
+                "deprecated_aliases": [
+                    {
+                        "name": "local_port",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ]
             },
             "remote_serial": {
                 "required": False,
@@ -2638,9 +2699,17 @@ class SDSBRemoteIscsiPortArguments:
                 "type": "str",
                 "choices": ["R9", "M8"],
             },
-            "remote_port": {
+            "remote_port_id": {
                 "required": False,
-                "type": "int",
+                "type": "str",
+                "aliases": ["remote_port"],
+                "deprecated_aliases": [
+                    {
+                        "name": "remote_port",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ]
             },
         }
         cls.common_arguments["spec"]["options"] = spec_options
@@ -2673,9 +2742,17 @@ class SDSBRemotePathGroupArguments:
                 "required": False,
                 "type": "str",
             },
-            "local_port": {
+            "local_port_id": {
                 "required": False,
                 "type": "str",
+                "aliases": ["local_port"],
+                "deprecated_aliases": [
+                    {
+                        "name": "local_port",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ]
             },
             "remote_serial": {
                 "required": False,
@@ -2686,9 +2763,17 @@ class SDSBRemotePathGroupArguments:
                 "type": "str",
                 "choices": ["R9", "M8"],
             },
-            "remote_port": {
+            "remote_port_id": {
                 "required": False,
                 "type": "str",
+                "aliases": ["remote_port"],
+                "deprecated_aliases": [
+                    {
+                        "name": "remote_port",
+                        "version": "5.0.0",
+                        "collection_name": "hitachivantara.vspone_block",
+                    },
+                ]
             },
             "path_group_id": {
                 "required": False,
@@ -3156,6 +3241,7 @@ class ProtectionDomainSettingsArgs:
             },
         }
         args = copy.deepcopy(cls.common_arguments)
+        args["spec"]["required"] = False
         args["spec"]["options"] = spec_options
         args.pop("state")
         return args
@@ -3438,6 +3524,10 @@ class SDSBLicenseSettingArguments:
                     },
                 },
             },
+            "allow_over_capacity": {
+                "required": False,
+                "type": "bool",
+            },
         }
         cls.common_arguments["spec"]["options"] = spec_options
         cls.common_arguments["spec"]["required"] = False
@@ -3482,20 +3572,6 @@ class SDSBLicenseSettingArguments:
             },
         }
         return facts_arguments
-
-    @classmethod
-    def delete_license(cls):
-        spec_options = {
-            "id": {
-                "required": True,
-                "type": "str",
-            },
-        }
-        cls.common_arguments["spec"]["options"] = spec_options
-        cls.common_arguments["spec"]["required"] = True
-        cls.common_arguments["state"]["choices"] = ["absent"]
-        cls.common_arguments["state"]["default"] = "absent"
-        return cls.common_arguments
 
     @classmethod
     def license(cls):
@@ -3704,7 +3780,7 @@ class SDSBEncryptionKeyArguments:
         }
         args["spec"]["options"] = spec_options
         args["spec"]["required"] = True
-        args.pop("state")
+        # args.pop("state")
         return args
 
     @classmethod

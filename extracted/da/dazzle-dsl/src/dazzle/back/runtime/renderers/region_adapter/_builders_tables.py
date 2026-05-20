@@ -25,6 +25,10 @@ from dazzle.back.runtime.renderers.region_adapter._shared import (
     _render_typed_value,
     _wrap_surface,
 )
+from dazzle.back.runtime.workspace_card_bodies import (
+    _eval_row_condition,
+    _render_row_action_button,
+)
 from dazzle.render.fragment import (
     URL,
     CsvExportButton,
@@ -179,6 +183,16 @@ class _BuildersTablesMixin:
                 )
             )
 
+        # #1148: when the region declares ``row_action:``, build the
+        # per-row action button HTML alongside the cell rows so the
+        # ListRegion can emit a trailing action column. Tracked
+        # separately from cells to keep arity-validation simple.
+        row_action_spec = getattr(region, "row_action", None)
+        row_action_label = ""
+        row_actions_list: list[str] = []
+        if row_action_spec is not None:
+            row_action_label = row_action_spec.label
+
         for item in items:
             if not isinstance(item, dict):
                 continue
@@ -191,6 +205,23 @@ class _BuildersTablesMixin:
                 # (size="md", bordered=False).
                 row_cells.append(_render_typed_value(item, col))
             list_rows.append(tuple(row_cells))
+            if row_action_spec is not None:
+                visible = (
+                    True
+                    if row_action_spec.visible_when is None
+                    else _eval_row_condition(row_action_spec.visible_when, item)
+                )
+                if visible:
+                    row_actions_list.append(
+                        _render_row_action_button(
+                            action_id=row_action_spec.action_id,
+                            label=row_action_spec.label,
+                            item=item,
+                            bind=row_action_spec.bind,
+                        )
+                    )
+                else:
+                    row_actions_list.append("")
 
         empty_msg = (
             ctx.get("empty_message") or getattr(region, "empty_message", None) or "No items found."
@@ -207,6 +238,8 @@ class _BuildersTablesMixin:
             csv_filename=f"{region_name}.csv",
             total=total,
             empty_message=str(empty_msg),
+            row_action_label=row_action_label,
+            row_actions=tuple(row_actions_list) if row_action_spec is not None else (),
         )
 
         # If we have chrome, wrap the body in a Stack that also contains

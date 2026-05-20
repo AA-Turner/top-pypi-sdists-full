@@ -4,7 +4,11 @@ try:
     from ..common.vsp_constants import Endpoints, TimeZoneConst
     from ..common.ansible_common import dicts_to_dataclass_list, log_entry_exit
     from ..common.hv_log import Log
-    from ..common.vsp_constants import PEGASUS_MODELS, VCLONE_SUPPORTED_MODELS
+    from ..common.vsp_constants import (
+        PEGASUS_MODELS,
+        VCLONE_SUPPORTED_MODELS,
+        BLOCK_HIGH_END_MODELS,
+    )
     from ..model.vsp_storage_system_models import (
         VSPStorageSystemsInfoPfrestList,
         VSPStorageSystemsInfoPfrest,
@@ -32,7 +36,11 @@ except ImportError:
     from common.vsp_constants import Endpoints, TimeZoneConst
     from common.ansible_common import dicts_to_dataclass_list, log_entry_exit
     from common.hv_log import Log
-    from common.vsp_constants import PEGASUS_MODELS, VCLONE_SUPPORTED_MODELS
+    from common.vsp_constants import (
+        PEGASUS_MODELS,
+        VCLONE_SUPPORTED_MODELS,
+        BLOCK_HIGH_END_MODELS,
+    )
     from model.vsp_storage_system_models import (
         VSPStorageSystemsInfoPfrestList,
         VSPStorageSystemsInfoPfrest,
@@ -160,6 +168,26 @@ class VSPStorageSystemDirectGateway:
             return pegasus_model
 
     @log_entry_exit
+    def is_block_high_end(self):
+        cache = self.get_site_cache()
+        value = cache.get("is_block_high_end", None)
+        if value is not None:
+            return value
+        else:
+            storage_info = self.get_current_storage_system_info()
+            logger.writeDebug(
+                f"GATEWAY:is_block_high_end:storage_info.model= {storage_info.model}"
+            )
+            block_high_end_model = any(
+                sub in storage_info.model for sub in BLOCK_HIGH_END_MODELS
+            )
+            logger.writeDebug(
+                f"GATEWAY:is_block_high_end:block_high_end_model= {block_high_end_model}"
+            )
+            cache["is_block_high_end"] = block_high_end_model
+            return block_high_end_model
+
+    @log_entry_exit
     def is_vclone_supported(self):
         cache = self.get_site_cache()
         value = cache.get("is_vclone_supported", None)
@@ -216,8 +244,12 @@ class VSPStorageSystemDirectGateway:
     def get_total_efficiency_of_storage_system(self):
         # logger = Log()
         endPoint = Endpoints.GET_TOTAL_EFFICIENCY
-        totalEfficiency = self.connectionManager.get(endPoint)
-        return TotalEfficiency(**totalEfficiency)
+        try:
+            totalEfficiency = self.connectionManager.get(endPoint)
+            return TotalEfficiency(**totalEfficiency)
+        except Exception as e:
+            # If the endpoint is not available, return None
+            return None
 
     @log_entry_exit
     def get_journal_pools(self, journal_info_query):

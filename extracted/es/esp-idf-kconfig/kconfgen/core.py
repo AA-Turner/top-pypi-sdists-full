@@ -28,6 +28,7 @@ from esp_idf_kconfig import __version__
 from esp_kconfiglib.constants import build_idf_min_config_header
 from esp_kconfiglib.constants import build_idf_sdkconfig_header
 from esp_kconfiglib.deprecated import DeprecatedOptions
+from esp_kconfiglib.deprecated import load_rename_files_from_env
 
 
 def write_config(config: kconfiglib.Kconfig, filename: str, write_deprecated: bool = True) -> None:
@@ -131,7 +132,8 @@ def get_json_values(config: kconfiglib.Kconfig) -> dict:
             ):
                 print(
                     f"warning: {sym.name} has no value set in the configuration."
-                    " This can be caused e.g. by missing default value for the current chip version."
+                    " This can be caused e.g. by missing default value for the current chip version.",
+                    file=sys.stderr,
                 )
                 val: Optional[Union[str, bool, int, float]] = None
             elif sym.type == kconfiglib.BOOL:
@@ -310,7 +312,7 @@ def write_docs(config: kconfiglib.Kconfig, filename: str, write_deprecated: bool
     try:
         target = os.environ["IDF_TARGET"]
     except KeyError:
-        print("IDF_TARGET environment variable must be defined!")
+        print("IDF_TARGET environment variable must be defined!", file=sys.stderr)
         sys.exit(1)
 
     visibility = gen_kconfig_doc.ConfigTargetVisibility(config, target)
@@ -363,7 +365,7 @@ OUTPUT_FORMATS = {
 
 def main():
     parser = argparse.ArgumentParser(
-        description="kconfgen.py v%s - Config Generation Tool" % __version__,
+        description=f"kconfgen.py v{__version__} - Config Generation Tool",
         prog=os.path.basename(sys.argv[0]),
     )
 
@@ -389,6 +391,12 @@ def main():
     parser.add_argument(
         "--dont-write-deprecated",
         help="Do not write compatibility statements for deprecated values",
+        action="store_true",
+    )
+
+    parser.add_argument(
+        "--menuconfig",
+        help="Launch interactive menuconfig before generating output files",
         action="store_true",
     )
 
@@ -426,13 +434,19 @@ def main():
 
     for fmt, _ in args.output:
         if fmt not in OUTPUT_FORMATS.keys():
-            print(f"Format '{fmt}' not recognized. Known formats: {list(OUTPUT_FORMATS.keys())}")
+            print(
+                f"Format '{fmt}' not recognized. Known formats: {list(OUTPUT_FORMATS.keys())}",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     try:
         args.env = [(name, value) for (name, value) in (e.split("=", 1) for e in args.env)]
     except ValueError:
-        print("--env arguments must each contain =. To unset an environment variable, use 'ENV='")
+        print(
+            "--env arguments must each contain =. To unset an environment variable, use 'ENV='",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     for name, value in args.env:
@@ -458,14 +472,11 @@ def main():
     )
     kconfig_encoding = config._encoding
 
-    sdkconfig_renames_sep = ";" if args.list_separator == "semicolon" else " "
-    sdkconfig_renames = [args.sdkconfig_rename] if args.sdkconfig_rename else []
-    sdkconfig_renames_from_env = os.environ.get("COMPONENT_SDKCONFIG_RENAMES")
-    if sdkconfig_renames_from_env:
-        sdkconfig_renames += sdkconfig_renames_from_env.split(sdkconfig_renames_sep)
-
-    if sdkconfig_renames:
-        config.load_rename_files(sdkconfig_renames)
+    load_rename_files_from_env(
+        config,
+        sdkconfig_rename=args.sdkconfig_rename,
+        list_separator=args.list_separator,
+    )
 
     if len(args.defaults) > 0:
 
@@ -477,14 +488,17 @@ def main():
                     line = line.strip()
                     if line.endswith("="):
                         line += "n"
-                        print("{}:{} line was updated to {}".format(path_out, line_num, line))
+                        print(
+                            f"{path_out}:{line_num} line was updated to {line}",
+                            file=sys.stderr,
+                        )
                     f_out.write(line)
                     f_out.write("\n")
 
         for name in args.defaults:
-            print("Loading defaults file %s..." % name)
+            print(f"Loading defaults file {name}...", file=sys.stderr)
             if not os.path.exists(name):
-                raise RuntimeError("Defaults file not found: %s" % name)
+                raise RuntimeError(f"Defaults file not found: {name}")
             try:
                 with tempfile.NamedTemporaryFile(
                     prefix="kconfgen_tmp", mode="w+", delete=False, encoding=kconfig_encoding
@@ -494,7 +508,10 @@ def main():
                 config.load_config(temp_file, replace=False)
 
                 for symbol, value in config.missing_syms:
-                    print(f"warning: unknown kconfig symbol '{symbol}' assigned to '{value}' in {name}")
+                    print(
+                        f"warning: unknown kconfig symbol '{symbol}' assigned to '{value}' in {name}",
+                        file=sys.stderr,
+                    )
             finally:
                 try:
                     os.remove(temp_file)
@@ -505,6 +522,12 @@ def main():
 
     if args.config and os.path.exists(args.config):
         config.load_config(args.config, replace=False, print_report=print_report)
+
+    if args.menuconfig:
+        # Local import keeps non-interactive kconfgen runs free of curses.
+        from esp_menuconfig import menuconfig as run_menuconfig
+
+        run_menuconfig(config)
 
     write_deprecated = not args.dont_write_deprecated
 

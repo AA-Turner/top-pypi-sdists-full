@@ -36,7 +36,7 @@ func packTestLayers(t *testing.T, filename string, content []byte) (sourceDir st
 	require.NoError(t, err)
 	inv, err := src.Inventory(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, ingressFromInventory(t.Context(), src, st, inv))
+	require.NoError(t, ingressFromInventory(t.Context(), sourceOwners(src, inv), st, inv))
 
 	pkr := newPacker(nil)
 	pl := pkr.planLayers(inv)
@@ -60,7 +60,7 @@ func newTestWeightArtifact(t *testing.T, name, target string) *WeightArtifact {
 		Digest:      layers[0].Digest.String(),
 		LayerDigest: layers[0].Digest.String(),
 	}}
-	entry := newWeightLockEntry(name, target, lockfile.WeightLockSource{}, files, layers)
+	entry := newWeightLockEntry(name, target, []lockfile.WeightLockSource{{}}, time.Time{}, files, layers)
 	artifact, err := buildWeightArtifact(&entry, layers, st)
 	require.NoError(t, err)
 	return artifact
@@ -121,7 +121,7 @@ func TestWeightPusher_Push_PushesExpectedManifest(t *testing.T) {
 	require.NotNil(t, result)
 
 	// Tag derives from the set digest (12-char prefix after "sha256:").
-	require.Contains(t, pushedRef, "weights-model-v1-")
+	require.Contains(t, pushedRef, "cog-weight.model-v1.")
 	require.Equal(t, pushedRef, result.Ref)
 
 	// Manifest shape matches spec §2.2: OCI manifest, config blob, layers
@@ -173,7 +173,7 @@ func TestWeightPusher_Push_TagDerivesFromSetDigest(t *testing.T) {
 	_, err := pusher.Push(context.Background(), "r8.im/user/model", artifact)
 	require.NoError(t, err)
 
-	require.Contains(t, pushedRef, "weights-model-v1-")
+	require.Contains(t, pushedRef, "cog-weight.model-v1.")
 	require.Contains(t, pushedRef, ShortDigest(artifact.Entry.SetDigest))
 }
 
@@ -361,7 +361,7 @@ func TestWeightPusher_Push_HonoursConcurrencyLimit(t *testing.T) {
 	require.NoError(t, err)
 	inv, err := src.Inventory(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, ingressFromInventory(t.Context(), src, st, inv))
+	require.NoError(t, ingressFromInventory(t.Context(), sourceOwners(src, inv), st, inv))
 	pkr := newPacker(&packOptions{
 		BundleFileMax: 1, // every file becomes its own layer
 	})
@@ -371,7 +371,7 @@ func TestWeightPusher_Push_HonoursConcurrencyLimit(t *testing.T) {
 	files := packedFilesFromPlan(layers)
 	require.GreaterOrEqual(t, len(layers), n, "expected a layer per file")
 
-	entry := newWeightLockEntry("model", "/src/weights", lockfile.WeightLockSource{}, files, layers)
+	entry := newWeightLockEntry("model", "/src/weights", []lockfile.WeightLockSource{{}}, time.Time{}, files, layers)
 	artifact, err := buildWeightArtifact(&entry, layers, st)
 	require.NoError(t, err)
 

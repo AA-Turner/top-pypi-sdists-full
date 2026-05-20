@@ -106,7 +106,11 @@ if TYPE_CHECKING:
     from pinecone.models.admin.api_key import APIKeyList, APIKeyModel, APIKeyRole, APIKeyWithSecret
     from pinecone.models.admin.organization import OrganizationList, OrganizationModel
     from pinecone.models.admin.project import ProjectList, ProjectModel
-    from pinecone.models.assistant.chat import ChatCompletionResponse, ChatResponse
+    from pinecone.models.assistant.chat import (
+        ChatCompletionMessage,
+        ChatCompletionResponse,
+        ChatResponse,
+    )
     from pinecone.models.assistant.context import ContextResponse
     from pinecone.models.assistant.evaluation import AlignmentResult
     from pinecone.models.assistant.file_model import AssistantFileModel
@@ -201,7 +205,7 @@ if TYPE_CHECKING:
     from pinecone.models.vectors.vector import ScoredVector, Vector
     from pinecone.utils.filter_builder import Field, FilterBuilder
 
-__version__ = "9.0.0"
+__version__ = "9.0.1"
 
 if _os.environ.get("PINECONE_DEBUG"):
     import logging as _logging
@@ -230,6 +234,7 @@ __all__ = [
     "BatchResponseInfo",
     "ByocSpec",
     "ByocSpecInfo",
+    "ChatCompletionMessage",
     "ChatCompletionResponse",
     "ChatCompletionStream",
     "ChatCompletionStreamChunk",
@@ -401,6 +406,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "ByocSpec": ("pinecone.models.indexes.specs", "ByocSpec"),
     "ByocSpecInfo": ("pinecone.models.indexes.index", "ByocSpecInfo"),
     "CloudProvider": ("pinecone.models.enums", "CloudProvider"),
+    "ChatCompletionMessage": ("pinecone.models.assistant.chat", "ChatCompletionMessage"),
     "ChatCompletionResponse": ("pinecone.models.assistant.chat", "ChatCompletionResponse"),
     "ChatCompletionStream": (
         "pinecone.models.assistant.streaming",

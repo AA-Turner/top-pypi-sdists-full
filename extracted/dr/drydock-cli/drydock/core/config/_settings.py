@@ -263,7 +263,7 @@ class ModelConfig(BaseModel):
     #   top_k = 40
     #   top_p = 0.95
     #   frequency_penalty = 1.1
-    #   max_tokens = 2048
+    #   max_tokens = 8192
     # Set temperature via the top-level `temperature` field; do not
     # duplicate it here.
     extra_params: dict[str, Any] = Field(default_factory=dict)
@@ -341,7 +341,13 @@ DEFAULT_MODELS = [
             "top_k": 40,
             "top_p": 0.95,
             "repeat_penalty": 1.1,
-            "max_tokens": 2048,
+            # 2026-05-19: bumped 2048 → 8192. The article anti-loop
+            # recipe says 2048, but write_file calls with non-trivial
+            # content emit 8K+ chars of JSON-encoded source and get
+            # truncated mid-string. Operator hit this within 5 min of
+            # real use on /data3/slides. 8192 still bounds runaway
+            # generation while leaving room for normal code writes.
+            "max_tokens": 8192,
         },
     ),
 ]

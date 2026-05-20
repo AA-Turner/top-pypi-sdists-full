@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.9.6
+Version: 2.10.0
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -22,42 +22,98 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Requires-Python: >=3.12
 Requires-Dist: agent-client-protocol==0.9.0
-Requires-Dist: anyio>=4.12.0
-Requires-Dist: cachetools>=5.5.0
-Requires-Dist: certifi>=2026.4.22
-Requires-Dist: charset-normalizer>=3.4.4
-Requires-Dist: cryptography>=44.0.0
-Requires-Dist: gitpython>=3.1.46
-Requires-Dist: giturlparse>=0.14.0
-Requires-Dist: google-auth>=2.0.0
-Requires-Dist: httpx>=0.28.1
-Requires-Dist: jsonpatch>=1.33
-Requires-Dist: keyring>=25.6.0
-Requires-Dist: markdownify>=1.2.2
-Requires-Dist: mcp>=1.14.0
+Requires-Dist: annotated-types==0.7.0
+Requires-Dist: anyio==4.13.0
+Requires-Dist: attrs==26.1.0
+Requires-Dist: beautifulsoup4==4.14.3
+Requires-Dist: cachetools==7.0.6
+Requires-Dist: certifi==2026.4.22
+Requires-Dist: cffi==2.0.0
+Requires-Dist: charset-normalizer==3.4.7
+Requires-Dist: click==8.3.3; sys_platform != 'emscripten'
+Requires-Dist: colorama==0.4.6; sys_platform == 'win32'
+Requires-Dist: cryptography==47.0.0
+Requires-Dist: eval-type-backport==0.3.1
+Requires-Dist: gitdb==4.0.12
+Requires-Dist: gitpython==3.1.47
+Requires-Dist: giturlparse==0.14.0
+Requires-Dist: google-auth==2.49.2
+Requires-Dist: googleapis-common-protos==1.74.0
+Requires-Dist: h11==0.16.0
+Requires-Dist: httpcore==1.0.9
+Requires-Dist: httpx-sse==0.4.3
+Requires-Dist: httpx==0.28.1
+Requires-Dist: idna==3.13
+Requires-Dist: importlib-metadata==8.7.1
+Requires-Dist: jaraco-classes==3.4.0
+Requires-Dist: jaraco-context==6.1.2
+Requires-Dist: jaraco-functools==4.4.0
+Requires-Dist: jeepney==0.9.0; sys_platform == 'linux'
+Requires-Dist: jsonpatch==1.33
+Requires-Dist: jsonpath-python==1.1.5
+Requires-Dist: jsonpointer==3.1.1
+Requires-Dist: jsonschema-specifications==2025.9.1
+Requires-Dist: jsonschema==4.26.0
+Requires-Dist: keyring==25.7.0
+Requires-Dist: linkify-it-py==2.1.0
+Requires-Dist: markdown-it-py==4.0.0
+Requires-Dist: markdownify==1.2.2
+Requires-Dist: mcp==1.27.0
+Requires-Dist: mdit-py-plugins==0.5.0
+Requires-Dist: mdurl==0.1.2
 Requires-Dist: mistralai==2.4.4
-Requires-Dist: opentelemetry-api>=1.39.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.39.1
-Requires-Dist: opentelemetry-sdk>=1.39.1
-Requires-Dist: opentelemetry-semantic-conventions>=0.60b1
-Requires-Dist: packaging>=24.1
-Requires-Dist: pexpect>=4.9.0
-Requires-Dist: pydantic-settings>=2.12.0
-Requires-Dist: pydantic>=2.12.4
-Requires-Dist: pyperclip>=1.11.0
-Requires-Dist: python-dotenv>=1.0.0
-Requires-Dist: pyyaml>=6.0.0
-Requires-Dist: requests>=2.20.0
-Requires-Dist: rich>=14.0.0
-Requires-Dist: sounddevice>=0.5.1
-Requires-Dist: textual-speedups>=0.2.1
+Requires-Dist: more-itertools==11.0.2
+Requires-Dist: opentelemetry-api==1.39.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-common==1.39.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
+Requires-Dist: opentelemetry-proto==1.39.1
+Requires-Dist: opentelemetry-sdk==1.39.1
+Requires-Dist: opentelemetry-semantic-conventions==0.60b1
+Requires-Dist: packaging==26.2
+Requires-Dist: pexpect==4.9.0
+Requires-Dist: platformdirs==4.9.6
+Requires-Dist: protobuf==6.33.6
+Requires-Dist: ptyprocess==0.7.0
+Requires-Dist: pyasn1-modules==0.4.2
+Requires-Dist: pyasn1==0.6.3
+Requires-Dist: pycparser==3.0; implementation_name != 'PyPy'
+Requires-Dist: pydantic-core==2.46.3
+Requires-Dist: pydantic-settings==2.14.0
+Requires-Dist: pydantic==2.13.3
+Requires-Dist: pygments==2.20.0
+Requires-Dist: pyjwt==2.12.1
+Requires-Dist: pyperclip==1.11.0
+Requires-Dist: python-dateutil==2.9.0.post0
+Requires-Dist: python-dotenv==1.2.2
+Requires-Dist: python-multipart==0.0.27
+Requires-Dist: pywin32-ctypes==0.2.3; sys_platform == 'win32'
+Requires-Dist: pywin32==311; sys_platform == 'win32'
+Requires-Dist: pyyaml==6.0.3
+Requires-Dist: referencing==0.37.0
+Requires-Dist: requests==2.33.1
+Requires-Dist: rich==15.0.0
+Requires-Dist: rpds-py==0.30.0
+Requires-Dist: secretstorage==3.5.0; sys_platform == 'linux'
+Requires-Dist: six==1.17.0
+Requires-Dist: smmap==5.0.3
+Requires-Dist: sounddevice==0.5.5
+Requires-Dist: soupsieve==2.8.3
+Requires-Dist: sse-starlette==3.4.1
+Requires-Dist: starlette==1.0.0
+Requires-Dist: textual-speedups==0.2.1
 Requires-Dist: textual==8.2.4
-Requires-Dist: tomli-w>=1.2.0
-Requires-Dist: tree-sitter-bash>=0.25.1
-Requires-Dist: tree-sitter>=0.25.2
-Requires-Dist: watchfiles>=1.1.1
-Requires-Dist: websockets>=13.0
-Requires-Dist: zstandard>=0.25.0
+Requires-Dist: tomli-w==1.2.0
+Requires-Dist: tree-sitter-bash==0.25.1
+Requires-Dist: tree-sitter==0.25.2
+Requires-Dist: typing-extensions==4.15.0
+Requires-Dist: typing-inspection==0.4.2
+Requires-Dist: uc-micro-py==2.0.0
+Requires-Dist: urllib3==2.6.3
+Requires-Dist: uvicorn==0.46.0; sys_platform != 'emscripten'
+Requires-Dist: watchfiles==1.1.1
+Requires-Dist: websockets==16.0
+Requires-Dist: zipp==3.23.1
+Requires-Dist: zstandard==0.25.0
 Description-Content-Type: text/markdown
 
 # Mistral Vibe
@@ -668,6 +724,14 @@ vibe --workdir /path/to/project
 ```
 
 This is useful when you want to run Vibe from a different location than your current directory.
+
+Use `--add-dir` (repeatable) to make additional directories available to the agent for the duration of the session:
+
+```bash
+vibe --add-dir /path/to/other-project --add-dir /path/to/library
+```
+
+Each path is implicitly trusted (no trust prompt) and contributes its `AGENTS.md` and `.vibe/` configuration (tools, skills, agents, prompts, hooks) to the session. File-tool permissions treat each `--add-dir` path the same way as your primary working directory — reads and writes inside them don't require the "outside workdir" prompt. Nested paths collapse: passing `/repo` and `/repo/sub` is equivalent to passing just `/repo`.
 
 ### Update Settings
 

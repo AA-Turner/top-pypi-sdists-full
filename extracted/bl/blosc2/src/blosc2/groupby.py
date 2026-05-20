@@ -17,7 +17,6 @@ from __future__ import annotations
 import copy
 import dataclasses
 import math
-import re
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -26,14 +25,14 @@ import numpy as np
 from blosc2.schema import DictionarySpec, NDArraySpec, SchemaSpec, float64, int64
 from blosc2.schema import bool as b2_bool
 from blosc2.schema import field as b2_field
+from blosc2.schema_compiler import _validate_column_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from blosc2.ctable import CTable
 
 
-AggName = Literal["size", "count", "sum", "mean", "min", "max"]
+AggName = Literal["size", "count", "sum", "mean", "min", "max", "argmin", "argmax"]
 
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z_]\w*$")
 _NAN_KEY = ("__blosc2_groupby_nan__",)
 
 
@@ -49,6 +48,17 @@ class _AggState:
     op: AggName
     value: Any = None
     count: int = 0
+
+
+def _is_column_like(value: Any) -> bool:
+    return isinstance(getattr(value, "_col_name", None), str)
+
+
+def _column_name(value: Any) -> str:
+    name = getattr(value, "_col_name", value)
+    if not isinstance(name, str):
+        raise TypeError(f"Expected a column name or Column object, got {type(value)!r}")
+    return name
 
 
 class CTableGroupBy:
@@ -70,10 +80,10 @@ class CTableGroupBy:
         engine: str = "auto",
         chunk_size: int | None = None,
     ) -> None:
-        if isinstance(keys, str):
-            keys = [keys]
+        if isinstance(keys, str) or _is_column_like(keys):
+            keys = [_column_name(keys)]
         else:
-            keys = list(keys)
+            keys = [_column_name(k) for k in keys]
         if not keys:
             raise ValueError("group_by() requires at least one key column")
 
@@ -114,7 +124,7 @@ class CTableGroupBy:
         This is equivalent to SQL ``COUNT(column)`` and to
         ``group_by(...).agg({column: "count"})``.
         """
-        col = self.table._logical_to_physical_name(column)
+        col = self.table._logical_to_physical_name(_column_name(column))
         return self._execute([_AggSpec(col, "count", f"{col}_count")], urlpath=urlpath)
 
     def sum(self, column: str, *, urlpath: str | None = None):
@@ -122,28 +132,44 @@ class CTableGroupBy:
 
         This is equivalent to ``group_by(...).agg({column: "sum"})``.
         """
-        return self.agg({column: "sum"}, urlpath=urlpath)
+        return self.agg({_column_name(column): "sum"}, urlpath=urlpath)
 
     def mean(self, column: str, *, urlpath: str | None = None):
         """Return means of *column* per group.
 
         This is equivalent to ``group_by(...).agg({column: "mean"})``.
         """
-        return self.agg({column: "mean"}, urlpath=urlpath)
+        return self.agg({_column_name(column): "mean"}, urlpath=urlpath)
 
     def min(self, column: str, *, urlpath: str | None = None):
         """Return minimum values of *column* per group.
 
         This is equivalent to ``group_by(...).agg({column: "min"})``.
         """
-        return self.agg({column: "min"}, urlpath=urlpath)
+        return self.agg({_column_name(column): "min"}, urlpath=urlpath)
 
     def max(self, column: str, *, urlpath: str | None = None):
         """Return maximum values of *column* per group.
 
         This is equivalent to ``group_by(...).agg({column: "max"})``.
         """
-        return self.agg({column: "max"}, urlpath=urlpath)
+        return self.agg({_column_name(column): "max"}, urlpath=urlpath)
+
+    def argmin(self, column: str, *, urlpath: str | None = None):
+        """Return logical row positions of minimum non-null *column* values per group.
+
+        Ties keep the first row in the grouped input table or view.  Groups with
+        no non-null values for *column* receive ``-1``.
+        """
+        return self.agg({_column_name(column): "argmin"}, urlpath=urlpath)
+
+    def argmax(self, column: str, *, urlpath: str | None = None):
+        """Return logical row positions of maximum non-null *column* values per group.
+
+        Ties keep the first row in the grouped input table or view.  Groups with
+        no non-null values for *column* receive ``-1``.
+        """
+        return self.agg({_column_name(column): "argmax"}, urlpath=urlpath)
 
     def agg(self, aggregations: Mapping[str, str | Sequence[str]], *, urlpath: str | None = None):
         """Aggregate value columns per group.
@@ -153,8 +179,8 @@ class CTableGroupBy:
         aggregations:
             Mapping from input column name to an aggregation name or list of
             names.  Supported operations in Phase 1 are ``"count"``, ``"sum"``,
-            ``"mean"``, ``"min"``, ``"max"`` and the special row-count spelling
-            ``{"*": "size"``}.
+            ``"mean"``, ``"min"``, ``"max"``, ``"argmin"``, ``"argmax"`` and
+            the special row-count spelling ``{"*": "size"``}.
         """
         specs = self._normalize_aggs(aggregations)
         return self._execute(specs, urlpath=urlpath)
@@ -178,10 +204,10 @@ class CTableGroupBy:
                     specs.append(_AggSpec(None, "size", "size"))
                 continue
 
-            physical = self.table._logical_to_physical_name(col_name)
+            physical = self.table._logical_to_physical_name(_column_name(col_name))
             self._validate_value_column(physical)
             for op in op_list:
-                if op not in {"count", "sum", "mean", "min", "max"}:
+                if op not in {"count", "sum", "mean", "min", "max", "argmin", "argmax"}:
                     raise ValueError(f"Unsupported aggregation {op!r}")
                 self._validate_agg_for_column(physical, op)
                 specs.append(_AggSpec(physical, op, f"{physical}_{op}"))
@@ -194,7 +220,7 @@ class CTableGroupBy:
         dtype = getattr(self.table._schema.columns_by_name[name].spec, "dtype", None)
         if op in {"sum", "mean"} and dtype is not None and dtype.kind not in "biuf":
             raise TypeError(f"Aggregation {op!r} is not supported for column {name!r} with dtype {dtype}")
-        if op in {"min", "max"} and dtype is not None and dtype.kind == "c":
+        if op in {"min", "max", "argmin", "argmax"} and dtype is not None and dtype.kind == "c":
             raise TypeError(f"Aggregation {op!r} is not supported for complex column {name!r}")
 
     def _validate_value_column(self, name: str) -> None:
@@ -224,24 +250,26 @@ class CTableGroupBy:
             self._result_urlpath = old_result_urlpath
 
     def _execute_with_result_target(self, specs: list[_AggSpec]):
-        fast = self._try_execute_cython_dense_int_key(specs)
-        if fast is not None:
-            return fast
-        fast = self._try_execute_cython_two_int_key_hash(specs)
-        if fast is not None:
-            return fast
-        fast = self._try_execute_cython_i32_f64_sum(specs)
-        if fast is not None:
-            return fast
-        fast = self._try_execute_cython_float_integral_key_f64_sum(specs)
-        if fast is not None:
-            return fast
-        fast = self._try_execute_cython_float_hash(specs)
-        if fast is not None:
-            return fast
-        fast = self._try_execute_dense_single_int_key(specs)
-        if fast is not None:
-            return fast
+        use_arg_positions = any(s.op in {"argmin", "argmax"} for s in specs)
+        if not use_arg_positions:
+            fast = self._try_execute_cython_dense_int_key(specs)
+            if fast is not None:
+                return fast
+            fast = self._try_execute_cython_two_int_key_hash(specs)
+            if fast is not None:
+                return fast
+            fast = self._try_execute_cython_i32_f64_sum(specs)
+            if fast is not None:
+                return fast
+            fast = self._try_execute_cython_float_integral_key_f64_sum(specs)
+            if fast is not None:
+                return fast
+            fast = self._try_execute_cython_float_hash(specs)
+            if fast is not None:
+                return fast
+            fast = self._try_execute_dense_single_int_key(specs)
+            if fast is not None:
+                return fast
 
         acc: dict[Any, dict[str, _AggState]] = {}
         key_values: dict[Any, tuple[Any, ...]] = {}
@@ -250,9 +278,12 @@ class CTableGroupBy:
         chunk_size = self._chunk_size()
         value_cols = sorted({s.input_col for s in specs if s.input_col is not None})
 
+        logical_seen = 0
         for start in range(0, phys_len, chunk_size):
             stop = min(start + chunk_size, phys_len)
             valid = np.asarray(self.table._valid_rows[start:stop], dtype=bool)
+            logical_positions = logical_seen + np.cumsum(valid, dtype=np.int64) - 1
+            logical_seen += int(np.count_nonzero(valid))
             if not np.any(valid):
                 continue
 
@@ -274,7 +305,9 @@ class CTableGroupBy:
                 name: np.asarray(self.table._cols[name][start:stop])[live_mask] for name in value_cols
             }
 
-            partials = self._compute_partials(specs, unique_keys, inverse, value_chunks)
+            partials = self._compute_partials(
+                specs, unique_keys, inverse, value_chunks, logical_positions[live_mask]
+            )
             display_keys = self._display_keys(unique_keys)
             normalized_keys = self._normalized_keys(display_keys)
             self._merge_partials(acc, key_values, normalized_keys, display_keys, partials, specs)
@@ -1223,6 +1256,7 @@ class CTableGroupBy:
         unique_keys: np.ndarray | list[np.ndarray],
         inverse: np.ndarray,
         value_chunks: dict[str, np.ndarray],
+        row_positions: np.ndarray,
     ) -> dict[str, Any]:
         n_groups = len(unique_keys)
         partials: dict[str, Any] = {}
@@ -1254,6 +1288,10 @@ class CTableGroupBy:
                 partials[spec.output_col] = self._minmax_partials(
                     spec.op, inverse, values, non_null, n_groups
                 )
+            elif spec.op in {"argmin", "argmax"}:
+                partials[spec.output_col] = self._argminmax_partials(
+                    spec.op, inverse, values, non_null, row_positions, n_groups
+                )
         return partials
 
     def _minmax_partials(
@@ -1280,6 +1318,28 @@ class CTableGroupBy:
             return out, has
         has_value = np.bincount(inverse, weights=non_null.astype(np.int64), minlength=n_groups) > 0
         return out, has_value
+
+    def _argminmax_partials(
+        self,
+        op: AggName,
+        inverse: np.ndarray,
+        values: np.ndarray,
+        non_null: np.ndarray,
+        row_positions: np.ndarray,
+        n_groups: int,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        best_values = np.empty(n_groups, dtype=values.dtype)
+        best_positions = np.full(n_groups, -1, dtype=np.int64)
+        has_value = np.zeros(n_groups, dtype=bool)
+        for group, value, ok, pos in zip(inverse, values, non_null, row_positions, strict=True):
+            if not ok:
+                continue
+            better = value < best_values[group] if op == "argmin" else value > best_values[group]
+            if not has_value[group] or better:
+                best_values[group] = value
+                best_positions[group] = int(pos)
+                has_value[group] = True
+        return best_values, best_positions, has_value
 
     def _merge_partials(
         self,
@@ -1319,6 +1379,17 @@ class CTableGroupBy:
                         ):
                             state.value = value
                         state.count += 1
+                elif spec.op in {"argmin", "argmax"}:
+                    values, positions, has_value = partial
+                    if has_value[i]:
+                        value = _python_scalar(values[i])
+                        if (
+                            state.count == 0
+                            or (spec.op == "argmin" and value < state.value[0])
+                            or (spec.op == "argmax" and value > state.value[0])
+                        ):
+                            state.value = (value, int(positions[i]))
+                        state.count += 1
 
     def _final_rows(
         self,
@@ -1338,8 +1409,10 @@ class CTableGroupBy:
                 state = states[spec.output_col]
                 if spec.op == "mean":
                     row[spec.output_col] = math.nan if state.count == 0 else state.value / state.count
-                elif spec.op in {"sum", "min", "max"} and state.count == 0:
+                elif spec.op in {"sum", "min", "max", "argmin", "argmax"} and state.count == 0:
                     row[spec.output_col] = _null_output_value(self._result_spec_for_agg(spec))
+                elif spec.op in {"argmin", "argmax"}:
+                    row[spec.output_col] = state.value[1]
                 else:
                     row[spec.output_col] = 0 if state.value is None else state.value
             rows.append(row)
@@ -1353,23 +1426,45 @@ class CTableGroupBy:
         for spec in specs:
             schema_specs[spec.output_col] = self._result_spec_for_agg(spec)
 
+        # CTable construction is schema-from-dataclass based, and dataclass field
+        # names must be Python identifiers.  Build with temporary identifier
+        # aliases, then rename the result columns back to their requested logical
+        # names.  This keeps nested names such as ``trip.sec`` in the resulting
+        # table while reusing the normal CTable initialization path.
+        alias_by_name = self._result_aliases(columns)
         fields = []
         for name in columns:
-            fields.append((name, _python_type_for_spec(schema_specs[name]), b2_field(schema_specs[name])))
+            alias = alias_by_name[name]
+            fields.append((alias, _python_type_for_spec(schema_specs[name]), b2_field(schema_specs[name])))
         row_type = dataclasses.make_dataclass("CTableGroupByRow", fields)
-        data = {name: [row[name] for row in rows] for name in columns}
+        data = {alias_by_name[name]: [row[name] for row in rows] for name in columns}
         urlpath = getattr(self, "_result_urlpath", None)
         kwargs = {"urlpath": str(urlpath), "mode": "w"} if urlpath is not None else {}
-        return CTable(row_type, new_data=data, expected_size=max(len(rows), 1), validate=False, **kwargs)
+        out = CTable(row_type, new_data=data, expected_size=max(len(rows), 1), validate=False, **kwargs)
+        for name in columns:
+            alias = alias_by_name[name]
+            if alias != name:
+                out.rename_column(alias, name)
+        return out
+
+    def _result_aliases(self, names: Sequence[str]) -> dict[str, str]:
+        final_names = set(names)
+        aliases: dict[str, str] = {}
+        used: set[str] = set()
+        for i, name in enumerate(names):
+            alias = f"groupby_result_col_{i}"
+            suffix = 0
+            while alias in final_names or alias in used:
+                suffix += 1
+                alias = f"groupby_result_col_{i}_{suffix}"
+            aliases[name] = alias
+            used.add(alias)
+        return aliases
 
     def _validate_output_names(self, specs: list[_AggSpec]) -> None:
         names = self.keys + [s.output_col for s in specs]
-        bad = [name for name in names if not _IDENTIFIER_RE.match(name)]
-        if bad:
-            raise NotImplementedError(
-                "Phase-1 group_by() result columns must be valid Python identifiers; "
-                f"unsupported names: {bad!r}"
-            )
+        for name in names:
+            _validate_column_name(name)
         if len(names) != len(set(names)):
             raise ValueError("Group-by result column names would not be unique")
 
@@ -1379,6 +1474,8 @@ class CTableGroupBy:
     def _result_spec_for_agg(self, spec: _AggSpec) -> SchemaSpec:
         if spec.op in {"size", "count"}:
             return int64()
+        if spec.op in {"argmin", "argmax"}:
+            return int64(null_value=-1)
         if spec.op == "mean":
             return float64()
         assert spec.input_col is not None
@@ -1526,10 +1623,9 @@ def group_reduce(keys, values=None, op: AggName = "size", *, sort: bool = False,
 
     Examples
     --------
-    >>> import numpy as np
     >>> import blosc2
-    >>> keys = np.array([1, 2, 1, 2, 1])
-    >>> values = np.array([10., 20., 30., 40., 50.])
+    >>> keys = blosc2.array([1, 2, 1, 2, 1])
+    >>> values = blosc2.array([10., 20., 30., 40., 50.])
     >>> groups, sums = blosc2.group_reduce(keys, values, op="sum", sort=True)
     >>> groups
     array([1, 2])

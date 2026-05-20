@@ -21,7 +21,7 @@ author:
   - Matthieu Diehr (@d-matt)
 
 requirements:
-  - "helm (https://github.com/helm/helm/releases)"
+  - "helm >= 3.0.0 (https://github.com/helm/helm/releases)"
   - "yaml (https://pypi.org/project/PyYAML/)"
 
 description:
@@ -246,7 +246,7 @@ options:
     version_added: 6.1.0
   take_ownership:
     description:
-      - When upgrading, Helm will ignore the check for helm annotations and take ownership of the existing resources
+      - Helm will ignore the check for helm annotations and take ownership of the existing resources
       - This feature requires helm >= 3.17.0
     type: bool
     default: False
@@ -500,9 +500,13 @@ def get_release_status(module, release_name, all_status=False):
         "--filter",
         release_name,
     ]
-    if all_status:
+    if all_status and not module.is_helm_v4():
+        # --all has been removed from `helm list` command on helm v4
         list_command.append("--all")
-
+    elif not all_status:
+        # The default behavior to display only deployed releases has been removed from
+        # Helm v4
+        list_command.append("--deployed")
     rc, out, err = module.run_helm_command(list_command)
 
     release = get_release(yaml.safe_load(out), release_name)
@@ -739,8 +743,8 @@ def get_plugin_version(plugin):
         return None
 
     for line in out:
-        if line[0] == plugin:
-            return line[1]
+        if line["name"] == plugin:
+            return line["version"]
     return None
 
 
@@ -928,7 +932,7 @@ def main():
     if not IMP_YAML:
         module.fail_json(msg=missing_required_lib("yaml"), exception=IMP_YAML_ERR)
 
-    # Validate Helm version >=3.0.0,<4.0.0
+    # Validate Helm version >=3.0.0
     module.validate_helm_version()
 
     changed = False
@@ -1010,8 +1014,7 @@ def main():
             if wait:
                 helm_version = module.get_helm_version()
                 if LooseVersion(helm_version) < LooseVersion("3.7.0"):
-                    opt_result["warnings"] = []
-                    opt_result["warnings"].append(
+                    module.warn(
                         "helm uninstall support option --wait for helm release >= 3.7.0"
                     )
                     wait = False
@@ -1092,20 +1095,28 @@ def main():
                 reset_then_reuse_values=reset_then_reuse_values,
                 insecure_skip_tls_verify=insecure_skip_tls_verify,
                 plain_http=plain_http,
+                take_ownership=take_ownership,
                 skip_schema_validation=skip_schema_validation,
             )
             changed = True
 
         else:
             helm_diff_version = get_plugin_version("diff")
-            if helm_diff_version and (
-                not chart_repo_url
-                or (
-                    chart_repo_url
-                    and LooseVersion(helm_diff_version) >= LooseVersion("3.4.1")
+            helm_version_compatible = module.is_helm_version_compatible_with_helm_diff(
+                helm_diff_version
+            )
+            if (
+                helm_diff_version
+                and helm_version_compatible
+                and (
+                    not chart_repo_url
+                    or (
+                        chart_repo_url
+                        and LooseVersion(helm_diff_version) >= LooseVersion("3.4.1")
+                    )
                 )
             ):
-                (would_change, prepared) = helmdiff_check(
+                would_change, prepared = helmdiff_check(
                     module,
                     release_name,
                     chart_ref,
@@ -1126,10 +1137,18 @@ def main():
                 if would_change and module._diff:
                     opt_result["diff"] = {"prepared": prepared}
             else:
-                module.warn(
-                    "The default idempotency check can fail to report changes in certain cases. "
-                    "Install helm diff >= 3.4.1 for better results."
-                )
+                if helm_diff_version and not helm_version_compatible:
+                    module.warn(
+                        "Idempotency checks are currently disabled due to a version mismatch."
+                        f" Helm version {module.get_helm_version()} requires helm-diff >= 3.14.0,"
+                        f" but the environment is currently running {helm_diff_version}."
+                        " Please align the plugin versions to restore standard behavior."
+                    )
+                else:
+                    module.warn(
+                        "The default idempotency check can fail to report changes in certain cases. "
+                        "Install helm diff >= 3.4.1 for better results."
+                    )
                 would_change = default_check(
                     release_status, chart_info, release_values, values_files
                 )

@@ -163,8 +163,7 @@ def get_editor_bp(controller: MainController):
             DeployMessages.start(method="git")
             DeployMessages.checking_linters()
 
-            controller.linter_repository.update_checks()
-            issues = controller.linter_repository.get_blocking_checks()
+            issues = controller.linter_repository.get_blocking_checks_for_deploy()
 
             if len(issues) > 0:
                 DeployMessages.error(
@@ -232,9 +231,10 @@ def get_editor_bp(controller: MainController):
 
         paths = flask.request.json.get("paths", [])
         if not paths:
-            return flask.jsonify(
-                {"success": False, "message": "No paths provided"}
-            ), 400
+            return (
+                flask.jsonify({"success": False, "message": "No paths provided"}),
+                400,
+            )
 
         try:
             result = git_controller.add_to_gitignore(paths)

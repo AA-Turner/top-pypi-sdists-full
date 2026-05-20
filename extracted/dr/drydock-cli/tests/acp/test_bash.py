@@ -181,13 +181,14 @@ class TestAcpBashExecution:
         )
 
         args = BashArgs(command="test_command")
-        with pytest.raises(ToolError) as exc_info:
-            await collect_result(tool.run(args))
-
-        assert (
-            str(exc_info.value)
-            == "Command failed: 'test_command'\nReturn code: 1\nStdout: error: command failed"
-        )
+        # Non-zero exit codes are advisory-only — never raised as ToolError
+        # (see feedback_no_tool_errors_for_loop_detection.md).  The result
+        # carries the exit code and an annotation so the model can reason.
+        result = await collect_result(tool.run(args))
+        assert isinstance(result, BashResult)
+        assert result.returncode == 1
+        assert "error: command failed" in result.stdout
+        assert "[Exit code 1]" in result.stdout
 
     @pytest.mark.asyncio
     async def test_run_create_terminal_failure(self, mock_client: MockClient) -> None:

@@ -434,28 +434,26 @@ class TestDataZoneNotebookClientIntegration(unittest.TestCase):
         self.client._datazone_api = self.mock_dz
 
     def test_get_notebook_parameters(self):
-        self.mock_dz.get_notebook_wip.return_value = {
+        self.mock_dz.get_notebook.return_value = {
             "id": "nb-1",
             "parameters": {"lr": "0.01", "epochs": "10"},
         }
         result = self.client.get_notebook_parameters("d-1", "nb-1")
         self.assertEqual(result, {"lr": "0.01", "epochs": "10"})
-        self.mock_dz.get_notebook_wip.assert_called_once_with(
-            domainIdentifier="d-1", identifier="nb-1"
-        )
+        self.mock_dz.get_notebook.assert_called_once_with(domainIdentifier="d-1", identifier="nb-1")
 
     def test_get_notebook_parameters_no_params_key(self):
-        self.mock_dz.get_notebook_wip.return_value = {
+        self.mock_dz.get_notebook.return_value = {
             "id": "nb-1",
         }
         self.assertEqual(self.client.get_notebook_parameters("d-1", "nb-1"), {})
 
     def test_get_notebook_parameters_no_metadata(self):
-        self.mock_dz.get_notebook_wip.return_value = {"id": "nb-1"}
+        self.mock_dz.get_notebook.return_value = {"id": "nb-1"}
         self.assertEqual(self.client.get_notebook_parameters("d-1", "nb-1"), {})
 
     def test_get_notebook_parameters_api_error(self):
-        self.mock_dz.get_notebook_wip.side_effect = Exception("API error")
+        self.mock_dz.get_notebook.side_effect = Exception("API error")
         self.assertEqual(self.client.get_notebook_parameters("d-1", "nb-1"), {})
 
     def test_get_notebook_run_parameters(self):

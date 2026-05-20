@@ -349,7 +349,7 @@ class InstallerApi(object):
     def get_cluster_supported_platforms(self, cluster_id, **kwargs):  # noqa: E501
         """get_cluster_supported_platforms  # noqa: E501
 
-        A list of platforms that this cluster can support in its current configuration.  # noqa: E501
+        Deprecated. Returns a list of platforms that this cluster can support in its current configuration. Prefer deriving platform eligibility from cluster hosts and inventory together with GET /v2/support-levels/features (or GET /v2/support-levels/features/detailed) for the cluster OpenShift version and CPU architecture.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_cluster_supported_platforms(cluster_id, async_req=True)
@@ -371,7 +371,7 @@ class InstallerApi(object):
     def get_cluster_supported_platforms_with_http_info(self, cluster_id, **kwargs):  # noqa: E501
         """get_cluster_supported_platforms  # noqa: E501
 
-        A list of platforms that this cluster can support in its current configuration.  # noqa: E501
+        Deprecated. Returns a list of platforms that this cluster can support in its current configuration. Prefer deriving platform eligibility from cluster hosts and inventory together with GET /v2/support-levels/features (or GET /v2/support-levels/features/detailed) for the cluster OpenShift version and CPU architecture.   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_cluster_supported_platforms_with_http_info(cluster_id, async_req=True)

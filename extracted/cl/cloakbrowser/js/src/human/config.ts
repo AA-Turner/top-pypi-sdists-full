@@ -72,6 +72,7 @@ export type HumanPreset = 'default' | 'careful';
 
 export type HumanActionOptions = Partial<HumanConfig> & {
   timeout?: number;
+  force?: boolean;
   human_config?: Partial<HumanConfig>;
 };
 

@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: simplification
-Version: 0.7.14
+Version: 0.7.16
 Summary: Fast linestring simplification using RDP or Visvalingam-Whyatt and a Rust binary
-Author-email: Stephan Hügel <urschrei@gmail.com>
-License-Expression: BlueOak-1.0.0
-Project-URL: Repository, https://github.com/urschrei/simplification
-Project-URL: Tracker, https://github.com/urschrei/simplification/issues
 Keywords: Geo,Polyline,Linestring,Ramer-Douglas-Peucker,Douglas-Peucker,Visvalingam-Whyatt
+Author-Email: =?utf-8?q?Stephan_H=C3=BCgel?= <urschrei@gmail.com>
+License-Expression: BlueOak-1.0.0
+License-File: LICENSE.md
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -20,13 +19,11 @@ Classifier: Intended Audience :: Education
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
+Project-URL: Repository, https://github.com/urschrei/simplification
+Project-URL: Tracker, https://github.com/urschrei/simplification/issues
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE.md
 Requires-Dist: numpy>=2.0.0
-Provides-Extra: test
-Requires-Dist: pytest>=7.4.2; extra == "test"
-Dynamic: license-file
+Description-Content-Type: text/markdown
 
 [![Build Status](https://github.com/urschrei/simplification/actions/workflows/wheels.yml/badge.svg)](https://github.com/urschrei/simplification/actions/workflows/wheels.yml) [![Coverage Status](https://coveralls.io/repos/github/urschrei/simplification/badge.svg?branch=master)](https://coveralls.io/github/urschrei/simplification?branch=master) [![Downloads](https://pepy.tech/badge/simplification)](https://pepy.tech/project/simplification) [![DOI](https://zenodo.org/badge/65199659.svg)](https://zenodo.org/badge/latestdoi/65199659) [![Anaconda-Server Badge](https://anaconda.org/conda-forge/simplification/badges/version.svg)](https://anaconda.org/conda-forge/simplification)
 
@@ -35,15 +32,21 @@ Simplify a LineString using the [Ramer–Douglas–Peucker](https://en.wikipedia
 
 ![Line](https://cdn.rawgit.com/urschrei/rdp/6c84264fd9cdc0b8fdf974fc98e51fea4834ed05/rdp.svg)  
 
-## Installation
+# Installation
 `uv add simplification` OR  
 `pip install simplification` OR  
 `conda install conda-forge::simplification`
 
 ### Installing for local development
-1. Ensure you have a copy of `librdp` from https://github.com/urschrei/rdp/releases, and it's in the `src/simplification` subdir
-2. run `pip install -e .[test] --use-pep517`
+1. Ensure you have a copy of `librdp` and `header.h` from https://github.com/urschrei/rdp/releases, and it's in the `src/simplification` subdir
+2. run `uv sync --dev`
 3. run `pytest .`
+
+Changes in `pyx` and `pxd` files, and the Rust library and header will bust the cache, triggering a rebuild when `uv` commands are run.
+
+## Building SDist and Wheels
+1. Ensure that `librdp` and header are present, as above
+2. Run `uv build --sdist --wheel`
 
 ### Supported Python Versions
 Simplification supports all [_currently_ supported Python versions](https://devguide.python.org/versions/).
@@ -159,39 +162,3 @@ In Bibtex format:
     version = {X.Y.Z},
     year = {2021}
     }
-
-# Blue Oak Model License
-
-Version 1.0.0
-
-## Purpose
-
-This license gives everyone as much permission to work with this software as possible, while protecting contributors from liability.
-
-## Acceptance
-
-In order to receive this license, you must agree to its rules. The rules of this license are both obligations under that agreement and conditions to your license. You must not do anything with this software that triggers a rule that you cannot or will not follow.
-
-## Copyright
-
-Each contributor licenses you to do everything with this software that would otherwise infringe that contributor's copyright in it.
-
-## Notices
-
-You must ensure that everyone who gets a copy of any part of this software from you, with or without changes, also gets the text of this license or a link to <https://blueoakcouncil.org/license/1.0.0>.
-
-## Excuse
-
-If anyone notifies you in writing that you have not complied with [Notices](#notices), you can keep your license by taking all practical steps to comply within 30 days after the notice. If you do not do so, your license ends immediately.
-
-## Patent
-
-Each contributor licenses you to do everything with this software that would otherwise infringe any patent claims they can license or become able to license.
-
-## Reliability
-
-No contributor can revoke this license.
-
-## No Liability
-
-***As far as the law allows, this software comes as is, without any warranty or condition, and no contributor will be liable to anyone for any damages related to this software or this license, under any kind of legal claim.***

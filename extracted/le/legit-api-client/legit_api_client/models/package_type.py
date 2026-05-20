@@ -50,6 +50,9 @@ class PackageType(str, Enum):
     CONTAINER = 'Container'
     CPP = 'Cpp'
     C = 'C'
+    ARCHLINUX = 'ArchLinux'
+    LUAROCKS = 'LuaRocks'
+    CRAN = 'Cran'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

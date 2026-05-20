@@ -540,6 +540,15 @@ class WriteFile(
             try:
                 import ast
                 tree = ast.parse(args.content)
+                # ast.parse() is more lenient than compile() — it accepts
+                # `from __future__` imports after other code, which
+                # crashes at import time with "from __future__ imports
+                # must occur at the beginning of the file". Re-run via
+                # compile() to catch that and similar order-of-statement
+                # errors. Observed 2026-05-19 in mdparse L4 gauntlet: the
+                # model wrote `import json\nfrom __future__ import
+                # annotations` and write_file silently succeeded.
+                compile(args.content, str(file_path), "exec")
             except SyntaxError as e:
                 # Track consecutive syntax-error writes per file. ADVISORY
                 # ONLY — must not raise ToolError. See

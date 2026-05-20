@@ -2270,7 +2270,8 @@ class ScheduledUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConne
 
     def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Sequence[datetime.datetime]:
         """
-        Get an enumerator of UTC DateTimes that defines when this universe will be invoked
+        Get an enumerator of UTC DateTimes that defines when this universe will be invoked,
+        only including times within <start_time_utc, end_time_utc>, both bounds inclusive.
         
         :param start_time_utc: The start time of the range in UTC
         :param end_time_utc: The end time of the range in UTC

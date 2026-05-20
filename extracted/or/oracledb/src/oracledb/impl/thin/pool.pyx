@@ -127,11 +127,16 @@ cdef class BaseThinPoolImpl(BasePoolImpl):
         """
         Helper function that closes all of the connections in the pool.
         """
+        cdef PooledConnRequest request
 
         # if force parameter is not True and busy connections exist in the
-        # pool or there are outstanding requests, raise an exception
-        if not force and (self.get_busy_count() > 0 or self._requests):
-            errors._raise_err(errors.ERR_POOL_HAS_BUSY_CONNECTIONS)
+        # pool or there are outstanding busy requests, raise an exception
+        if not force:
+            if len(self._busy_conn_impls) > 0:
+                errors._raise_err(errors.ERR_POOL_HAS_BUSY_CONNECTIONS)
+            for request in self._requests:
+                if request.waiting:
+                    errors._raise_err(errors.ERR_POOL_HAS_BUSY_CONNECTIONS)
 
         # close all connections in the pool
         self._close_all_connections()
@@ -593,7 +598,7 @@ cdef class ThinPoolImpl(BaseThinPoolImpl):
                 except exceptions.Error:
                     request.conn_impl._protocol._disconnect()
                     request.conn_impl = None
-            else:
+            elif request.needs_processing():
                 conn_impl = self._create_conn_impl(request.params)
                 if request.conn_impl is not None:
                     self._drop_conn_impl(request.conn_impl)
@@ -789,7 +794,7 @@ cdef class AsyncThinPoolImpl(BaseThinPoolImpl):
                 except exceptions.Error:
                     request.conn_impl._protocol._disconnect()
                     request.conn_impl = None
-            else:
+            elif request.needs_processing():
                 conn_impl = await self._create_conn_impl(request.params)
                 if request.conn_impl is not None:
                     self._drop_conn_impl(request.conn_impl)
@@ -1010,6 +1015,16 @@ cdef class PooledConnRequest:
         # wait for the pool to grow or a connection to be returned to the pool
         pool._add_request(self)
         return False
+
+    cdef bint needs_processing(self):
+        """
+        Returns a boolean indicating if the request must be processed. This is
+        true if a ping is required (since the connection is still in the pool),
+        if a connection is being replaced (since it must replace a connection
+        that has been removed from the pool) or if a waiter is still waiting
+        for the request to be processed.
+        """
+        return self.requires_ping or self.is_replacing or self.waiting
 
     cdef int reject(self) except -1:
         """

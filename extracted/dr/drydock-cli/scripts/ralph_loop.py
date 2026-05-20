@@ -366,18 +366,18 @@ def ralph(cwd: Path, pkg: str, max_iterations: int = 5,
         # Now wait for the session to appear — 5 min. Drydock can take 3-4
         # minutes to create the session dir when GPU is busy from a prior run.
         print(f"  Waiting for session to appear...", end="", flush=True)
-        session_found = False
+        found_dir: Path | None = None
         for i in range(300):  # up to 300s (5 min)
             drain_pty(child, 1.0)
-            if watcher.find_session():
-                session_found = True
+            found_dir = watcher.find_session()
+            if found_dir is not None:
                 break
             if i > 0 and i % 60 == 0:
                 print(f" (still waiting at {i}s, retyping)", end="", flush=True)
                 time.sleep(2)
                 type_prompt(child, initial_prompt)
-        if session_found:
-            print(f" found: {watcher.session_dir.name}")
+        if found_dir is not None:
+            print(f" found: {found_dir.name}")
         else:
             print(f" NOT FOUND after 300s")
             return 1

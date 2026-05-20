@@ -77,7 +77,7 @@ class TestAcpWriteFileExecution:
 
         assert isinstance(result, WriteFileResult)
         assert result.path == str(test_file)
-        assert result.content == "Hello, world!"
+        assert "created successfully" in result.content
         assert result.bytes_written == len(b"Hello, world!")
         assert result.file_existed is False
         assert mock_client._write_text_file_called
@@ -110,7 +110,7 @@ class TestAcpWriteFileExecution:
 
         assert isinstance(result, WriteFileResult)
         assert result.path == str(test_file)
-        assert result.content == "New content"
+        assert "updated successfully" in result.content
         assert result.bytes_written == len(b"New content")
         assert result.file_existed is True
         assert mock_client._write_text_file_called

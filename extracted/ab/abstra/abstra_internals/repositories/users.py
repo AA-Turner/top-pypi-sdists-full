@@ -3,7 +3,6 @@ from typing import Dict, Optional
 
 from abstra_internals.cloud_api.http_client import HTTPClient
 from abstra_internals.contracts_generated import CommonUser, CommonUserRoles
-from abstra_internals.credentials import resolve_headers
 
 
 class UsersRepository(ABC):
@@ -45,12 +44,17 @@ class TestUsersRepository(UsersRepository):
 
 
 class LocalUsersRepository(UsersRepository):
-    @property
-    def headers(self):
-        return resolve_headers()
+    def __init__(self, client: "HTTPClient") -> None:
+        self.client = client
 
     def get_user(self, email: str) -> Optional[CommonUser]:
-        return None
+        r = self.client.get(
+            endpoint="/users",
+            params={"email": email},
+        )
+        if not r.ok:
+            return None
+        return CommonUser.from_dict(r.json())
 
     def insert_user(self, email: str) -> bool:
         return True

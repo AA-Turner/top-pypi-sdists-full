@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dbt-sqlserver
-Version: 1.9.0
+Version: 1.9.1
 Summary: A Microsoft SQL Server adapter plugin for dbt
 Home-page: https://github.com/dbt-msft/dbt-sqlserver
 Author: Mikael Ene, Anders Swanson, Sam Debruyn, Cor Zuurmond, Cody Scott
@@ -9,20 +9,32 @@ Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-
 Project-URL: Documentation & usage, https://docs.getdbt.com/reference/resource-configs/mssql-configs
 Project-URL: Changelog, https://github.com/dbt-msft/dbt-sqlserver/blob/master/CHANGELOG.md
 Project-URL: Issue Tracker, https://github.com/dbt-msft/dbt-sqlserver/issues
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: dbt-core<2.0,>=1.9.0
+Requires-Dist: dbt-common<2.0,>=1.0
+Requires-Dist: dbt-adapters<2.0,>=1.11.0
+Requires-Dist: pyodbc>=5.2.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: summary
 
 # dbt-sqlserver
 
@@ -75,6 +87,33 @@ pip install -U --pre dbt-sqlserver
 
 See [the changelog](CHANGELOG.md)
 
+## Configuration
+
+### Flags
+
+- `dbt_sqlserver_use_default_schema_concat`: *(default: `false`)* Controls schema name generation when a [custom schema](https://docs.getdbt.com/docs/build/custom-schemas) is set on a model.
+
+  | Flag value | `custom_schema_name` | Result |
+  |---|---|---|
+  | `false` (default, legacy) | *(none)* | `target.schema` |
+  | `false` (default, legacy) | `"reporting"` | `reporting` |
+  | `true` (dbt-core standard) | *(none)* | `target.schema` |
+  | `true` (dbt-core standard) | `"reporting"` | `target.schema_reporting` |
+
+  When `false` (the default), the adapter uses its legacy behaviour: `custom_schema_name` is used **as-is** without being prefixed by `target.schema`.  
+  When `true`, the adapter delegates to dbt-core's `default__generate_schema_name`, which concatenates `target.schema` + `_` + `custom_schema_name`.
+
+  **Example usage in `dbt_project.yml`:**
+
+  ```yaml
+  vars:
+    dbt_sqlserver_use_default_schema_concat: true  # Enable standard schema concatenation
+  ```
+
+  > **Note:** If you want to permanently customise schema generation and avoid any future deprecation of this flag, override the `sqlserver__generate_schema_name` macro directly in your project.
+
+
+
 ## Contributing
 
 [![Unit tests](https://github.com/dbt-msft/dbt-sqlserver/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/dbt-msft/dbt-sqlserver/actions/workflows/unit-tests.yml)
@@ -92,5 +131,3 @@ If you're unsure how to get started, check out our [contributing guide](CONTRIBU
 ## Code of Conduct
 
 This project and everyone involved is expected to follow the [dbt Code of Conduct](https://community.getdbt.com/code-of-conduct).
-
-

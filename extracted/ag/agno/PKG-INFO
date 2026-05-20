@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.6.7
+Version: 2.6.8
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -504,16 +504,14 @@ Requires-Dist: unstructured<0.18.31; extra == "markdown"
 Requires-Dist: markdown; extra == "markdown"
 Requires-Dist: aiofiles; extra == "markdown"
 Provides-Extra: chonkie
-Requires-Dist: chonkie[semantic]; extra == "chonkie"
-Requires-Dist: chonkie[code]; extra == "chonkie"
-Requires-Dist: chonkie; extra == "chonkie"
-Requires-Dist: tree-sitter-language-pack<1.8.0; extra == "chonkie"
+Requires-Dist: chonkie[code,semantic]>=1.6.6; extra == "chonkie"
 Provides-Extra: agui
 Requires-Dist: ag-ui-protocol; extra == "agui"
 Provides-Extra: a2a
 Requires-Dist: a2a-sdk<1.0,>=0.3.0; extra == "a2a"
 Provides-Extra: slack
 Requires-Dist: slack_sdk>=3.40.0; extra == "slack"
+Requires-Dist: aiohttp<4,>=3.7.3; extra == "slack"
 Provides-Extra: huggingface
 Requires-Dist: huggingface-hub; extra == "huggingface"
 Provides-Extra: performance

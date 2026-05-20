@@ -1,6 +1,6 @@
 [project]
 name = "aiodiscover"
-version = "3.0.0"
+version = "3.2.0"
 license = "Apache-2.0"
 description = "Discover hosts by arp and ptr lookup"
 authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
@@ -26,17 +26,20 @@ packages = [
     { include = "aiodiscover" },
 ]
 
+[project.scripts]
+aiodiscover = "aiodiscover.cli:main"
+
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 async_timeout = { version = ">=4.0.1", python = "<3.11" }
-aiodns = ">=3.1.1"
+aiodns = ">=3.5.0"
 ifaddr = ">0.0.0"
-pyroute2 = ">=0.9.6"
-cached_ipaddress = ">=0.2.0"
+pyroute2 = ">=0.7.5"
+cached_ipaddress = ">=1.0.1"
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=7,<9"
-pytest-cov = ">=3,<7"
+pytest = ">=8.4.2,<9"
+pytest-cov = ">=7.1.0,<8"
 pytest-asyncio = ">=0.23.7,<1.2.0"
 pytest-sugar = "^1.1.1"
 pytest-timeout = "^2.3.1"
@@ -46,8 +49,8 @@ mypy = "^1.19.1"
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-myst-parser = { version = ">=0.16", python = ">=3.11"}
-sphinx = { version = ">=4.0", python = ">=3.11"}
+myst-parser = { version = ">=5.1.0", python = ">=3.11"}
+sphinx = { version = ">=9.0.4", python = ">=3.11"}
 furo = { version = ">=2025.12.19", python = ">=3.11"}
 sphinx-autobuild = { version = ">=2025.8.25", python = ">=3.11"}
 
@@ -123,6 +126,7 @@ ignore = [
 ]
 select = [
     "B",   # flake8-bugbear
+    "BLE", # flake8-blind-except
     "D",   # flake8-docstrings
     "C4",  # flake8-comprehensions
     "S",   # flake8-bandit
@@ -131,6 +135,7 @@ select = [
     "W",   # pycodestyle
     "UP",  # pyupgrade
     "I",   # isort
+    "PT",  # flake8-pytest-style
     "RUF", # ruff specific
 ]
 

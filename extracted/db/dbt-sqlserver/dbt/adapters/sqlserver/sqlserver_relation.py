@@ -1,16 +1,16 @@
 from dataclasses import dataclass, field
 from typing import Optional, Type
 
-from dbt.adapters.base.relation import BaseRelation, EventTimeFilter
-from dbt.adapters.utils import classproperty
 from dbt_common.exceptions import DbtRuntimeError
 
+from dbt.adapters.base.relation import BaseRelation, EventTimeFilter
 from dbt.adapters.sqlserver.relation_configs import (
     MAX_CHARACTERS_IN_IDENTIFIER,
     SQLServerIncludePolicy,
     SQLServerQuotePolicy,
     SQLServerRelationType,
 )
+from dbt.adapters.utils import classproperty
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -30,9 +30,9 @@ class SQLServerRelation(BaseRelation):
         if self.limit is None:
             return rendered
         elif self.limit == 0:
-            return f"(select * from {rendered} where 1=0) {self._render_limited_alias()}"
+            return f"(select * from {rendered} where 1=0) AS {self._render_limited_alias()}"
         else:
-            return f"(select TOP {self.limit} * from {rendered}) {self._render_limited_alias()}"
+            return f"(select TOP {self.limit} * from {rendered}) AS {self._render_limited_alias()}"
 
     def __post_init__(self):
         # Check for length of Redshift table/view names.

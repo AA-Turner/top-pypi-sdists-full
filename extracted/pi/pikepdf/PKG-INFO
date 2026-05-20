@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pikepdf
-Version: 10.6.0
+Version: 10.7.0
 Summary: Read, write, repair, and transform PDFs in Python, powered by qpdf
 Keywords: PDF
 Author-Email: "James R. Barlow" <james@purplerock.ca>
@@ -19,41 +19,8 @@ Project-URL: repository, https://github.com/pikepdf/pikepdf
 Project-URL: changelog, https://pikepdf.readthedocs.io/en/latest/releasenotes/index.html
 Requires-Python: >=3.10
 Requires-Dist: Pillow>=10.0.1
-Requires-Dist: Deprecated
 Requires-Dist: lxml>=4.8
 Requires-Dist: packaging
-Provides-Extra: dev
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: cyclopts; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: pygithub; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: myst-parser>=3.0.1; extra == "docs"
-Requires-Dist: sphinx>=3; extra == "docs"
-Requires-Dist: sphinx-autoapi; extra == "docs"
-Requires-Dist: sphinx-design; extra == "docs"
-Requires-Dist: sphinx-issues; extra == "docs"
-Requires-Dist: sphinx-rtd-theme; extra == "docs"
-Requires-Dist: tomli; python_version < "3.11" and extra == "docs"
-Provides-Extra: mypy
-Requires-Dist: lxml-stubs; extra == "mypy"
-Requires-Dist: types-Pillow; extra == "mypy"
-Requires-Dist: types-requests; extra == "mypy"
-Requires-Dist: types-setuptools; extra == "mypy"
-Provides-Extra: test
-Requires-Dist: attrs>=20.2.0; extra == "test"
-Requires-Dist: coverage[toml]; extra == "test"
-Requires-Dist: hypothesis>=6.36; extra == "test"
-Requires-Dist: numpy>=1.21.0; platform_machine == "x86_64" and platform_python_implementation == "CPython" and extra == "test"
-Requires-Dist: psutil>=5.9; os_name != "nt" and extra == "test"
-Requires-Dist: nanobind; extra == "test"
-Requires-Dist: pytest>=6.2.5; extra == "test"
-Requires-Dist: pytest-cov>=3.0.0; extra == "test"
-Requires-Dist: pytest-timeout>=2.1.0; extra == "test"
-Requires-Dist: pytest-xdist>=2.5.0; extra == "test"
-Requires-Dist: python-dateutil>=2.8.1; extra == "test"
-Requires-Dist: python-xmp-toolkit<2.1.0,>=2.0.1; os_name != "nt" and platform_machine == "x86_64" and extra == "test"
-Requires-Dist: tomli; python_version < "3.11" and extra == "test"
 Description-Content-Type: text/markdown
 
 <!-- SPDX-FileCopyrightText: 2022 James R. Barlow -->

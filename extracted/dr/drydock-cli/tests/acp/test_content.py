@@ -19,10 +19,10 @@ from drydock.core.types import Role
 class TestACPContent:
     @pytest.mark.asyncio
     async def test_text_content(
-        self, acp_agent_loop: DrydockAcpAgentLoop, backend: FakeBackend
+        self, acp_agent_loop: DrydockAcpAgentLoop, backend: FakeBackend, tmp_path: Path
     ) -> None:
         session_response = await acp_agent_loop.new_session(
-            cwd=str(Path.cwd()), mcp_servers=[]
+            cwd=str(tmp_path), mcp_servers=[]
         )
         prompt_request = PromptRequest(
             prompt=[TextContentBlock(type="text", text="Say hi")],
@@ -39,14 +39,16 @@ class TestACPContent:
             None,
         )
         assert user_message is not None, "User message not found in backend requests"
-        assert user_message.content == "Say hi"
+        # System notes (AGENTS.md, CLI tools) may be appended by _auto_route_task;
+        # assert only that the ACP-formatted core content is at the start.
+        assert (user_message.content or "").startswith("Say hi")
 
     @pytest.mark.asyncio
     async def test_resource_content(
-        self, acp_agent_loop: DrydockAcpAgentLoop, backend: FakeBackend
+        self, acp_agent_loop: DrydockAcpAgentLoop, backend: FakeBackend, tmp_path: Path
     ) -> None:
         session_response = await acp_agent_loop.new_session(
-            cwd=str(Path.cwd()), mcp_servers=[]
+            cwd=str(tmp_path), mcp_servers=[]
         )
 
         response = await acp_agent_loop.prompt(
@@ -75,14 +77,14 @@ class TestACPContent:
             + "\n\npath: file:///home/my_file.py"
             + "\ncontent: def hello():\n    print('Hello, world!')"
         )
-        assert user_message.content == expected_content
+        assert (user_message.content or "").startswith(expected_content)
 
     @pytest.mark.asyncio
     async def test_resource_link_content(
-        self, acp_agent_loop: DrydockAcpAgentLoop, backend: FakeBackend
+        self, acp_agent_loop: DrydockAcpAgentLoop, backend: FakeBackend, tmp_path: Path
     ) -> None:
         session_response = await acp_agent_loop.new_session(
-            cwd=str(Path.cwd()), mcp_servers=[]
+            cwd=str(tmp_path), mcp_servers=[]
         )
 
         response = await acp_agent_loop.prompt(
@@ -116,14 +118,14 @@ class TestACPContent:
             + "\nmime_type: application/pdf"
             + "\nsize: 1024"
         )
-        assert user_message.content == expected_content
+        assert (user_message.content or "").startswith(expected_content)
 
     @pytest.mark.asyncio
     async def test_resource_link_minimal(
-        self, acp_agent_loop: DrydockAcpAgentLoop, backend: FakeBackend
+        self, acp_agent_loop: DrydockAcpAgentLoop, backend: FakeBackend, tmp_path: Path
     ) -> None:
         session_response = await acp_agent_loop.new_session(
-            cwd=str(Path.cwd()), mcp_servers=[]
+            cwd=str(tmp_path), mcp_servers=[]
         )
 
         response = await acp_agent_loop.prompt(
@@ -144,4 +146,4 @@ class TestACPContent:
         )
         assert user_message is not None, "User message not found in backend requests"
         expected_content = "uri: file:///home/minimal.txt\nname: minimal.txt"
-        assert user_message.content == expected_content
+        assert (user_message.content or "").startswith(expected_content)

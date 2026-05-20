@@ -92,6 +92,8 @@ ACTIVITY_ESSENTIAL_KEYS = {
     # Polyline/GPS (for map display)
     "hasPolyline",
     "polyline",
+    # VO2Max (from activity record)
+    "vO2MaxValue",
     # Training effect
     "aerobicTrainingEffect",
     "anaerobicTrainingEffect",
@@ -531,9 +533,8 @@ class GarminClient:
 
     def _get_url(self, url: str) -> str:
         """Resolve URL to correct connectapi domain."""
-        base = GARMIN_CN_CONNECT_API if self._is_cn else GARMIN_CONNECT_API
         domain = "garmin.cn" if self._is_cn else "garmin.com"
-        return url.replace(base, f"https://connectapi.{domain}")
+        return url.replace(GARMIN_CONNECT_API, f"https://connectapi.{domain}")
 
     async def _request(
         self,
@@ -1944,7 +1945,7 @@ class GarminClient:
                     and wake_time is not None
                     and wake_time <= bedtime
                 ):
-                    wake_time = wake_time + timedelta(days=1)
+                    bedtime = bedtime - timedelta(days=1)
 
                 # Prefer nextSleepNeed bedtime recommendation for "tonight" values.
                 # recommendedBedtime* are minutes from midnight for bedtime, while
@@ -2147,7 +2148,29 @@ class GarminClient:
             "hrvStatus": hrv_status,
             "powerToWeight": power_to_weight or [],
         }
-        return _add_computed_fields(data)
+        result = _add_computed_fields(data)
+
+        # Fall back to last activity's vO2MaxValue if training status has none.
+        # Some devices never populate mostRecentVO2Max in the training status API.
+        if not result.get("vo2MaxValue"):
+            activities = await self._safe_call(
+                self.get_activities_by_date,
+                target_date - timedelta(days=30),
+                target_date + timedelta(days=1),
+            )
+            if activities:
+                activity_vo2 = next(
+                    (
+                        a.get("vO2MaxValue")
+                        for a in activities
+                        if a.get("vO2MaxValue") is not None
+                    ),
+                    None,
+                )
+                if activity_vo2 is not None:
+                    result["vo2MaxValue"] = activity_vo2
+
+        return result
 
     async def fetch_body_data(self, target_date: date | None = None) -> dict[str, Any]:
         """Fetch body data: body composition, hydration, fitness age.
@@ -2207,10 +2230,15 @@ class GarminClient:
             if user_points >= points:
                 user_level = level
 
-        # Trim badges to only essential fields (reduces data from ~30 to 4 fields per badge)
+        # Trim badges to only essential fields (reduces data from ~30 to 9 fields per badge)
         badges = [
             {
                 "badgeName": b.get("badgeName"),
+                "badgeUuid": b.get("badgeUuid"),
+                "badgeKey": b.get("badgeKey"),
+                "badgeCategoryId": b.get("badgeCategoryId"),
+                "badgeDifficultyId": b.get("badgeDifficultyId"),
+                "badgeTypeIds": b.get("badgeTypeIds"),
                 "badgePoints": b.get("badgePoints"),
                 "badgeEarnedDate": b.get("badgeEarnedDate"),
                 "badgeEarnedNumber": b.get("badgeEarnedNumber"),

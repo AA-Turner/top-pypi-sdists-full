@@ -5,7 +5,7 @@ Always runs **headed** via the Xvfb display started by `lambda-entrypoint.sh`.
 Event schema (all fields except `url` are optional):
 
     Launch options (passed to cloakbrowser.launch_context_async):
-        url                 str              required, the page to scrape
+        url                 str              required, the page to scrape (http/https only)
         proxy               str|dict         http://user:pass@host:port  or  Playwright proxy dict
         humanize            bool             False — enable human-like mouse/keyboard/scroll
         human_preset        str              "default" | "careful"
@@ -14,7 +14,6 @@ Event schema (all fields except `url` are optional):
         locale              str              BCP-47, e.g. "en-US"
         viewport            {width,height}   defaults to 1920x947 (cloakbrowser DEFAULT_VIEWPORT)
         user_agent          str              custom UA (rare — cloakbrowser sets one already)
-        extra_args          list[str]        additional Chromium CLI flags
 
     Navigation options (passed to page.goto):
         wait_until          str              "load"|"domcontentloaded"|"networkidle"|"commit"
@@ -35,8 +34,6 @@ Event schema (all fields except `url` are optional):
         wait_for_selector                str  CSS or XPath selector
         wait_for_selector_state          str  "attached"|"detached"|"visible"|"hidden", default "visible"
         wait_for_selector_timeout_ms     int  30000
-        wait_for_function                str  JS expression that returns truthy when ready
-        wait_for_function_timeout_ms     int  30000
         wait_ms                          int  fixed pause in ms (page.wait_for_timeout)
 
     Capture options:
@@ -64,16 +61,39 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import ipaddress
 import json
 import logging
+import socket
 import subprocess
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from cloakbrowser import launch_context_async
 
 logger = logging.getLogger("cloakbrowser.lambda")
 logger.setLevel(logging.INFO)
+
+
+def _validate_url(url: str) -> None:
+    """Reject non-HTTP schemes and URLs that resolve to private/internal IPs."""
+    parsed = urlparse(url)
+    if parsed.scheme.lower() not in ("http", "https"):
+        raise ValueError(
+            f"Only http:// and https:// URLs are supported, got: {parsed.scheme!r}"
+        )
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("URL has no hostname")
+    try:
+        infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except socket.gaierror:
+        raise ValueError(f"Cannot resolve hostname: {hostname}")
+    for info in infos:
+        addr = ipaddress.ip_address(info[4][0])
+        if not addr.is_global:
+            raise ValueError("URLs targeting private/internal networks are blocked")
 
 
 def _diag_snapshot() -> str:
@@ -118,7 +138,7 @@ def _build_launch_kwargs(event: dict) -> dict:
             # Lambda's restricted process model can't fork from Chromium's zygote
             # — without this, child renderer processes fail to spawn.
             "--no-zygote",
-            *event.get("extra_args", []),
+            *event.get("_strategy_args", []),
         ],
     }
     for key in ("proxy", "humanize", "human_preset", "geoip",
@@ -159,7 +179,7 @@ async def _smart_wait(page, dom_stable_ms: int = 1500, max_settle_ms: int = 1500
 
 
 _EXPLICIT_WAIT_KEYS = (
-    "wait_for_load_state", "wait_for_selector", "wait_for_function", "wait_ms",
+    "wait_for_load_state", "wait_for_selector", "wait_ms",
 )
 
 
@@ -183,11 +203,6 @@ async def _post_nav_waits(page, event: dict) -> None:
             event["wait_for_selector"],
             state=event.get("wait_for_selector_state", "visible"),
             timeout=event.get("wait_for_selector_timeout_ms", 30000),
-        )
-    if "wait_for_function" in event:
-        await page.wait_for_function(
-            event["wait_for_function"],
-            timeout=event.get("wait_for_function_timeout_ms", 30000),
         )
     if "wait_ms" in event:
         await page.wait_for_timeout(event["wait_ms"])
@@ -235,7 +250,7 @@ def _classify_error(err: Exception) -> dict | None:
     msg = str(err)
     if "ERR_CERT" in msg:
         return {
-            "extra_args": ["--ignore-certificate-errors"],
+            "_strategy_args": ["--ignore-certificate-errors"],
             "goto_timeout_ms": 60000,
         }
     if ("Timeout" in msg and "exceeded" in msg) or "ERR_CONNECTION_TIMED_OUT" in msg:
@@ -263,8 +278,10 @@ async def _attempt_scrape(url: str, event: dict) -> dict:
             wait_until=event.get("wait_until", "domcontentloaded"),
             timeout=event.get("goto_timeout_ms", 30000),
         )
+        _validate_url(page.url)
 
         await _post_nav_waits(page, event)
+        _validate_url(page.url)
 
         result: dict = {
             "title": await page.title(),
@@ -306,6 +323,8 @@ async def _run(event: dict) -> dict:
     set to 0 to disable retry entirely).
     """
     url = event["url"]
+    _validate_url(url)
+    event = {k: v for k, v in event.items() if k not in ("extra_args", "_strategy_args")}
     retries_left = max(0, int(event.get("retries", 1)))
     history: list[dict] = []
     current_event = event
@@ -326,8 +345,8 @@ async def _run(event: dict) -> dict:
             })
             logger.warning("attempt %d failed (%s); retrying with strategy=%s",
                            len(history), str(e)[:120], strategy)
-            merged_args = list(current_event.get("extra_args", [])) + list(strategy.get("extra_args", []))
-            current_event = {**current_event, **strategy, "extra_args": merged_args}
+            merged_args = list(current_event.get("_strategy_args", [])) + list(strategy.get("_strategy_args", []))
+            current_event = {**current_event, **strategy, "_strategy_args": merged_args}
             retries_left -= 1
             # No backoff: strategy overrides change goto budget directly;
             # the prior failure was either fast (cert reject) or already

@@ -23,7 +23,7 @@ async def _get_element_box_async(
     elements (#172)."""
     try:
         el = page.locator(selector).first
-        return await el.bounding_box(timeout=timeout)
+        return await el.bounding_box(timeout=max(1, timeout))
     except Exception:
         return None
 
@@ -47,13 +47,16 @@ async def async_human_scroll_into_view(
     get_box: Callable[[], Awaitable[Optional[dict]]],
     cursor_x: float, cursor_y: float,
     cfg: HumanConfig,
-) -> Tuple[dict, float, float]:
+) -> Tuple[dict, float, float, bool]:
     """Humanized scrolling using an arbitrary async ``get_box`` callable.
 
     Used by both ``async_scroll_to_element`` (selector-based) and the
     ElementHandle / Locator ``scroll_into_view_if_needed`` patches so all
     scrolling paths share the same accelerate \u2192 cruise \u2192 decelerate
     \u2192 overshoot behavior.
+
+    Returns ``(box, cursor_x, cursor_y, did_scroll)`` \u2014 *did_scroll* is False
+    when the element was already in the viewport.
     """
     viewport = page.viewport_size
     if not viewport:
@@ -67,7 +70,7 @@ async def async_human_scroll_into_view(
         raise RuntimeError("Element not found while scrolling into view")
 
     if _is_in_viewport(box, viewport_height, cfg):
-        return box, cursor_x, cursor_y
+        return box, cursor_x, cursor_y, False
 
     # Move cursor into scroll area
     scroll_area_x = round(viewport_width * rand(0.3, 0.7))
@@ -135,7 +138,7 @@ async def async_human_scroll_into_view(
     if box is None:
         raise RuntimeError("Element lost after scrolling into view")
 
-    return box, cursor_x, cursor_y
+    return box, cursor_x, cursor_y, True
 
 
 async def async_scroll_to_element(
@@ -145,12 +148,14 @@ async def async_scroll_to_element(
     cursor_x: float, cursor_y: float,
     cfg: HumanConfig,
     timeout: float = 30000,
-) -> Tuple[dict, float, float]:
+) -> Tuple[dict, float, float, bool]:
     """Selector-based humanized scroll (async).
 
     ``timeout`` is forwarded to ``locator.bounding_box(timeout=...)`` so callers
     such as ``page.click('#x', timeout=5000)`` can wait longer for slow elements
     (#172). Default matches Playwright's 30000ms when not specified.
+
+    Returns ``(box, cursor_x, cursor_y, did_scroll)``.
     """
     async def _get():
         return await _get_element_box_async(page, selector, timeout)

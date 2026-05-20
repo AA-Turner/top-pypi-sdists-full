@@ -4,15 +4,13 @@ use mac_address::MacAddressIterator;
 use pyo3::{
     IntoPyObjectExt,
     exceptions::{PyOSError, PyTypeError, PyValueError},
-    ffi,
     prelude::*,
     pyclass::CompareOp,
     types::{PyBytes, PyDict},
 };
 use std::{
     hash::{Hash, Hasher},
-    ptr::null_mut,
-    sync::atomic::{AtomicPtr, AtomicU64, Ordering},
+    sync::atomic::{AtomicU64, Ordering},
     time::SystemTime,
 };
 use uuid::{Builder, Bytes, ContextV1, Timestamp, Uuid, Variant, Version};
@@ -162,8 +160,8 @@ impl UUID {
     }
 
     #[getter]
-    fn version(&self) -> usize {
-        self.uuid.get_version_num()
+    fn version(&self) -> Option<usize> {
+        (self.uuid.get_variant() == Variant::RFC4122).then(|| self.uuid.get_version_num())
     }
 
     #[getter]
@@ -279,6 +277,11 @@ impl UUID {
         let time_hi_version = fields.2 as u128;
         let clock_seq_hi_variant = fields.3 as u128;
         let clock_seq_low = fields.4 as u128;
+        if fields.5 >= (1 << 48) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "field 6 out of range (need a 48-bit value)",
+            ));
+        }
         let node = fields.5 as u128;
         let clock_seq = clock_seq_hi_variant << 8 | clock_seq_low;
 
@@ -298,8 +301,8 @@ impl UUID {
     }
 
     #[getter]
-    fn is_safe(&self) -> *mut ffi::PyObject {
-        SAFE_UUID_UNKNOWN.load(Ordering::Relaxed)
+    fn is_safe<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        slf.get_type().getattr("_safe_uuid_unknown")
     }
 }
 
@@ -326,7 +329,7 @@ fn uuid1(node: Option<u64>, clock_seq: Option<u64>) -> PyResult<UUID> {
 }
 
 #[pyfunction]
-fn uuid3(namespace: UUID, name: StringOrBytes) -> PyResult<UUID> {
+fn uuid3(namespace: &UUID, name: StringOrBytes) -> PyResult<UUID> {
     match name {
         StringOrBytes::String(name) => Ok(UUID {
             uuid: Uuid::new_v3(&namespace.uuid, name.as_bytes()),
@@ -338,9 +341,15 @@ fn uuid3(namespace: UUID, name: StringOrBytes) -> PyResult<UUID> {
 }
 
 #[pyfunction]
+#[pyo3(name = "_uuid4_int")]
+fn uuid4_int() -> u128 {
+    Uuid::new_v4().as_u128()
+}
+
+#[pyfunction]
 fn uuid4() -> PyResult<UUID> {
     Ok(UUID {
-        uuid: Uuid::new_v4(),
+        uuid: Uuid::from_u128(uuid4_int()),
     })
 }
 
@@ -369,9 +378,7 @@ fn uuid6(node: Option<u64>, timestamp: Option<u64>, nanos: Option<u32>) -> PyRes
         Some(timestamp) => {
             let timestamp =
                 Timestamp::from_unix(&ContextV1::new_random(), timestamp, nanos.unwrap_or(0));
-            return Ok(UUID {
-                uuid: Uuid::new_v6(timestamp, node),
-            });
+            Uuid::new_v6(timestamp, node)
         }
         None => Uuid::now_v6(node),
     };
@@ -379,19 +386,26 @@ fn uuid6(node: Option<u64>, timestamp: Option<u64>, nanos: Option<u32>) -> PyRes
 }
 
 #[pyfunction]
+#[pyo3(name = "_uuid7_int")]
 #[pyo3(signature = (timestamp=None, nanos=None))]
-fn uuid7(timestamp: Option<u64>, nanos: Option<u32>) -> PyResult<UUID> {
-    let uuid = match timestamp {
+fn uuid7_int(timestamp: Option<u64>, nanos: Option<u32>) -> u128 {
+    match timestamp {
         Some(timestamp) => {
             let timestamp =
                 Timestamp::from_unix(&ContextV1::new_random(), timestamp, nanos.unwrap_or(0));
-            return Ok(UUID {
-                uuid: Uuid::new_v7(timestamp),
-            });
+            Uuid::new_v7(timestamp)
         }
         None => Uuid::now_v7(),
-    };
-    Ok(UUID { uuid })
+    }
+    .as_u128()
+}
+
+#[pyfunction]
+#[pyo3(signature = (timestamp=None, nanos=None))]
+fn uuid7(timestamp: Option<u64>, nanos: Option<u32>) -> UUID {
+    UUID {
+        uuid: Uuid::from_u128(uuid7_int(timestamp, nanos)),
+    }
 }
 
 #[pyfunction]
@@ -451,9 +465,6 @@ fn _getnode() -> u64 {
     node
 }
 
-// ptr to python stdlib uuid.SafeUUID.unknown
-static SAFE_UUID_UNKNOWN: AtomicPtr<ffi::PyObject> = AtomicPtr::new(null_mut());
-
 #[pyfunction]
 fn getnode() -> PyResult<u64> {
     Ok(_getnode())
@@ -468,26 +479,21 @@ fn reseed() -> PyResult<()> {
 
 #[pymodule(gil_used = false)]
 fn _uuid_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let safe_uuid_unknown = Python::attach(|py| {
-        return PyModule::import(py, "uuid")
-            .unwrap()
-            .getattr("SafeUUID")
-            .unwrap()
-            .getattr("unknown")
-            .unwrap()
-            .unbind();
-    });
-
-    SAFE_UUID_UNKNOWN.store(safe_uuid_unknown.into_ptr(), Ordering::Relaxed);
-
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_class::<UUID>()?;
+    let safe_uuid_unknown = PyModule::import(m.py(), "uuid")?
+        .getattr("SafeUUID")?
+        .getattr("unknown")?;
+    m.getattr("UUID")?
+        .setattr("_safe_uuid_unknown", safe_uuid_unknown)?;
     m.add_function(wrap_pyfunction!(uuid1, m)?)?;
     m.add_function(wrap_pyfunction!(uuid3, m)?)?;
+    m.add_function(wrap_pyfunction!(uuid4_int, m)?)?;
     m.add_function(wrap_pyfunction!(uuid4, m)?)?;
     m.add_function(wrap_pyfunction!(uuid5, m)?)?;
     m.add_function(wrap_pyfunction!(uuid6, m)?)?;
     m.add_function(wrap_pyfunction!(uuid7, m)?)?;
+    m.add_function(wrap_pyfunction!(uuid7_int, m)?)?;
     m.add_function(wrap_pyfunction!(uuid8, m)?)?;
     m.add_function(wrap_pyfunction!(getnode, m)?)?;
     m.add_function(wrap_pyfunction!(reseed, m)?)?;

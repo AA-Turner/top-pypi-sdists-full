@@ -199,6 +199,12 @@ class EtlAsset(DataClassJsonMixin):
     :param owner: :class:`Owner` describing who owns / runs the job.
     :param properties: Tag list (key/value) for vendor-specific properties.
     :param attributes: Free-form attributes dict.
+    :param inputs: Declaration-time asset inputs (assets the job statically
+        reads). Run-time inputs ride on ``EtlRunEvent.inputs`` and are
+        kept separate.
+    :param outputs: Declaration-time asset outputs (assets the job statically
+        writes). Run-time outputs ride on ``EtlRunEvent.outputs`` and are
+        kept separate.
     """
 
     job_source_id: str
@@ -212,6 +218,8 @@ class EtlAsset(DataClassJsonMixin):
     owner: Owner | None = field(default=None, metadata=config(exclude=_is_none))
     properties: list[Tag] = field(default_factory=list, metadata=config(exclude=_is_empty))
     attributes: dict | None = field(default=None, metadata=config(exclude=_is_none))
+    inputs: list[AssetRef] = field(default_factory=list, metadata=config(exclude=_is_empty))
+    outputs: list[AssetRef] = field(default_factory=list, metadata=config(exclude=_is_empty))
 
 
 @dataclass

@@ -1,12 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: drf-spectacular-jsonapi
-Version: 0.5.2
+Version: 0.6.0
 Summary: open api 3 schema generator for drf-json-api package based on drf-spectacular package.
 Home-page: https://github.com/jokiefer/drf-spectecular-json-api
 Author: Jonas Kiefer
 Author-email: jonas.kiefer@live.com
 License: BSD
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
@@ -27,6 +26,22 @@ Classifier: Topic :: Software Development :: Code Generators
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: Django>=3.2
+Requires-Dist: drf-spectacular>=0.25.0
+Requires-Dist: drf-extensions>=0.7.1
+Requires-Dist: djangorestframework>=3.13
+Requires-Dist: djangorestframework-jsonapi>=6.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ========================
 drf-spectecular-json-api
@@ -44,17 +59,26 @@ Tested with various dependency version
    * - python
      - django
      - drf-spectacular
-   * - 3.8
+   * - 3.10
      - 4.0
      - 0.25.x
-   * - 3.9
+   * - 3.11
      - 4.1
      - 0.26.x
-   * - 3.10
+   * - 3.12
      - 4.2
      - 0.27.x
-   * - 3.11
+   * - 3.13
      - 5.0
+     - 0.28.x
+   * - 3.14
+     - 5.1
+     - 0.29.x
+   * -
+     - 5.2
+     - 
+   * -
+     - 6.0
      - 
 
 Installation
@@ -92,5 +116,3 @@ Release management
 ^^^^^^^^^^^^^^^^^^
 
 Same as the based *drf-spectacular* package, we provide versions below sem version *1.x.x* to signal that every new version may potentially break you.
-
-

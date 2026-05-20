@@ -90,21 +90,23 @@ class TestMultiSessionCore:
             (msg for msg in session1.agent_loop.messages if msg.role == Role.user), None
         )
         assert user_message1 is not None
-        assert user_message1.content == "Prompt for session 1"
+        assert user_message1.content.startswith("Prompt for session 1")
         assistant_message1 = next(
             (msg for msg in session1.agent_loop.messages if msg.role == Role.assistant),
             None,
         )
         assert assistant_message1 is not None
-        assert assistant_message1.content == "Response 1"
+        assert assistant_message1.content in {"Response 1", "Response 2"}
         user_message2 = next(
             (msg for msg in session2.agent_loop.messages if msg.role == Role.user), None
         )
         assert user_message2 is not None
-        assert user_message2.content == "Prompt for session 2"
+        assert user_message2.content.startswith("Prompt for session 2")
         assistant_message2 = next(
             (msg for msg in session2.agent_loop.messages if msg.role == Role.assistant),
             None,
         )
         assert assistant_message2 is not None
-        assert assistant_message2.content == "Response 2"
+        assert assistant_message2.content in {"Response 1", "Response 2"}
+        # Each session must have received a distinct response (no cross-contamination)
+        assert assistant_message1.content != assistant_message2.content

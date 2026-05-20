@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyMySQL
-Version: 1.1.3
+Version: 1.2.0
 Summary: Pure Python MySQL Driver
 Author-email: Inada Naoki <songofacandy@gmail.com>, Yutaka Matsubara <yutaka.matsubara@gmail.com>
 License-Expression: MIT

@@ -136,7 +136,7 @@ class LiteLocalRuntime(runtime.Runtime):
         else:
             if not docker_requirements_checker.is_swarm_initialized():
                 docker_requirements_checker.init_swarm()
-            self._docker_client = docker.from_env()
+            self._docker_client = docker.from_env(max_pool_size=100)
 
     @property
     def name(self) -> str:
@@ -369,7 +369,12 @@ class LiteLocalRuntime(runtime.Runtime):
         retry_error_callback=lambda lv: lv.outcome,
         retry=tenacity.retry_if_result(lambda v: v is False),
     )
-    def list(self, **kwargs):
+    def list(
+        self,
+        page: int = 1,
+        number_elements: int = 10,
+        state: Optional[str] = None,
+    ) -> List[runtime.Scan]:
         raise NotImplementedError()
 
     def _are_agents_ready(self, fail_fast=True) -> bool:

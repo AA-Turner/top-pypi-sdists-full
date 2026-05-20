@@ -19,28 +19,23 @@
 # https://github.com/strasdat/Sophus/blob/master/sympy/sophus/so2.py
 from __future__ import annotations
 
-from typing import Optional, overload
+from typing import Optional, Union, overload
 
-from kornia.core import Device, Dtype, Module, Parameter, Tensor, complex, rand, stack, tensor, zeros_like
-from kornia.core.check import KORNIA_CHECK, KORNIA_CHECK_IS_TENSOR
-from kornia.geometry.liegroup._utils import (
-    check_so2_matrix,
-    check_so2_matrix_shape,
-    check_so2_t_shape,
-    check_so2_theta_shape,
-    check_so2_z_shape,
-)
+import torch
+from torch import nn
+
+from kornia.core.check import KORNIA_CHECK, KORNIA_CHECK_IS_TENSOR, KORNIA_CHECK_SHAPE
 from kornia.geometry.vector import Vector2
 
 
-class So2(Module):
+class So2(nn.Module):
     r"""Base class to represent the So2 group.
 
     The SO(2) is the group of all rotations about the origin of two-dimensional Euclidean space
     :math:`R^2` under the operation of composition.
     See more: https://en.wikipedia.org/wiki/Orthogonal_group#Special_orthogonal_group
 
-    We internally represent the rotation by a complex number.
+    We internally represent the rotation by a torch.complex number.
 
     Example:
         >>> real = torch.tensor([1.0])
@@ -51,10 +46,10 @@ class So2(Module):
 
     """
 
-    def __init__(self, z: Tensor) -> None:
+    def __init__(self, z: torch.Tensor) -> None:
         """Construct the base class.
 
-        Internally represented by complex number `z`.
+        Internally represented by torch.complex number `z`.
 
         Args:
             z: Complex number with the shape of :math:`(B, 1)` or :math:`(B)`.
@@ -69,9 +64,14 @@ class So2(Module):
         """
         super().__init__()
         KORNIA_CHECK_IS_TENSOR(z)
-        # TODO change to KORNIA_CHECK_SHAPE once there is multiple shape support
-        check_so2_z_shape(z)
-        self._z = Parameter(z)
+        # check_so2_z_shape(z)
+        is_scalar = len(z.shape) == 0
+        is_flat = KORNIA_CHECK_SHAPE(z, ["B"], raises=False)
+        is_column = KORNIA_CHECK_SHAPE(z, ["B", "1"], raises=False)
+
+        if not (is_scalar or is_flat or is_column):
+            raise ValueError(f"Invalid input size, we expect [], [B], or [B, 1]. Got: {z.shape}")
+        self._z = nn.Parameter(z)
 
     def __repr__(self) -> str:
         return f"{self.z}"
@@ -83,9 +83,9 @@ class So2(Module):
     def __mul__(self, right: So2) -> So2: ...
 
     @overload
-    def __mul__(self, right: Tensor) -> Tensor: ...
+    def __mul__(self, right: torch.Tensor) -> torch.Tensor: ...
 
-    def __mul__(self, right: So2 | Tensor) -> So2 | Tensor:
+    def __mul__(self, right: So2 | torch.Tensor) -> So2 | torch.Tensor:
         """Perform a left-multiplication either rotation concatenation or point-transform.
 
         Args:
@@ -98,29 +98,32 @@ class So2(Module):
         z = self.z
         if isinstance(right, So2):
             return So2(z * right.z)
-        elif isinstance(right, (Vector2, Tensor)):
-            # TODO change to KORNIA_CHECK_SHAPE once there is multiple shape support
-            if isinstance(right, Tensor):
-                check_so2_t_shape(right)
+        elif isinstance(right, (Vector2, torch.Tensor)):
+            if isinstance(right, torch.Tensor):
+                # check_so2_t_shape
+                is_batch_shape = KORNIA_CHECK_SHAPE(right, ["B", "2"], raises=False)
+                is_single_shape = KORNIA_CHECK_SHAPE(right, ["2"], raises=False)
+                if not (is_batch_shape or is_single_shape):
+                    raise ValueError(f"Invalid translation shape, we expect [B, 2], or [2] Got: {right.shape}")
             x = right.data[..., 0]
             y = right.data[..., 1]
             real = z.real
             imag = z.imag
-            out = stack((real * x - imag * y, imag * x + real * y), -1)
-            if isinstance(right, Tensor):
+            out = torch.stack((real * x - imag * y, imag * x + real * y), -1)
+            if isinstance(right, torch.Tensor):
                 return out
             else:
                 return Vector2(out)
         else:
-            raise TypeError(f"Not So2 or Tensor type. Got: {type(right)}")
+            raise TypeError(f"Not So2 or torch.Tensor type. Got: {type(right)}")
 
     @property
-    def z(self) -> Tensor:
+    def z(self) -> torch.Tensor:
         """Return the underlying data with shape :math:`(B, 1)`."""
         return self._z
 
     @staticmethod
-    def exp(theta: Tensor) -> So2:
+    def exp(theta: torch.Tensor) -> So2:
         """Convert elements of lie algebra to elements of lie group.
 
         Args:
@@ -134,11 +137,15 @@ class So2(Module):
             tensor([4.6329e-05+1.j], requires_grad=True)
 
         """
-        # TODO change to KORNIA_CHECK_SHAPE once there is multiple shape support
-        check_so2_theta_shape(theta)
-        return So2(complex(theta.cos(), theta.sin()))
+        # check_so2_theta_shape
+        is_scalar = len(theta.shape) == 0
+        is_flat = KORNIA_CHECK_SHAPE(theta, ["B"], raises=False)
+        is_column = KORNIA_CHECK_SHAPE(theta, ["B", "1"], raises=False)
+        if not (is_scalar or is_flat or is_column):
+            raise ValueError(f"Invalid input size, we expect [], [B], or [B, 1]. Got: {theta.shape}")
+        return So2(torch.complex(torch.cos(theta), torch.sin(theta)))
 
-    def log(self) -> Tensor:
+    def log(self) -> torch.Tensor:
         """Convert elements of lie group to elements of lie algebra.
 
         Example:
@@ -151,7 +158,7 @@ class So2(Module):
         return self.z.imag.atan2(self.z.real)
 
     @staticmethod
-    def hat(theta: Tensor) -> Tensor:
+    def hat(theta: torch.Tensor) -> torch.Tensor:
         """Convert elements from vector space to lie algebra. Returns matrix of shape :math:`(B, 2, 2)`.
 
         Args:
@@ -164,15 +171,19 @@ class So2(Module):
                     [1.5707, 0.0000]])
 
         """
-        # TODO change to KORNIA_CHECK_SHAPE once there is multiple shape support
-        check_so2_theta_shape(theta)
-        z = zeros_like(theta)
-        row0 = stack((z, theta), -1)
-        row1 = stack((theta, z), -1)
-        return stack((row0, row1), -1)
+        # check_so2_theta_shape
+        is_scalar = len(theta.shape) == 0
+        is_flat = KORNIA_CHECK_SHAPE(theta, ["B"], raises=False)
+        is_column = KORNIA_CHECK_SHAPE(theta, ["B", "1"], raises=False)
+        if not (is_scalar or is_flat or is_column):
+            raise ValueError(f"Invalid input size, we expect [], [B], or [B, 1]. Got: {theta.shape}")
+        z = torch.zeros_like(theta)
+        row0 = torch.stack((z, theta), -1)
+        row1 = torch.stack((theta, z), -1)
+        return torch.stack((row0, row1), -1)
 
     @staticmethod
-    def vee(omega: Tensor) -> Tensor:
+    def vee(omega: torch.Tensor) -> torch.Tensor:
         """Convert elements from lie algebra to vector space. Returns vector of shape :math:`(B,)`.
 
         Args:
@@ -185,12 +196,15 @@ class So2(Module):
             tensor([1., 1., 1.])
 
         """
-        # TODO change to KORNIA_CHECK_SHAPE once there is multiple shape support
-        check_so2_matrix_shape(omega)
+        # check_so2_matrix_shape
+        is_batch = KORNIA_CHECK_SHAPE(omega, ["B", "2", "2"], raises=False)
+        is_single = KORNIA_CHECK_SHAPE(omega, ["2", "2"], raises=False)
+        if not (is_batch or is_single):
+            raise ValueError(f"Invalid input size, we expect [B, 2, 2] or [2, 2]. Got: {omega.shape}")
         return omega[..., 0, 1]
 
-    def matrix(self) -> Tensor:
-        """Convert the complex number to a rotation matrix of shape :math:`(B, 2, 2)`.
+    def matrix(self) -> torch.Tensor:
+        """Convert the torch.complex number to a rotation matrix of shape :math:`(B, 2, 2)`.
 
         Example:
             >>> s = So2.identity()
@@ -200,12 +214,12 @@ class So2(Module):
                     [0., 1.]], grad_fn=<StackBackward0>)
 
         """
-        row0 = stack((self.z.real, -self.z.imag), -1)
-        row1 = stack((self.z.imag, self.z.real), -1)
-        return stack((row0, row1), -2)
+        row0 = torch.stack((self.z.real, -self.z.imag), -1)
+        row1 = torch.stack((self.z.imag, self.z.real), -1)
+        return torch.stack((row0, row1), -2)
 
     @classmethod
-    def from_matrix(cls, matrix: Tensor) -> So2:
+    def from_matrix(cls, matrix: torch.Tensor) -> So2:
         """Create So2 from a rotation matrix.
 
         Args:
@@ -219,15 +233,28 @@ class So2(Module):
             tensor(1.+0.j, requires_grad=True)
 
         """
-        # TODO change to KORNIA_CHECK_SHAPE once there is multiple shape support
-        check_so2_matrix_shape(matrix)
-        check_so2_matrix(matrix)
-        z = complex(matrix[..., 0, 0], matrix[..., 1, 0])
+        # check_so2_matrix_shape
+        is_batch = KORNIA_CHECK_SHAPE(matrix, ["B", "2", "2"], raises=False)
+        is_single = KORNIA_CHECK_SHAPE(matrix, ["2", "2"], raises=False)
+        if not (is_batch or is_single):
+            raise ValueError(f"Invalid input size, we expect [B, 2, 2] or [2, 2]. Got: {matrix.shape}")
+        # check_so2_matrix
+        KORNIA_CHECK_IS_TENSOR(matrix)
+        if len(matrix.shape) < 2 or matrix.shape[-2:] != (2, 2):
+            raise ValueError(f"Input size must be (*, 2, 2). Got {matrix.shape}")
+        mask_diag = torch.allclose(matrix[..., 0, 0], matrix[..., 1, 1])
+        mask_off_diag = torch.allclose(matrix[..., 0, 1], -matrix[..., 1, 0])
+        if not (mask_diag and mask_off_diag):
+            raise ValueError("Invalid SO2 rotation matrix: constraints m00==m11 and m01==-m10 not met.")
+        z = torch.complex(matrix[..., 0, 0], matrix[..., 1, 0])
         return cls(z)
 
     @classmethod
     def identity(
-        cls, batch_size: Optional[int] = None, device: Optional[Device] = None, dtype: Optional[Dtype] = None
+        cls,
+        batch_size: Optional[int] = None,
+        device: Union[None, str, torch.device] = None,
+        dtype: Union[None, torch.dtype] = None,
     ) -> So2:
         """Create a So2 group representing an identity rotation.
 
@@ -243,13 +270,13 @@ class So2(Module):
             tensor([1.+0.j, 1.+0.j], requires_grad=True)
 
         """
-        real_data = tensor(1.0, device=device, dtype=dtype)
-        imag_data = tensor(0.0, device=device, dtype=dtype)
+        real_data = torch.tensor(1.0, device=device, dtype=dtype)
+        imag_data = torch.tensor(0.0, device=device, dtype=dtype)
         if batch_size is not None:
             KORNIA_CHECK(batch_size >= 1, msg="batch_size must be positive")
             real_data = real_data.repeat(batch_size)
             imag_data = imag_data.repeat(batch_size)
-        return cls(complex(real_data, imag_data))
+        return cls(torch.complex(real_data, imag_data))
 
     def inverse(self) -> So2:
         """Return the inverse transformation.
@@ -265,7 +292,10 @@ class So2(Module):
 
     @classmethod
     def random(
-        cls, batch_size: Optional[int] = None, device: Optional[Device] = None, dtype: Optional[Dtype] = None
+        cls,
+        batch_size: Optional[int] = None,
+        device: Union[None, str, torch.device] = None,
+        dtype: Union[None, torch.dtype] = None,
     ) -> So2:
         """Create a So2 group representing a random rotation.
 
@@ -281,14 +311,14 @@ class So2(Module):
         """
         if batch_size is not None:
             KORNIA_CHECK(batch_size >= 1, msg="batch_size must be positive")
-            real_data = rand((batch_size,), device=device, dtype=dtype)
-            imag_data = rand((batch_size,), device=device, dtype=dtype)
+            real_data = torch.rand((batch_size,), device=device, dtype=dtype)
+            imag_data = torch.rand((batch_size,), device=device, dtype=dtype)
         else:
-            real_data = rand((), device=device, dtype=dtype)
-            imag_data = rand((), device=device, dtype=dtype)
-        return cls(complex(real_data, imag_data))
+            real_data = torch.rand((), device=device, dtype=dtype)
+            imag_data = torch.rand((), device=device, dtype=dtype)
+        return cls(torch.complex(real_data, imag_data))
 
-    def adjoint(self) -> Tensor:
+    def adjoint(self) -> torch.Tensor:
         """Return the adjoint matrix of shape :math:`(B, 2, 2)`.
 
         Example:

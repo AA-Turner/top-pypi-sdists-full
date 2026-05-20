@@ -1230,6 +1230,13 @@ class TestRunner:
         success = result is not None
         if success and store_result and result:
             context[store_result] = result
+        if success:
+            # #1139: stash the actually-sent payload so a following
+            # create_expect_error step can reproduce the unique-field
+            # collision. generate_entity_data regenerates unique fields
+            # whose literal values from the test design would otherwise
+            # diverge between the two POSTs.
+            context[f"_last_created_data:{entity_name}"] = entity_data
         return StepResult(
             action=action,
             target=target,
@@ -1266,19 +1273,51 @@ class TestRunner:
         start_time: float,
         **_kw: Any,
     ) -> StepResult:
-        """#1135: include URL + HTTP status + body excerpt in the
-        failure message so the operator can diagnose without reading
-        framework source."""
+        """#1135 / #1149: include URL + HTTP status + body excerpt in
+        the failure message, plus a fix hint when the failure shape
+        matches a known design omission (missing login_as or
+        navigate_to).
+
+        Pre-#1135 the message was the literal "UI check failed" —
+        no URL, no status, no body. #1135 added the URL + status +
+        excerpt. #1149 adds the fix hint: when the check hit the
+        base UI URL (no preceding ``navigate_to``) AND got a 30x
+        redirect, the design almost certainly needs ``login_as`` +
+        ``navigate_to`` before this step. Rather than make the
+        operator guess, the failure message names the missing
+        steps explicitly.
+        """
         assert self.client is not None
         # The preceding navigate_to step stashes the workspace URL in
         # context; fall back to the client's base ui_url when no
         # navigate happened.
         check_url = context.get("_current_ui_url")
         result = self.client.check_ui_loads(url=check_url)
+        # #1149: synthesise a fix hint from the failure shape.
+        hint = ""
+        if not result.ok:
+            had_navigate = check_url is not None
+            had_login = self.client._auth_token is not None or bool(
+                self.client.client.cookies.get("dazzle_session")
+            )
+            hints: list[str] = []
+            if result.status in (301, 302, 303, 307, 308) and not had_login:
+                hints.append(
+                    "GET → 3xx + no auth session: design is probably missing a "
+                    "`login_as <persona>` step before this `assert_visible`."
+                )
+            if not had_navigate:
+                hints.append(
+                    "No preceding `navigate_to` — check hit the base UI url, not a "
+                    "specific surface. Add `{action: navigate_to, target: workspace:<name>, "
+                    "data: {route: '/app/...'}}` before this step."
+                )
+            if hints:
+                hint = " | hint: " + " ".join(hints)
         message = (
             ""
             if result.ok
-            else f"UI check failed: GET {result.url} → {result.status} | {result.excerpt!r}"
+            else f"UI check failed: GET {result.url} → {result.status} | {result.excerpt!r}{hint}"
         )
         return StepResult(
             action=action,
@@ -1783,6 +1822,111 @@ class TestRunner:
             duration_ms=(time.time() - start_time) * 1000,
         )
 
+    def _execute_assert_state_step(
+        self,
+        action: str,
+        target: str,
+        resolved_data: dict[str, Any],
+        context: dict[str, Any],
+        store_result: str | None,
+        start_time: float,
+        **_kw: Any,
+    ) -> StepResult:
+        """#1138: SM_* state-machine assertion.
+
+        Today the runner can't reliably resolve "which entity id" to
+        re-fetch without a stable cross-step entity-context contract
+        (see #1138 follow-up). Skipping cleanly here is strictly
+        better than the pre-fix "Unknown test action — step skipped"
+        warning + opaque downstream failure: a SKIP doesn't move the
+        FAIL pile and surfaces a clear message in the run log.
+        """
+        return StepResult(
+            action=action,
+            target=target,
+            result=TestResult.SKIPPED,
+            message="assert_state requires entity-id context (not yet wired)",
+            duration_ms=(time.time() - start_time) * 1000,
+        )
+
+    def _execute_assert_authenticated_step(
+        self,
+        action: str,
+        target: str,
+        resolved_data: dict[str, Any],
+        context: dict[str, Any],
+        store_result: str | None,
+        start_time: float,
+        **_kw: Any,
+    ) -> StepResult:
+        """#1138 / #1142: assert the current session is authenticated.
+
+        The canonical ACL test pattern emitted by ``dsl_test_generator``
+        is ``login_as`` immediately followed by ``assert_authenticated``,
+        so we cannot rely on ``context['last_response']`` — login_as
+        doesn't populate it. Self-bootstrap with ``GET /auth/me``
+        instead: a 2xx response with the auth headers in force means
+        the session is valid; 401/403 means the server rejected it.
+        Stash the response in ``context['last_response']`` so any
+        following ``assert_error``-style step can introspect it too.
+
+        Falls back to inspecting a pre-existing ``last_response`` when
+        present, which keeps the alternative "login_as → probe → assert"
+        pattern working.
+        """
+        assert self.client is not None
+        last_resp = context.get("last_response")
+        if last_resp is None:
+            try:
+                last_resp = self.client._request(
+                    "GET",
+                    f"{self.client.api_url}/auth/me",
+                    headers=self.client._auth_headers(),
+                )
+            except Exception as e:
+                return StepResult(
+                    action=action,
+                    target=target,
+                    result=TestResult.FAILED,
+                    message=f"/auth/me probe failed: {e}",
+                    duration_ms=(time.time() - start_time) * 1000,
+                )
+            context["last_response"] = last_resp
+        expected_codes = resolved_data.get("expect", list(range(200, 300)))
+        actual = last_resp.status_code
+        success = actual in expected_codes
+        return StepResult(
+            action=action,
+            target=target,
+            result=TestResult.PASSED if success else TestResult.FAILED,
+            message=f"Status {actual} {'matches' if success else 'not in'} {expected_codes}",
+            duration_ms=(time.time() - start_time) * 1000,
+        )
+
+    def _execute_transition_expect_error_step(
+        self,
+        action: str,
+        target: str,
+        resolved_data: dict[str, Any],
+        context: dict[str, Any],
+        store_result: str | None,
+        start_time: float,
+        **_kw: Any,
+    ) -> StepResult:
+        """#1138: sibling of ``create_expect_error`` for invalid state
+        transitions. Currently SKIP — like ``trigger_transition``,
+        the entity-id context contract isn't standardised yet, so a
+        real PATCH-and-expect-4xx implementation would have a
+        higher-than-acceptable false-fail rate. Stub clears the
+        unknown-action warning."""
+        return StepResult(
+            action=action,
+            target=target,
+            result=TestResult.SKIPPED,
+            message="transition_expect_error requires entity-id context (not yet wired)",
+            duration_ms=(time.time() - start_time) * 1000,
+        )
+
     def _execute_create_expect_error_step(
         self,
         action: str,
@@ -1809,11 +1953,17 @@ class TestRunner:
         assert self.client is not None
         entity_name = target.replace("entity:", "")
         endpoint = self.client._entity_endpoint(entity_name)
+        # #1139: prefer the payload actually sent by the preceding
+        # create step (which has post-generation unique-field values)
+        # over the raw resolved_data literal — otherwise a "duplicate
+        # email" scenario sends two different emails and never trips
+        # the unique constraint.
+        payload = context.get(f"_last_created_data:{entity_name}", resolved_data)
         try:
             resp = self.client._request(
                 "POST",
                 f"{self.client.api_url}{endpoint}",
-                json=resolved_data,
+                json=payload,
                 headers=self.client._auth_headers(),
             )
         except Exception as e:
@@ -1901,6 +2051,12 @@ class TestRunner:
         "assert_visible": "_execute_assert_visible_step",
         "assert_count": "_execute_assert_count_step",
         "trigger_transition": "_execute_trigger_transition_step",
+        # #1138: alias — designs emit `transition` as the shorter form of
+        # `trigger_transition`. Routes to the same SKIP stub.
+        "transition": "_execute_trigger_transition_step",
+        "transition_expect_error": "_execute_transition_expect_error_step",
+        "assert_state": "_execute_assert_state_step",
+        "assert_authenticated": "_execute_assert_authenticated_step",
         "check_route": "_execute_check_route_step",
         "read_list": "_execute_read_list_step",
         "post": "_execute_post_step",
@@ -1931,6 +2087,10 @@ class TestRunner:
         # cleanly rather than emitting an "Unknown test action" warning.
         "fill_form": "_execute_ui_only_step",
         "submit_form": "_execute_ui_only_step",
+        # #1138: persona goal recipes are inherently multi-step UI flows;
+        # API-only mode SKIPs cleanly rather than emitting "Unknown
+        # test action".
+        "achieve_goal": "_execute_ui_only_step",
         "assert_not_visible": "_execute_ui_assertion_step",
         "assert_text": "_execute_ui_assertion_step",
         "wait_for_load": "_execute_e2e_only_step",

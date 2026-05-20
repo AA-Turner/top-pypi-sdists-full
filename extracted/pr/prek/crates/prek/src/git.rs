@@ -6,12 +6,12 @@ use std::str::Utf8Error;
 use std::sync::LazyLock;
 
 use anyhow::Result;
-use path_clean::PathClean;
 use prek_consts::env_vars::EnvVars;
 use rustc_hash::FxHashSet;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{debug, instrument, warn};
 
+use crate::fs::PathClean;
 use crate::process;
 use crate::process::{Cmd, StatusError};
 
@@ -788,6 +788,29 @@ pub(crate) async fn rev_exists(rev: &str) -> Result<bool, Error> {
         .output()
         .await?;
     Ok(output.status.success())
+}
+
+/// Check if `ancestor` is an ancestor of `commit`.
+pub(crate) async fn is_ancestor(ancestor: &str, commit: &str) -> Result<bool, Error> {
+    let mut cmd = git_cmd("check commit ancestry")?;
+    let status = cmd
+        .arg("merge-base")
+        .arg("--is-ancestor")
+        .arg(ancestor)
+        .arg(commit)
+        .check(false)
+        .status()
+        .await?;
+
+    if status.success() {
+        return Ok(true);
+    }
+    if status.code() == Some(1) {
+        return Ok(false);
+    }
+
+    cmd.check_status(status)?;
+    Ok(false)
 }
 
 /// Get commits that are ancestors of the given commit but not in the specified remote

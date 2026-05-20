@@ -1389,14 +1389,15 @@ def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_nam
         bool: True if workflow was triggered successfully, False otherwise
     """
     try:
+        result = None
         logger.info("Attempting to trigger production scans workflow...")
         
         # Get GitHub token from environment
-        github_token = os.environ.get('GITHUB_TOKEN') or os.environ.get('CI_PAT') or PKEnvironment().allSecrets.get("PKG")
+        github_token = PKEnvironment().allSecrets.get('GITHUB_TOKEN') or PKEnvironment().allSecrets.get('CI_PAT') or PKEnvironment().allSecrets.get("PKG")
         
         if not github_token:
             logger.error("No GitHub token found, cannot trigger workflow")
-            return False
+            return False, result
         
         # Use run_workflow with correct parameters
         result = run_workflow(
@@ -1409,15 +1410,15 @@ def trigger_prod_scans_workflow(repo="PKScreener", owner="pkjmesra",workflow_nam
         
         if result and result.status_code == 204:
             logger.info("✅ Successfully triggered production scans workflow at 9:30 AM IST")
-            return True
+            return True, result
         else:
             logger.error(f"Failed to trigger workflow: {result.status_code if result else 'No response'}")
             logger.error(f"Failed to trigger workflow: {result if result else 'No response'}")
-            return False
+            return False, result
             
     except Exception as e:
         logger.error(f"Error triggering production scans workflow: {e}")
-        return False
+        return False, result
 
 
 def scheduled_workflow_trigger(triggers: List[Tuple[int, int, str, str]]):
@@ -1454,12 +1455,12 @@ def scheduled_workflow_trigger(triggers: List[Tuple[int, int, str, str]]):
             key = (hour, minute)
             if key not in triggered_today and current_hour == hour and current_minute == minute:
                 logger.info(f"🕐 Trigger time {hour:02d}:{minute:02d} IST reached – firing workflow {wf_name}")
-                success = trigger_prod_scans_workflow(repo=repo, workflow_name=wf_name)
+                success,response = trigger_prod_scans_workflow(repo=repo, workflow_name=wf_name)
                 if success:
                     triggered_today.add(key)
                     logger.info(f"✅ Triggered {wf_name} successfully")
                 else:
-                    logger.warning(f"⚠️ Failed to trigger {wf_name}, will retry next minute")
+                    logger.warning(f"⚠️ Failed to trigger {repo}/{wf_name}, will retry next minute: {response}")
                     sleep(60)
                     continue   # re-check after retry
         
@@ -1559,11 +1560,17 @@ def manual_trigger(update: Update, context: CallbackContext) -> None:
         return
     
     update.message.reply_text("🔄 Manually triggering production scans workflow...")
-    success = trigger_prod_scans_workflow()
-    if success:
-        update.message.reply_text("✅ Workflow triggered successfully!")
-    else:
-        update.message.reply_text("❌ Failed to trigger workflow. Check logs for details.")
+    triggers = [
+            (9, 33, "PKScreener", "w7-workflow-prod-scans-trigger.yml"),
+            (15, 30, "PKBrokers", "w1-workflow-history-data-parent.yml")
+        ]
+    for hour, minute, repo, wf_name in triggers:
+        logger.info(f"🕐 Trigger time {hour:02d}:{minute:02d} IST. Manually triggering – firing workflow {repo}/{wf_name}")
+        success, response = trigger_prod_scans_workflow(repo=repo, workflow_name=wf_name)
+        if success:
+            update.message.reply_text(f"✅ {repo}/{wf_name} Workflow triggered successfully!")
+        else:
+            update.message.reply_text(f"❌ Failed to trigger workflow - {repo}/{wf_name} Check logs for details: {response}")
 
 
 def stop_trigger(update: Update, context: CallbackContext) -> None:

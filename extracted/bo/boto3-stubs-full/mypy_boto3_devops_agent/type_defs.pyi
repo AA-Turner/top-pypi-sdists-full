@@ -166,6 +166,10 @@ __all__ = (
     "MCPServerNewRelicConfigurationTypeDef",
     "MCPServerOAuth3LOConfigTypeDef",
     "MCPServerOAuthClientCredentialsConfigTypeDef",
+    "MCPServerSigV4AuthorizationConfigTypeDef",
+    "MCPServerSigV4ConfigurationOutputTypeDef",
+    "MCPServerSigV4ConfigurationTypeDef",
+    "MCPServerSigV4ServiceDetailsTypeDef",
     "MessageTypeDef",
     "NewRelicApiKeyConfigTypeDef",
     "NewRelicServiceAuthorizationConfigTypeDef",
@@ -194,6 +198,7 @@ __all__ = (
     "RegisteredGithubServiceDetailsTypeDef",
     "RegisteredGrafanaServerDetailsTypeDef",
     "RegisteredMCPServerDetailsTypeDef",
+    "RegisteredMCPServerSigV4DetailsTypeDef",
     "RegisteredNewRelicDetailsTypeDef",
     "RegisteredPagerDutyDetailsTypeDef",
     "RegisteredServiceNowDetailsTypeDef",
@@ -291,6 +296,15 @@ class RegisteredMCPServerDetailsTypeDef(TypedDict):
     authorizationMethod: MCPServerAuthorizationMethodType
     description: NotRequired[str]
     apiKeyHeader: NotRequired[str]
+
+class RegisteredMCPServerSigV4DetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    region: str
+    service: str
+    roleArn: str
+    description: NotRequired[str]
+    customHeaders: NotRequired[dict[str, str]]
 
 class RegisteredNewRelicDetailsTypeDef(TypedDict):
     accountId: str
@@ -650,6 +664,18 @@ class MCPServerNewRelicConfigurationTypeDef(TypedDict):
     accountId: str
     endpoint: str
 
+class MCPServerSigV4AuthorizationConfigTypeDef(TypedDict):
+    region: str
+    service: str
+    roleArn: str
+    customHeaders: NotRequired[Mapping[str, str]]
+
+class MCPServerSigV4ConfigurationOutputTypeDef(TypedDict):
+    tools: list[str]
+
+class MCPServerSigV4ConfigurationTypeDef(TypedDict):
+    tools: Sequence[str]
+
 class UserMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolResult: NotRequired[dict[str, Any]]
@@ -839,6 +865,7 @@ class AdditionalServiceDetailsTypeDef(TypedDict):
     azureidentity: NotRequired[RegisteredAzureIdentityDetailsOutputTypeDef]
     mcpservergrafana: NotRequired[RegisteredGrafanaServerDetailsTypeDef]
     pagerduty: NotRequired[RegisteredPagerDutyDetailsTypeDef]
+    mcpserversigv4: NotRequired[RegisteredMCPServerSigV4DetailsTypeDef]
 
 class AdditionalServiceRegistrationStepTypeDef(TypedDict):
     oauth: NotRequired[OAuthAdditionalStepDetailsTypeDef]
@@ -1053,6 +1080,12 @@ class MCPServerAuthorizationConfigTypeDef(TypedDict):
     bearerToken: NotRequired[MCPServerBearerTokenConfigTypeDef]
     authorizationDiscovery: NotRequired[MCPServerAuthorizationDiscoveryConfigTypeDef]
 
+class MCPServerSigV4ServiceDetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    authorizationConfig: MCPServerSigV4AuthorizationConfigTypeDef
+    description: NotRequired[str]
+
 class MessageTypeDef(TypedDict):
     userMessage: NotRequired[list[UserMessageBlockTypeDef]]
     assistantMessage: NotRequired[list[AssistantMessageBlockTypeDef]]
@@ -1081,6 +1114,8 @@ class RecommendationTypeDef(TypedDict):
     goalId: NotRequired[str]
     goalVersion: NotRequired[int]
     additionalContext: NotRequired[str]
+    rankPosition: NotRequired[int]
+    rankedAt: NotRequired[datetime]
 
 class TaskTypeDef(TypedDict):
     agentSpaceId: str
@@ -1310,6 +1345,7 @@ class ServiceDetailsTypeDef(TypedDict):
     mcpservergrafana: NotRequired[GrafanaServiceDetailsTypeDef]
     pagerduty: NotRequired[PagerDutyDetailsTypeDef]
     azureidentity: NotRequired[RegisteredAzureIdentityDetailsUnionTypeDef]
+    mcpserversigv4: NotRequired[MCPServerSigV4ServiceDetailsTypeDef]
 
 class ServiceConfigurationOutputTypeDef(TypedDict):
     sourceAws: NotRequired[SourceAwsConfigurationTypeDef]
@@ -1328,6 +1364,7 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]
     mcpservergrafana: NotRequired[MCPServerGrafanaConfigurationOutputTypeDef]
     pagerduty: NotRequired[PagerDutyConfigurationOutputTypeDef]
+    mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationOutputTypeDef]
 
 class ServiceConfigurationTypeDef(TypedDict):
     sourceAws: NotRequired[SourceAwsConfigurationTypeDef]
@@ -1346,6 +1383,7 @@ class ServiceConfigurationTypeDef(TypedDict):
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]
     mcpservergrafana: NotRequired[MCPServerGrafanaConfigurationTypeDef]
     pagerduty: NotRequired[PagerDutyConfigurationTypeDef]
+    mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationTypeDef]
 
 class SendMessageResponseTypeDef(TypedDict):
     events: EventStream[SendMessageEventsTypeDef]

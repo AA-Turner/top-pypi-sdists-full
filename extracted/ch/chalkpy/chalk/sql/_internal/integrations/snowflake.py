@@ -472,7 +472,11 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 column = tbl[col_name]
                 expected_type = feature.converter.pyarrow_dtype
                 actual_type = tbl.schema.field(col_name).type
-                if pa.types.is_list(expected_type) or pa.types.is_large_list(expected_type):
+                if (
+                    pa.types.is_list(expected_type)
+                    or pa.types.is_large_list(expected_type)
+                    or pa.types.is_fixed_size_list(expected_type)
+                ):
                     if pa.types.is_string(actual_type) or pa.types.is_large_string(actual_type):
                         series = pa_array_to_pl_series(tbl[col_name])
                         column = (

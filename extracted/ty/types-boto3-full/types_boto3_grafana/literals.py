@@ -78,6 +78,7 @@ WorkspaceStatusType = Literal[
     "ACTIVE",
     "CREATING",
     "CREATION_FAILED",
+    "DEGRADED",
     "DELETING",
     "DELETION_FAILED",
     "FAILED",

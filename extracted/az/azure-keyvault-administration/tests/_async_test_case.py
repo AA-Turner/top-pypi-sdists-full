@@ -5,9 +5,7 @@
 import os
 
 import pytest
-from azure.keyvault.administration import ApiVersion
 from azure.keyvault.administration._internal.client_base import DEFAULT_VERSION
-from azure.identity.aio import ManagedIdentityCredential
 from devtools_testutils import AzureRecordedTestCase
 
 
@@ -62,6 +60,7 @@ class KeyVaultBackupClientPreparer(BaseClientPreparer):
 
             async with client:
                 await fn(test_class, client, **kwargs)
+
         return _preparer
 
     def create_backup_client(self, **kwargs):
@@ -84,6 +83,7 @@ class KeyVaultBackupClientSasPreparer(BaseClientPreparer):
 
             async with client:
                 await fn(test_class, client, **kwargs)
+
         return _preparer
 
     def create_backup_client(self, **kwargs):
@@ -103,11 +103,11 @@ class KeyVaultAccessControlClientPreparer(BaseClientPreparer):
 
             async with client:
                 await fn(test_class, client, **kwargs)
+
         return _preparer
 
     def create_access_control_client(self, **kwargs):
-        from azure.keyvault.administration.aio import \
-            KeyVaultAccessControlClient
+        from azure.keyvault.administration.aio import KeyVaultAccessControlClient
 
         credential = self.get_credential(KeyVaultAccessControlClient, is_async=True)
         return self.create_client_from_credential(
@@ -123,20 +123,13 @@ class KeyVaultSettingsClientPreparer(BaseClientPreparer):
 
             async with client:
                 await fn(test_class, client, **kwargs)
+
         return _preparer
 
     def create_access_control_client(self, **kwargs):
-        from azure.keyvault.administration.aio import \
-            KeyVaultSettingsClient
+        from azure.keyvault.administration.aio import KeyVaultSettingsClient
 
         credential = self.get_credential(KeyVaultSettingsClient, is_async=True)
         return self.create_client_from_credential(
             KeyVaultSettingsClient, credential=credential, vault_url=self.managed_hsm_url, **kwargs
         )
-
-
-def get_decorator(**kwargs):
-    """returns a test decorator for test parameterization"""
-    versions = kwargs.pop("api_versions", None) or ApiVersion
-    params = [pytest.param(api_version) for api_version in versions]
-    return params

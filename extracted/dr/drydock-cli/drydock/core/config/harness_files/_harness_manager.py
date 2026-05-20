@@ -69,15 +69,11 @@ class HarnessFilesManager:
         project_skills = Path.cwd() / ".drydock" / "skills"
         if project_skills.is_dir():
             dirs.append(project_skills)
-        # User skills in ~/.drydock/skills/ (and ~/.drydock/skills/ for backward compat)
+        # User skills in ~/.drydock/skills/
         if "user" in self.sources:
             d = GLOBAL_SKILLS_DIR.path
             if d.is_dir():
                 dirs.append(d)
-            # Always check legacy ~/.drydock/skills/ in case migration didn't complete
-            legacy_skills = Path.home() / ".drydock" / "skills"
-            if legacy_skills.is_dir() and legacy_skills != d:
-                dirs.append(legacy_skills)
         # Plugin skills
         try:
             from drydock.core.plugins import get_plugin_skill_dirs

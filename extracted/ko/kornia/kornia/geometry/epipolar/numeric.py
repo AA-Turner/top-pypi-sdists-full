@@ -19,7 +19,7 @@
 
 import torch
 
-from kornia.core import stack, zeros_like
+from kornia.core.utils import _torch_inverse_cast
 
 
 def cross_product_matrix(x: torch.Tensor) -> torch.Tensor:
@@ -40,8 +40,8 @@ def cross_product_matrix(x: torch.Tensor) -> torch.Tensor:
     x2 = x[..., 2]
 
     # construct the matrix, reshape to 3x3 and return
-    zeros = zeros_like(x0)
-    cross_product_matrix_flat = stack([zeros, -x2, x1, x2, zeros, -x0, -x1, x0, zeros], dim=-1)
+    zeros = torch.zeros_like(x0)
+    cross_product_matrix_flat = torch.stack([zeros, -x2, x1, x2, zeros, -x0, -x1, x0, zeros], dim=-1)
     shape_ = x.shape[:-1] + (3, 3)
     return cross_product_matrix_flat.view(*shape_)
 
@@ -57,7 +57,7 @@ def matrix_cofactor_tensor(matrix: torch.Tensor) -> torch.Tensor:
     singular_mask = det != 0
     if singular_mask.sum() != 0:
         # B, 3, 3
-        cofactor = torch.linalg.inv(matrix[singular_mask]).transpose(-2, -1) * det[:, None, None]
+        cofactor = _torch_inverse_cast(matrix[singular_mask]).transpose(-2, -1) * det[singular_mask][:, None, None]
         # return cofactor matrix of the given matrix
         returned_cofactor = torch.zeros_like(matrix)
         returned_cofactor[singular_mask] = cofactor

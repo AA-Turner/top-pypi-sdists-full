@@ -249,7 +249,13 @@ def _globalize_single_replica_arrays(
 
   if is_source:
     for s in inp.addressable_shards:
-      source_device_map[s.device] = jnp.expand_dims(s.data, axis=0)
+      sd_mesh = jax.sharding.Mesh(np.array([s.device]), ('_single',))
+      if hasattr(jax, 'set_mesh'):
+        with jax.set_mesh(sd_mesh):
+          source_device_map[s.device] = jnp.expand_dims(s.data, axis=0)
+      else:
+        with sd_mesh:
+          source_device_map[s.device] = jnp.expand_dims(s.data, axis=0)
 
   device_buffers = []
   for d, index in global_sharding.addressable_devices_indices_map(
@@ -261,7 +267,13 @@ def _globalize_single_replica_arrays(
       # Use jax.numpy.zeros to allocate directly on device
       # to avoid Host RAM spike.
       slice_shape = _get_slice_shape(index, global_shape)
-      zero_data = jnp.zeros(slice_shape, dtype=inp.dtype, device=d)
+      sd_mesh = jax.sharding.Mesh(np.array([d]), ('_single',))
+      if hasattr(jax, 'set_mesh'):
+        with jax.set_mesh(sd_mesh):
+          zero_data = jnp.zeros(slice_shape, dtype=inp.dtype, device=d)
+      else:
+        with sd_mesh:
+          zero_data = jnp.zeros(slice_shape, dtype=inp.dtype, device=d)
       device_buffers.append(zero_data)
 
   logging.vlog(

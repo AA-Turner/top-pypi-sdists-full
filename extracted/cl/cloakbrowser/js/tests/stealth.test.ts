@@ -44,9 +44,14 @@ function buildMockPage(overrides: Record<string, any> = {}): any {
 
   const makeLocator = () => {
     const loc: any = {
-      boundingBox: vi.fn(async () => ({ x: 100, y: 100, width: 200, height: 30 })),
+      boundingBox: vi.fn(async () => ({ x: 100, y: 300, width: 200, height: 30 })),
       scrollIntoViewIfNeeded: vi.fn(async () => {}),
       isChecked: overrides.isChecked ?? vi.fn(async () => false),
+      waitFor: vi.fn(async () => {}),
+      isVisible: vi.fn(async () => true),
+      isEnabled: vi.fn(async () => true),
+      isEditable: vi.fn(async () => true),
+      evaluate: vi.fn(async () => ({ hit: true })),
     };
     loc.first = vi.fn(() => loc);
     return loc;
@@ -687,6 +692,9 @@ describe("isInputElement stealth integration via patchPage", () => {
         }
         if (method === "Runtime.evaluate") {
           stealthEvaluateCalls.push(params.expression);
+          if (params.expression.includes("elementFromPoint")) {
+            return { result: { value: { hit: true } } };
+          }
           return { result: { value: false } }; // not an input
         }
         return {};
@@ -696,7 +704,7 @@ describe("isInputElement stealth integration via patchPage", () => {
     const page = buildMockPage({
       evaluate: vi.fn(async (...args: any[]) => {
         evaluateCalls.push(args);
-        return false;
+        return { hit: true };
       }),
     });
     page.context = vi.fn(() => ({

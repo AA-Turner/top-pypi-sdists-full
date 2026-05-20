@@ -550,12 +550,19 @@ class GOMP:
 
             n = len(r_m)
             if n < 4:
+                logger.warning(
+                    f"[gomp._best_candidate] fast: n_valid_residuals={n} < 4"
+                )
                 return None, -np.inf
 
             # vectorised Pearson r and t-test p-value
             r_mean = r_m.mean()
             r_std = r_m.std(ddof=0)
             if r_std < 1e-12:
+                logger.warning(
+                    f"[gomp._best_candidate] fast: r_std={r_std:.3e} < 1e-12 "
+                    f"(constant residuals, n={n})"
+                )
                 return None, -np.inf
 
             X_mean = X_m.mean(axis=0)
@@ -589,6 +596,11 @@ class GOMP:
                 best_score = score
                 best_idx = j
 
+        if best_idx is None:
+            logger.warning(
+                f"[gomp._best_candidate] slow: all {len(remaining)} "
+                f"candidates scored -inf or worse"
+            )
         return best_idx, best_score
 
     def _check_stop(

@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 rust-version = "1.93.1"
 repository = "https://github.com/j178/prek"
@@ -11,9 +11,9 @@ homepage = "https://prek.j178.dev/"
 license = "MIT"
 
 [workspace.dependencies]
-prek-consts = { path = "crates/prek-consts", version = "0.4.0" }
-prek-identify = { path = "crates/prek-identify", version = "0.4.0" }
-prek-pty = { path = "crates/prek-pty", version = "0.4.0" }
+prek-consts = { path = "crates/prek-consts", version = "0.4.1" }
+prek-identify = { path = "crates/prek-identify", version = "0.4.1" }
+prek-pty = { path = "crates/prek-pty", version = "0.4.1" }
 
 aho-corasick = { version = "1.1.4" }
 annotate-snippets = { version = "0.12.13" }
@@ -50,8 +50,6 @@ indicatif = { version = "0.18.0" }
 indoc = { version = "2.0.5" }
 itertools = { version = "0.14.0" }
 json5 = { version = "1.3.0" }
-lazy-regex = { version = "3.4.2" }
-levenshtein = { version = "1.0.5" }
 libc = { version = "0.2.182" }
 # Enable static linking for liblzma
 # This is required for the `xz` feature in `async-compression`
@@ -59,7 +57,6 @@ liblzma = { version = "0.4.5", features = ["static"] }
 mea = { version = "0.6.3" }
 memchr = { version = "2.7.5" }
 owo-colors = { version = "4.1.0" }
-path-clean = { version = "1.0.1" }
 phf = { version = "0.13.1", default-features = false, features = ["macros"] }
 pprof = { version = "0.15.0" }
 quick-xml = { version = "0.39" }
@@ -83,7 +80,7 @@ serde_json = { version = "1.0.132", features = [
   "unbounded_depth",
 ] }
 serde_stacker = { version = "0.1.12" }
-serde-saphyr = { version = "0.0.25", default-features = false, features = [
+serde-saphyr = { version = "0.0.26", default-features = false, features = [
   "deserialize",
   "serialize",
 ] }

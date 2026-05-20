@@ -327,8 +327,8 @@ class InternalUtils:
         except Exception as e:
             logging.info(f"get_notebook_wip failed ({e}), falling back to get_notebook")
             response = api.datazone_api.get_notebook(
-                domainId=domain_id,
-                notebookId=notebook_id,
+                domainIdentifier=domain_id,
+                identifier=notebook_id,
             )
         metadata = response.get("metadata") or {}
         connection_id = metadata.get("defaultSparkConnectionId", "")

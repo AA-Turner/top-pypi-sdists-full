@@ -484,6 +484,23 @@ def auto_train(
             from cubist import Cubist
 
             model = Cubist(n_committees=5, auto=True, random_state=seed)
+        elif model_name == "gpr":
+            from sklearn.gaussian_process import GaussianProcessRegressor
+            from sklearn.gaussian_process.kernels import (
+                RBF, WhiteKernel, ConstantKernel as C,
+            )
+
+            kernel = (
+                C(1.0, (1e-3, 1e3))
+                * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2))
+                + WhiteKernel(noise_level=1.0, noise_level_bounds=(1e-5, 1e1))
+            )
+            model = GaussianProcessRegressor(
+                kernel=kernel,
+                n_restarts_optimizer=5,
+                normalize_y=True,
+                random_state=seed,
+            )
         elif model_name == "xgboost":
             raise NotImplementedError("XGBoost model not implemented yet")
         else:

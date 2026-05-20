@@ -87,27 +87,15 @@ class PrologArgs(BaseModel):
     op: PrologOp = Field(description=_OP_HELP)
     facts: list[str] = Field(
         default_factory=list,
-        description=(
-            'Ground facts, one per entry. Standard Prolog syntax: '
-            '`parent(tom, bob)`, `likes(alice, pizza)`. Lowercase '
-            'atoms, no trailing period. Max 200.'
-        ),
+        description="Ground facts (e.g. 'parent(tom, bob)'). Lowercase atoms, no period. Max 200.",
     )
     rules: list[str] = Field(
         default_factory=list,
-        description=(
-            'Inference rules, one per entry. Standard Prolog syntax: '
-            '`grandparent(X, Y) :- parent(X, Z), parent(Z, Y)`. '
-            'Uppercase identifiers are variables. Max 50.'
-        ),
+        description="Inference rules (e.g. 'grandparent(X,Y) :- parent(X,Z), parent(Z,Y)'). UPPER = variable. Max 50.",
     )
     query: str = Field(
         default="",
-        description=(
-            'Single query to run (e.g. `grandparent(tom, X)`). Variables '
-            'in the query become the unknowns to solve for. Ignored by '
-            '`consult`.'
-        ),
+        description="Query (e.g. 'grandparent(tom, X)'). Variables become unknowns. Ignored by consult.",
     )
     timeout_sec: float = Field(
         default=5.0,

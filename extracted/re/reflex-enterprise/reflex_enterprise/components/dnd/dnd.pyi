@@ -294,7 +294,7 @@ class BaseDnDDiv(Div, MemoizationLeaf):
         on_unmount: Optional[EventType[()]] = None,
         **props,
     ) -> "BaseDnDDiv":
-        """Create a new memoization leaf component.
+        """Create the component.
 
         Args:
             *children: The children of the component.
@@ -339,7 +339,7 @@ class BaseDnDDiv(Div, MemoizationLeaf):
             **props: The props of the component.
 
         Returns:
-            The memoization leaf
+            The component.
         """
         ...
 

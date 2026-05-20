@@ -216,6 +216,26 @@ where
     pub fn is_extended_connect_protocol_enabled(&self) -> bool {
         self.inner.1.is_extended_connect_protocol_enabled()
     }
+
+    /// Returns the current maximum send stream count.
+    ///
+    /// This setting is configured in a [`SETTINGS_MAX_CONCURRENT_STREAMS` parameter][1] in a `SETTINGS` frame,
+    /// and may change throughout the connection lifetime.
+    ///
+    /// [1]: https://datatracker.ietf.org/doc/html/rfc7540#section-5.1.2
+    pub fn current_max_send_streams(&self) -> usize {
+        self.inner.1.current_max_send_streams()
+    }
+
+    /// Returns the current maximum receive stream count.
+    ///
+    /// This setting is configured in a [`SETTINGS_MAX_CONCURRENT_STREAMS` parameter][1] in a `SETTINGS` frame,
+    /// and may change throughout the connection lifetime.
+    ///
+    /// [1]: https://datatracker.ietf.org/doc/html/rfc7540#section-5.1.2
+    pub fn current_max_recv_streams(&self) -> usize {
+        self.inner.1.current_max_recv_streams()
+    }
 }
 
 impl<T, B, E> fmt::Debug for Connection<T, B, E>
@@ -399,7 +419,7 @@ where
     ///
     /// See [Section 5.1.2] in the HTTP/2 spec for more details.
     ///
-    /// [Section 5.1.2]: https://http2.github.io/http2-spec/#rfc.section.5.1.2
+    /// [Section 5.1.2]: https://httpwg.org/specs/rfc7540.html#rfc.section.5.1.2
     pub fn max_concurrent_streams(&mut self, max: impl Into<Option<u32>>) -> &mut Self {
         self.h2_builder.max_concurrent_streams = max.into();
         self
@@ -541,6 +561,28 @@ where
     /// Firefox starts at stream ID 3 (skipping stream 1), Chrome uses the default of 1.
     pub fn initial_stream_id(&mut self, stream_id: u32) -> &mut Self {
         self.h2_builder.initial_stream_id = Some(stream_id);
+        self
+    }
+
+    /// Sets extra receive window capacity to add to new locally-initiated streams.
+    ///
+    /// When set, after creating a new stream, a WINDOW_UPDATE frame will be
+    /// sent to increase the stream's receive window by this amount.
+    /// This is used for browser fingerprinting (e.g. Firefox adds 12451840
+    /// to the first stream's receive window).
+    pub fn initial_stream_window_size_increment(&mut self, size: u32) -> &mut Self {
+        self.h2_builder.initial_stream_window_increment = Some(size);
+        self
+    }
+
+    /// Configures the maximum number of local resets due to protocol errors made by the remote end.
+    ///
+    /// See the documentation of [`h2::client::Builder::max_local_error_reset_streams`] for more
+    /// details.
+    ///
+    /// The default value is 1024.
+    pub fn max_local_error_reset_streams(&mut self, max: impl Into<Option<usize>>) -> &mut Self {
+        self.h2_builder.max_local_error_reset_streams = max.into();
         self
     }
 

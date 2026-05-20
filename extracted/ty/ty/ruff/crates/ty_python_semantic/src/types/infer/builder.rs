@@ -32,9 +32,9 @@ use crate::diagnostic::format_enumeration;
 use crate::place::{
     ConsideredDefinitions, DefinedPlace, Definedness, LookupError, Place, PlaceAndQualifiers,
     TypeOrigin, builtins_module_scope, builtins_symbol, class_body_implicit_symbol,
-    explicit_global_symbol, global_symbol, loop_header_reachability,
-    module_type_implicit_global_declaration, module_type_implicit_global_symbol, place,
-    place_from_bindings, place_from_declarations, typing_extensions_symbol,
+    explicit_global_symbol, loop_header_reachability, module_type_implicit_global_declaration,
+    module_type_implicit_global_symbol, place, place_from_bindings, place_from_declarations,
+    typing_extensions_symbol,
 };
 use crate::reachability::ReachabilityConstraintsExtension;
 use crate::types::add_inferred_python_version_hint_to_diagnostic;
@@ -79,6 +79,7 @@ use crate::types::infer::builder::typed_dict::TypedDictConstructorForm;
 use crate::types::infer::{
     StatementInference, StatementInferenceInner, StatementInferenceInnerExtra, TypeExpressionFlags,
     infer_statement_types, nearest_enclosing_class, nearest_enclosing_function,
+    original_class_type,
 };
 use crate::types::narrow::NarrowingEvaluatorExtension;
 use crate::types::newtype::NewType;
@@ -315,7 +316,7 @@ pub(super) struct TypeInferenceBuilder<'db, 'ast> {
     /// is a stub file but we're still in a non-deferred region.
     deferred_state: DeferredExpressionState,
 
-    /// For function definitions, the undecorated type of the function.
+    /// For decorated function or class definitions, the type before applying decorators.
     undecorated_type: Option<Type<'db>>,
 
     /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
@@ -539,11 +540,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             let enclosing_scope = index.scope(scope.file_scope_id(db));
             let class_node = enclosing_scope.node().as_class()?;
             let class_definition = index.expect_single_definition(class_node);
-            let class_literal = infer_definition_types(db, class_definition)
-                .declaration_type(class_definition)
-                .inner_type()
-                .as_class_literal()?
-                .as_static()?;
+            let class_literal = original_class_type(db, class_definition)?.as_static()?;
 
             class_literal
                 .dataclass_params(db)
@@ -821,6 +818,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                         );
                     }
                     DefinitionKind::Class(class_node) => {
+                        let original_ty = match self.region {
+                            InferenceRegion::Definition(current) if current == definition => {
+                                self.undecorated_type
+                            }
+                            _ => original_class_type(self.db(), definition).map(Type::ClassLiteral),
+                        };
+                        let ty = original_ty.unwrap_or(ty);
                         post_inference::static_class::check_static_class_definitions(
                             &self.context,
                             ty,
@@ -1504,7 +1508,8 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
     fn class_context_of_current_method(&self) -> Option<ClassType<'db>> {
         let current_scope_id = self.scope().file_scope_id(self.db());
         let class_definition = self.index.class_definition_of_method(current_scope_id)?;
-        binding_type(self.db(), class_definition).to_class_type(self.db())
+        original_class_type(self.db(), class_definition)
+            .map(|class_literal| class_literal.default_specialization(self.db()))
     }
 
     /// If the current scope is a (non-lambda) function, return that function's AST node.
@@ -2423,6 +2428,14 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 }
             }
 
+            Type::EnumComplement(complement) => self.validate_attribute_assignment(
+                target,
+                complement.remaining_literal_union(db),
+                attribute,
+                infer_value_ty,
+                emit_diagnostics,
+            ),
+
             Type::TypeAlias(alias) => self.validate_attribute_assignment(
                 target,
                 alias.value_type(self.db()),
@@ -3063,6 +3076,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 }
             }
 
+            Type::EnumComplement(complement) => self.validate_attribute_deletion(
+                target,
+                complement.remaining_literal_union(db),
+                attribute,
+                emit_diagnostics,
+            ),
+
             // Type aliases need their own arm so aliased unions and intersections reuse the
             // specialized handling above. `NewType` instances don't: dunder lookup and attribute
             // fallback already delegate through the concrete base type when needed.
@@ -3250,6 +3270,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 | Type::WrapperDescriptor(_)
                 | Type::DataclassDecorator(_)
                 | Type::DataclassTransformer(_)
+                | Type::EnumComplement(_)
                 | Type::TypeVar(..)
                 | Type::AlwaysTruthy
                 | Type::AlwaysFalsy
@@ -4987,7 +5008,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 Type::TypeAlias(alias) => propagate_callable_kind(db, alias.value_type(db), kind),
                 // Intersections are currently not handled here because that would require
                 // the decorator to be explicitly annotated as returning an intersection.
-                Type::Intersection(_) => None,
+                Type::Intersection(_) | Type::EnumComplement(_) => None,
                 // All other types cannot have a callable kind propagated to them.
                 Type::Dynamic(_)
                 | Type::Divergent(_)
@@ -6146,13 +6167,18 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 }
             } else if let Type::Union(union) = annotation {
                 let union_elements = union.elements(self.db());
-                let typed_dicts = union_elements
-                    .iter()
-                    .filter_map(|element| element.as_typed_dict())
-                    .collect_vec();
-                let has_dict_compatible_fallback = union_elements.iter().any(|element| {
-                    !element.is_typed_dict() && element.is_instance_of(self.db(), KnownClass::Dict)
-                });
+                let mut typed_dicts = Vec::new();
+                let mut has_dict_compatible_fallback = false;
+
+                for element in union_elements {
+                    let element = element.resolve_type_alias(self.db());
+
+                    if let Some(typed_dict) = element.as_typed_dict() {
+                        typed_dicts.push(typed_dict);
+                    } else if element.is_instance_of(self.db(), KnownClass::Dict) {
+                        has_dict_compatible_fallback = true;
+                    }
+                }
 
                 if let [typed_dict] = typed_dicts.as_slice()
                     && !has_dict_compatible_fallback
@@ -6688,7 +6714,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         let scope = scope_id.to_scope_id(self.db(), self.file());
         let inference = infer_scope_types(self.db(), scope, yield_tcx);
         self.extend_scope(inference);
-        let yield_type = inference.expression_type(elt.as_ref());
+        let yield_type = self.comprehension_element_type(elt, inference);
 
         if evaluation_mode.is_async() {
             KnownClass::AsyncGeneratorType
@@ -6698,6 +6724,21 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 self.db(),
                 &[yield_type, Type::none(self.db()), Type::none(self.db())],
             )
+        }
+    }
+
+    fn comprehension_element_type(
+        &self,
+        element: &ast::Expr,
+        inference: &ScopeInference<'db>,
+    ) -> Type<'db> {
+        let element_type = inference.expression_type(element);
+        if element.is_starred_expr() {
+            element_type
+                .iterate(self.db())
+                .homogeneous_element_type(self.db())
+        } else {
+            element_type
         }
     }
 
@@ -6803,7 +6844,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
 
         self.infer_comprehension_specialization(
             KnownClass::Dict,
-            [Some(key), Some(value)],
+            [key.as_deref(), Some(value)],
             inference,
             tcx,
         )
@@ -6825,7 +6866,12 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             parenthesized: _,
         } = generator;
 
-        self.infer_expression(elt, tcx);
+        let elt_tcx = if elt.is_starred_expr() {
+            tcx.map(|yield_ty| KnownClass::Iterable.to_specialized_instance(self.db(), &[yield_ty]))
+        } else {
+            tcx
+        };
+        self.infer_expression(elt, elt_tcx);
         self.infer_comprehensions(generators);
     }
 
@@ -6884,11 +6930,18 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             generators,
         } = dictcomp;
 
-        // Infer the key and value types using the outer type context.
-        let elts = [[Some(key.as_ref()), Some(value.as_ref())]];
-        let mut infer_elt_ty =
-            |builder: &mut Self, (_, elt, tcx)| builder.infer_expression(elt, tcx);
-        self.infer_collection_literal(KnownClass::Dict, &elts, &mut infer_elt_ty, tcx);
+        if key.is_some() {
+            // Infer the key and value types using the outer type context.
+            let elts = [[key.as_deref(), Some(value.as_ref())]];
+            let mut infer_elt_ty =
+                |builder: &mut Self, (_, elt, tcx)| builder.infer_expression(elt, tcx);
+            self.infer_collection_literal(KnownClass::Dict, &elts, &mut infer_elt_ty, tcx);
+        } else {
+            // Dict-unpack comprehensions are typed by the outer expression inference. Inferring
+            // them through the collection-literal helper here would report the same invalid
+            // mapping diagnostic twice.
+            self.infer_expression(value, TypeContext::default());
+        }
 
         self.infer_comprehensions(generators);
     }
@@ -8215,6 +8268,84 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
         }
     }
 
+    /// Resolve a load that has fallen through to the module's explicit global scope.
+    ///
+    /// For eager nested scopes, this uses the global enclosing snapshot instead of the completed
+    /// module scope, so a class body cannot see a class name that is bound only after the body
+    /// finishes:
+    ///
+    /// ```python
+    /// class A:
+    ///     A = A
+    /// ```
+    ///
+    /// `symbol_name` is only needed when no snapshot is available: snapshots can resolve complex
+    /// places like `a.x`, but the fallback global query only works for bare symbols. `assume_bound`
+    /// preserves the class-body fallback behavior for names that are also local to the class body.
+    fn infer_explicit_global_symbol_load(
+        &self,
+        place_expr: PlaceExprRef,
+        symbol_name: Option<&str>,
+        current_scope_id: FileScopeId,
+        constraint_keys: &mut Vec<(FileScopeId, ConstraintKey)>,
+        assume_bound: bool,
+    ) -> PlaceAndQualifiers<'db> {
+        let db = self.db();
+
+        if current_scope_id.is_global() {
+            return Place::Undefined.into();
+        }
+
+        if !self.is_deferred() {
+            match self
+                .index
+                .enclosing_snapshot(FileScopeId::global(), place_expr, current_scope_id)
+            {
+                EnclosingSnapshotResult::FoundConstraint(constraint) => {
+                    constraint_keys.push((
+                        FileScopeId::global(),
+                        ConstraintKey::NarrowingConstraint(constraint),
+                    ));
+                    // Reaching here means that no bindings are found in any scope.
+                    // Since `explicit_global_symbol` may return a cycle initial value, we return `Place::Undefined` here.
+                    return Place::Undefined.into();
+                }
+                EnclosingSnapshotResult::FoundBindings(bindings) => {
+                    let mut place_and_qualifiers = place_from_bindings(db, bindings);
+                    if assume_bound && let Place::Defined(defined) = place_and_qualifiers.place {
+                        place_and_qualifiers.place =
+                            Place::Defined(defined.with_definedness(Definedness::AlwaysDefined));
+                    }
+                    let place = place_and_qualifiers.place.map_type(|ty| {
+                        self.narrow_place_with_applicable_constraints(
+                            place_expr,
+                            ty,
+                            constraint_keys,
+                        )
+                    });
+                    constraint_keys.push((
+                        FileScopeId::global(),
+                        ConstraintKey::NestedScope(current_scope_id),
+                    ));
+                    return place.into();
+                }
+                // There are no visible bindings / constraint here.
+                EnclosingSnapshotResult::NotFound => {
+                    return Place::Undefined.into();
+                }
+                EnclosingSnapshotResult::NoLongerInEagerContext => {}
+            }
+        }
+
+        let Some(symbol_name) = symbol_name else {
+            return Place::Undefined.into();
+        };
+
+        explicit_global_symbol(db, self.file(), symbol_name).map_type(|ty| {
+            self.narrow_place_with_applicable_constraints(place_expr, ty, constraint_keys)
+        })
+    }
+
     /// Infer the type of a place expression from definitions, assuming a load context.
     /// This method also returns the [`ConstraintKey`]s for each scope associated with `expr`,
     /// which is used to narrow by condition rather than by assignment.
@@ -8247,13 +8378,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 let fallback_to_global =
                     scope.node(db).scope_kind().is_class() && symbol_resolves_locally;
                 if self.skip_non_global_scopes(file_scope_id, symbol_id) || fallback_to_global {
-                    return global_symbol(self.db(), self.file(), symbol.name()).map_type(|ty| {
-                        self.narrow_place_with_applicable_constraints(
-                            place_expr,
-                            ty,
-                            &constraint_keys,
-                        )
-                    });
+                    return self.infer_explicit_global_symbol_load(
+                        place_expr,
+                        Some(symbol.name()),
+                        file_scope_id,
+                        &mut constraint_keys,
+                        fallback_to_global,
+                    );
                 }
             }
 
@@ -8472,59 +8603,13 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 // No nonlocal binding? Check the module's explicit globals.
                 // Avoid infinite recursion if `self.scope` already is the module's global scope.
                 .or_fall_back_to(db, || {
-                    if file_scope_id.is_global() {
-                        return Place::Undefined.into();
-                    }
-
-                    if !self.is_deferred() {
-                        match self.index.enclosing_snapshot(
-                            FileScopeId::global(),
-                            place_expr,
-                            file_scope_id,
-                        ) {
-                            EnclosingSnapshotResult::FoundConstraint(constraint) => {
-                                constraint_keys.push((
-                                    FileScopeId::global(),
-                                    ConstraintKey::NarrowingConstraint(constraint),
-                                ));
-                                // Reaching here means that no bindings are found in any scope.
-                                // Since `explicit_global_symbol` may return a cycle initial value, we return `Place::Undefined` here.
-                                return Place::Undefined.into();
-                            }
-                            EnclosingSnapshotResult::FoundBindings(bindings) => {
-                                let place =
-                                    place_from_bindings(db, bindings).place.map_type(|ty| {
-                                        self.narrow_place_with_applicable_constraints(
-                                            place_expr,
-                                            ty,
-                                            &constraint_keys,
-                                        )
-                                    });
-                                constraint_keys.push((
-                                    FileScopeId::global(),
-                                    ConstraintKey::NestedScope(file_scope_id),
-                                ));
-                                return place.into();
-                            }
-                            // There are no visible bindings / constraint here.
-                            EnclosingSnapshotResult::NotFound => {
-                                return Place::Undefined.into();
-                            }
-                            EnclosingSnapshotResult::NoLongerInEagerContext => {}
-                        }
-                    }
-
-                    let Some(symbol) = place_expr.as_symbol() else {
-                        return Place::Undefined.into();
-                    };
-
-                    explicit_global_symbol(db, self.file(), symbol.name()).map_type(|ty| {
-                        self.narrow_place_with_applicable_constraints(
-                            place_expr,
-                            ty,
-                            &constraint_keys,
-                        )
-                    })
+                    self.infer_explicit_global_symbol_load(
+                        place_expr,
+                        place_expr.as_symbol().map(|symbol| symbol.name().as_str()),
+                        file_scope_id,
+                        &mut constraint_keys,
+                        false,
+                    )
                 })
         });
 
@@ -9216,6 +9301,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
                 | Type::PropertyInstance(_)
                 | Type::Union(_)
                 | Type::Intersection(_)
+                | Type::EnumComplement(_)
                 | Type::AlwaysTruthy
                 | Type::AlwaysFalsy
                 | Type::BoundSuper(_)

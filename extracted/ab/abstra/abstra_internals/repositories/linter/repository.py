@@ -35,6 +35,10 @@ class LinterRepository(ABC):
     def get_blocking_checks(self) -> List[LinterCheck]:
         pass
 
+    @abstractmethod
+    def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:
+        pass
+
 
 def check_rule(rule, checks_list):
     check = rule.check()
@@ -42,6 +46,7 @@ def check_rule(rule, checks_list):
 
 
 LINTER_TYPE_PRIORITY = {"security": 0, "error": 1, "bug": 2, "warning": 3, "info": 4}
+BLOCKING_TYPES = {"error", "security", "bug"}
 
 
 class LocalLinterRepository(LinterRepository):
@@ -88,9 +93,7 @@ class LocalLinterRepository(LinterRepository):
     ) -> List[LinterCheck]:
         return self._run_rules(target_rules, merge=True)
 
-    def _run_rules(
-        self, target_rules: List[LinterRule], merge: bool
-    ) -> List[LinterCheck]:
+    def _execute_rules(self, target_rules: List[LinterRule]) -> List[LinterCheck]:
         new_checks: List[LinterCheck] = []
         threads = []
 
@@ -105,6 +108,13 @@ class LocalLinterRepository(LinterRepository):
 
         for thread in threads:
             thread.join()
+
+        return new_checks
+
+    def _run_rules(
+        self, target_rules: List[LinterRule], merge: bool
+    ) -> List[LinterCheck]:
+        new_checks = self._execute_rules(target_rules)
 
         if merge:
             updated_names = {c.name for c in new_checks}
@@ -218,8 +228,13 @@ class LocalLinterRepository(LinterRepository):
         return [
             check
             for check in self.checks
-            if check.type in ["error", "security", "bug"] and check.issues
+            if check.type in BLOCKING_TYPES and check.issues
         ]
+
+    def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:
+        blocking_rules = [r for r in rules if r.type in BLOCKING_TYPES]
+        checks = self._execute_rules(blocking_rules)
+        return [check for check in checks if check.issues]
 
 
 class ProductionLinterRepository(LinterRepository):
@@ -245,4 +260,7 @@ class ProductionLinterRepository(LinterRepository):
         raise NotImplementedError("Linters are not available in production.")
 
     def get_blocking_checks(self) -> List[LinterCheck]:
+        raise NotImplementedError("Linters are not available in production.")
+
+    def get_blocking_checks_for_deploy(self) -> List[LinterCheck]:
         raise NotImplementedError("Linters are not available in production.")

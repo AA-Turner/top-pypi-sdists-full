@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-keyvault-administration
-Version: 4.6.0
+Version: 4.7.0
 Summary: Microsoft Corporation Key Vault Administration Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk
 Author: Microsoft Corporation
@@ -21,8 +21,20 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
-Requires-Dist: azure-core>=1.31.0
+Requires-Dist: azure-core>=1.38.0
 Requires-Dist: typing-extensions>=4.6.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Azure Key Vault Administration client library for Python
 
@@ -50,7 +62,7 @@ create, manage, and deploy public and private SSL/TLS certificates
 ## _Disclaimer_
 
 _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For more information and questions, please refer to https://github.com/Azure/azure-sdk-for-python/issues/20691._
-_Python 3.9 or later is required to use this package. For more details, please refer to [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/wiki/Azure-SDKs-Python-version-support-policy)._
+_Python 3.9 or later is required to use this package. For more details, please refer to [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/blob/main/doc/python_version_support_policy.md)._
 
 ## Getting started
 ### Install packages
@@ -219,8 +231,7 @@ role_definition = client.set_role_definition(scope=scope, role_name=role_name, p
 ```python
 new_permissions = [
     KeyVaultPermission(
-        data_actions=[KeyVaultDataAction.READ_HSM_KEY],
-        not_data_actions=[KeyVaultDataAction.CREATE_HSM_KEY]
+        data_actions=[KeyVaultDataAction.READ_HSM_KEY], not_data_actions=[KeyVaultDataAction.CREATE_HSM_KEY]
     )
 ]
 unique_definition_name = role_definition.name

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import builtins
 import logging
 import os
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from typing import IO, TYPE_CHECKING, Any
 
 import msgspec
@@ -77,7 +76,11 @@ class Assistants(AssistantsLegacyNamespaceMixin):
         from pinecone._internal.http_client import HTTPClient as _HTTPClient
 
         self._config = config
-        cp_host = (config.host or DEFAULT_BASE_URL).rstrip("/")
+        # Internal env-var escape hatches (undocumented, used by Pinecone CI
+        # to redirect to non-prod KE clusters). Precedence: explicit
+        # config.host (user) > env var > hardcoded default.
+        env_control_host = os.getenv("PINECONE_PLUGIN_ASSISTANT_CONTROL_HOST")
+        cp_host = (config.host or env_control_host or DEFAULT_BASE_URL).rstrip("/")
         cp_config = _PineconeConfig(
             api_key=config.api_key,
             host=f"{cp_host}/assistant",
@@ -92,12 +95,19 @@ class Assistants(AssistantsLegacyNamespaceMixin):
             retry_config=config.retry_config,
         )
         self._http = _HTTPClient(cp_config, ASSISTANT_API_VERSION)
+        self._http_v202604 = _HTTPClient(cp_config, ASSISTANT_API_VERSION_2026_04)
         self._adapter = AssistantsAdapter()
         self._data_plane_clients: dict[str, HTTPClient] = {}
 
+        env_data_host = os.getenv("PINECONE_PLUGIN_ASSISTANT_DATA_HOST")
+        eval_host = (
+            f"{env_data_host.rstrip('/')}/assistant"
+            if env_data_host
+            else ASSISTANT_EVALUATION_BASE_URL
+        )
         eval_config = _PineconeConfig(
             api_key=config.api_key,
-            host=ASSISTANT_EVALUATION_BASE_URL,
+            host=eval_host,
             timeout=config.timeout,
             additional_headers=config.additional_headers,
             source_tag=config.source_tag or "",
@@ -128,6 +138,7 @@ class Assistants(AssistantsLegacyNamespaceMixin):
     def close(self) -> None:
         """Close the underlying HTTP client and any cached data-plane clients."""
         self._http.close()
+        self._http_v202604.close()
         self._eval_http.close()
         for client in self._data_plane_clients.values():
             client.close()
@@ -166,6 +177,29 @@ class Assistants(AssistantsLegacyNamespaceMixin):
                 data_config, ASSISTANT_API_VERSION
             )
         return self._data_plane_clients[assistant_name]
+
+    def _list_files_http(self, assistant_name: str) -> HTTPClient:
+        """Return an HTTPClient for the assistant's data-plane host using v202604."""
+        from pinecone._internal.config import PineconeConfig as _PineconeConfig
+        from pinecone._internal.http_client import HTTPClient as _HTTPClient
+
+        assistant = self.describe(name=assistant_name)
+        if not assistant.host:
+            raise PineconeValueError(f"Assistant '{assistant_name}' has no data-plane host")
+        data_config = _PineconeConfig(
+            api_key=self._config.api_key,
+            host=f"{assistant.host.rstrip('/')}/assistant",
+            timeout=self._config.timeout,
+            additional_headers=self._config.additional_headers,
+            source_tag=self._config.source_tag or "",
+            proxy_url=self._config.proxy_url or "",
+            proxy_headers=self._config.proxy_headers,
+            ssl_ca_certs=self._config.ssl_ca_certs,
+            ssl_verify=self._config.ssl_verify,
+            connection_pool_maxsize=self._config.connection_pool_maxsize,
+            retry_config=self._config.retry_config,
+        )
+        return _HTTPClient(data_config, ASSISTANT_API_VERSION_2026_04)
 
     def _upsert_http(self, assistant_name: str) -> HTTPClient:
         """Return an HTTPClient targeting the assistant's data-plane host for 2026-04 upserts."""
@@ -310,10 +344,17 @@ class Assistants(AssistantsLegacyNamespaceMixin):
                     file_id,
                     assistant_name,
                 )
+                # v202604 rejects metadata as a query param; send it as a multipart field instead.
+                upsert_files: dict[str, Any] = {"file": (upload_name, handle)}
+                if metadata is not None:
+                    upsert_files["metadata"] = (None, _json.dumps(metadata))
+                upsert_query: dict[str, str] = {}
+                if multimodal is not None:
+                    upsert_query["multimodal"] = str(multimodal).lower()
                 upsert_response = upsert_http.put(
                     f"/files/{assistant_name}/{file_id}",
-                    files={"file": (upload_name, handle)},
-                    params=params,
+                    files=upsert_files,
+                    params=upsert_query,
                 )
                 op_model = self._adapter.to_operation(upsert_response.content)
                 operation_id = op_model.operation_id
@@ -459,8 +500,10 @@ class Assistants(AssistantsLegacyNamespaceMixin):
         self,
         *,
         assistant_name: str,
+        page_size: int | None = None,
         pagination_token: str | None = None,
         filter: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> ListFilesResponse:
         """List one page of files for an assistant with explicit pagination control.
 
@@ -469,6 +512,7 @@ class Assistants(AssistantsLegacyNamespaceMixin):
 
         Args:
             assistant_name: Name of the assistant whose files to list.
+            page_size: Maximum number of files per page.
             pagination_token: Token from a previous response to fetch the
                 next page.
             filter: Optional metadata filter expression. Serialized to a JSON
@@ -488,17 +532,38 @@ class Assistants(AssistantsLegacyNamespaceMixin):
                 names = [f.name for f in page.files]
                 token = page.next  # use as pagination_token for the next call
         """
+        from pinecone._internal.kwargs_aliases import (
+            reject_unknown_kwargs,
+            remap_legacy_kwargs,
+        )
+
+        remapped = remap_legacy_kwargs(
+            kwargs,
+            aliases={"limit": "page_size"},
+            method_name="list_files_page",
+        )
+        reject_unknown_kwargs(remapped, allowed={"page_size"}, method_name="list_files_page")
+        if "page_size" in remapped:
+            if page_size is not None:
+                raise PineconeValueError(
+                    "list_files_page() received both 'limit' (legacy) and 'page_size'. "
+                    "Pass only one — prefer 'page_size'."
+                )
+            page_size = remapped["page_size"]
+
         import json as _json
 
-        data_http = self._data_plane_http(assistant_name)
+        list_http = self._list_files_http(assistant_name)
         params: dict[str, str | int] = {}
+        if page_size is not None:
+            params["limit"] = page_size
         if pagination_token is not None:
-            params["paginationToken"] = pagination_token
+            params["pagination_token"] = pagination_token
         if filter is not None:
             params["filter"] = _json.dumps(filter)
 
         logger.info("Listing files page for assistant %r", assistant_name)
-        response = data_http.get(f"/files/{assistant_name}", params=params)
+        response = list_http.get(f"/files/{assistant_name}", params=params)
         result = self._adapter.to_file_list(response.content)
         logger.debug(
             "Listed %d files for assistant %r (has_next=%s)",
@@ -575,6 +640,7 @@ class Assistants(AssistantsLegacyNamespaceMixin):
         instructions: str | None = None,
         metadata: dict[str, Any] | None = None,
         region: str = "us",
+        environment: str | None = None,
         timeout: float | None = None,
         **kwargs: Any,
     ) -> AssistantModel:
@@ -590,9 +656,13 @@ class Assistants(AssistantsLegacyNamespaceMixin):
             instructions (str | None): Optional directive for the assistant to
                 apply to all responses. Maximum 16 KB.
             metadata (dict[str, Any] | None): Optional metadata dictionary.
-                Defaults to an empty dict if not provided.
+                When omitted or ``None``, no metadata is sent and the assistant
+                is created without metadata (``None``).
             region (str): Region to deploy the assistant in. Must be ``"us"``
                 or ``"eu"`` (case-sensitive). Defaults to ``"us"``.
+            environment (str | None): Optional environment override. Restricted
+                to Pinecone-internal org plans; passing this on a non-internal
+                plan raises a 403 error from the backend.
             timeout (float | None): Seconds to wait for the assistant to become
                 ready. Use ``None`` (default) to poll indefinitely. Use ``-1``
                 to return immediately without polling. Use ``0`` or a positive
@@ -650,9 +720,12 @@ class Assistants(AssistantsLegacyNamespaceMixin):
         body: dict[str, Any] = {
             "name": name,
             "instructions": instructions,
-            "metadata": metadata if metadata is not None else {},
             "region": region,
         }
+        if metadata is not None:
+            body["metadata"] = metadata
+        if environment is not None:
+            body["environment"] = environment
 
         logger.info("Creating assistant %r", name)
         response = self._http.post("/assistants", json=body)
@@ -802,12 +875,12 @@ class Assistants(AssistantsLegacyNamespaceMixin):
 
         params: dict[str, str | int] = {}
         if page_size is not None:
-            params["pageSize"] = page_size
+            params["limit"] = page_size
         if pagination_token is not None:
-            params["paginationToken"] = pagination_token
+            params["pagination_token"] = pagination_token
 
         logger.info("Listing assistants page")
-        response = self._http.get("/assistants", params=params)
+        response = self._http_v202604.get("/assistants", params=params)
         result = self._adapter.to_assistant_list(response.content)
         for item in result.assistants:
             self._attach_ref(item)
@@ -976,7 +1049,7 @@ class Assistants(AssistantsLegacyNamespaceMixin):
         *,
         assistant_name: str,
         query: str | None = None,
-        messages: builtins.list[Message | dict[str, str]] | None = None,
+        messages: Sequence[Message | Mapping[str, str]] | None = None,
         filter: dict[str, Any] | None = None,
         top_k: int | None = None,
         snippet_size: int | None = None,
@@ -1046,6 +1119,11 @@ class Assistants(AssistantsLegacyNamespaceMixin):
             ]
             body["messages"] = [{"role": m.role, "content": m.content} for m in parsed]
 
+        if top_k is not None and top_k < 0:
+            raise PineconeValueError("top_k must be a non-negative integer.")
+        if snippet_size is not None and snippet_size < 0:
+            raise PineconeValueError("snippet_size must be a non-negative integer.")
+
         if filter is not None:
             body["filter"] = filter
         if top_k is not None:
@@ -1065,7 +1143,7 @@ class Assistants(AssistantsLegacyNamespaceMixin):
         self,
         *,
         assistant_name: str,
-        messages: builtins.list[Message | dict[str, str]],
+        messages: Sequence[Message | Mapping[str, str]],
         model: str = "gpt-4o",
         stream: bool = False,
         temperature: float | None = None,
@@ -1082,6 +1160,15 @@ class Assistants(AssistantsLegacyNamespaceMixin):
                 Dicts are converted to :class:`Message` objects; role defaults
                 to ``"user"`` when not present.
             model (str): Large language model to use. Defaults to ``"gpt-4o"``.
+                Must be one of the backend's accepted values: ``"gpt-4o"``,
+                ``"gpt-4o-mini"``, ``"gpt-4.1"``, ``"gpt-4.1-mini"``,
+                ``"gpt-4.1-nano"``, ``"o3-mini"``, ``"o4-mini"``, ``"gpt-5"``,
+                ``"claude-sonnet-4"``, ``"claude-sonnet-4-5"``,
+                ``"gemini-2.5-pro"``, ``"gemini-2.5-flash"``. The aliases
+                ``"claude-3-5-sonnet"`` and ``"claude-3-7-sonnet"`` are
+                accepted but deprecated (silently remapped to
+                ``"claude-sonnet-4-5"`` by the backend). Unknown model names
+                are rejected by the backend with a 400 error.
             stream (bool): If ``True``, return a :class:`ChatStream`. Defaults
                 to ``False``.
             temperature (float | None): Controls randomness. Lower values produce
@@ -1168,7 +1255,7 @@ class Assistants(AssistantsLegacyNamespaceMixin):
         self,
         *,
         assistant_name: str,
-        messages: builtins.list[Message | dict[str, str]],
+        messages: Sequence[Message | Mapping[str, str]],
         model: str = "gpt-4o",
         stream: bool = False,
         temperature: float | None = None,
@@ -1182,18 +1269,21 @@ class Assistants(AssistantsLegacyNamespaceMixin):
         not support ``include_highlights``, ``context_options``, or
         ``json_response`` parameters.
 
-        The model parameter accepts any string value and is not validated
-        client-side. Known models include ``"gpt-4o"``, ``"gpt-4.1"``,
-        ``"o4-mini"``, ``"claude-3-5-sonnet"``, ``"claude-3-7-sonnet"``,
-        and ``"gemini-2.5-pro"``.
-
         Args:
             assistant_name (str): Name of the assistant to chat with.
             messages (list[Message | dict[str, str]]): Conversation messages.
                 Dicts are converted to :class:`Message` objects; role defaults
                 to ``"user"`` when not present.
             model (str): Large language model to use. Defaults to ``"gpt-4o"``.
-                Not validated client-side — any string is accepted.
+                Must be one of the backend's accepted values: ``"gpt-4o"``,
+                ``"gpt-4o-mini"``, ``"gpt-4.1"``, ``"gpt-4.1-mini"``,
+                ``"gpt-4.1-nano"``, ``"o3-mini"``, ``"o4-mini"``, ``"gpt-5"``,
+                ``"claude-sonnet-4"``, ``"claude-sonnet-4-5"``,
+                ``"gemini-2.5-pro"``, ``"gemini-2.5-flash"``. The aliases
+                ``"claude-3-5-sonnet"`` and ``"claude-3-7-sonnet"`` are
+                accepted but deprecated (silently remapped to
+                ``"claude-sonnet-4-5"`` by the backend). Unknown model names
+                are rejected by the backend with a 400 error.
             stream (bool): If ``True``, return a :class:`ChatCompletionStream`.
                 Defaults to ``False``.
             temperature (float | None): Controls randomness. Lower values produce
@@ -1393,7 +1483,7 @@ class Assistants(AssistantsLegacyNamespaceMixin):
             model = self._attach_ref(self._adapter.to_assistant(response.content))
             if model.status == "Ready":
                 return model
-            if model.status in ("Failed", "InitializationFailed"):
+            if model.status in ("Failed", "InitializationFailed", "Terminated", "Terminating"):
                 raise PineconeError(
                     f"Assistant '{name}' entered terminal state '{model.status}'. "
                     f"Check status with pc.assistants.describe(name='{name}')."

@@ -10,7 +10,7 @@ from fastapi_pagination.bases import AbstractParams, RawParams
 from fastapi_pagination.config import Config
 from fastapi_pagination.flow import flow, flow_expr, run_sync_flow
 from fastapi_pagination.flows import LimitOffsetFlow, generic_flow
-from fastapi_pagination.types import AdditionalData, SyncItemsTransformer
+from fastapi_pagination.types import SyncAdditionalData, SyncItemsTransformer
 
 T = TypeVar("T", bound=TopLevelDocumentMetaclass)
 
@@ -27,7 +27,7 @@ def paginate(
     params: AbstractParams | None = None,
     *,
     transformer: SyncItemsTransformer | None = None,
-    additional_data: AdditionalData | None = None,
+    additional_data: SyncAdditionalData | None = None,
     config: Config | None = None,
 ) -> Any:
     if isinstance(query, TopLevelDocumentMetaclass):
@@ -35,8 +35,8 @@ def paginate(
 
     return run_sync_flow(
         generic_flow(
-            total_flow=flow_expr(lambda: query.count()),
-            limit_offset_flow=partial(_limit_offset_flow, query),
+            total_flow=flow_expr(lambda: query.count()),  # type: ignore[ty:unresolved-attribute]
+            limit_offset_flow=partial(_limit_offset_flow, query),  # type: ignore[ty:invalid-argument-type]
             params=params,
             transformer=transformer,
             additional_data=additional_data,

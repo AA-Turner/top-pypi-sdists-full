@@ -115,6 +115,7 @@ def test_success_resets_fail_counter(tool, ctx, tmp_path):
         ok_result = None
         async for event in tool.run(ok_args, ctx):
             ok_result = event
+        assert ok_result is not None
         assert ok_result.blocks_applied == 1
 
         # Fail again — should be count=1 (reset), not count=2
@@ -128,5 +129,6 @@ def test_success_resets_fail_counter(tool, ctx, tmp_path):
         return fail2_result
 
     result = asyncio.run(run_scenario())
+    assert result is not None
     assert "HINT" in result.content or "FILE HEAD" in result.content
     assert "LOOP-BREAKER" not in result.content

@@ -59,11 +59,16 @@ def test_uuid_from_fields() -> None:
     assert str(uuid) == "a8098c1a-f86e-11da-bd1a-00112444be1e"
 
 
+def test_uuid_from_fields_node_out_of_range() -> None:
+    with pytest.raises(ValueError, match="field 6 out of range"):
+        uuid_utils.UUID(fields=(0, 0, 0, 0, 0, 2**48))
+
+
 def test_uuid_setattr() -> None:
     uuid = uuid_utils.UUID(int=223359875637754765292326297443183672862)
 
     with pytest.raises(TypeError):
-        uuid.int = 123  # type: ignore[misc]
+        uuid.int = 123  # type: ignore[misc]  # ty: ignore[invalid-assignment]
 
 
 def test_uuid1() -> None:
@@ -149,6 +154,11 @@ def test_uuid_comparisons() -> None:
 def test_uuid_version(version: int) -> None:
     uuid = uuid_utils.UUID("a8098c1a-f86e-11da-bd1a-00112444be1e", version=version)
     assert uuid.version == version
+
+
+def test_uuid_version_none_for_non_rfc4122() -> None:
+    uuid = uuid_utils.UUID(int=0)
+    assert uuid.version is None
 
 
 def test_uuid_illegal_version() -> None:

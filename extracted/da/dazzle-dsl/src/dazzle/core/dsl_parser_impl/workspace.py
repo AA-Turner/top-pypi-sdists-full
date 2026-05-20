@@ -43,6 +43,8 @@ class WorkspaceParserMixin:
         skip_newlines: Any
         expect_identifier_or_keyword: Any
         parse_condition_expr: Any
+        parse_aggregate_ref: Any
+        peek_is_aggregate_call: Any
         parse_sort_list: Any
         parse_ux_block: Any
         current_token: Any
@@ -438,10 +440,12 @@ class WorkspaceParserMixin:
 
         v0.61.66 (AegisMark UX patterns #4): the ``value:`` key accepts
         either an aggregate expression (same vocabulary as region-level
-        ``aggregate:``) OR a quoted literal string. The runtime
-        distinguishes via `_AGGREGATE_RE` — matches fire a query,
-        non-matches render verbatim. v0.61.78 (#911): ``progress:`` shares
-        the same acceptor — literal numeric or aggregate expression.
+        ``aggregate:``) OR a quoted literal string. Per ADR-0024 the
+        parser shape-detects at parse time — :meth:`peek_is_aggregate_call`
+        routes aggregate-shaped tokens through :meth:`parse_aggregate_ref`,
+        otherwise the payload is captured as a literal string.
+        v0.61.78 (#911): ``progress:`` shares the same acceptor —
+        literal numeric or aggregate expression.
 
         Distinct from the legacy ``stages: [a, b, c]`` bracketed list
         used by ``progress`` mode — the calling parser branch shape-
@@ -468,12 +472,12 @@ class WorkspaceParserMixin:
             )
         self.advance()  # consume `-`
         label_str = self._parse_pipeline_stage_label()
-        caption_str, value_str, progress_str = self._parse_pipeline_stage_kv_block()
+        caption_str, value_payload, progress_payload = self._parse_pipeline_stage_kv_block()
         return ir.PipelineStageSpec(
             label=label_str,
             caption=caption_str,
-            value=value_str,
-            progress=progress_str,
+            value=value_payload,
+            progress=progress_payload,
         )
 
     def _parse_pipeline_stage_label(self) -> str:
@@ -492,16 +496,21 @@ class WorkspaceParserMixin:
         self.skip_newlines()
         return label_str
 
-    def _parse_pipeline_stage_kv_block(self) -> tuple[str, str, str]:
+    def _parse_pipeline_stage_kv_block(
+        self,
+    ) -> tuple[str, "ir.AggregateRef | str | None", "ir.AggregateRef | str | None"]:
         """Consume the optional indented ``caption/value/progress`` continuation.
 
-        Returns ``(caption, value, progress)`` — each empty when omitted.
+        Returns ``(caption, value, progress)`` where ``value`` /
+        ``progress`` are either an :class:`AggregateRef` (when the
+        payload tokens form an aggregate call), a literal string (quoted
+        literal or non-aggregate token sequence), or ``None`` when omitted.
         """
         caption_str = ""
-        value_str = ""
-        progress_str = ""
+        value_payload: ir.AggregateRef | str | None = None
+        progress_payload: ir.AggregateRef | str | None = None
         if not self.match(TokenType.INDENT):
-            return caption_str, value_str, progress_str
+            return caption_str, value_payload, progress_payload
         self.advance()  # consume INDENT
         while not self.match(TokenType.DEDENT):
             self.skip_newlines()
@@ -517,9 +526,9 @@ class WorkspaceParserMixin:
             elif key in ("value", "progress"):
                 payload = self._parse_pipeline_stage_payload()
                 if key == "value":
-                    value_str = payload
+                    value_payload = payload
                 else:
-                    progress_str = payload
+                    progress_payload = payload
                 self.skip_newlines()
             else:
                 raise make_parse_error(
@@ -530,18 +539,29 @@ class WorkspaceParserMixin:
                     key_tok.column,
                 )
         self.expect(TokenType.DEDENT)
-        return caption_str, value_str, progress_str
+        return caption_str, value_payload, progress_payload
 
-    def _parse_pipeline_stage_payload(self) -> str:
+    def _parse_pipeline_stage_payload(self) -> "ir.AggregateRef | str":
         """Consume a quoted literal OR unquoted aggregate expression.
 
-        Quoted shape — common for flow-card labels like ``"Daily 02:00 UTC"``.
-        Unquoted shape — token stream up to NEWLINE/DEDENT, joined with
-        spaces (same shape as region-level ``aggregate:`` parser).
+        Three shapes:
+          - **Quoted literal** (``"Daily 02:00 UTC"``) — returned as a
+            ``str``, rendered verbatim by the template.
+          - **Aggregate call** (``count(Task where ...)``) — returned as
+            a typed :class:`AggregateRef` via :meth:`parse_aggregate_ref`
+            (ADR-0024). Detected by shape-peeking on the token stream.
+          - **Bare literal token sequence** (``"74"`` as a number, or
+            an unquoted descriptive string) — joined with spaces and
+            returned as a ``str``.
         """
         if self.match(TokenType.STRING):
-            payload: str = self.advance().value
-            return payload
+            literal_str: str = self.advance().value
+            return literal_str
+        if self.peek_is_aggregate_call():
+            agg_ref: ir.AggregateRef = self.parse_aggregate_ref()
+            return agg_ref
+        # Bare token sequence — captured as a literal string. Templates
+        # render numeric values like "74" verbatim.
         parts: list[str] = []
         while not self.match(TokenType.NEWLINE, TokenType.DEDENT):
             parts.append(self.advance().value)
@@ -683,33 +703,36 @@ class WorkspaceParserMixin:
             )
         self.advance()  # consume MINUS
         label_str = self._parse_dash_required_label("actions")
-        icon_str, count_aggregate, action_str, tone_str = self._parse_action_card_kv_block(
-            label_str
-        )
+        icon_str, count_ref, action_str, tone_str = self._parse_action_card_kv_block(label_str)
         return ir.ActionCardSpec(
             label=label_str,
             icon=icon_str,
-            count_aggregate=count_aggregate,
+            count=count_ref,
             action=action_str,
             tone=tone_str,
         )
 
-    def _parse_action_card_kv_block(self, label_str: str) -> tuple[str, str, str, str]:
+    def _parse_action_card_kv_block(
+        self, label_str: str
+    ) -> tuple[str, ir.AggregateRef | None, str, str]:
         """Consume the optional indented icon/count_aggregate/action/tone block.
 
-        Returns ``(icon, count_aggregate, action, tone)`` — empty strings
-        (or ``"neutral"`` for tone) when omitted.
+        Returns ``(icon, count_ref, action, tone)`` — empty strings
+        (or ``"neutral"`` for tone, ``None`` for count) when omitted.
+        The ``count_aggregate:`` DSL key parses through
+        :meth:`parse_aggregate_ref` (ADR-0024) into a typed
+        :class:`AggregateRef`.
         """
         valid_tones = {"positive", "warning", "destructive", "neutral", "accent"}
         valid_keys = {"label", "icon", "count_aggregate", "action", "tone"}
 
         icon_str = ""
-        count_aggregate = ""
+        count_ref: ir.AggregateRef | None = None
         action_str = ""
         tone_str = "neutral"
 
         if not self.match(TokenType.INDENT):
-            return icon_str, count_aggregate, action_str, tone_str
+            return icon_str, count_ref, action_str, tone_str
         self.advance()  # consume INDENT
         while not self.match(TokenType.DEDENT):
             self.skip_newlines()
@@ -723,10 +746,7 @@ class WorkspaceParserMixin:
                 icon_str = self.expect(TokenType.STRING).value
                 self.skip_newlines()
             elif key == "count_aggregate":
-                parts: list[str] = []
-                while not self.match(TokenType.NEWLINE, TokenType.DEDENT):
-                    parts.append(self.advance().value)
-                count_aggregate = " ".join(parts)
+                count_ref = self.parse_aggregate_ref()
                 self.skip_newlines()
             elif key == "action":
                 # STRING (URL with `/`, `?`, `=`) OR IDENT (bare surface name).
@@ -755,7 +775,7 @@ class WorkspaceParserMixin:
                     key_tok.column,
                 )
         self.expect(TokenType.DEDENT)
-        return icon_str, count_aggregate, action_str, tone_str
+        return icon_str, count_ref, action_str, tone_str
 
     def _parse_dash_required_label(self, block_name: str) -> str:
         """Common helper: consume the required ``label: "<str>"`` first key.
@@ -874,17 +894,277 @@ class WorkspaceParserMixin:
             default_lens=default_lens_str,
         )
 
+    def _parse_primary_aggregate_block(self) -> ir.LensAggregatePrimary:
+        """#1144 part 3 phase 1: parse the indented body of a
+        ``primary_aggregate:`` block.
+
+        Syntax (ADR-0024 typed form)::
+
+            primary_aggregate:
+              aggregate: avg(MarkingResult.score where latest_for_event = true)
+              via: ClassEnrolment(student_profile = id)
+
+        ``aggregate:`` is required and parsed structurally via
+        :meth:`parse_aggregate_ref` into a typed :class:`AggregateRef`
+        — any row-level predicate rides inside the aggregate's own
+        ``where:`` clause. ``via:`` is optional and reuses the
+        junction-binding grammar from scope rules (#530).
+        """
+        _VALID_KEYS = {"aggregate", "via"}
+        aggregate_ref: ir.AggregateRef | None = None
+        via_cond: ir.ViaCondition | None = None
+        while not self.match(TokenType.DEDENT):
+            self.skip_newlines()
+            if self.match(TokenType.DEDENT):
+                break
+            key_tok = self.current_token()
+            key = key_tok.value
+            if key not in _VALID_KEYS:
+                raise make_parse_error(
+                    f"Unknown primary_aggregate key {key!r}. "
+                    f"Expected one of: {sorted(_VALID_KEYS)}.",
+                    self.file,
+                    key_tok.line,
+                    key_tok.column,
+                )
+            self.advance()
+            self.expect(TokenType.COLON)
+            if key == "aggregate":
+                aggregate_ref = self.parse_aggregate_ref()
+                self.skip_newlines()
+            else:  # via
+                # Reuse the scope-rule via-binding grammar shape:
+                # `JunctionEntity(field = expr, ...)`. The helpers
+                # live on EntityParserMixin; both mixins compose
+                # into the same parser class at runtime, so the
+                # attr-defined ignores reflect mypy's mixin-aware
+                # limitation, not a real attribute gap.
+                # NOTE: skip `_validate_via_bindings` — that
+                # validator enforces a `current_user` binding for
+                # scope semantics, which doesn't apply to aggregate
+                # joins (the join binds the member row to the
+                # junction, not the current user).
+                junction_entity = self._parse_via_junction_name()  # type: ignore[attr-defined]
+                self._expect_via_lparen(junction_entity)  # type: ignore[attr-defined]
+                bindings = self._parse_via_bindings()  # type: ignore[attr-defined]
+                self.expect(TokenType.RPAREN)
+                via_cond = ir.ViaCondition(junction_entity=junction_entity, bindings=bindings)
+                self.skip_newlines()
+        if aggregate_ref is None:
+            tok = self.current_token()
+            raise make_parse_error(
+                "primary_aggregate requires an `aggregate:` expression",
+                self.file,
+                tok.line,
+                tok.column,
+            )
+        return ir.LensAggregatePrimary(aggregate=aggregate_ref, via=via_cond)
+
+    def _parse_primary_composite_block(self) -> ir.CompositePrimarySpec:
+        """#1144 part 2: parse the indented body of a
+        ``primary_composite:`` block.
+
+        Syntax::
+
+            primary_composite:
+              separator: " / "
+              parts:
+                - field: ao1_score
+                - field: ao2_score
+                  tone: positive
+                - field: ao3_score
+
+        ``parts:`` is required and must be non-empty; the IR
+        validator enforces. ``separator:`` defaults to ``" / "``.
+        """
+        _VALID_KEYS = {"separator", "parts"}
+        separator = " / "
+        parts: list[ir.CompositePrimaryPart] = []
+        while not self.match(TokenType.DEDENT):
+            self.skip_newlines()
+            if self.match(TokenType.DEDENT):
+                break
+            key_tok = self.current_token()
+            key = key_tok.value
+            if key not in _VALID_KEYS:
+                raise make_parse_error(
+                    f"Unknown primary_composite key {key!r}. "
+                    f"Expected one of: {sorted(_VALID_KEYS)}.",
+                    self.file,
+                    key_tok.line,
+                    key_tok.column,
+                )
+            self.advance()
+            self.expect(TokenType.COLON)
+            if key == "separator":
+                separator = self.expect(TokenType.STRING).value
+                self.skip_newlines()
+            else:  # parts
+                self.skip_newlines()
+                self.expect(TokenType.INDENT)
+                parts = self._parse_composite_parts_block()
+                self.expect(TokenType.DEDENT)
+        if not parts:
+            tok = self.current_token()
+            raise make_parse_error(
+                "primary_composite requires a non-empty `parts:` list",
+                self.file,
+                tok.line,
+                tok.column,
+            )
+        return ir.CompositePrimarySpec(parts=parts, separator=separator)
+
+    def _parse_composite_parts_block(self) -> list[ir.CompositePrimaryPart]:
+        """#1144 part 2: parse the dash-list body of a
+        ``primary_composite.parts:`` block. Each entry leads with
+        ``- field: <ident>`` and may carry an optional ``tone:``
+        sub-key.
+        """
+        parts: list[ir.CompositePrimaryPart] = []
+        _VALID_KEYS = {"field", "tone"}
+        while not self.match(TokenType.DEDENT):
+            self.skip_newlines()
+            if self.match(TokenType.DEDENT):
+                break
+            if not self.match(TokenType.MINUS):
+                tok = self.current_token()
+                raise make_parse_error(
+                    "primary_composite parts entries must start with `- field: <name>`",
+                    self.file,
+                    tok.line,
+                    tok.column,
+                )
+            self.advance()  # consume MINUS
+            head_kw = self.expect_identifier_or_keyword().value
+            if head_kw != "field":
+                tok = self.current_token()
+                raise make_parse_error(
+                    f"parts entry must start with `field:`, got {head_kw!r}",
+                    self.file,
+                    tok.line,
+                    tok.column,
+                )
+            self.expect(TokenType.COLON)
+            field_val = self.expect_identifier_or_keyword().value
+            self.skip_newlines()
+            tone_val = ""
+            if self.match(TokenType.INDENT):
+                self.advance()
+                while not self.match(TokenType.DEDENT):
+                    self.skip_newlines()
+                    if self.match(TokenType.DEDENT):
+                        break
+                    key_tok = self.current_token()
+                    key = key_tok.value
+                    self.advance()
+                    self.expect(TokenType.COLON)
+                    if key == "tone":
+                        tone_val = self.expect_identifier_or_keyword().value
+                        self.skip_newlines()
+                    else:
+                        raise make_parse_error(
+                            f"Unknown parts entry key {key!r}. "
+                            f"Expected one of: {sorted(_VALID_KEYS)}.",
+                            self.file,
+                            key_tok.line,
+                            key_tok.column,
+                        )
+                self.expect(TokenType.DEDENT)
+            parts.append(ir.CompositePrimaryPart(field=field_val, tone=tone_val))
+        return parts
+
+    def _parse_tone_bands_block(self) -> list[ir.ToneBandSpec]:
+        """#1144 part 1: parse the indented dash-list body of a
+        ``tone_bands:`` block.
+
+        Each entry leads with ``- at: <number>`` carrying the threshold
+        value, then a ``tone:`` sub-key on the same line or in an
+        INDENT block::
+
+            tone_bands:
+              - at: 90
+                tone: good
+              - at: 70
+                tone: warn
+              - at: 0
+                tone: bad
+
+        Caller validates that ``threshold:`` and ``tone_bands:`` aren't
+        both set on the same lens — the IR-level validator raises a
+        clear error message on conflict.
+        """
+        bands: list[ir.ToneBandSpec] = []
+        _VALID_KEYS = {"at", "tone"}
+        while not self.match(TokenType.DEDENT):
+            self.skip_newlines()
+            if self.match(TokenType.DEDENT):
+                break
+            if not self.match(TokenType.MINUS):
+                tok = self.current_token()
+                raise make_parse_error(
+                    "tone_bands entries must start with `- at: <number>`",
+                    self.file,
+                    tok.line,
+                    tok.column,
+                )
+            self.advance()  # consume MINUS
+            head_kw = self.expect_identifier_or_keyword().value
+            if head_kw != "at":
+                tok = self.current_token()
+                raise make_parse_error(
+                    f"tone_bands entry must start with `at:`, got {head_kw!r}",
+                    self.file,
+                    tok.line,
+                    tok.column,
+                )
+            self.expect(TokenType.COLON)
+            at_val = float(self.expect(TokenType.NUMBER).value)
+            self.skip_newlines()
+            tone_str: str | None = None
+            if self.match(TokenType.INDENT):
+                self.advance()
+                while not self.match(TokenType.DEDENT):
+                    self.skip_newlines()
+                    if self.match(TokenType.DEDENT):
+                        break
+                    key_tok = self.current_token()
+                    key = key_tok.value
+                    self.advance()
+                    self.expect(TokenType.COLON)
+                    if key == "tone":
+                        tone_str = self.expect_identifier_or_keyword().value
+                        self.skip_newlines()
+                    else:
+                        raise make_parse_error(
+                            f"Unknown tone_bands entry key {key!r}. "
+                            f"Expected one of: {sorted(_VALID_KEYS)}.",
+                            self.file,
+                            key_tok.line,
+                            key_tok.column,
+                        )
+                self.expect(TokenType.DEDENT)
+            if tone_str is None:
+                tok = self.current_token()
+                raise make_parse_error(
+                    f"tone_bands entry at:{at_val} requires a `tone:` field",
+                    self.file,
+                    tok.line,
+                    tok.column,
+                )
+            bands.append(ir.ToneBandSpec(at=at_val, tone=tone_str))
+        return bands
+
     def _parse_cohort_strip_lenses_block(self) -> list[ir.CohortStripLens]:
         """Parse the indented dash-list body of a ``lenses:`` block (#1018).
 
         Each entry must lead with ``- id:`` (the stable lens identifier
         used in URL params). The remaining keys land in the entry's
-        INDENT block. ``label`` and ``primary`` are required;
-        ``threshold`` is optional.
+        INDENT block. ``label`` is required; the lens must declare
+        either ``primary:`` (scalar) or ``primary_composite:`` (tuple
+        display, #1144 part 2). ``threshold`` and ``tone_bands`` are
+        optional and mutually exclusive (#1144 part 1).
         """
         lenses: list[ir.CohortStripLens] = []
-        _VALID_KEYS = {"id", "label", "primary", "threshold"}
-
         while not self.match(TokenType.DEDENT):
             self.skip_newlines()
             if self.match(TokenType.DEDENT):
@@ -910,62 +1190,112 @@ class WorkspaceParserMixin:
             self.expect(TokenType.COLON)
             id_str = self.expect_identifier_or_keyword().value
             self.skip_newlines()
-
-            label_str: str | None = None
-            primary_str: str | None = None
-            threshold_val: float | None = None
-
-            if self.match(TokenType.INDENT):
-                self.advance()
-                while not self.match(TokenType.DEDENT):
-                    self.skip_newlines()
-                    if self.match(TokenType.DEDENT):
-                        break
-                    key_tok = self.current_token()
-                    key = key_tok.value
-                    self.advance()
-                    self.expect(TokenType.COLON)
-                    if key == "label":
-                        # Quoted-string preferred (handles spaces, punctuation);
-                        # bare identifier accepted for single-word labels.
-                        if self.match(TokenType.STRING):
-                            label_str = self.advance().value
-                        else:
-                            label_str = self.expect_identifier_or_keyword().value
-                        self.skip_newlines()
-                    elif key == "primary":
-                        primary_str = self.expect_identifier_or_keyword().value
-                        self.skip_newlines()
-                    elif key == "threshold":
-                        threshold_val = float(self.expect(TokenType.NUMBER).value)
-                        self.skip_newlines()
-                    else:
-                        raise make_parse_error(
-                            f"Unknown lenses key {key!r}. Expected one of: {sorted(_VALID_KEYS)}.",
-                            self.file,
-                            key_tok.line,
-                            key_tok.column,
-                        )
-                self.expect(TokenType.DEDENT)
-
-            if label_str is None or primary_str is None:
-                tok = self.current_token()
-                raise make_parse_error(
-                    f"lens {id_str!r} requires both `label:` and `primary:`",
-                    self.file,
-                    tok.line,
-                    tok.column,
-                )
-            lenses.append(
-                ir.CohortStripLens(
-                    id=id_str,
-                    label=label_str,
-                    primary=primary_str,
-                    threshold=threshold_val,
-                )
-            )
-
+            lenses.append(self._parse_cohort_strip_lens_entry_body(id_str))
         return lenses
+
+    def _parse_cohort_strip_lens_entry_body(self, id_str: str) -> ir.CohortStripLens:
+        """Parse the INDENT-block body of one ``lenses:`` entry.
+
+        Extracted from :meth:`_parse_cohort_strip_lenses_block` so the
+        outer dispatch loop stays within the per-function line cap.
+        Handles ``label`` / ``primary`` / ``threshold`` / ``tone_bands``
+        / ``primary_composite`` keys; validates the required-fields
+        and mutex contracts at the end.
+        """
+        _VALID_KEYS = {
+            "id",
+            "label",
+            "primary",
+            "threshold",
+            "tone_bands",
+            "primary_composite",
+            "primary_aggregate",
+        }
+        label_str: str | None = None
+        primary_str: str | None = None
+        threshold_val: float | None = None
+        tone_bands_list: list[ir.ToneBandSpec] = []
+        primary_composite: ir.CompositePrimarySpec | None = None
+        primary_aggregate: ir.LensAggregatePrimary | None = None
+
+        if self.match(TokenType.INDENT):
+            self.advance()
+            while not self.match(TokenType.DEDENT):
+                self.skip_newlines()
+                if self.match(TokenType.DEDENT):
+                    break
+                key_tok = self.current_token()
+                key = key_tok.value
+                self.advance()
+                self.expect(TokenType.COLON)
+                if key == "label":
+                    # Quoted preferred (handles spaces, punctuation);
+                    # bare identifier accepted for single-word labels.
+                    if self.match(TokenType.STRING):
+                        label_str = self.advance().value
+                    else:
+                        label_str = self.expect_identifier_or_keyword().value
+                    self.skip_newlines()
+                elif key == "primary":
+                    primary_str = self.expect_identifier_or_keyword().value
+                    self.skip_newlines()
+                elif key == "threshold":
+                    threshold_val = float(self.expect(TokenType.NUMBER).value)
+                    self.skip_newlines()
+                elif key == "tone_bands":
+                    self.skip_newlines()
+                    self.expect(TokenType.INDENT)
+                    tone_bands_list = self._parse_tone_bands_block()
+                    self.expect(TokenType.DEDENT)
+                elif key == "primary_composite":
+                    self.skip_newlines()
+                    self.expect(TokenType.INDENT)
+                    primary_composite = self._parse_primary_composite_block()
+                    self.expect(TokenType.DEDENT)
+                elif key == "primary_aggregate":
+                    # #1144 part 3: aggregate-expression primary. IR
+                    # + parser shipped here; runtime execution lands
+                    # in subsequent slices.
+                    self.skip_newlines()
+                    self.expect(TokenType.INDENT)
+                    primary_aggregate = self._parse_primary_aggregate_block()
+                    self.expect(TokenType.DEDENT)
+                else:
+                    raise make_parse_error(
+                        f"Unknown lenses key {key!r}. Expected one of: {sorted(_VALID_KEYS)}.",
+                        self.file,
+                        key_tok.line,
+                        key_tok.column,
+                    )
+            self.expect(TokenType.DEDENT)
+
+        if label_str is None:
+            tok = self.current_token()
+            raise make_parse_error(
+                f"lens {id_str!r} requires a `label:` field",
+                self.file,
+                tok.line,
+                tok.column,
+            )
+        if primary_str is None and primary_composite is None and primary_aggregate is None:
+            tok = self.current_token()
+            raise make_parse_error(
+                f"lens {id_str!r} requires exactly one of `primary:` "
+                "(scalar), `primary_composite:` (tuple display), or "
+                "`primary_aggregate:` (cross-join aggregate)",
+                self.file,
+                tok.line,
+                tok.column,
+            )
+        return ir.CohortStripLens(
+            id=id_str,
+            label=label_str,
+            primary=primary_str or "",
+            threshold=threshold_val,
+            tone_bands=tone_bands_list,
+            primary_composite=primary_composite,
+            primary_aggregate=primary_aggregate,
+        )
 
     def _parse_day_timeline_config_block(self) -> ir.DayTimelineConfig:
         """Parse the indented body of a ``day_timeline_config:`` block (#1016).
@@ -986,7 +1316,8 @@ class WorkspaceParserMixin:
         starts_at_str: str | None = None
         ends_at_str: str | None = None
         card_str: str = ""
-        _VALID_KEYS = {"starts_at", "ends_at", "card"}
+        as_of_str: str = ""
+        _VALID_KEYS = {"starts_at", "ends_at", "card", "as_of"}
 
         while not self.match(TokenType.DEDENT):
             self.skip_newlines()
@@ -1006,6 +1337,12 @@ class WorkspaceParserMixin:
                 self.skip_newlines()
             elif key == "card":
                 card_str = self.expect_identifier_or_keyword().value
+                self.skip_newlines()
+            elif key == "as_of":
+                # #1146 part 2: date anchor for HH:MM timetables.
+                # Bare identifier — either the literal `today` or a
+                # row field name holding the date component.
+                as_of_str = self.expect_identifier_or_keyword().value
                 self.skip_newlines()
             else:
                 raise make_parse_error(
@@ -1030,6 +1367,7 @@ class WorkspaceParserMixin:
             starts_at=starts_at_str,
             ends_at=ends_at_str,
             card=card_str,
+            as_of=as_of_str,
         )
 
     def _parse_task_inbox_config_block(self) -> ir.TaskInboxConfig:
@@ -1251,7 +1589,8 @@ class WorkspaceParserMixin:
         icon_str: str = ""
         title_str: str = ""
         meta_str: str = ""
-        _VALID_KEYS = {"icon", "title", "meta"}
+        via_joins: dict[str, str] = {}
+        _VALID_KEYS = {"icon", "title", "meta", "via"}
 
         while not self.match(TokenType.DEDENT):
             self.skip_newlines()
@@ -1277,6 +1616,26 @@ class WorkspaceParserMixin:
             elif key == "meta":
                 meta_str = self.expect(TokenType.STRING).value
                 self.skip_newlines()
+            elif key == "via":
+                # #1145 part 2: alias → dotted-path map. Indented
+                # `alias: dotted.path` lines, no string quoting (paths
+                # are bare identifier chains, same shape as scope
+                # field refs).
+                self.skip_newlines()
+                self.expect(TokenType.INDENT)
+                while not self.match(TokenType.DEDENT):
+                    self.skip_newlines()
+                    if self.match(TokenType.DEDENT):
+                        break
+                    alias = self.expect_identifier_or_keyword().value
+                    self.expect(TokenType.COLON)
+                    path_parts: list[str] = [self.expect_identifier_or_keyword().value]
+                    while self.match(TokenType.DOT):
+                        self.advance()
+                        path_parts.append(self.expect_identifier_or_keyword().value)
+                    via_joins[alias] = ".".join(path_parts)
+                    self.skip_newlines()
+                self.expect(TokenType.DEDENT)
             else:
                 raise make_parse_error(
                     f"Unknown as_task key {key!r}. Expected one of: {sorted(_VALID_KEYS)}.",
@@ -1293,7 +1652,9 @@ class WorkspaceParserMixin:
                 tok.line,
                 tok.column,
             )
-        return ir.TaskSourceTemplate(icon=icon_str, title=title_str, meta=meta_str)
+        return ir.TaskSourceTemplate(
+            icon=icon_str, title=title_str, meta=meta_str, via_joins=via_joins
+        )
 
     def _parse_entity_card_config_block(self) -> ir.EntityCardConfig:
         """Parse the indented body of an ``entity_card_config:`` block (#1017).
@@ -1719,6 +2080,153 @@ class WorkspaceParserMixin:
             )
         return items
 
+    def _parse_row_action_block(self) -> ir.RowActionSpec:
+        """#1148: parse a typed ``row_action:`` block.
+
+        Per-row click-to-POST action for row-oriented region displays
+        (``list``, ``cohort_strip``, ``day_timeline``, ``status_list``).
+        ``action_id`` references a project-declared surface action;
+        the runtime resolves the POST URL via the same machinery
+        ``entity_card.quick_actions`` uses at the card level.
+
+        Syntax::
+
+            row_action:
+              label: "Approve & release"
+              action_id: feedback_release
+              bind:
+                id: id
+              visible_when: status != released
+              confirm:
+                title: "Release to school?"
+                caption: "School admins will see the audit trail"
+
+        ``label`` and ``action_id`` are required. ``bind:`` defaults
+        to ``{}``. ``visible_when:`` parses as a standard condition
+        expression. ``confirm:`` reuses the :class:`ir.ConfirmationItemSpec`
+        shape from #1072.
+        """
+        _VALID_KEYS = {"label", "action_id", "bind", "visible_when", "confirm"}
+        label: str | None = None
+        action_id: str | None = None
+        bind: dict[str, str] = {}
+        visible_when: ir.ConditionExpr | None = None
+        confirm: ir.ConfirmationItemSpec | None = None
+
+        while not self.match(TokenType.DEDENT):
+            self.skip_newlines()
+            if self.match(TokenType.DEDENT):
+                break
+            key_tok = self.current_token()
+            key = key_tok.value
+            if key not in _VALID_KEYS:
+                raise make_parse_error(
+                    f"Unknown row_action key {key!r}. Expected one of: {sorted(_VALID_KEYS)}.",
+                    self.file,
+                    key_tok.line,
+                    key_tok.column,
+                )
+            self.advance()
+            self.expect(TokenType.COLON)
+            if key == "label":
+                label = self.expect(TokenType.STRING).value
+                self.skip_newlines()
+            elif key == "action_id":
+                action_id = self.expect_identifier_or_keyword().value
+                self.skip_newlines()
+            elif key == "bind":
+                bind = self._parse_row_action_bind_block()
+            elif key == "visible_when":
+                visible_when = self.parse_condition_expr()
+                self.skip_newlines()
+            elif key == "confirm":
+                confirm = self._parse_row_action_confirm_block(key_tok)
+
+        if label is None or action_id is None:
+            tok = self.current_token()
+            raise make_parse_error(
+                "row_action requires both `label:` and `action_id:`",
+                self.file,
+                tok.line,
+                tok.column,
+            )
+        return ir.RowActionSpec(
+            label=label,
+            action_id=action_id,
+            bind=bind,
+            visible_when=visible_when,
+            confirm=confirm,
+        )
+
+    def _parse_row_action_bind_block(self) -> dict[str, str]:
+        """#1148: parse the indented ``bind:`` sub-block of row_action."""
+        bind: dict[str, str] = {}
+        self.skip_newlines()
+        self.expect(TokenType.INDENT)
+        while not self.match(TokenType.DEDENT):
+            self.skip_newlines()
+            if self.match(TokenType.DEDENT):
+                break
+            bind_key = self.expect_identifier_or_keyword().value
+            self.expect(TokenType.COLON)
+            bind_val = self.expect_identifier_or_keyword().value
+            bind[bind_key] = bind_val
+            self.skip_newlines()
+        self.expect(TokenType.DEDENT)
+        return bind
+
+    def _parse_row_action_confirm_block(self, key_tok: Any) -> ir.ConfirmationItemSpec:
+        """#1148: parse the indented ``confirm:`` sub-block of row_action.
+
+        Same shape as one entry in a ``confirmations:`` block — title
+        required, caption + required optional.
+        """
+        self.skip_newlines()
+        self.expect(TokenType.INDENT)
+        title: str | None = None
+        caption = ""
+        required = True
+        while not self.match(TokenType.DEDENT):
+            self.skip_newlines()
+            if self.match(TokenType.DEDENT):
+                break
+            c_key_tok = self.current_token()
+            c_key = c_key_tok.value
+            self.advance()
+            self.expect(TokenType.COLON)
+            if c_key == "title":
+                title = self.expect(TokenType.STRING).value
+            elif c_key == "caption":
+                caption = self.expect(TokenType.STRING).value
+            elif c_key == "required":
+                bool_val = self.expect_identifier_or_keyword().value
+                if bool_val not in ("true", "false"):
+                    raise make_parse_error(
+                        f"row_action confirm.required must be `true` or `false`; got {bool_val!r}",
+                        self.file,
+                        c_key_tok.line,
+                        c_key_tok.column,
+                    )
+                required = bool_val == "true"
+            else:
+                raise make_parse_error(
+                    f"Unknown row_action confirm key {c_key!r}. "
+                    "Expected one of: title, caption, required.",
+                    self.file,
+                    c_key_tok.line,
+                    c_key_tok.column,
+                )
+            self.skip_newlines()
+        self.expect(TokenType.DEDENT)
+        if title is None:
+            raise make_parse_error(
+                "row_action confirm requires a `title:` field",
+                self.file,
+                key_tok.line,
+                key_tok.column,
+            )
+        return ir.ConfirmationItemSpec(title=title, caption=caption, required=required)
+
     def _parse_overlay_series_block(self) -> list[ir.OverlaySeriesSpec]:
         """Parse the indented body of an ``overlay_series:`` block (#883).
 
@@ -1757,8 +2265,8 @@ class WorkspaceParserMixin:
             )
         self.advance()  # consume MINUS
         label_str = self._parse_dash_required_label("overlay_series")
-        source_name, filter_expr, aggregate_expr = self._parse_overlay_series_kv_block()
-        if not aggregate_expr:
+        source_name, filter_expr, aggregate_ref = self._parse_overlay_series_kv_block()
+        if aggregate_ref is None:
             tok = self.current_token()
             raise make_parse_error(
                 f"overlay_series entry {label_str!r} requires `aggregate:`",
@@ -1770,23 +2278,25 @@ class WorkspaceParserMixin:
             label=label_str,
             source=source_name,
             filter=filter_expr,
-            aggregate_expr=aggregate_expr,
+            aggregate=aggregate_ref,
         )
 
     def _parse_overlay_series_kv_block(
         self,
-    ) -> tuple[str | None, "ir.ConditionExpr | None", str]:
+    ) -> tuple[str | None, "ir.ConditionExpr | None", "ir.AggregateRef | None"]:
         """Consume the optional indented source/filter/aggregate block.
 
         Returns ``(source, filter, aggregate)``. ``aggregate`` is required
-        by the caller — empty string here signals omission.
+        by the caller — ``None`` here signals omission. Per ADR-0024 the
+        ``aggregate:`` value parses through :meth:`parse_aggregate_ref`
+        into a typed :class:`AggregateRef`.
         """
         source_name: str | None = None
         filter_expr: ir.ConditionExpr | None = None
-        aggregate_expr: str = ""
+        aggregate_ref: ir.AggregateRef | None = None
 
         if not self.match(TokenType.INDENT):
-            return source_name, filter_expr, aggregate_expr
+            return source_name, filter_expr, aggregate_ref
         self.advance()  # consume INDENT
         while not self.match(TokenType.DEDENT):
             self.skip_newlines()
@@ -1803,12 +2313,7 @@ class WorkspaceParserMixin:
                 filter_expr = self.parse_condition_expr()
                 self.skip_newlines()
             elif key == "aggregate":
-                # Joined token string until newline — same shape as
-                # the region-level `aggregate:` parser.
-                parts: list[str] = []
-                while not self.match(TokenType.NEWLINE, TokenType.DEDENT):
-                    parts.append(self.advance().value)
-                aggregate_expr = " ".join(parts)
+                aggregate_ref = self.parse_aggregate_ref()
                 self.skip_newlines()
             else:
                 raise make_parse_error(
@@ -1819,7 +2324,7 @@ class WorkspaceParserMixin:
                     key_tok.column,
                 )
         self.expect(TokenType.DEDENT)
-        return source_name, filter_expr, aggregate_expr
+        return source_name, filter_expr, aggregate_ref
 
     def parse_workspace(self) -> ir.WorkspaceSpec:
         """Parse a ``workspace <name> "Title":`` declaration.
@@ -2165,7 +2670,7 @@ class _WorkspaceRegionState:
     empty_message: str | None = None
     group_by: str | ir.BucketRef | None = None
     group_by_dims: list[str | ir.BucketRef] | None = None
-    aggregates: dict[str, str] = field(default_factory=dict)
+    aggregates: dict[str, ir.AggregateRef] = field(default_factory=dict)
     date_field: str | None = None
     date_range: bool = False
     heatmap_rows: str | None = None
@@ -2208,6 +2713,7 @@ class _WorkspaceRegionState:
     day_timeline_config: ir.DayTimelineConfig | None = None
     task_inbox_config: ir.TaskInboxConfig | None = None
     entity_card_config: ir.EntityCardConfig | None = None
+    row_action: ir.RowActionSpec | None = None  # #1148
 
 
 # ---------- Simple keyword-value branches ---------- #
@@ -2336,7 +2842,11 @@ def _kw_date_range(parser: Any, state: _WorkspaceRegionState) -> None:
 
 
 def _kw_aggregate(parser: Any, state: _WorkspaceRegionState) -> None:
-    """``aggregate:`` block — ``metric_name: expr`` per line (expr captured raw)."""
+    """``aggregate:`` block — ``metric_name: <AggregateRef>`` per line.
+
+    Per ADR-0024 each entry is parsed structurally via
+    :meth:`parse_aggregate_ref` into a typed :class:`AggregateRef`.
+    """
     parser.advance()
     parser.expect(TokenType.COLON)
     parser.skip_newlines()
@@ -2347,10 +2857,7 @@ def _kw_aggregate(parser: Any, state: _WorkspaceRegionState) -> None:
             break
         metric_name = parser.expect_identifier_or_keyword().value
         parser.expect(TokenType.COLON)
-        expr_parts: list[str] = []
-        while not parser.match(TokenType.NEWLINE, TokenType.DEDENT):
-            expr_parts.append(parser.advance().value)
-        state.aggregates[metric_name] = " ".join(expr_parts)
+        state.aggregates[metric_name] = parser.parse_aggregate_ref()
         parser.skip_newlines()
     parser.expect(TokenType.DEDENT)
 
@@ -2641,6 +3148,16 @@ def _kw_confirmations(parser: Any, state: _WorkspaceRegionState) -> None:
     parser.expect(TokenType.DEDENT)
 
 
+def _kw_row_action(parser: Any, state: _WorkspaceRegionState) -> None:
+    """#1148: ``row_action:`` block — per-row click-to-POST action."""
+    parser.advance()
+    parser.expect(TokenType.COLON)
+    parser.skip_newlines()
+    parser.expect(TokenType.INDENT)
+    state.row_action = parser._parse_row_action_block()
+    parser.expect(TokenType.DEDENT)
+
+
 def _kw_state_field(parser: Any, state: _WorkspaceRegionState) -> None:
     parser.advance()
     parser.expect(TokenType.COLON)
@@ -2892,6 +3409,7 @@ _WORKSPACE_REGION_IDENT_KEYWORDS: dict[str, KeywordParser[_WorkspaceRegionState]
     "day_timeline_config": _kw_day_timeline_config,
     "task_inbox_config": _kw_task_inbox_config,
     "entity_card_config": _kw_entity_card_config,
+    "row_action": _kw_row_action,  # #1148
 }
 
 
@@ -2997,4 +3515,5 @@ def _build_workspace_region(
         day_timeline_config=state.day_timeline_config,
         task_inbox_config=state.task_inbox_config,
         entity_card_config=state.entity_card_config,
+        row_action=state.row_action,
     )

@@ -1,114 +1,65 @@
 //! Firefox browser impersonation settings.
-//!
-//! This module provides configuration for impersonating various Firefox browser versions.
-//! Each version has its own TLS fingerprint, ALPN protocols, and default HTTP headers
-//! that mimic the real Firefox browser behavior.
-//!
-//! # Usage
-//!
-//! ```rust
-//! use primp::{Client, Impersonate};
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let client = Client::builder()
-//!         .impersonate(Impersonate::FirefoxV140)
-//!         .build()?;
-//!
-//!     //let response = client.get("https://example.com").send().await?;
-//!     Ok(())
-//! }
-//! ```
 
 pub use crate::imp::Impersonate;
+use rustls::client::{BrowserEmulator, BrowserType, BrowserVersion};
+use rustls::crypto::emulation;
+use std::sync::{Arc, OnceLock};
 
 /// Builds browser settings for a specific Firefox version and OS.
 pub(crate) fn build_firefox_settings(
     firefox: Impersonate,
     os: crate::imp::ImpersonateOS,
 ) -> crate::imp::BrowserSettings {
-    use rustls::client::{BrowserEmulator, BrowserType, BrowserVersion};
-    use rustls::crypto::emulation;
-    use std::sync::OnceLock;
-
+    let os = if matches!(os, crate::imp::ImpersonateOS::Random) {
+        crate::imp::random_impersonate_os()
+    } else {
+        os
+    };
     let user_agent = build_user_agent(firefox, os);
     let headers = build_headers(user_agent);
 
-    // Get cached browser emulator for Firefox (avoids Vec allocations on each call)
     let browser_emulator = match firefox {
         Impersonate::FirefoxV140 => {
-            static FIREFOX_140: OnceLock<BrowserEmulator> = OnceLock::new();
-            FIREFOX_140
-                .get_or_init(|| {
-                    let mut emulator =
-                        BrowserEmulator::new(BrowserType::Firefox, BrowserVersion::new(140, 0, 0));
-                    emulator.cipher_suites = Some(emulation::cipher_suites::FIREFOX.to_vec());
-                    emulator.signature_algorithms =
-                        Some(emulation::signature_algorithms::FIREFOX.to_vec());
-                    emulator.named_groups = Some(emulation::named_groups::FIREFOX.to_vec());
-                    emulator.extension_order_seed = Some(emulation::extension_order::FIREFOX);
-                    emulator
-                })
+            static EMU: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+            EMU.get_or_init(|| Arc::new(new_firefox_emulator(140)))
                 .clone()
         }
         Impersonate::FirefoxV146 => {
-            static FIREFOX_146: OnceLock<BrowserEmulator> = OnceLock::new();
-            FIREFOX_146
-                .get_or_init(|| {
-                    let mut emulator =
-                        BrowserEmulator::new(BrowserType::Firefox, BrowserVersion::new(146, 0, 0));
-                    emulator.cipher_suites = Some(emulation::cipher_suites::FIREFOX.to_vec());
-                    emulator.signature_algorithms =
-                        Some(emulation::signature_algorithms::FIREFOX.to_vec());
-                    emulator.named_groups = Some(emulation::named_groups::FIREFOX.to_vec());
-                    emulator.extension_order_seed = Some(emulation::extension_order::FIREFOX);
-                    emulator
-                })
+            static EMU: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+            EMU.get_or_init(|| Arc::new(new_firefox_emulator(146)))
                 .clone()
         }
         Impersonate::FirefoxV147 => {
-            static FIREFOX_147: OnceLock<BrowserEmulator> = OnceLock::new();
-            FIREFOX_147
-                .get_or_init(|| {
-                    let mut emulator =
-                        BrowserEmulator::new(BrowserType::Firefox, BrowserVersion::new(147, 0, 0));
-                    emulator.cipher_suites = Some(emulation::cipher_suites::FIREFOX.to_vec());
-                    emulator.signature_algorithms =
-                        Some(emulation::signature_algorithms::FIREFOX.to_vec());
-                    emulator.named_groups = Some(emulation::named_groups::FIREFOX.to_vec());
-                    emulator.extension_order_seed = Some(emulation::extension_order::FIREFOX);
-                    emulator
-                })
+            static EMU: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+            EMU.get_or_init(|| Arc::new(new_firefox_emulator(147)))
                 .clone()
         }
         Impersonate::FirefoxV148 => {
-            static FIREFOX_148: OnceLock<BrowserEmulator> = OnceLock::new();
-            FIREFOX_148
-                .get_or_init(|| {
-                    let mut emulator =
-                        BrowserEmulator::new(BrowserType::Firefox, BrowserVersion::new(148, 0, 0));
-                    emulator.cipher_suites = Some(emulation::cipher_suites::FIREFOX.to_vec());
-                    emulator.signature_algorithms =
-                        Some(emulation::signature_algorithms::FIREFOX.to_vec());
-                    emulator.named_groups = Some(emulation::named_groups::FIREFOX.to_vec());
-                    emulator.extension_order_seed = Some(emulation::extension_order::FIREFOX);
-                    emulator
-                })
+            static EMU: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+            EMU.get_or_init(|| Arc::new(new_firefox_emulator(148)))
                 .clone()
         }
         _ => unreachable!(),
     };
 
-    let http2 = build_http2_settings();
-
     crate::imp::BrowserSettings {
         browser_emulator,
-        http2,
+        http2: build_http2_settings(),
         headers,
         gzip: true,
         brotli: true,
         zstd: true,
+        deflate: true,
     }
+}
+
+fn new_firefox_emulator(major: u16) -> BrowserEmulator {
+    let mut emulator = BrowserEmulator::new(BrowserType::Firefox, BrowserVersion::new(major, 0, 0));
+    emulator.cipher_suites = Some(emulation::cipher_suites::FIREFOX.to_vec());
+    emulator.signature_algorithms = Some(emulation::signature_algorithms::FIREFOX.to_vec());
+    emulator.named_groups = Some(emulation::named_groups::FIREFOX.to_vec());
+    emulator.extension_order_seed = Some(emulation::extension_order::FIREFOX);
+    emulator
 }
 
 /// Builds a User-Agent string for a Firefox version and OS.
@@ -120,7 +71,7 @@ fn build_user_agent(firefox: Impersonate, os: crate::imp::ImpersonateOS) -> &'st
             crate::imp::ImpersonateOS::Linux => "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0",
             crate::imp::ImpersonateOS::Android => "Mozilla/5.0 (Android 14; Mobile; rv:140.0) Gecko/140.0 Firefox/140.0",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/140.0 Mobile/15E148 Safari/605.1",
-            _ => build_user_agent(firefox, crate::imp::random_impersonate_os()),
+            _ => unreachable!(),
         },
         Impersonate::FirefoxV146 => match os {
             crate::imp::ImpersonateOS::Windows => "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0",
@@ -128,7 +79,7 @@ fn build_user_agent(firefox: Impersonate, os: crate::imp::ImpersonateOS) -> &'st
             crate::imp::ImpersonateOS::Linux => "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0",
             crate::imp::ImpersonateOS::Android => "Mozilla/5.0 (Android 14; Mobile; rv:146.0) Gecko/146.0 Firefox/146.0",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/146.0 Mobile/15E148 Safari/605.1",
-            _ => build_user_agent(firefox, crate::imp::random_impersonate_os()),
+            _ => unreachable!(),
         },
         Impersonate::FirefoxV147 => match os {
             crate::imp::ImpersonateOS::Windows => "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
@@ -136,7 +87,7 @@ fn build_user_agent(firefox: Impersonate, os: crate::imp::ImpersonateOS) -> &'st
             crate::imp::ImpersonateOS::Linux => "Mozilla/5.0 (X11; Linux x86_64; rv:147.0) Gecko/20100101 Firefox/147.0",
             crate::imp::ImpersonateOS::Android => "Mozilla/5.0 (Android 14; Mobile; rv:147.0) Gecko/147.0 Firefox/147.0",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/147.0 Mobile/15E148 Safari/605.1",
-            _ => build_user_agent(firefox, crate::imp::random_impersonate_os()),
+            _ => unreachable!(),
         },
         Impersonate::FirefoxV148 => match os {
             crate::imp::ImpersonateOS::Windows => "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) Gecko/20100101 Firefox/148.0",
@@ -144,95 +95,106 @@ fn build_user_agent(firefox: Impersonate, os: crate::imp::ImpersonateOS) -> &'st
             crate::imp::ImpersonateOS::Linux => "Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0",
             crate::imp::ImpersonateOS::Android => "Mozilla/5.0 (Android 14; Mobile; rv:148.0) Gecko/148.0 Firefox/148.0",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/148.0 Mobile/15E148 Safari/605.1",
-            _ => build_user_agent(firefox, crate::imp::random_impersonate_os()),
+            _ => unreachable!(),
         },
         _ => unreachable!(),
     }
 }
 
+fn firefox_base_headers() -> &'static http::HeaderMap {
+    static BASE: OnceLock<http::HeaderMap> = OnceLock::new();
+    BASE.get_or_init(|| {
+        let mut headers = http::HeaderMap::with_capacity(12);
+        headers.insert(
+            http::header::ACCEPT,
+            http::HeaderValue::from_static(
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            ),
+        );
+        headers.insert(
+            "accept-language",
+            http::HeaderValue::from_static("en-US,en;q=0.5"),
+        );
+        headers.insert(
+            "accept-encoding",
+            http::HeaderValue::from_static("gzip, deflate, br, zstd"),
+        );
+        headers.insert("dnt", http::HeaderValue::from_static("1"));
+        headers.insert("sec-gpc", http::HeaderValue::from_static("1"));
+        headers.insert(
+            "upgrade-insecure-requests",
+            http::HeaderValue::from_static("1"),
+        );
+        headers.insert("sec-fetch-dest", http::HeaderValue::from_static("document"));
+        headers.insert("sec-fetch-mode", http::HeaderValue::from_static("navigate"));
+        headers.insert("sec-fetch-site", http::HeaderValue::from_static("none"));
+        headers.insert("sec-fetch-user", http::HeaderValue::from_static("?1"));
+        headers.insert("priority", http::HeaderValue::from_static("u=0, i"));
+        headers.insert("te", http::HeaderValue::from_static("trailers"));
+        headers
+    })
+}
+
 /// Builds default headers for Firefox.
 fn build_headers(user_agent: &'static str) -> http::HeaderMap {
-    use http::header::*;
-
-    let mut headers = http::HeaderMap::with_capacity(13);
-    headers.insert(USER_AGENT, http::HeaderValue::from_static(user_agent));
+    let mut headers = firefox_base_headers().clone();
     headers.insert(
-        ACCEPT,
-        http::HeaderValue::from_static(
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        ),
+        http::header::USER_AGENT,
+        http::HeaderValue::from_static(user_agent),
     );
-    headers.insert(
-        "accept-language",
-        http::HeaderValue::from_static("en-US,en;q=0.5"),
-    );
-    headers.insert(
-        "accept-encoding",
-        http::HeaderValue::from_static("gzip, deflate, br, zstd"),
-    );
-    headers.insert("dnt", http::HeaderValue::from_static("1"));
-    headers.insert("sec-gpc", http::HeaderValue::from_static("1"));
-    headers.insert(
-        "upgrade-insecure-requests",
-        http::HeaderValue::from_static("1"),
-    );
-    headers.insert("sec-fetch-dest", http::HeaderValue::from_static("document"));
-    headers.insert("sec-fetch-mode", http::HeaderValue::from_static("navigate"));
-    headers.insert("sec-fetch-site", http::HeaderValue::from_static("none"));
-    headers.insert("sec-fetch-user", http::HeaderValue::from_static("?1"));
-    headers.insert("priority", http::HeaderValue::from_static("u=0, i"));
-    headers.insert("te", http::HeaderValue::from_static("trailers"));
-
     headers
 }
 
 /// Builds HTTP/2 settings for Firefox.
-///
-/// Firefox 140/146 HTTP/2 fingerprint:
-/// - Settings: 1:65536, 2:0, 4:131072, 5:16384
-/// - Window Update: 12517377
-/// - Pseudo-header order: m,p,a,s (:method, :path, :authority, :scheme)
 #[cfg(feature = "http2")]
 fn build_http2_settings() -> crate::imp::Http2Data {
-    use crate::imp::{PseudoId, PseudoOrder, SettingId, SettingsOrder};
-
-    // Firefox sends settings: 1, 2, 4, 5
-    // Expected fingerprint: 1:65536;2:0;4:131072;5:16384
-    let settings_order = Some(
-        SettingsOrder::builder()
-            .push(SettingId::HeaderTableSize) // 1: 65536
-            .push(SettingId::EnablePush) // 2: 0
-            .push(SettingId::InitialWindowSize) // 4: 131072
-            .push(SettingId::MaxFrameSize) // 5: 16384
-            .build_without_extend(),
-    );
-
-    // Firefox pseudo-header order: m,p,a,s (:method, :path, :authority, :scheme)
-    let headers_pseudo_order = Some(
-        PseudoOrder::builder()
-            .push(PseudoId::Method)
-            .push(PseudoId::Path)
-            .push(PseudoId::Authority)
-            .push(PseudoId::Scheme)
-            .build(),
-    );
-
     crate::imp::Http2Data {
-        initial_stream_window_size: Some(131072),
-        // Note: h2 subtracts the default window size (65535) from this value,
-        // so we add 65535 to get the target window update of 12517377
-        initial_connection_window_size: Some(12517377 + 65535),
-        max_concurrent_streams: None,
+        initial_stream_window_size: Some(crate::imp::FIREFOX_INITIAL_STREAM_WINDOW),
+        initial_connection_window_size: Some(crate::imp::FIREFOX_INITIAL_CONNECTION_WINDOW),
         max_frame_size: Some(16384),
-        max_header_list_size: None,
-        header_table_size: Some(65536),
+        header_table_size: Some(crate::imp::FIREFOX_HEADER_TABLE_SIZE),
         enable_push: Some(false),
-        enable_connect_protocol: None,
-        no_rfc7540_priorities: None,
-        settings_order,
-        headers_pseudo_order,
-        headers_priority: Some((41, 0, false)), // Firefox: weight=41 (displays as 42 on wire after +1), dep=0, excl=0
-        headers_order: Some(vec![
+        settings_order: Some(firefox_settings_order().clone()),
+        headers_pseudo_order: Some(firefox_pseudo_order().clone()),
+        headers_priority: Some((41, 0, false)),
+        headers_order: Some(firefox_headers_order().clone()),
+        initial_stream_id: Some(3),
+        initial_stream_window_size_increment: Some(12451840),
+        ..Default::default()
+    }
+}
+
+#[cfg(feature = "http2")]
+fn firefox_settings_order() -> &'static crate::imp::SettingsOrder {
+    static ORDER: OnceLock<crate::imp::SettingsOrder> = OnceLock::new();
+    ORDER.get_or_init(|| {
+        crate::imp::SettingsOrder::builder()
+            .push(crate::imp::SettingId::HeaderTableSize)
+            .push(crate::imp::SettingId::EnablePush)
+            .push(crate::imp::SettingId::InitialWindowSize)
+            .push(crate::imp::SettingId::MaxFrameSize)
+            .build_without_extend()
+    })
+}
+
+#[cfg(feature = "http2")]
+fn firefox_pseudo_order() -> &'static crate::imp::PseudoOrder {
+    static ORDER: OnceLock<crate::imp::PseudoOrder> = OnceLock::new();
+    ORDER.get_or_init(|| {
+        crate::imp::PseudoOrder::builder()
+            .push(crate::imp::PseudoId::Method)
+            .push(crate::imp::PseudoId::Path)
+            .push(crate::imp::PseudoId::Authority)
+            .push(crate::imp::PseudoId::Scheme)
+            .build()
+    })
+}
+
+#[cfg(feature = "http2")]
+fn firefox_headers_order() -> &'static Vec<http::HeaderName> {
+    static ORDER: OnceLock<Vec<http::HeaderName>> = OnceLock::new();
+    ORDER.get_or_init(|| {
+        vec![
             http::HeaderName::from_static("user-agent"),
             http::HeaderName::from_static("accept"),
             http::HeaderName::from_static("accept-language"),
@@ -246,9 +208,8 @@ fn build_http2_settings() -> crate::imp::Http2Data {
             http::HeaderName::from_static("sec-fetch-user"),
             http::HeaderName::from_static("priority"),
             http::HeaderName::from_static("te"),
-        ]),
-        initial_stream_id: Some(3), // Firefox starts at stream ID 3
-    }
+        ]
+    })
 }
 
 #[cfg(test)]

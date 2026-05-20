@@ -18,6 +18,7 @@ from referencing._core import Resolved
 from referencing._core import Resolver
 from referencing.jsonschema import DRAFT202012
 
+from jsonschema_path._referencing_compat import rebind_resolved
 from jsonschema_path.caches import FullPathResolvedCache
 from jsonschema_path.handlers import default_handlers
 from jsonschema_path.resolvers import CachedPathResolver
@@ -27,11 +28,27 @@ from jsonschema_path.typing import Schema
 
 
 class SchemaAccessor(LookupAccessor):
+    """Resource handle binding a schema document to its resolver.
+
+    Identity contract: a `SchemaAccessor` is its own identity token,
+    discriminated by the wrapped node (by reference) and the
+    `_path_resolver` instance (by reference). Both are set in
+    `__init__` and never reassigned, so equality and hash are stable
+    for the accessor's lifetime even though the inner registry
+    evolves as `$ref`s are resolved.
+
+    Consequence: two `from_schema(doc, ...)` calls produce non-equal
+    accessors even with identical arguments, because each call builds
+    its own `_path_resolver`. Build one accessor per schema document
+    and reuse it across all derived `SchemaPath`s — see "Identity and
+    equality" and "Recommended usage" in the README.
+    """
+
     def __init__(
         self,
         schema: Schema,
         resolver: Resolver[Schema],
-        resolved_cache_maxsize: int = 0,
+        resolved_cache_maxsize: int = 128,
     ):
         if resolved_cache_maxsize < 0:
             raise ValueError("resolved_cache_maxsize must be >= 0")
@@ -43,6 +60,31 @@ class SchemaAccessor(LookupAccessor):
         self._resolved_cache_maxsize = resolved_cache_maxsize
         self._resolved_cache: FullPathResolvedCache = FullPathResolvedCache(
             maxsize=resolved_cache_maxsize
+        )
+
+    def __eq__(self, other: object) -> Any:
+        if not isinstance(other, SchemaAccessor):
+            return NotImplemented
+        # See the class docstring for the identity contract. Both
+        # discriminators are reference-stable: `_node` is the
+        # constructor argument and `_path_resolver` is constructed
+        # once in `__init__` and never reassigned (only its inner
+        # `resolver` field is swapped when the registry evolves).
+        return (
+            type(self) is type(other)
+            and self._node is other._node
+            and self._path_resolver is other._path_resolver
+        )
+
+    def __hash__(self) -> int:
+        # Reference-stable inputs only — does not depend on the schema
+        # dict being hashable or on the mutating registry.
+        return hash(
+            (
+                type(self),
+                id(self._node),
+                id(self._path_resolver),
+            )
         )
 
     @classmethod
@@ -176,12 +218,25 @@ class SchemaAccessor(LookupAccessor):
     def get_resolved(self, parts: Sequence[LookupKey]) -> Resolved[LookupNode]:
         cached_resolved = self._resolved_cache.get(parts)
         if cached_resolved is not None:
-            return cached_resolved
+            # Read `_registry` directly: it is a stable attrs-backed
+            # attribute on every supported referencing version (the
+            # import-time `assert_referencing_layout` guarantees this)
+            # and a plain attribute access is ~30ns vs ~100ns through a
+            # helper with isinstance dispatch. The cold-path field
+            # *write* still goes through `rebind_resolved`.
+            current_registry = self._path_resolver.resolver._registry
+            if cached_resolved.resolver._registry is current_registry:
+                return cached_resolved
+            # Rebind to the current registry rather than discard. Safe
+            # under monotonic registry growth (see caches.py docstring).
+            rebound = cast(
+                Resolved[LookupNode],
+                rebind_resolved(cached_resolved, current_registry),
+            )
+            self._resolved_cache.set(parts, rebound)
+            return rebound
 
         result = self._path_resolver.resolve(self.node, parts)
-        if result.registry_changed:
-            self._resolved_cache.invalidate()
-
         self._resolved_cache.set(parts, result.resolved)
 
         return result.resolved

@@ -7,7 +7,7 @@ name = "orbax-checkpoint"
 description = "Orbax Checkpoint"
 readme = 'README.md'
 license = {file = 'LICENSE'}
-requires-python = '>=3.10'
+requires-python = '>=3.11'
 authors = [{name = 'Orbax Authors', email='orbax-dev@google.com'}]
 classifiers=[
     'Development Status :: 4 - Beta',
@@ -28,8 +28,9 @@ dependencies = [
     'msgpack',
     'jax >= 0.6.0',
     'numpy',
+    'prometheus-client >= 0.20.0',
     'pyyaml',
-    'tensorstore >= 0.1.74',
+    'tensorstore >= 0.1.84',
     'aiofiles',
     'protobuf',
     'humanize',
@@ -76,7 +77,11 @@ testing = [
     'grain',
 ]
 tiering_service = [
+    'aiosqlite',
+    'greenlet',
     'grpcio-tools>=1.80.0',
+    'pysqlite3',
+    'sqlalchemy>=1.4.0',
 ]
 
 [tool.flit.sdist]

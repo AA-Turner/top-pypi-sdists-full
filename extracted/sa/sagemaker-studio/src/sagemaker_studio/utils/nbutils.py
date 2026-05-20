@@ -18,6 +18,7 @@ Usage:
     value = nbutils.parameters.get('my_param')
 """
 
+import ast
 import json
 import logging
 import os
@@ -130,7 +131,7 @@ class _DataZoneNotebookClient:
             logger.warning("DataZone client is not available, cannot fetch notebook parameters")
             return {}
         try:
-            response = client.get_notebook_wip(domainIdentifier=domain_id, identifier=notebook_id)
+            response = client.get_notebook(domainIdentifier=domain_id, identifier=notebook_id)
             params = response.get("parameters", {})
             return _parse_parameters(params)
         except Exception as e:
@@ -309,6 +310,10 @@ class NotebookParameters:
         Handles values wrapped in extra surrounding quotes (single or
         double) which may come from the DataZone API.
 
+        Also handles Python-style literals (e.g. single-quoted strings,
+        lists with single quotes like ``['a', 'b']``) via
+        ``ast.literal_eval`` as a fallback.
+
         For dicts, each string value is recursively deserialized so that
         nested JSON-encoded strings (e.g. ``"true"`` → ``True``,
         ``"[1, 2]"`` → ``[1, 2]``) are automatically parsed.
@@ -336,6 +341,15 @@ class NotebookParameters:
             parsed = json.loads(value)
             return NotebookParameters._try_parse_json(parsed)
         except (json.JSONDecodeError, ValueError):
+            pass
+        # Fall back to ast.literal_eval for Python-style literals
+        # (e.g. "['chess', 'gaming']" or "{'key': 'value'}")
+        try:
+            parsed = ast.literal_eval(value)
+            if isinstance(parsed, (dict, list, tuple)):
+                return NotebookParameters._try_parse_json(parsed)
+            return parsed
+        except (ValueError, SyntaxError):
             return value
 
     def get(self, name: str, default: Any = None) -> Any:

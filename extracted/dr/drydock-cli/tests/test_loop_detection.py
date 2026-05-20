@@ -13,6 +13,7 @@ These test the exact scenarios users report:
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest

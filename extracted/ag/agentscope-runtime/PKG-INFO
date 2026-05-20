@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope-runtime
-Version: 1.1.5
+Version: 1.1.6
 Summary: A production-ready runtime framework for agent applications, providing secure sandboxed execution environments and scalable deployment solutions with multi-framework support.
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

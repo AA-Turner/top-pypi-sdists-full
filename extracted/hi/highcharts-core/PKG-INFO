@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: highcharts-core
-Version: 1.10.3
+Version: 1.11.0
 Summary: High-end Data Visualization for the Python Ecosystem. Official wrapper for Highcharts Core (JS).
 Project-URL: Homepage, https://highchartspython.com
 Project-URL: Documentation, https://core-docs.highchartspython.com/en/latest/
@@ -33,7 +33,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Requires-Dist: esprima>=4.0.1
-Requires-Dist: requests>=2.32.0
+Requires-Dist: requests>=2.32.4
 Requires-Dist: validator-collection>=1.5.0
 Provides-Extra: ai
 Requires-Dist: anthropic>=0.3.11; extra == 'ai'
@@ -49,7 +49,7 @@ Requires-Dist: pandas>=1.3.3; extra == 'dev'
 Requires-Dist: pyspark>=3.3.0; extra == 'dev'
 Requires-Dist: pytest-cov>=3.0.0; extra == 'dev'
 Requires-Dist: pytest-xdist>=2.5.0; extra == 'dev'
-Requires-Dist: pytest>=7.0.2; extra == 'dev'
+Requires-Dist: pytest>=9.0.3; extra == 'dev'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'dev'
 Requires-Dist: pytz>=2022.1; extra == 'dev'
 Requires-Dist: sphinx-rtd-theme==1.2.0; extra == 'dev'

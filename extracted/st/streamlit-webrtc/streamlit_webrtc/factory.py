@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Type, Union, overload
+from typing import Callable, Literal, Optional, Type, Union, overload
 
 import streamlit as st
 
@@ -25,6 +25,13 @@ from .process import (
     VideoProcessTrack,
 )
 from .relay import get_global_relay
+from .shutdown import SessionShutdownObserver
+from .sink import (
+    AudioSinkCallback,
+    AudioSinkTrack,
+    VideoSinkCallback,
+    VideoSinkTrack,
+)
 from .source import (
     AudioSourceCallback,
     AudioSourceTrack,
@@ -188,14 +195,19 @@ def create_mix_track(
 
 
 _VIDEO_SOURCE_TRACK_CACHE_KEY_PREFIX = "__VIDEO_SOURCE_TRACK_CACHE__"
+_VIDEO_SOURCE_TRACK_SHUTDOWN_OBSERVER_CACHE_KEY_PREFIX = (
+    "__VIDEO_SOURCE_TRACK_SHUTDOWN_OBSERVER_CACHE__"
+)
 
 
 def create_video_source_track(
     callback: VideoSourceCallback,
     key: str,
     fps=30,
+    on_ended: Optional[Callable[[], None]] = None,
 ) -> VideoSourceTrack:
     cache_key = _VIDEO_SOURCE_TRACK_CACHE_KEY_PREFIX + key
+    observer_cache_key = _VIDEO_SOURCE_TRACK_SHUTDOWN_OBSERVER_CACHE_KEY_PREFIX + key
     if (
         cache_key in st.session_state
         and isinstance(st.session_state[cache_key], VideoSourceTrack)
@@ -206,12 +218,97 @@ def create_video_source_track(
         video_source_track._callback = callback
         video_source_track._fps = fps
     else:
+        # The previous observer (if any) is bound to a now-stopped track; stop
+        # it before installing a fresh one so its polling thread isn't leaked
+        # for the rest of the session.
+        old_observer = st.session_state.get(observer_cache_key)
+        if isinstance(old_observer, SessionShutdownObserver):
+            old_observer.stop()
+
         video_source_track = VideoSourceTrack(callback=callback, fps=fps)
         st.session_state[cache_key] = video_source_track
+        # Auto-stop on Streamlit session shutdown so the "ended" event (and
+        # any `on_ended` callback) fires deterministically even when the user
+        # closes the page without clicking the STOP button first.
+        st.session_state[observer_cache_key] = SessionShutdownObserver(
+            video_source_track.stop
+        )
+    video_source_track._on_ended_callback = on_ended
     return video_source_track
 
 
 _AUDIO_SOURCE_TRACK_CACHE_KEY_PREFIX = "__AUDIO_SOURCE_TRACK_CACHE__"
+_AUDIO_SOURCE_TRACK_SHUTDOWN_OBSERVER_CACHE_KEY_PREFIX = (
+    "__AUDIO_SOURCE_TRACK_SHUTDOWN_OBSERVER_CACHE__"
+)
+
+
+_VIDEO_SINK_TRACK_CACHE_KEY_PREFIX = "__VIDEO_SINK_TRACK_CACHE__"
+_VIDEO_SINK_TRACK_SHUTDOWN_OBSERVER_CACHE_KEY_PREFIX = (
+    "__VIDEO_SINK_TRACK_SHUTDOWN_OBSERVER_CACHE__"
+)
+
+
+def create_video_sink_track(
+    callback: VideoSinkCallback,
+    key: str,
+    on_ended: Optional[Callable[[], None]] = None,
+) -> VideoSinkTrack:
+    cache_key = _VIDEO_SINK_TRACK_CACHE_KEY_PREFIX + key
+    observer_cache_key = _VIDEO_SINK_TRACK_SHUTDOWN_OBSERVER_CACHE_KEY_PREFIX + key
+    if (
+        cache_key in st.session_state
+        and isinstance(st.session_state[cache_key], VideoSinkTrack)
+        and st.session_state[cache_key].readyState != "ended"
+    ):
+        video_sink_track: VideoSinkTrack = st.session_state[cache_key]
+        video_sink_track._callback = callback
+    else:
+        old_observer = st.session_state.get(observer_cache_key)
+        if isinstance(old_observer, SessionShutdownObserver):
+            old_observer.stop()
+
+        video_sink_track = VideoSinkTrack(callback=callback)
+        st.session_state[cache_key] = video_sink_track
+        st.session_state[observer_cache_key] = SessionShutdownObserver(
+            video_sink_track.stop
+        )
+    video_sink_track._on_ended_callback = on_ended
+    return video_sink_track
+
+
+_AUDIO_SINK_TRACK_CACHE_KEY_PREFIX = "__AUDIO_SINK_TRACK_CACHE__"
+_AUDIO_SINK_TRACK_SHUTDOWN_OBSERVER_CACHE_KEY_PREFIX = (
+    "__AUDIO_SINK_TRACK_SHUTDOWN_OBSERVER_CACHE__"
+)
+
+
+def create_audio_sink_track(
+    callback: AudioSinkCallback,
+    key: str,
+    on_ended: Optional[Callable[[], None]] = None,
+) -> AudioSinkTrack:
+    cache_key = _AUDIO_SINK_TRACK_CACHE_KEY_PREFIX + key
+    observer_cache_key = _AUDIO_SINK_TRACK_SHUTDOWN_OBSERVER_CACHE_KEY_PREFIX + key
+    if (
+        cache_key in st.session_state
+        and isinstance(st.session_state[cache_key], AudioSinkTrack)
+        and st.session_state[cache_key].readyState != "ended"
+    ):
+        audio_sink_track: AudioSinkTrack = st.session_state[cache_key]
+        audio_sink_track._callback = callback
+    else:
+        old_observer = st.session_state.get(observer_cache_key)
+        if isinstance(old_observer, SessionShutdownObserver):
+            old_observer.stop()
+
+        audio_sink_track = AudioSinkTrack(callback=callback)
+        st.session_state[cache_key] = audio_sink_track
+        st.session_state[observer_cache_key] = SessionShutdownObserver(
+            audio_sink_track.stop
+        )
+    audio_sink_track._on_ended_callback = on_ended
+    return audio_sink_track
 
 
 def create_audio_source_track(
@@ -219,8 +316,10 @@ def create_audio_source_track(
     key: str,
     sample_rate: int = 48000,
     ptime: float = 0.020,
+    on_ended: Optional[Callable[[], None]] = None,
 ) -> AudioSourceTrack:
     cache_key = _AUDIO_SOURCE_TRACK_CACHE_KEY_PREFIX + key
+    observer_cache_key = _AUDIO_SOURCE_TRACK_SHUTDOWN_OBSERVER_CACHE_KEY_PREFIX + key
     if (
         cache_key in st.session_state
         and isinstance(st.session_state[cache_key], AudioSourceTrack)
@@ -233,8 +332,16 @@ def create_audio_source_track(
         audio_source_track._ptime = ptime
         audio_source_track._samples_per_frame = int(sample_rate * ptime)
     else:
+        old_observer = st.session_state.get(observer_cache_key)
+        if isinstance(old_observer, SessionShutdownObserver):
+            old_observer.stop()
+
         audio_source_track = AudioSourceTrack(
             callback=callback, sample_rate=sample_rate, ptime=ptime
         )
         st.session_state[cache_key] = audio_source_track
+        st.session_state[observer_cache_key] = SessionShutdownObserver(
+            audio_source_track.stop
+        )
+    audio_source_track._on_ended_callback = on_ended
     return audio_source_track

@@ -324,6 +324,11 @@ class DrydockApp(App):  # noqa: PLR0904
         with Horizontal(id="bottom-bar"):
             yield PathDisplay(self.config.displayed_workdir or Path.cwd())
             yield NoMarkupStatic(id="spacer")
+            # Keybinding hint: Ctrl+O expands tool results, errors, and
+            # model thinking (collapsed by default). Always-on because
+            # checking widget state per render is more code than the
+            # hint costs.
+            yield NoMarkupStatic("Ctrl+O: details", id="keybind-hint")
             yield ContextProgress()
 
     async def on_mount(self) -> None:
@@ -2513,7 +2518,7 @@ class DrydockApp(App):  # noqa: PLR0904
             return
 
         old_tokens = self.agent_loop.stats.context_tokens
-        compact_msg = CompactMessage()
+        compact_msg = CompactMessage(input_tokens=old_tokens)
         self.event_handler.current_compact = compact_msg
         await self._mount_and_scroll(compact_msg)
 

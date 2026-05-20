@@ -1,12 +1,10 @@
-objects:
-  role: {}
+objects: {}
 plugins:
   become: {}
   cache: {}
   callback: {}
   cliconf: {}
   connection: {}
-  filter: {}
   httpapi: {}
   inventory: {}
   lookup: {}
@@ -98,6 +96,11 @@ plugins:
       name: hv_gad
       namespace: vsp
       version_added: 3.1.0
+    hv_gad_bulk:
+      description: Manages batch GAD pairs on VSP block storage systems.
+      name: hv_gad_bulk
+      namespace: vsp
+      version_added: 4.7.0
     hv_gad_facts:
       description: Retrieves GAD pairs information from VSP block storage systems.
       name: hv_gad_facts
@@ -108,6 +111,12 @@ plugins:
       name: hv_hg
       namespace: vsp
       version_added: 3.0.0
+    hv_hg_bulk:
+      description: Manages host groups in bulk on VSP block storage system with parallel
+        processing.
+      name: hv_hg_bulk
+      namespace: vsp
+      version_added: 4.7.0
     hv_hg_facts:
       description: Retrieves host group information from a specified VSP block storage
         system.
@@ -117,6 +126,11 @@ plugins:
     hv_hur:
       description: Manages HUR pairs on VSP block storage systems.
       name: hv_hur
+      namespace: vsp
+      version_added: 3.1.0
+    hv_hur_bulk:
+      description: Manages bulk HUR pairs on VSP block storage systems.
+      name: hv_hur_bulk
       namespace: vsp
       version_added: 3.1.0
     hv_hur_facts:
@@ -140,6 +154,11 @@ plugins:
       name: hv_iscsi_target
       namespace: vsp
       version_added: 3.0.0
+    hv_iscsi_target_bulk:
+      description: Manages iscsi targets in bulk mode on VSP block storage systems.
+      name: hv_iscsi_target_bulk
+      namespace: vsp
+      version_added: 4.7.0
     hv_iscsi_target_facts:
       description: Retrieves information about iscsi targets from VSP block storage
         systems.
@@ -175,6 +194,12 @@ plugins:
       name: hv_ldev
       namespace: vsp
       version_added: 3.0.0
+    hv_ldev_bulk:
+      description: Manages multiple logical devices (LDEVs) in bulk on VSP block storage
+        systems.
+      name: hv_ldev_bulk
+      namespace: vsp
+      version_added: 4.7.0
     hv_ldev_facts:
       description: Retrieves information about logical devices (LDEVs) from VSP block
         storage systems.
@@ -849,6 +874,11 @@ plugins:
       name: hv_truecopy
       namespace: vsp
       version_added: 3.1.0
+    hv_truecopy_bulk:
+      description: Manages bulk TrueCopy pairs on VSP block storage systems.
+      name: hv_truecopy_bulk
+      namespace: vsp
+      version_added: 4.7.0
     hv_truecopy_facts:
       description: Retrieves TrueCopy pairs information from VSP block storage systems.
       name: hv_truecopy_facts
@@ -886,6 +916,28 @@ plugins:
       name: hv_vclone_parent_volume_facts
       namespace: vsp
       version_added: 4.6.0
+    hv_vsp_one_gad:
+      description: Manages GAD pairs on VSP One block storage systems.
+      name: hv_vsp_one_gad
+      namespace: vsp
+      version_added: 4.8.0
+    hv_vsp_one_gad_consistency_group:
+      description: Manages GAD pairs in a consistency group on VSP One block storage
+        systems.
+      name: hv_vsp_one_gad_consistency_group
+      namespace: vsp
+      version_added: 4.8.0
+    hv_vsp_one_gad_consistency_group_facts:
+      description: Retrieves consistency group of GAD pairs from VSP One storage systems.
+      name: hv_vsp_one_gad_consistency_group_facts
+      namespace: vsp
+      version_added: 4.8.0
+    hv_vsp_one_gad_facts:
+      description: Retrieves GAD (Global-Active Device) information from VSP One storage
+        systems.
+      name: hv_vsp_one_gad_facts
+      namespace: vsp
+      version_added: 4.8.0
     hv_vsp_one_port:
       description: Manages ports on VSP E series, VSP One Block 20 series, and VSP
         One Block 80 series storage systems.
@@ -955,6 +1007,5 @@ plugins:
   netconf: {}
   shell: {}
   strategy: {}
-  test: {}
   vars: {}
-version: 4.6.1
+version: 4.8.1

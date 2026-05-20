@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tuna
-Version: 0.5.13
+Version: 0.5.15
 Summary: Visualize Python performance profiles
 Author-email: Nico Schlömer <nico.schloemer@gmail.com>
 License: GPL-3.0-or-later

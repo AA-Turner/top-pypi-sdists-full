@@ -1378,7 +1378,9 @@ def build_grants_list_request(
     return HttpRequest(method="GET", url=_url, params=_params, headers=_headers, **kwargs)
 
 
-def build_grants_delete_request(grant_id: str, **kwargs: Any) -> HttpRequest:
+def build_grants_delete_request(grant_id: str, *, at: Optional[datetime.datetime] = None, **kwargs: Any) -> HttpRequest:
+    _params = case_insensitive_dict(kwargs.pop("params", {}) or {})
+
     # Construct URL
     _url = "/api/v1/grants/{grantId}"
     path_format_arguments = {
@@ -1387,7 +1389,11 @@ def build_grants_delete_request(grant_id: str, **kwargs: Any) -> HttpRequest:
 
     _url: str = _url.format(**path_format_arguments)  # type: ignore
 
-    return HttpRequest(method="DELETE", url=_url, **kwargs)
+    # Construct parameters
+    if at is not None:
+        _params["at"] = _SERIALIZER.query("at", at, "iso-8601")
+
+    return HttpRequest(method="DELETE", url=_url, params=_params, **kwargs)
 
 
 def build_subjects_post_request(subject_id_or_key: str, **kwargs: Any) -> HttpRequest:
@@ -2404,6 +2410,25 @@ def build_meters_query_request(meter_id_or_slug: str, **kwargs: Any) -> HttpRequ
     # Construct headers
     if content_type is not None:
         _headers["Content-Type"] = _SERIALIZER.header("content_type", content_type, "str")
+    _headers["Accept"] = _SERIALIZER.header("accept", accept, "str")
+
+    return HttpRequest(method="POST", url=_url, headers=_headers, **kwargs)
+
+
+def build_meters_query_csv_post_request(meter_id_or_slug: str, **kwargs: Any) -> HttpRequest:
+    _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+
+    accept = _headers.pop("Accept", "text/csv")
+
+    # Construct URL
+    _url = "/api/v1/meters/{meterIdOrSlug}/query"
+    path_format_arguments = {
+        "meterIdOrSlug": _SERIALIZER.url("meter_id_or_slug", meter_id_or_slug, "str"),
+    }
+
+    _url: str = _url.format(**path_format_arguments)  # type: ignore
+
+    # Construct headers
     _headers["Accept"] = _SERIALIZER.header("accept", accept, "str")
 
     return HttpRequest(method="POST", url=_url, headers=_headers, **kwargs)
@@ -4425,6 +4450,7 @@ class AppsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -4459,7 +4485,7 @@ class AppsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.AppPaginatedResponse, response.json())
 
@@ -4501,6 +4527,7 @@ class AppsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -4538,7 +4565,7 @@ class AppsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.App", response.json())
 
@@ -4645,13 +4672,7 @@ class AppsOperations:
         cls: ClsType["_types.App"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(app, _models.StripeAppReplaceUpdate):
-            _content = json.dumps(app, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(app, _models.SandboxAppReplaceUpdate):
-            _content = json.dumps(app, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(app, _models.CustomInvoicingAppReplaceUpdate):
-            _content = json.dumps(app, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(app, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_apps_update_request(
             id=id,
@@ -4665,6 +4686,7 @@ class AppsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -4702,7 +4724,7 @@ class AppsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.App", response.json())
 
@@ -4901,6 +4923,7 @@ class AppStripeOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -4938,7 +4961,7 @@ class AppStripeOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.StripeWebhookResponse, response.json())
 
@@ -5196,6 +5219,7 @@ class AppStripeOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -5233,7 +5257,7 @@ class AppStripeOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.CreateStripeCheckoutSessionResult, response.json())
 
@@ -5315,6 +5339,7 @@ class CustomerAppsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -5352,7 +5377,7 @@ class CustomerAppsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.CustomerAppDataPaginatedResponse, response.json())
 
@@ -5473,6 +5498,7 @@ class CustomerAppsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -5510,7 +5536,7 @@ class CustomerAppsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List["_types.CustomerAppData"], response.json())
 
@@ -5700,6 +5726,7 @@ class CustomersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -5734,7 +5761,7 @@ class CustomersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Customer, response.json())
 
@@ -5832,6 +5859,7 @@ class CustomersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -5866,7 +5894,7 @@ class CustomersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.CustomerPaginatedResponse, response.json())
 
@@ -5916,6 +5944,7 @@ class CustomersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -5953,7 +5982,7 @@ class CustomersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Customer, response.json())
 
@@ -6087,6 +6116,7 @@ class CustomersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -6124,7 +6154,7 @@ class CustomersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Customer, response.json())
 
@@ -6264,6 +6294,7 @@ class CustomersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -6301,7 +6332,7 @@ class CustomersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.SubscriptionPaginatedResponse, response.json())
 
@@ -6404,6 +6435,7 @@ class FeaturesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -6438,7 +6470,7 @@ class FeaturesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.ListFeaturesResult", response.json())
 
@@ -6454,11 +6486,9 @@ class FeaturesOperations:
         """Create feature.
 
         Features are either metered or static. A feature is metered if meterSlug is provided at
-        creation.
-        For metered features you can pass additional filters that will be applied when calculating
-        feature usage, based on the meter's groupBy fields.
-        Meters with SUM, COUNT, UNIQUE_COUNT and LATEST aggregations are supported for features.
-        Features cannot be updated later, only archived.
+        creation. For metered features you can pass additional filters that will be applied when
+        calculating feature usage, based on the meter's groupBy fields. Meters with SUM, COUNT,
+        UNIQUE_COUNT and LATEST aggregations are supported for features.
 
         :param feature: Required.
         :type feature: ~openmeter._generated.models.FeatureCreateInputs
@@ -6475,11 +6505,9 @@ class FeaturesOperations:
         """Create feature.
 
         Features are either metered or static. A feature is metered if meterSlug is provided at
-        creation.
-        For metered features you can pass additional filters that will be applied when calculating
-        feature usage, based on the meter's groupBy fields.
-        Meters with SUM, COUNT, UNIQUE_COUNT and LATEST aggregations are supported for features.
-        Features cannot be updated later, only archived.
+        creation. For metered features you can pass additional filters that will be applied when
+        calculating feature usage, based on the meter's groupBy fields. Meters with SUM, COUNT,
+        UNIQUE_COUNT and LATEST aggregations are supported for features.
 
         :param feature: Required.
         :type feature: JSON
@@ -6496,11 +6524,9 @@ class FeaturesOperations:
         """Create feature.
 
         Features are either metered or static. A feature is metered if meterSlug is provided at
-        creation.
-        For metered features you can pass additional filters that will be applied when calculating
-        feature usage, based on the meter's groupBy fields.
-        Meters with SUM, COUNT, UNIQUE_COUNT and LATEST aggregations are supported for features.
-        Features cannot be updated later, only archived.
+        creation. For metered features you can pass additional filters that will be applied when
+        calculating feature usage, based on the meter's groupBy fields. Meters with SUM, COUNT,
+        UNIQUE_COUNT and LATEST aggregations are supported for features.
 
         :param feature: Required.
         :type feature: IO[bytes]
@@ -6516,11 +6542,9 @@ class FeaturesOperations:
         """Create feature.
 
         Features are either metered or static. A feature is metered if meterSlug is provided at
-        creation.
-        For metered features you can pass additional filters that will be applied when calculating
-        feature usage, based on the meter's groupBy fields.
-        Meters with SUM, COUNT, UNIQUE_COUNT and LATEST aggregations are supported for features.
-        Features cannot be updated later, only archived.
+        creation. For metered features you can pass additional filters that will be applied when
+        calculating feature usage, based on the meter's groupBy fields. Meters with SUM, COUNT,
+        UNIQUE_COUNT and LATEST aggregations are supported for features.
 
         :param feature: Is one of the following types: FeatureCreateInputs, JSON, IO[bytes] Required.
         :type feature: ~openmeter._generated.models.FeatureCreateInputs or JSON or IO[bytes]
@@ -6559,6 +6583,7 @@ class FeaturesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -6593,7 +6618,7 @@ class FeaturesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Feature, response.json())
 
@@ -6634,6 +6659,7 @@ class FeaturesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -6671,7 +6697,7 @@ class FeaturesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Feature, response.json())
 
@@ -6862,7 +6888,7 @@ class PlansOperations:
                 _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
             else:
-                _request = HttpRequest("GET", next_link)
+                _request = HttpRequest("GET", next_link, headers=_headers)
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
                         "self._config.endpoint", self._config.endpoint, "str", skip_quote=True
@@ -6874,7 +6900,10 @@ class PlansOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.Plan], deserialized.get("items", []))
+            list_of_elem = _deserialize(
+                List[_models.Plan],
+                deserialized.get("items", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return None, iter(list_of_elem)
@@ -7005,6 +7034,7 @@ class PlansOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -7039,7 +7069,7 @@ class PlansOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Plan, response.json())
 
@@ -7154,6 +7184,7 @@ class PlansOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -7191,7 +7222,7 @@ class PlansOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Plan, response.json())
 
@@ -7238,6 +7269,7 @@ class PlansOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -7275,7 +7307,7 @@ class PlansOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Plan, response.json())
 
@@ -7384,6 +7416,7 @@ class PlansOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -7421,7 +7454,7 @@ class PlansOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Plan, response.json())
 
@@ -7462,6 +7495,7 @@ class PlansOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -7499,7 +7533,7 @@ class PlansOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Plan, response.json())
 
@@ -7511,9 +7545,8 @@ class PlansOperations:
     def next(self, plan_id_or_key: str, **kwargs: Any) -> _models.Plan:
         """New draft plan.
 
-        Create a new draft version from plan.
-        It returns error if there is already a plan in draft or planId does not reference the latest
-        published version.
+        Create a new draft version from plan. It returns error if there is already a plan in draft or
+        planId does not reference the latest published version.
 
         :param plan_id_or_key: Required.
         :type plan_id_or_key: str
@@ -7542,6 +7575,7 @@ class PlansOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -7579,7 +7613,7 @@ class PlansOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Plan, response.json())
 
@@ -7683,6 +7717,7 @@ class PlanAddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -7720,7 +7755,7 @@ class PlanAddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.PlanAddonPaginatedResponse, response.json())
 
@@ -7834,6 +7869,7 @@ class PlanAddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -7874,7 +7910,7 @@ class PlanAddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.PlanAddon, response.json())
 
@@ -8014,6 +8050,7 @@ class PlanAddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -8051,7 +8088,7 @@ class PlanAddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.PlanAddon, response.json())
 
@@ -8095,6 +8132,7 @@ class PlanAddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -8132,7 +8170,7 @@ class PlanAddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.PlanAddon, response.json())
 
@@ -8325,7 +8363,7 @@ class AddonsOperations:
                 _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
             else:
-                _request = HttpRequest("GET", next_link)
+                _request = HttpRequest("GET", next_link, headers=_headers)
                 path_format_arguments = {
                     "endpoint": self._serialize.url(
                         "self._config.endpoint", self._config.endpoint, "str", skip_quote=True
@@ -8337,7 +8375,10 @@ class AddonsOperations:
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.Addon], deserialized.get("items", []))
+            list_of_elem = _deserialize(
+                List[_models.Addon],
+                deserialized.get("items", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
             return None, iter(list_of_elem)
@@ -8468,6 +8509,7 @@ class AddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -8502,7 +8544,7 @@ class AddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Addon, response.json())
 
@@ -8622,6 +8664,7 @@ class AddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -8659,7 +8702,7 @@ class AddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Addon, response.json())
 
@@ -8706,6 +8749,7 @@ class AddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -8743,7 +8787,7 @@ class AddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Addon, response.json())
 
@@ -8852,6 +8896,7 @@ class AddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -8889,7 +8934,7 @@ class AddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Addon, response.json())
 
@@ -8930,6 +8975,7 @@ class AddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -8967,7 +9013,7 @@ class AddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Addon, response.json())
 
@@ -9032,6 +9078,7 @@ class SubscriptionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -9069,7 +9116,7 @@ class SubscriptionsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.SubscriptionExpanded, response.json())
 
@@ -9140,11 +9187,7 @@ class SubscriptionsOperations:
         cls: ClsType[_models.Subscription] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(body, _models.PlanSubscriptionCreate):
-            _content = json.dumps(body, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(body, _models.CustomSubscriptionCreate):
-            _content = json.dumps(body, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(body, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_subscriptions_create_request(
             content_type=content_type,
@@ -9157,6 +9200,7 @@ class SubscriptionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -9194,7 +9238,7 @@ class SubscriptionsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Subscription, response.json())
 
@@ -9214,8 +9258,8 @@ class SubscriptionsOperations:
     ) -> _models.Subscription:
         """Edit subscription.
 
-        Batch processing commands for manipulating running subscriptions.
-        The key format is ``/phases/{phaseKey}`` or ``/phases/{phaseKey}/items/{itemKey}``.
+        Batch processing commands for manipulating running subscriptions. The key format is
+        ``/phases/{phaseKey}`` or ``/phases/{phaseKey}/items/{itemKey}``.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9235,8 +9279,8 @@ class SubscriptionsOperations:
     ) -> _models.Subscription:
         """Edit subscription.
 
-        Batch processing commands for manipulating running subscriptions.
-        The key format is ``/phases/{phaseKey}`` or ``/phases/{phaseKey}/items/{itemKey}``.
+        Batch processing commands for manipulating running subscriptions. The key format is
+        ``/phases/{phaseKey}`` or ``/phases/{phaseKey}/items/{itemKey}``.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9256,8 +9300,8 @@ class SubscriptionsOperations:
     ) -> _models.Subscription:
         """Edit subscription.
 
-        Batch processing commands for manipulating running subscriptions.
-        The key format is ``/phases/{phaseKey}`` or ``/phases/{phaseKey}/items/{itemKey}``.
+        Batch processing commands for manipulating running subscriptions. The key format is
+        ``/phases/{phaseKey}`` or ``/phases/{phaseKey}/items/{itemKey}``.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9276,8 +9320,8 @@ class SubscriptionsOperations:
     ) -> _models.Subscription:
         """Edit subscription.
 
-        Batch processing commands for manipulating running subscriptions.
-        The key format is ``/phases/{phaseKey}`` or ``/phases/{phaseKey}/items/{itemKey}``.
+        Batch processing commands for manipulating running subscriptions. The key format is
+        ``/phases/{phaseKey}`` or ``/phases/{phaseKey}/items/{itemKey}``.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9317,6 +9361,7 @@ class SubscriptionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -9357,7 +9402,7 @@ class SubscriptionsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Subscription, response.json())
 
@@ -9377,8 +9422,8 @@ class SubscriptionsOperations:
     ) -> _models.SubscriptionChangeResponseBody:
         """Change subscription.
 
-        Closes a running subscription and starts a new one according to the specification.
-        Can be used for upgrades, downgrades, and plan changes.
+        Closes a running subscription and starts a new one according to the specification. Can be used
+        for upgrades, downgrades, and plan changes.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9404,8 +9449,8 @@ class SubscriptionsOperations:
     ) -> _models.SubscriptionChangeResponseBody:
         """Change subscription.
 
-        Closes a running subscription and starts a new one according to the specification.
-        Can be used for upgrades, downgrades, and plan changes.
+        Closes a running subscription and starts a new one according to the specification. Can be used
+        for upgrades, downgrades, and plan changes.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9425,8 +9470,8 @@ class SubscriptionsOperations:
     ) -> _models.SubscriptionChangeResponseBody:
         """Change subscription.
 
-        Closes a running subscription and starts a new one according to the specification.
-        Can be used for upgrades, downgrades, and plan changes.
+        Closes a running subscription and starts a new one according to the specification. Can be used
+        for upgrades, downgrades, and plan changes.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9451,11 +9496,7 @@ class SubscriptionsOperations:
         cls: ClsType[_models.SubscriptionChangeResponseBody] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(body, _models.PlanSubscriptionChange):
-            _content = json.dumps(body, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(body, _models.CustomSubscriptionChange):
-            _content = json.dumps(body, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(body, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_subscriptions_change_request(
             subscription_id=subscription_id,
@@ -9469,6 +9510,7 @@ class SubscriptionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -9509,7 +9551,7 @@ class SubscriptionsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.SubscriptionChangeResponseBody, response.json())
 
@@ -9529,9 +9571,9 @@ class SubscriptionsOperations:
     ) -> _models.SubscriptionChangeResponseBody:
         """Migrate subscription.
 
-        Migrates the subscripiton to the provided version of the current plan.
-        If possible, the migration will be done immediately.
-        If not, the migration will be scheduled to the end of the current billing period.
+        Migrates the subscripiton to the provided version of the current plan. If possible, the
+        migration will be done immediately. If not, the migration will be scheduled to the end of the
+        current billing period.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9552,9 +9594,9 @@ class SubscriptionsOperations:
     ) -> _models.SubscriptionChangeResponseBody:
         """Migrate subscription.
 
-        Migrates the subscripiton to the provided version of the current plan.
-        If possible, the migration will be done immediately.
-        If not, the migration will be scheduled to the end of the current billing period.
+        Migrates the subscripiton to the provided version of the current plan. If possible, the
+        migration will be done immediately. If not, the migration will be scheduled to the end of the
+        current billing period.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9575,9 +9617,9 @@ class SubscriptionsOperations:
     ) -> _models.SubscriptionChangeResponseBody:
         """Migrate subscription.
 
-        Migrates the subscripiton to the provided version of the current plan.
-        If possible, the migration will be done immediately.
-        If not, the migration will be scheduled to the end of the current billing period.
+        Migrates the subscripiton to the provided version of the current plan. If possible, the
+        migration will be done immediately. If not, the migration will be scheduled to the end of the
+        current billing period.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9597,9 +9639,9 @@ class SubscriptionsOperations:
     ) -> _models.SubscriptionChangeResponseBody:
         """Migrate subscription.
 
-        Migrates the subscripiton to the provided version of the current plan.
-        If possible, the migration will be done immediately.
-        If not, the migration will be scheduled to the end of the current billing period.
+        Migrates the subscripiton to the provided version of the current plan. If possible, the
+        migration will be done immediately. If not, the migration will be scheduled to the end of the
+        current billing period.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9640,6 +9682,7 @@ class SubscriptionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -9680,7 +9723,7 @@ class SubscriptionsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.SubscriptionChangeResponseBody, response.json())
 
@@ -9692,9 +9735,8 @@ class SubscriptionsOperations:
     def restore(self, subscription_id: str, **kwargs: Any) -> _models.Subscription:
         """Restore subscription.
 
-        Restores a canceled subscription.
-        Any subscription scheduled to start later will be deleted and this subscription will be
-        continued indefinitely.
+        Restores a canceled subscription. Any subscription scheduled to start later will be deleted and
+        this subscription will be continued indefinitely.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9723,6 +9765,7 @@ class SubscriptionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -9760,7 +9803,7 @@ class SubscriptionsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Subscription, response.json())
 
@@ -9780,9 +9823,8 @@ class SubscriptionsOperations:
     ) -> _models.Subscription:
         """Cancel subscription.
 
-        Cancels the subscription.
-        Will result in a scheduling conflict if there are other subscriptions scheduled to start after
-        the cancellation time.
+        Cancels the subscription. Will result in a scheduling conflict if there are other subscriptions
+        scheduled to start after the cancellation time.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9802,9 +9844,8 @@ class SubscriptionsOperations:
     ) -> _models.Subscription:
         """Cancel subscription.
 
-        Cancels the subscription.
-        Will result in a scheduling conflict if there are other subscriptions scheduled to start after
-        the cancellation time.
+        Cancels the subscription. Will result in a scheduling conflict if there are other subscriptions
+        scheduled to start after the cancellation time.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9824,9 +9865,8 @@ class SubscriptionsOperations:
     ) -> _models.Subscription:
         """Cancel subscription.
 
-        Cancels the subscription.
-        Will result in a scheduling conflict if there are other subscriptions scheduled to start after
-        the cancellation time.
+        Cancels the subscription. Will result in a scheduling conflict if there are other subscriptions
+        scheduled to start after the cancellation time.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9845,9 +9885,8 @@ class SubscriptionsOperations:
     ) -> _models.Subscription:
         """Cancel subscription.
 
-        Cancels the subscription.
-        Will result in a scheduling conflict if there are other subscriptions scheduled to start after
-        the cancellation time.
+        Cancels the subscription. Will result in a scheduling conflict if there are other subscriptions
+        scheduled to start after the cancellation time.
 
         :param subscription_id: Required.
         :type subscription_id: str
@@ -9887,6 +9926,7 @@ class SubscriptionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -9927,7 +9967,7 @@ class SubscriptionsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Subscription, response.json())
 
@@ -9967,6 +10007,7 @@ class SubscriptionsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -10007,7 +10048,7 @@ class SubscriptionsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Subscription, response.json())
 
@@ -10213,6 +10254,7 @@ class SubscriptionAddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -10253,7 +10295,7 @@ class SubscriptionAddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.SubscriptionAddon, response.json())
 
@@ -10294,6 +10336,7 @@ class SubscriptionAddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -10331,7 +10374,7 @@ class SubscriptionAddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.SubscriptionAddon], response.json())
 
@@ -10375,6 +10418,7 @@ class SubscriptionAddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -10412,7 +10456,7 @@ class SubscriptionAddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.SubscriptionAddon, response.json())
 
@@ -10562,6 +10606,7 @@ class SubscriptionAddonsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -10599,7 +10644,7 @@ class SubscriptionAddonsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.SubscriptionAddon, response.json())
 
@@ -10727,6 +10772,7 @@ class EntitlementsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -10761,7 +10807,7 @@ class EntitlementsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.ListEntitlementsResult", response.json())
 
@@ -10807,6 +10853,7 @@ class EntitlementsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -10844,7 +10891,7 @@ class EntitlementsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.Entitlement", response.json())
 
@@ -10961,6 +11008,7 @@ class GrantsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -10995,7 +11043,7 @@ class GrantsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(
                 Union[List[_models.EntitlementGrant], _models.GrantPaginatedResponse], response.json()
@@ -11006,20 +11054,25 @@ class GrantsOperations:
 
         return deserialized  # type: ignore
 
-    def delete(self, grant_id: str, **kwargs: Any) -> None:  # pylint: disable=inconsistent-return-statements
+    def delete(  # pylint: disable=inconsistent-return-statements
+        self, grant_id: str, *, at: Optional[datetime.datetime] = None, **kwargs: Any
+    ) -> None:
         """Void grant.
 
         Voiding a grant means it is no longer valid, it doesn't take part in further balance
         calculations. Voiding a grant does not retroactively take effect, meaning any usage that has
         already been attributed to the grant will remain, but future usage cannot be burnt down from
-        the grant.
-        For example, if you have a single grant for your metered entitlement with an initial amount of
-        100, and so far 60 usage has been metered, the grant (and the entitlement itself) would have a
-        balance of 40. If you then void that grant, balance becomes 0, but the 60 previous usage will
-        not be affected.
+        the grant. For example, if you have a single grant for your metered entitlement with an initial
+        amount of 100, and so far 60 usage has been metered, the grant (and the entitlement itself)
+        would have a balance of 40. If you then void that grant, balance becomes 0, but the 60 previous
+        usage will not be affected.
 
         :param grant_id: Required.
         :type grant_id: str
+        :keyword at: The time at which the grant should be voided.
+         Must not be in the future and must be within the current usage period of the entitlement.
+         Defaults to the current time if not specified. Default value is None.
+        :paramtype at: ~datetime.datetime
         :return: None
         :rtype: None
         :raises ~corehttp.exceptions.HttpResponseError:
@@ -11036,6 +11089,7 @@ class GrantsOperations:
 
         _request = build_grants_delete_request(
             grant_id=grant_id,
+            at=at,
             headers=_headers,
             params=_params,
         )
@@ -11297,13 +11351,7 @@ class SubjectsOperations:
         cls: ClsType["_types.Entitlement"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(entitlement, _models.EntitlementMeteredCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(entitlement, _models.EntitlementStaticCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(entitlement, _models.EntitlementBooleanCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_subjects_post_request(
             subject_id_or_key=subject_id_or_key,
@@ -11317,6 +11365,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -11354,7 +11403,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.Entitlement", response.json())
 
@@ -11407,6 +11456,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -11441,7 +11491,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List["_types.Entitlement"], response.json())
 
@@ -11492,6 +11542,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -11529,7 +11580,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.Entitlement", response.json())
 
@@ -11788,13 +11839,7 @@ class SubjectsOperations:
         cls: ClsType["_types.Entitlement"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(entitlement, _models.EntitlementMeteredCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(entitlement, _models.EntitlementStaticCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(entitlement, _models.EntitlementBooleanCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_subjects_override_request(
             subject_id_or_key=subject_id_or_key,
@@ -11809,6 +11854,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -11849,7 +11895,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.Entitlement", response.json())
 
@@ -11914,6 +11960,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -11948,7 +11995,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.EntitlementGrant], response.json())
 
@@ -12195,6 +12242,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -12232,7 +12280,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.EntitlementGrant, response.json())
 
@@ -12295,6 +12343,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -12332,7 +12381,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.EntitlementValue, response.json())
 
@@ -12417,6 +12466,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -12454,7 +12504,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.WindowedBalanceHistory, response.json())
 
@@ -12735,6 +12785,7 @@ class CustomerOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -12772,7 +12823,7 @@ class CustomerOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.CustomerAccess, response.json())
 
@@ -12846,6 +12897,7 @@ class CustomerEntitlementOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -12883,7 +12935,7 @@ class CustomerEntitlementOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.EntitlementValue, response.json())
 
@@ -12913,8 +12965,8 @@ class CustomerStripeOperations:
     def get(self, customer_id_or_key: "_types.ULIDOrExternalKey", **kwargs: Any) -> _models.StripeCustomerAppData:
         """Get customer stripe app data.
 
-        Get stripe app data for a customer.
-        Only returns data if the customer billing profile is linked to a stripe app.
+        Get stripe app data for a customer. Only returns data if the customer billing profile is linked
+        to a stripe app.
 
         :param customer_id_or_key: Is one of the following types: str Required.
         :type customer_id_or_key: str or str
@@ -12943,6 +12995,7 @@ class CustomerStripeOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -12980,7 +13033,7 @@ class CustomerStripeOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.StripeCustomerAppData, response.json())
 
@@ -13000,8 +13053,8 @@ class CustomerStripeOperations:
     ) -> _models.StripeCustomerAppData:
         """Upsert customer stripe app data.
 
-        Upsert stripe app data for a customer.
-        Only updates data if the customer billing profile is linked to a stripe app.
+        Upsert stripe app data for a customer. Only updates data if the customer billing profile is
+        linked to a stripe app.
 
         :param customer_id_or_key: Is one of the following types: str Required.
         :type customer_id_or_key: str or str
@@ -13026,8 +13079,8 @@ class CustomerStripeOperations:
     ) -> _models.StripeCustomerAppData:
         """Upsert customer stripe app data.
 
-        Upsert stripe app data for a customer.
-        Only updates data if the customer billing profile is linked to a stripe app.
+        Upsert stripe app data for a customer. Only updates data if the customer billing profile is
+        linked to a stripe app.
 
         :param customer_id_or_key: Is one of the following types: str Required.
         :type customer_id_or_key: str or str
@@ -13052,8 +13105,8 @@ class CustomerStripeOperations:
     ) -> _models.StripeCustomerAppData:
         """Upsert customer stripe app data.
 
-        Upsert stripe app data for a customer.
-        Only updates data if the customer billing profile is linked to a stripe app.
+        Upsert stripe app data for a customer. Only updates data if the customer billing profile is
+        linked to a stripe app.
 
         :param customer_id_or_key: Is one of the following types: str Required.
         :type customer_id_or_key: str or str
@@ -13075,8 +13128,8 @@ class CustomerStripeOperations:
     ) -> _models.StripeCustomerAppData:
         """Upsert customer stripe app data.
 
-        Upsert stripe app data for a customer.
-        Only updates data if the customer billing profile is linked to a stripe app.
+        Upsert stripe app data for a customer. Only updates data if the customer billing profile is
+        linked to a stripe app.
 
         :param customer_id_or_key: Is one of the following types: str Required.
         :type customer_id_or_key: str or str
@@ -13118,6 +13171,7 @@ class CustomerStripeOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -13155,7 +13209,7 @@ class CustomerStripeOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.StripeCustomerAppData, response.json())
 
@@ -13310,6 +13364,7 @@ class CustomerStripeOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -13347,7 +13402,7 @@ class CustomerStripeOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.StripeCustomerPortalSession, response.json())
 
@@ -13417,6 +13472,7 @@ class MarketplaceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -13451,7 +13507,7 @@ class MarketplaceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.MarketplaceListingPaginatedResponse, response.json())
 
@@ -13493,6 +13549,7 @@ class MarketplaceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -13527,7 +13584,7 @@ class MarketplaceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.MarketplaceListing, response.json())
 
@@ -13541,8 +13598,7 @@ class MarketplaceOperations:
     ) -> _models.ClientAppStartResponse:
         """Get OAuth2 install URL.
 
-        Install an app via OAuth.
-        Returns a URL to start the OAuth 2.0 flow.
+        Install an app via OAuth. Returns a URL to start the OAuth 2.0 flow.
 
         :param type: Known values are: "stripe", "sandbox", and "custom_invoicing". Required.
         :type type: str or ~openmeter.models.AppType
@@ -13572,6 +13628,7 @@ class MarketplaceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -13606,7 +13663,7 @@ class MarketplaceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.ClientAppStartResponse, response.json())
 
@@ -13628,8 +13685,7 @@ class MarketplaceOperations:
     ) -> None:
         """Install app via OAuth2.
 
-        Authorize OAuth2 code.
-        Verifies the OAuth code and exchanges it for a token and refresh token.
+        Authorize OAuth2 code. Verifies the OAuth code and exchanges it for a token and refresh token.
 
         :param type: The type of the app to install. Known values are: "stripe", "sandbox", and
          "custom_invoicing". Required.
@@ -13843,6 +13899,7 @@ class MarketplaceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -13877,7 +13934,7 @@ class MarketplaceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.MarketplaceInstallResponse, response.json())
 
@@ -14010,6 +14067,7 @@ class MarketplaceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -14044,7 +14102,7 @@ class MarketplaceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.MarketplaceInstallResponse, response.json())
 
@@ -14612,6 +14670,7 @@ class EventsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -14646,7 +14705,7 @@ class EventsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.IngestedEvent], response.json())
 
@@ -15027,7 +15086,6 @@ class EventsV2Operations:
     def list(
         self,
         *,
-        cursor: Optional[str] = None,
         limit: Optional[int] = None,
         client_id: Optional[str] = None,
         filter: Optional[_models.ListRequestFilter] = None,
@@ -15037,8 +15095,6 @@ class EventsV2Operations:
 
         List ingested events with advanced filtering and cursor pagination.
 
-        :keyword cursor: The cursor after which to start the pagination. Default value is None.
-        :paramtype cursor: str
         :keyword limit: The limit of the pagination. Default value is None.
         :paramtype limit: int
         :keyword client_id: Client ID
@@ -15062,44 +15118,34 @@ class EventsV2Operations:
         }
         error_map.update(kwargs.pop("error_map", {}) or {})
 
-        def prepare_request(next_link=None):
-            if not next_link:
+        def prepare_request(_continuation_token=None):
 
-                _request = build_events_v2_list_request(
-                    cursor=cursor,
-                    limit=limit,
-                    client_id=client_id,
-                    filter=filter,
-                    headers=_headers,
-                    params=_params,
-                )
-                path_format_arguments = {
-                    "endpoint": self._serialize.url(
-                        "self._config.endpoint", self._config.endpoint, "str", skip_quote=True
-                    ),
-                }
-                _request.url = self._client.format_url(_request.url, **path_format_arguments)
-
-            else:
-                _request = HttpRequest("GET", next_link)
-                path_format_arguments = {
-                    "endpoint": self._serialize.url(
-                        "self._config.endpoint", self._config.endpoint, "str", skip_quote=True
-                    ),
-                }
-                _request.url = self._client.format_url(_request.url, **path_format_arguments)
-
+            _request = build_events_v2_list_request(
+                cursor=_continuation_token,
+                limit=limit,
+                client_id=client_id,
+                filter=filter,
+                headers=_headers,
+                params=_params,
+            )
+            path_format_arguments = {
+                "endpoint": self._serialize.url("self._config.endpoint", self._config.endpoint, "str", skip_quote=True),
+            }
+            _request.url = self._client.format_url(_request.url, **path_format_arguments)
             return _request
 
         def extract_data(pipeline_response):
             deserialized = pipeline_response.http_response.json()
-            list_of_elem = _deserialize(List[_models.IngestedEvent], deserialized.get("items", []))
+            list_of_elem = _deserialize(
+                List[_models.IngestedEvent],
+                deserialized.get("items", []),
+            )
             if cls:
                 list_of_elem = cls(list_of_elem)  # type: ignore
-            return None, iter(list_of_elem)
+            return deserialized.get("nextCursor") or None, iter(list_of_elem)
 
-        def get_next(next_link=None):
-            _request = prepare_request(next_link)
+        def get_next(_continuation_token=None):
+            _request = prepare_request(_continuation_token)
 
             _stream = False
             pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
@@ -15209,6 +15255,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -15243,7 +15290,7 @@ class MetersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.Meter], response.json())
 
@@ -15284,6 +15331,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -15321,7 +15369,7 @@ class MetersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Meter, response.json())
 
@@ -15422,6 +15470,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -15456,7 +15505,7 @@ class MetersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Meter, response.json())
 
@@ -15577,6 +15626,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -15611,7 +15661,7 @@ class MetersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Meter, response.json())
 
@@ -15792,6 +15842,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -15832,7 +15883,7 @@ class MetersOperations:
         response_headers["content-type"] = self._deserialize("str", response.headers.get("content-type"))
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.MeterQueryResult, response.json())
 
@@ -15947,6 +15998,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -15987,7 +16039,7 @@ class MetersOperations:
         response_headers["content-type"] = self._deserialize("str", response.headers.get("content-type"))
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(str, response.text())
 
@@ -16107,6 +16159,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -16147,9 +16200,89 @@ class MetersOperations:
         response_headers["content-type"] = self._deserialize("str", response.headers.get("content-type"))
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.MeterQueryResult, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, response_headers)  # type: ignore
+
+        return deserialized  # type: ignore
+
+    def query_csv_post(self, meter_id_or_slug: str, **kwargs: Any) -> str:
+        """query_csv_post.
+
+        :param meter_id_or_slug: Required.
+        :type meter_id_or_slug: str
+        :return: str
+        :rtype: str
+        :raises ~corehttp.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = kwargs.pop("headers", {}) or {}
+        _params = kwargs.pop("params", {}) or {}
+
+        cls: ClsType[str] = kwargs.pop("cls", None)
+
+        _request = build_meters_query_csv_post_request(
+            meter_id_or_slug=meter_id_or_slug,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "endpoint": self._serialize.url("self._config.endpoint", self._config.endpoint, "str", skip_quote=True),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _decompress = kwargs.pop("decompress", True)
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = None
+            if response.status_code == 404:
+                error = _failsafe_deserialize(_models.NotFoundProblemResponse, response)
+                raise ResourceNotFoundError(response=response, model=error)
+            if response.status_code == 400:
+                error = _failsafe_deserialize(_models.BadRequestProblemResponse, response)
+            elif response.status_code == 401:
+                error = _failsafe_deserialize(_models.UnauthorizedProblemResponse, response)
+                raise ClientAuthenticationError(response=response, model=error)
+            if response.status_code == 403:
+                error = _failsafe_deserialize(_models.ForbiddenProblemResponse, response)
+            elif response.status_code == 500:
+                error = _failsafe_deserialize(_models.InternalServerErrorProblemResponse, response)
+            elif response.status_code == 503:
+                error = _failsafe_deserialize(_models.ServiceUnavailableProblemResponse, response)
+            elif response.status_code == 412:
+                error = _failsafe_deserialize(_models.PreconditionFailedProblemResponse, response)
+            else:
+                error = _failsafe_deserialize(
+                    _models.UnexpectedProblemResponse,
+                    response,
+                )
+            raise HttpResponseError(response=response, model=error)
+
+        response_headers = {}
+        response_headers["content-type"] = self._deserialize("str", response.headers.get("content-type"))
+
+        if _stream:
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
+        else:
+            deserialized = _deserialize(str, response.text())
 
         if cls:
             return cls(pipeline_response, deserialized, response_headers)  # type: ignore
@@ -16210,6 +16343,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -16244,7 +16378,7 @@ class MetersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[str], response.json())
 
@@ -16311,6 +16445,7 @@ class MetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -16345,7 +16480,7 @@ class MetersOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[str], response.json())
 
@@ -16405,6 +16540,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -16439,7 +16575,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.Subject], response.json())
 
@@ -16483,6 +16619,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -16520,7 +16657,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Subject, response.json())
 
@@ -16651,6 +16788,7 @@ class SubjectsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -16685,7 +16823,7 @@ class SubjectsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.Subject], response.json())
 
@@ -16812,6 +16950,7 @@ class DebugOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -16849,7 +16988,7 @@ class DebugOperations:
         response_headers["content-type"] = self._deserialize("str", response.headers.get("content-type"))
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(str, response.text())
 
@@ -16944,6 +17083,7 @@ class NotificationChannelsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -16978,7 +17118,7 @@ class NotificationChannelsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.NotificationChannelPaginatedResponse, response.json())
 
@@ -17035,9 +17175,7 @@ class NotificationChannelsOperations:
         cls: ClsType["_types.NotificationChannel"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(request, _models.NotificationChannelWebhookCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_notification_channels_create_request(
             content_type=content_type,
@@ -17050,6 +17188,7 @@ class NotificationChannelsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -17084,7 +17223,7 @@ class NotificationChannelsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.NotificationChannel", response.json())
 
@@ -17147,9 +17286,7 @@ class NotificationChannelsOperations:
         cls: ClsType["_types.NotificationChannel"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(request, _models.NotificationChannelWebhookCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_notification_channels_update_request(
             channel_id=channel_id,
@@ -17163,6 +17300,7 @@ class NotificationChannelsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -17200,7 +17338,7 @@ class NotificationChannelsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.NotificationChannel", response.json())
 
@@ -17241,6 +17379,7 @@ class NotificationChannelsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -17278,7 +17417,7 @@ class NotificationChannelsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.NotificationChannel", response.json())
 
@@ -17454,6 +17593,7 @@ class NotificationRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -17488,7 +17628,7 @@ class NotificationRulesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.NotificationRulePaginatedResponse, response.json())
 
@@ -17635,15 +17775,7 @@ class NotificationRulesOperations:
         cls: ClsType["_types.NotificationRule"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(request, _models.NotificationRuleBalanceThresholdCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(request, _models.NotificationRuleEntitlementResetCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(request, _models.NotificationRuleInvoiceCreatedCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(request, _models.NotificationRuleInvoiceUpdatedCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_notification_rules_create_request(
             content_type=content_type,
@@ -17656,6 +17788,7 @@ class NotificationRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -17690,7 +17823,7 @@ class NotificationRulesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.NotificationRule", response.json())
 
@@ -17852,15 +17985,7 @@ class NotificationRulesOperations:
         cls: ClsType["_types.NotificationRule"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(request, _models.NotificationRuleBalanceThresholdCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(request, _models.NotificationRuleEntitlementResetCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(request, _models.NotificationRuleInvoiceCreatedCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(request, _models.NotificationRuleInvoiceUpdatedCreateRequest):
-            _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(request, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_notification_rules_update_request(
             rule_id=rule_id,
@@ -17874,6 +17999,7 @@ class NotificationRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -17911,7 +18037,7 @@ class NotificationRulesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.NotificationRule", response.json())
 
@@ -17956,6 +18082,7 @@ class NotificationRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -17993,7 +18120,7 @@ class NotificationRulesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.NotificationRule", response.json())
 
@@ -18102,6 +18229,7 @@ class NotificationRulesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -18139,7 +18267,7 @@ class NotificationRulesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.NotificationEvent, response.json())
 
@@ -18258,6 +18386,7 @@ class NotificationEventsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -18292,7 +18421,7 @@ class NotificationEventsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.NotificationEventPaginatedResponse, response.json())
 
@@ -18333,6 +18462,7 @@ class NotificationEventsOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -18370,7 +18500,7 @@ class NotificationEventsOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.NotificationEvent, response.json())
 
@@ -18560,8 +18690,7 @@ class EntitlementsV2Operations:
         """List all entitlements.
 
         List all entitlements for all the customers and features. This endpoint is intended for
-        administrative purposes only.
-        To fetch the entitlements of a specific subject please use the
+        administrative purposes only. To fetch the entitlements of a specific subject please use the
         /api/v2/customers/{customerIdOrKey}/entitlements endpoint.
 
         :keyword feature: Filtering by multiple features.
@@ -18642,6 +18771,7 @@ class EntitlementsV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -18676,7 +18806,7 @@ class EntitlementsV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.EntitlementV2PaginatedResponse, response.json())
 
@@ -18719,6 +18849,7 @@ class EntitlementsV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -18756,7 +18887,7 @@ class EntitlementsV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.EntitlementV2", response.json())
 
@@ -18972,13 +19103,7 @@ class CustomerEntitlementsV2Operations:
         cls: ClsType["_types.EntitlementV2"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(entitlement, _models.EntitlementMeteredV2CreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(entitlement, _models.EntitlementStaticCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(entitlement, _models.EntitlementBooleanCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_customer_entitlements_v2_post_request(
             customer_id_or_key=customer_id_or_key,
@@ -18992,6 +19117,7 @@ class CustomerEntitlementsV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -19029,7 +19155,7 @@ class CustomerEntitlementsV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.EntitlementV2", response.json())
 
@@ -19103,6 +19229,7 @@ class CustomerEntitlementsV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -19137,7 +19264,7 @@ class CustomerEntitlementsV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.EntitlementV2PaginatedResponse, response.json())
 
@@ -19152,8 +19279,7 @@ class CustomerEntitlementsV2Operations:
         """Get customer entitlement.
 
         Get entitlement by feature key. For checking entitlement access, use the /value endpoint
-        instead.
-        If featureKey is used, the entitlement is resolved for the current timestamp.
+        instead. If featureKey is used, the entitlement is resolved for the current timestamp.
 
         :param customer_id_or_key: Is one of the following types: str Required.
         :type customer_id_or_key: str or str
@@ -19187,6 +19313,7 @@ class CustomerEntitlementsV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -19224,7 +19351,7 @@ class CustomerEntitlementsV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.EntitlementV2", response.json())
 
@@ -19240,11 +19367,10 @@ class CustomerEntitlementsV2Operations:
 
         Deleting an entitlement revokes access to the associated feature. As a single customer can only
         have one entitlement per featureKey, when "migrating" features you have to delete the old
-        entitlements as well.
-        As access and status checks can be historical queries, deleting an entitlement populates the
-        deletedAt timestamp. When queried for a time before that, the entitlement is still considered
-        active, you cannot have retroactive changes to access, which is important for, among other
-        things, auditing.
+        entitlements as well. As access and status checks can be historical queries, deleting an
+        entitlement populates the deletedAt timestamp. When queried for a time before that, the
+        entitlement is still considered active, you cannot have retroactive changes to access, which is
+        important for, among other things, auditing.
 
         :param customer_id_or_key: Is one of the following types: str Required.
         :type customer_id_or_key: str or str
@@ -19458,13 +19584,7 @@ class CustomerEntitlementsV2Operations:
         cls: ClsType["_types.EntitlementV2"] = kwargs.pop("cls", None)
 
         content_type = content_type or "application/json"
-        _content = None
-        if isinstance(entitlement, _models.EntitlementMeteredV2CreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(entitlement, _models.EntitlementStaticCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
-        elif isinstance(entitlement, _models.EntitlementBooleanCreateInputs):
-            _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+        _content = json.dumps(entitlement, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
 
         _request = build_customer_entitlements_v2_override_request(
             customer_id_or_key=customer_id_or_key,
@@ -19479,6 +19599,7 @@ class CustomerEntitlementsV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -19519,7 +19640,7 @@ class CustomerEntitlementsV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize("_types.EntitlementV2", response.json())
 
@@ -19627,6 +19748,7 @@ class CustomerEntitlementV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -19661,7 +19783,7 @@ class CustomerEntitlementV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.GrantV2PaginatedResponse, response.json())
 
@@ -19888,6 +20010,7 @@ class CustomerEntitlementV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -19925,7 +20048,7 @@ class CustomerEntitlementV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.EntitlementGrantV2, response.json())
 
@@ -19941,7 +20064,7 @@ class CustomerEntitlementV2Operations:
         *,
         time: Optional[datetime.datetime] = None,
         **kwargs: Any
-    ) -> _models.EntitlementValue:
+    ) -> _models.EntitlementValueV2:
         """Get customer entitlement value.
 
         Checks customer access to a given feature (by key). All entitlement types share the hasAccess
@@ -19954,8 +20077,8 @@ class CustomerEntitlementV2Operations:
         :type entitlement_id_or_feature_key: str
         :keyword time: Default value is None.
         :paramtype time: ~datetime.datetime
-        :return: EntitlementValue. The EntitlementValue is compatible with MutableMapping
-        :rtype: ~openmeter._generated.models.EntitlementValue
+        :return: EntitlementValueV2. The EntitlementValueV2 is compatible with MutableMapping
+        :rtype: ~openmeter._generated.models.EntitlementValueV2
         :raises ~corehttp.exceptions.HttpResponseError:
         """
         error_map: MutableMapping = {
@@ -19967,7 +20090,7 @@ class CustomerEntitlementV2Operations:
         _headers = kwargs.pop("headers", {}) or {}
         _params = kwargs.pop("params", {}) or {}
 
-        cls: ClsType[_models.EntitlementValue] = kwargs.pop("cls", None)
+        cls: ClsType[_models.EntitlementValueV2] = kwargs.pop("cls", None)
 
         _request = build_customer_entitlement_v2_get_customer_entitlement_value_request(
             customer_id_or_key=customer_id_or_key,
@@ -19981,6 +20104,7 @@ class CustomerEntitlementV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -20018,9 +20142,9 @@ class CustomerEntitlementV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
-            deserialized = _deserialize(_models.EntitlementValue, response.json())
+            deserialized = _deserialize(_models.EntitlementValueV2, response.json())
 
         if cls:
             return cls(pipeline_response, deserialized, {})  # type: ignore
@@ -20098,6 +20222,7 @@ class CustomerEntitlementV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -20135,7 +20260,7 @@ class CustomerEntitlementV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.WindowedBalanceHistory, response.json())
 
@@ -20379,8 +20504,7 @@ class GrantsV2Operations:
         """List grants.
 
         List all grants for all the customers and entitlements. This endpoint is intended for
-        administrative purposes only.
-        To fetch the grants of a specific entitlement please use the
+        administrative purposes only. To fetch the grants of a specific entitlement please use the
         /api/v2/customers/{customerIdOrKey}/entitlements/{entitlementIdOrFeatureKey}/grants endpoint.
         If page is provided that takes precedence and the paginated response is returned.
 
@@ -20450,6 +20574,7 @@ class GrantsV2Operations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -20484,7 +20609,7 @@ class GrantsV2Operations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.GrantV2PaginatedResponse, response.json())
 
@@ -20580,6 +20705,7 @@ class BillingProfilesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -20614,7 +20740,7 @@ class BillingProfilesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.BillingProfilePaginatedResponse, response.json())
 
@@ -20731,6 +20857,7 @@ class BillingProfilesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -20765,7 +20892,7 @@ class BillingProfilesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.BillingProfile, response.json())
 
@@ -20888,6 +21015,7 @@ class BillingProfilesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -20925,7 +21053,7 @@ class BillingProfilesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.BillingProfile, response.json())
 
@@ -21059,6 +21187,7 @@ class BillingProfilesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -21096,7 +21225,7 @@ class BillingProfilesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.BillingProfile, response.json())
 
@@ -21123,7 +21252,7 @@ class CustomerOverridesOperations:
         self._serialize: Serializer = input_args.pop(0) if input_args else kwargs.pop("serializer")
         self._deserialize: Deserializer = input_args.pop(0) if input_args else kwargs.pop("deserializer")
 
-    def list(
+    def list(  # pylint: disable=too-many-locals
         self,
         *,
         billing_profile: Optional[List[str]] = None,
@@ -21224,6 +21353,7 @@ class CustomerOverridesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -21258,7 +21388,7 @@ class CustomerOverridesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(
                 _models.BillingProfileCustomerOverrideWithDetailsPaginatedResponse, response.json()
@@ -21405,6 +21535,7 @@ class CustomerOverridesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -21442,7 +21573,7 @@ class CustomerOverridesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.BillingProfileCustomerOverrideWithDetails, response.json())
 
@@ -21499,6 +21630,7 @@ class CustomerOverridesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -21536,7 +21668,7 @@ class CustomerOverridesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.BillingProfileCustomerOverrideWithDetails, response.json())
 
@@ -21775,6 +21907,7 @@ class InvoicesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -21809,7 +21942,7 @@ class InvoicesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.Invoice], response.json())
 
@@ -21818,7 +21951,7 @@ class InvoicesOperations:
 
         return deserialized  # type: ignore
 
-    def list(
+    def list(  # pylint: disable=too-many-locals
         self,
         *,
         statuses: Optional[List[Union[str, _models.InvoiceStatus]]] = None,
@@ -21931,6 +22064,7 @@ class InvoicesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -21965,7 +22099,7 @@ class InvoicesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.InvoicePaginatedResponse, response.json())
 
@@ -22039,6 +22173,7 @@ class InvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -22076,7 +22211,7 @@ class InvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -22274,6 +22409,7 @@ class InvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -22311,7 +22447,7 @@ class InvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -22354,6 +22490,7 @@ class InvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -22391,7 +22528,7 @@ class InvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -22440,6 +22577,7 @@ class InvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -22477,7 +22615,7 @@ class InvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -22618,6 +22756,7 @@ class InvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -22655,7 +22794,7 @@ class InvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -22702,6 +22841,7 @@ class InvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -22739,7 +22879,7 @@ class InvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -22783,6 +22923,7 @@ class InvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -22820,7 +22961,7 @@ class InvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -22866,6 +23007,7 @@ class InvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -22903,7 +23045,7 @@ class InvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -23063,6 +23205,7 @@ class CustomerInvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -23097,7 +23240,7 @@ class CustomerInvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Invoice, response.json())
 
@@ -23255,6 +23398,7 @@ class CustomerInvoiceOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -23289,7 +23433,7 @@ class CustomerInvoiceOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.InvoicePendingLineCreateResponse, response.json())
 
@@ -23348,6 +23492,7 @@ class ProgressOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -23385,7 +23530,7 @@ class ProgressOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.Progress, response.json())
 
@@ -23442,6 +23587,7 @@ class CurrenciesOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -23476,7 +23622,7 @@ class CurrenciesOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.Currency], response.json())
 
@@ -23595,6 +23741,7 @@ class PortalPortalTokensOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -23629,7 +23776,7 @@ class PortalPortalTokensOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.PortalToken, response.json())
 
@@ -23671,6 +23818,7 @@ class PortalPortalTokensOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -23705,7 +23853,7 @@ class PortalPortalTokensOperations:
             raise HttpResponseError(response=response, model=error)
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(List[_models.PortalToken], response.json())
 
@@ -23978,6 +24126,7 @@ class PortalPortalMetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -24018,7 +24167,7 @@ class PortalPortalMetersOperations:
         response_headers["content-type"] = self._deserialize("str", response.headers.get("content-type"))
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(_models.MeterQueryResult, response.json())
 
@@ -24129,6 +24278,7 @@ class PortalPortalMetersOperations:
         }
         _request.url = self._client.format_url(_request.url, **path_format_arguments)
 
+        _decompress = kwargs.pop("decompress", True)
         _stream = kwargs.pop("stream", False)
         pipeline_response: PipelineResponse = self._client.pipeline.run(_request, stream=_stream, **kwargs)
 
@@ -24169,7 +24319,7 @@ class PortalPortalMetersOperations:
         response_headers["content-type"] = self._deserialize("str", response.headers.get("content-type"))
 
         if _stream:
-            deserialized = response.iter_bytes()
+            deserialized = response.iter_bytes() if _decompress else response.iter_raw()
         else:
             deserialized = _deserialize(str, response.text())
 

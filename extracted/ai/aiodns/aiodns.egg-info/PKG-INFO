@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiodns
-Version: 4.0.3
+Version: 4.0.4
 Summary: Simple DNS resolver for asyncio
 Author-email: Saúl Ibarra Corretgé <s@saghul.net>
 License-Expression: MIT
@@ -177,6 +177,9 @@ Releases are cut from ``master`` and published to PyPI automatically by the
    since the previous tag, in the same RST style as the existing entries
    (``X.Y.Z`` header underlined with ``=``). Open the PR with the title
    ``Release X.Y.Z`` and merge it once CI is green.
+
+   Skip Dependabot bumps for dev tooling and CI actions; keep runtime
+   dependency bumps such as ``pycares``.
 
 2. **Tag and publish the release.** From a clean checkout of ``master`` that
    includes the merged release PR, generate the release notes from

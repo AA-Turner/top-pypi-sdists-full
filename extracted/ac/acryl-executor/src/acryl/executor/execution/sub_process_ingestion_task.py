@@ -281,6 +281,7 @@ class SubProcessIngestionTask(Task):
         artifact_output_dir = f"{self.config.log_dir}/{exec_id}"
         mode = 0o755
 
+        Path(exec_out_dir).mkdir(mode, parents=True, exist_ok=True)
         (Path(artifact_output_dir) / "executor-logs").mkdir(
             mode, parents=True, exist_ok=True
         )

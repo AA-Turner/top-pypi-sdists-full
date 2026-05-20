@@ -31,7 +31,7 @@ def render(data, prof_filename):
         template = string.Template(_file.read())
 
     return template.substitute(
-        data=html.escape(json.dumps(data).replace("</", "<\\/")),
+        data=json.dumps(data).replace("</", "<\\/"),
         version=html.escape(get_version_text()),
         filename=html.escape(prof_filename.replace("</", "<\\/")),
     )
@@ -44,21 +44,32 @@ def is_port_in_use(port):
 
 def start_server(prof_filename, start_browser, port):
     data = read(prof_filename)
+    rendered = render(data, prof_filename).encode()
 
     class StaticServer(BaseHTTPRequestHandler):
         def do_GET(self):
-            self.send_response(200)
-
             if self.path == "/":
+                self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
-                self.wfile.write(render(data, prof_filename).encode())
+                self.wfile.write(rendered)
             else:
                 this_dir = Path(__file__).resolve().parent
-                filepath = this_dir / "web" / self.path[1:]
+                web_dir = this_dir / "web"
+                filepath = (web_dir / self.path[1:]).resolve()
+
+                if not filepath.is_relative_to(web_dir):
+                    self.send_response(403)
+                    self.end_headers()
+                    return
 
                 mimetype, _ = mimetypes.guess_type(str(filepath))
-                assert mimetype is not None
+                if mimetype is None:
+                    self.send_response(415)
+                    self.end_headers()
+                    return
+
+                self.send_response(200)
                 self.send_header("Content-type", mimetype)
                 self.end_headers()
 

@@ -1,7 +1,11 @@
+import re
 import string
 
 from hypothesis.strategies import (
+    booleans,
+    builds,
     composite,
+    from_regex,
     integers,
     just,
     lists,
@@ -13,18 +17,28 @@ from hypothesis.strategies import (
 from parver import Version
 
 num_int = integers(min_value=0)
-num_str = num_int.map(str)
 
 
-def epoch():
-    epoch = num_str.map(lambda s: s + "!")
+def num_str(strict=False):
+    if strict:
+        return num_int.map(str)
+    return builds(
+        lambda n, lead_zero: f"{n:0{len(str(n)) + int(lead_zero)}}",
+        num_int,
+        booleans(),
+    )
+
+
+def epoch(strict=False):
+    epoch = num_str(strict=strict).map(lambda s: s + "!")
     return one_of(just(""), epoch)
 
 
 @composite
-def release(draw):
+def release(draw, strict=False):
+    numbers = num_str(strict=strict)
     return draw(
-        num_str.map(lambda s: [s] + draw(lists(num_str.map(lambda s: "." + s)))).map(
+        numbers.map(lambda s: [s, *draw(lists(numbers.map(lambda s: "." + s)))]).map(
             lambda parts: "".join(parts)
         )
     )
@@ -61,7 +75,7 @@ def pre(draw, strict=False):
     else:
         sep2 = separator(strict=strict, optional=True)
 
-    num_part = sep2.map(lambda s: s + draw(num_str))
+    num_part = sep2.map(lambda s: s + draw(num_str(strict=strict)))
     if not strict:
         num_part = one_of(blank, num_part)
 
@@ -85,7 +99,7 @@ def post(draw, strict=False):
     if strict:
         sep2 = blank
 
-    num_part = sep2.map(lambda s: s + draw(num_str))
+    num_part = sep2.map(lambda s: s + draw(num_str(strict=strict)))
     if not strict:
         num_part = one_of(blank, num_part)
 
@@ -94,7 +108,7 @@ def post(draw, strict=False):
     if strict:
         return draw(post)
 
-    post_implicit = num_str.map(lambda s: "-" + s)
+    post_implicit = num_str(strict=strict).map(lambda s: "-" + s)
 
     return draw(one_of(blank, post_implicit, post))
 
@@ -105,7 +119,11 @@ def dev(draw, strict=False):
 
     blank = just("")
 
-    num_part = num_str
+    sep2 = separator(strict=strict, optional=True)
+    if strict:
+        sep2 = blank
+
+    num_part = sep2.map(lambda s: s + draw(num_str(strict=strict)))
     if not strict:
         num_part = one_of(blank, num_part)
 
@@ -113,13 +131,13 @@ def dev(draw, strict=False):
 
 
 @composite
-def local_segment(draw):
+def local_segment(draw, strict=False):
     alpha = (
         draw(one_of(just(""), integers(0, 9).map(str)))
         + draw(text(string.ascii_lowercase, min_size=1, max_size=1))
         + draw(text(string.ascii_lowercase + string.digits))
     )
-    return draw(one_of(num_str, just(alpha)))
+    return draw(one_of(num_str(strict=strict), just(alpha)))
 
 
 @composite
@@ -129,8 +147,8 @@ def local(draw, strict=False):
     else:
         sep = sampled_from("-_.")
 
-    part = local_segment()
-    sep_part = sep.map(lambda s: s + draw(local_segment()))
+    part = local_segment(strict=strict)
+    sep_part = sep.map(lambda s: s + draw(local_segment(strict=strict)))
     sep_parts = lists(sep_part).map(lambda parts: "".join(parts))
 
     return draw(one_of(just(""), part.map(lambda s: "+" + s + draw(sep_parts))))
@@ -149,8 +167,8 @@ def vchar(strict=False):
 def version_string(draw, strict=False):
     return (
         draw(vchar(strict=strict))
-        + draw(epoch())
-        + draw(release())
+        + draw(epoch(strict=strict))
+        + draw(release(strict=strict))
         + draw(pre(strict=strict))
         + draw(post(strict=strict))
         + draw(dev(strict=strict))
@@ -161,3 +179,43 @@ def version_string(draw, strict=False):
 @composite
 def version_strategy(draw, strict=False):
     return Version.parse(draw(version_string(strict=strict)))
+
+
+# The unmodified regex from PEP 440
+version_pattern = r"""
+    v?
+    (?:
+        (?:(?P<epoch>[0-9]+)!)?                           # epoch
+        (?P<release>[0-9]+(?:\.[0-9]+)*)                  # release segment
+        (?P<pre>                                          # pre-release
+            [-_\.]?
+            (?P<pre_l>(a|b|c|rc|alpha|beta|pre|preview))
+            [-_\.]?
+            (?P<pre_n>[0-9]+)?
+        )?
+        (?P<post>                                         # post release
+            (?:-(?P<post_n1>[0-9]+))
+            |
+            (?:
+                [-_\.]?
+                (?P<post_l>post|rev|r)
+                [-_\.]?
+                (?P<post_n2>[0-9]+)?
+            )
+        )?
+        (?P<dev>                                          # dev release
+            [-_\.]?
+            (?P<dev_l>dev)
+            [-_\.]?
+            (?P<dev_n>[0-9]+)?
+        )?
+    )
+    (?:\+(?P<local>[a-z0-9]+(?:[-_\.][a-z0-9]+)*))?       # local version
+"""
+
+version_regex = re.compile(
+    rf"^{version_pattern}\Z",
+    re.VERBOSE | re.IGNORECASE,
+)
+
+version_string_from_pep440_regex = from_regex(version_regex)

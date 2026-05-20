@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.24.51
+Version: 0.24.52
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -93,6 +93,11 @@ Requires-Dist: ta-lib==0.6.8; extra == "finance"
 Requires-Dist: pandas-datareader>=0.10.0; extra == "finance"
 Provides-Extra: flowtask
 Requires-Dist: flowtask>=5.10.2; extra == "flowtask"
+Provides-Extra: graphindex
+Requires-Dist: rustworkx>=0.15; extra == "graphindex"
+Requires-Dist: tree-sitter>=0.23; extra == "graphindex"
+Requires-Dist: tree-sitter-languages>=1.10; extra == "graphindex"
+Requires-Dist: pathspec>=0.12; extra == "graphindex"
 Provides-Extra: scheduler
 Requires-Dist: apscheduler==3.11.2; extra == "scheduler"
 Provides-Extra: arango
@@ -308,8 +313,15 @@ Provides-Extra: matrix
 Requires-Dist: mautrix>=0.20; extra == "matrix"
 Requires-Dist: python-olm>=3.2.16; extra == "matrix"
 Provides-Extra: otel
-Requires-Dist: opentelemetry-api>=1.25; extra == "otel"
-Requires-Dist: opentelemetry-sdk>=1.25; extra == "otel"
+Requires-Dist: opentelemetry-api<2.0,>=1.25; extra == "otel"
+Requires-Dist: opentelemetry-sdk<2.0,>=1.25; extra == "otel"
+Provides-Extra: observability
+Requires-Dist: opentelemetry-api<2.0,>=1.25; extra == "observability"
+Requires-Dist: opentelemetry-sdk<2.0,>=1.25; extra == "observability"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0,>=1.25; extra == "observability"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2.0,>=1.25; extra == "observability"
+Provides-Extra: observability-openlit
+Requires-Dist: openlit>=1.0; extra == "observability-openlit"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24; extra == "dev"

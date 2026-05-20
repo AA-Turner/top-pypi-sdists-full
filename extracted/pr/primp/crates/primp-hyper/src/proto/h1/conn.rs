@@ -394,7 +394,8 @@ where
                             };
                             (reading, Poll::Ready(maybe_frame))
                         } else if frame.is_trailers() {
-                            (Reading::Closed, Poll::Ready(Some(Ok(frame))))
+                            debug!("incoming body completed with trailers");
+                            (Reading::KeepAlive, Poll::Ready(Some(Ok(frame))))
                         } else {
                             trace!("discarding unknown frame");
                             (Reading::Closed, Poll::Ready(None))
@@ -512,7 +513,7 @@ where
 
         let result = ready!(self.io.poll_read_from_io(cx));
         Poll::Ready(result.inspect_err(|_e| {
-            trace!(error = %e, "force_io_read; io error");
+            trace!(error = %_e, "force_io_read; io error");
             self.state.close();
         }))
     }

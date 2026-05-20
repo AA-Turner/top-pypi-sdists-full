@@ -189,7 +189,7 @@ EXAMPLES = r"""
   community.general.xml:
     path: /foo/bar.xml
     xpath: /business/rating
-    value: 11
+    value: "11"  # must quote to ensure it is parsed as string
 
 # Retrieve and display the number of nodes
 - name: Get count of 'beers' nodes
@@ -348,7 +348,7 @@ count:
 matches:
   description: The xpath matches found.
   type: list
-  returned: when parameter O(print_match) is set
+  returned: when parameter O(print_match) is set, or when parameter O(content) is set
 xmlstring:
   description: An XML string of the resulting output.
   type: str
@@ -405,7 +405,7 @@ def do_print_match(module, tree, xpath, namespaces):
         match_xpaths.append(tree.getpath(m))
     match_str = json.dumps(match_xpaths)
     msg = f"selector '{xpath}' match: {match_str}"
-    finish(module, tree, xpath, namespaces, changed=False, msg=msg)
+    finish(module, tree, xpath, namespaces, changed=False, msg=msg, matches=match_xpaths)
 
 
 def count_nodes(module, tree, xpath, namespaces):
@@ -686,6 +686,16 @@ def set_target_inner(module, tree, xpath, namespaces, attribute, value):
     if not is_node(tree, xpath, namespaces):
         module.fail_json(
             msg=f"Xpath {xpath} does not reference a node! tree is {etree.tostring(tree, pretty_print=True)}"
+        )
+
+    if not isinstance(value, str):
+        target = f"attribute '{attribute}' at xpath '{xpath}'" if attribute else f"element text at xpath '{xpath}'"
+        module.fail_json(
+            msg=(
+                f"A non-string value {value!r} was parsed for {target}. "
+                "YAML values for booleans, octals, floats may not yield the string you intended. "
+                """Quote the value to be explicit, like `value: "yes"`."""
+            )
         )
 
     for element in tree.xpath(xpath, namespaces=namespaces):

@@ -309,7 +309,7 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[CreatePaymentSessionRequestTypeDef]
     ) -> CreatePaymentSessionResponseTypeDef:
         """
-        Create a new payment manager session.
+        Create a new payment session.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/create_payment_session.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#create_payment_session)
@@ -357,7 +357,7 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[DeletePaymentInstrumentRequestTypeDef]
     ) -> DeletePaymentInstrumentResponseTypeDef:
         """
-        Delete a payment instrument.
+        Deletes a payment instrument.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_payment_instrument.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#delete_payment_instrument)
@@ -367,7 +367,7 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[DeletePaymentSessionRequestTypeDef]
     ) -> DeletePaymentSessionResponseTypeDef:
         """
-        Delete a payment manager session.
+        Deletes a payment session.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_payment_session.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#delete_payment_session)
@@ -715,7 +715,7 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[ListPaymentSessionsRequestTypeDef]
     ) -> ListPaymentSessionsResponseTypeDef:
         """
-        List payment manager sessions.
+        List payment sessions.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_payment_sessions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#list_payment_sessions)
@@ -745,7 +745,7 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[ProcessPaymentRequestTypeDef]
     ) -> ProcessPaymentResponseTypeDef:
         """
-        Process a payment transaction.
+        Processes a payment using a payment instrument within a payment session.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/process_payment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#process_payment)

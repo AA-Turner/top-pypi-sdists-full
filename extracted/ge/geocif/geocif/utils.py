@@ -28,6 +28,7 @@ MODEL_DISPLAY_NAMES = {
     "last_year": "Last Year",
     "merf": "MERF",
     "desreg": "DesReg",
+    "gpr": "GPR",
 }
 
 

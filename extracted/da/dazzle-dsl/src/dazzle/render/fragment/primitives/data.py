@@ -377,6 +377,13 @@ class ListRegion:
     csv_filename: str = "export.csv"
     total: int = 0
     empty_message: str = ""
+    # #1148: optional per-row action column. When ``row_actions`` is
+    # non-empty it must have the same arity as ``rows`` (one button
+    # HTML string per row, ``""`` for rows whose ``visible_when``
+    # evaluated falsy — the renderer emits an empty cell so column
+    # arity stays stable). ``row_action_label`` is the column header.
+    row_action_label: str = ""
+    row_actions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for i, row in enumerate(self.rows):
@@ -385,6 +392,11 @@ class ListRegion:
                     f"ListRegion row {i} arity mismatch: "
                     f"row has {len(row)} cells, expected {len(self.columns)}"
                 )
+        if self.row_actions and len(self.row_actions) != len(self.rows):
+            raise ValueError(
+                f"ListRegion row_actions arity mismatch: "
+                f"{len(self.row_actions)} actions, {len(self.rows)} rows"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1748,6 +1760,11 @@ class CohortStripCell:
     avatar_initials: str = ""
     tone: str = "neutral"  # neutral | good | warn | bad — RAG tint
     drill_url: str = ""
+    # #1148: optional pre-rendered action button HTML (from
+    # `_render_row_action_button`). Empty string means no action on
+    # this cell — either the region has no `row_action:` or the
+    # cell's `visible_when` evaluated falsy.
+    action_html: str = ""
 
     def __post_init__(self) -> None:
         if not self.member_id:
@@ -1816,6 +1833,12 @@ class DayTimelineSlot:
     position: Literal["before", "active", "after"] = "after"
     body: str = ""  # pre-rendered card body (escape responsibility on adapter)
     drill_url: str = ""
+    # #1148: optional pre-rendered action button HTML (from
+    # `_render_row_action_button`). Empty string means no action
+    # button on this slot — either the region has no `row_action:`
+    # or the slot's `visible_when` evaluated falsy. Adapter owns
+    # escape responsibility (the helper does the HTML-escape).
+    action_html: str = ""
 
     def __post_init__(self) -> None:
         if not self.slot_id:

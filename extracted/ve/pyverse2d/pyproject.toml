@@ -4,13 +4,34 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyverse2d"
-version = "1.2.3"
+version = "1.2.14"
+
 description = "2D Game Engine using pyglet (OpenGL) for rendering"
-authors = [{ name = "WhiteWolf45380" }]
-readme = {file = "README.md", content-type = "text/markdown"}
-license = "MIT"
+authors = [
+    { name = "WhiteWolf45380" }
+]
+
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { text = "MIT" }
 requires-python = ">=3.10"
-keywords = ["game", "engine", "2d", "pyglet", "opengl"]
+
+keywords = [
+    "game",
+    "engine",
+    "2d",
+    "pyglet",
+    "opengl"
+]
+
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
 dependencies = [
     "pyglet>=2.0",
     "numpy>=1.20",
@@ -18,11 +39,19 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/WhiteWolf45380/pyverse2d"
+Homepage = "https://pypi.org/project/pyverse2d/"
+Repository = "https://github.com/WhiteWolf45380/pyverse2d"
+Issues = "https://github.com/WhiteWolf45380/pyverse2d/issues"
+
+[project.entry-points."pyinstaller40"]
+hook-dirs = "pyverse2d.hooks:get_hook_dirs"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pyverse2d*"]
 
 [tool.setuptools.package-data]
-"pyverse2d" = ["_assets/**/*"]
+pyverse2d = ["_assets/*"]
+
+[tool.setuptools]
+include-package-data = true

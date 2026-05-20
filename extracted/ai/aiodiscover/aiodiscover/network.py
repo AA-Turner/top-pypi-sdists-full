@@ -7,6 +7,7 @@ import socket
 import subprocess
 import sys
 from contextlib import suppress
+from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, ip_network
 from typing import TYPE_CHECKING, Any
 
@@ -44,23 +45,41 @@ LOOPBACK_TARGET_IP = "127.0.0.1"
 
 IGNORE_MACS = {"00:00:00:00:00:00", "ff:ff:ff:ff:ff:ff"}
 
+# pyroute2 reports neighbour attributes under different names depending on
+# the platform stub: Linux netlink uses NDA_*, the macOS stub added in
+# pyroute2 0.9.2 uses NEIGH_*. Accept both so the netlink path works on
+# either OS without falling all the way through to the arp -an reader.
+NEIGHBOUR_IP_KEYS = frozenset({"NDA_DST", "NEIGH_IP"})
+NEIGHBOUR_LLADDR_KEYS = frozenset({"NDA_LLADDR", "NEIGH_LLADDR"})
+
 RESOLV_CONF_PATH = "/etc/resolv.conf"
 
 
-def load_resolv_conf() -> list[IPv4Address | IPv6Address]:
-    """Load the resolv.conf."""
+@dataclass(frozen=True, slots=True)
+class ResolvConfSignature:
+    """Signature describing resolv.conf at a point in time."""
+
+    mtime_ns: int
+    size: int
+
+
+def load_resolv_conf_with_signature() -> tuple[
+    ResolvConfSignature, list[IPv4Address | IPv6Address]
+]:
+    """Load resolv.conf and return (signature, nameservers) from the same fd."""
     with open(RESOLV_CONF_PATH) as file:
+        stat = os.fstat(file.fileno())
         lines = tuple(file)
-    return parse_resolv_conf(lines)
+    return ResolvConfSignature(stat.st_mtime_ns, stat.st_size), parse_resolv_conf(lines)
 
 
-def resolv_conf_signature() -> tuple[int, int] | None:
+def resolv_conf_signature() -> ResolvConfSignature | None:
     """Return a signature describing the current resolv.conf, or None if missing."""
     try:
         stat = os.stat(RESOLV_CONF_PATH)
     except OSError:
         return None
-    return (stat.st_mtime_ns, stat.st_size)
+    return ResolvConfSignature(stat.st_mtime_ns, stat.st_size)
 
 
 def parse_resolv_conf(lines: Iterable[str]) -> list[IPv4Address | IPv6Address]:
@@ -72,11 +91,20 @@ def parse_resolv_conf(lines: Iterable[str]) -> list[IPv4Address | IPv6Address]:
             continue
         if line[0] in ("#", ";"):
             continue
-        key, value = line.split(None, 1)
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            continue
+        key, value = parts
         if key == "nameserver":
             if (ip_addr := cached_ip_addresses(value)) and ip_addr not in nameservers:
                 nameservers.append(ip_addr)
     return nameservers
+
+
+def _parse_ipv4(value: str) -> IPv4Address | None:
+    """Parse a string into an IPv4Address, dropping IPv6 / invalid input."""
+    ip_addr = cached_ip_addresses(value)
+    return ip_addr if isinstance(ip_addr, IPv4Address) else None
 
 
 def get_local_ip(target: str = DEFAULT_TARGET) -> IPv4Address | None:
@@ -85,11 +113,12 @@ def get_local_ip(target: str = DEFAULT_TARGET) -> IPv4Address | None:
     s.setblocking(False)
     try:
         s.connect((target, 1))
-        return cached_ip_addresses(s.getsockname()[0])
-    except Exception:
+        source = s.getsockname()[0]
+    except OSError:
         return None
     finally:
         s.close()
+    return _parse_ipv4(source)
 
 
 def get_network(local_ip: IPv4Address, adapters: list[Adapter]) -> IPv4Network:
@@ -122,9 +151,8 @@ def get_attrs_key(data: Any, key: Any) -> str | None:
 
 def get_router_ip(ipr: IPRoute) -> IPv4Address | None:
     """Obtain the router ip from the default route."""
-    return cached_ip_addresses(
-        get_attrs_key(ipr.get_default_routes()[0], "RTA_GATEWAY"),
-    )
+    gateway = get_attrs_key(ipr.get_default_routes()[0], "RTA_GATEWAY")
+    return _parse_ipv4(gateway) if gateway else None
 
 
 def _get_macos_default_gateway(family: str = "inet") -> str | None:
@@ -191,20 +219,26 @@ class SystemNetworkData:
     nameservers: list[IPv4Address | IPv6Address]
     router_ip: IPv4Address | None = None
     local_ip: IPv4Address | None = None
+    resolv_conf_signature: ResolvConfSignature | None = None
 
     def __init__(self, ip_route: IPRoute | None, local_ip: str | None = None) -> None:
         """Init system network data."""
         self.ip_route = ip_route
-        self.local_ip = cached_ip_addresses(local_ip) if local_ip else None
+        self.local_ip = _parse_ipv4(local_ip) if local_ip else None
 
     def setup(self) -> None:
         """Obtain the local network data."""
+        # Default to an empty list so attribute access stays safe when
+        # resolv.conf is absent on Windows (the FileNotFoundError below is
+        # swallowed there) and so later code can iterate unconditionally.
+        self.nameservers = []
         try:
-            resolvers = load_resolv_conf()
+            signature, resolvers = load_resolv_conf_with_signature()
         except FileNotFoundError:
             if sys.platform != "win32":
                 raise
         else:
+            self.resolv_conf_signature = signature
             self.nameservers = [
                 ip_addr
                 for ip_addr in resolvers
@@ -227,10 +261,10 @@ class SystemNetworkData:
             # pyroute2 is Linux-only; on macOS parse `route -n get default`
             gateway = _get_macos_default_gateway()
             if gateway:
-                self.router_ip = cached_ip_addresses(gateway)
+                self.router_ip = _parse_ipv4(gateway)
         if not self.router_ip:
             network_address = str(self.network.network_address)
-            self.router_ip = cached_ip_addresses(f"{network_address[:-1]}1")
+            self.router_ip = _parse_ipv4(f"{network_address[:-1]}1")
 
     async def async_get_neighbours(self, ips: Iterable[str]) -> dict[str, str]:
         """Get neighbours with best available method."""
@@ -239,8 +273,10 @@ class SystemNetworkData:
         if not ips_missing_arp:
             return neighbours
         sock = async_populate_arp(ips_missing_arp)
-        await asyncio.sleep(ARP_CACHE_POPULATE_TIME)
-        sock.close()
+        try:
+            await asyncio.sleep(ARP_CACHE_POPULATE_TIME)
+        finally:
+            sock.close()
         neighbours.update(await self._async_get_neighbours())
         return neighbours
 
@@ -253,25 +289,26 @@ class SystemNetworkData:
     async def _async_get_neighbours_arp(self) -> dict[str, str]:
         """Get neighbours with arp command."""
         neighbours: dict[str, str] = {}
-        arp = await asyncio.create_subprocess_exec(
-            "arp",
-            "-a",
-            "-n",
-            stdin=None,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            close_fds=False,
-        )
+        try:
+            arp = await asyncio.create_subprocess_exec(
+                "arp",
+                "-a",
+                "-n",
+                stdin=None,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                close_fds=False,
+            )
+        except OSError:
+            return neighbours
         try:
             async with asyncio_timeout(ARP_TIMEOUT):
                 out_data, _ = await arp.communicate()
         except asyncio.TimeoutError:
-            if arp:
-                with suppress(TypeError):
-                    await arp.kill()  # type: ignore
-                del arp
-            return neighbours
-        except AttributeError:
+            with suppress(ProcessLookupError):
+                arp.kill()
+            with suppress(OSError):
+                await arp.wait()
             return neighbours
 
         for line in out_data.decode().splitlines():
@@ -298,9 +335,9 @@ class SystemNetworkData:
             ip = None
             mac = None
             for key, value in neighbour["attrs"]:
-                if key == "NDA_DST":
+                if key in NEIGHBOUR_IP_KEYS:
                     ip = value
-                elif key == "NDA_LLADDR":
+                elif key in NEIGHBOUR_LLADDR_KEYS:
                     mac = value
             if ip and mac:
                 _fill_neighbor(neighbours, ip, mac)

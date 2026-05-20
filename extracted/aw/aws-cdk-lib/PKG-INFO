@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk-lib
-Version: 2.254.0
+Version: 2.256.0
 Summary: Version 2 of the AWS Cloud Development Kit library
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -16,15 +16,15 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk.asset-awscli-v1==2.2.273
 Requires-Dist: aws-cdk.asset-node-proxy-agent-v6<3.0.0,>=2.1.1
-Requires-Dist: aws-cdk.cloud-assembly-schema<54.0.0,>=53.21.0
+Requires-Dist: aws-cdk.cloud-assembly-schema<54.0.0,>=53.25.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
-Requires-Dist: jsii<2.0.0,>=1.129.0
+Requires-Dist: jsii<2.0.0,>=1.130.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 
@@ -1671,36 +1671,19 @@ validation.
 > etc. It's your responsibility as the consumer of a plugin to verify that it is
 > secure to use.
 
-By default, the report will be printed in a human-readable format. If you want a
-report in JSON format, enable it using the `@aws-cdk/core:validationReportJson`
-context passing it directly to the application:
+By default, the report is output in two ways:
+
+* A JSON file called `policy-validation-report.json` is written to the cloud assembly directory.
+* A human-readable format is printed to the standard error output.
+
+To disable either format, explicitly set the corresponding context key to `false`:
 
 ```python
+# Disable pretty-printed console output (JSON file still written)
 app = App(
-    context={"@aws-cdk/core:validationReportJson": True}
+    context={"@aws-cdk/core:validationReportPrettyPrint": False}
 )
 ```
-
-Alternatively, you can set this context key-value pair using the `cdk.json` or
-`cdk.context.json` files in your project directory (see
-[Runtime context](https://docs.aws.amazon.com/cdk/v2/guide/context.html)).
-
-It is also possible to enable both JSON and human-readable formats by setting
-`@aws-cdk/core:validationReportPrettyPrint` context key explicitly:
-
-```python
-app = App(
-    context={
-        "@aws-cdk/core:validationReportJson": True,
-        "@aws-cdk/core:validationReportPrettyPrint": True
-    }
-)
-```
-
-If you choose the JSON format, the CDK will print the policy validation report
-to a file called `policy-validation-report.json` in the cloud assembly
-directory. For the default, human-readable format, the report will be printed to
-the standard output.
 
 ### For plugin authors
 

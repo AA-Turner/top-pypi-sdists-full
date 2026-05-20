@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: orbax-checkpoint
-Version: 0.11.39
+Version: 0.11.40
 Summary: Orbax Checkpoint
 Keywords: JAX machine learning,checkpoint,training
 Author-email: Orbax Authors <orbax-dev@google.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -19,8 +19,9 @@ Requires-Dist: typing_extensions
 Requires-Dist: msgpack
 Requires-Dist: jax >= 0.6.0
 Requires-Dist: numpy
+Requires-Dist: prometheus-client >= 0.20.0
 Requires-Dist: pyyaml
-Requires-Dist: tensorstore >= 0.1.74
+Requires-Dist: tensorstore >= 0.1.84
 Requires-Dist: aiofiles
 Requires-Dist: protobuf
 Requires-Dist: humanize
@@ -50,7 +51,11 @@ Requires-Dist: tensorflow ; extra == "testing"
 Requires-Dist: fastapi ; extra == "testing"
 Requires-Dist: httpx ; extra == "testing"
 Requires-Dist: grain ; extra == "testing"
+Requires-Dist: aiosqlite ; extra == "tiering-service"
+Requires-Dist: greenlet ; extra == "tiering-service"
 Requires-Dist: grpcio-tools>=1.80.0 ; extra == "tiering-service"
+Requires-Dist: pysqlite3 ; extra == "tiering-service"
+Requires-Dist: sqlalchemy>=1.4.0 ; extra == "tiering-service"
 Project-URL: homepage, http://github.com/google/orbax
 Project-URL: repository, http://github.com/google/orbax
 Provides-Extra: docs

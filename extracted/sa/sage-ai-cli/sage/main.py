@@ -11786,6 +11786,18 @@ class SAGEAgent:
 
         if tool_commands:
             self.renderer.set_bottom_dock_status(f"Executing {len(tool_commands)} tool(s)...")
+            # Print each tool action inline so the user sees real-time progress.
+            # Format: "sage> READ: filename.py" — matches what the terminal was
+            # showing when sage streamed its raw output, but now guaranteed
+            # visible regardless of streaming mode.
+            if not self.minimal_output:
+                for tool_type, tool_arg in tool_commands:
+                    if tool_type in ("READ", "SEARCH", "FILE"):
+                        short = tool_arg[:80] if len(tool_arg) > 80 else tool_arg
+                        self.renderer.console.print(
+                            f"[dim]sage>[/dim] [cyan]{tool_type}:[/cyan] {short}",
+                            highlight=False,
+                        )
             tool_results = _execute_tool_commands(
                 tool_commands,
                 self.cwd,
@@ -12888,9 +12900,22 @@ def run(
         typer.Option(
             "--output",
             "-o",
-            help="Terminal verbosity: clean (default), normal (phases, no raw thinking), or verbose",
+            help=(
+                "Terminal verbosity level. "
+                "  normal (default): stream model output + show what sage is reading/writing/running. "
+                "  verbose: also show raw thinking blocks (<think>…</think>). "
+                "  quiet: only show final result, suppress all progress (fastest for scripts)."
+            ),
         ),
-    ] = "clean",
+    ] = "normal",
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            "--quiet",
+            "-q",
+            help="Suppress all streaming output — only show the final result. Alias for --output quiet.",
+        ),
+    ] = False,
     no_color: Annotated[
         bool,
         typer.Option(
@@ -12924,18 +12949,25 @@ def run(
             "SAGE now retries test-fix loops until they pass or a real no-progress blocker is detected."
         )
 
-    om = (output or "clean").strip().lower()
+    # Resolve output mode: --quiet/-q → "quiet" (alias for clean),
+    # --verbose/-v → "verbose", otherwise use --output value.
+    # Also accept "quiet" as a value for --output.
+    om = (output or "normal").strip().lower()
+    if om == "quiet":
+        om = "clean"  # quiet is an alias for clean in the renderer
     if om not in ("clean", "normal", "verbose"):
         renderer.err_console.print(
-            f"[red]Invalid --output {output!r}; use clean, normal, or verbose.[/red]"
+            f"[red]Invalid --output {output!r}; use normal (default), verbose, or quiet.[/red]"
         )
         raise typer.Exit(code=2)
 
-    # -v wins over --output
+    # Flag wins: -v → verbose, -q → quiet/clean
     if verbose:
-        renderer.set_output_mode("verbose")
-    else:
-        renderer.set_output_mode(om)
+        om = "verbose"
+    elif quiet:
+        om = "clean"
+
+    renderer.set_output_mode(om)
 
     # ── Billing check: CLI requires paid plan ──────────────────────────────
     try:

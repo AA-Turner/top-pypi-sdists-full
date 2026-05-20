@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.52.40
+Version: 0.52.41
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.ai
@@ -233,9 +233,9 @@ Requires-Dist: click
 Requires-Dist: diskcache-weave==5.6.3.post1
 Requires-Dist: gql[httpx]>=3.0.0
 Requires-Dist: jsonschema>=4.23.0
-Requires-Dist: opentelemetry-api
-Requires-Dist: opentelemetry-exporter-otlp-proto-http
-Requires-Dist: opentelemetry-sdk
+Requires-Dist: opentelemetry-api>=1.28.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.28.0
+Requires-Dist: opentelemetry-sdk>=1.28.0
 Requires-Dist: packaging>=21.0
 Requires-Dist: polyfile-weave>=0.5.9
 Requires-Dist: pydantic>=2.0.0
@@ -261,6 +261,8 @@ Requires-Dist: crewai<=0.108.0,>=0.100.1; (python_version >= '3.10' and python_v
 Requires-Dist: openai>=1.99.9; extra == 'crewai'
 Provides-Extra: dspy
 Requires-Dist: dspy>=3.0.0; (python_version >= '3.10') and extra == 'dspy'
+Provides-Extra: fastmcp
+Requires-Dist: mcp[cli]<1.10.0,>=1.6.0; (python_version >= '3.10') and extra == 'fastmcp'
 Provides-Extra: gepa
 Requires-Dist: gepa>=0.1.0; (python_version >= '3.10') and extra == 'gepa'
 Provides-Extra: google-genai
@@ -286,7 +288,7 @@ Requires-Dist: langchain-google-vertexai>=2.0.24; (platform_python_implementatio
 Requires-Dist: langchain-litellm>=0.2.2; (python_version >= '3.10') and extra == 'langchain'
 Requires-Dist: langchain-openai>=0.1.7; (python_version >= '3.10') and extra == 'langchain'
 Requires-Dist: openai>=1.99.9; extra == 'langchain'
-Requires-Dist: opentelemetry-exporter-otlp; (python_version >= '3.10') and extra == 'langchain'
+Requires-Dist: opentelemetry-exporter-otlp>=1.28.0; (python_version >= '3.10') and extra == 'langchain'
 Requires-Dist: pysqlite3; (platform_system == 'Linux' and python_version >= '3.10') and extra == 'langchain'
 Provides-Extra: langchain-nvidia-ai-endpoints
 Requires-Dist: langchain-core>=0.2.1; extra == 'langchain-nvidia-ai-endpoints'
@@ -297,8 +299,6 @@ Requires-Dist: openai>=1.99.9; extra == 'litellm'
 Provides-Extra: llamaindex
 Requires-Dist: llama-index>=0.10.35; extra == 'llamaindex'
 Requires-Dist: openai>=1.99.9; extra == 'llamaindex'
-Provides-Extra: mcp
-Requires-Dist: mcp[cli]<1.10.0,>=1.6.0; (python_version >= '3.10') and extra == 'mcp'
 Provides-Extra: mistral
 Requires-Dist: mistralai>=1.0.0; extra == 'mistral'
 Provides-Extra: modal
@@ -343,7 +343,7 @@ Requires-Dist: emoji>=2.12.1; extra == 'trace-server'
 Requires-Dist: google-cloud-storage>=2.7.0; extra == 'trace-server'
 Requires-Dist: litellm<1.82.7,>=1.36.1; extra == 'trace-server'
 Requires-Dist: openinference-semantic-conventions>=0.1.17; extra == 'trace-server'
-Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'trace-server'
+Requires-Dist: opentelemetry-proto>=1.28.0; extra == 'trace-server'
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.3; extra == 'trace-server'
 Requires-Dist: redis>=5.0.0; extra == 'trace-server'
 Provides-Extra: verdict

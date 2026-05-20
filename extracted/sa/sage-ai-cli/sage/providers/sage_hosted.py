@@ -31,7 +31,7 @@ from typing import Optional
 
 import httpx
 
-from ..core.cli_auth import SAGE_API_BASE, load_auth
+from ..core.cli_auth import SAGE_API_BASE, get_valid_token, load_auth
 from .anonymizer import anonymize_payload
 from .base import Message, ModelInfo, ProviderBase
 
@@ -217,13 +217,18 @@ class SageHostedProvider(ProviderBase):
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _auth_or_raise(self) -> _AuthHeaders:
-        auth = load_auth()
-        if not auth or not auth.get("id_token"):
+        # Use get_valid_token() which auto-refreshes expired tokens.
+        # load_auth() alone doesn't check expiry, causing 401s mid-session
+        # when the 1-hour Firebase token expires during a long sage run.
+        try:
+            token = get_valid_token()
+        except RuntimeError:
             raise RuntimeError(
                 "sage-hosted models require login. Run `sage login` first."
             )
+        auth = load_auth() or {}
         return _AuthHeaders(
-            bearer=auth["id_token"],
+            bearer=token,
             tier=auth.get("tier", "free"),
         )
 
@@ -338,6 +343,15 @@ class SageHostedProvider(ProviderBase):
                     "X-CLI": "true",
                 },
             )
+            # Auto-refresh and retry once on 401 — happens when the 1-hour
+            # Firebase token expires during a long sage run session.
+            if response.status_code == 401:
+                auth = self._auth_or_raise()  # re-calls get_valid_token() → refreshes
+                response = client.post(
+                    f"{self._api_base}/chat",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {auth.bearer}", "X-CLI": "true"},
+                )
             self._raise_for_status(response)
             data = response.json()
 
@@ -370,16 +384,21 @@ class SageHostedProvider(ProviderBase):
         )
         # Streaming uses an unbounded read timeout because generation can
         # legitimately take 5+ minutes on long outputs from a cold model.
-        with httpx.Client(timeout=httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0)) as client:
-            with client.stream(
-                "POST",
-                f"{self._api_base}/chat",
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {auth.bearer}",
-                    "X-CLI": "true",
-                },
-            ) as response:
+        # On 401 (expired token), refresh once and retry the stream open.
+        _stream_timeout = httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0)
+        with httpx.Client(timeout=_stream_timeout) as client:
+            _headers = {"Authorization": f"Bearer {auth.bearer}", "X-CLI": "true"}
+            _ctx = client.stream("POST", f"{self._api_base}/chat", json=payload, headers=_headers)
+            response = _ctx.__enter__()
+            if response.status_code == 401:
+                # Token expired mid-session — refresh and reopen the stream.
+                response.read()
+                _ctx.__exit__(None, None, None)
+                auth = self._auth_or_raise()
+                _headers = {"Authorization": f"Bearer {auth.bearer}", "X-CLI": "true"}
+                _ctx = client.stream("POST", f"{self._api_base}/chat", json=payload, headers=_headers)
+                response = _ctx.__enter__()
+            try:
                 self._raise_for_status(response)
                 for line in response.iter_lines():
                     if not line:
@@ -425,6 +444,8 @@ class SageHostedProvider(ProviderBase):
                     else:
                         # Non-SSE backend (e.g. local dev) — yield raw lines.
                         yield line
+            finally:
+                _ctx.__exit__(None, None, None)
 
 
 __all__ = [

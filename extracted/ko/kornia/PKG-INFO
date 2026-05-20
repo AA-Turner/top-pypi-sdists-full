@@ -1,15 +1,16 @@
 Metadata-Version: 2.4
 Name: kornia
-Version: 0.8.2
+Version: 0.8.3
 Summary: Open Source Differentiable Computer Vision Library for PyTorch
-Author-email: Edgar Riba <edgar@kornia.org>
-License: Apache-2.0
 Project-URL: Bug Tracker, https://github.com/kornia/kornia/issues
 Project-URL: Documentation, https://kornia.readthedocs.io/en/latest
 Project-URL: Download, https://github.com/kornia/kornia
-Project-URL: Issues, https://github.com/kornia/kornia/issues
 Project-URL: Homepage, https://kornia.github.io/
+Project-URL: Issues, https://github.com/kornia/kornia/issues
 Project-URL: Source Code, https://github.com/kornia/kornia
+Author-email: Edgar Riba <edgar@kornia.org>
+License: Apache-2.0
+License-File: LICENSE
 Keywords: computer vision,deep learning,pytorch
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
@@ -22,59 +23,52 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Image Processing
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: kornia_rs>=0.1.9
+Requires-Python: >=3.11
+Requires-Dist: kornia-rs>=0.1.9
 Requires-Dist: packaging
 Requires-Dist: torch>=2.0.0
 Provides-Extra: dev
-Requires-Dist: accelerate; extra == "dev"
-Requires-Dist: coverage; extra == "dev"
-Requires-Dist: diffusers; extra == "dev"
-Requires-Dist: ivy>=1.0.0.0; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: numpy<3; extra == "dev"
-Requires-Dist: onnx; extra == "dev"
-Requires-Dist: onnxruntime; extra == "dev"
-Requires-Dist: pillow; extra == "dev"
-Requires-Dist: pre-commit>=2; extra == "dev"
-Requires-Dist: pytest==8.3.5; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-timeout; extra == "dev"
-Requires-Dist: requests; extra == "dev"
-Requires-Dist: setuptools>=61.2; extra == "dev"
-Requires-Dist: transformers<4.57; extra == "dev"
-Requires-Dist: types-requests; extra == "dev"
-Provides-Extra: x
-Requires-Dist: accelerate; extra == "x"
-Requires-Dist: onnxruntime-gpu>=1.16; sys_platform != "darwin" and extra == "x"
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: diffusers; extra == 'dev'
+Requires-Dist: ivy>=1.0.0.0; extra == 'dev'
+Requires-Dist: numpy<3; extra == 'dev'
+Requires-Dist: onnx; extra == 'dev'
+Requires-Dist: onnxruntime; extra == 'dev'
+Requires-Dist: onnxscript; extra == 'dev'
+Requires-Dist: pillow; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-timeout; extra == 'dev'
+Requires-Dist: requests; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: setuptools; extra == 'dev'
+Requires-Dist: transformers<5.6; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: furo; extra == "docs"
-Requires-Dist: ivy>=1.0.0.0; extra == "docs"
-Requires-Dist: kornia_moons; extra == "docs"
-Requires-Dist: matplotlib; extra == "docs"
-Requires-Dist: onnx; extra == "docs"
-Requires-Dist: onnxruntime; extra == "docs"
-Requires-Dist: opencv-python; extra == "docs"
-Requires-Dist: PyYAML>=5.1; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx-autodoc-defaultargs; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
-Requires-Dist: sphinx-copybutton>=0.3; extra == "docs"
-Requires-Dist: sphinx-design; extra == "docs"
-Requires-Dist: sphinx-notfound-page; extra == "docs"
-Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
-Requires-Dist: sphinxcontrib-gtagjs; extra == "docs"
-Requires-Dist: sphinxcontrib-youtube; extra == "docs"
-Dynamic: license-file
+Requires-Dist: furo; extra == 'docs'
+Requires-Dist: ivy>=1.0.0.0; extra == 'docs'
+Requires-Dist: kornia-moons; extra == 'docs'
+Requires-Dist: matplotlib; extra == 'docs'
+Requires-Dist: onnx; extra == 'docs'
+Requires-Dist: onnxruntime; extra == 'docs'
+Requires-Dist: opencv-python; extra == 'docs'
+Requires-Dist: pyyaml>=5.1; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-autodoc-defaultargs; extra == 'docs'
+Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
+Requires-Dist: sphinx-copybutton>=0.3; extra == 'docs'
+Requires-Dist: sphinx-design; extra == 'docs'
+Requires-Dist: sphinx-notfound-page; extra == 'docs'
+Requires-Dist: sphinxcontrib-bibtex; extra == 'docs'
+Requires-Dist: sphinxcontrib-gtagjs; extra == 'docs'
+Requires-Dist: sphinxcontrib-youtube; extra == 'docs'
+Description-Content-Type: text/markdown
 
 <div align="center">
 <p align="center">
@@ -98,12 +92,14 @@ English | [简体中文](README_zh-CN.md)
 [![star](https://gitcode.com/kornia/kornia/star/badge.svg)](https://gitcode.com/kornia/kornia)
 [![Discord](https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/HfnywwpBnD)
 [![Twitter](https://img.shields.io/twitter/follow/kornia_foss?style=social)](https://twitter.com/kornia_foss)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENCE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 </p>
 </div>
 
-**Kornia** is a differentiable computer vision library that provides a rich set of differentiable image processing and geometric vision algorithms. Built on top of [PyTorch](https://pytorch.org), Kornia integrates seamlessly into existing AI workflows, allowing you to leverage powerful [batch transformations](), [auto-differentiation]() and [GPU acceleration](). Whether you’re working on image transformations, augmentations, or AI-driven image processing, Kornia equips you with the tools you need to bring your ideas to life.
+**Kornia** is a differentiable computer vision library that provides a rich set of differentiable image processing and geometric vision algorithms. Built on top of [PyTorch](https://pytorch.org), Kornia integrates seamlessly into existing AI workflows, allowing you to leverage powerful [batch transformations](), [auto-differentiation]() and [GPU acceleration](). Whether you're working on image transformations, augmentations, or AI-driven image processing, Kornia equips you with the tools you need to bring your ideas to life.
+
+> **📢 Announcement**: Kornia is shifting towards end-to-end vision models. We are focusing on integrating state-of-the-art Vision Language Models (VLM) and Vision Language Agents (VLA) to provide comprehensive end-to-end vision solutions.
 
 ## Key Components
 1. **Differentiable Image Processing**<br>
@@ -142,7 +138,7 @@ Leverage pre-trained AI models optimized for a variety of vision tasks, all with
 | **Image Registration**      | - Affine and homography-based registration<br>- Image alignment using feature matching                                                                     |
 | **Pose Estimation**         | - Essential and Fundamental matrix estimation<br>- PnP problem solvers<br>- Pose refinement                                                                |
 | **Optical Flow**            | - Farneback optical flow<br>- Dense optical flow<br>- Sparse optical flow                                                                                  |
-| **3D Vision**               | - Depth estimation<br>- Point cloud operations<br>- Nerf<br>                                                                |
+| **3D Vision**               | - Depth estimation<br>- Point cloud operations<br>                                                                |
 | **Image Denoising**         | - Gaussian noise removal<br>- Poisson noise removal                                                                                                        |
 | **Edge Detection**          | - Sobel operator<br>- Canny edge detection                                                                                                                 |                                               |
 | **Transformations**         | - Rotation<br>- Translation<br>- Scaling<br>- Shearing                                                                                                     |
@@ -150,6 +146,43 @@ Leverage pre-trained AI models optimized for a variety of vision tasks, all with
 | **Morphological Operations**| - Dilation<br>- Erosion<br>- Opening<br>- Closing                                                                                                          |
 
 </details>
+
+## Half-Precision Support
+
+| Module | float16 | bfloat16 | Notes |
+|--------|:-------:|:--------:|-------|
+| `kornia.color` | ⚠️ | ⚠️ | Most conversions work for both; FFT-based ops may fail |
+| `kornia.filters` | ⚠️ | ⚠️ | Basic filters work; FFT-based ops may fail on CUDA |
+| `kornia.enhance` | ⚠️ | ⚠️ | Histogram eq / gamma / ZCA work (linalg ops use cast helpers) |
+| `kornia.morphology` | ✅ | ✅ | Pure conv/pool ops; no dtype restrictions |
+| `kornia.augmentation` | ⚠️ | ⚠️ | Most ops work; precision-sensitive transforms may be inaccurate |
+| `kornia.geometry.transform` | ⚠️ | ⚠️ | Affine/warp/resize work via cast helpers; thin-plate spline may fail |
+| `kornia.geometry.camera` | ⚠️ | ⚠️ | Pinhole model and most camera ops work; `StereoCamera` accepts both |
+| `kornia.geometry.calibration` | ❌ | ❌ | Explicitly accepts float32/float64 only (PnP solver) |
+| `kornia.geometry.epipolar` | ⚠️ | ⚠️ | SVD/inverse use cast helpers; both dtypes work |
+| `kornia.geometry.homography` | ⚠️ | ⚠️ | Uses `_torch_svd_cast` — both dtypes work via casting |
+| `kornia.geometry.liegroup` | ⚠️ | ⚠️ | Most ops work via cast helpers; some linalg paths may fail |
+| `kornia.geometry.solvers` | ⚠️ | ⚠️ | Uses `_torch_solve_cast` — both dtypes work via casting |
+| `kornia.geometry.subpix` | ⚠️ | ⚠️ | Soft-argmax works; precision-sensitive ops may be inaccurate |
+| `kornia.losses` | ⚠️ | ⚠️ | Photometric losses work; linalg-based losses may not |
+| `kornia.feature` | ⚠️ | ⚠️ | Detectors/descriptors work; matching uses manual cdist fallback |
+| `kornia.metrics` | ⚠️ | ⚠️ | Pixel-level metrics work; linalg-based metrics may not |
+| `kornia.models` | ⚠️ | ⚠️ | Conv-based models work; attention-based models may have dtype mismatches |
+
+✅ Supported &nbsp; ⚠️ Partial &nbsp; ❌ Not supported
+
+**Test results** (commit `6131e98`, 2026-03-21):
+
+| Run | Passed | Failed | Skipped | Pass% |
+|-----|-------:|-------:|--------:|------:|
+| CPU float32 *(baseline)* | 7647 | 3 | 3269 | **99.9%** |
+| CUDA float32 *(baseline)* | 7634 | 3 | 3280 | **99.9%** |
+| CPU float16 | 6866 | 747 | 3306 | **90.1%** |
+| CPU bfloat16 | 6838 | 812 | 3269 | **89.3%** |
+| CUDA float16 *(KORNIA_TEST_IN_SUBPROCESS=1)* | 6727 | 643 | 3556 | **91.3%** |
+| CUDA bfloat16 *(KORNIA_TEST_IN_SUBPROCESS=1)* | 6695 | 713 | 3518 | **90.4%** |
+
+See the [full precision guide](https://kornia.readthedocs.io/en/stable/get-started/precision.html) for details.
 
 ## Sponsorship
 
@@ -162,7 +195,7 @@ Kornia is an open-source project that is developed and maintained by volunteers.
 ## Installation
 
 [![PyPI python](https://img.shields.io/pypi/pyversions/kornia)](https://pypi.org/project/kornia)
-[![pytorch](https://img.shields.io/badge/PyTorch_1.9.1+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
+[![pytorch](https://img.shields.io/badge/PyTorch_2.0.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
 
 ### From pip
 
@@ -179,15 +212,26 @@ Kornia is an open-source project that is developed and maintained by volunteers.
   pip install -e .
   ```
 
-#### For development with UV (Recommended)
+#### For development with Pixi (Recommended)
 
-For development, Kornia uses [uv](https://github.com/astral-sh/uv) for fast Python package management and virtual environment creation. The project includes a `uv.lock` file for reproducible dependency management.
+For development, Kornia uses [pixi](https://pixi.sh) for fast Python package management and environment management. The project includes a `pixi.toml` configuration file for reproducible dependency management.
 
   ```bash
-  ./setup_dev_env.sh
+  # Install pixi (if not already installed)
+  curl -fsSL https://pixi.sh/install.sh | bash
+
+  # Install dependencies and set up the development environment
+  pixi install
+
+  # Run tests
+  pixi run test
+
+  # For CUDA development
+  pixi run -e cuda install
+  pixi run -e cuda test-cuda
   ```
 
-This will set up a complete development environment with all dependencies using the lock file for reproducibility. For more details on dependency management and lock file usage, see [CONTRIBUTING.md](CONTRIBUTING.md).
+This will set up a complete development environment with all dependencies. For more details on dependency management and available tasks, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 #### From Github url (latest version)
 
@@ -287,12 +331,15 @@ Are you passionate about computer vision, AI, and open-source development? Join 
 
 We are excited to announce our latest advancement: a new initiative designed to seamlessly integrate lightweight AI models into Kornia.
 We aim to run any models as smooth as big models such as StableDiffusion, to support them well in many perspectives.
-We have already included a selection of lightweight AI models like [YuNet (Face Detection)](), [Loftr (Feature Matching)](), and [SAM (Segmentation)](). Now, we're looking for contributors to help us:
 
+**Priority Focus: VLM/VLA Models**
+
+Our primary focus is on integrating **Vision Language Models (VLM)** and **Vision Language Agents (VLA)** to enable end-to-end vision solutions. We're actively seeking contributors to help us:
+
+- **VLM/VLA Integration (Priority)**: Implement and integrate state-of-the-art Vision Language Models and Vision Language Agents. This includes models like Qwen2.5-VL, SAM-3, and other cutting-edge VLM/VLA architectures. If you are a researcher working on VLM/VLA models, Kornia is an excellent place for you to promote your model!
 - Expand the Model Selection: Import decent models into our library. If you are a researcher, Kornia is an excellent place for you to promote your model!
 - Model Optimization: Work on optimizing models to reduce their computational footprint while maintaining accuracy and performance. You may start from offering ONNX support!
 - Model Documentation: Create detailed guides and examples to help users get the most out of these models in their projects.
-
 
 ### Documentation And Tutorial Optimization
 
@@ -316,6 +363,18 @@ If you are using kornia in your research-related documents, it is recommended th
 ## Contributing
 
 We appreciate all contributions. If you are planning to contribute back bug-fixes, please do so without any further discussion. If you plan to contribute new features, utility functions or extensions, please first open an issue and discuss the feature with us. Please, consider reading the [CONTRIBUTING](./CONTRIBUTING.md) notes. The participation in this open source project is subject to [Code of Conduct](./CODE_OF_CONDUCT.md).
+
+### AI Policy
+
+Kornia accepts AI-assisted code but strictly rejects AI-generated contributions where the submitter acts as a proxy. All contributors must be the **Sole Responsible Author** for every line of code. Please review our [AI Policy](AI_POLICY.md) before submitting pull requests. Key requirements include:
+
+- **Proof of Verification**: PRs must include local test logs proving execution
+- **Pre-Discussion**: All PRs must be discussed in Discord or via a GitHub issue before implementation
+- **Library References**: Implementations must be based on existing library references (PyTorch, OpenCV, etc.)
+- **Use Existing Utilities**: Use existing `kornia` utilities instead of reinventing the wheel
+- **Explain It**: You must be able to explain any code you submit
+
+Automated AI reviewers (e.g., GitHub Copilot) will check PRs against these policies. See [AI_POLICY.md](AI_POLICY.md) for complete details.
 
 ## Community
 - **Discord:** Join our workspace to keep in touch with our core contributors, get latest updates on the industry and  be part of our community. [JOIN HERE](https://discord.gg/HfnywwpBnD)

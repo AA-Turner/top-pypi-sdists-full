@@ -12,6 +12,7 @@ from biolib._internal.data_record.push_data import (
 )
 from biolib._internal.errors import AuthenticationError
 from biolib._internal.file_utils import get_files_and_size_of_directory, get_iterable_zip_stream
+from biolib._internal.progress import Progress
 from biolib._shared.types import PushResponseDict
 from biolib._shared.types.typing import Dict, Iterable, List, Optional, Set, TypedDict, Union
 from biolib._shared.utils import parse_resource_uri
@@ -57,14 +58,7 @@ def process_docker_status_updates(status_updates: Iterable[DockerStatusUpdate], 
 
 
 def _process_docker_status_updates_with_progress_bar(status_updates: Iterable[DockerStatusUpdate], action: str) -> None:
-    try:
-        import rich.progress  # pylint: disable=import-outside-toplevel
-    except ImportError as error:
-        raise ImportError(
-            'The SDK dependencies are required for this operation. Install it with: pip3 install -U pybiolib[sdk]'
-        ) from error
-
-    with rich.progress.Progress() as progress:
+    with Progress() as progress:
         layer_id_to_task_id = {}
         overall_task_id = progress.add_task(description=f'[bold blue]{action} Docker image', total=None)
 

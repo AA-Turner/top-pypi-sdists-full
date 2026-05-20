@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.aws-iot-actions-alpha",
-    "version": "2.254.0.a0",
+    "version": "2.256.0.a0",
     "description": "Receipt rule actions for AWS IoT",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,19 +26,19 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.aws_iot_actions_alpha._jsii": [
-            "aws-iot-actions-alpha@2.254.0-alpha.0.jsii.tgz"
+            "aws-iot-actions-alpha@2.256.0-alpha.0.jsii.tgz"
         ],
         "aws_cdk.aws_iot_actions_alpha": [
             "py.typed"
         ]
     },
-    "python_requires": "~=3.9",
+    "python_requires": "~=3.10",
     "install_requires": [
-        "aws-cdk-lib>=2.254.0, <3.0.0",
-        "aws-cdk.aws-iot-alpha==2.254.0.a0",
-        "aws-cdk.aws-iotevents-alpha==2.254.0.a0",
+        "aws-cdk-lib>=2.256.0, <3.0.0",
+        "aws-cdk.aws-iot-alpha==2.256.0.a0",
+        "aws-cdk.aws-iotevents-alpha==2.256.0.a0",
         "constructs>=10.5.0, <11.0.0",
-        "jsii>=1.129.0, <2.0.0",
+        "jsii>=1.130.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],

@@ -21,7 +21,6 @@ except ImportError:
     from .vsp_storage_system_gateway import VSPStorageSystemDirectGateway
 import time
 
-
 GET_SNAPSHOTS_SIMPLE = "simple/v1/objects/snapshots"
 GET_SNAPSHOT_BY_ID_SIMPLE = "simple/v1/objects/snapshots/{}"
 CREATE_SNAPSHOT_SIMPLE = "simple/v1/objects/snapshots"
@@ -141,7 +140,8 @@ class VspOneSnapshotGateway:
         )
         params = {"params": create_snapshot_list}
         response = self.rest_api.pegasus_post(endpoint, data=params)
-        result = self.get_snapshot_by_id(response)
+        snapshot_id = response[0] if isinstance(response, list) and len(response) > 0 else response
+        result = self.get_snapshot_by_id(snapshot_id)
         # return VspOneSnapshotList().dump_to_object(result)
         logger.writeDebug(f"GW:create_snapshots:result = {result}")
         return result

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: Nuitka
-Version: 4.1
+Version: 4.1.1
 Summary: Python compiler with full language support and CPython compatibility
 Home-page: https://nuitka.net
 Author: Kay Hayen
@@ -47,6 +47,7 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or l
 Description-Content-Type: text/x-rst
 License-File: LICENSE-RUNTIME.txt
 License-File: LICENSE.txt
+License-File: NOTICE.txt
 Provides-Extra: build-wheel
 Requires-Dist: setuptools>=42; extra == "build-wheel"
 Requires-Dist: toml; extra == "build-wheel"

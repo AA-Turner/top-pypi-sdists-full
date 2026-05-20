@@ -14,22 +14,37 @@ import warnings
 from collections.abc import Sequence
 from contextlib import suppress
 from functools import partial
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias, TypeVar, cast, overload
 
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import InvalidRequestError
-from sqlalchemy.orm import Query, Session, noload, scoped_session
+from sqlalchemy.orm import Query, Session, aliased, noload, scoped_session
 from sqlalchemy.sql import CompoundSelect, Select
-from sqlalchemy.sql.elements import TextClause
-from typing_extensions import deprecated
+from sqlalchemy.sql.elements import ColumnElement, TextClause
+from sqlalchemy.sql.util import ColumnAdapter
+from typing_extensions import TypeVarTuple, Unpack, deprecated
 
 from fastapi_pagination.api import create_page
 from fastapi_pagination.bases import AbstractParams, CursorRawParams, RawParams
 from fastapi_pagination.config import Config
 from fastapi_pagination.flow import flow, run_async_flow, run_sync_flow
-from fastapi_pagination.flows import CursorFlow, LimitOffsetFlow, TotalFlow, generic_flow
-from fastapi_pagination.types import AdditionalData, AsyncItemsTransformer, ItemsTransformer, SyncItemsTransformer
+from fastapi_pagination.flows import (
+    CursorFlow,
+    LimitOffsetFlow,
+    TotalFlow,
+    additional_data_flow,
+    create_page_flow,
+    generic_flow,
+)
+from fastapi_pagination.types import (
+    AdditionalData,
+    AsyncItemsTransformer,
+    ItemsTransformer,
+    SyncAdditionalData,
+    SyncItemsTransformer,
+)
+from fastapi_pagination.utils import verify_params
 
 from .raw_sql import create_count_query_from_text as _create_count_query_from_text
 from .raw_sql import create_paginate_query_from_text as _create_paginate_query_from_text
@@ -41,8 +56,9 @@ if TYPE_CHECKING:
 try:
     from sqlalchemy.orm import FromStatement
 except ImportError:  # pragma: no cover
+    _Ts = TypeVarTuple("_Ts")
 
-    class FromStatement:
+    class FromStatement(Generic[Unpack[_Ts]]):
         element: Any
 
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -77,6 +93,8 @@ except ImportError:  # pragma: no cover
     apaging = None  # type: ignore[ty:invalid-assignment]
 
 
+_INLINE_COUNT_LABEL = "__pagination_inline_count__"
+
 AsyncConn: TypeAlias = "AsyncSession | AsyncConnection | async_scoped_session[Any]"
 SyncConn: TypeAlias = "Session | Connection | scoped_session[Any]"
 AnyConn: TypeAlias = "AsyncConn | SyncConn"
@@ -88,22 +106,23 @@ UnwrapMode: TypeAlias = Literal[
     "unwrap",  # always unwrap
 ]
 
-TupleAny: TypeAlias = "tuple[Any, ...]"
-Selectable: TypeAlias = "Select[TupleAny] | TextClause | FromStatement[TupleAny] | CompoundSelect[TupleAny]"
+Ts = TypeVarTuple("Ts")
+
+Selectable: TypeAlias = "Select[Unpack[Ts]] | TextClause | FromStatement[Unpack[Ts]] | CompoundSelect[Unpack[Ts]]"  # type: ignore[ty:invalid-type-form]
 SelectableOrQuery: TypeAlias = "Selectable | Query[Any]"
 
 
 @overload
-def _prepare_query(query: Select[TupleAny]) -> Select[TupleAny]:
+def _prepare_query(query: Select[Unpack[Ts]]) -> Select[Unpack[Ts]]:  # type: ignore[ty:invalid-type-form]
     pass
 
 
 @overload
-def _prepare_query(query: Select[TupleAny] | None) -> Select[TupleAny] | None:
+def _prepare_query(query: Select[Unpack[Ts]] | None) -> Select[Unpack[Ts]] | None:  # type: ignore[ty:invalid-type-form]
     pass
 
 
-def _prepare_query(query: Select[TupleAny] | None) -> Select[TupleAny] | None:
+def _prepare_query(query: Select[Unpack[Ts]] | None) -> Select[Unpack[Ts]] | None:  # type: ignore[ty:invalid-type-form]
     if query is None:
         return None
 
@@ -127,26 +146,37 @@ def _prepare_query_for_cursor(query: Selectable) -> Selectable:
 _selectable_classes = (Select, TextClause, FromStatement, CompoundSelect)
 
 
+def _get_orm_entity(query: Select[Any]) -> type[Any] | None:
+    """Return the mapped ORM entity class for a bare ``select(Model)`` query, else ``None``.
+
+    Returns ``None`` for multi-entity selects, column-level selects
+    (``select(Model.col)``), and aliased-entity selects.
+    """
+    cols_desc = query.column_descriptions
+    if len(cols_desc) != 1:
+        return None
+    desc = cols_desc[0]
+    entity = desc.get("entity")
+    if entity is None or desc.get("aliased"):
+        return None
+    expr = desc.get("expr")
+    return entity if (expr is not None and expr is entity) else None
+
+
 def _should_unwrap_scalars_for_query(query: Selectable) -> bool:
     cols_desc = query.column_descriptions  # type: ignore[ty:unresolved-attribute]
     all_cols = [*query._all_selected_columns]
 
-    # we have select(a, b, c) no need to unwrap
+    # select(a, b, c) — multiple entities/columns, no unwrap needed
     if len(cols_desc) != 1:
         return False
 
-    # select one thing and it has more than one column, unwrap
+    # select(Model) where Model expands to multiple columns — unwrap to get the entity instance
     if len(all_cols) > 1:
         return True
 
-    # select one thing and it has only one column, check if it actually is a select(model)
-    if len(all_cols) == 1:
-        (desc,) = cols_desc
-        expr, entity = [desc.get(key) for key in ("expr", "entity")]
-
-        return expr is not None and expr is entity
-
-    return False
+    # select(Model) where Model has a single column — only unwrap for bare entity selects
+    return isinstance(query, Select) and _get_orm_entity(query) is not None
 
 
 def _should_unwrap_scalars(query: Selectable) -> bool:
@@ -184,7 +214,10 @@ def create_count_query_from_text(query: str) -> str:
     return _create_count_query_from_text(query)
 
 
-def _paginate_from_statement(query: FromStatement[TupleAny], params: AnyParams) -> FromStatement[TupleAny]:
+def _paginate_from_statement(
+    query: FromStatement[Unpack[Ts]],  # type: ignore[ty:invalid-type-form]
+    params: AnyParams,
+) -> FromStatement[Unpack[Ts]]:  # type: ignore[ty:invalid-type-form]
     query = query._generate()
     query.element = create_paginate_query(query.element, params)
     return query
@@ -279,6 +312,104 @@ def _limit_offset_flow(query: Selectable, conn: AnyConn, raw_params: RawParams) 
     return items
 
 
+def _apply_inline_count(query: Select[Any], inline_count: ColumnElement[int]) -> Select[Any]:
+    """Return *query* with *inline_count* embedded as an extra labeled column.
+
+    For DISTINCT queries, SQL window functions execute before deduplication, so
+    ``COUNT(*) OVER()`` would return the pre-DISTINCT row count (wrong). We wrap
+    the DISTINCT query in a subquery first, so the window function runs on the
+    already-deduplicated rows.
+
+    When the query is a bare ``select(Model)``, we use
+    ``aliased(entity, subq, flat=True)`` so result rows still carry proper ORM
+    instances rather than plain column tuples.
+
+    Note: ``query._distinct`` and ``query._order_by_clauses`` are private
+    SQLAlchemy attributes — there is no public API for detecting
+    ``SELECT DISTINCT`` or reading ORDER BY clauses on a ``Select`` object
+    in SQLAlchemy 2.0.  ``ColumnAdapter`` (``sqlalchemy.sql.util``) is used
+    to remap column references from the original table to the derived subquery.
+    """
+    if getattr(query, "_distinct", False):
+        subq = query.order_by(None).subquery()
+        entity = _get_orm_entity(query)
+        outer = select(aliased(entity, subq, flat=True)) if entity is not None else select(subq)
+        if query._order_by_clauses:
+            adapter = ColumnAdapter(subq)
+            outer = outer.order_by(*[adapter.traverse(clause) for clause in query._order_by_clauses])
+        return outer.add_columns(inline_count.label(_INLINE_COUNT_LABEL))
+
+    return query.add_columns(inline_count.label(_INLINE_COUNT_LABEL))
+
+
+def _extract_inline_count_total(items: Sequence[Any]) -> int:
+    """Extract the window-function total from the first result row.
+
+    Returns 0 when *items* is empty — callers must decide whether that means
+    the query matched no rows or the page offset is past the end.
+    """
+    try:
+        return int(items[0]._mapping[_INLINE_COUNT_LABEL])
+    except (AttributeError, KeyError):  # pragma: no cover
+        return 0
+
+
+@flow
+def _sqlalchemy_inline_count_flow(
+    is_async: bool,
+    conn: AnyConn,
+    query: Select[Any],
+    params: AbstractParams | None,
+    inline_count: ColumnElement[int],
+    *,
+    count_query: Selectable | None,
+    subquery_count: bool,
+    unwrap_mode: UnwrapMode | None,
+    transformer: ItemsTransformer | None,
+    additional_data: AdditionalData | None,
+    unique: bool,
+    config: Config | None,
+    create_page_factory: Any,
+) -> Any:
+    """Dedicated flow for inline_count pagination — runs a single query."""
+
+    params_obj, raw_params = verify_params(params, "limit-offset")
+
+    enriched_query = _apply_inline_count(query, inline_count) if raw_params.include_total else query
+
+    paginated_query = create_paginate_query(enriched_query, raw_params)
+    result = yield conn.execute(paginated_query)
+
+    with suppress(AttributeError):
+        result = _maybe_unique(result, unique)
+
+    total: int | None = None
+    if raw_params.include_total:
+        if result:
+            total = _extract_inline_count_total(result)
+        else:
+            # No rows returned: the offset is likely past the end of the result set.
+            # The inline count cannot be extracted, so fall back to a separate query.
+            total = yield from _total_flow(query, conn, count_query, subquery_count)
+
+    items = _unwrap_items(result, query, unwrap_mode)
+
+    resolved_additional_data = yield from additional_data_flow(result, additional_data)
+
+    page = yield from create_page_flow(
+        items,
+        params_obj,
+        total=total,
+        transformer=transformer,
+        additional_data=resolved_additional_data,
+        config=config,
+        async_=is_async,
+        create_page_factory=create_page_factory,
+    )
+
+    return page
+
+
 @flow
 def _cursor_flow(
     query: Selectable,
@@ -323,12 +454,13 @@ def _cursor_flow(
 def _sqlalchemy_flow(
     is_async: bool,
     conn: SyncConn | AsyncConn,
-    query: Select[TupleAny],
+    query: Select[Unpack[Ts]],  # type: ignore[ty:invalid-type-form]
     params: AbstractParams | None = None,
     *,
     subquery_count: bool = True,
     unwrap_mode: UnwrapMode | None = None,
     count_query: Selectable | None = None,
+    inline_count: ColumnElement[int] | None = None,
     transformer: ItemsTransformer | None = None,
     additional_data: AdditionalData | None = None,
     unique: bool = True,
@@ -337,6 +469,24 @@ def _sqlalchemy_flow(
     create_page_factory = create_page
     if is_async:
         create_page_factory = partial(greenlet_spawn, create_page_factory)
+
+    if inline_count is not None and isinstance(query, Select):
+        page = yield from _sqlalchemy_inline_count_flow(
+            is_async,
+            conn,
+            query,
+            params,
+            inline_count,
+            count_query=count_query,
+            subquery_count=subquery_count,
+            unwrap_mode=unwrap_mode,
+            transformer=transformer,
+            additional_data=additional_data,
+            unique=unique,
+            config=config,
+            create_page_factory=create_page_factory,
+        )
+        return page
 
     page = yield from generic_flow(
         async_=is_async,
@@ -389,7 +539,7 @@ def paginate(
     subquery_count: bool = True,
     unwrap_mode: UnwrapMode | None = None,
     transformer: SyncItemsTransformer | None = None,
-    additional_data: AdditionalData | None = None,
+    additional_data: SyncAdditionalData | None = None,
     unique: bool = True,
     config: Config | None = None,
 ) -> Any:
@@ -403,10 +553,11 @@ def paginate(
     params: AbstractParams | None = None,
     *,
     count_query: SelectableOrQuery | None = None,
+    inline_count: ColumnElement[int] | None = None,
     subquery_count: bool = True,
     unwrap_mode: UnwrapMode | None = None,
     transformer: SyncItemsTransformer | None = None,
-    additional_data: AdditionalData | None = None,
+    additional_data: SyncAdditionalData | None = None,
     unique: bool = True,
     config: Config | None = None,
 ) -> Any:
@@ -420,6 +571,7 @@ async def paginate(
     params: AbstractParams | None = None,
     *,
     count_query: Selectable | None = None,
+    inline_count: ColumnElement[int] | None = None,
     subquery_count: bool = True,
     unwrap_mode: UnwrapMode | None = None,
     transformer: AsyncItemsTransformer | None = None,
@@ -431,16 +583,47 @@ async def paginate(
 
 
 def paginate(*args: Any, **kwargs: Any) -> Any:
+    # Guard must run before _prepare_query converts Query → Select, which would
+    # make isinstance(query, Query) always False after arg parsing.
+    if kwargs.get("inline_count") is not None:
+        raw_query = args[0] if args else None
+        if not isinstance(raw_query, Query):
+            raw_query = args[1] if len(args) >= 2 else kwargs.get("query")
+        if isinstance(raw_query, Query):
+            raise TypeError(
+                "inline_count is not supported with the legacy SQLAlchemy Query API; use a Select-based query instead"
+            )
+
     try:
         assert args
         assert isinstance(args[0], Query)
-        query, count_query, conn, params, transformer, additional_data, unique, subquery_count, unwrap_mode, config = (
-            _old_paginate_sign(*args, **kwargs)
-        )
+        (
+            query,
+            count_query,
+            inline_count,
+            conn,
+            params,
+            transformer,
+            additional_data,
+            unique,
+            subquery_count,
+            unwrap_mode,
+            config,
+        ) = _old_paginate_sign(*args, **kwargs)
     except (TypeError, AssertionError):
-        query, count_query, conn, params, transformer, additional_data, unique, subquery_count, unwrap_mode, config = (
-            _new_paginate_sign(*args, **kwargs)
-        )
+        (
+            query,
+            count_query,
+            inline_count,
+            conn,
+            params,
+            transformer,
+            additional_data,
+            unique,
+            subquery_count,
+            unwrap_mode,
+            config,
+        ) = _new_paginate_sign(*args, **kwargs)
 
     try:
         _get_sync_conn_from_async(conn)
@@ -458,6 +641,7 @@ def paginate(*args: Any, **kwargs: Any) -> Any:
             query=query,
             params=params,
             count_query=count_query,
+            inline_count=inline_count,
             subquery_count=subquery_count,
             unwrap_mode=unwrap_mode,
             transformer=transformer,
@@ -475,6 +659,7 @@ def paginate(*args: Any, **kwargs: Any) -> Any:
             subquery_count=subquery_count,
             unwrap_mode=unwrap_mode,
             count_query=count_query,
+            inline_count=inline_count,
             transformer=transformer,
             additional_data=additional_data,
             unique=unique,
@@ -494,8 +679,9 @@ def _old_paginate_sign(
     unique: bool = True,
     config: Config | None = None,
 ) -> tuple[
-    Select[TupleAny],
+    Select[Unpack[Ts]],  # type: ignore[ty:invalid-type-form]
     Selectable | None,
+    ColumnElement[int] | None,
     SyncConn,
     AbstractParams | None,
     ItemsTransformer | None,
@@ -511,24 +697,26 @@ def _old_paginate_sign(
     session = query.session
     query = _prepare_query(query)  # type: ignore[ty:no-matching-overload]
 
-    return query, None, session, params, transformer, additional_data, unique, subquery_count, unwrap_mode, config
+    return query, None, None, session, params, transformer, additional_data, unique, subquery_count, unwrap_mode, config
 
 
 def _new_paginate_sign(
     conn: SyncConn,
-    query: Select[TupleAny],
+    query: Select[Unpack[Ts]],  # type: ignore[ty:invalid-type-form]
     params: AbstractParams | None = None,
     *,
     subquery_count: bool = True,
     unwrap_mode: UnwrapMode | None = None,
     count_query: Selectable | None = None,
+    inline_count: ColumnElement[int] | None = None,
     transformer: ItemsTransformer | None = None,
     additional_data: AdditionalData | None = None,
     unique: bool = True,
     config: Config | None = None,
 ) -> tuple[
-    Select[TupleAny],
+    Select[Unpack[Ts]],  # type: ignore[ty:invalid-type-form]
     Selectable | None,
+    ColumnElement[int] | None,
     SyncConn,
     AbstractParams | None,
     ItemsTransformer | None,
@@ -541,7 +729,19 @@ def _new_paginate_sign(
     query = _prepare_query(query)
     count_query = _prepare_query(count_query)  # type: ignore[ty:no-matching-overload]
 
-    return query, count_query, conn, params, transformer, additional_data, unique, subquery_count, unwrap_mode, config
+    return (
+        query,
+        count_query,
+        inline_count,
+        conn,
+        params,
+        transformer,
+        additional_data,
+        unique,
+        subquery_count,
+        unwrap_mode,
+        config,
+    )
 
 
 async def apaginate(
@@ -550,6 +750,7 @@ async def apaginate(
     params: AbstractParams | None = None,
     *,
     count_query: Selectable | None = None,
+    inline_count: ColumnElement[int] | None = None,
     subquery_count: bool = True,
     unwrap_mode: UnwrapMode | None = None,
     transformer: AsyncItemsTransformer | None = None,
@@ -569,6 +770,7 @@ async def apaginate(
             subquery_count=subquery_count,
             unwrap_mode=unwrap_mode,
             count_query=count_query,
+            inline_count=inline_count,
             transformer=transformer,
             additional_data=additional_data,
             unique=unique,

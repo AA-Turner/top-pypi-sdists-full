@@ -23,7 +23,7 @@ PACKAGE_NAME = "impacket"
 
 VER_MAJOR = 0
 VER_MINOR = 13
-VER_MAINT = 0
+VER_MAINT = 1
 VER_PREREL = ""
 try:
     if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
@@ -72,7 +72,7 @@ setup(
     data_files=data_files,
 
     install_requires=['pyasn1>=0.2.3', 'pyasn1_modules', 'pycryptodomex', 'pyOpenSSL', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
-                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'setuptools', 'charset_normalizer'],
+                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'charset_normalizer'],
     extras_require={':sys_platform=="win32"': ['pyreadline3'],
                     },
     classifiers=[
@@ -81,6 +81,5 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.9"
-
     ]
 )

@@ -527,6 +527,8 @@ def run_test(cwd: Path, prompt: str, pkg: str) -> int:
         last_interrupt_at = 0.0
 
         while driver.alive():
+            # alive() returned True so child is set; tell pyright.
+            assert driver.child is not None
             elapsed = time.time() - start_time
             if elapsed > MAX_SESSION_SECONDS:
                 fail_reasons.append(

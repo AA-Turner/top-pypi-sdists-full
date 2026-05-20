@@ -81,7 +81,45 @@ def test_gemma_missing_extra_params_seeded(tmp_path: Path) -> None:
     assert extra["top_k"] == 40
     assert extra["top_p"] == 0.95
     assert extra["repeat_penalty"] == 1.1
-    assert extra["max_tokens"] == 2048
+    assert extra["max_tokens"] == 8192
+
+
+def test_gemma_stale_max_tokens_2048_bumped(tmp_path: Path) -> None:
+    """Stale max_tokens=2048 (article recipe) is too tight for write_file
+    with non-trivial content. 2026-05-19 bug: operator hit malformed-JSON
+    truncation within 5 min of real use. Bump to 8192."""
+    cfg = tmp_path / "config.toml"
+    _write(cfg, {
+        "models": [
+            {"name": "gemma4", "provider": "llamacpp", "alias": "local",
+             "temperature": 1.0, "context_window": 32768,
+             "extra_params": {
+                 "top_k": 40, "top_p": 0.95,
+                 "repeat_penalty": 1.1, "max_tokens": 2048,
+             }},
+        ],
+    })
+    migrate_user_config(cfg)
+    out = _read(cfg)
+    assert out["models"][0]["extra_params"]["max_tokens"] == 8192
+
+
+def test_gemma_max_tokens_user_override_preserved(tmp_path: Path) -> None:
+    """A non-2048 max_tokens is a deliberate user choice — leave it."""
+    cfg = tmp_path / "config.toml"
+    _write(cfg, {
+        "models": [
+            {"name": "gemma4", "provider": "llamacpp", "alias": "local",
+             "temperature": 1.0, "context_window": 32768,
+             "extra_params": {
+                 "top_k": 40, "top_p": 0.95,
+                 "repeat_penalty": 1.1, "max_tokens": 4096,
+             }},
+        ],
+    })
+    migrate_user_config(cfg)
+    out = _read(cfg)
+    assert out["models"][0]["extra_params"]["max_tokens"] == 4096
 
 
 def test_gemma_existing_extra_params_preserved(tmp_path: Path) -> None:

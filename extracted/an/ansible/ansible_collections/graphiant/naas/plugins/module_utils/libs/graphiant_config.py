@@ -16,6 +16,7 @@ from .lag_interface_manager import LagInterfaceManager
 from .site_to_site_vpn_manager import SiteToSiteVpnManager
 from .static_routes_manager import StaticRoutesManager
 from .ntp_manager import NtpManager
+from .device_system_manager import DeviceSystemManager
 from .logger import setup_logger
 from .exceptions import GraphiantPlaybookError
 
@@ -38,9 +39,15 @@ class GraphiantConfig:
     - SiteManager: Site management operations
     """
 
-    def __init__(self, base_url: Optional[str] = None, username: Optional[str] = None,
-                 password: Optional[str] = None, check_mode: bool = False,
-                 access_token: Optional[str] = None, **kwargs):
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        check_mode: bool = False,
+        access_token: Optional[str] = None,
+        **kwargs,
+    ):
         """
         Initialize the GraphiantConfig class with connection parameters.
 
@@ -60,7 +67,7 @@ class GraphiantConfig:
                 password=password,
                 check_mode=check_mode,
                 access_token=access_token,
-                **kwargs
+                **kwargs,
             )
 
             # Initialize specialized managers
@@ -75,6 +82,7 @@ class GraphiantConfig:
             self.site_to_site_vpn = SiteToSiteVpnManager(self.config_utils)
             self.static_routes = StaticRoutesManager(self.config_utils)
             self.ntp = NtpManager(self.config_utils)
+            self.device_system = DeviceSystemManager(self.config_utils)
 
             LOG.info("GraphiantConfig class initialized successfully with all managers")
 
@@ -90,16 +98,17 @@ class GraphiantConfig:
             Dictionary indicating which managers are properly initialized
         """
         return {
-            'interfaces': hasattr(self, 'interfaces') and self.interfaces is not None,
-            'bgp': hasattr(self, 'bgp') and self.bgp is not None,
-            'global_config': hasattr(self, 'global_config') and self.global_config is not None,
-            'sites': hasattr(self, 'sites') and self.sites is not None,
-            'data_exchange': hasattr(self, 'data_exchange') and self.data_exchange is not None,
-            'device_config': hasattr(self, 'device_config') and self.device_config is not None,
-            'vrrp_interfaces': hasattr(self, 'vrrp_interfaces') and self.vrrp_interfaces is not None,
-            'config_utils': hasattr(self, 'config_utils') and self.config_utils is not None,
-            'lag_interfaces': hasattr(self, 'lag_interfaces') and self.lag_interfaces is not None,
-            'site_to_site_vpn': hasattr(self, 'site_to_site_vpn') and self.site_to_site_vpn is not None,
-            'static_routes': hasattr(self, 'static_routes') and self.static_routes is not None,
-            'ntp': hasattr(self, 'ntp') and self.ntp is not None,
+            "interfaces": hasattr(self, "interfaces") and self.interfaces is not None,
+            "bgp": hasattr(self, "bgp") and self.bgp is not None,
+            "global_config": hasattr(self, "global_config") and self.global_config is not None,
+            "sites": hasattr(self, "sites") and self.sites is not None,
+            "data_exchange": hasattr(self, "data_exchange") and self.data_exchange is not None,
+            "device_config": hasattr(self, "device_config") and self.device_config is not None,
+            "vrrp_interfaces": hasattr(self, "vrrp_interfaces") and self.vrrp_interfaces is not None,
+            "config_utils": hasattr(self, "config_utils") and self.config_utils is not None,
+            "lag_interfaces": hasattr(self, "lag_interfaces") and self.lag_interfaces is not None,
+            "site_to_site_vpn": hasattr(self, "site_to_site_vpn") and self.site_to_site_vpn is not None,
+            "static_routes": hasattr(self, "static_routes") and self.static_routes is not None,
+            "ntp": hasattr(self, "ntp") and self.ntp is not None,
+            "device_system": hasattr(self, "device_system") and self.device_system is not None,
         }

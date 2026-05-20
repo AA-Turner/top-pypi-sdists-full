@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: doccmd
-Version: 2026.5.16
+Version: 2026.5.19
 Summary: Run commands against code blocks in reStructuredText and Markdown files.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -21,7 +21,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: beartype>=0.22.9
 Requires-Dist: charset-normalizer>=3.4.1
-Requires-Dist: click<8.4.0,>=8.3.0
+Requires-Dist: click<8.5.0,>=8.3.0
 Requires-Dist: click-compose>=2025.10.27.3
 Requires-Dist: cloup>=3.0.0
 Requires-Dist: dulwich>=0.22.1
@@ -64,11 +64,12 @@ Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
 Requires-Dist: sphinx-pyproject==0.3.0; extra == "dev"
 Requires-Dist: sphinx-substitution-extensions==2026.1.12; extra == "dev"
 Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "dev"
-Requires-Dist: ty==0.0.35; extra == "dev"
+Requires-Dist: strict-kwargs==2026.5.18.post1; extra == "dev"
+Requires-Dist: ty==0.0.37; extra == "dev"
 Requires-Dist: types-pygments==2.20.0.20260508; extra == "dev"
 Requires-Dist: vulture==2.16; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"
-Requires-Dist: zizmor==1.25.0; extra == "dev"
+Requires-Dist: zizmor==1.25.2; extra == "dev"
 Provides-Extra: release
 Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
 Requires-Dist: homebrew-pypi-poet==0.10; extra == "release"
@@ -127,7 +128,7 @@ Pre-built Linux (x86) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.06/doccmd-linux -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.16/doccmd-linux -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 Pre-built macOS (ARM) binaries
@@ -135,7 +136,7 @@ Pre-built macOS (ARM) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.06/doccmd-macos -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.16/doccmd-macos -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 Pre-built macOS (ARM) binaries
@@ -143,7 +144,7 @@ Pre-built macOS (ARM) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.06/doccmd-macos -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.05.16/doccmd-macos -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 You may need to remove the quarantine attribute to run the binary:
@@ -173,7 +174,7 @@ Requires `Nix`_.
 
 .. code-block:: shell
 
-   $ nix --extra-experimental-features 'nix-command flakes' run "github:adamtheturtle/doccmd/2026.05.06" -- --help
+   $ nix --extra-experimental-features 'nix-command flakes' run "github:adamtheturtle/doccmd/2026.05.16" -- --help
 
 To avoid passing ``--extra-experimental-features`` every time, `enable flakes`_ permanently.
 
@@ -196,7 +197,7 @@ To run ``doccmd`` with `pre-commit`_, add hooks like the following to your ``.pr
 .. code-block:: yaml
 
    -   repo: https://github.com/adamtheturtle/doccmd-pre-commit
-       rev: v2026.5.6
+       rev: v2026.5.16
        hooks:
        -   id: doccmd
            args: ["--language", "shell", "--command", "shellcheck --shell=bash"]

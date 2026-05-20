@@ -202,7 +202,7 @@ from chalk.scalinggroup.spec import (
 from chalk.utils import notebook
 from chalk.utils.collections import FrozenOrderedSet
 from chalk.utils.df_utils import chunk_table, pa_table_to_pl_df
-from chalk.utils.duration import parse_chalk_duration, timedelta_to_duration
+from chalk.utils.duration import parse_chalk_duration, timedelta_to_duration, translate_windowed_fqn
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
@@ -881,6 +881,7 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
         errors: List[ChalkError],
         warnings: List[str],
         meta: Optional[QueryMeta] = None,
+        translate_fqns: bool = False,
     ):
         super().__init__()
         self.data = data
@@ -921,6 +922,9 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
                     else:
                         d.value = f.converter.from_json_to_rich(d.value)
 
+        if translate_fqns:
+            for d in self.data:
+                d.field = translate_windowed_fqn(d.field)
         self._values = {d.field: d for d in self.data}
 
     def _df_repr(self) -> List[Dict[str, Any]]:
@@ -2197,6 +2201,7 @@ https://docs.chalk.ai/cli/apply
         headers: Mapping[str, str] | None = None,
         query_context: Mapping[str, JsonValue] | str | None = None,
         trace: bool = False,
+        translate_fqns: bool = False,
         value_metrics_tag_by_features: Sequence[FeatureReference] = (),
     ) -> OnlineQueryResponseImpl:
         with safe_trace("query"):
@@ -2277,6 +2282,7 @@ https://docs.chalk.ai/cli/apply
                 errors=resp.errors or [],
                 warnings=all_warnings,
                 meta=resp.meta,
+                translate_fqns=translate_fqns,
             )
 
     def multi_query(
@@ -2412,6 +2418,7 @@ https://docs.chalk.ai/cli/apply
         explain: bool = False,
         request_timeout: float | ellipsis | None = ...,
         headers: Mapping[str, str] | None = None,
+        translate_fqns: bool = False,
         value_metrics_tag_by_features: Sequence[FeatureReference] = (),
     ) -> BulkOnlineQueryResponse:
         if branch is ...:
@@ -2537,6 +2544,16 @@ https://docs.chalk.ai/cli/apply
                 meta=query_meta,
             )
             bulk_results.append(bulk_result)
+        if translate_fqns:
+            for bulk_result in bulk_results:
+                if bulk_result.scalars_df is not None:
+                    rename_map = {
+                        col: translate_windowed_fqn(col)
+                        for col in bulk_result.scalars_df.columns
+                        if translate_windowed_fqn(col) != col
+                    }
+                    if rename_map:
+                        bulk_result.scalars_df = bulk_result.scalars_df.rename(rename_map)
         return BulkOnlineQueryResponse(results=bulk_results)
 
     def offline_query(

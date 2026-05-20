@@ -21,18 +21,24 @@
 //! ```
 
 pub use crate::imp::Impersonate;
+#[cfg(feature = "http2")]
+use crate::imp::{PseudoId, PseudoOrder, SettingId, SettingsOrder};
+use rustls::client::{BrowserEmulator, BrowserEmulatorOS, BrowserType, BrowserVersion};
+use rustls::crypto::emulation;
+use std::sync::{Arc, OnceLock};
 
 /// Builds browser settings for a specific Safari version and OS.
 pub(crate) fn build_safari_settings(
     safari: Impersonate,
     os: crate::imp::ImpersonateOS,
 ) -> crate::imp::BrowserSettings {
-    use rustls::client::{BrowserEmulator, BrowserEmulatorOS, BrowserType, BrowserVersion};
-    use rustls::crypto::emulation;
-    use std::sync::OnceLock;
-
+    let os = if matches!(os, crate::imp::ImpersonateOS::Random) {
+        crate::imp::random_impersonate_os()
+    } else {
+        os
+    };
     let user_agent = build_user_agent(safari, os);
-    let headers = build_headers(user_agent);
+    let headers = build_safari_base_headers(user_agent);
 
     // Convert ImpersonateOS to BrowserEmulatorOS
     let browser_os = match os {
@@ -41,84 +47,12 @@ pub(crate) fn build_safari_settings(
         _ => BrowserEmulatorOS::MacOS,
     };
 
-    // Get cached browser emulator for Safari (avoids Vec allocations on each call)
-    // Note: We cache the base emulator and set OS type on the clone
-    let mut browser_emulator = match safari {
-        Impersonate::SafariV18_5 => {
-            static SAFARI_18_5: OnceLock<BrowserEmulator> = OnceLock::new();
-            SAFARI_18_5
-                .get_or_init(|| {
-                    let mut emulator =
-                        BrowserEmulator::new(BrowserType::Safari, BrowserVersion::new(18, 5, 0));
-                    emulator.cipher_suites = Some(emulation::cipher_suites::SAFARI.to_vec());
-                    emulator.named_groups = Some(emulation::named_groups::SAFARI.to_vec());
-                    emulator.signature_algorithms =
-                        Some(emulation::signature_algorithms::SAFARI.to_vec());
-                    emulator.extension_order_seed = Some(emulation::extension_order::SAFARI_18_5);
-                    emulator.include_status_request_v2 = true;
-                    emulator
-                })
-                .clone()
-        }
-        Impersonate::SafariV26 => {
-            static SAFARI_26: OnceLock<BrowserEmulator> = OnceLock::new();
-            SAFARI_26
-                .get_or_init(|| {
-                    let mut emulator =
-                        BrowserEmulator::new(BrowserType::Safari, BrowserVersion::new(26, 0, 0));
-                    emulator.cipher_suites = Some(emulation::cipher_suites::SAFARI.to_vec());
-                    emulator.named_groups = Some(emulation::named_groups::SAFARI.to_vec());
-                    emulator.signature_algorithms =
-                        Some(emulation::signature_algorithms::SAFARI.to_vec());
-                    emulator.extension_order_seed = Some(emulation::extension_order::SAFARI_26);
-                    emulator
-                })
-                .clone()
-        }
-        Impersonate::SafariV26_3 => {
-            if browser_os == BrowserEmulatorOS::IOS {
-                static SAFARI_26_3_IOS: OnceLock<BrowserEmulator> = OnceLock::new();
-                SAFARI_26_3_IOS
-                    .get_or_init(|| {
-                        let mut emulator = BrowserEmulator::new(
-                            BrowserType::Safari,
-                            BrowserVersion::new(26, 3, 0),
-                        );
-                        emulator.cipher_suites = Some(emulation::cipher_suites::SAFARI.to_vec());
-                        emulator.named_groups = Some(emulation::named_groups::SAFARI.to_vec());
-                        emulator.signature_algorithms =
-                            Some(emulation::signature_algorithms::SAFARI.to_vec());
-                        emulator.extension_order_seed = Some(emulation::extension_order::SAFARI_26);
-                        emulator
-                    })
-                    .clone()
-            } else {
-                static SAFARI_26_3_MACOS: OnceLock<BrowserEmulator> = OnceLock::new();
-                SAFARI_26_3_MACOS
-                    .get_or_init(|| {
-                        let mut emulator = BrowserEmulator::new(
-                            BrowserType::Safari,
-                            BrowserVersion::new(26, 3, 0),
-                        );
-                        emulator.cipher_suites = Some(emulation::cipher_suites::SAFARI.to_vec());
-                        emulator.named_groups = Some(emulation::named_groups::SAFARI.to_vec());
-                        emulator.signature_algorithms =
-                            Some(emulation::signature_algorithms::SAFARI.to_vec());
-                        emulator.extension_order_seed =
-                            Some(emulation::extension_order::SAFARI_18_5);
-                        emulator.include_status_request_v2 = true;
-                        emulator
-                    })
-                    .clone()
-            }
-        }
-        _ => unreachable!(),
-    };
+    // Get cached browser emulator for Safari (Arc clone = cheap refcount increment)
+    let mut browser_emulator = safari_emulator(safari, browser_os);
+    // Set OS type on our unique clone (cached emulator retains None)
+    Arc::make_mut(&mut browser_emulator).os_type = Some(browser_os);
 
-    // Set OS type on the cloned emulator
-    browser_emulator.os_type = Some(browser_os);
-
-    let http2 = build_http2_settings(os);
+    let http2 = build_http2_settings();
 
     crate::imp::BrowserSettings {
         browser_emulator,
@@ -127,106 +61,180 @@ pub(crate) fn build_safari_settings(
         gzip: true,
         brotli: true,
         zstd: false,
+        deflate: true,
     }
 }
 
 /// Builds a User-Agent string for a Safari version and OS.
+/// Safari only supports MacOS and iOS; other OSes default to MacOS.
 fn build_user_agent(safari: Impersonate, os: crate::imp::ImpersonateOS) -> &'static str {
+    // Random is resolved before this is called; only MacOS and IOS reach here
+    let os = match os {
+        crate::imp::ImpersonateOS::IOS => crate::imp::ImpersonateOS::IOS,
+        _ => crate::imp::ImpersonateOS::MacOS,
+    };
     match safari {
         Impersonate::SafariV18_5 => match os {
-            crate::imp::ImpersonateOS::MacOS => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
-            _ => build_user_agent(safari, crate::imp::random_impersonate_os()),
+            _ => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
         },
         Impersonate::SafariV26 => match os {
-            crate::imp::ImpersonateOS::MacOS => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1",
-            _ => build_user_agent(safari, crate::imp::random_impersonate_os()),
+            _ => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
         },
         // Safari 26.3: macOS uses Safari 26 UA, iOS uses Safari 18.5 UA
         Impersonate::SafariV26_3 => match os {
-            crate::imp::ImpersonateOS::MacOS => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.3 Safari/605.1.15",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
-            _ => build_user_agent(safari, crate::imp::random_impersonate_os()),
+            _ => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.3 Safari/605.1.15",
         },
         _ => unreachable!(),
     }
 }
 
-/// Builds default headers for Safari.
-///
-/// Safari does NOT support Client Hints, so we don't include sec-ch-ua headers.
-fn build_headers(user_agent: &'static str) -> http::HeaderMap {
-    use http::header::*;
-
-    let mut headers = http::HeaderMap::with_capacity(8);
-    headers.insert(USER_AGENT, http::HeaderValue::from_static(user_agent));
+/// Builds default headers for Safari using cached base.
+fn build_safari_base_headers(user_agent: &'static str) -> http::HeaderMap {
+    let mut headers = safari_base_headers().clone();
     headers.insert(
-        ACCEPT,
-        http::HeaderValue::from_static(
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        ),
+        http::header::USER_AGENT,
+        http::HeaderValue::from_static(user_agent),
     );
-    headers.insert(
-        ACCEPT_LANGUAGE,
-        http::HeaderValue::from_static("en-US,en;q=0.9"),
-    );
-    headers.insert(
-        "accept-encoding",
-        http::HeaderValue::from_static("gzip, deflate, br"),
-    );
-    headers.insert("sec-fetch-dest", http::HeaderValue::from_static("document"));
-    headers.insert("sec-fetch-mode", http::HeaderValue::from_static("navigate"));
-    headers.insert("sec-fetch-site", http::HeaderValue::from_static("none"));
-    headers.insert("priority", http::HeaderValue::from_static("u=0, i"));
-
     headers
 }
 
 /// Builds HTTP/2 settings for Safari.
 #[cfg(feature = "http2")]
-fn build_http2_settings(_os: crate::imp::ImpersonateOS) -> crate::imp::Http2Data {
-    use crate::imp::{PseudoId, PseudoOrder, SettingId, SettingsOrder};
+fn build_http2_settings() -> crate::imp::Http2Data {
+    crate::imp::Http2Data {
+        initial_stream_window_size: Some(crate::imp::SAFARI_INITIAL_STREAM_WINDOW),
+        initial_connection_window_size: Some(crate::imp::SAFARI_INITIAL_CONNECTION_WINDOW),
+        max_concurrent_streams: Some(100),
+        max_header_list_size: Some(crate::imp::SAFARI_MAX_HEADER_LIST_SIZE),
+        no_rfc7540_priorities: Some(true),
+        settings_order: Some(safari_settings_order().clone()),
+        headers_pseudo_order: Some(safari_pseudo_order().clone()),
+        ..Default::default()
+    }
+}
 
-    // Safari 26 HTTP/2 settings (version-specific, same for macOS and iOS)
-    // Settings order: 2, 3, 4, 9
-    let settings_order = Some(
+fn safari_emulator(safari: Impersonate, browser_os: BrowserEmulatorOS) -> Arc<BrowserEmulator> {
+    match safari {
+        Impersonate::SafariV18_5 => {
+            static EMU: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+            EMU.get_or_init(|| Arc::new(new_safari_18_5_emulator()))
+                .clone()
+        }
+        Impersonate::SafariV26 => {
+            static EMU: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+            EMU.get_or_init(|| Arc::new(new_safari_26_emulator()))
+                .clone()
+        }
+        Impersonate::SafariV26_3 => {
+            if browser_os == BrowserEmulatorOS::IOS {
+                static EMU_IOS: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+                EMU_IOS
+                    .get_or_init(|| Arc::new(new_safari_26_3_ios_emulator()))
+                    .clone()
+            } else {
+                static EMU_MACOS: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+                EMU_MACOS
+                    .get_or_init(|| Arc::new(new_safari_26_3_macos_emulator()))
+                    .clone()
+            }
+        }
+        _ => unreachable!(),
+    }
+}
+
+fn new_safari_18_5_emulator() -> BrowserEmulator {
+    let mut emulator = BrowserEmulator::new(BrowserType::Safari, BrowserVersion::new(18, 5, 0));
+    emulator.cipher_suites = Some(emulation::cipher_suites::SAFARI.to_vec());
+    emulator.named_groups = Some(emulation::named_groups::SAFARI.to_vec());
+    emulator.signature_algorithms = Some(emulation::signature_algorithms::SAFARI.to_vec());
+    emulator.extension_order_seed = Some(emulation::extension_order::SAFARI_18_5);
+    emulator.include_status_request_v2 = true;
+    emulator
+}
+
+fn new_safari_26_emulator() -> BrowserEmulator {
+    let mut emulator = BrowserEmulator::new(BrowserType::Safari, BrowserVersion::new(26, 0, 0));
+    emulator.cipher_suites = Some(emulation::cipher_suites::SAFARI.to_vec());
+    emulator.named_groups = Some(emulation::named_groups::SAFARI.to_vec());
+    emulator.signature_algorithms = Some(emulation::signature_algorithms::SAFARI.to_vec());
+    emulator.extension_order_seed = Some(emulation::extension_order::SAFARI_26);
+    emulator
+}
+
+fn new_safari_26_3_ios_emulator() -> BrowserEmulator {
+    let mut emulator = BrowserEmulator::new(BrowserType::Safari, BrowserVersion::new(26, 3, 0));
+    emulator.cipher_suites = Some(emulation::cipher_suites::SAFARI.to_vec());
+    emulator.named_groups = Some(emulation::named_groups::SAFARI.to_vec());
+    emulator.signature_algorithms = Some(emulation::signature_algorithms::SAFARI.to_vec());
+    emulator.extension_order_seed = Some(emulation::extension_order::SAFARI_26);
+    emulator.os_type = Some(BrowserEmulatorOS::IOS);
+    emulator
+}
+
+fn new_safari_26_3_macos_emulator() -> BrowserEmulator {
+    let mut emulator = BrowserEmulator::new(BrowserType::Safari, BrowserVersion::new(26, 3, 0));
+    emulator.cipher_suites = Some(emulation::cipher_suites::SAFARI.to_vec());
+    emulator.named_groups = Some(emulation::named_groups::SAFARI.to_vec());
+    emulator.signature_algorithms = Some(emulation::signature_algorithms::SAFARI.to_vec());
+    emulator.extension_order_seed = Some(emulation::extension_order::SAFARI_18_5);
+    emulator.include_status_request_v2 = true;
+    emulator.os_type = Some(BrowserEmulatorOS::MacOS);
+    emulator
+}
+
+fn safari_base_headers() -> &'static http::HeaderMap {
+    static BASE: OnceLock<http::HeaderMap> = OnceLock::new();
+    BASE.get_or_init(|| {
+        let mut headers = http::HeaderMap::with_capacity(8);
+        headers.insert(
+            http::header::ACCEPT,
+            http::HeaderValue::from_static(
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            ),
+        );
+        headers.insert(
+            http::header::ACCEPT_LANGUAGE,
+            http::HeaderValue::from_static("en-US,en;q=0.9"),
+        );
+        headers.insert(
+            "accept-encoding",
+            http::HeaderValue::from_static("gzip, deflate, br"),
+        );
+        headers.insert("sec-fetch-dest", http::HeaderValue::from_static("document"));
+        headers.insert("sec-fetch-mode", http::HeaderValue::from_static("navigate"));
+        headers.insert("sec-fetch-site", http::HeaderValue::from_static("none"));
+        headers.insert("priority", http::HeaderValue::from_static("u=0, i"));
+        headers
+    })
+}
+
+#[cfg(feature = "http2")]
+fn safari_settings_order() -> &'static SettingsOrder {
+    static ORDER: OnceLock<SettingsOrder> = OnceLock::new();
+    ORDER.get_or_init(|| {
         SettingsOrder::builder()
             .push(SettingId::EnablePush)
             .push(SettingId::MaxConcurrentStreams)
             .push(SettingId::InitialWindowSize)
             .push(SettingId::NoRfc7540Priorities)
-            .build_without_extend(),
-    );
+            .build_without_extend()
+    })
+}
 
-    // Safari 26 pseudo order: Method, Scheme, Authority, Path
-    let headers_pseudo_order = Some(
+#[cfg(feature = "http2")]
+fn safari_pseudo_order() -> &'static PseudoOrder {
+    static ORDER: OnceLock<PseudoOrder> = OnceLock::new();
+    ORDER.get_or_init(|| {
         PseudoOrder::builder()
             .push(PseudoId::Method)
             .push(PseudoId::Scheme)
             .push(PseudoId::Authority)
             .push(PseudoId::Path)
-            .build(),
-    );
-
-    crate::imp::Http2Data {
-        // Safari sends: 2:0;3:100;4:2097152;9:1
-        // WINDOW_UPDATE delta = 10420225, so initial_connection_window_size = 10420225 + 65535 = 10485760
-        initial_stream_window_size: Some(2097152),
-        initial_connection_window_size: Some(10485760),
-        max_concurrent_streams: Some(100),
-        max_frame_size: None,
-        max_header_list_size: None,
-        header_table_size: None,
-        enable_push: Some(false),
-        enable_connect_protocol: None,
-        no_rfc7540_priorities: Some(true),
-        settings_order,
-        headers_pseudo_order,
-        headers_priority: None,
-        headers_order: None,
-        initial_stream_id: None,
-    }
+            .build()
+    })
 }
 
 #[cfg(test)]

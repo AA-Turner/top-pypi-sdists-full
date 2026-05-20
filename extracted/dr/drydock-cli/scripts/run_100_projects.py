@@ -38,24 +38,39 @@ PROJECTS_ROOT = Path("/data3/100-python-projects")
 SCRATCH_ROOT = Path("/tmp/drydock_100")
 LOG_ROOT = Path("/data3/drydock/.100_projects/runs")
 
-# Conversation prompts. Each picked from a small bank so the run looks
-# different per project. We want code reading + small edits — that's
-# where the operator hits bugs (search_replace, read_file, MCP).
-PROMPT_BANK_OPEN = [
-    "Read the README and the main entry point. Tell me what this project does in three sentences.",
-    "Walk through the codebase and explain the architecture.",
-    "What does this project do? Just read the code, don't make changes yet.",
-]
-PROMPT_BANK_FIX = [
-    "Find and fix any bugs you see. Run the code if it has tests.",
-    "Add type hints to the main module. Don't break anything.",
-    "Refactor the largest function in the project to be more readable.",
-    "Add docstrings to every public function.",
-]
-PROMPT_BANK_FEATURE = [
-    "Add a --verbose CLI flag that prints debug info.",
-    "Add a unit test for the most critical function.",
-    "Add error handling for the most likely user error.",
+# Conversation prompts. Designed to mirror real iterative use:
+# read → edit → run → diagnose → edit again → run again. The operator's
+# 2026-05-19 critique was correct — the prior 2-prompt sessions never
+# pushed drydock into compaction, multi-edit chains, or test-debug
+# cycles, so all the real bugs they hit (truncated-history templates,
+# search_replace cascades, malformed JSON on long writes) were invisible
+# to my testing.
+#
+# Each session sends ALL 5 of these in sequence. That's ~10-15 turns
+# minimum and forces drydock into the long-session failure modes.
+PROMPT_SEQUENCE = [
+    # 1. Open + understand
+    "Read main.py and the README. Tell me what this project does and "
+    "what the main entry point is. Brief.",
+
+    # 2. Make an additive edit — exercises write_file with full content
+    "Add a top-of-file docstring to main.py describing what it does. "
+    "Three sentences. Keep all existing code intact.",
+
+    # 3. Run + see what happens — exercises bash on user code
+    "Now run `python3 main.py` and tell me what you see. If it crashes "
+    "or has missing dependencies, tell me the exact error.",
+
+    # 4. Debugging cycle — search_replace on a real symbol, multi-step
+    "Pick one function in main.py and add a `--verbose` print "
+    "statement at the start of it that says 'entering <funcname>'. "
+    "Use search_replace, not write_file. Then run main.py again to "
+    "verify your edit didn't break anything.",
+
+    # 5. Iteration — re-edit after a previous edit (the cascade case)
+    "Now revert the verbose print statement you added (search_replace "
+    "again). Confirm by reading main.py and showing me the line where "
+    "your function starts.",
 ]
 
 
@@ -182,7 +197,7 @@ def _scan_for_bugs(log_text: str) -> list[tuple[str, str]]:
     return hits
 
 
-def run_one(timeout_sec: int = 240) -> dict:
+def run_one(timeout_sec: int = 720) -> dict:
     project = _pick_project()
     if not project:
         return {"ok": False, "reason": "no_projects_found"}
@@ -203,11 +218,11 @@ def run_one(timeout_sec: int = 240) -> dict:
     }
     meta_path = LOG_ROOT / f"{stamp}_{safe}.json"
 
-    # Build the 2-turn prompt sequence. Open + (Fix OR Feature).
-    prompts = [
-        random.choice(PROMPT_BANK_OPEN),
-        random.choice(PROMPT_BANK_FIX + PROMPT_BANK_FEATURE),
-    ]
+    # Real read→edit→run→debug→re-edit sequence (5 prompts). Mirrors
+    # actual operator usage; pushes drydock into compaction, multi-edit
+    # chains, search_replace cascades, and the long-session failure
+    # modes the prior 2-prompt benign sessions never touched.
+    prompts = list(PROMPT_SEQUENCE)
 
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"

@@ -75,12 +75,57 @@ def test_groupby_agg_numeric_reductions():
     assert got[2] == ("Rome", 60.0, 30.0, 20.0, 40.0, 2)
 
 
+def test_groupby_argmin_argmax_return_logical_positions():
+    t = CTable(SalesRow, new_data=DATA)
+
+    out = t.group_by("city", sort=True).agg({"sales": ["argmin", "argmax"]})
+
+    assert out.col_names == ["city", "sales_argmin", "sales_argmax"]
+    assert rows(out) == [("Berlin", -1, -1), ("Paris", 0, 3), ("Rome", 2, 4)]
+
+
+def test_groupby_argmin_argmax_convenience_methods_and_view_positions():
+    t = CTable(SalesRow, new_data=DATA)
+    view = t.where("qty >= 3")
+
+    out = view.group_by("city", sort=True).argmax("sales")
+    argmin = view.group_by(view.city, sort=True).argmin(view.sales)
+
+    assert out.col_names == ["city", "sales_argmax"]
+    assert rows(out) == [("Berlin", -1), ("Paris", 1), ("Rome", 2)]
+    assert rows(argmin) == [("Berlin", -1), ("Paris", 1), ("Rome", 0)]
+
+
 def test_groupby_multi_key_size():
     t = CTable(SalesRow, new_data=DATA)
 
     out = t.group_by(["city", "category"], sort=True).size()
 
     assert rows(out) == [("Berlin", 2, 1), ("Paris", 1, 2), ("Paris", 2, 1), ("Rome", 1, 2)]
+
+
+def test_groupby_nested_column_name_result():
+    t = CTable(SalesRow, new_data=DATA)
+    t.rename_column("category", "trip.sec")
+    t.rename_column("sales", "payment.tips")
+
+    view = t.where((t["payment.tips"] > 10) & (t["trip.sec"] > 1))
+    out = view.group_by("trip.sec", sort=True).size()
+    out_from_column = view.group_by(t.trip.sec, sort=True).size()
+
+    assert out.col_names == ["trip.sec", "size"]
+    assert rows(out) == [(2, 1)]
+    assert rows(out_from_column) == rows(out)
+    assert out["trip.sec"][:].tolist() == [2]
+
+    count = t.group_by(t.trip.sec, sort=True).count(t.payment.tips)
+    assert count.col_names == ["trip.sec", "payment.tips_count"]
+    assert rows(count) == [(1, 3), (2, 1)]
+
+    agg = t.group_by(t.trip.sec, sort=True).agg({"payment.tips": "sum"})
+
+    assert agg.col_names == ["trip.sec", "payment.tips_sum"]
+    assert rows(agg) == [(1, 70.0), (2, 30.0)]
 
 
 def test_groupby_respects_views_and_deleted_rows():

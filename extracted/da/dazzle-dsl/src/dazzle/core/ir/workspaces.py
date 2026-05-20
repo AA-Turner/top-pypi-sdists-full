@@ -9,9 +9,10 @@ from __future__ import annotations  # required: forward reference
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .conditions import ConditionExpr
+from .aggregates import AggregateRef
+from .conditions import ConditionExpr, ViaCondition
 from .location import SourceLocation
 from .params import ParamRef
 from .ux import SortSpec, UXSpec
@@ -178,16 +179,16 @@ class OverlaySeriesSpec(BaseModel):
             parent region's source".
         filter: Optional ``ConditionExpr`` for the overlay's own scope
             (e.g. cohort vs individual student).
-        aggregate_expr: A single aggregate expression string —
-            ``count(<Entity>)`` / ``avg(<col>)`` / ``sum(<col>)`` etc.
-            Same vocabulary as the region's ``aggregate:`` block; one
-            measure per overlay series.
+        aggregate: A typed :class:`AggregateRef` driving the overlay's
+            single measure. Same vocabulary as the region's
+            ``aggregate:`` block; one measure per overlay series.
+            ADR-0024.
     """
 
     label: str
     source: str | None = None
     filter: ConditionExpr | None = None
-    aggregate_expr: str
+    aggregate: AggregateRef
 
     model_config = ConfigDict(frozen=True)
 
@@ -212,26 +213,23 @@ class PipelineStageSpec(BaseModel):
     Attributes:
         label: Human-readable stage name (e.g. "Scanned", "Rubric pass").
         caption: Optional sub-text describing what's at this stage.
-        value: Either an aggregate expression — same vocabulary as
-            region-level ``aggregate:``: ``count(<Entity> where <pred>)``,
-            ``avg(<col>)``, etc. — OR a literal string rendered as-is.
-            Detected by `_AGGREGATE_RE` match in the runtime: matches
-            fire a query, non-matches render verbatim. Empty string
-            means no value (renders as ``—``). v0.61.66: generalised
-            from `aggregate_expr` to support flow-card descriptive
-            stages (AegisMark UX patterns roadmap item #4).
-        progress: Per-stage progress bar fraction (0-100). Same shape as
-            `value:` — either a literal numeric string ("74") or an
-            aggregate expression that resolves to a number. Empty string
-            means no bar rendered (preserves pre-#911 behaviour).
+        value: Either a typed :class:`AggregateRef` (fires a query) OR a
+            literal string (rendered verbatim — used for descriptive flow
+            labels like "Daily 02:00 UTC"). ``None`` means no value
+            (renders as ``—``). Per ADR-0024 the parser shape-detects on
+            the token stream — if the next tokens form an aggregate call,
+            ``parse_aggregate_ref()`` consumes them; otherwise the input
+            is captured as a literal string.
+        progress: Per-stage progress bar fraction (0-100). Same union
+            shape as ``value:``. ``None`` means no bar rendered.
             Clamped to 0-100 at render time; values >100 set
             ``data-dz-progress-overshoot="true"`` so themes can flag.
     """
 
     label: str
     caption: str = ""
-    value: str = ""
-    progress: str = ""
+    value: AggregateRef | str | None = None
+    progress: AggregateRef | str | None = None
 
     model_config = ConfigDict(frozen=True)
 
@@ -264,9 +262,10 @@ class ActionCardSpec(BaseModel):
         label: Human-readable CTA text rendered prominently on the card.
         icon: Lucide icon name (e.g. "file-text", "clipboard-check"). Empty
             string means no icon.
-        count_aggregate: Optional aggregate expression — ``count(<Entity>
-            where <pred>)`` / ``avg(<col>)`` etc. Same vocabulary as
-            region-level ``aggregate:``. Empty string means no count badge.
+        count: Optional :class:`AggregateRef` driving the count badge —
+            same vocabulary as any other aggregate consumer (ADR-0024).
+            ``None`` means no count badge. DSL key remains
+            ``count_aggregate:`` for familiarity.
         action: Surface name to navigate to on click — same resolution
             path as region-level ``action:``. Empty string means no
             click-through (informational card).
@@ -276,7 +275,7 @@ class ActionCardSpec(BaseModel):
 
     label: str
     icon: str = ""
-    count_aggregate: str = ""
+    count: AggregateRef | None = None
     action: str = ""
     tone: str = "neutral"
 
@@ -365,6 +364,49 @@ class ConfirmationItemSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class RowActionSpec(BaseModel):
+    """#1148: per-row click-to-POST action on row-oriented region displays.
+
+    Closes the "every workflow surface needs a custom Python route for
+    its primary per-row action" gap that overrides in AegisMark, the
+    Manuscript review queue, the Behaviour incident inbox, and the
+    Fastmark starter-pack picker all worked around. One typed block
+    covers `list`, `cohort_strip`, `day_timeline`, and `status_list`
+    rows — `action_id` resolves against the project's declared
+    surface actions (same machinery `entity_card.quick_actions` uses
+    at the card level), CSRF + route binding inherited.
+
+    Attributes:
+        label: Button copy shown on each row (e.g. "Approve & release").
+        action_id: Reference to a declared surface action. The runtime
+            resolves the POST URL via the same machinery as
+            ``entity_card.quick_actions`` — projects don't manage
+            URLs by hand.
+        bind: Row-field → action-arg mapping. The simple case is
+            ``{id: id}`` (row's id → action's id param). Multi-key
+            forms compose URL-encoded bodies. Empty dict means the
+            action takes no row-derived args.
+        visible_when: Optional per-row predicate. When set, the row's
+            action button only renders when the condition evaluates
+            truthy against the row dict (e.g. ``status != released``
+            hides the button on already-released rows). ``None`` =
+            always visible.
+        confirm: Optional confirmation step that pops a panel before
+            the POST fires. Reuses the v0.61.72 (#1072)
+            confirm_action_panel item shape — same shape across the
+            framework. ``None`` = no confirmation (action fires
+            immediately on click).
+    """
+
+    label: str
+    action_id: str
+    bind: dict[str, str] = Field(default_factory=dict)
+    visible_when: ConditionExpr | None = None
+    confirm: ConfirmationItemSpec | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
 class NoticeSpec(BaseModel):
     """v0.61.68: prominent notice band rendered above the region body
     inside the dashboard slot. AegisMark's SIMS-sync-opt-in prototype
@@ -395,6 +437,135 @@ class NoticeSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class LensAggregatePrimary(BaseModel):
+    """#1144 Gap 1 / part 3: aggregate-expression primary for
+    cohort_strip lenses.
+
+    Pre-fix `primary:` could only name a field already on the
+    resolved member record. Cross-entity metrics (attainment %
+    across `MarkingResult` rows joined through `ClassEnrolment`,
+    behaviour counts in a 7-day window, MRR per CRM cohort, etc.)
+    forced a Python route override. This shape lets a lens declare
+    an aggregate expression evaluated by the framework's
+    ``Repository.aggregate`` machinery, joined through an optional
+    junction table, filtered by an optional predicate.
+
+    **Status:** IR + parser shipped this slice (#1144 part 3 phase 1).
+    Runtime execution (Repository.aggregate wiring + RBAC scope
+    composition) lands in subsequent slices. DSL authoring works
+    today; rendering raises ``NotImplementedError`` with a clear
+    "aggregate primary runtime not wired yet" message until the
+    next phase ships.
+
+    Attributes:
+        aggregate: Typed :class:`AggregateRef` driving the lens
+            computation. Any of the three AggregateRef shapes work:
+            ``count(Entity)``, ``avg(column)``, ``avg(Entity.column)``.
+            Row-level predicates ride inside the AggregateRef's own
+            ``where:`` clause (ADR-0024).
+        via: Optional junction-table join. Reuses the
+            :class:`ViaCondition` shape from #530 — same parser, same
+            SQL compiler. ``None`` means no junction (aggregate
+            operates against the source-entity directly, scoped by
+            the member's FK relationship).
+    """
+
+    aggregate: AggregateRef
+    via: ViaCondition | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
+class CompositePrimaryPart(BaseModel):
+    """#1144 part 2: one part of a composite cohort_strip primary.
+
+    Lets a lens render tuple metrics — e.g. AO1/AO2/AO3 breakdown
+    as ``45 / 52 / 38`` in one cell, or +pos/-neg behaviour
+    counters as ``+12 / -3`` side-by-side. Each part resolves to
+    a single row-field value at render time (matching the existing
+    `primary: <field>` semantics, just one slot of a multi-value
+    composite).
+
+    Attributes:
+        field: Field name on the resolved member record (same
+            resolution rules as `CohortStripLens.primary` for the
+            scalar case).
+        tone: Optional palette token applied to this part only
+            (``good`` / ``warn`` / ``bad`` / ``neutral`` / ``accent``).
+            Useful for the +pos green / -neg red case — different
+            parts of the same composite carry different tints.
+            Empty means inherit the cell-level tone.
+    """
+
+    field: str
+    tone: str = ""
+
+    model_config = ConfigDict(frozen=True)
+
+
+class CompositePrimarySpec(BaseModel):
+    """#1144 part 2: composite primary for cohort_strip lenses.
+
+    Renders a tuple of values joined by a separator instead of a
+    single scalar — matches the ``45 / 52 / 38`` AO breakdown or
+    ``+12 / -3`` behaviour counter shape.
+
+    The renderer resolves each part's ``field`` against the row,
+    converts to string (empty for missing/None — graceful
+    degradation), and joins with ``separator``. When any part
+    declares a ``tone``, the renderer emits per-part spans so CSS
+    can tint each value independently.
+
+    Attributes:
+        parts: Ordered list of value slots. Empty list is rejected
+            (use the scalar ``primary:`` form for a single value).
+        separator: String inserted between rendered parts.
+            Defaults to ``" / "`` matching the AegisMark contract.
+    """
+
+    parts: list[CompositePrimaryPart]
+    separator: str = " / "
+
+    model_config = ConfigDict(frozen=True)
+
+    @model_validator(mode="after")
+    def _validate_non_empty(self) -> CompositePrimarySpec:
+        if not self.parts:
+            raise ValueError(
+                "CompositePrimarySpec requires at least one part — "
+                "use the scalar `primary:` form for a single value."
+            )
+        return self
+
+
+class ToneBandSpec(BaseModel):
+    """#1144 part 1: one tone band on a ``cohort_strip`` lens.
+
+    Multi-band threshold replacement for the scalar `threshold:`
+    field — gives DSL authors explicit control over the value→tone
+    mapping instead of inheriting the hardcoded "≥threshold = good,
+    ≥90% threshold = warn, else bad" trichotomy.
+
+    A band fires when ``value >= at`` AND no earlier band (higher
+    ``at`` value, evaluated first) already matched. Bands are
+    walked in *descending* order of ``at`` regardless of authoring
+    order — the renderer sorts them — so the highest threshold
+    a value clears determines its tone.
+
+    Attributes:
+        at: Threshold value the row's primary must clear. Float so
+            percentages, scores, and absolute counts all compose.
+        tone: Palette token from the framework's tone vocabulary
+            (``good`` / ``warn`` / ``bad`` / ``neutral`` / ``accent``
+            etc) — same set the existing scalar-threshold path uses.
+    """
+
+    at: float
+    tone: str
+
+    model_config = ConfigDict(frozen=True)
+
+
 class CohortStripLens(BaseModel):
     """One lens in a `cohort_strip` region's lens toggle (#1018).
 
@@ -410,17 +581,75 @@ class CohortStripLens(BaseModel):
         label: Human-readable text on the lens-toggle button.
         primary: Field on the resolved member record that supplies
             the value rendered as the visual primary.
-        threshold: Optional RAG threshold. When set, the renderer tints
-            the primary value relative to it. Polarity (above-good vs
-            below-good) is encoded in the adapter's tone-mapping helper.
+        threshold: Optional scalar RAG threshold. When set (and
+            ``tone_bands`` is empty), the renderer tints the primary
+            value relative to it via the hardcoded above/warn/below
+            trichotomy. Mutually exclusive with ``tone_bands``.
+        tone_bands: Optional multi-band tone mapping (#1144 part 1).
+            When non-empty, supersedes ``threshold:`` — the row's
+            primary value is matched against the highest band whose
+            ``at`` it clears. Empty list → fall back to ``threshold:``
+            (or neutral if neither is set).
+        primary_composite: Optional tuple-display primary (#1144
+            part 2). When set, supersedes the scalar ``primary``
+            field — the renderer resolves each part's field against
+            the row and joins them with the spec's separator. Use
+            this for AO breakdowns (``45 / 52 / 38``) or +pos/-neg
+            counters (``+12 / -3``). Mutually exclusive with a
+            non-empty ``primary``; setting both is a parse-time
+            error.
+        primary_aggregate: Optional aggregate-expression primary
+            (#1144 part 3). When set, supersedes the scalar
+            ``primary`` and ``primary_composite`` — the framework's
+            ``Repository.aggregate`` machinery computes the value
+            against the joined entity per member. Mutually exclusive
+            with both scalar and composite forms.
     """
 
     id: str
     label: str
-    primary: str
+    primary: str = ""
     threshold: float | None = None
+    tone_bands: list[ToneBandSpec] = Field(default_factory=list)
+    primary_composite: CompositePrimarySpec | None = None
+    primary_aggregate: LensAggregatePrimary | None = None
 
     model_config = ConfigDict(frozen=True)
+
+    @model_validator(mode="after")
+    def _validate_threshold_or_bands(self) -> CohortStripLens:
+        """#1144 parts 1/2/3: mutual-exclusion validators.
+
+        - ``threshold:`` and ``tone_bands:`` can't both be set.
+        - Exactly one of ``primary:`` / ``primary_composite:`` /
+          ``primary_aggregate:`` must carry a value. All-empty
+          rejects; more-than-one-set rejects.
+        """
+        if self.threshold is not None and self.tone_bands:
+            raise ValueError(
+                f"cohort_strip lens {self.id!r}: `threshold:` and "
+                "`tone_bands:` are mutually exclusive — use one or "
+                "the other (tone_bands supersedes the scalar)."
+            )
+        primary_forms = [
+            ("primary", bool(self.primary)),
+            ("primary_composite", self.primary_composite is not None),
+            ("primary_aggregate", self.primary_aggregate is not None),
+        ]
+        set_forms = [name for name, present in primary_forms if present]
+        if len(set_forms) > 1:
+            raise ValueError(
+                f"cohort_strip lens {self.id!r}: {', '.join(set_forms)} "
+                "are mutually exclusive — use exactly one primary form."
+            )
+        if not set_forms:
+            raise ValueError(
+                f"cohort_strip lens {self.id!r} requires exactly one of "
+                "`primary:` (scalar field), `primary_composite:` "
+                "(tuple display), or `primary_aggregate:` (cross-join "
+                "aggregate expression)."
+            )
+        return self
 
 
 class CohortStripConfig(BaseModel):
@@ -554,11 +783,22 @@ class TaskSourceTemplate(BaseModel):
             FK-resolved targets.
         meta: Template string for the secondary copy (period,
             deadline, age). Optional.
+        via_joins: Cross-entity alias map (#1145 part 2). Each key
+            is an alias usable in ``title``/``meta`` templates; each
+            value is a dotted path resolved against the source row
+            (typically walking through FK-hydrated sub-dicts). At
+            render time the runtime resolves each path and injects
+            the result under ``row[alias]`` before template
+            interpolation, so ``{{ student.forename }}`` can reach
+            ``BehaviourIncident → BehaviourStudent → StudentProfile``
+            without route overrides. Empty dict (default) preserves
+            pre-#1145-part-2 behaviour.
     """
 
     icon: str
     title: str
     meta: str = ""
+    via_joins: dict[str, str] = Field(default_factory=dict)
 
     model_config = ConfigDict(frozen=True)
 
@@ -636,15 +876,34 @@ class DayTimelineConfig(BaseModel):
             active slot.
         ends_at: Field on the source entity holding the slot's end
             timestamp.
-        card: Name of the composite card template that renders each
-            slot's body. Resolved by the renderer at adapt time. When
-            empty, slots render with a minimal default body
-            (start/end label only).
+        card: ``{{ field }}`` / ``{{ field.path }}`` template
+            rendered against each slot's source row to produce the
+            slot body (#1146 part 1). Same grammar as
+            ``profile_card`` / ``task_inbox`` templates — graceful
+            degradation when a path is unresolved (renders as empty
+            string). When ``card == ""`` slots render with a minimal
+            default body (start/end label only).
+        as_of: Optional date anchor for ``HH:MM`` timetables
+            (#1146 part 2). When ``starts_at`` / ``ends_at`` resolve
+            to a ``time`` value (or ``HH:MM`` string) rather than a
+            full datetime, the runtime composes them with the date
+            from ``as_of``:
+
+            - ``""`` (default) → no composition; the field values
+              must parse as datetimes on their own.
+            - ``"today"`` → compose with today's date (UTC).
+            - any other identifier → field name on the row holding
+              the date component (e.g. ``schedule_date``).
+
+            One ``as_of`` applies to both ``starts_at`` and
+            ``ends_at`` — the typical timetable case is one date
+            per row.
     """
 
     starts_at: str
     ends_at: str
     card: str = ""
+    as_of: str = ""
 
     model_config = ConfigDict(frozen=True)
 
@@ -697,7 +956,10 @@ class WorkspaceRegion(BaseModel):
     # resolved display field. Mutually exclusive with group_by — when
     # both are set, group_by_dims wins.
     group_by_dims: list[str | BucketRef] | None = None
-    aggregates: dict[str, str] = Field(default_factory=dict)  # metric_name: expr
+    # ADR-0024: aggregate metrics are typed AggregateRef IR. Parser
+    # desugars `count(Entity [where ...])` / `avg(col)` / `avg(Entity.col)`
+    # into the structured shape at parse time.
+    aggregates: dict[str, AggregateRef] = Field(default_factory=dict)
     # v0.61.68: optional notice band rendered above the region body
     # inside the dashboard slot. Authors declare title (strong),
     # body (secondary copy), and tone (positive/warning/destructive/
@@ -775,6 +1037,13 @@ class WorkspaceRegion(BaseModel):
     day_timeline_config: DayTimelineConfig | None = None  # #1016 (v0.67.3)
     task_inbox_config: TaskInboxConfig | None = None  # #1015 (v0.67.4)
     entity_card_config: EntityCardConfig | None = None  # #1017 (v0.67.5)
+    # #1148: per-row click-to-POST action for row-oriented displays
+    # (list, cohort_strip, day_timeline, status_list). One typed block,
+    # one renderer contract; supersedes #1146's `slot_action:` proposal.
+    # Renderer plumbing per-display landed incrementally — projects can
+    # author `row_action:` ahead of full renderer support, the IR is
+    # ready and the parser locks the shape.
+    row_action: RowActionSpec | None = None
     # v0.61.63 (#903): explicit region title override. When set, replaces
     # the auto-derived title from the region key (e.g. `hero_marked` →
     # "Hero Marked"). Empty string is treated as None — the runtime

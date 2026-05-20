@@ -28,6 +28,7 @@ from ..samplex.nodes import (
     LeftU2ParametricMultiplicationNode,
     PauliPastCliffordNode,
     PropagateLocalC1Node,
+    PropagateLocalPauliNode,
     RightMultiplicationNode,
     RightU2ParametricMultiplicationNode,
     SliceRegisterNode,
@@ -37,6 +38,7 @@ from ..samplex.nodes.combine_registers_node import CombineType
 from ..synths import RzRxSynth, RzSxSynth
 from ..virtual_registers import VirtualType
 from .basis_change_serializers import BasisChangeSerializer
+from .lookup_table_store import get_lookup_table_store
 from .type_serializer import DataSerializer, TypeSerializer
 from .utils import array_from_json, array_to_json, slice_from_json, slice_to_json
 
@@ -342,11 +344,17 @@ class PauliPastCliffordNodeSerializer(TypeSerializer[PauliPastCliffordNode]):
 
     class SSV1(DataSerializer[PauliPastCliffordNode]):
         MIN_SSV = 1
+        MAX_SSV = 3
 
         @classmethod
         def serialize(cls, obj, ssv):
+            if (op_name := obj._op_name) == "rzz":  # noqa: SLF001
+                raise SerializationError(
+                    f"Encountered a PauliPastCliffordNode with operation rzz and SSV {ssv}, but "
+                    "require SSV at least 4."
+                )
             return {
-                "op_name": obj._op_name,  # noqa: SLF001
+                "op_name": op_name,
                 "subsystem_idxs": array_to_json(obj._subsystem_idxs),  # noqa: SLF001
                 "register_name": obj._register_name,  # noqa: SLF001
             }
@@ -357,6 +365,28 @@ class PauliPastCliffordNodeSerializer(TypeSerializer[PauliPastCliffordNode]):
                 data["op_name"],
                 data["register_name"],
                 array_from_json(data["subsystem_idxs"]),
+            )
+
+    class SSV4(DataSerializer[PauliPastCliffordNode]):
+        MIN_SSV = 4
+
+        @classmethod
+        def serialize(cls, obj, ssv):
+            get_lookup_table_store().register("N8", obj._op_name, obj._lookup_table)  # noqa: SLF001
+            return {
+                "op_name": obj._op_name,  # noqa: SLF001
+                "subsystem_idxs": array_to_json(obj._subsystem_idxs),  # noqa: SLF001
+                "register_name": obj._register_name,  # noqa: SLF001
+            }
+
+        @classmethod
+        def deserialize(cls, data):
+            op_name = data["op_name"]
+            return PauliPastCliffordNode(
+                op_name,
+                data["register_name"],
+                array_from_json(data["subsystem_idxs"]),
+                lookup_table=get_lookup_table_store().lookup(f"N8:{op_name}"),
             )
 
 
@@ -530,11 +560,17 @@ class PropagateLocalC1NodeSerializer(TypeSerializer[PropagateLocalC1Node]):
 
     class SSV3(DataSerializer[PropagateLocalC1Node]):
         MIN_SSV = 3
+        MAX_SSV = 3
 
         @classmethod
         def serialize(cls, obj, ssv):
+            if (op_name := obj._op_name) == "rzz":  # noqa: SLF001
+                raise SerializationError(
+                    f"Encountered a PropagateLocalC1Node with operation rzz and SSV {ssv}, but "
+                    "require SSV at least 4."
+                )
             return {
-                "op_name": obj._op_name,  # noqa: SLF001
+                "op_name": op_name,
                 "subsystem_idxs": array_to_json(obj._subsystem_idxs),  # noqa: SLF001
                 "register_name": obj._register_name,  # noqa: SLF001
             }
@@ -545,6 +581,28 @@ class PropagateLocalC1NodeSerializer(TypeSerializer[PropagateLocalC1Node]):
                 data["op_name"],
                 data["register_name"],
                 array_from_json(data["subsystem_idxs"]),
+            )
+
+    class SSV4(DataSerializer[PropagateLocalC1Node]):
+        MIN_SSV = 4
+
+        @classmethod
+        def serialize(cls, obj, ssv):
+            get_lookup_table_store().register("N13", obj._op_name, obj._lookup_table)  # noqa: SLF001
+            return {
+                "op_name": obj._op_name,  # noqa: SLF001
+                "subsystem_idxs": array_to_json(obj._subsystem_idxs),  # noqa: SLF001
+                "register_name": obj._register_name,  # noqa: SLF001
+            }
+
+        @classmethod
+        def deserialize(cls, data):
+            op_name = data["op_name"]
+            return PropagateLocalC1Node(
+                op_name,
+                data["register_name"],
+                array_from_json(data["subsystem_idxs"]),
+                lookup_table=get_lookup_table_store().lookup(f"N13:{op_name}"),
             )
 
 
@@ -574,4 +632,33 @@ class DistributionSamplingNodeSerializer(TypeSerializer[DistributionSamplingNode
             return DistributionSamplingNode(
                 data["register_name"],
                 TypeSerializer.deserialize(orjson.loads(data["distribution"])),
+            )
+
+
+class PropagateLocalPauliNodeSerializer(TypeSerializer[PropagateLocalPauliNode]):
+    """Serializer for :class:`~.PropagateLocalPauliNode`."""
+
+    TYPE_ID = "N15"
+    TYPE = PropagateLocalPauliNode
+
+    class SSV4(DataSerializer[PropagateLocalPauliNode]):
+        MIN_SSV = 4
+
+        @classmethod
+        def serialize(cls, obj, ssv):
+            get_lookup_table_store().register("N15", obj._op_name, obj._table)  # noqa: SLF001
+            return {
+                "op_name": obj._op_name,  # noqa: SLF001
+                "register_name": obj._register_name,  # noqa: SLF001
+                "subsystem_idxs": array_to_json(obj._subsystem_idxs),  # noqa: SLF001
+            }
+
+        @classmethod
+        def deserialize(cls, data):
+            op_name = data["op_name"]
+            return PropagateLocalPauliNode(
+                op_name,
+                data["register_name"],
+                array_from_json(data["subsystem_idxs"]),
+                lookup_table=get_lookup_table_store().lookup(f"N15:{op_name}"),
             )

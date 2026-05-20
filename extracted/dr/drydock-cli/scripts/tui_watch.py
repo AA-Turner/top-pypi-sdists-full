@@ -51,6 +51,31 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     # retrieve returned CLAUDE.md text that documented the term.
     ("tool_panic_retry", re.compile(r"raise ToolError|ToolError\(|panic[ -]retry")),
 
+    # 2026-05-19: caught from operator's /data3/slides session — model
+    # output a write_file call with 8K-char content that exceeded
+    # max_tokens=2048 and got truncated mid-JSON. Format handler emits
+    # "Your tool call arguments were malformed JSON ... max_tokens
+    # mid-emission". Worth a dedicated pattern because it's the
+    # canonical "model output got cut off" signature — independent
+    # of which tool, independent of the file path.
+    ("tool_args_malformed_json", re.compile(
+        r"tool call arguments were malformed JSON|Malformed JSON:",
+        re.I,
+    )),
+    ("tool_args_truncated_mid_emission", re.compile(
+        r"exceeded the model's max_tokens mid-emission", re.I,
+    )),
+
+    # 2026-05-19: model copies drydock's history-compaction markers
+    # ('_truncated' / '_original_bytes') back into a tool call as if
+    # they were the real args. Drydock detects + refuses. Surface this
+    # — it's a thrashing signature where the model is going in circles
+    # because it's lost track of the actual file content.
+    ("tool_args_truncated_history_template", re.compile(
+        r"truncated history entry as a template|"
+        r"_truncated'/'_original_bytes'", re.I,
+    )),
+
     # Softer signals — broaden coverage when hard errors aren't surfacing.
     # Added 2026-05-18 22:50 after a 60-min stretch with zero findings;
     # the operator's heuristic is "if you don't see issues every 15 min

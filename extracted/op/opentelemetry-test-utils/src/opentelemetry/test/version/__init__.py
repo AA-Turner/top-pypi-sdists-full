@@ -1,1 +1,4 @@
-__version__ = "0.62b1"
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+
+__version__ = "0.63b0"

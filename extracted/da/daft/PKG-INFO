@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daft
-Version: 0.7.13
+Version: 0.7.14
 Requires-Dist: pyarrow>=8.0.0,<24.0.0
 Requires-Dist: fsspec<2026.3.0
 Requires-Dist: tqdm<4.68.0
@@ -21,7 +21,7 @@ Requires-Dist: pyarrow>=8.0.0,<22.1.0 ; extra == 'hudi'
 Requires-Dist: huggingface-hub<1.5.0 ; extra == 'huggingface'
 Requires-Dist: datasets<4.6.0 ; extra == 'huggingface'
 Requires-Dist: pyiceberg>=0.7.0,!=0.9.1,!=0.10.0,<=0.11.0 ; extra == 'iceberg'
-Requires-Dist: pylance<0.40.0 ; extra == 'lance'
+Requires-Dist: daft-lance ; extra == 'lance'
 Requires-Dist: numpy<2.4.0 ; extra == 'numpy'
 Requires-Dist: openai<2.21.0 ; extra == 'openai'
 Requires-Dist: numpy<2.4.0 ; extra == 'openai'

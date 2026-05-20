@@ -4,7 +4,6 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
@@ -254,7 +253,7 @@ class VSPUserManager:
             reconciler = VSPUserGroupReconciler(
                 self.connection_info, self.storage_serial_number, self.state
             )
-            user_group, comment = reconciler.reconcile_user_group(self.spec)
+            user_group = reconciler.reconcile_user_group(self.spec)
 
         except Exception as e:
             self.logger.writeError(str(e))
@@ -266,8 +265,8 @@ class VSPUserManager:
         }
         if user_group:
             resp["user_groups"] = user_group
-        if comment:
-            resp["comment"] = comment
+        if self.spec.comments:
+            resp["comment"] = self.spec.comments
         if registration_message:
             resp["user_consent_required"] = registration_message
 

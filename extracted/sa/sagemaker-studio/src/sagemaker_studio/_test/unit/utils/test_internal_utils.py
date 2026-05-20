@@ -639,8 +639,8 @@ class TestResolveConnectionIdFromNotebook(unittest.TestCase):
         self.assertEqual(result, "conn-fallback")
         mock_dz_client.get_notebook_wip.assert_called_once()
         mock_dz_client.get_notebook.assert_called_once_with(
-            domainId="domain-123",
-            notebookId="notebook-456",
+            domainIdentifier="domain-123",
+            identifier="notebook-456",
         )
 
     @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")

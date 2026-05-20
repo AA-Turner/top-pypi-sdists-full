@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msgraph-core
-Version: 1.3.8
+Version: 1.4.0
 Summary: Core component of the Microsoft Graph Python SDK
 Author-email: Microsoft <graphtooling+python@microsoft.com>
 License-Expression: MIT
@@ -9,17 +9,17 @@ Project-URL: repository, https://github.com/microsoftgraph/msgraph-sdk-python-co
 Project-URL: documentation, https://github.com/microsoftgraph/msgraph-sdk-python-core/docs
 Keywords: msgraph,openAPI,Microsoft,Graph
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: microsoft-kiota-abstractions<2.0.0,>=1.8.0
-Requires-Dist: microsoft-kiota-authentication-azure<2.0.0,>=1.8.0
-Requires-Dist: microsoft-kiota-http<2.0.0,>=1.8.0
+Requires-Dist: microsoft-kiota-abstractions<2.0.0,>=1.10.1
+Requires-Dist: microsoft-kiota-authentication-azure<2.0.0,>=1.10.1
+Requires-Dist: microsoft-kiota-http<2.0.0,>=1.10.1
 Requires-Dist: httpx[http2]>=0.23.0
 Provides-Extra: dev
 Requires-Dist: yapf; extra == "dev"
@@ -44,7 +44,7 @@ The Microsoft Graph Core Python Client Library contains core classes used by [Mi
 
 ## Prerequisites
 
-    Python 3.9+
+    Python 3.10+
 
 This library doesn't support [older](https://devguide.python.org/versions/) versions of Python.
 

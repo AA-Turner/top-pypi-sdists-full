@@ -484,7 +484,7 @@ impl ClientBuilder {
 
     /// Sets the `SETTINGS_INITIAL_WINDOW_SIZE` option for HTTP2 stream-level flow control.
     ///
-    /// Default is currently 65,535 but may change internally to optimize for common uses.
+    /// Default may change internally to optimize for common uses.
     #[cfg(feature = "http2")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http2")))]
     pub fn http2_initial_stream_window_size(self, sz: impl Into<Option<u32>>) -> ClientBuilder {
@@ -493,7 +493,7 @@ impl ClientBuilder {
 
     /// Sets the max connection-level flow control for HTTP2
     ///
-    /// Default is currently 65,535 but may change internally to optimize for common uses.
+    /// Default may change internally to optimize for common uses.
     #[cfg(feature = "http2")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http2")))]
     pub fn http2_initial_connection_window_size(self, sz: impl Into<Option<u32>>) -> ClientBuilder {
@@ -1139,10 +1139,15 @@ impl ClientBuilder {
 
     /// Override the DNS resolver implementation.
     ///
-    /// Pass an `Arc` wrapping a trait object implementing `Resolve`.
+    /// Accepts any type implementing `IntoResolve`, such as `DohResolver`, `DotResolver`,
+    /// `GaiResolver`, or a `Vec` of resolvers for fallback.
+    ///
     /// Overrides for specific names passed to `resolve` and `resolve_to_addrs` will
     /// still be applied on top of this resolver.
-    pub fn dns_resolver<R: Resolve + 'static>(self, resolver: Arc<R>) -> ClientBuilder {
+    pub fn dns_resolver<R>(self, resolver: R) -> ClientBuilder
+    where
+        R: crate::dns::IntoResolve,
+    {
         self.with_inner(|inner| inner.dns_resolver(resolver))
     }
 

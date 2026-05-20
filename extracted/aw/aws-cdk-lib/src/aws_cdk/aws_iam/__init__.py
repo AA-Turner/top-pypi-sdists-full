@@ -567,6 +567,28 @@ new_policy = iam.Policy(self, "MyNewPolicy",
 )
 ```
 
+## Identity Policy Statement SID Validation
+
+The `Sid` (statement ID) element in IAM identity policies must be alphanumeric (A-Z, a-z, 0-9) according to AWS IAM requirements. CDK validates identity policy SIDs at synthesis time.
+
+```python
+# This will throw an error when used in an identity policy
+iam.PolicyStatement(
+    sid="Allow access for S3.",  # Invalid: contains spaces and period
+    actions=["s3:GetObject"],
+    resources=["*"]
+)
+
+# Valid SID - alphanumeric only
+iam.PolicyStatement(
+    sid="AllowAccessForS3",  # Valid: alphanumeric only
+    actions=["s3:GetObject"],
+    resources=["*"]
+)
+```
+
+This validation helps catch SID errors early in development rather than at deployment time.
+
 ## Permissions Boundaries
 
 [Permissions
@@ -11925,7 +11947,7 @@ class PolicyStatement(
         :param not_resources: NotResource ARNs to add to the statement. Default: - no not-resources
         :param principals: List of principals to add to the statement. Default: - no principals
         :param resources: Resource ARNs to add to the statement. Default: - no resources
-        :param sid: The Sid (statement ID) is an optional identifier that you provide for the policy statement. You can assign a Sid value to each statement in a statement array. In services that let you specify an ID element, such as SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In IAM, the Sid value must be unique within a JSON policy. Default: - no sid
+        :param sid: The Sid (statement ID) is an optional identifier that you provide for the policy statement. You can assign a Sid value to each statement in a statement array. In services that let you specify an ID element, such as SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In IAM, the Sid value must be unique within a JSON policy. In IAM identity policies, the Sid value must contain only alphanumeric characters. Default: - no sid
         '''
         props = PolicyStatementProps(
             actions=actions,
@@ -12240,7 +12262,7 @@ class PolicyStatement(
         :param not_resources: NotResource ARNs to add to the statement. Default: - no not-resources
         :param principals: List of principals to add to the statement. Default: - no principals
         :param resources: Resource ARNs to add to the statement. Default: - no resources
-        :param sid: The Sid (statement ID) is an optional identifier that you provide for the policy statement. You can assign a Sid value to each statement in a statement array. In services that let you specify an ID element, such as SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In IAM, the Sid value must be unique within a JSON policy. Default: - no sid
+        :param sid: The Sid (statement ID) is an optional identifier that you provide for the policy statement. You can assign a Sid value to each statement in a statement array. In services that let you specify an ID element, such as SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In IAM, the Sid value must be unique within a JSON policy. In IAM identity policies, the Sid value must contain only alphanumeric characters. Default: - no sid
         '''
         overrides = PolicyStatementProps(
             actions=actions,
@@ -12448,34 +12470,36 @@ class PolicyStatementProps:
         :param not_resources: NotResource ARNs to add to the statement. Default: - no not-resources
         :param principals: List of principals to add to the statement. Default: - no principals
         :param resources: Resource ARNs to add to the statement. Default: - no resources
-        :param sid: The Sid (statement ID) is an optional identifier that you provide for the policy statement. You can assign a Sid value to each statement in a statement array. In services that let you specify an ID element, such as SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In IAM, the Sid value must be unique within a JSON policy. Default: - no sid
+        :param sid: The Sid (statement ID) is an optional identifier that you provide for the policy statement. You can assign a Sid value to each statement in a statement array. In services that let you specify an ID element, such as SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In IAM, the Sid value must be unique within a JSON policy. In IAM identity policies, the Sid value must contain only alphanumeric characters. Default: - no sid
 
-        :exampleMetadata: fixture=default infused
+        :exampleMetadata: lit=aws-ec2/test/integ.vpc-endpoint.lit.ts infused
 
         Example::
 
-            execution_role = iam.Role(self, "EvaluationRole",
-                assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
-                description="Custom role for online evaluation"
+            # Add gateway endpoints when creating the VPC
+            vpc = ec2.Vpc(self, "MyVpc",
+                gateway_endpoints={
+                    "S3": cdk.aws_ec2.GatewayVpcEndpointOptions(
+                        service=ec2.GatewayVpcEndpointAwsService.S3
+                    )
+                }
             )
             
-            # Add required permissions
-            execution_role.add_to_policy(iam.PolicyStatement(
-                actions=["logs:DescribeLogGroups", "logs:GetQueryResults", "logs:StartQuery"
-                ],
-                resources=["arn:aws:logs:*:*:log-group:/aws/bedrock-agentcore/*"]
-            ))
+            # Alternatively gateway endpoints can be added on the VPC
+            dynamo_db_endpoint = vpc.add_gateway_endpoint("DynamoDbEndpoint",
+                service=ec2.GatewayVpcEndpointAwsService.DYNAMODB
+            )
             
-            evaluation = agentcore.OnlineEvaluationConfig(self, "CustomRoleEval",
-                online_evaluation_config_name="custom_role_evaluation",
-                evaluators=[
-                    agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.HELPFULNESS)
-                ],
-                data_source=agentcore.DataSourceConfig.from_cloud_watch_logs(
-                    log_group_names=["/aws/bedrock-agentcore/my-agent"],
-                    service_names=["my-agent.default"]
-                ),
-                execution_role=execution_role
+            # This allows to customize the endpoint policy
+            dynamo_db_endpoint.add_to_policy(
+                iam.PolicyStatement( # Restrict to listing and describing tables
+                    principals=[iam.AnyPrincipal()],
+                    actions=["dynamodb:DescribeTable", "dynamodb:ListTables"],
+                    resources=["*"]))
+            
+            # Add an interface endpoint
+            vpc.add_interface_endpoint("EcrDockerEndpoint",
+                service=ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER
             )
         '''
         if __debug__:
@@ -12588,7 +12612,8 @@ class PolicyStatementProps:
         You can assign a Sid value to each statement in a
         statement array. In services that let you specify an ID element, such as
         SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In
-        IAM, the Sid value must be unique within a JSON policy.
+        IAM, the Sid value must be unique within a JSON policy. In IAM identity
+        policies, the Sid value must contain only alphanumeric characters.
 
         :default: - no sid
         '''

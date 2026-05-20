@@ -1,12 +1,14 @@
 [project]
 name = "pypolyline"
-dynamic = ["version", "readme"]
+version = "0.5.8"
 description = "Fast Google Polyline encoding and decoding using Rust FFI"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy >= 2.0.0",
 ]
-authors = [{ name = "Stephan Hügel", email = "urschrei@gmail.com" }]
+authors = [{ name = "Stephan Hügel" }]
+maintainers = [{ email = "urschrei@gmail.com" }]
 license = "BlueOak-1.0.0"
 license-files = ["LICENSE.md"]
 keywords = ["Geo", "Polyline"]
@@ -29,24 +31,29 @@ classifiers = [
 Repository = "https://github.com/urschrei/pypolyline"
 Tracker = "https://github.com/urschrei/pypolyline/issues"
 
-[project.optional-dependencies]
-test = ["pytest >= 7.4.2"]
-
-[tool.setuptools.dynamic]
-readme = {file = "README.md", content-type = "text/markdown"}
-
-[build-system]
-build-backend = "setuptools.build_meta"
-requires = [
-    "setuptools >= 45",
-    "setuptools-scm[toml] >= 6.2",
-    "numpy >= 2.0.0",
-    "cython >= 3.0.0",
-    "wheel >= 0.29.0",
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
 ]
 
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+wheel.packages = ["src/pypolyline"]
+
+[build-system]
+requires = [
+    "scikit-build-core>=0.10",
+    "numpy >= 2.0.0",
+    "cython >= 3.1.0",
+    "cython-cmake"
+]
+build-backend = "scikit_build_core.build"
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.{h,c,pyx,pxd,dylib,so,dll}" }, { file = "CMakeLists.txt" }]
+
 [tool.pytest.ini_options]
-minversion = "6.2.2"
+minversion = "8.4.1"
 addopts = [
     "--import-mode=importlib",
 ]
@@ -54,8 +61,13 @@ testpaths = [
     "tests",
 ]
 
-[tool.setuptools_scm]
-write_to = "src/_version.py"
+[tool.cibuildwheel]
+build-frontend = "build[uv]"
+test-requires = ["pytest"]
+test-command = "pytest {package}"
+
+[tool.cibuildwheel.macos]
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
 
 [tool.ruff]
 exclude = [
@@ -99,5 +111,3 @@ quote-style = "double"
 
 # Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
-
-

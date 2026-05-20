@@ -138,24 +138,17 @@ def safe_eval(expression: str) -> Any:
 class MathArgs(BaseModel):
     expression: str = Field(
         description=(
-            "A Python expression to evaluate. Whitelist: arithmetic operators "
-            "(+ - * / // % **), comparisons, and/or/not, abs/round/min/max/"
-            "sum/len/pow/divmod/range/int/float/bool, the math module "
-            "(math.factorial, math.gcd, math.comb, math.sqrt, etc.), the "
-            "statistics module (statistics.mean, statistics.stdev, ...), "
-            "Fraction(num, den), Decimal('...'). Constants: pi, e, tau, "
-            "inf, nan. NO imports, NO open(), NO file/network access, NO "
-            "attribute access outside math/statistics/Fraction/Decimal."
+            "Python expression. Allowed: arithmetic, comparisons, bool ops, "
+            "abs/round/min/max/sum/len/pow/divmod/range/int/float, math.*, "
+            "statistics.*, Fraction(p,q), Decimal('...'). Constants: pi, e, "
+            "tau, inf, nan. NO imports, NO I/O, NO arbitrary attribute access."
         )
     )
     decimal_precision: int = Field(
         default=28,
         ge=1,
         le=200,
-        description=(
-            "Decimal context precision (digits). Only matters when the "
-            "expression uses `Decimal(...)`. Default 28."
-        ),
+        description="Decimal context digits (default 28). Only matters for Decimal(...).",
     )
 
 
@@ -175,14 +168,9 @@ class Math(
     ToolUIData[MathArgs, MathResult],
 ):
     description: ClassVar[str] = (
-        "Evaluate exact-math expressions via Python's stdlib (math, "
-        "statistics, Fraction, Decimal). Use INSTEAD of doing arithmetic "
-        "in your head when the answer needs to be exact: factorials "
-        "above 12!, large multiplies, prime tests, modular arithmetic, "
-        "GCD/LCM, statistics, exact fractions. One arg: `expression`. "
-        "Examples: math.factorial(20), math.comb(50, 5), "
-        "statistics.mean([1,2,3]), Fraction(1,3) + Fraction(1,6). "
-        "Sandboxed — no imports, no file/network access."
+        "Exact-math Python eval (math, statistics, Fraction, Decimal). "
+        "For factorials, large multiplies, prime tests, modular arithmetic, "
+        "GCD/LCM, statistics, exact fractions. Sandboxed — no imports/IO."
     )
 
     @classmethod

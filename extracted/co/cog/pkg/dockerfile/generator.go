@@ -10,8 +10,8 @@ type Generator interface {
 	GenerateInitialSteps(ctx context.Context) (string, error)
 	SetUseCogBaseImage(bool)
 	SetUseCogBaseImagePtr(*bool)
-	GenerateModelBaseWithSeparateWeights(ctx context.Context, imageName string) (string, string, string, error)
-	Cleanup() error
+	SetBreakSystemPackages(bool)
+	GenerateModelBaseWithSeparateWeights(ctx context.Context, imageName string) (string, string, []string, error)
 	SetStrip(bool)
 	SetPrecompile(bool)
 	SetUseCudaBaseImage(string)
@@ -23,4 +23,5 @@ type Generator interface {
 	Name() string
 	BuildDir() (string, error)
 	BuildContexts() (map[string]string, error)
+	BuildCacheDir() string
 }

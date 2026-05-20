@@ -7985,14 +7985,18 @@ def list_audit_destinations(ctx, name=None, **kwargs):
 @click.option("--oauth2-scopes", default=None, multiple=True, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
 @click.option("--routing-external", default=None, type=bool)
+@click.option("--routing-sni-proxy", default=None, type=bool)
+@click.option("--routing-extra-location", default=None, type=str, multiple=True)
 @click.option(
     "--webhook_format",
     default=None,
     type=click.Choice(audit_destinations.WEBHOOK_FORMATS),
 )
 @click.pass_context
-def add_audit_destination(ctx, **kwargs):
-    result = audit_destinations.add_audit_destination(ctx, **kwargs)
+def add_audit_destination(ctx, routing_extra_location=None, **kwargs):
+    result = audit_destinations.add_audit_destination(
+        ctx, routing_extra_locations=routing_extra_location, **kwargs
+    )
     output_entry(ctx, result)
 
 
@@ -8021,14 +8025,19 @@ def add_audit_destination(ctx, **kwargs):
 @click.option("--oauth2-client-secret", default=None, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
 @click.option("--routing-external", default=None, type=bool)
+@click.option("--routing-sni-proxy", default=None, type=bool)
+@click.option("--routing-extra-location", default=None, type=str, multiple=True)
+@click.option("--clear-extra-locations", default=False, is_flag=True)
 @click.option(
     "--webhook_format",
     default=None,
     type=click.Choice(audit_destinations.WEBHOOK_FORMATS),
 )
 @click.pass_context
-def update_audit_destination(ctx, destination_id, **kwargs):
-    result = audit_destinations.update_audit_destination(ctx, destination_id, **kwargs)
+def update_audit_destination(ctx, destination_id, routing_extra_location=None, **kwargs):
+    result = audit_destinations.update_audit_destination(
+        ctx, destination_id, routing_extra_locations=routing_extra_location, **kwargs
+    )
     output_entry(ctx, result)
 
 

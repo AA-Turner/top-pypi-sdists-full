@@ -3,12 +3,12 @@ from typing import Any
 
 import pytest
 from fastapi import Depends
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import selectinload
 
 from fastapi_pagination import Page, Params, set_page, set_params
 from fastapi_pagination.cursor import CursorPage
-from fastapi_pagination.customization import CustomizedPage, UseQuotedCursor
+from fastapi_pagination.customization import CustomizedPage, UseAdditionalFields, UseQuotedCursor
 from fastapi_pagination.ext.sqlalchemy import apaginate, paginate
 from tests.base import BasePaginationTestSuite, SuiteBuilder, async_sync_testsuite, sync_testsuite
 from tests.ext.utils import is_sqlalchemy20
@@ -276,3 +276,219 @@ class TestSQLAlchemyRaw(_SQLAlchemyPaginateFuncMixin, BasePaginationTestSuite):
             return await maybe_async(paginate_func(db, text("SELECT * FROM users")))
 
         return builder.build()
+
+
+class TestSQLAlchemyInlineCount:
+    def test_inline_count_select_model(self, sa_session, sa_user, entities):
+        with closing(sa_session()) as session, set_page(Page[UserOut]):
+            page = paginate(
+                session,
+                select(sa_user),
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+            )
+
+        assert page.total == len(entities)
+        assert len(page.items) == 10
+        assert all(isinstance(item, UserOut) for item in page.items)
+
+    def test_inline_count_total_matches_full_count(self, sa_session, sa_user, entities):
+        with closing(sa_session()) as session, set_page(Page[Any]):
+            page = paginate(
+                session,
+                select(sa_user),
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+            )
+
+        assert page.total == len(entities)
+
+    def test_inline_count_with_filter(self, sa_session, sa_user, entities):
+        target_name = entities[0].name
+
+        with closing(sa_session()) as session, set_page(Page[Any]):
+            page = paginate(
+                session,
+                select(sa_user).where(sa_user.name == target_name),
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+            )
+
+        assert page.total == sum(1 for e in entities if e.name == target_name)
+
+    def test_inline_count_items_are_model_instances(self, sa_session, sa_user, entities):
+        with closing(sa_session()) as session, set_page(Page[Any]):
+            page = paginate(
+                session,
+                select(sa_user),
+                params=Params(page=1, size=5),
+                inline_count=func.count().over(),
+            )
+
+        assert len(page.items) == 5
+        assert all(isinstance(item, sa_user) for item in page.items)
+
+    def test_inline_count_non_scalar_query(self, sa_session, sa_user, entities):
+        with closing(sa_session()) as session, set_page(Page[Any]):
+            page = paginate(
+                session,
+                select(sa_user.id, sa_user.name),
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+            )
+
+        assert page.total == len(entities)
+        assert all(item.id is not None and item.name is not None for item in page.items)
+
+    def test_inline_count_distinct_total_is_correct(self, sa_session, sa_user, sa_order, entities):
+        with closing(sa_session()) as session, set_page(Page[Any]):
+            page = paginate(
+                session,
+                select(sa_user).join(sa_order).distinct(),
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+            )
+
+        expected_total = len({e.id for e in entities})
+        assert page.total == expected_total
+
+    def test_inline_count_distinct_items_are_model_instances(self, sa_session, sa_user, sa_order, entities):
+        with closing(sa_session()) as session, set_page(Page[Any]):
+            page = paginate(
+                session,
+                select(sa_user).join(sa_order).distinct(),
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+            )
+
+        assert all(isinstance(item, sa_user) for item in page.items)
+
+    def test_inline_count_out_of_range_page_total_is_correct(self, sa_session, sa_user, entities):
+        """Out-of-range offset must still report the correct total, not 0."""
+        with closing(sa_session()) as session, set_page(Page[Any]):
+            page = paginate(
+                session,
+                select(sa_user),
+                params=Params(page=9999, size=10),
+                inline_count=func.count().over(),
+            )
+
+        assert page.items == []
+        assert page.total == len(entities)
+
+    def test_inline_count_include_total_false_skips_count(self, sa_session, sa_user, entities):
+        """When include_total=False the total must be None and no count is computed."""
+        from fastapi_pagination.customization import CustomizedPage, UseIncludeTotal
+
+        NoTotalPage = CustomizedPage[Page[Any], UseIncludeTotal(False)]
+        no_total_params = NoTotalPage.__params_type__()
+
+        with closing(sa_session()) as session, set_page(NoTotalPage), set_params(no_total_params):
+            page = paginate(
+                session,
+                select(sa_user),
+                inline_count=func.count().over(),
+            )
+
+        assert page.total is None
+        assert len(page.items) > 0
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_inline_count_apaginate(self, sa_user, sa_engine, entities):
+        """The async apaginate path must work with inline_count."""
+        from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+
+        if not isinstance(sa_engine, AsyncEngine):
+            pytest.skip("async engine required for this test")
+
+        async with AsyncSession(sa_engine) as session, set_page(Page[Any]):
+            page = await apaginate(
+                session,
+                select(sa_user),
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+            )
+
+        assert page.total == len(entities)
+        assert len(page.items) == 10
+        assert all(isinstance(item, sa_user) for item in page.items)
+
+    def test_inline_count_distinct_preserves_order(self, sa_session, sa_user, sa_order, entities):
+        """ORDER BY must be preserved when DISTINCT wraps the query in a subquery."""
+        with closing(sa_session()) as session, set_page(Page[Any]):
+            page_asc = paginate(
+                session,
+                select(sa_user).join(sa_order).distinct().order_by(sa_user.id.asc()),
+                params=Params(page=1, size=100),
+                inline_count=func.count().over(),
+            )
+
+        ids = [item.id for item in page_asc.items]
+        assert ids == sorted(ids), "Items must be returned in ascending id order"
+
+    def test_inline_count_legacy_query_new_style_raises(self, sa_session, sa_user):
+        """paginate(conn, legacy_Query, inline_count=...) must raise TypeError."""
+        with closing(sa_session()) as session:
+            legacy_query = session.query(sa_user)
+            with pytest.raises(TypeError, match="inline_count is not supported"):
+                paginate(session, legacy_query, inline_count=func.count().over())
+
+    def test_inline_additional_data_callable_basic(self, sa_session, sa_user, entities):
+        """Callable additional_data extracts aggregated values from raw rows."""
+
+        CustomPage = CustomizedPage[Page[Any], UseAdditionalFields(user_count_sum=(int, ...))]
+
+        stmt = select(
+            sa_user,
+            func.count(sa_user.id).over().label("_inline_total"),
+        ).order_by(sa_user.id)
+
+        def extract(rows):
+            return {"user_count_sum": rows[0]._mapping["_inline_total"] if rows else 0}
+
+        with closing(sa_session()) as session, set_page(CustomPage):
+            page = paginate(
+                session,
+                stmt,
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+                additional_data=extract,
+            )
+
+        assert page.user_count_sum == page.total
+
+    def test_inline_additional_data_callable_empty_page(self, sa_session, sa_user):
+        """Callable receives an empty list when query returns no rows."""
+
+        CustomPage = CustomizedPage[Page[Any], UseAdditionalFields(fallback=(str, ...))]
+
+        stmt = select(sa_user).where(sa_user.id == -999)
+
+        def extract(rows):
+            return {"fallback": "empty" if not rows else "found"}
+
+        with closing(sa_session()) as session, set_page(CustomPage):
+            page = paginate(
+                session,
+                stmt,
+                params=Params(page=1, size=10),
+                inline_count=func.count().over(),
+                additional_data=extract,
+            )
+
+        assert page.fallback == "empty"
+        assert page.total == 0
+
+    def test_callable_additional_data_without_inline_count(self, sa_session, sa_user, entities):
+        """Callable additional_data works without inline_count, receiving unwrapped items."""
+        CustomPage = CustomizedPage[Page[Any], UseAdditionalFields(page_item_count=(int, ...))]
+
+        with closing(sa_session()) as session, set_page(CustomPage):
+            page = paginate(
+                session,
+                select(sa_user),
+                params=Params(page=1, size=10),
+                additional_data=lambda items: {"page_item_count": len(items)},
+            )
+
+        assert page.page_item_count == len(page.items)

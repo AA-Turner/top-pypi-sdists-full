@@ -21,7 +21,7 @@ from fastapi_pagination.bases import AbstractParams, is_cursor, is_limit_offset
 from fastapi_pagination.ext.mongo import AggrPipelineTransformer
 from fastapi_pagination.ext.utils import get_mongo_pipeline_filter_end
 from fastapi_pagination.types import AdditionalData, AsyncItemsTransformer
-from fastapi_pagination.utils import verify_params
+from fastapi_pagination.utils import async_resolve_additional_data, verify_params
 
 TDocument = TypeVar("TDocument", bound=Document)
 
@@ -52,8 +52,6 @@ async def apaginate(  # noqa: C901, PLR0912, PLR0915
     **pymongo_kwargs: Any,
 ) -> Any:
     params, raw_params = verify_params(params, "limit-offset", "cursor")
-    if additional_data is None:
-        additional_data = {}
 
     cursor = getattr(raw_params, "cursor", None)
     if isinstance(query, AggregationQuery):
@@ -136,15 +134,22 @@ async def apaginate(  # noqa: C901, PLR0912, PLR0915
 
         data = (await mongo_cursor.to_list(length=None))[0]
         items = data["data"]
+        if is_cursor(raw_params) and cursor and cursor.startswith("prev_"):
+            items = list(reversed(items))
+
         try:
             total = data["metadata"][0]["total"]
         except IndexError:
             total = 0
-        if is_cursor(raw_params):
-            if cursor and cursor.startswith("prev_"):
-                items = list(reversed(items))
-            additional_data["next_"] = str(items[-1].id) if items else None
-            additional_data["previous"] = f"prev_{items[0].id}" if items else None
+
+        cursor_data = (
+            {
+                "next_": str(items[-1].id) if items else None,
+                "previous": f"prev_{items[0].id}" if items else None,
+            }
+            if is_cursor(raw_params)
+            else {}
+        )
     else:
         # avoid original query mutation
         count_query = copy(query)
@@ -160,6 +165,8 @@ async def apaginate(  # noqa: C901, PLR0912, PLR0915
             ).count()
         else:
             total = None
+
+        cursor_data: dict[str, Any] = {}
 
         if is_limit_offset(raw_params):
             items = await query.find_many(
@@ -206,8 +213,14 @@ async def apaginate(  # noqa: C901, PLR0912, PLR0915
             items = items[: raw_params.size]  # type: ignore[ty:unresolved-attribute]
             if cursor and cursor.startswith("prev_"):
                 items = list(reversed(items))
-            additional_data["next_"] = str(items[-1].id) if next_link_available else None
-            additional_data["previous"] = f"prev_{items[0].id}" if items else None
+
+            cursor_data = {
+                "next_": str(items[-1].id) if next_link_available else None,
+                "previous": f"prev_{items[0].id}" if items else None,
+            }
+
+    resolved_additional_data = await async_resolve_additional_data(items, additional_data)
+    resolved_additional_data.update(cursor_data)
 
     t_items = await apply_items_transformer(items, transformer, async_=True)
 
@@ -215,7 +228,7 @@ async def apaginate(  # noqa: C901, PLR0912, PLR0915
         t_items,
         total=total,
         params=params,
-        **(additional_data or {}),
+        **resolved_additional_data,
     )
 
 

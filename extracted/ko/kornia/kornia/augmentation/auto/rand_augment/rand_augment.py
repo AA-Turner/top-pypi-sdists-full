@@ -18,12 +18,12 @@
 from typing import Dict, Iterator, List, Optional, Tuple, Union, cast
 
 import torch
+from torch import nn
 
 from kornia.augmentation.auto.base import SUBPOLICY_CONFIG, PolicyAugmentBase
 from kornia.augmentation.auto.operations import OperationBase
 from kornia.augmentation.auto.operations.policy import PolicySequential
 from kornia.augmentation.container.params import ParamItem
-from kornia.core import Module, Tensor
 
 from . import ops
 
@@ -90,30 +90,65 @@ class RandAugment(PolicyAugmentBase):
         self.n = n
         self.m = m
 
-    def rand_selector(self, n: int) -> Tensor:
+    def rand_selector(self, n: int) -> torch.Tensor:
+        """Randomly choose ``n`` policy indices without replacement.
+
+        Args:
+            n: Number of candidate policies to sample.
+
+        Returns:
+            Tensor of indices into this module's children.
+        """
         perm = torch.randperm(len(self._modules))
         idx = perm[:n]
         return idx
 
     def compose_subpolicy_sequential(self, subpolicy: SUBPOLICY_CONFIG) -> PolicySequential:
+        """Build a :class:`PolicySequential` for one RandAugment candidate op.
+
+        Args:
+            subpolicy: Single-entry policy as ``[(name, low, high)]``.
+
+        Returns:
+            Sequential wrapper around that operation.
+
+        Raises:
+            RuntimeError: ``subpolicy`` contains more than one operation.
+        """
         if len(subpolicy) != 1:
             raise RuntimeError(f"Each policy must have only one operation for RandAugment. Got {len(subpolicy)}.")
         name, low, high = subpolicy[0]
         return PolicySequential(*[getattr(ops, name)(low, high)])
 
-    def get_forward_sequence(self, params: Optional[List[ParamItem]] = None) -> Iterator[Tuple[str, Module]]:
+    def get_forward_sequence(self, params: Optional[List[ParamItem]] = None) -> Iterator[Tuple[str, nn.Module]]:
+        """Return the policy modules to execute for this forward call.
+
+        Args:
+            params: Optional recorded parameters. When provided, the sequence is
+                reconstructed from them.
+
+        Returns:
+            Iterator of ``(name, module)`` pairs.
+        """
         if params is None:
-            idx = self.rand_selector(
-                self.n,
-            )
+            idx = self.rand_selector(self.n)
             return self.get_children_by_indices(idx)
 
         return self.get_children_by_params(params)
 
     def forward_parameters(self, batch_shape: torch.Size) -> List[ParamItem]:
-        named_modules: Iterator[Tuple[str, Module]] = self.get_forward_sequence()
+        """Sample parameters for the selected RandAugment operations.
+
+        Args:
+            batch_shape: Input shape used for parameter sampling.
+
+        Returns:
+            Parameters for the sampled operations, including magnitude scaled from
+            the global ``m`` value.
+        """
+        named_modules: Iterator[Tuple[str, nn.Module]] = self.get_forward_sequence()
         params: List[ParamItem] = []
-        mod_param: Union[Dict[str, Tensor], List[ParamItem]]
+        mod_param: Union[Dict[str, torch.Tensor], List[ParamItem]]
         m = torch.tensor([self.m / 30] * batch_shape[0])
 
         for name, module in named_modules:

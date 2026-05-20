@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: prime
-Version: 0.6.8
+Version: 0.6.9
 Summary: Prime Intellect CLI + SDK
-Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime-cli
-Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime-cli#readme
-Project-URL: Repository, https://github.com/PrimeIntellect-ai/prime-cli.git
+Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
+Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime#readme
+Project-URL: Repository, https://github.com/PrimeIntellect-ai/prime.git
 Project-URL: Changelog, https://github.com/PrimeIntellect-ai/prime/releases
 Author-email: Prime Intellect <contact@primeintellect.ai>
 License-Expression: MIT
@@ -371,7 +371,7 @@ prime pods ssh <pod-id>
 
 ## Support & Resources
 
-- **Documentation**: [github.com/PrimeIntellect-ai/prime-cli](https://github.com/PrimeIntellect-ai/prime-cli)
+- **Documentation**: [github.com/PrimeIntellect-ai/prime](https://github.com/PrimeIntellect-ai/prime)
 - **Dashboard**: [app.primeintellect.ai](https://app.primeintellect.ai)
 - **API Docs**: [api.primeintellect.ai/docs](https://api.primeintellect.ai/docs)
 - **Discord**: [discord.gg/primeintellect](https://discord.gg/primeintellect)
@@ -383,4 +383,4 @@ prime pods ssh <pod-id>
 
 ## License
 
-MIT License - see [LICENSE](https://github.com/PrimeIntellect-ai/prime-cli/blob/main/LICENSE) file for details.
+MIT License - see [LICENSE](https://github.com/PrimeIntellect-ai/prime/blob/main/LICENSE) file for details.

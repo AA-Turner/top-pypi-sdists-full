@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/replicate/cog/pkg/config"
+	"github.com/replicate/cog/pkg/dotcog"
 	"github.com/replicate/cog/pkg/weights/lockfile"
 )
 
@@ -123,141 +125,74 @@ func TestGitTag(t *testing.T) {
 	})
 }
 
-func TestUseStaticSchemaGen(t *testing.T) {
-	// Helper to build a config with a specific SDK version.
-	cfgWithSDK := func(version string) *config.Config {
-		return &config.Config{
-			Build: &config.Build{SDKVersion: version},
-		}
-	}
-	noBuild := &config.Config{}
+func TestBuildCodeDoesNotReferenceLegacyRuntimeSchemaGeneration(t *testing.T) {
+	data, err := os.ReadFile("build.go")
+	require.NoError(t, err)
 
+	buildSource := string(data)
+	for _, legacyReference := range []string{
+		"COG_LEGACY_SCHEMA",
+		"GenerateOpenAPISchema",
+		"legacy runtime schema",
+		"runtime path",
+	} {
+		assert.NotContains(t, strings.ToLower(buildSource), strings.ToLower(legacyReference))
+	}
+}
+
+func TestValidateStaticSchemaSDKVersion(t *testing.T) {
 	tests := []struct {
 		name     string
 		cfg      *config.Config
-		legacy   string // COG_LEGACY_SCHEMA value
-		static   string // COG_STATIC_SCHEMA value (legacy opt-in, now a no-op)
-		sdkWheel string // COG_SDK_WHEEL value
-		want     bool
+		sdkWheel string
+		wantErr  string
 	}{
-		// --- Default: static gen is on ---
 		{
-			name: "static by default (no env vars set)",
-			cfg:  cfgWithSDK("0.18.0"),
-			want: true,
+			name:    "allows unpinned SDK",
+			cfg:     &config.Config{},
+			wantErr: "",
 		},
 		{
-			name: "static by default for unpinned SDK",
-			cfg:  noBuild,
-			want: true,
+			name: "allows minimum SDK from config",
+			cfg: &config.Config{
+				Build: &config.Build{SDKVersion: "0.17.0"},
+			},
+			wantErr: "",
 		},
 		{
-			name:     "static by default for new SDK via COG_SDK_WHEEL",
-			cfg:      noBuild,
-			sdkWheel: "pypi:0.18.0",
-			want:     true,
-		},
-
-		// --- Legacy opt-out via COG_LEGACY_SCHEMA ---
-		{
-			name:   "legacy path when COG_LEGACY_SCHEMA=1",
-			cfg:    cfgWithSDK("0.18.0"),
-			legacy: "1",
-			want:   false,
+			name: "rejects old SDK from config",
+			cfg: &config.Config{
+				Build: &config.Build{SDKVersion: "0.16.12"},
+			},
+			wantErr: "SDK version 0.16.12 is not supported by static schema generation",
 		},
 		{
-			name:   "legacy path when COG_LEGACY_SCHEMA=true",
-			cfg:    cfgWithSDK("0.18.0"),
-			legacy: "true",
-			want:   false,
-		},
-		{
-			name:   "legacy path when COG_LEGACY_SCHEMA=True (mixed case)",
-			cfg:    cfgWithSDK("0.18.0"),
-			legacy: "True",
-			want:   false,
-		},
-		{
-			name:   "legacy path when COG_LEGACY_SCHEMA=TRUE (upper case)",
-			cfg:    cfgWithSDK("0.18.0"),
-			legacy: "TRUE",
-			want:   false,
-		},
-		{
-			name:   "static path when COG_LEGACY_SCHEMA is empty string",
-			cfg:    cfgWithSDK("0.18.0"),
-			legacy: "",
-			want:   true,
-		},
-		{
-			name:   "static path when COG_LEGACY_SCHEMA=0",
-			cfg:    cfgWithSDK("0.18.0"),
-			legacy: "0",
-			want:   true,
-		},
-
-		// --- SDK version gating ---
-		{
-			name: "legacy path for old pinned SDK (below 0.17.0)",
-			cfg:  cfgWithSDK("0.16.12"),
-			want: false,
-		},
-		{
-			name: "legacy path for pre-release old SDK",
-			cfg:  cfgWithSDK("0.16.0a1"),
-			want: false,
-		},
-		{
-			name: "static path for SDK 0.17.0 (min supported)",
-			cfg:  cfgWithSDK("0.17.0"),
-			want: true,
-		},
-		{
-			name:     "legacy path for old SDK via COG_SDK_WHEEL",
-			cfg:      noBuild,
+			name:     "rejects old SDK from env wheel",
+			cfg:      &config.Config{},
 			sdkWheel: "pypi:0.16.12",
-			want:     false,
-		},
-
-		// --- Back-compat with old COG_STATIC_SCHEMA=1 flag (should be a no-op) ---
-		{
-			name:   "COG_STATIC_SCHEMA=1 is a no-op (static remains the default)",
-			cfg:    cfgWithSDK("0.18.0"),
-			static: "1",
-			want:   true,
+			wantErr:  "SDK version 0.16.12 is not supported by static schema generation",
 		},
 		{
-			name:   "COG_STATIC_SCHEMA=1 does not override COG_LEGACY_SCHEMA=1",
-			cfg:    cfgWithSDK("0.18.0"),
-			static: "1",
-			legacy: "1",
-			want:   false,
-		},
-		{
-			name:   "COG_STATIC_SCHEMA=1 cannot force static on old pinned SDK",
-			cfg:    cfgWithSDK("0.16.12"),
-			static: "1",
-			want:   false,
+			name: "env wheel takes precedence over config",
+			cfg: &config.Config{
+				Build: &config.Build{SDKVersion: "0.16.12"},
+			},
+			sdkWheel: "pypi:0.17.0",
+			wantErr:  "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Explicitly clear every env var the function consults before
-			// applying the subtest-specific values. t.Setenv(key, "") is
-			// equivalent to "unset" for our truthy-value checks, but being
-			// explicit here makes the test robust against any future
-			// additions to the struct where a field might be forgotten.
-			t.Setenv("COG_LEGACY_SCHEMA", "")
-			t.Setenv("COG_STATIC_SCHEMA", "")
-			t.Setenv("COG_SDK_WHEEL", "")
-
-			t.Setenv("COG_LEGACY_SCHEMA", tt.legacy)
-			t.Setenv("COG_STATIC_SCHEMA", tt.static)
 			t.Setenv("COG_SDK_WHEEL", tt.sdkWheel)
 
-			got := useStaticSchemaGen(tt.cfg)
-			require.Equal(t, tt.want, got)
+			err := validateStaticSchemaSDKVersion(tt.cfg)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }
@@ -284,12 +219,12 @@ func TestWriteRuntimeWeightsManifest(t *testing.T) {
 	}
 	require.NoError(t, lock.Save(filepath.Join(dir, lockfile.WeightsLockFilename)))
 
-	// writeRuntimeWeightsManifest writes to the CWD-relative bundledWeightsFile.
-	t.Chdir(t.TempDir())
+	buildDir := t.TempDir()
+	weightsFile := filepath.Join(buildDir, "weights.json")
 
-	require.NoError(t, writeRuntimeWeightsManifest(dir))
+	require.NoError(t, writeRuntimeWeightsManifest(dir, weightsFile))
 
-	data, err := os.ReadFile(bundledWeightsFile)
+	data, err := os.ReadFile(weightsFile)
 	require.NoError(t, err)
 
 	var manifest lockfile.RuntimeWeightsManifest
@@ -321,38 +256,46 @@ func TestWriteRuntimeWeightsManifest(t *testing.T) {
 }
 
 func TestWriteRuntimeWeightsManifest_MissingLockfile(t *testing.T) {
-	err := writeRuntimeWeightsManifest(t.TempDir())
+	err := writeRuntimeWeightsManifest(t.TempDir(), filepath.Join(t.TempDir(), "weights.json"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "managed weights configured but no lockfile found")
 }
 
-func TestCollectBundleFiles_SchemaOnly(t *testing.T) {
-	t.Chdir(t.TempDir())
+func testBuildPaths(t *testing.T) buildPaths {
+	t.Helper()
+	buildDir := t.TempDir()
+	return buildPaths{
+		buildDir:        buildDir,
+		schemaFile:      filepath.Join(buildDir, "openapi_schema.json"),
+		weightsFile:     filepath.Join(buildDir, "weights.json"),
+		weightsManifest: filepath.Join(buildDir, "weights_manifest.json"),
+	}
+}
 
-	files := collectBundleFiles([]byte(`{"openapi":"3.0.0"}`))
-	assert.Equal(t, []string{bundledSchemaFile}, files)
+func TestCollectBundleFiles_SchemaOnly(t *testing.T) {
+	bp := testBuildPaths(t)
+	files := collectBundleFiles([]byte(`{"openapi":"3.0.0"}`), &bp)
+	assert.Equal(t, []string{bp.schemaFile}, files)
 }
 
 func TestCollectBundleFiles_Nothing(t *testing.T) {
-	t.Chdir(t.TempDir())
-
-	files := collectBundleFiles(nil)
+	bp := testBuildPaths(t)
+	files := collectBundleFiles(nil, &bp)
 	assert.Empty(t, files)
 }
 
 func TestCollectBundleFiles_WithWeightsFile(t *testing.T) {
-	t.Chdir(t.TempDir())
+	bp := testBuildPaths(t)
+	require.NoError(t, os.WriteFile(bp.weightsFile, []byte(`{"weights":[]}`), 0o644))
 
-	require.NoError(t, os.MkdirAll(".cog", 0o755))
-	require.NoError(t, os.WriteFile(bundledWeightsFile, []byte(`{"weights":[]}`), 0o644))
-
-	files := collectBundleFiles([]byte(`{"openapi":"3.0.0"}`))
-	assert.Equal(t, []string{bundledSchemaFile, bundledWeightsFile}, files)
+	files := collectBundleFiles([]byte(`{"openapi":"3.0.0"}`), &bp)
+	assert.Equal(t, []string{bp.schemaFile, bp.weightsFile}, files)
 }
 
 func TestBundleDockerfile(t *testing.T) {
-	df := bundleDockerfile("myimage:latest", []string{bundledSchemaFile, bundledWeightsFile})
+	bp := testBuildPaths(t)
+	df := bundleDockerfile("myimage:latest", []string{bp.schemaFile, bp.weightsFile})
 	assert.Contains(t, df, "FROM myimage:latest")
-	assert.Contains(t, df, "COPY .cog/openapi_schema.json .cog/")
-	assert.Contains(t, df, "COPY .cog/weights.json .cog/")
+	assert.Contains(t, df, "COPY --from=cog_build openapi_schema.json "+dotcog.Name+"/")
+	assert.Contains(t, df, "COPY --from=cog_build weights.json "+dotcog.Name+"/")
 }

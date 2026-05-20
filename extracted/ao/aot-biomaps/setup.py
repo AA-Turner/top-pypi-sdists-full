@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='AOT_biomaps',
-    version='2.9.511',
+    version='2.9.512',
     packages=find_packages(),
     include_package_data=True,
     
@@ -34,6 +34,7 @@ setup(
     description='Acousto-Optic Tomography',
     url='https://github.com/LucasDuclos/AcoustoOpticTomography',
 )
+
 
 
 

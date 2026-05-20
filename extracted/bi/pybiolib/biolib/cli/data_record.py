@@ -6,6 +6,7 @@ from typing import Dict, List
 
 from biolib._data_record.data_record import DataRecord
 from biolib._internal import cli
+from biolib._internal.progress import Progress
 from biolib._shared.types.typing import Optional
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_errors import FileMaxCountExceededError
@@ -143,20 +144,7 @@ def _clone_data_record_with_progress(
         return
 
     if sys.stdout.isatty():
-        try:
-            import rich.progress  # pylint: disable=import-outside-toplevel
-        except ImportError as error:
-            raise ImportError(
-                'The SDK dependencies are required for this operation. Install it with: pip3 install -U pybiolib[sdk]'
-            ) from error
-
-        with rich.progress.Progress(
-            rich.progress.TextColumn('[bold blue]{task.description}'),
-            rich.progress.BarColumn(),
-            rich.progress.TaskProgressColumn(),
-            rich.progress.TimeRemainingColumn(),
-            rich.progress.TransferSpeedColumn(),
-        ) as progress:
+        with Progress(show_speed=True) as progress:
             task_id = progress.add_task('Cloning data record', total=total_size_in_bytes)
 
             def on_progress(bytes_uploaded: int, _total_bytes: int) -> None:

@@ -22,12 +22,14 @@ class BackupModel(Struct, kw_only=True):
         name: User-provided name for the backup.
         description: User-provided description for the backup.
         dimension: Dimensionality of vectors in the backup.
-        metric: Distance metric of the backed-up index.
+        metric: Distance metric used for this backup (e.g. ``"cosine"``), or ``None`` if not
+            returned by the server.
         record_count: Number of records in the backup.
         namespace_count: Number of namespaces in the backup.
         size_bytes: Size of the backup in bytes.
         tags: User-defined key-value tags.
         created_at: Timestamp when the backup was created.
+        schema: Metadata schema of the backed-up index, or ``None`` if not returned.
     """
 
     backup_id: str
@@ -43,13 +45,9 @@ class BackupModel(Struct, kw_only=True):
     record_count: int | None = None
     namespace_count: int | None = None
     size_bytes: int | None = None
-    tags: dict[str, str] | None = None
+    tags: dict[str, Any] | None = None
     created_at: str | None = None
-
-    @property
-    def schema(self) -> None:
-        """Metadata schema associated with this backup (not populated in the rewrite)."""
-        return None
+    schema: dict[str, Any] | None = None
 
     def __getattr__(self, name: str) -> Any:
         """Raise AttributeError for unknown attributes (legacy dict-style delegation)."""
@@ -70,7 +68,7 @@ class BackupModel(Struct, kw_only=True):
 
         Returns:
             Dictionary with all fields, including optional ones that are ``None``
-            (e.g. ``name``, ``description``, ``dimension``, ``metric``,
+            (e.g. ``name``, ``description``, ``dimension``,
             ``record_count``, ``namespace_count``, ``size_bytes``, ``tags``,
             ``created_at``). Values are not recursively converted.
 
@@ -105,7 +103,8 @@ class RestoreJobModel(Struct, kw_only=True):
         target_index_name: Name of the index being restored to.
         target_index_id: Unique identifier of the target index.
         status: Current status of the restore job.
-        created_at: Timestamp when the restore job was created.
+        created_at: Timestamp when the restore job was created, or ``None`` if the
+            backend has not yet assigned a creation timestamp.
         completed_at: Timestamp when the restore job completed.
         percent_complete: Percentage of the restore job that has completed.
     """
@@ -115,7 +114,7 @@ class RestoreJobModel(Struct, kw_only=True):
     target_index_name: str
     target_index_id: str
     status: str
-    created_at: str
+    created_at: str | None = None
     completed_at: str | None = None
     percent_complete: float | None = None
 

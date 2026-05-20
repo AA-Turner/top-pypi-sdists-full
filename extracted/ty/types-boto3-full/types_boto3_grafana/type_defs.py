@@ -545,6 +545,7 @@ WorkspaceDescriptionTypeDef = TypedDict(
         "grafanaToken": NotRequired[str],
         "ipAddressType": NotRequired[IPAddressTypeType],
         "kmsKeyId": NotRequired[str],
+        "degradedWorkspaceReason": NotRequired[str],
     },
 )
 VpcConfigurationUnionTypeDef = Union[VpcConfigurationTypeDef, VpcConfigurationOutputTypeDef]

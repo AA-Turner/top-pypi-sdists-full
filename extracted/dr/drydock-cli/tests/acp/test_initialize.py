@@ -11,6 +11,7 @@ from acp.schema import (
 )
 import pytest
 
+from drydock import __version__
 from drydock.acp.acp_agent_loop import DrydockAcpAgentLoop
 
 
@@ -28,7 +29,7 @@ class TestACPInitialize:
             session_capabilities=SessionCapabilities(list=SessionListCapabilities()),
         )
         assert response.agent_info == Implementation(
-            name="@drydock/drydock", title="Drydock", version="2.4.2"
+            name="@drydock/drydock", title="Drydock", version=__version__
         )
 
         assert response.auth_methods == []
@@ -52,7 +53,7 @@ class TestACPInitialize:
             session_capabilities=SessionCapabilities(list=SessionListCapabilities()),
         )
         assert response.agent_info == Implementation(
-            name="@drydock/drydock", title="Drydock", version="2.4.2"
+            name="@drydock/drydock", title="Drydock", version=__version__
         )
 
         assert response.auth_methods is not None

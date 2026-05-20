@@ -253,7 +253,7 @@ name = "daft"
 [package]
 name = "daft"
 publish = false
-version = "0.7.13"
+version = "0.7.14"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.edition]
@@ -318,6 +318,7 @@ arrow-ipc = "57.1.0"
 arrow-json = "57.1.0"
 arrow-row = "57.1.0"
 arrow-schema = "57.1.0"
+arrow-select = "57.1.0"
 approx = "0.5.1"
 arc-swap = "1.7.1"
 async-compat = "0.2.5"
@@ -581,7 +582,7 @@ features = ["std", "fmt", "ansi", "env-filter", "json"]
 
 [workspace.dependencies.uuid]
 version = "1.19.0"
-features = ["v4", "serde"]
+features = ["v4", "v7", "serde", "fast-rng"]
 
 [workspace.dependencies.xxhash-rust]
 version = "0.8.15"
@@ -705,4 +706,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.13"
+version = "0.7.14"

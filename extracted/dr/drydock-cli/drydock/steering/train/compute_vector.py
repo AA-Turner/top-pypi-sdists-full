@@ -280,7 +280,7 @@ def _quote(s: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="drydock.steering.train.compute_vector",
-        description=__doc__.split("\n")[0],
+        description=(__doc__ or "").split("\n")[0],
     )
     ap.add_argument(
         "--captures", required=True, type=Path,

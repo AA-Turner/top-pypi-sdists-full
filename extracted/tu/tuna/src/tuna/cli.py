@@ -1,6 +1,5 @@
 import argparse
 import shutil
-import threading
 import webbrowser
 from pathlib import Path
 
@@ -25,9 +24,7 @@ def main(argv=None):
             shutil.rmtree(static_dir)
         shutil.copytree(this_dir / "web" / "static", static_dir)
         if args.browser:
-            threading.Thread(
-                target=lambda: webbrowser.open_new_tab(str(outdir / "index.html")),
-            ).start()
+            webbrowser.open_new_tab((outdir / "index.html").resolve().as_uri())
     else:
         start_server(args.infile, args.browser, args.port)
 

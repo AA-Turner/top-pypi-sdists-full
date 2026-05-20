@@ -1349,6 +1349,8 @@ InstanceTypeType = Literal[
     "ml.p4d.24xlarge",
     "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
+    "ml.p5.4xlarge",
+    "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
     "ml.r5.12xlarge",
     "ml.r5.16xlarge",

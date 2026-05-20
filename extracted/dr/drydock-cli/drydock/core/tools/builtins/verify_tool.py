@@ -38,7 +38,7 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Literal, final
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from drydock.core.tools.base import (
     BaseTool,
@@ -80,6 +80,19 @@ class VerifyArgs(BaseModel):
             "'PATH::SUBSTRING'. Else: substring/regex/exact-match string."
         ),
     )
+
+    @field_validator("expect", mode="before")
+    @classmethod
+    def _coerce_expect_to_str(cls, v):
+        # Gemma 4 frequently passes `expect=0` (int) for exit_code mode
+        # since the docstring says "For exit_code: integer." Coerce
+        # ints/floats/bools to strings so the call doesn't fail with
+        # "Input should be a valid string". Observed 2026-05-19 in a
+        # gauntlet session: model called verify(expect=0,
+        # expect_mode="exit_code") and got a pydantic validation error.
+        if isinstance(v, (int, float, bool)):
+            return str(v)
+        return v
     expect_mode: VerifyMode = Field(
         default="contains",
         description="How to compare command output (or path) against `expect`.",
@@ -138,17 +151,10 @@ class Verify(
     ToolUIData[VerifyArgs, VerifyResult],
 ):
     description: ClassVar[str] = (
-        "Verify a success criterion programmatically before claiming "
-        "done. Runs a shell command (or checks a file) and matches the "
-        "result against `expect`. Modes: contains (default), "
-        "not_contains, regex, equals, exit_code, file_exists, "
-        "file_contains. Use AFTER making a change to confirm it worked. "
-        "Examples: verify(criterion='tests pass', command='pytest -q', "
-        "expect='passed', expect_mode='contains'); "
-        "verify(criterion='no flake8 warnings', command='flake8', "
-        "expect_mode='exit_code', expect='0'); "
-        "verify(criterion='README has section', expect_mode='file_contains', "
-        "expect='README.md::## Math Tool')."
+        "Verify a success criterion programmatically. Runs a shell command "
+        "(or checks a file) and matches against `expect`. Modes: contains "
+        "(default), not_contains, regex, equals, exit_code, file_exists, "
+        "file_contains. Use AFTER making a change to confirm it worked."
     )
 
     @classmethod
@@ -289,9 +295,12 @@ class Verify(
                     error=f"invalid regex: {e}",
                 )
                 return
-            passed = m is not None
-            reason = (f"regex matched at offset {m.start()}" if passed
-                      else f"regex no match: {args.expect[:60]}")
+            if m is not None:
+                passed = True
+                reason = f"regex matched at offset {m.start()}"
+            else:
+                passed = False
+                reason = f"regex no match: {args.expect[:60]}"
         elif args.expect_mode == "equals":
             passed = combined.strip() == args.expect.strip()
             reason = "equal" if passed else "not equal"

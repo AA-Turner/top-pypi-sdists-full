@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from pinecone._internal.adapters.indexes_adapter import IndexesAdapter
@@ -126,7 +127,8 @@ class AsyncIndexes:
         logger.info("Describing index %r", name)
         response = await self._http.get(f"/indexes/{name}")
         model = self._adapter.to_index_model(response.content)
-        self._host_cache[name] = model.host
+        if model.host is not None:
+            self._host_cache[name] = model.host
         logger.debug("Described index %r (host=%s)", name, model.host)
         return model
 
@@ -221,9 +223,10 @@ class AsyncIndexes:
         replicas: int | None = None,
         pod_type: str | None = None,
         deletion_protection: DeletionProtection | str | None = None,
-        tags: dict[str, str] | None = None,
+        tags: Mapping[str, str] | None = None,
         embed: dict[str, Any] | None = None,
         read_capacity: dict[str, Any] | None = None,
+        serverless_read_capacity: dict[str, Any] | None = None,
     ) -> None:
         """Configure an existing index.
 
@@ -243,6 +246,9 @@ class AsyncIndexes:
                 BYOC indexes. Pass ``{"mode": "OnDemand"}`` or
                 ``{"mode": "Dedicated", "dedicated": {"node_type": "t1",
                 "scaling": "Manual", "manual": {"replicas": 2, "shards": 1}}}``.
+            serverless_read_capacity (dict[str, Any] | None): Read capacity configuration
+                for serverless indexes. Pass ``{"mode": "OnDemand"}`` or
+                ``{"mode": "Dedicated", "dedicated": {...}}``.
 
         Raises:
             :exc:`PineconeValueError`: If *name* is empty or *read_capacity* is invalid.
@@ -256,6 +262,9 @@ class AsyncIndexes:
                 async with AsyncPinecone(api_key="your-api-key") as pc:
                     await pc.indexes.configure("my-index", replicas=4)
                     await pc.indexes.configure("my-index", tags={"env": "prod"})
+                    await pc.indexes.configure(
+                        "my-index", serverless_read_capacity={"mode": "OnDemand"}
+                    )
         """
         require_non_empty("name", name)
         logger.info("Configuring index %r", name)
@@ -284,16 +293,22 @@ class AsyncIndexes:
             validate_read_capacity(read_capacity)
             body["spec"] = {"byoc": {"read_capacity": read_capacity}}
 
+        if serverless_read_capacity is not None:
+            if pod_fields or read_capacity is not None:
+                raise ValidationError(
+                    "Cannot specify serverless_read_capacity alongside pod fields or byoc read_capacity"  # noqa: E501
+                )
+            validate_read_capacity(serverless_read_capacity)
+            body["spec"] = {"serverless": {"read_capacity": serverless_read_capacity}}
+
         # Deletion protection — only include when explicitly specified
         if deletion_protection is not None:
             _validate_deletion_protection(deletion_protection)
             body["deletion_protection"] = resolve_enum_value(deletion_protection)
 
-        # Tag merging — fetch current tags and merge
+        # Tags — sent as a sparse patch; backend merges with existing tags
         if tags is not None:
-            current = await self.describe(name)
-            merged = {**(current.tags or {}), **tags}
-            body["tags"] = merged
+            body["tags"] = tags
 
         # Integrated embed config update
         if embed is not None:
@@ -311,8 +326,9 @@ class AsyncIndexes:
         metric: Metric | str = "cosine",
         vector_type: VectorType | str = "dense",
         deletion_protection: DeletionProtection | str = "disabled",
-        tags: dict[str, str] | None = None,
+        tags: Mapping[str, str] | None = None,
         schema: dict[str, Any] | None = None,
+        read_capacity: dict[str, Any] | None = None,
         timeout: int | None = None,
     ) -> IndexModel:
         """Create a new Pinecone index.
@@ -337,6 +353,9 @@ class AsyncIndexes:
                 field types for indexing. Accepts both flat format
                 (``{"field": {"type": "str"}}``) and nested format
                 (``{"fields": {"field": {"type": "str"}}}``).
+            read_capacity (dict[str, Any] | None): Optional read capacity
+                configuration for integrated indexes. For example,
+                ``{"mode": "OnDemand"}`` or a dedicated capacity dict.
             timeout (int | None): Seconds to wait for the index to become ready.
                 Use ``None`` (default) to poll indefinitely every 5 seconds
                 with no upper time bound. Use a positive int to poll with a
@@ -387,6 +406,8 @@ class AsyncIndexes:
                 spec=spec,
                 deletion_protection=deletion_protection,
                 tags=tags,
+                schema=schema,
+                read_capacity=read_capacity,
             )
         elif isinstance(spec, ByocSpec):
             validate_byoc_inputs(
@@ -403,6 +424,7 @@ class AsyncIndexes:
                 vector_type=vector_type,
                 deletion_protection=deletion_protection,
                 tags=tags,
+                schema=schema,
             )
         else:
             validate_create_inputs(

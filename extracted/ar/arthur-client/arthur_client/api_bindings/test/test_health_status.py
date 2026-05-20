@@ -35,7 +35,9 @@ class TestHealthStatus(unittest.TestCase):
         model = HealthStatus()
         if include_optional:
             return HealthStatus(
-                message = 'ok'
+                message = 'ok',
+                build_version = '',
+                release_version = ''
             )
         else:
             return HealthStatus(

@@ -642,12 +642,12 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def warnNoSpotsFilesFound(self, spotmax_out_path):
         txt = html_func.paragraph(f"""
-            There are no valid files in the following folder:<br><br>
-            <code>{spotmax_out_path}</code><br><br>
-            This could be because the number of detected spots was 0,  
-            you did not run any analysis yet, or the analysis ended 
-            with errors.<br><br>
-            If you need help with this feel free to reach out on or 
+            There are no valid files in the following folder:
+            <copiable>{spotmax_out_path}</copiable><br>
+            This could be because the <b>number of detected spots was 0</b>,  
+            you did <b>not run any analysis</b> yet, or the analysis ended 
+            <b>with errors</b>.<br><br>
+            If you need help with this, feel free to reach out on or 
             {html_func.href('GitHub page', issues_url)}.
         """)
         msg = acdc_widgets.myMessageBox(wrapText=False)
@@ -664,7 +664,11 @@ class spotMAX_Win(acdc_gui.guiWin):
             df_spots_files[_posData.spotmax_out_path] = (
                 _posData.getSpotmaxSingleSpotsfiles()
             )
-        if not df_spots_files:
+        
+        any_spots_file_found = any(
+            df_files for df_files in df_spots_files.values()
+        )
+        if not df_spots_files or any_spots_file_found:
             self.warnNoSpotsFilesFound(posData.spotmax_out_path)
             return
         
@@ -827,8 +831,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.addCustomAnnotationAction.setDisabled(True)
         
         for toolButton in self.spotsItems.buttons:
-            self.spotmaxToolbar.removeAction(toolButton.action)
-            
+            try:
+                toolButton.emitRemove()
+            except Exception as e:
+                pass
+
         self.initSpotsItems()
         
         try:
@@ -1840,17 +1847,28 @@ class spotMAX_Win(acdc_gui.guiWin):
             core.ceil(voxelDepth, precision=3)
         )
         
-        plane = self.switchPlaneCombobox.currentText()
+        activateCheckbox = self.activateAutoTuneParamsPointSizeBasedOnPlane()
+        activateCheckbox.click()
+    
+    def activateAutoTuneParamsPointSizeBasedOnPlane(
+            self, plane=None):
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        section = 'METADATA'
+        
+        if plane is None:
+            plane = self.switchPlaneCombobox.currentText()
+            
         if plane == 'xy':
             anchor = 'yxResolLimitMultiplier'
             widget = autoTuneGroupbox.params[section][anchor]['widget']
             widget.activateCheckbox.setChecked(False)
-            widget.activateCheckbox.click()
         else:
             anchor = 'zResolutionLimit'
             widget = autoTuneGroupbox.params[section][anchor]['widget']
             widget.activateCheckbox.setChecked(False)
-            widget.activateCheckbox.click()
+        
+        return widget.activateCheckbox
     
     def checkReinitTuneKernel(self):
         if not hasattr(self, 'data'):
@@ -2929,7 +2947,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         prompts.informationComputeFeaturesFinished(
             self.spotsItems.edited_df_out_filename, qparent=self
         )            
-            
+    
+    def switchViewedPlane(self, previousPlane, currentPlane):
+        if previousPlane == currentPlane:
+            return
+        
+        super().switchViewedPlane(previousPlane, currentPlane)
+        activateCheckbox = self.activateAutoTuneParamsPointSizeBasedOnPlane()
+        activateCheckbox.click()
+    
     def startComputeAnalysisStepWorker(self, module_func, anchor, **kwargs):
         self.logger_write_func = self.logger.write
         

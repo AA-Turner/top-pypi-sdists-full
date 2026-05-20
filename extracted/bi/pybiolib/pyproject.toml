@@ -1,6 +1,6 @@
 [project]
 name = "pybiolib"
-version = "1.4.2"
+version = "1.4.20"
 description = "BioLib Python Client"
 readme = "PYPI_README.md"
 license = "MIT"
@@ -28,7 +28,6 @@ biolib = "biolib:call_cli"
 sdk = [
     "docker>=5.0.3",
     "pyyaml>=5.3.1",
-    "rich>=12.4.4",
 ]
 
 [dependency-groups]

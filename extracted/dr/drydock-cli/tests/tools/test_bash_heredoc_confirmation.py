@@ -88,13 +88,19 @@ async def test_heredoc_loop_breaker_non_eof_delimiter(bash, tmp_path):
     cmd = f"cat <<CONTENT > {target}\nprint('hello')\nCONTENT"
 
     # Run 3 times to trigger the hash-based loop breaker
+    result = None
     for _ in range(3):
         result = await collect_result(bash.run(BashArgs(command=cmd)))
+    assert result is not None
 
-    # The 3rd run must produce the heredoc-targeted notice, not the generic one
-    assert "cat command" in result.stdout or "re-run this cat" in result.stdout, (
-        "Expected heredoc-targeted loop notice, got: " + result.stdout[:200]
-    )
+    # The 3rd run must produce the heredoc-targeted notice, not the generic one.
+    # Message wording was tightened in v2.7+: now mentions "cat-heredoc"
+    # (with the hyphen) and recommends search_replace / write_file.
+    assert (
+        "cat-heredoc" in result.stdout
+        or "cat command" in result.stdout
+        or "re-run this cat" in result.stdout
+    ), "Expected heredoc-targeted loop notice, got: " + result.stdout[:200]
     assert "EDIT SOURCE CODE" not in result.stdout, (
         "Got generic loop notice instead of heredoc-targeted one"
     )

@@ -9,7 +9,7 @@ from abstra_internals.interface.sdk.tables.utils import (
     quoted_identifier,
     serialize,
 )
-from abstra_internals.utils.deprecated import deprecated
+from abstra_internals.utils.deprecated import deprecated, deprecated_kwarg
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -23,6 +23,21 @@ def _execute(query: str, params: List):  # private api
         query=query, params=params
     )
     if not r.ok:
+        # cloud-api returns {"error": "..."} for known-actionable failures (e.g.
+        # consumption-blocking). Surface that message verbatim — already
+        # human-readable, and prepending the query just adds noise.
+        # Otherwise (opaque body, gateway error, etc.) keep the query in the
+        # message so customer-reported SQL failures stay debuggable from the
+        # exception alone.
+        structured_detail = None
+        try:
+            payload = r.json()
+            if isinstance(payload, dict):
+                structured_detail = payload.get("error")
+        except ValueError:
+            pass
+        if structured_detail:
+            raise Exception(f"Error executing query: {structured_detail}")
         raise Exception(f"Error executing query {query}: {r.text}")
     response = r.json()
     if response["errors"]:
@@ -396,17 +411,18 @@ def delete_by_id(table: str, id: str) -> Optional[Row]:
     return rows[0]
 
 
-def delete(table: str, values: Any) -> List[Row]:
+@deprecated_kwarg(("values", "where"))
+def delete(table: str, where: Any = None, values: Any = None) -> List[Row]:
     """Delete rows from a table based on conditions.
 
     Args:
         table (str): Name of the table to delete from.
-        values (Any): Dictionary (or dataclass) of column-value pairs for the WHERE clause.
+        where (Any): Dictionary (or dataclass) of column-value pairs for the WHERE clause.
 
     Returns:
         List[Dict[str, Any]]: List of deleted rows.
     """
-    query, params = _make_delete_query(table, _make_row_dict(values))
+    query, params = _make_delete_query(table, _make_row_dict(where))
     return _run(query, params)
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-Deprecated
-Version: 1.3.1.20260519
+Version: 1.3.1.20260520
 Summary: Typing stubs for Deprecated
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -35,4 +35,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.409
 
 It was generated from typeshed commit
-[`db9c1810e99d7010710362f0dae19895626e9f48`](https://github.com/python/typeshed/commit/db9c1810e99d7010710362f0dae19895626e9f48).
+[`60a6695e77b81d0e1b5a088c316af78c7510941f`](https://github.com/python/typeshed/commit/60a6695e77b81d0e1b5a088c316af78c7510941f).

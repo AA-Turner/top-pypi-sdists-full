@@ -28,6 +28,11 @@ import { RawMouse, RawKeyboard, humanMove, humanClick, clickTarget, humanIdle } 
 import { humanType } from './keyboard.js';
 import { scrollToElement, humanScrollIntoView } from './scroll.js';
 import { patchPageElementHandles, patchFrameElementHandles, patchSingleElementHandle } from './elementhandle.js';
+import {
+  ensureActionable, ensureStable, checkPointerEvents,
+  CHECKS_CLICK, CHECKS_HOVER, CHECKS_INPUT, CHECKS_FOCUS, CHECKS_CHECK,
+  type CheckName,
+} from './actionability.js';
 
 export { HumanConfig, resolveConfig, mergeConfig } from './config.js';
 export { humanMove, humanClick, clickTarget, humanIdle } from './mouse.js';
@@ -307,17 +312,34 @@ function patchPage(page: Page, cfg: HumanConfig, cursor: CursorState): void {
   };
 
   // --- click ---
-  const humanClickFn = async (selector: string, options?: HumanActionOptions) => {
+  const humanClickFn = async (selector: string, options?: HumanActionOptions & { _skipChecks?: boolean }) => {
     await ensureCursorInit();
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const skipChecks = (options as any)?._skipChecks ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force && !skipChecks) {
+      await ensureActionable(page, selector, CHECKS_CLICK, remainingMs(), force);
+    }
     if (callCfg.idle_between_actions) {
       await humanIdle(raw, cursor.x, cursor.y, callCfg);
     }
-    const { box, cursorX, cursorY } = await scrollToElement(page, raw, selector, cursor.x, cursor.y, callCfg, options?.timeout);
+    const { box, cursorX, cursorY, didScroll } = await scrollToElement(page, raw, selector, cursor.x, cursor.y, callCfg, remainingMs());
     cursor.x = cursorX;
     cursor.y = cursorY;
     const isInput = await isInputElement(stealth, page, selector);
-    const target = clickTarget(box, isInput, callCfg);
+    let finalBox = box;
+    if (!force && didScroll) {
+      await ensureStable(page, selector, remainingMs());
+      finalBox = await page.locator(selector).first().boundingBox({ timeout: Math.max(1, remainingMs()) }) ?? box;
+    }
+    const target = clickTarget(finalBox, isInput, callCfg);
+    if (!force) {
+      await checkPointerEvents(page, selector, target.x, target.y, stealth, remainingMs());
+    }
     await humanMove(raw, cursor.x, cursor.y, target.x, target.y, callCfg);
     cursor.x = target.x;
     cursor.y = target.y;
@@ -328,15 +350,28 @@ function patchPage(page: Page, cfg: HumanConfig, cursor: CursorState): void {
   const humanDblclickFn = async (selector: string, options?: HumanActionOptions) => {
     await ensureCursorInit();
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_CLICK, remainingMs(), force);
     if (callCfg.idle_between_actions) {
       await humanIdle(raw, cursor.x, cursor.y, callCfg);
     }
-
-    const { box, cursorX, cursorY } = await scrollToElement(page, raw, selector, cursor.x, cursor.y, callCfg, options?.timeout);
+    const { box, cursorX, cursorY, didScroll } = await scrollToElement(page, raw, selector, cursor.x, cursor.y, callCfg, remainingMs());
     cursor.x = cursorX;
     cursor.y = cursorY;
     const isInput = await isInputElement(stealth, page, selector);
-    const target = clickTarget(box, isInput, callCfg);
+    let finalBox = box;
+    if (!force && didScroll) {
+      await ensureStable(page, selector, remainingMs());
+      finalBox = await page.locator(selector).first().boundingBox({ timeout: Math.max(1, remainingMs()) }) ?? box;
+    }
+    const target = clickTarget(finalBox, isInput, callCfg);
+    if (!force) {
+      await checkPointerEvents(page, selector, target.x, target.y, stealth, remainingMs());
+    }
     await humanMove(raw, cursor.x, cursor.y, target.x, target.y, callCfg);
     cursor.x = target.x;
     cursor.y = target.y;
@@ -346,16 +381,31 @@ function patchPage(page: Page, cfg: HumanConfig, cursor: CursorState): void {
   };
 
   // --- hover ---
-  const humanHoverFn = async (selector: string, options?: HumanActionOptions) => {
+  const humanHoverFn = async (selector: string, options?: HumanActionOptions & { _skipChecks?: boolean }) => {
     await ensureCursorInit();
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const skipChecks = (options as any)?._skipChecks ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force && !skipChecks) await ensureActionable(page, selector, CHECKS_HOVER, remainingMs(), force);
     if (callCfg.idle_between_actions) {
       await humanIdle(raw, cursor.x, cursor.y, callCfg);
     }
-    const { box, cursorX, cursorY } = await scrollToElement(page, raw, selector, cursor.x, cursor.y, callCfg, options?.timeout);
+    const { box, cursorX, cursorY, didScroll } = await scrollToElement(page, raw, selector, cursor.x, cursor.y, callCfg, remainingMs());
     cursor.x = cursorX;
     cursor.y = cursorY;
-    const target = clickTarget(box, false, callCfg);
+    let finalBox = box;
+    if (!force && didScroll) {
+      await ensureStable(page, selector, remainingMs());
+      finalBox = await page.locator(selector).first().boundingBox({ timeout: Math.max(1, remainingMs()) }) ?? box;
+    }
+    const target = clickTarget(finalBox, false, callCfg);
+    if (!force) {
+      await checkPointerEvents(page, selector, target.x, target.y, stealth, remainingMs());
+    }
     await humanMove(raw, cursor.x, cursor.y, target.x, target.y, callCfg);
     cursor.x = target.x;
     cursor.y = target.y;
@@ -364,8 +414,14 @@ function patchPage(page: Page, cfg: HumanConfig, cursor: CursorState): void {
   // --- type ---
   const humanTypeFn = async (selector: string, text: string, options?: HumanActionOptions) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_INPUT, remainingMs(), force);
     await sleep(randRange(callCfg.field_switch_delay));
-    await humanClickFn(selector, options);
+    await humanClickFn(selector, { _skipChecks: true, timeout: remainingMs(), force, human_config: options?.human_config } as any);
     await sleep(rand(100, 250));
     const cdp = await ensureCdp();
     await humanType(page, rawKb, text, callCfg, cdp);
@@ -374,8 +430,14 @@ function patchPage(page: Page, cfg: HumanConfig, cursor: CursorState): void {
   // --- fill (clears existing content first) ---
   const humanFillFn = async (selector: string, value: string, options?: HumanActionOptions) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_INPUT, remainingMs(), force);
     await sleep(randRange(callCfg.field_switch_delay));
-    await humanClickFn(selector, options);
+    await humanClickFn(selector, { _skipChecks: true, timeout: remainingMs(), force, human_config: options?.human_config } as any);
     await sleep(rand(100, 250));
     await originals.keyboardPress(SELECT_ALL);
     await sleep(rand(30, 80));
@@ -387,8 +449,14 @@ function patchPage(page: Page, cfg: HumanConfig, cursor: CursorState): void {
 
   // --- clear ---
   const humanClearFn = async (selector: string, options?: HumanActionOptions) => {
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_FOCUS, remainingMs(), force);
     if (!await isSelectorFocused(stealth, page, selector)) {
-      await humanClickFn(selector, options);
+      await humanClickFn(selector, { _skipChecks: true, timeout: remainingMs(), force, human_config: options?.human_config } as any);
     }
     await sleep(rand(50, 150));
     await originals.keyboardPress(SELECT_ALL);
@@ -399,38 +467,62 @@ function patchPage(page: Page, cfg: HumanConfig, cursor: CursorState): void {
   // --- check ---
   const humanCheckFn = async (selector: string, options?: HumanActionOptions) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_CHECK, remainingMs(), force);
     if (callCfg.idle_between_actions) {
       await humanIdle(raw, cursor.x, cursor.y, callCfg);
     }
     const checked = await originals.isChecked(selector).catch(() => false);
     if (!checked) {
-      await humanClickFn(selector, options);
+      await humanClickFn(selector, { _skipChecks: true, timeout: remainingMs(), force, human_config: options?.human_config } as any);
     }
   };
 
   // --- uncheck ---
   const humanUncheckFn = async (selector: string, options?: HumanActionOptions) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_CHECK, remainingMs(), force);
     if (callCfg.idle_between_actions) {
       await humanIdle(raw, cursor.x, cursor.y, callCfg);
     }
     const checked = await originals.isChecked(selector).catch(() => true);
     if (checked) {
-      await humanClickFn(selector, options);
+      await humanClickFn(selector, { _skipChecks: true, timeout: remainingMs(), force, human_config: options?.human_config } as any);
     }
   };
 
   // --- selectOption ---
   const humanSelectOptionFn = async (selector: string, values: any, options?: HumanActionOptions) => {
-    await humanHoverFn(selector, options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_FOCUS, remainingMs(), force);
+    await humanHoverFn(selector, { _skipChecks: true, timeout: remainingMs(), force, human_config: options?.human_config } as any);
     await sleep(rand(100, 300));
     return originals.selectOption(selector, values, options);
   };
 
   // --- press (checks focus first — avoids redundant mouse moves) ---
   const humanPressFn = async (selector: string, key: string, options?: HumanActionOptions) => {
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_FOCUS, remainingMs(), force);
     if (!await isSelectorFocused(stealth, page, selector)) {
-      await humanClickFn(selector, options);
+      await humanClickFn(selector, { _skipChecks: true, timeout: remainingMs(), force, human_config: options?.human_config } as any);
     }
     await sleep(rand(50, 150));
     await originals.keyboardPress(key);
@@ -439,8 +531,14 @@ function patchPage(page: Page, cfg: HumanConfig, cursor: CursorState): void {
   // --- pressSequentially ---
   const humanPressSequentiallyFn = async (selector: string, text: string, options?: HumanActionOptions) => {
     const callCfg = mergeConfig(cfg, options?.human_config ?? options);
+    const timeout = options?.timeout ?? 30000;
+    const force = options?.force ?? false;
+    const deadline = Date.now() + timeout;
+    const remainingMs = () => Math.max(0, deadline - Date.now());
+
+    if (!force) await ensureActionable(page, selector, CHECKS_FOCUS, remainingMs(), force);
     if (!await isSelectorFocused(stealth, page, selector)) {
-      await humanClickFn(selector, options);
+      await humanClickFn(selector, { _skipChecks: true, timeout: remainingMs(), force, human_config: options?.human_config } as any);
     }
     await sleep(rand(100, 250));
     const cdp = await ensureCdp();

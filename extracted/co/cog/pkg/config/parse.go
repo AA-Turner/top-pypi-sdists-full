@@ -29,8 +29,13 @@ func parseBytes(contents []byte) (*configFile, error) {
 	}
 
 	if err := yaml.Unmarshal(contents, cfg); err != nil {
+		// NOTE: We intentionally use %v instead of %w here.
+		// The yaml v4 library's LoadErrors type has a buggy Is() method
+		// that causes infinite recursion when errors.Is traverses the
+		// error chain. By using %v we break the chain and prevent
+		// stack overflows when callers check the error.
 		return nil, &ParseError{
-			Err: fmt.Errorf("invalid YAML: %w", err),
+			Err: fmt.Errorf("invalid YAML: %v", err),
 		}
 	}
 
@@ -109,7 +114,15 @@ func configFileToConfig(cfg *configFile) (*Config, error) {
 	if cfg.Image != nil {
 		config.Image = *cfg.Image
 	}
-	if cfg.Predict != nil {
+	if cfg.Model != nil {
+		config.Model = *cfg.Model
+	}
+	if cfg.Run != nil && cfg.Predict != nil && *cfg.Run != "" && *cfg.Predict != "" {
+		return nil, &ValidationError{Field: "run", Message: "only one of run or predict can be set"}
+	}
+	if cfg.Run != nil && *cfg.Run != "" {
+		config.Predict = *cfg.Run
+	} else if cfg.Predict != nil {
 		config.Predict = *cfg.Predict
 	}
 	if cfg.Train != nil {

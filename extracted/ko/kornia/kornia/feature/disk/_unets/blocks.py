@@ -17,29 +17,25 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import torch
 import torch.nn.functional as F
 from torch import nn
 
-from kornia.core import Module, Tensor
 
-
-class TrivialUpsample(Module):
-    def forward(self, x: Tensor) -> Tensor:
+class TrivialUpsample(nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return F.interpolate(x, scale_factor=2, mode="bilinear", align_corners=False)
 
 
-class TrivialDownsample(Module):
-    def forward(self, x: Tensor) -> Tensor:
+class TrivialDownsample(nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return F.avg_pool2d(x, 2)
 
 
 class Conv(nn.Sequential):
     def __init__(self, in_: int, out_: int, size: int, skip_norm_and_gate: bool = False) -> None:
-        norm: Module
-        nonl: Module
+        norm: nn.Module
+        nonl: nn.Module
 
         if skip_norm_and_gate:
             norm = nn.Sequential()
@@ -55,11 +51,11 @@ class Conv(nn.Sequential):
 
 
 class ThinUnetDownBlock(nn.Sequential):
-    def __init__(self, in_: int, out_: int, size: int = 5, is_first: bool = False, setup: Any = None) -> None:
+    def __init__(self, in_: int, out_: int, size: int = 5, is_first: bool = False) -> None:
         self.in_ = in_
         self.out_ = out_
 
-        downsample: Module
+        downsample: nn.Module
         if is_first:
             downsample = nn.Sequential()
             conv = Conv(in_, out_, size, skip_norm_and_gate=True)
@@ -70,8 +66,8 @@ class ThinUnetDownBlock(nn.Sequential):
         super().__init__(downsample, conv)
 
 
-class ThinUnetUpBlock(Module):
-    def __init__(self, bottom_: int, horizontal_: int, out_: int, size: int = 5, setup: Any = None) -> None:
+class ThinUnetUpBlock(nn.Module):
+    def __init__(self, bottom_: int, horizontal_: int, out_: int, size: int = 5) -> None:
         super().__init__()
 
         self.bottom_ = bottom_
@@ -82,7 +78,7 @@ class ThinUnetUpBlock(Module):
         self.upsample = TrivialUpsample()
         self.conv = Conv(self.cat_, self.out_, size)
 
-    def forward(self, bot: Tensor, hor: Tensor) -> Tensor:
+    def forward(self, bot: torch.Tensor, hor: torch.Tensor) -> torch.Tensor:
         bot_big = self.upsample(bot)
         combined = torch.cat([bot_big, hor], dim=1)
 

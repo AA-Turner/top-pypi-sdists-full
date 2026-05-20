@@ -12,6 +12,7 @@ use same_file::is_same_file;
 
 use crate::cli::reporter::{HookInitReporter, HookInstallReporter};
 use crate::cli::run;
+use crate::cli::run::InstallCache;
 use crate::cli::run::{SelectorSource, Selectors};
 use crate::cli::{ExitStatus, HookType};
 use crate::config::load_config;
@@ -152,7 +153,9 @@ pub(crate) async fn prepare_hooks(
         .collect();
 
     let reporter = HookInstallReporter::new(printer);
-    run::install_hooks(filtered_hooks, store, &reporter).await?;
+    let mut install_cache = InstallCache::new();
+    run::install_hooks(filtered_hooks, store, &reporter, &mut install_cache).await?;
+    reporter.on_complete();
 
     Ok(ExitStatus::Success)
 }
@@ -179,7 +182,7 @@ fn get_hook_types(
             .filter(|p| p.exists());
         if let Some(path) = config.into_iter().chain(fallbacks).next() {
             match load_config(path) {
-                Ok(cfg) => cfg.default_install_hook_types.clone().unwrap_or_default(),
+                Ok(cfg) => cfg.default_install_hook_types.unwrap_or_default(),
                 Err(err) => {
                     err.warn_parse_error();
                     vec![]

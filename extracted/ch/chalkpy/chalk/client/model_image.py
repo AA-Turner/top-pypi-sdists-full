@@ -347,6 +347,7 @@ def upload_model_to_volume(
     volume_name: str,
     model_filename: str,
     model_file_path: str,
+    chalk_client: Any = None,
 ) -> None:
     """Upload a model file to a chalkfs volume."""
     try:
@@ -354,7 +355,7 @@ def upload_model_to_volume(
     except ImportError:
         raise ImportError("Please install `chalkcompute` to enable model image builds.")
 
-    vol_client = VolumeClient.from_connect(ConnectClient())
+    vol_client = VolumeClient.from_connect(ConnectClient(chalk_client=chalk_client))
     vol = vol_client.create(volume_name)
     vol.put_file_from_path(model_filename, model_file_path)
 
@@ -371,7 +372,7 @@ def chalk_handler_volume_name(model_name: str, model_version: int) -> str:
     return f"chalk-handler-{model_name}-v{model_version}"
 
 
-def chalk_handler_volume_exists(volume_name: str) -> bool:
+def chalk_handler_volume_exists(volume_name: str, chalk_client: Any = None) -> bool:
     """Probe for a managed volume by name. Used by the deploy path.
 
     Returns ``True`` if the volume exists, ``False`` otherwise — including when
@@ -385,7 +386,7 @@ def chalk_handler_volume_exists(volume_name: str) -> bool:
     except ImportError:
         return False
     try:
-        VolumeClient.from_connect(ConnectClient()).lookup(volume_name)
+        VolumeClient.from_connect(ConnectClient(chalk_client=chalk_client)).lookup(volume_name)
         return True
     except Exception:
         return False
@@ -772,7 +773,7 @@ def _collect_chalk_handler_artifacts(
     return uploads, serialized_name, owned_tmp, resolved_model_type, inferred_input_schema, inferred_output_schema
 
 
-def upload_chalk_handler_artifacts(volume_name: str, uploads: List[Tuple[str, str]]) -> None:
+def upload_chalk_handler_artifacts(volume_name: str, uploads: List[Tuple[str, str]], chalk_client: Any = None) -> None:
     """Upload artifact files to a managed volume the deployed container will mount.
 
     Each entry in ``uploads`` is ``(local_path, container_basename)``. The
@@ -784,7 +785,7 @@ def upload_chalk_handler_artifacts(volume_name: str, uploads: List[Tuple[str, st
     except ImportError:
         raise ImportError("Please install `chalkcompute` to upload @model_handler artifacts.")
 
-    vol = VolumeClient.from_connect(ConnectClient()).create(volume_name)
+    vol = VolumeClient.from_connect(ConnectClient(chalk_client=chalk_client)).create(volume_name)
     for local_path, basename in uploads:
         vol.put_file_from_path(basename, local_path)
 

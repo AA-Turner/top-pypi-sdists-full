@@ -1928,15 +1928,17 @@ def stream_tokens_with_phase(
         _original_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, _handle_sigint)
 
-    # In clean mode, always show spinner (processing indicator)
-    # In verbose mode, show thinking spinner
-    # In normal mode, no spinner (phases shown by caller)
-    show_spinner = (clean_mode or is_verbose()) and not has_bottom_dock()
+    # Always show a spinner while waiting for the first token — this is the
+    # most important feedback signal. Without it, the terminal is completely
+    # silent for 5-60s during cold starts or long reasoning chains, making
+    # sage appear frozen. In clean mode it's a plain "Processing..." dot;
+    # in normal/verbose modes it's the familiar "⟡ Thinking..." indicator.
+    show_spinner = not has_bottom_dock()  # always show unless dock is active
     spinner_text = (
         "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
         if clean_mode
         else "  [bold yellow]⟡ Thinking...[/bold yellow]  [dim](Ctrl+C to cancel)[/dim]"
-        + (f"  [dim]({model_id})[/dim]" if model_id else "")
+        + (f"  [dim]{model_id}[/dim]" if model_id else "")
     )
     spinner = Spinner("dots", text=Text.from_markup(spinner_text))
     live = Live(spinner, console=console, refresh_per_second=12, transient=True)

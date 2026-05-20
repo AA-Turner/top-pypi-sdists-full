@@ -128,9 +128,6 @@ class StructuredWave(AcousticField):
             self.pattern.len_hex = self.params.acoustic['probe']['num_elements'] // 4
             self.f_s = getFrequency(fileName, self.params.acoustic['probe']['num_elements'], self.params.general['dx'])
 
-            if self.angle < -20 or self.angle > 20:
-                raise ValueError("Angle must be between -20 and 20 degrees.")
-
             if len(self.pattern.activeList) != self.params.acoustic['probe']['num_elements'] // 4:
                 raise ValueError(f"Active list string must be {self.params.acoustic['probe']['num_elements'] // 4} characters long.")
             if self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:

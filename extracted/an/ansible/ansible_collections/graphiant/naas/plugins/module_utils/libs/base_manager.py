@@ -6,7 +6,7 @@ for all configuration managers.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Mapping, Optional
 from .config_utils import ConfigUtils
 from .logger import setup_logger
 from .exceptions import ConfigurationError, APIError, DeviceNotFoundError, SiteNotFoundError
@@ -34,7 +34,7 @@ class BaseManager(ABC):
         self.template = config_utils.template
 
     @abstractmethod
-    def configure(self, config_yaml_file: str) -> None:
+    def configure(self, config_yaml_file: str) -> Dict[str, Any]:
         """
         Configure resources based on the provided YAML file.
 
@@ -44,7 +44,7 @@ class BaseManager(ABC):
         pass
 
     @abstractmethod
-    def deconfigure(self, config_yaml_file: str) -> None:
+    def deconfigure(self, config_yaml_file: str) -> Dict[str, Any]:
         """
         Deconfigure resources based on the provided YAML file.
 
@@ -71,14 +71,18 @@ class BaseManager(ABC):
             if config_data is None:
                 raise ConfigurationError(f"Failed to load configuration file: {yaml_file}")
             return config_data
+        except ConfigurationError:
+            # Preserve concise messages (e.g. file not found) from ConfigUtils/portal_utils
+            raise
         except Exception as e:
             LOG.error("Error rendering configuration file %s: %s", yaml_file, str(e))
             LOG.error("Exception type: %s", type(e).__name__)
             import traceback
+
             LOG.error("Full traceback: %s", traceback.format_exc())
             raise ConfigurationError(f"Error rendering configuration file {yaml_file}: {str(e)}")
 
-    def execute_concurrent_tasks(self, function, config_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def execute_concurrent_tasks(self, function, config_dict: Mapping[Any, Any]) -> Dict[str, Any]:
         """
         Execute a function concurrently for each item in the config dictionary.
 

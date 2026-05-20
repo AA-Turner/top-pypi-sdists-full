@@ -857,6 +857,7 @@ class GetResponderGatewayResponseTypeDef(TypedDict):
     activeLinksCount: int
     totalLinksCount: int
     inboundLinksCount: int
+    linksRequestedCount: int
     gatewayType: GatewayTypeType
     externalInboundEndpoint: str
     ResponseMetadata: ResponseMetadataTypeDef

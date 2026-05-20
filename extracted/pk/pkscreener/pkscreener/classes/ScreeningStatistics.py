@@ -7407,7 +7407,7 @@ class ScreeningStatistics:
         }
         
         # Weekly timeframe for trend analysis
-        weeklyData = data.resample('W-FRI').agg(ohlc_dict)
+        weeklyData = data.resample('W-FRI', offset=None).agg(ohlc_dict)
         weeklyData = weeklyData.dropna()
         
         if len(weeklyData) < 50:

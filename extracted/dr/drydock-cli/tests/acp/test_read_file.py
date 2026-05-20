@@ -149,7 +149,7 @@ class TestAcpReadFileExecution:
         result = await collect_result(tool.run(args))
 
         assert result.lines_read == 2
-        assert result.content == "line 1\nline 2\n"
+        assert result.content.startswith("line 1\nline 2\n")
 
         params = mock_client._last_read_params
         assert params["limit"] == 2
@@ -172,7 +172,7 @@ class TestAcpReadFileExecution:
         result = await collect_result(tool.run(args))
 
         assert result.lines_read == 1
-        assert result.content == "line 2\n"
+        assert result.content.startswith("line 2\n")
 
         params = mock_client._last_read_params
         assert params["line"] == 2

@@ -218,6 +218,7 @@ class ChalkClient:
         headers: Mapping[str, str] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
+        translate_fqns: bool = False,
     ) -> OnlineQueryResult:
         """Compute features values using online resolvers.
         See https://docs.chalk.ai/docs/query-basics for more information.
@@ -452,6 +453,7 @@ class ChalkClient:
         explain: bool = False,
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | None = None,
+        translate_fqns: bool = False,
     ) -> BulkOnlineQueryResponse:
         """Compute features values for many rows of inputs using online resolvers.
         See https://docs.chalk.ai/docs/query-basics for more information on online query.

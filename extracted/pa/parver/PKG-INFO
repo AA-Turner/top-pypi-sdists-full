@@ -1,41 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: parver
-Version: 0.5
+Version: 1.0
 Summary: Parse and manipulate version numbers.
-Author-email: Frazer McLean <frazer@frazermclean.co.uk>
-License: MIT
 Project-URL: Documentation, https://parver.readthedocs.io
 Project-URL: Source Code, https://github.com/RazerM/parver
-Keywords: pep440,version,parse
+Author-email: Frazer McLean <frazer@frazermclean.co.uk>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: parse,pep440,version
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: arpeggio>=1.7
-Requires-Dist: attrs>=19.2
-Requires-Dist: typing-extensions; python_version < "3.10"
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: hypothesis; extra == "test"
-Requires-Dist: pretend; extra == "test"
-Provides-Extra: docs
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: furo; extra == "docs"
-Provides-Extra: docstest
-Requires-Dist: doc8; extra == "docstest"
-Provides-Extra: pep8test
-Requires-Dist: flake8; extra == "pep8test"
-Requires-Dist: pep8-naming; extra == "pep8test"
 
 .. image:: https://img.shields.io/pypi/v/parver.svg
    :target: https://pypi.org/project/parver/
@@ -45,16 +29,16 @@ Requires-Dist: pep8-naming; extra == "pep8test"
    :target: https://parver.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
-.. image:: https://github.com/RazerM/parver/workflows/CI/badge.svg?branch=master
+.. image:: https://github.com/RazerM/parver/workflows/CI/badge.svg?branch=main
    :target: https://github.com/RazerM/parver/actions?workflow=CI
    :alt: CI Status
 
-.. image:: https://codecov.io/gh/RazerM/parver/branch/master/graph/badge.svg
+.. image:: https://codecov.io/gh/RazerM/parver/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/RazerM/parver
    :alt: Test coverage
 
 .. image:: https://img.shields.io/github/license/RazerM/parver.svg
-   :target: https://raw.githubusercontent.com/RazerM/parver/master/LICENSE.txt
+   :target: https://raw.githubusercontent.com/RazerM/parver/main/LICENSE.txt
    :alt: MIT License
 
 parver

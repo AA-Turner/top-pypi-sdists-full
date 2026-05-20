@@ -176,8 +176,7 @@ class MainController:
         DeployMessages.start(method="upload")
         DeployMessages.checking_linters()
 
-        self.linter_repository.update_checks()
-        issues = self.linter_repository.get_blocking_checks()
+        issues = self.linter_repository.get_blocking_checks_for_deploy()
 
         if len(issues) > 0:
             raise Exception(

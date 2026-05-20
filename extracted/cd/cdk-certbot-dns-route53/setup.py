@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-certbot-dns-route53",
-    "version": "2.5.48",
+    "version": "2.5.49",
     "description": "Create Cron Job Via Lambda, to update certificate and put it to S3 Bucket.",
     "license": "Apache-2.0",
     "url": "https://github.com/neilkuan/cdk-certbot-dns-route53.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_certbot_dns_route53._jsii": [
-            "cdk-certbot-dns-route53@2.5.48.jsii.tgz"
+            "cdk-certbot-dns-route53@2.5.49.jsii.tgz"
         ],
         "cdk_certbot_dns_route53": [
             "py.typed"
@@ -37,7 +37,7 @@ kwargs = json.loads(
         "aws-cdk-lib>=2.214.1, <3.0.0",
         "aws-cdk.aws-lambda-python-alpha==2.214.1.a0",
         "constructs>=10.5.1, <11.0.0",
-        "jsii>=1.130.0, <2.0.0",
+        "jsii>=1.131.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],

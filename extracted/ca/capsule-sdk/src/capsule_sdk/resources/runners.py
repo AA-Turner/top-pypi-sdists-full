@@ -17,7 +17,7 @@ from capsule_sdk._errors import (
     CapsuleRunnerUnavailableError,
     CapsuleServiceUnavailable,
 )
-from capsule_sdk._http import HttpClient, RetryPolicy
+from capsule_sdk._http import _MAX_RETRIES, HttpClient, RetryPolicy
 from capsule_sdk._shell import ShellSession
 from capsule_sdk.models.file import (
     FileListResult,
@@ -50,10 +50,10 @@ _RunnerList: TypeAlias = list[Runner]
 _ExecArgv: TypeAlias = list[str]
 
 _ALLOCATE_REQUEST_RETRY_POLICY = RetryPolicy(
-    max_retries=2,
-    retry_status_codes=frozenset({502, 504}),
-    retry_transport_errors=True,
-    retry_timeouts=True,
+    max_retries=_MAX_RETRIES,
+    retry_status_codes=frozenset({429}),
+    retry_transport_errors=False,
+    retry_timeouts=False,
 )
 _HOST_READ_RETRY_ERRORS = (
     CapsuleConnectionError,
@@ -106,7 +106,7 @@ class Runners:
         session_id: str | None = None,
         network_policy_preset: str | None = None,
         network_policy_json: str | None = None,
-        proxy_addr: str | None = None,
+        proxy_token: str | None = None,
         startup_timeout: float | None = None,
         retry_poll_interval: float = 1.0,
     ) -> AllocateRunnerResponse:
@@ -129,55 +129,22 @@ class Runners:
             body["network_policy_preset"] = network_policy_preset
         if network_policy_json:
             body["network_policy_json"] = network_policy_json
-        if proxy_addr:
-            body["proxy_addr"] = proxy_addr
+        if proxy_token:
+            body["proxy_token"] = proxy_token
 
         budget = self._resolve_startup_timeout(startup_timeout)
-        deadline = time.monotonic() + budget
-        attempt = 0
-        last_error: Exception | None = None
 
-        while True:
-            try:
-                data = self._http.post(
-                    "/api/v1/runners/allocate",
-                    json_body=body,
-                    request_id=stable_request_id,
-                    retry_policy=_ALLOCATE_REQUEST_RETRY_POLICY,
-                )
-                resp = AllocateRunnerResponse.model_validate(data)
-                if resp.host_address and resp.session_id:
-                    self._host_cache[resp.session_id] = resp.host_address
-                return resp
-            except (
-                CapsuleRateLimited,
-                CapsuleServiceUnavailable,
-                CapsuleConnectionError,
-                CapsuleRequestTimeoutError,
-            ) as exc:
-                last_error = exc
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    break
-                delay = self._retry_delay(exc, attempt, retry_poll_interval)
-                logger.debug(
-                    "Retrying runner allocation for %s after %r (attempt=%s, request_id=%s, delay=%.2fs)",
-                    workload_key,
-                    exc,
-                    attempt + 1,
-                    stable_request_id,
-                    min(delay, remaining),
-                )
-                time.sleep(min(delay, remaining))
-                attempt += 1
-
-        detail = f" Last error: {last_error}" if last_error else ""
-        raise CapsuleAllocationTimeoutError(
-            f"Timed out allocating runner for workload {workload_key!r}.{detail}",
-            workload_key=workload_key,
+        data = self._http.post(
+            "/api/v1/runners/allocate",
+            json_body=body,
             request_id=stable_request_id,
-            timeout=budget,
+            retry_policy=_ALLOCATE_REQUEST_RETRY_POLICY,
         )
+        resp = AllocateRunnerResponse.model_validate(data)
+        if resp.host_address and resp.session_id:
+            self._host_cache[resp.session_id] = resp.host_address
+        _ = budget
+        return resp
 
     def status(self, runner_id: str | None = None, *, session_id: str | None = None) -> RunnerStatus:
         params: dict[str, str] = {}
@@ -379,7 +346,7 @@ class Runners:
         session_id: str | None = None,
         network_policy_preset: str | None = None,
         network_policy_json: str | None = None,
-        proxy_addr: str | None = None,
+        proxy_token: str | None = None,
         startup_timeout: float | None = None,
         poll_interval: float = 2.0,
     ) -> RunnerSession:
@@ -396,7 +363,7 @@ class Runners:
             session_id=session_id,
             network_policy_preset=network_policy_preset,
             network_policy_json=network_policy_json,
-            proxy_addr=proxy_addr,
+            proxy_token=proxy_token,
             startup_timeout=max(deadline - time.monotonic(), 0.0),
             retry_poll_interval=min(1.0, poll_interval),
         )
@@ -443,7 +410,7 @@ class Runners:
         session_id: str | None = None,
         network_policy_preset: str | None = None,
         network_policy_json: str | None = None,
-        proxy_addr: str | None = None,
+        proxy_token: str | None = None,
         startup_timeout: float | None = None,
         wait_ready: bool = True,
         poll_interval: float = 2.0,
@@ -463,7 +430,7 @@ class Runners:
                 session_id=session_id,
                 network_policy_preset=network_policy_preset,
                 network_policy_json=network_policy_json,
-                proxy_addr=proxy_addr,
+                proxy_token=proxy_token,
                 startup_timeout=startup_timeout,
                 poll_interval=poll_interval,
             )
@@ -475,7 +442,7 @@ class Runners:
             session_id=session_id,
             network_policy_preset=network_policy_preset,
             network_policy_json=network_policy_json,
-            proxy_addr=proxy_addr,
+            proxy_token=proxy_token,
             startup_timeout=startup_timeout,
         )
         return RunnerSession(

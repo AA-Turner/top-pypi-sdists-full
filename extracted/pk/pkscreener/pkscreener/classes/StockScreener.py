@@ -1018,7 +1018,8 @@ class StockScreener:
             'Adj Close': 'last',
             "volume": 'sum'
         }
-        
+        if 'Adj Close' not in data.columns:
+            data['Adj Close'] = data['close']
         candleDuration = self.configManager.candleDurationInt
         candleDurationFrequency = self.configManager.candleDurationFrequency
         durationFrequency = "T" if candleDurationFrequency == "m" else ("H" if candleDurationFrequency == "h" else ("M" if candleDurationFrequency == "mo" else ("W" if candleDurationFrequency == "wk" else "T")))

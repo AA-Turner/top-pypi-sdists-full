@@ -535,7 +535,9 @@ class AgentApp(FastAPI, UnifiedRoutingMixin, InterruptMixin):
                     "required": True,
                     "description": (
                         "Submit stream query as background task. "
-                        "Returns task_id for status polling."
+                        "Returns task_id for status polling. "
+                        "Optional 'timeout' field (seconds) overrides "
+                        "the app-level stream_task_timeout for this task."
                     ),
                 },
             },
@@ -545,6 +547,13 @@ class AgentApp(FastAPI, UnifiedRoutingMixin, InterruptMixin):
         async def submit_stream_query_task(request: dict):
             """Submit stream_query as background task"""
             task_id = str(uuid.uuid4())
+
+            # Extract per-task timeout from request, fall back to app default
+            task_timeout = request.pop("timeout", None)
+            if task_timeout is not None:
+                task_timeout = float(task_timeout)
+            else:
+                task_timeout = self.stream_task_timeout
 
             if self.celery_app:
                 if self._stream_query_celery_task is None:
@@ -578,7 +587,7 @@ class AgentApp(FastAPI, UnifiedRoutingMixin, InterruptMixin):
                         stream_func=self._runner.stream_query,
                         request=request,
                         queue=self.stream_task_queue,
-                        timeout=self.stream_task_timeout,
+                        timeout=task_timeout,
                     ),
                 )
 

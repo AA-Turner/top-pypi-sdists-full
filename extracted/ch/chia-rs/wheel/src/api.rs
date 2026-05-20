@@ -1,4 +1,4 @@
-use crate::error::{map_pyerr, map_pyerr_w_ptr};
+use crate::error::map_pyerr;
 use crate::run_generator::{
     additions_and_removals, py_to_slice, run_block_generator, run_block_generator2,
 };
@@ -59,9 +59,9 @@ use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedBytes;
-use pyo3::types::PyList;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyBytes, PyDict};
+use pyo3::types::{PyList, PySequence, PySequenceMethods};
 use pyo3::wrap_pyfunction;
 use std::path::Path;
 
@@ -176,10 +176,8 @@ pub fn get_puzzle_and_solution_for_coin<'a>(
     let program = py_to_slice::<'a>(program);
     let args = py_to_slice::<'a>(args);
 
-    let program = node_from_bytes_backrefs(&mut allocator, program)
-        .map_err(|e| map_pyerr_w_ptr(&e, &allocator))?;
-    let args = node_from_bytes_backrefs(&mut allocator, args)
-        .map_err(|e| map_pyerr_w_ptr(&e, &allocator))?;
+    let program = node_from_bytes_backrefs(&mut allocator, program).map_err(map_pyerr)?;
+    let args = node_from_bytes_backrefs(&mut allocator, args).map_err(map_pyerr)?;
     let dialect = &ChiaDialect::new(flags.to_clvm_flags());
 
     let (puzzle, solution) = py
@@ -191,25 +189,21 @@ pub fn get_puzzle_and_solution_for_coin<'a>(
                 result,
                 &Coin::new(find_parent, find_ph, find_amount),
             ) {
-                Err(ValidationErr(n, _)) => {
-                    Err(EvalErr::InvalidOpArg(n, "coin not found".to_string()))
-                }
+                Err(ValidationErr::Err(_)) => Err(EvalErr::InvalidOpArg(
+                    NodePtr::NIL,
+                    "coin not found".to_string(),
+                )),
+                Err(ValidationErr::Eval(e)) => Err(e),
                 Ok(pair) => Ok(pair),
             }
         })
-        .map_err(|e| map_pyerr_w_ptr(&e, &allocator))?;
+        .map_err(map_pyerr)?;
 
     // keep serializing normally, until wallets support backrefs
     let serialize = node_to_bytes;
     Ok((
-        PyBytes::new(
-            py,
-            &serialize(&allocator, puzzle).map_err(|e| map_pyerr_w_ptr(&e, &allocator))?,
-        ),
-        PyBytes::new(
-            py,
-            &serialize(&allocator, solution).map_err(|e| map_pyerr_w_ptr(&e, &allocator))?,
-        ),
+        PyBytes::new(py, &serialize(&allocator, puzzle).map_err(map_pyerr)?),
+        PyBytes::new(py, &serialize(&allocator, solution).map_err(map_pyerr)?),
     ))
 }
 
@@ -222,22 +216,22 @@ pub fn get_puzzle_and_solution_for_coin<'a>(
 pub fn get_puzzle_and_solution_for_coin2<'a>(
     py: Python<'a>,
     generator: &Program,
-    block_refs: &Bound<'a, PyList>,
+    block_refs: &Bound<'a, PySequence>,
     max_cost: Cost,
     find_coin: &Coin,
     flags: ConsensusFlags,
 ) -> PyResult<(Program, Program)> {
     let mut allocator = make_allocator(ConsensusFlags::LIMIT_HEAP);
 
-    let refs = block_refs.into_iter().map(|b| {
+    let refs = block_refs.to_list()?.into_iter().map(|b| {
         let buf = b
             .extract::<PyBuffer<u8>>()
-            .expect("block_refs should be a list of buffers");
+            .expect("block_refs should be a sequence of buffers");
         py_to_slice::<'a>(buf)
     });
 
-    let generator = node_from_bytes_backrefs(&mut allocator, generator.as_ref())
-        .map_err(|e| map_pyerr_w_ptr(&e, &allocator))?;
+    let generator =
+        node_from_bytes_backrefs(&mut allocator, generator.as_ref()).map_err(map_pyerr)?;
     let args = setup_generator_args(&mut allocator, refs, flags)?;
     let dialect = &ChiaDialect::new(flags.to_clvm_flags());
 
@@ -246,21 +240,21 @@ pub fn get_puzzle_and_solution_for_coin2<'a>(
             let Reduction(_cost, result) =
                 run_program(&mut allocator, dialect, generator, args, max_cost)?;
             match parse_puzzle_solution(&allocator, result, find_coin) {
-                Err(ValidationErr(n, _)) => {
-                    Err(EvalErr::InvalidOpArg(n, "coin not found".to_string()))
-                }
+                Err(ValidationErr::Err(_)) => Err(EvalErr::InvalidOpArg(
+                    NodePtr::NIL,
+                    "coin not found".to_string(),
+                )),
+                Err(ValidationErr::Eval(e)) => Err(e),
                 Ok(pair) => Ok(pair),
             }
         })
-        .map_err(|e| map_pyerr_w_ptr(&e, &allocator))?;
+        .map_err(map_pyerr)?;
 
     // keep serializing normally, until wallets support backrefs
     Ok((
-        node_to_bytes(&allocator, puzzle)
-            .map_err(|e| map_pyerr_w_ptr(&e, &allocator))?
-            .into(),
+        node_to_bytes(&allocator, puzzle).map_err(map_pyerr)?.into(),
         node_to_bytes(&allocator, solution)
-            .map_err(|e| map_pyerr_w_ptr(&e, &allocator))?
+            .map_err(map_pyerr)?
             .into(),
     ))
 }
@@ -429,16 +423,14 @@ fn fast_forward_singleton<'p>(
     new_parent: &Coin,
 ) -> PyResult<Bound<'p, PyBytes>> {
     let mut a = make_allocator(ConsensusFlags::LIMIT_HEAP);
-    let puzzle = node_from_bytes(&mut a, spend.puzzle_reveal.as_slice())
-        .map_err(|e| map_pyerr_w_ptr(&e, &a))?;
-    let solution =
-        node_from_bytes(&mut a, spend.solution.as_slice()).map_err(|e| map_pyerr_w_ptr(&e, &a))?;
+    let puzzle = node_from_bytes(&mut a, spend.puzzle_reveal.as_slice()).map_err(map_pyerr)?;
+    let solution = node_from_bytes(&mut a, spend.solution.as_slice()).map_err(map_pyerr)?;
 
     let new_solution = native_ff(&mut a, puzzle, solution, &spend.coin, new_coin, new_parent)?;
     Ok(PyBytes::new(
         py,
         node_to_bytes(&a, new_solution)
-            .map_err(|e| map_pyerr_w_ptr(&e, &a))?
+            .map_err(map_pyerr)?
             .as_slice(),
     ))
 }
@@ -546,15 +538,16 @@ pub fn get_spends_for_trusted_block<'a>(
     py: Python<'a>,
     constants: &ConsensusConstants,
     generator: Program,
-    block_refs: &Bound<'_, PyList>,
+    block_refs: &Bound<'_, PySequence>,
     flags: ConsensusFlags,
 ) -> pyo3::PyResult<Py<PyAny>> {
     let refs = block_refs
+        .to_list()?
         .into_iter()
         .map(|b| {
             let buf = b
                 .extract::<PyBuffer<u8>>()
-                .expect("block_refs must be list of buffers");
+                .expect("block_refs must be sequence of buffers");
             py_to_slice::<'a>(buf)
         })
         .collect::<Vec<&'a [u8]>>();
@@ -572,15 +565,16 @@ pub fn get_spends_for_trusted_block_with_conditions<'a>(
     py: Python<'a>,
     constants: &ConsensusConstants,
     generator: Program,
-    block_refs: &Bound<'a, PyList>,
+    block_refs: &Bound<'a, PySequence>,
     flags: ConsensusFlags,
 ) -> pyo3::PyResult<Py<PyAny>> {
     let refs = block_refs
+        .to_list()?
         .into_iter()
         .map(|b| {
             let buf = b
                 .extract::<PyBuffer<u8>>()
-                .expect("block_refs must be list of buffers");
+                .expect("block_refs must be sequence of buffers");
             py_to_slice::<'a>(buf)
         })
         .collect::<Vec<&'a [u8]>>();
@@ -617,6 +611,7 @@ pub fn py_is_canonical_serialization(buf: &[u8]) -> bool {
     is_canonical_serialization(buf)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[pyo3::pyfunction]
 pub fn create_v2_plot(
     filename: &str,
@@ -626,6 +621,7 @@ pub fn create_v2_plot(
     plot_index: u16,
     meta_group: u8,
     memo: &[u8],
+    testnet: bool,
 ) -> PyResult<()> {
     Ok(chia_pos2::create_v2_plot(
         Path::new(filename),
@@ -635,6 +631,7 @@ pub fn create_v2_plot(
         plot_index,
         meta_group,
         memo,
+        testnet,
     )?)
 }
 
@@ -706,6 +703,7 @@ pub fn validate_proof_v2(
     challenge: Bytes32,
     plot_strength: u8,
     proof: &[u8],
+    testnet: bool,
 ) -> Option<Bytes32> {
     chia_pos2::validate_proof_v2(
         &plot_id.to_bytes(),
@@ -713,6 +711,7 @@ pub fn validate_proof_v2(
         &challenge.to_bytes(),
         plot_strength,
         proof,
+        testnet,
     )
     .map(|quality| -> Bytes32 {
         let mut sha256 = Sha256::new();
@@ -725,7 +724,13 @@ pub fn validate_proof_v2(
 }
 
 #[pyo3::pyfunction]
-pub fn solve_proof(fragments: &PartialProof, plot_id: Bytes32, strength: u8, k: u8) -> Vec<u8> {
+pub fn solve_proof(
+    fragments: &PartialProof,
+    plot_id: Bytes32,
+    strength: u8,
+    k: u8,
+    testnet: bool,
+) -> Vec<u8> {
     chia_pos2::solve_proof(
         &chia_pos2::QualityChain {
             chain_links: fragments.fragments,
@@ -733,6 +738,7 @@ pub fn solve_proof(fragments: &PartialProof, plot_id: Bytes32, strength: u8, k: 
         &plot_id.to_bytes(),
         k,
         strength,
+        testnet,
     )
 }
 

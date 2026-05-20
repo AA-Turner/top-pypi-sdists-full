@@ -18,6 +18,8 @@ from reflex_components_core.core.breakpoints import Breakpoints
 from reflex_enterprise.components.component import NoSSRComponentEnterprise
 from reflex_enterprise.vars import JSAPIVar
 
+from .types import MouseEvent
+
 PACKAGE_NAME = "react-leaflet"
 PACKAGE_VERSION = "5.0.0"
 path = rx.asset("MapLazyComponents.jsx", shared=True)
@@ -71,6 +73,49 @@ class BaseLeafletComponent(NoSSRComponentEnterprise):
         **props,
     ) -> "BaseLeafletComponent":
         """Create the Reflex Enterprise component."""
+        ...
+
+class InteractiveLeafletLayer(BaseLeafletComponent):
+    @classmethod
+    def create(
+        cls,
+        *children,
+        event_handlers: Var[dict] | dict | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Any | Var] | None = None,
+        on_blur: Optional[EventType[()]] = None,
+        on_click: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_contextmenu: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_dblclick: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]] = None,
+        on_focus: Optional[EventType[()]] = None,
+        on_mount: Optional[EventType[()]] = None,
+        on_mouse_down: Optional[EventType[()]] = None,
+        on_mouse_enter: Optional[EventType[()]] = None,
+        on_mouse_leave: Optional[EventType[()]] = None,
+        on_mouse_move: Optional[EventType[()]] = None,
+        on_mouse_out: Optional[EventType[()]] = None,
+        on_mouse_over: Optional[EventType[()]] = None,
+        on_mouse_up: Optional[EventType[()]] = None,
+        on_mousedown: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseout: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseover: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_mouseup: Optional[EventType[()] | EventType[MouseEvent]] = None,
+        on_scroll: Optional[EventType[()]] = None,
+        on_scroll_end: Optional[EventType[()]] = None,
+        on_unmount: Optional[EventType[()]] = None,
+        **props,
+    ) -> "InteractiveLeafletLayer":
+        """Translate on_<event> props into a single eventHandlers dict that react-leaflet understands."""
         ...
 
 class LazyBaseLeafletComponent(BaseLeafletComponent):

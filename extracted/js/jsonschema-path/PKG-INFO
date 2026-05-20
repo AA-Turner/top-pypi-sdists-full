@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema-path
-Version: 0.4.6
+Version: 0.5.0
 Summary: JSONSchema Spec with object-oriented paths
 License: Apache-2.0
 License-File: LICENSE
@@ -22,7 +22,8 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: requests
 Requires-Dist: PyYAML (>=5.1)
-Requires-Dist: pathable (>=0.5.0,<0.6.0)
+Requires-Dist: attrs (>=22.2.0)
+Requires-Dist: pathable (>=0.6.0,<0.7.0)
 Requires-Dist: referencing (<0.38.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0) ; extra == "requests"
 Project-URL: Repository, https://github.com/p1c2u/jsonschema-path
@@ -119,21 +120,78 @@ Usage
    ...     print(contents)
    {'type': 'string', 'default': '1.0'}
 
+Identity and equality
+#####################
+
+Two ``SchemaPath`` instances are equal if they have the same ``parts``
+*and* point to the same ``SchemaAccessor``. ``SchemaAccessor`` identity
+is per-resource-handle: same wrapped dict (by reference), same
+``base_uri``, and same internal resolver instance. In practice:
+
+* Paths derived from the *same* accessor compare equal as expected:
+
+  .. code-block:: python
+
+     >>> accessor = SchemaAccessor.from_schema(d)
+     >>> SchemaPath(accessor) / "properties" == SchemaPath(accessor) / "properties"
+     True
+
+* Paths from *separate* ``from_dict`` or ``from_schema`` calls do **not**
+  compare equal even with identical arguments, because each call builds
+  its own accessor:
+
+  .. code-block:: python
+
+     >>> SchemaPath.from_dict(d) == SchemaPath.from_dict(d)
+     False
+
+* ``SchemaAccessor`` is hashable, so accessors and paths can be used as
+  set members and dict keys.
+
+This is also why the "build one accessor, reuse it" pattern below
+matters: it is both a caching optimisation and the contract you need
+for path equality to behave the way you expect.
 
 Resolved cache
 ##############
 
 The resolved-path cache is intended for repeated path lookups and may significantly improve
-``read_value``/membership hot paths. Cache entries are invalidated when the
-resolver registry evolves during reference resolution.
+``read_value``/membership hot paths. When the underlying ``referencing``
+registry grows (e.g. an external ``$ref`` pulls in a new document),
+cached entries are *rebound* to the new registry on read instead of
+being discarded. This relies on registries growing monotonically —
+resources are added, never replaced. Handlers that return drifting
+content for the same URI violate that assumption; disable caching with
+``resolved_cache_maxsize=0`` if you need to defend against it.
 
-This cache is optional and disabled by default
-(``resolved_cache_maxsize=0``). You can enable it when creating paths or
+This cache is enabled by default
+(``resolved_cache_maxsize=128``). You can disable it when creating paths or
 accessors, for example:
 
 .. code-block:: python
 
-   >>> path = SchemaPath.from_dict(d, resolved_cache_maxsize=64)
+   >>> path = SchemaPath.from_dict(d, resolved_cache_maxsize=0)
+
+Build **one** :code:`SchemaAccessor` per schema document and reuse it for
+every :code:`SchemaPath` you derive from that document. Treat the accessor
+as the long-lived handle to the resource; treat paths as cheap views over
+it.
+
+.. code-block:: python
+
+   >>> from jsonschema_path import SchemaAccessor, SchemaPath
+
+   >>> # Construct the accessor once, with caching enabled.
+   >>> accessor = SchemaAccessor.from_schema(d, resolved_cache_maxsize=128)
+
+   >>> # Derive as many paths as you like from the same accessor.
+   >>> root = SchemaPath(accessor)
+   >>> info = root / "properties" / "info"
+   >>> version = info / "properties" / "version"
+
+   >>> # Every path over `accessor` shares the same resolved-ref cache.
+   >>> with version.open() as contents:
+   ...     ...
 
 Benchmarks
 ##########

@@ -185,7 +185,12 @@ class PathCompleter(Completer):
                 context.search_pattern, entry.rel, entry.rel_lower
             )
             if match_result.matched:
-                scored_matches.append((label, match_result.score))
+                score = match_result.score
+                # boost when the search term matches the start of the filename:
+                # "@fuzzy" should prefer "fuzzy.py" over "test_fuzzy.py"
+                if entry.name.lower().startswith(context.suffix.lower()):
+                    score += 50.0
+                scored_matches.append((label, score))
                 if (
                     len(scored_matches) >= self._target_matches
                     and match_result.score > MAX_MATCHES

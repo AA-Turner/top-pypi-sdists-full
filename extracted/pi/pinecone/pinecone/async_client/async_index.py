@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -17,8 +17,12 @@ from pinecone._internal.batch import async_batch_execute
 from pinecone._internal.batching import validate_batch_size
 from pinecone._internal.config import PineconeConfig
 from pinecone._internal.constants import DATA_PLANE_API_VERSION
-from pinecone._internal.data_plane_helpers import _validate_host, _vector_to_dict
-from pinecone._internal.validation import require_in_range
+from pinecone._internal.data_plane_helpers import (
+    _normalize_search_vector_dict,
+    _validate_host,
+    _vector_to_dict,
+)
+from pinecone._internal.validation import require_in_range, require_positive
 from pinecone._internal.vector_factory import VectorFactory
 from pinecone.errors.exceptions import PineconeValueError, ValidationError
 from pinecone.models.imports.list import ImportList
@@ -52,7 +56,7 @@ class AsyncIndex:
     Args:
         host (str): The index-specific data plane host URL.
         api_key (str | None): Pinecone API key. Falls back to ``PINECONE_API_KEY`` env var.
-        additional_headers (dict[str, str] | None): Extra headers included in every request.
+        additional_headers (Mapping[str, str] | None): Extra headers included in every request.
         timeout (float): Request timeout in seconds. Defaults to ``30.0``.
         proxy_url (str | None): HTTP proxy URL for outgoing requests.
         ssl_ca_certs (str | None): Path to a CA certificate bundle for SSL verification.
@@ -79,10 +83,10 @@ class AsyncIndex:
         *,
         host: str,
         api_key: str | None = None,
-        additional_headers: dict[str, str] | None = None,
+        additional_headers: Mapping[str, str] | None = None,
         timeout: float = 30.0,
         proxy_url: str | None = None,
-        proxy_headers: dict[str, str] | None = None,
+        proxy_headers: Mapping[str, str] | None = None,
         ssl_ca_certs: str | None = None,
         ssl_verify: bool = True,
         source_tag: str | None = None,
@@ -103,9 +107,9 @@ class AsyncIndex:
             api_key=resolved_key,
             host=self._host,
             timeout=timeout,
-            additional_headers=additional_headers or {},
+            additional_headers=dict(additional_headers or {}),
             proxy_url=proxy_url or "",
-            proxy_headers=proxy_headers or {},
+            proxy_headers=dict(proxy_headers or {}),
             ssl_ca_certs=ssl_ca_certs,
             ssl_verify=ssl_verify,
             source_tag=source_tag or "",
@@ -193,12 +197,16 @@ class AsyncIndex:
         import orjson
 
         normalized: list[dict[str, Any]] = []
-        for record in records:
+        for i, record in enumerate(records):
             r = dict(record)  # shallow copy
             if "_id" not in r and "id" in r:
                 r["_id"] = r.pop("id")
             elif "_id" in r and "id" in r:
-                del r["id"]  # _id takes precedence; strip the extra key
+                del r["id"]  # _id wins; drop the redundant 'id' key
+            resolved_id = r.get("_id")
+            if not isinstance(resolved_id, str):
+                got = type(resolved_id).__name__
+                raise ValidationError(f"Record at index {i}: '_id' must be a string, got {got!r}")
             normalized.append(r)
 
         ndjson_lines = [orjson.dumps(r).decode("utf-8") for r in normalized]
@@ -220,9 +228,9 @@ class AsyncIndex:
         *,
         vectors: Sequence[
             Vector
-            | tuple[str, list[float]]
-            | tuple[str, list[float], dict[str, Any]]
-            | dict[str, Any]
+            | tuple[str, Sequence[float]]
+            | tuple[str, Sequence[float], Mapping[str, Any]]
+            | Mapping[str, Any]
         ],
         namespace: str = "",
         batch_size: int | None = None,
@@ -365,9 +373,9 @@ class AsyncIndex:
         *,
         vectors: Sequence[
             Vector
-            | tuple[str, list[float]]
-            | tuple[str, list[float], dict[str, Any]]
-            | dict[str, Any]
+            | tuple[str, Sequence[float]]
+            | tuple[str, Sequence[float], Mapping[str, Any]]
+            | Mapping[str, Any]
         ],
         namespace: str,
         timeout: float | None,
@@ -431,13 +439,13 @@ class AsyncIndex:
         self,
         *,
         top_k: int,
-        vector: list[float] | None = None,
+        vector: Sequence[float] | None = None,
         id: str | None = None,
         namespace: str = "",
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         include_values: bool = False,
         include_metadata: bool = False,
-        sparse_vector: SparseValues | dict[str, Any] | None = None,
+        sparse_vector: SparseValues | Mapping[str, Any] | None = None,
         scan_factor: float | None = None,
         max_candidates: int | None = None,
         timeout: float | None = None,
@@ -541,14 +549,14 @@ class AsyncIndex:
     async def query_namespaces(
         self,
         *,
-        vector: list[float] | None = None,
-        namespaces: list[str],
+        vector: Sequence[float] | None = None,
+        namespaces: Sequence[str],
         metric: str,
         top_k: int | None = None,
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         include_values: bool = False,
         include_metadata: bool = False,
-        sparse_vector: SparseValues | dict[str, Any] | None = None,
+        sparse_vector: SparseValues | Mapping[str, Any] | None = None,
         scan_factor: float | None = None,
         max_candidates: int | None = None,
         timeout: float | None = None,
@@ -656,7 +664,7 @@ class AsyncIndex:
     async def fetch(
         self,
         *,
-        ids: list[str],
+        ids: Sequence[str],
         namespace: str = "",
         timeout: float | None = None,
     ) -> FetchResponse:
@@ -703,7 +711,7 @@ class AsyncIndex:
     async def fetch_by_metadata(
         self,
         *,
-        filter: dict[str, Any],
+        filter: Mapping[str, Any],
         namespace: str = "",
         limit: int | None = None,
         pagination_token: str | None = None,
@@ -753,6 +761,8 @@ class AsyncIndex:
                     )
                     token = response.pagination.next if response.pagination else None
         """
+        if limit is not None:
+            require_positive("limit", limit)
         body: dict[str, Any] = {"filter": filter}
         if namespace:
             body["namespace"] = namespace
@@ -770,9 +780,9 @@ class AsyncIndex:
     async def delete(
         self,
         *,
-        ids: list[str] | None = None,
+        ids: Sequence[str] | None = None,
         delete_all: bool = False,
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         namespace: str = "",
         timeout: float | None = None,
     ) -> None:
@@ -833,11 +843,11 @@ class AsyncIndex:
         self,
         *,
         id: str | None = None,
-        values: list[float] | None = None,
-        sparse_values: SparseValues | dict[str, Any] | None = None,
-        set_metadata: dict[str, Any] | None = None,
+        values: Sequence[float] | None = None,
+        sparse_values: SparseValues | Mapping[str, Any] | None = None,
+        set_metadata: Mapping[str, Any] | None = None,
         namespace: str = "",
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         dry_run: bool = False,
         timeout: float | None = None,
     ) -> UpdateResponse:
@@ -917,13 +927,13 @@ class AsyncIndex:
         *,
         namespace: str,
         top_k: int,
-        inputs: SearchInputs | dict[str, Any] | None = None,
-        vector: list[float] | None = None,
+        inputs: SearchInputs | Mapping[str, Any] | None = None,
+        vector: Sequence[float] | Mapping[str, Any] | None = None,
         id: str | None = None,
-        filter: dict[str, Any] | None = None,
-        fields: list[str] | None = None,
-        rerank: RerankConfig | dict[str, Any] | None = None,
-        match_terms: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
+        fields: Sequence[str] | None = None,
+        rerank: RerankConfig | Mapping[str, Any] | None = None,
+        match_terms: Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
         """Search records by text, vector, or ID with optional reranking.
@@ -938,7 +948,12 @@ class AsyncIndex:
                 server-side embedding (e.g. ``{"text": "query text"}``).
                 Use :class:`SearchInputs` for typed key validation and IDE
                 autocompletion (e.g. ``SearchInputs(text="query text")``).
-            vector (list[float] | None): Dense query vector values.
+            vector (list[float] | dict[str, Any] | None): Query vector. Pass a
+                ``list[float]`` for a dense-only query (wrapped automatically as
+                ``{"values": [...]}``) or a dict for sparse/hybrid queries with
+                keys ``values``, ``sparse_indices``, and/or ``sparse_values``
+                (passed through as-is). See :class:`SearchQueryVector` for the
+                typed helper.
             id (str | None): ID of an existing record to use as the query.
             filter (dict[str, Any] | None): Metadata filter expression.
             fields (list[str] | None): Field names to include in results.
@@ -996,7 +1011,10 @@ class AsyncIndex:
         if inputs is not None:
             query_body["inputs"] = inputs
         if vector is not None:
-            query_body["vector"] = vector
+            if isinstance(vector, Mapping):
+                query_body["vector"] = _normalize_search_vector_dict(vector)
+            else:
+                query_body["vector"] = {"values": list(vector)}
         if id is not None:
             query_body["id"] = id
         if filter is not None:
@@ -1023,13 +1041,13 @@ class AsyncIndex:
         *,
         namespace: str,
         top_k: int,
-        inputs: SearchInputs | dict[str, Any] | None = None,
-        vector: list[float] | None = None,
+        inputs: SearchInputs | Mapping[str, Any] | None = None,
+        vector: Sequence[float] | Mapping[str, Any] | None = None,
         id: str | None = None,
-        filter: dict[str, Any] | None = None,
-        fields: list[str] | None = None,
-        rerank: RerankConfig | dict[str, Any] | None = None,
-        match_terms: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
+        fields: Sequence[str] | None = None,
+        rerank: RerankConfig | Mapping[str, Any] | None = None,
+        match_terms: Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
         """Alias for :meth:`search`.
@@ -1142,7 +1160,7 @@ class AsyncIndex:
     async def describe_index_stats(
         self,
         *,
-        filter: dict[str, Any] | None = None,
+        filter: Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> DescribeIndexStatsResponse:
         """Return statistics for this index.
@@ -1426,7 +1444,7 @@ class AsyncIndex:
         self,
         uri: str,
         *,
-        error_mode: str = "continue",
+        error_mode: str | None = None,
         integration_id: str | None = None,
     ) -> StartImportResponse:
         """Start a bulk import operation from an external data source.
@@ -1445,8 +1463,9 @@ class AsyncIndex:
         Args:
             uri (str): Source URI for the import data (e.g.
                 ``"s3://my-bucket/vectors/"`` or ``"gs://my-bucket/vectors/"``).
-            error_mode (str): How to handle errors during import. Must be
-                ``"continue"`` (default) or ``"abort"``. Case-insensitive.
+            error_mode (str | None): How to handle errors during import. Must be
+                ``"continue"`` or ``"abort"`` when supplied. Case-insensitive.
+                Optional; when omitted the backend default (abort) applies.
             integration_id (str | None): Optional integration ID for the import.
 
         Returns:
@@ -1454,7 +1473,8 @@ class AsyncIndex:
             operation.
 
         Raises:
-            :exc:`PineconeValueError`: If ``error_mode`` is not ``"continue"`` or ``"abort"``.
+            :exc:`PineconeValueError`: If ``error_mode`` is supplied but not
+                ``"continue"`` or ``"abort"``.
             :exc:`ApiError`: If the API returns an error response.
             :exc:`PineconeConnectionError`: If a network-level connection
                 fails (DNS, refused, transport error).
@@ -1490,14 +1510,16 @@ class AsyncIndex:
            - :meth:`upsert_records` — for indexes with integrated inference
              (text in, server-side embedding).
         """
-        error_mode = error_mode.lower()
-        if error_mode not in ("continue", "abort"):
-            raise ValidationError(f"error_mode must be 'continue' or 'abort', got {error_mode!r}")
+        if error_mode is not None:
+            error_mode = error_mode.lower()
+            if error_mode not in ("continue", "abort"):
+                raise ValidationError(
+                    f"error_mode must be 'continue' or 'abort', got {error_mode!r}"
+                )
 
-        body: dict[str, Any] = {
-            "uri": uri,
-            "errorMode": {"onError": error_mode},
-        }
+        body: dict[str, Any] = {"uri": uri}
+        if error_mode is not None:
+            body["errorMode"] = {"onError": error_mode}
         if integration_id is not None:
             body["integrationId"] = integration_id
 

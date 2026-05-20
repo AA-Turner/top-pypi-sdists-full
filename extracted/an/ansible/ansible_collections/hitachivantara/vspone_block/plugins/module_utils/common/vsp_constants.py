@@ -1,8 +1,8 @@
 import logging
 
-
 PEGASUS_MODELS = ["VSP One B", "VSP E"]
 VCLONE_SUPPORTED_MODELS = ["VSP One B"]
+BLOCK_HIGH_END_MODELS = ["VSP One B85"]
 
 BASIC_STORAGE_DETAILS = None
 
@@ -32,6 +32,11 @@ class Endpoints(object):
     POST_LDEVS = "v1/objects/ldevs"
     LDEVS_ONE = "v1/objects/ldevs/{}"
     SALAMENDER_GET_LDEVS_ONE = "simple/v1/objects/volumes/{}"
+    SALAMENDER_DELETE_VOLUMES = "simple/v1/objects/volumes?ids={}"
+    GET_LDEVS_ONE_BY_DETAILS = "simple/v1/objects/volumes/{}?withActiveActiveMirroringInfo=true&withVirtualization=true&capacityUnit=block"
+    CREATE_BY_DETAILS_SETTINGS = (
+        "simple/v1/objects/volumes/actions/create-by-detail-settings/invoke"
+    )
     SIMPLE_API_VOLUME_EXPAND = "simple/v1/objects/volumes/{}/actions/expand/invoke"
     SALAMENDER_GET_LDEVS_SERVER_CONNECTION = (
         "simple/v1/objects/volume-server-connections"
@@ -60,13 +65,18 @@ class Endpoints(object):
     #     "v1/objects/ldevs?ldevOption=undefined&resourceGroupId=0&count=1"
     # )
     GET_FREE_LDEV_FROM_META = "v1/objects/ldevs?ldevOption=undefined&resourceGroupId=0"
-    GET_FREE_LDEVS_FROM_META = "v1/objects/ldevs?ldevOption=undefined&resourceGroupId=0"
+    GET_FREE_LDEVS_FROM_META_RG = (
+        "v1/objects/ldevs?ldevOption=undefined&resourceGroupId={}"
+    )
     GET_FREE_LDEVS_FROM_META_RES = (
         "v1/objects/ldevs?ldevOption=undefined&resourceGroupId={}&count=16384"
     )
     GET_FREE_LDEVS_FROM_META_HEAD_LDEV = "v1/objects/ldevs?ldevOption=undefined&headLdevId={}&resourceGroupId={}&count=16384"
     GET_FREE_LDEVS_FROM_META_BASIC = (
         "v1/objects/ldevs?ldevOption=undefined&headLdevId={}&count={}"
+    )
+    GET_FREE_LDEVS_FROM_META_RG_CHUNK = (
+        "v1/objects/ldevs?ldevOption=undefined&resourceGroupId={}&count={}"
     )
     GET_FREE_LDEV_MATCHING_PVOL = (
         "v1/objects/ldevs?ldevOption=undefined&count=1&headLdevId={}"
@@ -317,6 +327,7 @@ class Endpoints(object):
     GET_ALL_REMOTE_CONNECTIONS = "v1/objects/remotepath-groups"
     REMOTE_CONNECTION_SINGLE = "v1/objects/remotepath-groups/{}"
     POST_REMOTE_CONNECTIONS = "v1/objects/remotepath-groups"
+    REMOTE_STORAGES = "v1/objects/remote-storages"
     ADD_REMOTE_PATH = "v1/objects/remotepath-groups/{}/actions/add-remotepath/invoke"
     DELETE_REMOTE_PATH = (
         "v1/objects/remotepath-groups/{}/actions/remove-remotepath/invoke"
@@ -508,6 +519,7 @@ class AutomationConstants(object):
     DEVICE_GROUP_NAME_LEN_MAX = 31
     COPY_PACE_MIN = 1
     COPY_PACE_MAX = 15
+    COPY_PACE_DEFAULT = 3
     RG_NAME_LEN_MIN = 1
     RG_NAME_LEN_MAX = 32
     START_LDEV_ID_MIN = 0

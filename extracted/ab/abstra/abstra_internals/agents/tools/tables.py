@@ -98,7 +98,7 @@ class TablesTools(AgentTools):
         if self.table is not None and table not in self.table:
             raise ValueError(f"Table '{table}' is not allowed.")
 
-        return delete(table, values=where)
+        return delete(table, where=where)
 
     def run_sql(self, query: str) -> Any:
         from abstra.tables import run_sql

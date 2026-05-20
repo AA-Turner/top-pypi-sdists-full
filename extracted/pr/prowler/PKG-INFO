@@ -1,98 +1,98 @@
 Metadata-Version: 2.4
 Name: prowler
-Version: 5.26.1
+Version: 5.27.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
-License-Expression: Apache-2.0
-License-File: LICENSE
-Author: Toni de la Fuente
-Author-email: toni@blyx.com
-Maintainer: Prowler Engineering
-Maintainer-email: engineering@prowler.com
-Requires-Python: >=3.10,<3.13
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: alibabacloud-gateway-oss-util (==0.0.3)
-Requires-Dist: alibabacloud-rds20140815 (==12.0.0)
-Requires-Dist: alibabacloud-sls20201230 (==5.9.0)
-Requires-Dist: alibabacloud_actiontrail20200706 (==2.4.1)
-Requires-Dist: alibabacloud_credentials (==1.0.3)
-Requires-Dist: alibabacloud_cs20151215 (==6.1.0)
-Requires-Dist: alibabacloud_ecs20140526 (==7.2.5)
-Requires-Dist: alibabacloud_oss20190517 (==1.0.6)
-Requires-Dist: alibabacloud_ram20150501 (==1.2.0)
-Requires-Dist: alibabacloud_sas20181203 (==6.1.0)
-Requires-Dist: alibabacloud_sts20150401 (==1.1.6)
-Requires-Dist: alibabacloud_tea_openapi (==0.4.4)
-Requires-Dist: alibabacloud_vpc20160428 (==6.13.0)
-Requires-Dist: alive-progress (==3.3.0)
-Requires-Dist: awsipranges (==0.3.3)
-Requires-Dist: azure-identity (==1.21.0)
-Requires-Dist: azure-keyvault-keys (==4.10.0)
-Requires-Dist: azure-mgmt-apimanagement (==5.0.0)
-Requires-Dist: azure-mgmt-applicationinsights (==4.1.0)
-Requires-Dist: azure-mgmt-authorization (==4.0.0)
-Requires-Dist: azure-mgmt-compute (==34.0.0)
-Requires-Dist: azure-mgmt-containerregistry (==12.0.0)
-Requires-Dist: azure-mgmt-containerservice (==34.1.0)
-Requires-Dist: azure-mgmt-cosmosdb (==9.7.0)
-Requires-Dist: azure-mgmt-databricks (==2.0.0)
-Requires-Dist: azure-mgmt-keyvault (==10.3.1)
-Requires-Dist: azure-mgmt-loganalytics (==12.0.0)
-Requires-Dist: azure-mgmt-monitor (==6.0.2)
-Requires-Dist: azure-mgmt-network (==28.1.0)
-Requires-Dist: azure-mgmt-postgresqlflexibleservers (==1.1.0)
-Requires-Dist: azure-mgmt-rdbms (==10.1.0)
-Requires-Dist: azure-mgmt-recoveryservices (==3.1.0)
-Requires-Dist: azure-mgmt-recoveryservicesbackup (==9.2.0)
-Requires-Dist: azure-mgmt-resource (==24.0.0)
-Requires-Dist: azure-mgmt-search (==9.1.0)
-Requires-Dist: azure-mgmt-security (==7.0.0)
-Requires-Dist: azure-mgmt-sql (==3.0.1)
-Requires-Dist: azure-mgmt-storage (==22.1.1)
-Requires-Dist: azure-mgmt-subscription (==3.1.1)
-Requires-Dist: azure-mgmt-web (==8.0.0)
-Requires-Dist: azure-monitor-query (==2.0.0)
-Requires-Dist: azure-storage-blob (==12.24.1)
-Requires-Dist: boto3 (==1.40.61)
-Requires-Dist: botocore (==1.40.61)
-Requires-Dist: cloudflare (==4.3.1)
-Requires-Dist: colorama (==0.4.6)
-Requires-Dist: cryptography (==46.0.7)
-Requires-Dist: dash (==3.1.1)
-Requires-Dist: dash-bootstrap-components (==2.0.3)
-Requires-Dist: defusedxml (==0.7.1)
-Requires-Dist: detect-secrets (==1.5.0)
-Requires-Dist: dulwich (==0.23.0)
-Requires-Dist: google-api-python-client (==2.163.0)
-Requires-Dist: google-auth-httplib2 (==0.2.0)
-Requires-Dist: h2 (==4.3.0)
-Requires-Dist: jsonschema (==4.23.0)
-Requires-Dist: kubernetes (==32.0.1)
-Requires-Dist: markdown (==3.10.2)
-Requires-Dist: microsoft-kiota-abstractions (==1.9.2)
-Requires-Dist: msgraph-sdk (==1.55.0)
-Requires-Dist: numpy (==2.0.2)
-Requires-Dist: oci (==2.169.0)
-Requires-Dist: openstacksdk (==4.2.0)
-Requires-Dist: pandas (==2.2.3)
-Requires-Dist: py-iam-expand (==0.1.0)
-Requires-Dist: py-ocsf-models (==0.8.1)
-Requires-Dist: pydantic (==2.12.5)
-Requires-Dist: pygithub (==2.8.0)
-Requires-Dist: python-dateutil (==2.9.0.post0)
-Requires-Dist: pytz (==2025.1)
-Requires-Dist: schema (==0.7.5)
-Requires-Dist: shodan (==1.31.0)
-Requires-Dist: slack-sdk (==3.39.0)
-Requires-Dist: tabulate (==0.9.0)
-Requires-Dist: tzlocal (==5.3.1)
-Requires-Dist: uuid6 (==2024.7.10)
 Project-URL: Changelog, https://github.com/prowler-cloud/prowler/releases
 Project-URL: Documentation, https://docs.prowler.com
 Project-URL: Homepage, https://github.com/prowler-cloud/prowler
 Project-URL: Issue tracker, https://github.com/prowler-cloud/prowler/issues
+Author-email: Toni de la Fuente <toni@blyx.com>
+Maintainer-email: Prowler Engineering <engineering@prowler.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: <3.13,>=3.10
+Requires-Dist: alibabacloud-actiontrail20200706==2.4.1
+Requires-Dist: alibabacloud-credentials==1.0.3
+Requires-Dist: alibabacloud-cs20151215==6.1.0
+Requires-Dist: alibabacloud-ecs20140526==7.2.5
+Requires-Dist: alibabacloud-gateway-oss-util==0.0.3
+Requires-Dist: alibabacloud-oss20190517==1.0.6
+Requires-Dist: alibabacloud-ram20150501==1.2.0
+Requires-Dist: alibabacloud-rds20140815==12.0.0
+Requires-Dist: alibabacloud-sas20181203==6.1.0
+Requires-Dist: alibabacloud-sls20201230==5.9.0
+Requires-Dist: alibabacloud-sts20150401==1.1.6
+Requires-Dist: alibabacloud-tea-openapi==0.4.4
+Requires-Dist: alibabacloud-vpc20160428==6.13.0
+Requires-Dist: alive-progress==3.3.0
+Requires-Dist: awsipranges==0.3.3
+Requires-Dist: azure-identity==1.21.0
+Requires-Dist: azure-keyvault-keys==4.10.0
+Requires-Dist: azure-mgmt-apimanagement==5.0.0
+Requires-Dist: azure-mgmt-applicationinsights==4.1.0
+Requires-Dist: azure-mgmt-authorization==4.0.0
+Requires-Dist: azure-mgmt-compute==34.0.0
+Requires-Dist: azure-mgmt-containerregistry==12.0.0
+Requires-Dist: azure-mgmt-containerservice==34.1.0
+Requires-Dist: azure-mgmt-cosmosdb==9.7.0
+Requires-Dist: azure-mgmt-databricks==2.0.0
+Requires-Dist: azure-mgmt-keyvault==10.3.1
+Requires-Dist: azure-mgmt-loganalytics==12.0.0
+Requires-Dist: azure-mgmt-monitor==6.0.2
+Requires-Dist: azure-mgmt-network==28.1.0
+Requires-Dist: azure-mgmt-postgresqlflexibleservers==1.1.0
+Requires-Dist: azure-mgmt-rdbms==10.1.0
+Requires-Dist: azure-mgmt-recoveryservices==3.1.0
+Requires-Dist: azure-mgmt-recoveryservicesbackup==9.2.0
+Requires-Dist: azure-mgmt-resource==24.0.0
+Requires-Dist: azure-mgmt-search==9.1.0
+Requires-Dist: azure-mgmt-security==7.0.0
+Requires-Dist: azure-mgmt-sql==3.0.1
+Requires-Dist: azure-mgmt-storage==22.1.1
+Requires-Dist: azure-mgmt-subscription==3.1.1
+Requires-Dist: azure-mgmt-web==8.0.0
+Requires-Dist: azure-monitor-query==2.0.0
+Requires-Dist: azure-storage-blob==12.24.1
+Requires-Dist: boto3==1.40.61
+Requires-Dist: botocore==1.40.61
+Requires-Dist: cloudflare==4.3.1
+Requires-Dist: colorama==0.4.6
+Requires-Dist: cryptography==46.0.7
+Requires-Dist: dash-bootstrap-components==2.0.3
+Requires-Dist: dash==3.1.1
+Requires-Dist: defusedxml==0.7.1
+Requires-Dist: detect-secrets==1.5.0
+Requires-Dist: dulwich==0.23.0
+Requires-Dist: google-api-python-client==2.163.0
+Requires-Dist: google-auth-httplib2==0.2.0
+Requires-Dist: h2==4.3.0
+Requires-Dist: jsonschema==4.23.0
+Requires-Dist: kubernetes==32.0.1
+Requires-Dist: markdown==3.10.2
+Requires-Dist: microsoft-kiota-abstractions==1.9.2
+Requires-Dist: msgraph-sdk==1.55.0
+Requires-Dist: numpy==2.0.2
+Requires-Dist: oci==2.169.0
+Requires-Dist: okta==3.4.2
+Requires-Dist: openstacksdk==4.2.0
+Requires-Dist: pandas==2.2.3
+Requires-Dist: py-iam-expand==0.1.0
+Requires-Dist: py-ocsf-models==0.8.1
+Requires-Dist: pydantic==2.12.5
+Requires-Dist: pygithub==2.8.0
+Requires-Dist: python-dateutil==2.9.0.post0
+Requires-Dist: pytz==2025.1
+Requires-Dist: scaleway==2.10.3
+Requires-Dist: schema==0.7.5
+Requires-Dist: shodan==1.31.0
+Requires-Dist: slack-sdk==3.39.0
+Requires-Dist: tabulate==0.9.0
+Requires-Dist: tzlocal==5.3.1
+Requires-Dist: uuid6==2024.7.10
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -201,22 +201,24 @@ Every AWS provider scan will enqueue an Attack Paths ingestion job automatically
 
 | Provider | Checks | Services | [Compliance Frameworks](https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/compliance/) | [Categories](https://docs.prowler.com/projects/prowler-open-source/en/latest/tutorials/misc/#categories) | Support | Interface |
 |---|---|---|---|---|---|---|
-| AWS | 595 | 84 | 43 | 17 | Official | UI, API, CLI |
+| AWS | 600 | 84 | 44 | 18 | Official | UI, API, CLI |
 | Azure | 167 | 22 | 19 | 16 | Official | UI, API, CLI |
 | GCP | 102 | 18 | 17 | 12 | Official | UI, API, CLI |
 | Kubernetes | 83 | 7 | 7 | 11 | Official | UI, API, CLI |
 | GitHub | 24 | 3 | 1 | 5 | Official | UI, API, CLI |
-| M365 | 101 | 10 | 4 | 10 | Official | UI, API, CLI |
+| M365 | 102 | 10 | 4 | 10 | Official | UI, API, CLI |
 | OCI | 51 | 14 | 4 | 10 | Official | UI, API, CLI |
-| Alibaba Cloud | 61 | 9 | 4 | 9 | Official | UI, API, CLI |
+| Alibaba Cloud | 63 | 9 | 4 | 9 | Official | UI, API, CLI |
 | Cloudflare | 29 | 3 | 0 | 5 | Official | UI, API, CLI |
 | IaC | [See `trivy` docs.](https://trivy.dev/latest/docs/coverage/iac/) | N/A | N/A | N/A | Official | UI, API, CLI |
 | MongoDB Atlas | 10 | 3 | 0 | 8 | Official | UI, API, CLI |
 | LLM | [See `promptfoo` docs.](https://www.promptfoo.dev/docs/red-team/plugins/) | N/A | N/A | N/A | Official | CLI |
 | Image | N/A | N/A | N/A | N/A | Official | CLI, API |
-| Google Workspace | 25 | 4 | 2 | 4 | Official | CLI |
+| Google Workspace | 39 | 5 | 2 | 5 | Official | UI, API, CLI |
 | OpenStack | 34 | 5 | 0 | 9 | Official | UI, API, CLI |
-| Vercel | 26 | 6 | 0 | 5 | Official | CLI |
+| Vercel | 26 | 6 | 0 | 8 | Official | UI, API, CLI |
+| Okta | 1 | 1 | 0 | 1 | Official | CLI |
+| Scaleway [Contact us](https://prowler.com/contact) | 1 | 1 | 0 | 1 | Unofficial | CLI |
 | NHN | 6 | 2 | 1 | 0 | Unofficial | CLI |
 
 > [!Note]
@@ -273,7 +275,7 @@ You can find more information in the [Troubleshooting](./docs/troubleshooting.md
 **Requirements**
 
 * `git` installed.
-* `poetry` v2 installed: [poetry installation](https://python-poetry.org/docs/#installation).
+* `uv` installed: [uv installation](https://docs.astral.sh/uv/getting-started/installation/).
 * `pnpm` installed: [pnpm installation](https://pnpm.io/installation).
 * `Docker Compose` installed: https://docs.docker.com/compose/install/.
 
@@ -282,8 +284,8 @@ You can find more information in the [Troubleshooting](./docs/troubleshooting.md
 ``` console
 git clone https://github.com/prowler-cloud/prowler
 cd prowler/api
-poetry install
-eval $(poetry env activate)
+uv sync
+source .venv/bin/activate
 set -a
 source .env
 docker compose up postgres valkey -d
@@ -291,11 +293,6 @@ cd src/backend
 python manage.py migrate --database admin
 gunicorn -c config/guniconf.py config.wsgi:application
 ```
-> [!IMPORTANT]
-> As of Poetry v2.0.0, the `poetry shell` command has been deprecated. Use `poetry env activate` instead for environment activation.
->
-> If your Poetry version is below v2.0.0, continue using `poetry shell` to activate your environment.
-> For further guidance, refer to the Poetry Environment Activation Guide https://python-poetry.org/docs/managing-environments/#activating-the-environment.
 
 > After completing the setup, access the API documentation at http://localhost:8080/api/v1/docs.
 
@@ -304,8 +301,8 @@ gunicorn -c config/guniconf.py config.wsgi:application
 ``` console
 git clone https://github.com/prowler-cloud/prowler
 cd prowler/api
-poetry install
-eval $(poetry env activate)
+uv sync
+source .venv/bin/activate
 set -a
 source .env
 cd src/backend
@@ -317,8 +314,8 @@ python -m celery -A config.celery worker -l info -E
 ``` console
 git clone https://github.com/prowler-cloud/prowler
 cd prowler/api
-poetry install
-eval $(poetry env activate)
+uv sync
+source .venv/bin/activate
 set -a
 source .env
 cd src/backend
@@ -379,23 +376,17 @@ The container images are available here:
 
 ### From GitHub
 
-Python >=3.10, <3.13 is required with pip and Poetry:
+Python >=3.10, <3.13 is required with [uv](https://docs.astral.sh/uv/):
 
 ``` console
 git clone https://github.com/prowler-cloud/prowler
 cd prowler
-eval $(poetry env activate)
-poetry install
+uv sync
+source .venv/bin/activate
 python prowler-cli.py -v
 ```
 > [!IMPORTANT]
 > To clone Prowler on Windows, configure Git to support long file paths by running the following command: `git config core.longpaths true`.
-
-> [!IMPORTANT]
-> As of Poetry v2.0.0, the `poetry shell` command has been deprecated. Use `poetry env activate` instead for environment activation.
->
-> If your Poetry version is below v2.0.0, continue using `poetry shell` to activate your environment.
-> For further guidance, refer to the Poetry Environment Activation Guide https://python-poetry.org/docs/managing-environments/#activating-the-environment.
 
 # 🛡️ GitHub Action
 
@@ -514,4 +505,3 @@ For installation instructions, usage details, tutorials, and the Developer Guide
 Prowler is licensed under the Apache License 2.0.
 
 A copy of the License is available at <http://www.apache.org/licenses/LICENSE-2.0>
-

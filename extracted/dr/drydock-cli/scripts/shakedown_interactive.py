@@ -1826,8 +1826,9 @@ def run_interactive(cwd: Path, pkg: str) -> int:
                     drain_pty(child)
                     if watcher.find_session():
                         break
-                if watcher.find_session():
-                    print(f" found: {watcher.session_dir.name}")
+                found = watcher.find_session()
+                if found is not None:
+                    print(f" found: {found.name}")
                 else:
                     print(" not found (continuing anyway)")
                 # For step 0 we can't confirm before typing, but check after

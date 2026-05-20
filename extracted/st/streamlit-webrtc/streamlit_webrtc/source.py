@@ -32,6 +32,8 @@ AudioSourceCallback = Callable[
 
 
 class VideoSourceTrack(MediaStreamTrack):
+    _on_ended_callback: Optional[Callable[[], None]]
+
     def __init__(self, callback: VideoSourceCallback, fps: Union[int, float]) -> None:
         super().__init__()
         self.kind = "video"
@@ -39,6 +41,17 @@ class VideoSourceTrack(MediaStreamTrack):
         self._fps = fps
         self._started_at: Optional[float] = None
         self._pts: Optional[int] = None
+        self._on_ended_callback = None
+        self.on("ended", self._fire_on_ended)
+
+    def _fire_on_ended(self) -> None:
+        cb = self._on_ended_callback
+        if cb is None:
+            return
+        try:
+            cb()
+        except Exception:
+            logger.exception("VideoSourceTrack: on_ended callback raised an exception")
 
     async def recv(self) -> av.frame.Frame:
         if self.readyState != "live":
@@ -57,7 +70,8 @@ class VideoSourceTrack(MediaStreamTrack):
             wait = self._started_at + (self._pts / VIDEO_CLOCK_RATE) - time.monotonic()
             if wait < 0:
                 logger.warning(
-                    "VideoSourceCallbackTrack: Video frame callback is too slow."
+                    "%s: Video frame callback is too slow.",
+                    self.__class__.__name__,
                 )
                 wait = 0
             await asyncio.sleep(wait)
@@ -69,7 +83,8 @@ class VideoSourceTrack(MediaStreamTrack):
             frame = self._callback(pts, time_base)
         except Exception as exc:
             logger.error(
-                "VideoSourceCallbackTrack: Video frame callback raised an exception: %s",  # noqa: E501
+                "%s: Video frame callback raised an exception: %s",
+                self.__class__.__name__,
                 exc,
                 exc_info=True,
             )
@@ -81,6 +96,8 @@ class VideoSourceTrack(MediaStreamTrack):
 
 
 class AudioSourceTrack(MediaStreamTrack):
+    _on_ended_callback: Optional[Callable[[], None]]
+
     def __init__(
         self,
         callback: AudioSourceCallback,
@@ -100,6 +117,17 @@ class AudioSourceTrack(MediaStreamTrack):
         self._time_base = fractions.Fraction(1, self._sample_rate)
         self._started_at: Optional[float] = None
         self._pts: Optional[int] = None
+        self._on_ended_callback = None
+        self.on("ended", self._fire_on_ended)
+
+    def _fire_on_ended(self) -> None:
+        cb = self._on_ended_callback
+        if cb is None:
+            return
+        try:
+            cb()
+        except Exception:
+            logger.exception("AudioSourceTrack: on_ended callback raised an exception")
 
     async def recv(self) -> av.frame.Frame:
         if self.readyState != "live":
@@ -117,7 +145,10 @@ class AudioSourceTrack(MediaStreamTrack):
 
             wait = self._started_at + (self._pts / self._sample_rate) - time.monotonic()
             if wait < 0:
-                logger.warning("AudioSourceTrack: Audio frame callback is too slow.")
+                logger.warning(
+                    "%s: Audio frame callback is too slow.",
+                    self.__class__.__name__,
+                )
                 wait = 0
             await asyncio.sleep(wait)
 
@@ -128,7 +159,8 @@ class AudioSourceTrack(MediaStreamTrack):
             frame = self._callback(pts, time_base)
         except Exception as exc:
             logger.error(
-                "AudioSourceTrack: Audio frame callback raised an exception: %s",
+                "%s: Audio frame callback raised an exception: %s",
+                self.__class__.__name__,
                 exc,
                 exc_info=True,
             )

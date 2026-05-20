@@ -14,7 +14,7 @@ format:
 lint:
 	ruff check python/ tests/
 	ruff format --check --diff python/ tests/
-	mypy python/ tests/
+	ty check python/ tests/
 .PHONY: test
 test:
 	pytest tests -vvv
@@ -30,15 +30,11 @@ bench-report:
 
 .PHONY: docs_build
 docs_build:
-	mkdocs build
+	zensical build
 
 .PHONY: docs_serve
 docs_serve:
-	mkdocs serve --dev-addr localhost:8080
-
-.PHONY: docs_deploy
-docs_deploy:
-	mkdocs gh-deploy --force
+	zensical serve --dev-addr localhost:8080
 
 .PHONY: all
 all: format build lint test

@@ -1,11 +1,10 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: jdatetime
-Version: 5.2.0
+Version: 5.3.0
 Summary: Jalali datetime binding for python
-Home-page: https://github.com/slashmili/python-jalali
-Author: Milad Rastian
-Author-email: eslashmili@gmail.com
-License: Python Software Foundation License
+Author-email: Milad Rastian <eslashmili@gmail.com>
+License-Expression: PSF-2.0
+Project-URL: Homepage, https://github.com/slashmili/python-jalali
 Keywords: Jalali implementation of Python datetime
 Platform: any
 Classifier: Intended Audience :: Developers
@@ -17,21 +16,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: jalali-core>=1.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: platform
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 jdatetime
 =========
@@ -172,7 +163,7 @@ If you wish to limit the testing to specific Python version, you can parametrize
 
 Release Steps
 ~~~~~~~~~~~~~~
-* Bump the version in ``setup.py`` and ``jdatetime/__init__.py``. We are using Semantic Versioning.
+* Bump the ``__VERSION__`` in ``jdatetime/__init__.py``. We are using Semantic Versioning.
 * Add release notes in CHANGELOG.md
 * Commit and push the changes. Create a PR
 * After the PR is merged, create a release with a tag name like `v<version>`

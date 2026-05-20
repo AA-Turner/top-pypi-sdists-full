@@ -83,8 +83,13 @@ def get_page_bases(cls: TPage) -> tuple[type[Any], ...]:
     bases: tuple[type[Any], ...]
 
     if is_pydantic_v2_model(cls):
-        params = cls.__pydantic_generic_metadata__["parameters"]
-        bases = (cls,) if not params else (cls[params], Generic[params])  # type: ignore[ty:invalid-argument-type]
+        params = cls.__pydantic_generic_metadata__["parameters"]  # type: ignore[ty:unresolved-attribute]
+        bases = (cls,)
+        if params:
+            bases = (
+                cls[params],  # type: ignore[ty:not-subscriptable]
+                Generic[params],  # type: ignore[ty:invalid-argument-type]
+            )
     elif cls.__concrete__:
         bases = (cls,)
     else:
@@ -552,7 +557,7 @@ def _convert_v2_field_to_v1(field_v2: FieldV2) -> tuple[Any, Any]:
     return type_, FieldInfoV1(
         default=default,
         default_factory=field_v2.default_factory,
-        alias=field_v2.alias or field_v2.validation_alias,
+        alias=cast(str, field_v2.alias or field_v2.validation_alias),
         title=field_v2.title,
         description=field_v2.description,
     )

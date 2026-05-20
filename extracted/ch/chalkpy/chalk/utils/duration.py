@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from typing import Literal, Optional, TypeAlias, Union
 
@@ -104,3 +105,19 @@ def timedelta_to_duration(td: timedelta | int) -> str:
         td = timedelta(seconds=td)
 
     return _rs_seconds_to_duration_string(td.total_seconds())
+
+
+_WINDOWED_FQN_RE = re.compile(r"^(.+?)__(\d+|all)__(@.+)?$")
+
+
+def translate_windowed_fqn(fqn: str) -> str:
+    """Rewrite a windowed FQN like ``ns.feat__86400__`` to ``ns.feat["1d"]``.
+
+    Non-windowed FQNs are returned unchanged.
+    """
+    m = _WINDOWED_FQN_RE.match(fqn)
+    if m is None:
+        return fqn
+    stem, bucket, version = m.group(1), m.group(2), m.group(3) or ""
+    window_str = "all" if bucket == "all" else timedelta_to_duration(int(bucket))
+    return f'{stem}["{window_str}"]{version}'

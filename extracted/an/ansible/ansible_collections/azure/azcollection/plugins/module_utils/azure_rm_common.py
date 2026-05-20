@@ -50,6 +50,8 @@ AZURE_COMMON_ARGS = dict(
     x509_certificate_path=dict(type='path', no_log=True),
     thumbprint=dict(type='str', no_log=True),
     disable_instance_discovery=dict(type='bool', default=False),
+    oidc_token=dict(type='str', no_log=True),  # direct JWT assertion
+    oidc_token_file_path=dict(type='path', no_log=True)  # path to JWT assertion file
 )
 
 AZURE_CREDENTIAL_ENV_MAPPING = dict(
@@ -65,7 +67,9 @@ AZURE_CREDENTIAL_ENV_MAPPING = dict(
     adfs_authority_url='AZURE_ADFS_AUTHORITY_URL',
     x509_certificate_path='AZURE_X509_CERTIFICATE_PATH',
     thumbprint='AZURE_THUMBPRINT',
-    disable_instance_discovery='AZURE_DISABLE_INSTANCE_DISCOVERY'
+    disable_instance_discovery='AZURE_DISABLE_INSTANCE_DISCOVERY',
+    oidc_token='AZURE_FEDERATED_TOKEN',
+    oidc_token_file_path='AZURE_FEDERATED_TOKEN_FILE'
 )
 
 
@@ -135,7 +139,8 @@ AZURE_API_PROFILES = {
         'CdnManagementClient': '2017-04-02',
         'BatchManagementClient': 'latest',
         'EventGridManagementClient': '2025-02-15',
-        'AppConfigurationManagementClient': '2024-05-01'
+        'AppConfigurationManagementClient': '2024-05-01',
+        'HybridComputeManagementClient': 'latest'
     },
     '2019-03-01-hybrid': {
         'StorageManagementClient': '2017-10-01',
@@ -272,7 +277,7 @@ try:
     from azure.mgmt.datafactory import DataFactoryManagementClient
     import azure.mgmt.datafactory.models as DataFactoryModel
     from azure.identity._credentials import client_secret, user_password, certificate, managed_identity
-    from azure.identity import AzureCliCredential
+    from azure.identity import AzureCliCredential, ClientAssertionCredential
     from kiota_authentication_azure.azure_identity_authentication_provider import AzureIdentityAuthenticationProvider
     from msgraph_core import GraphClientFactory, NationalClouds
     from msgraph import GraphRequestAdapter, GraphServiceClient
@@ -280,6 +285,8 @@ try:
     from azure.mgmt.batch import models as BatchManagementModel
     from azure.mgmt.resourcehealth import ResourceHealthMgmtClient
     from azure.mgmt.cdn import CdnManagementClient
+    from azure.mgmt.hybridcompute import HybridComputeManagementClient
+
 except ImportError as exc:
     AZURE_IMPORT_ERROR = traceback.format_exc()
 
@@ -439,6 +446,7 @@ class AzureRMModuleBase(object):
         self._batch_account_client = None
         self._resourcehealth_client = None
         self._cdn_client = None
+        self._hybrid_compute_management_client = None
 
         self.check_mode = self.module.check_mode
         self.api_profile = self.module.params.get('api_profile')
@@ -886,9 +894,7 @@ class AzureRMModuleBase(object):
         if not base_url.endswith("/"):
             base_url += "/"
 
-        mgmt_subscription_id = self.azure_auth.subscription_id
-        if self.module.params.get('subscription_id'):
-            mgmt_subscription_id = self.module.params.get('subscription_id')
+        mgmt_subscription_id = self.subscription_id
 
         # Some management clients do not take a subscription ID as parameters.
         if suppress_subscription_id:
@@ -1530,6 +1536,14 @@ class AzureRMModuleBase(object):
                                                         api_version='2024-02-01')
         return self._cdn_client
 
+    @property
+    def hybrid_compute_management_client(self):
+        self.log('Getting hybrid compute management client...')
+        if not self._hybrid_compute_management_client:
+            self._hybrid_compute_management_client = self.get_mgmt_svc_client(HybridComputeManagementClient,
+                                                                              base_url=self._cloud_environment.endpoints.resource_manager)
+        return self._hybrid_compute_management_client
+
 
 class AzureRMAuthException(Exception):
     pass
@@ -1542,7 +1556,7 @@ class AzureRMAuth(object):
     def __init__(self, auth_source=None, profile=None, subscription_id=None, client_id=None, secret=None,
                  tenant=None, ad_user=None, password=None, cloud_environment='AzureCloud', cert_validation_mode='validate',
                  api_profile='latest', adfs_authority_url=None, fail_impl=None, is_ad_resource=False,
-                 x509_certificate_path=None, thumbprint=None, track1_cred=False,
+                 x509_certificate_path=None, thumbprint=None, oidc_token=None, oidc_token_file_path=None, track1_cred=False,
                  disable_instance_discovery=False , **kwargs):
 
         if fail_impl:
@@ -1567,7 +1581,9 @@ class AzureRMAuth(object):
             adfs_authority_url=adfs_authority_url,
             x509_certificate_path=x509_certificate_path,
             thumbprint=thumbprint,
-            disable_instance_discovery=disable_instance_discovery)
+            disable_instance_discovery=disable_instance_discovery,
+            oidc_token=oidc_token,
+            oidc_token_file_path=oidc_token_file_path)
 
         if not self.credentials:
             self.fail("Failed to get credentials. Either pass as parameters, set environment variables, "
@@ -1629,6 +1645,39 @@ class AzureRMAuth(object):
         elif self.credentials.get('credentials') is not None:
             # AzureCLI credentials
             self.azure_credential_track2 = self.credentials['credentials']
+        # OIDC direct token
+        elif self.credentials.get('client_id') is not None and \
+                self.credentials.get('tenant') is not None and \
+                self.credentials.get('oidc_token') is not None:
+            token = self.credentials['oidc_token']
+
+            def _load_assertion():
+                return token
+
+            self.azure_credential_track2 = ClientAssertionCredential(tenant_id=self.credentials['tenant'],
+                                                                     client_id=self.credentials['client_id'],
+                                                                     func=_load_assertion,
+                                                                     authority=self._adfs_authority_url,
+                                                                     disable_instance_discovery=self._disable_instance_discovery)
+        # OIDC token file
+        elif self.credentials.get('client_id') is not None and \
+                self.credentials.get('tenant') is not None and \
+                self.credentials.get('oidc_token_file_path') is not None:
+            token_file = self.credentials['oidc_token_file_path']
+
+            if not os.path.exists(token_file):
+                self.fail(f"The specified OIDC token file does not exist: {token_file}")
+
+            def _load_assertion():
+                with open(token_file) as f:
+                    return f.read()
+
+            self.azure_credential_track2 = ClientAssertionCredential(tenant_id=self.credentials['tenant'],
+                                                                     client_id=self.credentials['client_id'],
+                                                                     func=_load_assertion,
+                                                                     authority=self._adfs_authority_url,
+                                                                     disable_instance_discovery=self._disable_instance_discovery)
+
         elif self.credentials.get('client_id') is not None and \
                 self.credentials.get('secret') is not None and \
                 self.credentials.get('tenant') is not None:
@@ -1671,10 +1720,14 @@ class AzureRMAuth(object):
                                                                                     disable_instance_discovery=self._disable_instance_discovery)
 
         else:
-            self.fail("Failed to authenticate with provided credentials. Some attributes were missing. "
-                      "Credentials must include client_id, secret and tenant or ad_user and password, or "
-                      "ad_user, password, client_id, tenant and adfs_authority_url(optional) for ADFS authentication, or "
-                      "be logged in using AzureCLI.")
+            self.fail("Failed to authenticate with provided credentials. Some attributes were missing. \n\n"
+                      "Supported authentication methods: \n"
+                      "- Workload identity (OIDC) token: client_id, tenant, and oidc_token\n"
+                      "- Workload identity (OIDC) token file: client_id, tenant, and oidc_token_file_path\n"
+                      "- Service principal with client secret: client_id, tenant, secret\n"
+                      "- Service principal with certificate: client_id, tenant, x509_certificate_path\n"
+                      "- Username/password authentication: ad_user, password\n"
+                      "- Azure CLI authentication: run `az_login`.\n")
 
     def fail(self, msg, exception=None, **kwargs):
         self._fail_impl(msg)
@@ -1686,7 +1739,7 @@ class AzureRMAuth(object):
         "Read envvar matching module parameter"
         return os.environ.get(AZURE_CREDENTIAL_ENV_MAPPING[module_key], default)
 
-    def _get_profile(self, profile="default"):
+    def _get_profile(self, profile="default", subscription_id=None):
         path = expanduser("~/.azure/credentials")
         try:
             config = configparser.ConfigParser()
@@ -1703,8 +1756,11 @@ class AzureRMAuth(object):
 
         if credentials.get('subscription_id') is None and not self.is_ad_resource:
             return None
-        else:
-            return credentials
+
+        if subscription_id is not None:
+            credentials['subscription_id'] = subscription_id
+
+        return credentials
 
     def _get_msi_credentials(self, subscription_id=None, client_id=None, _cloud_environment=None, **kwargs):
         # Get object `cloud_environment` from string `_cloud_environment`
@@ -1773,19 +1829,22 @@ class AzureRMAuth(object):
         }
         return cli_credentials
 
-    def _get_env_credentials(self):
+    def _get_env_credentials(self, subscription_id=None):
         env_credentials = dict()
         for attribute, env_variable in AZURE_CREDENTIAL_ENV_MAPPING.items():
             env_credentials[attribute] = os.environ.get(env_variable, None)
 
         if env_credentials['profile']:
-            credentials = self._get_profile(env_credentials['profile'])
+            credentials = self._get_profile(env_credentials['profile'], subscription_id=subscription_id)
             return credentials
 
         if env_credentials.get('subscription_id') is None and not self.is_ad_resource:
             return None
-        else:
-            return env_credentials
+
+        if subscription_id is not None:
+            env_credentials['subscription_id'] = subscription_id
+
+        return env_credentials
 
     def _get_credentials(self, auth_source=None, **params):
         # Get authentication credentials.
@@ -1810,20 +1869,20 @@ class AzureRMAuth(object):
 
         if auth_source == 'env':
             self.log('Retrieving credentials from environment')
-            env_credentials = self._get_env_credentials()
+            env_credentials = self._get_env_credentials(subscription_id=params.get('subscription_id'))
             return env_credentials
 
         if auth_source == 'credential_file':
             self.log("Retrieving credentials from credential file")
             profile = params.get('profile') or 'default'
-            default_credentials = self._get_profile(profile)
+            default_credentials = self._get_profile(profile, subscription_id=params.get('subscription_id'))
             return default_credentials
 
         # auto, precedence: module parameters -> environment variables -> default profile in ~/.azure/credentials -> azure cli
         # try module params
         if arg_credentials['profile'] is not None:
             self.log('Retrieving credentials with profile parameter.')
-            credentials = self._get_profile(arg_credentials['profile'])
+            credentials = self._get_profile(arg_credentials['profile'], subscription_id=params.get('subscription_id'))
             return credentials
 
         if arg_credentials['client_id'] or arg_credentials['ad_user']:
@@ -1831,13 +1890,13 @@ class AzureRMAuth(object):
             return arg_credentials
 
         # try environment
-        env_credentials = self._get_env_credentials()
+        env_credentials = self._get_env_credentials(subscription_id=params.get('subscription_id'))
         if env_credentials:
             self.log('Received credentials from env.')
             return env_credentials
 
         # try default profile from ~./azure/credentials
-        default_credentials = self._get_profile()
+        default_credentials = self._get_profile(subscription_id=params.get('subscription_id'))
         if default_credentials:
             self.log('Retrieved default profile credentials from ~/.azure/credentials.')
             return default_credentials

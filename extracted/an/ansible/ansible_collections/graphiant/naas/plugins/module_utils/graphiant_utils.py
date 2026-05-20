@@ -4,9 +4,26 @@ Graphiant Ansible Collection - Module Utilities
 This module provides common utilities for Graphiant Ansible modules.
 """
 
-import sys
 import os
-from typing import Dict, Any
+import sys
+from typing import Any, Dict, Optional
+
+
+def ansible_module_log(module: Any, message: str) -> None:
+    """
+    Emit a line through Ansible's module log hook when available (typically visible with -vvv
+    and/or when ANSIBLE_LOG_PATH is set, depending on ansible-test / ansible version).
+
+    Never raises: use for optional debug on failure paths and success checkpoints.
+    """
+    if module is None:
+        return
+    try:
+        log = getattr(module, "log", None)
+        if callable(log):
+            log(f"[graphiant] {message}")
+    except Exception:
+        pass
 
 
 def graphiant_portal_auth_argument_spec():
@@ -29,19 +46,19 @@ def graphiant_portal_auth_argument_spec():
         dict: Argument spec for host, username, password, access_token.
     """
     return {
-        'host': dict(type='str', required=True, aliases=['base_url']),
-        'username': dict(type='str', required=False),
-        'password': dict(type='str', required=False, no_log=True, default=None),
-        'access_token': dict(type='str', required=False, no_log=True, default=None),
+        "host": dict(type="str", required=True, aliases=["base_url"]),
+        "username": dict(type="str", required=False),
+        "password": dict(type="str", required=False, no_log=True, default=None),
+        "access_token": dict(type="str", required=False, no_log=True, default=None),
     }
 
 
 def _resolved_access_token(module_params: Dict[str, Any]):
     """Prefer module access_token, then GRAPHIANT_ACCESS_TOKEN from the environment."""
-    explicit = module_params.get('access_token')
+    explicit = module_params.get("access_token")
     if explicit is not None and str(explicit).strip():
         return str(explicit).strip()
-    env_t = os.environ.get('GRAPHIANT_ACCESS_TOKEN')
+    env_t = os.environ.get("GRAPHIANT_ACCESS_TOKEN")
     if env_t is not None and str(env_t).strip():
         return str(env_t).strip()
     return None
@@ -52,7 +69,7 @@ def _password_auth_usable(username, password) -> bool:
         return False
     if not str(username).strip():
         return False
-    if str(password) == '':
+    if str(password) == "":
         return False
     return True
 
@@ -80,12 +97,14 @@ def _import_graphiant_libs():
     # This tells Ansible to bundle the libs/ directory in the module payload
     # Do NOT modify sys.path here - let Ansible handle it
     try:
-        from ansible_collections.graphiant.naas.plugins.module_utils.libs.graphiant_config import (
-            GraphiantConfig
-        )
+        from ansible_collections.graphiant.naas.plugins.module_utils.libs.graphiant_config import GraphiantConfig
         from ansible_collections.graphiant.naas.plugins.module_utils.libs.exceptions import (
-            GraphiantPlaybookError, ConfigurationError, APIError, DeviceNotFoundError
+            GraphiantPlaybookError,
+            ConfigurationError,
+            APIError,
+            DeviceNotFoundError,
         )
+
         return GraphiantConfig, GraphiantPlaybookError, ConfigurationError, APIError, DeviceNotFoundError
     except ImportError:
         pass
@@ -98,8 +117,14 @@ def _import_graphiant_libs():
         sys.path.append(module_utils_dir)  # append, not insert(0)
 
     try:
-        from libs.graphiant_config import GraphiantConfig
-        from libs.exceptions import GraphiantPlaybookError, ConfigurationError, APIError, DeviceNotFoundError
+        from .libs.graphiant_config import GraphiantConfig
+        from .libs.exceptions import (
+            APIError,
+            ConfigurationError,
+            DeviceNotFoundError,
+            GraphiantPlaybookError,
+        )
+
         return GraphiantConfig, GraphiantPlaybookError, ConfigurationError, APIError, DeviceNotFoundError
     except ImportError:
         # Return None values instead of raising to allow ansible-test validate-modules
@@ -144,9 +169,9 @@ class GraphiantConnection:
     def __init__(
         self,
         host: str,
-        username: str = None,
-        password: str = None,
-        access_token: str = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        access_token: Optional[str] = None,
         check_mode: bool = False,
     ):
         """
@@ -226,12 +251,12 @@ def get_graphiant_connection(module_params: Dict[str, Any], check_mode: bool = F
     Returns:
         GraphiantConnection: Initialized connection object
     """
-    if 'host' not in module_params or not module_params.get('host'):
+    if "host" not in module_params or not module_params.get("host"):
         raise ValueError("Missing required parameter: host")
 
     token = _resolved_access_token(module_params)
-    username = module_params.get('username')
-    password = module_params.get('password')
+    username = module_params.get("username")
+    password = module_params.get("password")
 
     if token is None and not _password_auth_usable(username, password):
         raise ValueError(
@@ -240,7 +265,7 @@ def get_graphiant_connection(module_params: Dict[str, Any], check_mode: bool = F
         )
 
     return GraphiantConnection(
-        host=module_params['host'],
+        host=module_params["host"],
         username=username,
         password=password,
         access_token=token,
@@ -271,12 +296,24 @@ def handle_graphiant_exception(exception: Exception, operation: str) -> str:
         return f"Error during {operation}: {str(exception)}"
 
     if isinstance(exception, ConfigurationError):
-        return f"Configuration error during {operation}: {str(exception)}"
+        msg = str(exception)
+        # Already a full sentence from portal/config loading (e.g. missing file path)
+        if msg.startswith("Config file not found:"):
+            return msg
+        return f"Configuration error during {operation}: {msg}"
     elif isinstance(exception, APIError):
         return f"API error during {operation}: {str(exception)}"
     elif isinstance(exception, DeviceNotFoundError):
         return f"Device not found during {operation}: {str(exception)}"
     elif isinstance(exception, GraphiantPlaybookError):
         return f"Graphiant playbook error during {operation}: {str(exception)}"
+    elif isinstance(exception, ValueError):
+        return f"Invalid parameters for {operation}: {str(exception)}"
+    elif isinstance(exception, (OSError, PermissionError, FileNotFoundError)):
+        return f"File or I/O error during {operation}: {str(exception)}"
+    elif isinstance(exception, ImportError):
+        return f"Import error (missing optional dependency) during {operation}: {str(exception)}"
+    elif isinstance(exception, (TypeError, KeyError, AttributeError)):
+        return f"Internal error during {operation} ({type(exception).__name__}): {str(exception)}"
     else:
-        return f"Unexpected error during {operation}: {str(exception)}"
+        return f"Unexpected error during {operation} ({type(exception).__name__}): {str(exception)}"

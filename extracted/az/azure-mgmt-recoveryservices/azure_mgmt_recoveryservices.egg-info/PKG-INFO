@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-recoveryservices
-Version: 4.0.0
+Version: 4.0.1
 Summary: Microsoft Azure Recoveryservices Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -10,12 +10,11 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
@@ -26,7 +25,7 @@ Dynamic: license-file
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Recovery Services Client Library.
-This package has been tested with Python 3.9+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -37,7 +36,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.9+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -86,6 +85,12 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 4.0.1 (2026-05-19)
+
+### Other Changes
+
+  - Regenerated with latest code generator tool
 
 ## 4.0.0 (2025-10-27)
 ### Features Added
