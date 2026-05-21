@@ -156,14 +156,30 @@ def _parse_advertisement_data(
 _cached_parse_advertisement_data = _parse_advertisement_data
 
 
+@lru_cache(maxsize=256)
+def _parse_advertisement_data_from_tuple(
+    data: tuple[bytes, ...],
+) -> BLEGAPAdvertisement:
+    """Parse a multi-chunk advertisement tuple, caching on the tuple itself.
+
+    Hashing a tuple of bytes elements skips the per-call ``b"".join`` allocation
+    on cache hits, which is the hot path when the same scan callback delivers
+    the same (adv_data, scan_response_data) tuple repeatedly.
+    """
+    return _cached_parse_advertisement_data(b"".join(data))
+
+
+_cached_parse_advertisement_data_from_tuple = _parse_advertisement_data_from_tuple
+
+
 def parse_advertisement_data(
     data: Iterable[bytes],
 ) -> BLEGAPAdvertisement:
     """Parse advertisement data and return a BLEGAPAdvertisement."""
     if type(data) is tuple:
-        return _cached_parse_advertisement_data(
-            b"".join(data) if len(data) > 1 else data[0]
-        )
+        if len(data) == 1:
+            return _cached_parse_advertisement_data(data[0])
+        return _cached_parse_advertisement_data_from_tuple(data)
     return _cached_parse_advertisement_data(b"".join(data))
 
 
@@ -174,9 +190,13 @@ def _uncached_parse_advertisement_data(data: bytes) -> BLEGAPAdvertisement:
 def _uncached_parse_advertisement_tuple(
     data: tuple[bytes, ...],
 ) -> BLEGAPAdvertisementTupleType:
-    return _uncached_parse_advertisement_bytes(
-        b"".join(data) if len(data) > 1 else data[0]
-    )
+    # Route tuple-cache misses through the bytes-keyed cache so identical
+    # content arriving via a fresh tuple identity still skips the full parse.
+    # The outer lru_cache around parse_advertisement_data_tuple owns the
+    # hit-path (C-level hash on the tuple, no join).
+    if len(data) == 1:
+        return parse_advertisement_data_bytes(data[0])
+    return parse_advertisement_data_bytes(b"".join(data))
 
 
 def _uncached_parse_advertisement_bytes(
@@ -217,7 +237,7 @@ def _uncached_parse_advertisement_bytes(
             local_name = gap_data[start:end].decode("utf-8", "replace")
         elif gap_type_num == TYPE_MANUFACTURER_SPECIFIC_DATA:
             splice_pos = start + 2
-            if splice_pos > total_length or splice_pos > end:
+            if splice_pos > end:
                 continue
             if manufacturer_data is _EMPTY_MANUFACTURER_DATA:
                 manufacturer_data = {}
@@ -274,7 +294,7 @@ def _uncached_parse_advertisement_bytes(
                     )
         elif gap_type_num == TYPE_SERVICE_DATA:
             splice_pos = start + 2
-            if splice_pos > total_length or splice_pos > end:
+            if splice_pos > end:
                 continue
             if service_data is _EMPTY_SERVICE_DATA:
                 service_data = {}
@@ -283,7 +303,7 @@ def _uncached_parse_advertisement_bytes(
             ] = gap_data[splice_pos:end]
         elif gap_type_num == TYPE_SERVICE_DATA_32BIT_UUID:
             splice_pos = start + 4
-            if splice_pos > total_length or splice_pos > end:
+            if splice_pos > end:
                 continue
             if service_data is _EMPTY_SERVICE_DATA:
                 service_data = {}
@@ -298,7 +318,7 @@ def _uncached_parse_advertisement_bytes(
             ]
         elif gap_type_num == TYPE_SERVICE_DATA_128BIT_UUID:
             splice_pos = start + 16
-            if splice_pos > total_length or splice_pos > end:
+            if splice_pos > end:
                 continue
             if service_data is _EMPTY_SERVICE_DATA:
                 service_data = {}

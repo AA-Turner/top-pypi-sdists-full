@@ -1,4 +1,4 @@
-"""aiohttp_asyncmdnsresolver: An async resolver that support MDNS."""
+"""aiohttp_asyncmdnsresolver: An async resolver that supports mDNS."""
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 __all__ = ()

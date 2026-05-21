@@ -63,6 +63,7 @@ def profile_section(name: str):
     def decorator(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
+            __tracebackhide__ = True
             prof = _get_active()
             if prof is None:
                 return fn(*args, **kwargs)

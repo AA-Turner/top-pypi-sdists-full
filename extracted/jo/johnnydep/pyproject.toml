@@ -1,0 +1,48 @@
+[project]
+name = "johnnydep"
+version = "2.0.1"
+description = "Display dependency tree of Python distribution"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+dependencies = [
+    "colorama ; platform_system == 'Windows'",
+    "importlib_metadata ; python_version < '3.10'",
+    "loguru",
+    "packaging >= 17, != 22",
+    "PyYAML",
+    "rich",
+    "tomli-w",
+    "unearth",
+    "uv",
+]
+
+[[project.authors]]
+name = "Wim Glenn"
+email = "hey@wimglenn.com"
+
+[project.urls]
+homepage = "https://github.com/wimglenn/johnnydep"
+
+[project.scripts]
+johnnydep = "johnnydep.cli:main"
+
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+assertion_text_diff_style = "block"
+addopts = [
+    "-ra",
+    "--cov=johnnydep",
+    "--cov-report=html",
+    "--cov-report=term",
+    "--no-cov-on-fail",
+    "--color=yes",
+    "--disable-socket",
+    "--allow-unix-socket",
+]
+
+
+[tool.coverage.run]
+branch = true
+parallel = true

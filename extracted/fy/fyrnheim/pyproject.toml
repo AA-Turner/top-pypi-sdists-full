@@ -1,6 +1,6 @@
 [project]
 name = "fyrnheim"
-version = "0.14.0"
+version = "0.15.0"
 description = "Define typed Python entities, generate transformations, run anywhere. A dbt alternative built on Pydantic + Ibis."
 requires-python = ">=3.11"
 readme = "README.md"
@@ -46,16 +46,22 @@ clickhouse = [
 postgres = [
     "ibis-framework[postgres]>=11.0.0",
 ]
+mcp = [
+    "mcp>=1.13.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.12.0",
     "mypy>=1.17.0",
     "types-PyYAML>=6.0.0",
+    "sqlglot>=28.0.0",
 ]
 
 [project.scripts]
 fyr = "fyrnheim.cli:main"
+fyr-mcp-analytics = "fyrnheim.mcp.analytics_server:main"
+fyr-mcp-analytics-http = "fyrnheim.mcp.analytics_server:main_http"
 
 [project.urls]
 Homepage = "https://github.com/deepskydatahq/fyrnheim"

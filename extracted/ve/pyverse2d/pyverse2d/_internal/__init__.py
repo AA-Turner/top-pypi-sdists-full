@@ -1,4 +1,11 @@
 # ======================================== IMPORTS ========================================
+from ._traceback import (
+    excepthook,
+    enable as enable_traceback,
+    disable as disable_traceback,
+    set_enabled as set_traceback,
+)
+
 from ._profiler import (
     profile_section,
     Profiler,
@@ -24,6 +31,11 @@ from ._tools import (
 
 # ======================================== EXPORTS ========================================
 __all__ = [
+    "excepthook",
+    "enable_traceback",
+    "disable_traceback",
+    "set_traceback",
+
     "profile_section",
     "Profiler",
     "ProfiledRun",

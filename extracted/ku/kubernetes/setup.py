@@ -16,7 +16,7 @@ from setuptools import setup
 
 # Do not edit these constants. They will be updated automatically
 # by scripts/update-client.sh.
-CLIENT_VERSION = "35.0.0"
+CLIENT_VERSION = "36.0.0"
 PACKAGE_NAME = "kubernetes"
 DEVELOPMENT_STATUS = "5 - Production/Stable"
 
@@ -28,7 +28,6 @@ DEVELOPMENT_STATUS = "5 - Production/Stable"
 # http://pypi.python.org/pypi/setuptools
 
 EXTRAS = {
-    'adal': ['adal>=1.0.2'],
     'google-auth': ['google-auth>=1.0.1']
 }
 REQUIRES = []
@@ -65,10 +64,12 @@ setup(
               'kubernetes.stream', 'kubernetes.client.models',
               'kubernetes.utils', 'kubernetes.client.apis',
               'kubernetes.dynamic', 'kubernetes.leaderelection',
-              'kubernetes.leaderelection.resourcelock'],
+              'kubernetes.leaderelection.resourcelock',
+              'kubernetes.informer',
+              ],
     include_package_data=True,
     long_description="Python client for kubernetes http://kubernetes.io/",
-    python_requires='>=3.6',
+    python_requires='>=3.10',
     classifiers=[
         "Development Status :: %s" % DEVELOPMENT_STATUS,
         "Topic :: Utilities",
@@ -78,10 +79,10 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
 )

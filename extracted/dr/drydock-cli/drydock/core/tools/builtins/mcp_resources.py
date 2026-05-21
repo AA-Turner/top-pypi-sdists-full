@@ -146,6 +146,37 @@ class ReadMcpResource(
     async def run(
         self, args: ReadMcpResourceArgs, ctx: InvokeContext | None = None
     ) -> AsyncGenerator[ToolStreamEvent | ReadMcpResourceResult, None]:
+        # Fast path: file:// URIs that resolve to an existing local file
+        # should be read directly, not routed through MCP. Observed
+        # 2026-05-20 in /data3/slides: model called
+        # read_mcp_resource('file:///data3/slides/slides/extractor/md_extractor.py')
+        # → MCP filesystem server returned a StdioServerParameters
+        # validation error → model retried 3+ times. The right tool
+        # for a local file is read_file, but the model picked
+        # read_mcp_resource; intercepting it here makes the call work
+        # anyway instead of error-looping.
+        uri = (args.uri or "").strip()
+        if uri.startswith("file://"):
+            from pathlib import Path as _Path
+            from urllib.parse import unquote, urlparse
+            _parsed = urlparse(uri)
+            _local = _Path(unquote(_parsed.path))
+            if _local.is_file():
+                try:
+                    _content = _local.read_text(
+                        encoding="utf-8", errors="replace",
+                    )
+                except OSError as e:
+                    raise ToolError(
+                        f"read_mcp_resource: file:// URI {uri} could not "
+                        f"be read locally: {e}. Tip: use read_file for "
+                        f"local files instead of read_mcp_resource."
+                    ) from e
+                yield ReadMcpResourceResult(
+                    uri=uri, content=_content, mime_type="text/plain",
+                )
+                return
+
         if not ctx or not hasattr(ctx, 'agent_manager') or not ctx.agent_manager:
             raise ToolError("No agent manager available for MCP resource reading")
 

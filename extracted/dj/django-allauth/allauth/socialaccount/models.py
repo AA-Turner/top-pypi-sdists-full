@@ -15,11 +15,7 @@ import allauth.app_settings
 from allauth import app_settings as allauth_settings
 from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.account.models import EmailAddress
-from allauth.account.utils import (
-    filter_users_by_email,
-    get_next_redirect_url,
-    setup_user_email,
-)
+from allauth.account.utils import get_next_redirect_url, setup_user_email
 from allauth.core import context
 from allauth.socialaccount import app_settings, providers, signals
 from allauth.socialaccount.adapter import get_adapter
@@ -389,15 +385,10 @@ class SocialLogin:
             self.token.save()
 
     def _lookup_by_email(self) -> None:
-        emails = [e.email for e in self.email_addresses if e.verified]
-        for email in emails:
-            if not get_adapter().can_authenticate_by_email(self, email):
-                continue
-            users = filter_users_by_email(email, prefer_verified=True)
-            if users:
-                self.user = users[0]
-                self._did_authenticate_by_email = email
-                return
+        user_email = get_adapter().authenticate_by_email(self)
+        if user_email:
+            self.user = user_email[0]
+            self._did_authenticate_by_email = user_email[1]
 
     def _accept_login(self, request: HttpRequest) -> None:
         from allauth.socialaccount.internal.flows.email_authentication import (

@@ -310,6 +310,10 @@ class ChalkClient:
             Force tracing on the query. Requests using `trace=True` will be slower
             than requests using `trace=False`. Requires Datadog tracing to be installed
             for this to have any effect
+        translate_fqns
+            If `True`, rewrite windowed feature names in the response from their internal
+            FQN format (e.g. `user.login_count__86400__`) to a human-readable format
+            (e.g. `user.login_count["1d"]`).
 
         Other Parameters
         ----------------
@@ -530,6 +534,10 @@ class ChalkClient:
             than requests using `explain=False`.
         headers
             Additional headers to provide with the request
+        translate_fqns
+            If `True`, rewrite windowed feature column names in each result from their
+            internal FQN format (e.g. `user.login_count__86400__`) to a human-readable
+            format (e.g. `user.login_count["1d"]`).
 
         Returns
         -------

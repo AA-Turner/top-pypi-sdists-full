@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spsdk
-Version: 3.8.0
+Version: 3.9.0
 Summary: Open Source Secure Provisioning SDK for NXP MCU/MPU
 Author-email: NXP <spsdk@nxp.com>
 License-Expression: BSD-3-Clause
@@ -29,7 +29,7 @@ Requires-Dist: bitstring<5,>=3.1
 Requires-Dist: chardet<6
 Requires-Dist: click-command-tree<2
 Requires-Dist: click-option-group<1,>=0.3.0
-Requires-Dist: click!=8.1.4,!=8.3,<9,>=7.1
+Requires-Dist: click!=8.1.4,!=8.3,<8.4,>=7.1
 Requires-Dist: click<8.3; python_version == "3.10"
 Requires-Dist: colorama<1,>=0.4.6
 Requires-Dist: crcmod<2
@@ -53,7 +53,7 @@ Requires-Dist: ruamel.yaml.clib!=0.2.13,!=0.2.15,<1
 Requires-Dist: setuptools_scm<10
 Requires-Dist: setuptools<81,>75
 Requires-Dist: sly<1
-Requires-Dist: spsdk-mcu-link<1,>=0.3.2
+Requires-Dist: spsdk-mcu-link<0.6.7,>=0.3.2
 Requires-Dist: spsdk-pyocd<1,>=0.2.0
 Requires-Dist: typing-extensions<5
 Requires-Dist: x690<2,>=1.0
@@ -80,7 +80,8 @@ Requires-Dist: spsdk-pemicro<1,>=0.3.1; extra == "pemicro"
 Provides-Extra: pkcs11
 Requires-Dist: spsdk-pkcs11<1,>=0.3.1; extra == "pkcs11"
 Provides-Extra: pqc
-Requires-Dist: spsdk-pqc<1,>=0.6.1; extra == "pqc"
+Requires-Dist: spsdk-pqc<1.0,>=0.6.1; extra == "pqc"
+Requires-Dist: pyhsslms<3,>=2.0.0; extra == "pqc"
 Provides-Extra: rblhost
 Requires-Dist: pymboot-rs<1; extra == "rblhost"
 Provides-Extra: all

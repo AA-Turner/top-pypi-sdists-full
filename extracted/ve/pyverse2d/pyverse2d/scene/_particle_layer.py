@@ -6,7 +6,7 @@ from .._rendering import Pipeline, Camera
 from ..abc import Layer, ParticleEmitter, ParticleModifier
 from ..fx import ParticleRenderer
 
-from typing import Type
+from typing import Type, ClassVar
 from numbers import Real
 from contextlib import nullcontext
 
@@ -24,6 +24,8 @@ class ParticleLayer(Layer):
         "_emitters", "_modifiers",
         "_renderer",
     )
+
+    _IS_FX: ClassVar[bool] = True
 
     def __init__(self, additive: bool = True, camera: Camera = None):
         # Transtypage

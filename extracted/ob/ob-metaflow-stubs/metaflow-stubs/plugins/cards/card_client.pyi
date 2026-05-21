@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-05-12T17:11:58.047884                                                            #
+# Generated on 2026-05-21T04:04:58.829606                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.cards.card_client
     import metaflow
+    import metaflow.plugins.cards.card_client
 
 from .card_resolver import resolve_paths_from_task as resolve_paths_from_task
 from .card_resolver import resumed_info as resumed_info

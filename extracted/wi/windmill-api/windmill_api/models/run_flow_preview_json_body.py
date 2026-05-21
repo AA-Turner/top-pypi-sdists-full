@@ -7,6 +7,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.run_flow_preview_json_body_args import RunFlowPreviewJsonBodyArgs
+    from ..models.run_flow_preview_json_body_temp_script_refs import RunFlowPreviewJsonBodyTempScriptRefs
     from ..models.run_flow_preview_json_body_value import RunFlowPreviewJsonBodyValue
 
 
@@ -23,6 +24,9 @@ class RunFlowPreviewJsonBody:
         path (Union[Unset, str]):
         tag (Union[Unset, str]):
         restarted_from (Union[Unset, Any]):
+        temp_script_refs (Union[Unset, None, RunFlowPreviewJsonBodyTempScriptRefs]): Map of relative-import script path
+            -> temp storage hash, propagated to each flow step so inline-script relative imports resolve from not-yet-
+            deployed local content instead of the deployed script
     """
 
     value: "RunFlowPreviewJsonBodyValue"
@@ -30,6 +34,7 @@ class RunFlowPreviewJsonBody:
     path: Union[Unset, str] = UNSET
     tag: Union[Unset, str] = UNSET
     restarted_from: Union[Unset, Any] = UNSET
+    temp_script_refs: Union[Unset, None, "RunFlowPreviewJsonBodyTempScriptRefs"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -40,6 +45,9 @@ class RunFlowPreviewJsonBody:
         path = self.path
         tag = self.tag
         restarted_from = self.restarted_from
+        temp_script_refs: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.temp_script_refs, Unset):
+            temp_script_refs = self.temp_script_refs.to_dict() if self.temp_script_refs else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -55,12 +63,15 @@ class RunFlowPreviewJsonBody:
             field_dict["tag"] = tag
         if restarted_from is not UNSET:
             field_dict["restarted_from"] = restarted_from
+        if temp_script_refs is not UNSET:
+            field_dict["temp_script_refs"] = temp_script_refs
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.run_flow_preview_json_body_args import RunFlowPreviewJsonBodyArgs
+        from ..models.run_flow_preview_json_body_temp_script_refs import RunFlowPreviewJsonBodyTempScriptRefs
         from ..models.run_flow_preview_json_body_value import RunFlowPreviewJsonBodyValue
 
         d = src_dict.copy()
@@ -74,12 +85,22 @@ class RunFlowPreviewJsonBody:
 
         restarted_from = d.pop("restarted_from", UNSET)
 
+        _temp_script_refs = d.pop("temp_script_refs", UNSET)
+        temp_script_refs: Union[Unset, None, RunFlowPreviewJsonBodyTempScriptRefs]
+        if _temp_script_refs is None:
+            temp_script_refs = None
+        elif isinstance(_temp_script_refs, Unset):
+            temp_script_refs = UNSET
+        else:
+            temp_script_refs = RunFlowPreviewJsonBodyTempScriptRefs.from_dict(_temp_script_refs)
+
         run_flow_preview_json_body = cls(
             value=value,
             args=args,
             path=path,
             tag=tag,
             restarted_from=restarted_from,
+            temp_script_refs=temp_script_refs,
         )
 
         run_flow_preview_json_body.additional_properties = d

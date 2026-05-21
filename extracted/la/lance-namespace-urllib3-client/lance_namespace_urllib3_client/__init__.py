@@ -14,11 +14,12 @@
 """  # noqa: E501
 
 
-__version__ = "0.7.6"
+__version__ = "0.7.7"
 
 # import apis into sdk package
 from lance_namespace_urllib3_client.api.data_api import DataApi
 from lance_namespace_urllib3_client.api.index_api import IndexApi
+from lance_namespace_urllib3_client.api.materialized_view_api import MaterializedViewApi
 from lance_namespace_urllib3_client.api.metadata_api import MetadataApi
 from lance_namespace_urllib3_client.api.namespace_api import NamespaceApi
 from lance_namespace_urllib3_client.api.table_api import TableApi
@@ -68,6 +69,8 @@ from lance_namespace_urllib3_client.models.boost_query import BoostQuery
 from lance_namespace_urllib3_client.models.commit_table_operation import CommitTableOperation
 from lance_namespace_urllib3_client.models.commit_table_result import CommitTableResult
 from lance_namespace_urllib3_client.models.count_table_rows_request import CountTableRowsRequest
+from lance_namespace_urllib3_client.models.create_materialized_view_request import CreateMaterializedViewRequest
+from lance_namespace_urllib3_client.models.create_materialized_view_response import CreateMaterializedViewResponse
 from lance_namespace_urllib3_client.models.create_namespace_request import CreateNamespaceRequest
 from lance_namespace_urllib3_client.models.create_namespace_response import CreateNamespaceResponse
 from lance_namespace_urllib3_client.models.create_table_index_request import CreateTableIndexRequest
@@ -132,6 +135,7 @@ from lance_namespace_urllib3_client.models.list_table_versions_response import L
 from lance_namespace_urllib3_client.models.list_tables_request import ListTablesRequest
 from lance_namespace_urllib3_client.models.list_tables_response import ListTablesResponse
 from lance_namespace_urllib3_client.models.match_query import MatchQuery
+from lance_namespace_urllib3_client.models.materialized_view_udtf_entry import MaterializedViewUdtfEntry
 from lance_namespace_urllib3_client.models.merge_insert_into_table_request import MergeInsertIntoTableRequest
 from lance_namespace_urllib3_client.models.merge_insert_into_table_response import MergeInsertIntoTableResponse
 from lance_namespace_urllib3_client.models.multi_match_query import MultiMatchQuery

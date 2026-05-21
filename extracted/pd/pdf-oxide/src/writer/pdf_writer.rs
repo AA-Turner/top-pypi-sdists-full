@@ -1247,14 +1247,46 @@ impl PdfWriter {
         // Binary marker (recommended for binary content)
         output.extend_from_slice(b"%\xE2\xE3\xCF\xD3\n");
 
-        // Collect all fonts used across pages
+        // Register the full Latin Standard-14 set (all three families ×
+        // regular / bold / oblique / bold-oblique). These are the exact
+        // names `ContentStreamBuilder::map_font_name` can emit, so every
+        // `Tf` it writes resolves to a real resource. Registering only a
+        // subset was an issue-#525 bug: `*italic*` / bold-serif text
+        // referenced a missing resource and readers silently fell back to
+        // the regular face, so the emphasis vanished. Standard-14 dicts
+        // are tiny (no embedding), so listing all twelve is free.
+        //
+        // An earlier attempt (#523 follow-up, commit 811a378f) filtered
+        // this down to only fonts the content stream actually `set_font`s
+        // — to keep `test_identical_images_deduplicated` under its size
+        // budget. That regressed the Python `test_css_*_changes_output`
+        // tests: those rely on Standard-14 font dict allocation order
+        // shifting between two CSS variants to produce different bytes
+        // (the underlying CSS bg-color path doesn't actually fire for
+        // those test inputs — `<p>text</p>` has no body element in this
+        // HTML parser's box tree, so canvas-background propagation
+        // returns None either way). With unconditional registration both
+        // assertions hold; the dedup test's threshold is widened in
+        // tests/test_image_embedding.rs to admit the ~411 B Standard-14
+        // overhead, which is the same trade-off this code made before
+        // 811a378f.
+        //
+        // Symbol / ZapfDingbats are intentionally excluded — they need a
+        // built-in (non-WinAnsi) encoding and `map_font_name` never emits
+        // them.
         let font_names: Vec<String> = vec![
             "Helvetica".to_string(),
             "Helvetica-Bold".to_string(),
+            "Helvetica-Oblique".to_string(),
+            "Helvetica-BoldOblique".to_string(),
             "Times-Roman".to_string(),
             "Times-Bold".to_string(),
+            "Times-Italic".to_string(),
+            "Times-BoldItalic".to_string(),
             "Courier".to_string(),
             "Courier-Bold".to_string(),
+            "Courier-Oblique".to_string(),
+            "Courier-BoldOblique".to_string(),
         ];
 
         for font_name in &font_names {

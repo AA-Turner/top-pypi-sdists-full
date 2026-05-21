@@ -277,6 +277,27 @@ def _verify_iterate_until_green(
                 _attempt_repair(report.project, step, generate=generate, log=log)
 
 
+def _missing_modules_from_log(log_text: str, project_root: Path) -> list[str]:
+    """Extract Python module paths that need to be CREATED from error logs.
+
+    Handles 'ModuleNotFoundError: No module named X.Y.Z' where the module
+    path maps to a file that doesn't exist in the project (not a library).
+    Returns repo-relative paths like 'app/models/user.py'.
+    """
+    missing: list[str] = []
+    for m in re.finditer(r"No module named '([\w.]+)'", log_text):
+        mod = m.group(1)
+        # Convert dotted module name to file path
+        rel = mod.replace(".", "/") + ".py"
+        target = project_root / rel
+        if not target.exists():
+            # Only create project-local files (skip stdlib/library names)
+            parts = mod.split(".")
+            if parts[0] in ("app", "src", "backend", "core", "api", "models", "schemas"):
+                missing.append(rel)
+    return missing
+
+
 def _attempt_repair(
     project: DiscoveredProject,
     step: StepResult,
@@ -284,15 +305,23 @@ def _attempt_repair(
     generate: GenerateFn,
     log: ProgressFn,
 ) -> None:
-    """Ask the LLM to rewrite likely-broken files using the failure log."""
+    """Ask the LLM to rewrite/create files using the failure log."""
     relevant_files = _likely_files_for_step(project, step)
-    if not relevant_files:
+
+    # Include missing-module paths as files-to-create (they don't exist yet)
+    missing_paths = _missing_modules_from_log(step.log, project.root)
+    missing_hint = ""
+    if missing_paths:
+        missing_hint = (
+            "\n\n## Missing modules to CREATE\n"
+            "These files do not yet exist and must be created:\n"
+            + "\n".join(f"- {p}" for p in missing_paths[:5])
+        )
+
+    if not relevant_files and not missing_paths:
         return
 
     def _safe_relative(p: Path) -> str:
-        """Render path relative to project root if possible, else fall back
-        to the basename. Defends against library paths leaking into
-        `relevant_files` from a future regex change."""
         try:
             return str(p.relative_to(project.root))
         except ValueError:
@@ -308,9 +337,10 @@ def _attempt_repair(
 
     prompt = (
         f"A '{step.name}' step failed in a {project.kind} project. Rewrite "
-        "the file(s) below to fix the failure.\n\n"
+        "or CREATE the file(s) needed to fix the failure.\n\n"
         f"## Failure log (tail)\n```\n{step.log[-2500:]}\n```\n\n"
-        f"## Current file contents\n{context}\n\n"
+        f"## Current file contents\n{context}\n"
+        f"{missing_hint}\n\n"
         "Output a single JSON object mapping repo-relative file paths to the "
         "full corrected content. Output ONLY the JSON. No prose.\n\n"
         'Example: {"backend/app/main.py": "from fastapi import FastAPI\\n..."}'

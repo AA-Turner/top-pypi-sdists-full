@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.run_script_preview_json_body_args import RunScriptPreviewJsonBodyArgs
     from ..models.run_script_preview_json_body_modules import RunScriptPreviewJsonBodyModules
+    from ..models.run_script_preview_json_body_temp_script_refs import RunScriptPreviewJsonBodyTempScriptRefs
 
 
 T = TypeVar("T", bound="RunScriptPreviewJsonBody")
@@ -31,6 +32,9 @@ class RunScriptPreviewJsonBody:
         flow_path (Union[Unset, str]):
         modules (Union[Unset, None, RunScriptPreviewJsonBodyModules]): Additional script modules keyed by relative file
             path
+        temp_script_refs (Union[Unset, None, RunScriptPreviewJsonBodyTempScriptRefs]): Map of relative-import script
+            path -> temp storage hash so the preview job resolves those imports from not-yet-deployed local content instead
+            of the deployed script
     """
 
     args: "RunScriptPreviewJsonBodyArgs"
@@ -44,6 +48,7 @@ class RunScriptPreviewJsonBody:
     lock: Union[Unset, str] = UNSET
     flow_path: Union[Unset, str] = UNSET
     modules: Union[Unset, None, "RunScriptPreviewJsonBodyModules"] = UNSET
+    temp_script_refs: Union[Unset, None, "RunScriptPreviewJsonBodyTempScriptRefs"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -67,6 +72,10 @@ class RunScriptPreviewJsonBody:
         modules: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.modules, Unset):
             modules = self.modules.to_dict() if self.modules else None
+
+        temp_script_refs: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.temp_script_refs, Unset):
+            temp_script_refs = self.temp_script_refs.to_dict() if self.temp_script_refs else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -95,6 +104,8 @@ class RunScriptPreviewJsonBody:
             field_dict["flow_path"] = flow_path
         if modules is not UNSET:
             field_dict["modules"] = modules
+        if temp_script_refs is not UNSET:
+            field_dict["temp_script_refs"] = temp_script_refs
 
         return field_dict
 
@@ -102,6 +113,7 @@ class RunScriptPreviewJsonBody:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.run_script_preview_json_body_args import RunScriptPreviewJsonBodyArgs
         from ..models.run_script_preview_json_body_modules import RunScriptPreviewJsonBodyModules
+        from ..models.run_script_preview_json_body_temp_script_refs import RunScriptPreviewJsonBodyTempScriptRefs
 
         d = src_dict.copy()
         args = RunScriptPreviewJsonBodyArgs.from_dict(d.pop("args"))
@@ -143,6 +155,15 @@ class RunScriptPreviewJsonBody:
         else:
             modules = RunScriptPreviewJsonBodyModules.from_dict(_modules)
 
+        _temp_script_refs = d.pop("temp_script_refs", UNSET)
+        temp_script_refs: Union[Unset, None, RunScriptPreviewJsonBodyTempScriptRefs]
+        if _temp_script_refs is None:
+            temp_script_refs = None
+        elif isinstance(_temp_script_refs, Unset):
+            temp_script_refs = UNSET
+        else:
+            temp_script_refs = RunScriptPreviewJsonBodyTempScriptRefs.from_dict(_temp_script_refs)
+
         run_script_preview_json_body = cls(
             args=args,
             content=content,
@@ -155,6 +176,7 @@ class RunScriptPreviewJsonBody:
             lock=lock,
             flow_path=flow_path,
             modules=modules,
+            temp_script_refs=temp_script_refs,
         )
 
         run_script_preview_json_body.additional_properties = d

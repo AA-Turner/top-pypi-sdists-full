@@ -20,7 +20,10 @@ from aws_durable_execution_sdk_python.concurrency.models import (
     ExecutionCounters,
     SuspendResult,
 )
-from aws_durable_execution_sdk_python.config import ChildConfig
+from aws_durable_execution_sdk_python.config import (
+    ChildConfig,
+    NestingType,
+)
 from aws_durable_execution_sdk_python.exceptions import (
     OrphanedChildException,
     SuspendExecution,
@@ -143,6 +146,7 @@ class ConcurrentExecutor(ABC, Generic[CallableType, ResultType]):
         serdes: SerDes | None,
         item_serdes: SerDes | None = None,
         summary_generator: SummaryGenerator | None = None,
+        nesting_type: NestingType = NestingType.NESTED,
     ):
         """Initialize ConcurrentExecutor.
 
@@ -160,6 +164,7 @@ class ConcurrentExecutor(ABC, Generic[CallableType, ResultType]):
         self.sub_type_iteration = sub_type_iteration
         self.name_prefix = name_prefix
         self.summary_generator = summary_generator
+        self.nesting_type = nesting_type
 
         # Event-driven state tracking for when the executor is done
         self._completion_event = threading.Event()
@@ -188,6 +193,14 @@ class ConcurrentExecutor(ABC, Generic[CallableType, ResultType]):
     ) -> ResultType:
         """Execute a single executable in a child context and return the result."""
         raise NotImplementedError
+
+    def get_iteration_name(self, index: int) -> str:
+        """Get the display name for an iteration/branch at the given index.
+
+        Subclasses can override this to provide custom naming (e.g., from item_namer
+        or branch names). The default returns "{name_prefix}{index}".
+        """
+        return f"{self.name_prefix}{index}"
 
     def execute(
         self, execution_state: ExecutionState, executor_context: DurableContext
@@ -391,29 +404,36 @@ class ConcurrentExecutor(ABC, Generic[CallableType, ResultType]):
         """
         Execute a single item in a derived child context.
 
-        instead of relying on `executor_context.run_in_child_context`
-        we generate an operation_id for the child, and then call `child_handler`
-        directly. This avoids the hidden mutation of the context's internal counter.
-        we can do this because we explicitly control the generation of step_id and do it
-        using executable.index.
+        Instead of relying on `executor_context.run_in_child_context` we
+        generate an operation_id for the child, then call `child_handler`
+        directly. This avoids the hidden mutation of the context's
+        internal counter. We explicitly derive the child's operation_id
+        from `executable.index` so that the same input always produces
+        the same id regardless of the order branches actually run in.
 
-
-        invariant: `operation_id` for a given executable is deterministic,
-            and execution order invariant.
+        Invariant: `operation_id` for a given executable is deterministic
+        and execution-order invariant.
         """
 
-        operation_id = executor_context._create_step_id_for_logical_step(  # noqa: SLF001
+        operation_id: str = executor_context._create_step_id_for_logical_step(  # noqa: SLF001
             executable.index
         )
-        name = f"{self.name_prefix}{executable.index}"
-        child_context = executor_context.create_child_context(operation_id)
+        name: str = self.get_iteration_name(executable.index)
+        is_virtual: bool = self.nesting_type is NestingType.FLAT
+
+        child_context: DurableContext = executor_context.create_child_context(
+            operation_id, is_virtual=is_virtual
+        )
+        # For NESTED this is for branch's START/SUCCEED/FAIL checkpoints (not the children of the branch).
+        # For FLAT `child_handler` skips checkpoints, so not used.
+        # Construct it unconditionally to keep the call simple.
         operation_identifier = OperationIdentifier(
             operation_id,
             executor_context._parent_id,  # noqa: SLF001
             name,
         )
 
-        def run_in_child_handler():
+        def run_in_child_handler() -> ResultType:
             return self.execute_item(child_context, executable)
 
         result: ResultType = child_handler(
@@ -424,6 +444,7 @@ class ConcurrentExecutor(ABC, Generic[CallableType, ResultType]):
                 serdes=self.item_serdes or self.serdes,
                 sub_type=self.sub_type_iteration,
                 summary_generator=self.summary_generator,
+                is_virtual=is_virtual,
             ),
         )
         child_context.state.track_replay(operation_id=operation_id)

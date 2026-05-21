@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 4.0)
 
 set(ORG madler)
 set(NAME zlib)
-set(VERSION 1.3.1)
+set(VERSION 1.3.2)
 set(EXT tar.gz)
-set(SHA256 17e88863f3600672ab49182f217281b6fc4d3c762bde361935e436a95214d05c)
+set(SHA256 b99a0b86c0ba9360ec7e78c4f1e43b1cbdf1e6936c8fa0f6835c0cd694a495a1)
 set(TAG_PREFIX "refs/tags/v")
 
 project("cmeel-${NAME}" VERSION "${VERSION}")

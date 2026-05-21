@@ -11419,6 +11419,7 @@ class SAGEAgent:
         show_thinking: bool = True,
         system_prompt: str | None = None,
         save_history: bool = True,
+        max_tokens: int | None = None,
     ) -> str | None:
         """Send a message to the model and stream the response."""
         if save_history:
@@ -11456,6 +11457,33 @@ class SAGEAgent:
                 self.engine, supplemental_context
             )
 
+        _effective_tokens = max_tokens if max_tokens is not None else self.tokens
+
+        # Let the user know sage is actively sending to the model — important
+        # for cloud models where the cold-start + large-prompt path can take
+        # 30-120s before the first token appears.
+        if not self.minimal_output and show_thinking:
+            import sys as _sys
+            # Messages may be Message dataclasses or dicts depending on engine state
+            def _msg_len(m: object) -> int:
+                if hasattr(m, "content"):
+                    return len(m.content or "")  # type: ignore[union-attr]
+                if isinstance(m, dict):
+                    return len(m.get("content", "") or "")
+                return 0
+            _msg_chars = sum(_msg_len(m) for m in self.engine._messages[-3:])
+            if _msg_chars > 2000:
+                _sys.stderr.write(
+                    f"  ◌ Sending {_msg_chars // 1000}K chars to {self.model_id}"
+                    f" — large prompt, first token may take 30-120s...\n"
+                )
+                _sys.stderr.flush()
+            else:
+                _sys.stderr.write(
+                    f"  ◌ Sending request to {self.model_id}...\n"
+                )
+                _sys.stderr.flush()
+
         try:
             if not show_thinking:
                 provider_name = self.model_id.split(":", 1)[0] if ":" in self.model_id else ""
@@ -11465,7 +11493,7 @@ class SAGEAgent:
                         messages,
                         self.model_id,
                         self.temp,
-                        self.tokens,
+                        _effective_tokens,
                         lock_provider=self.model_locked,
                     ),
                     timeout_seconds=timeout_seconds,
@@ -11481,7 +11509,7 @@ class SAGEAgent:
 
             result = self.renderer.stream_tokens_with_phase(
                 self.router.stream(
-                    messages, self.model_id, self.temp, self.tokens, lock_provider=self.model_locked
+                    messages, self.model_id, self.temp, _effective_tokens, lock_provider=self.model_locked
                 ),
                 model_id=self.model_id if not self.minimal_output else "",
                 return_rejection_info=True,
@@ -12023,7 +12051,8 @@ class SAGEAgent:
                 "6. Try a DIFFERENT approach if your previous fix didn't work."
             )
 
-            fix_response = self.send_to_model(fix_prompt)
+            # Fix responses only need FILE: blocks — cap tokens to reduce cloud latency.
+            fix_response = self.send_to_model(fix_prompt, max_tokens=2048)
             if not fix_response:
                 break
 
@@ -13598,6 +13627,8 @@ def run(
                     system_prompt=engine.system_prompt,
                     history=engine._messages[-8:] if engine._messages else None,
                 )
+                if not minimal_output:
+                    renderer.phase("thinking", f"Sending request to {model_id}...")
                 renderer.console.print("[bold green]sage>[/bold green] ", end="")
                 response = renderer.stream_tokens(
                     router.stream(messages, model_id, temp, tokens, lock_provider=model_locked)
@@ -13674,6 +13705,8 @@ def run(
         # Default: Execute coding/analysis task via SAGEAgent.
         # First, let the model understand and expand the prompt — this turns brief
         # or misspelled input into a grounded, actionable task description.
+        if not minimal_output:
+            renderer.phase("thinking", f"Processing task with {model_id}...")
         task_to_run = user_input
         if len(user_input.split()) <= 40:
             try:
@@ -13765,12 +13798,74 @@ def chat(
 
     multiline_buffer: list[str] | None = None
 
-    while True:
-        try:
+    # Background stdin reader — collects lines typed while sage is processing
+    # so the user doesn't have to wait silently or retype context.
+    import threading as _threading
+    import queue as _queue
+    _input_queue: _queue.Queue[str | None] = _queue.Queue()
+    _is_processing = False
+
+    def _bg_stdin_reader() -> None:
+        """Daemon thread: reads raw stdin lines into _input_queue."""
+        import sys as _sys
+        while True:
+            try:
+                line = _sys.stdin.readline()
+                if not line:
+                    _input_queue.put(None)  # EOF
+                    break
+                _input_queue.put(line.rstrip("\n"))
+            except Exception:
+                break
+
+    # Only start the background reader when we're in a real interactive TTY
+    import sys as _sys2
+    _use_bg_reader = _sys2.stdin.isatty() and not prompt  # not in --prompt mode
+    if _use_bg_reader:
+        _bg_thread = _threading.Thread(target=_bg_stdin_reader, daemon=True)
+        _bg_thread.start()
+
+    def _read_next_input() -> str:
+        """Get next user line — from queue (background typed) or console.input()."""
+        if _use_bg_reader:
             prompt_text = (
                 "[bold cyan]you>[/bold cyan] " if multiline_buffer is None else "[dim]...[/dim]  "
             )
-            raw = renderer.console.input(prompt_text)
+            renderer.console.print(prompt_text, end="", highlight=False)
+            raw = _input_queue.get()  # blocks until user types
+            if raw is None:
+                raise EOFError
+            return raw
+        else:
+            prompt_text = (
+                "[bold cyan]you>[/bold cyan] " if multiline_buffer is None else "[dim]...[/dim]  "
+            )
+            return renderer.console.input(prompt_text)
+
+    while True:
+        # Drain any lines typed while sage was processing (from queue)
+        _pending: list[str] = []
+        if _use_bg_reader:
+            while True:
+                try:
+                    _pending.append(_input_queue.get_nowait())
+                except _queue.Empty:
+                    break
+            if _pending:
+                # Show what was queued so the user knows sage saw it
+                for _p in _pending:
+                    renderer.console.print(
+                        f"[dim]  ↩ Queued: {_p[:80]}[/dim]", highlight=False
+                    )
+        try:
+            if _pending:
+                raw = _pending[0]
+                if len(_pending) > 1:
+                    # Re-queue the rest
+                    for _extra in _pending[1:]:
+                        _input_queue.put(_extra)
+            else:
+                raw = _read_next_input()
         except (EOFError, KeyboardInterrupt):
             renderer.info("\nGoodbye.")
             break

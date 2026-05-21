@@ -40,7 +40,6 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 import socket
 import ssl
 from typing import Any
-import urllib.parse
 import warnings
 
 import dogpile.cache
@@ -169,46 +168,29 @@ def _build_cache_config(conf: cfg.ConfigOpts) -> dict[str, Any]:
 
         _LOG.debug('Oslo Cache Config: %s', conf_dict)
 
-    if conf.cache.backend == 'dogpile.cache.redis':
-        if conf.cache.password is None:
-            netloc = conf.cache.redis_server
-        else:
-            if conf.cache.username:
-                netloc = (
-                    f'{conf.cache.username}:{conf.cache.password}'
-                    f'@{conf.cache.redis_server}'
-                )
-            else:
-                netloc = f':{conf.cache.password}@{conf.cache.redis_server}'
-
-        parts = urllib.parse.ParseResult(
-            scheme=('rediss' if conf.cache.tls_enabled else 'redis'),
-            netloc=netloc,
-            path=str(conf.cache.redis_db),
-            params='',
-            query='',
-            fragment='',
-        )
-
-        conf_dict.setdefault(
-            f'{prefix}.arguments.url', urllib.parse.urlunparse(parts)
-        )
-        conf_dict[f'{prefix}.arguments.socket_timeout'] = (
-            conf.cache.socket_timeout
-        )
-    elif conf.cache.backend == 'dogpile.cache.redis_sentinel':
+    if conf.cache.backend in (
+        'dogpile.cache.redis',
+        'dogpile.cache.redis_sentinel',
+    ):
         for arg in ('username', 'password', 'socket_timeout'):
             conf_dict[f'{prefix}.arguments.{arg}'] = getattr(conf.cache, arg)
 
         conf_dict[f'{prefix}.arguments.db'] = conf.cache.redis_db
 
-        conf_dict[f'{prefix}.arguments.service_name'] = (
-            conf.cache.redis_sentinel_service_name
-        )
-        if conf.cache.redis_sentinels:
-            conf_dict[f'{prefix}.arguments.sentinels'] = [
-                _parse_sentinel(s) for s in conf.cache.redis_sentinels
-            ]
+        if conf.cache.backend == 'dogpile.cache.redis_sentinel':
+            conf_dict[f'{prefix}.arguments.service_name'] = (
+                conf.cache.redis_sentinel_service_name
+            )
+            if conf.cache.redis_sentinels:
+                conf_dict[f'{prefix}.arguments.sentinels'] = [
+                    _parse_sentinel(s) for s in conf.cache.redis_sentinels
+                ]
+        else:
+            host, port = netutils.parse_host_port(
+                conf.cache.redis_server, 6379
+            )
+            conf_dict[f'{prefix}.arguments.host'] = host
+            conf_dict[f'{prefix}.arguments.port'] = port
     else:
         # NOTE(yorik-sar): these arguments will be used for memcache-related
         # backends. Use setdefault for url to support old-style setting through
@@ -289,61 +271,40 @@ def _build_cache_config(conf: cfg.ConfigOpts) -> dict[str, Any]:
             'dogpile.cache.pymemcache',
             'oslo_cache.memcache_pool',
         ):
-            _LOG.debug('Oslo Cache TLS - CA: %s', conf.cache.tls_cafile)
             tls_context = ssl.create_default_context(
                 cafile=conf.cache.tls_cafile
             )
 
             if conf.cache.tls_certfile is not None:
-                _LOG.debug(
-                    'Oslo Cache TLS - cert: %s', conf.cache.tls_certfile
-                )
-                _LOG.debug('Oslo Cache TLS - key: %s', conf.cache.tls_keyfile)
                 tls_context.load_cert_chain(
                     conf.cache.tls_certfile,
                     conf.cache.tls_keyfile,
                 )
 
             if conf.cache.tls_allowed_ciphers is not None:
-                _LOG.debug(
-                    'Oslo Cache TLS - ciphers: %s',
-                    conf.cache.tls_allowed_ciphers,
-                )
                 tls_context.set_ciphers(conf.cache.tls_allowed_ciphers)
 
             conf_dict[f'{prefix}.arguments.tls_context'] = tls_context
-
-            # pass the value of tls_enabled to the backend
-            conf_dict[f'{prefix}.arguments.tls_enabled'] = (
-                conf.cache.tls_enabled
-            )
         elif conf.cache.backend in (
             'dogpile.cache.redis',
             'dogpile.cache.redis_sentinel',
         ):
-            if conf.cache.tls_allowed_ciphers is not None:
-                raise exception.ConfigurationError(
-                    "Limiting allowed ciphers is not supported by "
-                    f"the {conf.cache.backend} backend"
-                )
-
-            conn_kwargs = {}
+            conn_kwargs = {'ssl': True}
             if conf.cache.tls_cafile is not None:
-                _LOG.debug('Oslo Cache TLS - CA: %s', conf.cache.tls_cafile)
                 conn_kwargs['ssl_ca_certs'] = conf.cache.tls_cafile
             if conf.cache.tls_certfile is not None:
-                _LOG.debug(
-                    'Oslo Cache TLS - cert: %s', conf.cache.tls_certfile
-                )
-                _LOG.debug('Oslo Cache TLS - key: %s', conf.cache.tls_keyfile)
                 conn_kwargs.update(
                     {
                         'ssl_certfile': conf.cache.tls_certfile,
                         'ssl_keyfile': conf.cache.tls_keyfile,
                     }
                 )
+            if conf.cache.tls_allowed_ciphers is not None:
+                conn_kwargs.update(
+                    {'ssl_ciphers': conf.cache.tls_allowed_ciphers}
+                )
+
             if conf.cache.backend == 'dogpile.cache.redis_sentinel':
-                conn_kwargs.update({'ssl': True})
                 conf_dict[f'{prefix}.arguments.connection_kwargs'] = (
                     conn_kwargs
                 )
@@ -409,7 +370,6 @@ def _build_cache_config(conf: cfg.ConfigOpts) -> dict[str, Any]:
                 "'dogpile.cache.pymemcache' backend."
             )
             raise exception.ConfigurationError(msg)
-        import pymemcache
 
         conf_dict[f'{prefix}.arguments.enable_retry_client'] = True
         conf_dict[f'{prefix}.arguments.retry_attempts'] = (
@@ -451,7 +411,7 @@ def function_key_generator(
     to_str: Callable[[Any], str] = str,
 ) -> Callable[..., str]:
     warnings.warn(
-        "Use dogpile.cache.utils.function_key_generator instead",
+        "Use dogpile.cache.util.function_key_generator instead",
         category=DeprecationWarning,
         stacklevel=2,
     )
@@ -464,7 +424,7 @@ def kwarg_function_key_generator(
     to_str: Callable[[Any], str] = str,
 ) -> Callable[..., str]:
     warnings.warn(
-        "Use dogpile.cache.utils.kwarg_function_key_generator instead",
+        "Use dogpile.cache.util.kwarg_function_key_generator instead",
         category=DeprecationWarning,
         stacklevel=2,
     )

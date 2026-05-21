@@ -22,7 +22,7 @@ from ouroboros.core.hitl_contract import (
 )
 from ouroboros.core.hitl_state import HumanInputSnapshot, HumanInputState, project_human_input_state
 from ouroboros.events.base import BaseEvent
-from ouroboros.events.hitl import create_hitl_answered_event
+from ouroboros.events.hitl import create_hitl_answered_event, create_hitl_timed_out_event
 
 
 class HumanInputResumeValidationError(ValueError):
@@ -45,6 +45,56 @@ def create_validated_hitl_resume_event(
     snapshot = pending_human_input_snapshot_for_response(events, response)
     request = human_input_request_from_snapshot(snapshot)
     return create_hitl_answered_event(request, response)
+
+
+def create_validated_hitl_timeout_event(
+    events: Iterable[BaseEvent],
+    *,
+    request_id: str,
+    now: datetime,
+    reason: str = "HITL request timed out",
+) -> BaseEvent:
+    """Return ``hitl.timed_out`` when a pending request has expired.
+
+    The helper is intentionally pure: callers provide replayed HITL history and
+    the current clock value, and receive the event they may append. No scheduler,
+    UI timer, or dispatch behavior is implied by this function.
+    """
+
+    snapshot = _pending_human_input_snapshot_by_id(events, request_id)
+    request = human_input_request_from_snapshot(snapshot)
+    if request.timeout_seconds is None:
+        raise HumanInputResumeValidationError(
+            f"HITL request {request_id!r} does not define timeout_seconds"
+        )
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise HumanInputResumeValidationError("HITL timeout clock must be timezone-aware")
+    elapsed = (now - request.created_at).total_seconds()
+    if elapsed < request.timeout_seconds:
+        raise HumanInputResumeValidationError(f"HITL request {request_id!r} has not expired")
+    if request.timeout_action is HumanInputTimeoutAction.STAY_WAITING:
+        raise HumanInputResumeValidationError(
+            f"HITL request {request_id!r} uses timeout_action=stay_waiting; "
+            "no terminal timeout event should be emitted"
+        )
+    return create_hitl_timed_out_event(request, reason=reason)
+
+
+def _pending_human_input_snapshot_by_id(
+    events: Iterable[BaseEvent], request_id: str
+) -> HumanInputSnapshot:
+    snapshots = project_human_input_state(events)
+    matching = tuple(snapshot for snapshot in snapshots if snapshot.request_id == request_id)
+    if not matching:
+        raise HumanInputResumeValidationError(
+            f"HITL request {request_id!r} was not found in replayed state"
+        )
+    snapshot = matching[-1]
+    if snapshot.state is not HumanInputState.PENDING:
+        raise HumanInputResumeValidationError(
+            f"HITL request {request_id!r} is not pending; current state is {snapshot.state.value}"
+        )
+    return snapshot
 
 
 def pending_human_input_snapshot_for_response(
@@ -82,30 +132,35 @@ def human_input_request_from_snapshot(snapshot: HumanInputSnapshot) -> HumanInpu
 
     data = snapshot.request
     try:
-        return HumanInputRequest(
-            request_id=_required_str(data, "request_id"),
-            session_id=_required_str(data, "session_id"),
-            run_id=_optional_str(data.get("run_id")),
-            invocation_id=_optional_str(data.get("invocation_id")),
-            created_by=_required_str(data, "created_by"),
-            kind=HumanInputKind(_required_str(data, "kind")),
-            source=HumanInputSource(_required_str(data, "source")),
-            risk_class=HumanInputRiskClass(_required_str(data, "risk_class")),
-            question=_required_str(data, "question"),
-            resume_target=_required_str(data, "resume_target"),
-            title=_optional_str(data.get("title")),
-            body=_optional_str(data.get("body")),
-            options=_string_tuple(data.get("options", ())),
-            required_permission=_optional_str(data.get("required_permission")),
-            timeout_seconds=_optional_int(data.get("timeout_seconds")),
-            timeout_action=HumanInputTimeoutAction(
+        request_kwargs = {
+            "request_id": _required_str(data, "request_id"),
+            "session_id": _required_str(data, "session_id"),
+            "run_id": _optional_str(data.get("run_id")),
+            "invocation_id": _optional_str(data.get("invocation_id")),
+            "created_by": _required_str(data, "created_by"),
+            "kind": HumanInputKind(_required_str(data, "kind")),
+            "source": HumanInputSource(_required_str(data, "source")),
+            "risk_class": HumanInputRiskClass(_required_str(data, "risk_class")),
+            "question": _required_str(data, "question"),
+            "resume_target": _required_str(data, "resume_target"),
+            "title": _optional_str(data.get("title")),
+            "body": _optional_str(data.get("body")),
+            "options": _string_tuple(data.get("options", ())),
+            "required_permission": _optional_str(data.get("required_permission")),
+            "timeout_seconds": _optional_int(data.get("timeout_seconds")),
+            "timeout_action": HumanInputTimeoutAction(
                 _optional_str(data.get("timeout_action"))
                 or HumanInputTimeoutAction.STAY_WAITING.value
             ),
-            surface=_optional_str(data.get("surface")),
-            payload=_plain_mapping(data.get("payload", {})),
-            created_at=_datetime_from_payload(data.get("created_at"), fallback=snapshot.created_at),
-        )
+            "surface": _optional_str(data.get("surface")),
+            "payload": _plain_mapping(data.get("payload", {})),
+            "created_at": _datetime_from_payload(
+                data.get("created_at"), fallback=snapshot.created_at
+            ),
+        }
+        if "schema_version" in data:
+            request_kwargs["schema_version"] = data["schema_version"]
+        return HumanInputRequest.from_persisted_event_data(**request_kwargs)
     except (TypeError, ValueError) as exc:
         raise HumanInputResumeValidationError(
             f"HITL request {snapshot.request_id!r} cannot be reconstructed from persisted state"
@@ -186,6 +241,7 @@ def _datetime_from_payload(value: Any, *, fallback: datetime) -> datetime:
 __all__ = [
     "HumanInputResumeValidationError",
     "create_validated_hitl_resume_event",
+    "create_validated_hitl_timeout_event",
     "human_input_request_from_snapshot",
     "pending_human_input_snapshot_for_response",
 ]

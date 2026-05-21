@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linkml-runtime
-Version: 1.11.0
+Version: 1.11.1
 Summary: Runtime environment for LinkML, the Linked open data modeling language
 Author-email: Chris Mungall <cjmungall@lbl.gov>, Harold Solbrig <solbrig@jhu.edu>, Sierra Moxon <smoxon@lbl.gov>, Bill Duncan <wdduncan@gmail.com>, Harshad Hegde <hhegde@lbl.gov>
 License-Expression: CC0-1.0

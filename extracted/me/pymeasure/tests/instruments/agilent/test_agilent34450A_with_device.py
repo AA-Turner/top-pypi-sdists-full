@@ -1,7 +1,7 @@
 #
 # This file is part of the PyMeasure package.
 #
-# Copyright (c) 2013-2025 PyMeasure Developers
+# Copyright (c) 2013-2026 PyMeasure Developers
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -102,6 +102,11 @@ class TestAgilent34450A:
         dmm = make_reseted_dmm
         # Assert that a beep is audible
         dmm.beep()
+
+    def test_local(self, make_reseted_dmm):
+        dmm = make_reseted_dmm
+        dmm.local()
+        assert dmm.check_errors() == []
 
     @pytest.mark.parametrize("case", MODES)
     def test_modes(self, make_reseted_dmm, case):

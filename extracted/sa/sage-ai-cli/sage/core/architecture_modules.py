@@ -377,6 +377,142 @@ def _fastapi_infra_files(stack: StackProfile) -> list[FileSlot]:
         ),
     )
 
+    # ── Canonical User model (single source of truth) ──────────────
+    files.extend([
+        FileSlot(
+            path="backend/app/models/__init__.py",
+            role=(
+                "Re-export ONLY the canonical models from this package. "
+                "MUST contain exactly: `from .user import User`. "
+                "Do NOT invent other imports. Do NOT import from non-existent files."
+            ),
+            language="python",
+            must_contain=["from .user import User"],
+            must_not_contain=["from app import", "from .auth import User",
+                              "from .asset_management import User",
+                              "from .user_profile_management import User"],
+        ),
+        FileSlot(
+            path="backend/app/models/user.py",
+            role=(
+                "CANONICAL User model — the only definition of the User database table. "
+                "SQLModel(table=True) with: id (UUID PK, default uuid4), email (str, unique, "
+                "indexed), hashed_password (str), full_name (Optional[str]), role "
+                "(str, default 'user'), is_active (bool, default True), tenant_id "
+                "(Optional[UUID], indexed), created_at (datetime, default utcnow), "
+                "updated_at (Optional[datetime]). "
+                "ONLY import from: sqlmodel, sqlalchemy, uuid, datetime, typing. "
+                "Do NOT import from other app.models files. "
+                "Table name must be 'user' (__tablename__ = 'user')."
+            ),
+            language="python",
+            must_contain=[
+                "class User(SQLModel, table=True)",
+                "email",
+                "hashed_password",
+                "__tablename__",
+            ],
+            must_not_contain=[
+                "from app.models", "from .auth import", "from .asset",
+                "class User(Auth", "class User(Base",
+            ],
+        ),
+    ])
+
+    # ── FastAPI app entry point ─────────────────────────────────────
+    files.append(
+        FileSlot(
+            path="backend/app/main.py",
+            role=(
+                "FastAPI application factory. "
+                "1. Import Settings instance: `from app.core.config import Settings; "
+                "_settings = Settings()` — DO NOT access class attributes (Settings.FIELD). "
+                "2. Include all feature routers from `from app.api.routes import api_router`. "
+                "3. CORSMiddleware using _settings.CORS_ORIGINS. "
+                "4. Exception handlers for every AppError subclass. "
+                "5. /health endpoint returning {'ok': True}. "
+                "6. lifespan context manager (do NOT use @app.on_event). "
+                "app = FastAPI(lifespan=lifespan, title=_settings.PROJECT_NAME)."
+            ),
+            language="python",
+            must_contain=[
+                "FastAPI",
+                "_settings = Settings()",
+                "CORSMiddleware",
+                "api_router",
+                "/health",
+                "@asynccontextmanager",
+            ],
+            must_not_contain=[
+                "Settings.PROJECT_NAME",
+                "Settings.API_V1_STR",
+                "Settings.CORS",
+                "@app.on_event",
+                "from app.models.user import User",  # main.py doesn't need to import User
+            ],
+        )
+    )
+
+    # ── Main API router (wires all feature routers) ─────────────────
+    files.extend([
+        FileSlot(
+            path="backend/app/api/__init__.py",
+            role="API package marker.",
+            language="python",
+            template="",
+        ),
+        FileSlot(
+            path="backend/app/api/routes.py",
+            role=(
+                "CRITICAL: This file MUST include REAL router registrations — NOT empty. "
+                "Create `api_router = APIRouter()` and include_router for every "
+                "router in app/api/v1/: health, auth, plus one router for each "
+                "business feature. Pattern: "
+                "`from app.api.v1.campaigns import router as campaigns_router; "
+                "api_router.include_router(campaigns_router, prefix='/campaigns', tags=['campaigns'])`. "
+                "Include ALL feature routers. The list should have 10+ routers. "
+                "Also add: prefix='/api/v1', so the api_router mounted in main.py "
+                "creates paths at /api/v1/<feature>."
+            ),
+            language="python",
+            must_contain=[
+                "api_router = APIRouter()",
+                "include_router",
+                "prefix",
+            ],
+            must_not_contain=["# All routes commented out", "pass", "# TODO"],
+        ),
+    ])
+
+    # ── conftest.py for tests ───────────────────────────────────────
+    files.append(
+        FileSlot(
+            path="backend/tests/conftest.py",
+            role=(
+                "pytest conftest.py for the backend test suite. "
+                "MUST use in-memory SQLite for tests (never PostgreSQL): "
+                "`DATABASE_URL = 'sqlite+aiosqlite:///:memory:'`. "
+                "Fixtures: event_loop (session scope), engine (create_all), "
+                "db_session (AsyncSession from the test engine), "
+                "client (AsyncClient with app, base_url). "
+                "Import from app.main import app — do NOT import from "
+                "app.models.user directly in conftest (let fixtures handle it)."
+            ),
+            language="python",
+            must_contain=[
+                "sqlite+aiosqlite",
+                "AsyncSession",
+                "pytest",
+                "AsyncClient",
+            ],
+            must_not_contain=[
+                "postgresql://",
+                "postgres://",
+                "asyncpg",
+            ],
+        )
+    )
+
     # ── Health endpoints ────────────────────────────────────────────
     files.append(
         FileSlot(

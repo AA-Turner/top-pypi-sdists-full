@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litestar
-Version: 2.21.1
+Version: 2.22.0
 Summary: Litestar - A production-ready, highly performant, extensible ASGI API Framework
 Project-URL: Blog, https://blog.litestar.dev
 Project-URL: Changelog, https://github.com/litestar-org/litestar/releases/
@@ -33,6 +33,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers

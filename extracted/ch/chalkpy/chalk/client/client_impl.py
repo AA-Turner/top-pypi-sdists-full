@@ -622,7 +622,10 @@ def _upload_table_parquet(
         with open(full_path, "wb") as f:
             f.write(written_bytes.getvalue())
             return
-    resp = requests.put(url, data=written_bytes)
+    headers = {}
+    if ".blob.core.windows.net" in url:
+        headers["x-ms-blob-type"] = "BlockBlob"
+    resp = requests.put(url, data=written_bytes, headers=headers)
     resp.raise_for_status()
 
 

@@ -14,6 +14,7 @@ from .....schema_classes import CorpUserCredentialsClass
 from .....schema_classes import CorpUserEditableInfoClass
 from .....schema_classes import CorpUserHomePageSettingsClass
 from .....schema_classes import CorpUserInfoClass
+from .....schema_classes import CorpUserLocaleSettingsClass
 from .....schema_classes import CorpUserSettingsClass
 from .....schema_classes import CorpUserStatusClass
 from .....schema_classes import CorpUserViewsSettingsClass
@@ -30,6 +31,7 @@ CorpUserCredentials = CorpUserCredentialsClass
 CorpUserEditableInfo = CorpUserEditableInfoClass
 CorpUserHomePageSettings = CorpUserHomePageSettingsClass
 CorpUserInfo = CorpUserInfoClass
+CorpUserLocaleSettings = CorpUserLocaleSettingsClass
 CorpUserSettings = CorpUserSettingsClass
 CorpUserStatus = CorpUserStatusClass
 CorpUserViewsSettings = CorpUserViewsSettingsClass

@@ -339,7 +339,7 @@ from ..client import (
     SendPackResult,
     get_transport_and_path,
 )
-from ..config import Config, StackedConfig
+from ..config import Config, StackedConfig, env_config
 from ..diff_tree import (
     CHANGE_ADD,
     CHANGE_COPY,
@@ -1110,8 +1110,8 @@ def commit(
 
         # If -a flag is used, stage all modified tracked files
         if all:
-            index = r.open_index()
-            normalizer = r.get_blob_normalizer()
+            index = r.open_index(config=r.get_config_stack())
+            normalizer = r.get_blob_normalizer(config=r.get_config_stack())
 
             # Pass the normalizer's checkin_normalize method directly
             if normalizer is not None:
@@ -1156,6 +1156,7 @@ def commit(
                 signoff=signoff,
                 merge_heads=merge_heads,
                 ref=None,
+                config=r.get_config_stack(),
             )
             # Update HEAD to point to the new commit with reflog message
             try:
@@ -1189,6 +1190,7 @@ def commit(
                 sign=sign,
                 signoff=signoff,
                 merge_heads=merge_heads,
+                config=r.get_config_stack(),
             )
 
 
@@ -1212,7 +1214,11 @@ def commit_tree(
         if isinstance(message, str):
             message = message.encode(DEFAULT_ENCODING)
         return r.get_worktree().commit(
-            message=message, tree=tree, committer=committer, author=author
+            message=message,
+            tree=tree,
+            committer=committer,
+            author=author,
+            config=r.get_config_stack(),
         )
 
 
@@ -1483,6 +1489,9 @@ def clone(
 
     if config is None:
         config = StackedConfig.default()
+        env_override = env_config(os.environ)
+        if env_override is not None:
+            config.backends.insert(0, env_override)
 
     if checkout is None:
         checkout = not bare
@@ -1580,11 +1589,11 @@ def add(
     ignored = set()
     with open_repo_closing(repo) as r:
         repo_path = Path(r.path).resolve()
-        ignore_manager = IgnoreFilterManager.from_repo(r)
+        ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
 
         # Get unstaged changes once for the entire operation
-        index = r.open_index()
-        normalizer = r.get_blob_normalizer()
+        index = r.open_index(config=r.get_config_stack())
+        normalizer = r.get_blob_normalizer(config=r.get_config_stack())
         if normalizer is not None:
             filter_callback = normalizer.checkin_normalize
         else:
@@ -1606,7 +1615,7 @@ def add(
             # When no paths specified, add all untracked and modified files from repo root
             paths = [str(repo_path)]
         relpaths = []
-        if isinstance(paths, (str, bytes, os.PathLike)):
+        if isinstance(paths, str | bytes | os.PathLike):
             paths = [paths]
         for p in paths:
             # Handle bytes paths by decoding them
@@ -1689,7 +1698,7 @@ def add(
                 ignored.add(relpath)
                 continue
             relpaths.append(relpath)
-        r.get_worktree().stage(relpaths)
+        r.get_worktree().stage(relpaths, config=r.get_config_stack())
     return (relpaths, ignored)
 
 
@@ -1732,8 +1741,8 @@ def clean(
         # TODO(jelmer): if require_force is set, then make sure that -f, -i or
         # -n is specified.
 
-        index = r.open_index()
-        ignore_manager = IgnoreFilterManager.from_repo(r)
+        index = r.open_index(config=r.get_config_stack())
+        ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
 
         paths_in_wd = _walk_working_dir_paths(target_dir, r.path)
         # Reverse file visit order, so that files and subdirectories are
@@ -1771,8 +1780,8 @@ def remove(
       cached: Only remove from index, not from working directory
     """
     with open_repo_closing(repo) as r:
-        index = r.open_index()
-        blob_normalizer = r.get_blob_normalizer()
+        index = r.open_index(config=r.get_config_stack())
+        blob_normalizer = r.get_blob_normalizer(config=r.get_config_stack())
 
         for p in paths:
             # If path is absolute, use it as-is. Otherwise, treat it as relative to repo
@@ -1850,7 +1859,7 @@ def mv(
       Error: If source doesn't exist, is not tracked, or destination already exists (without force)
     """
     with open_repo_closing(repo) as r:
-        index = r.open_index()
+        index = r.open_index(config=r.get_config_stack())
 
         # Handle paths - convert to string if necessary
         if isinstance(source, bytes):
@@ -2122,7 +2131,7 @@ def show_tag(
     with open_repo_closing(repo) as r:
         print_tag(tag, decode, outstream)
         obj = r[tag.object[1]]
-        assert isinstance(obj, (Tree, Blob, Commit, Tag))
+        assert isinstance(obj, Tree | Blob | Commit | Tag)
         show_object(repo, obj, decode, outstream)
 
 
@@ -2448,11 +2457,11 @@ def show(
     """
     if objects is None:
         objects = ["HEAD"]
-    if isinstance(objects, (str, bytes)):
+    if isinstance(objects, str | bytes):
         objects = [objects]
     with open_repo_closing(repo) as r:
         for objectish in objects:
-            o = parse_object(r, objectish)
+            o = parse_object(r, objectish, config=r.get_config_stack())
             if isinstance(o, Commit):
 
                 def decode(x: bytes) -> str:
@@ -2463,7 +2472,7 @@ def show(
                 def decode(x: bytes) -> str:
                     return x.decode(default_encoding)
 
-            assert isinstance(o, (Tree, Blob, Commit, Tag))
+            assert isinstance(o, Tree | Blob | Commit | Tag)
             show_object(r, o, decode, outstream)
 
 
@@ -2591,7 +2600,12 @@ def diff(
         elif staged:
             # Show staged changes (index vs commit)
             diff_module.diff_index_to_tree(
-                r, outstream, commit_sha, byte_paths, diff_algorithm=diff_algorithm
+                r,
+                outstream,
+                commit_sha,
+                byte_paths,
+                diff_algorithm=diff_algorithm,
+                config=r.get_config_stack(),
             )
         elif commit is not None:
             # Compare working tree to a specific commit
@@ -2599,12 +2613,21 @@ def diff(
                 commit_sha is not None
             )  # mypy: commit_sha is set when commit is not None
             diff_module.diff_working_tree_to_tree(
-                r, outstream, commit_sha, byte_paths, diff_algorithm=diff_algorithm
+                r,
+                outstream,
+                commit_sha,
+                byte_paths,
+                diff_algorithm=diff_algorithm,
+                config=r.get_config_stack(),
             )
         else:
             # Compare working tree to index
             diff_module.diff_working_tree_to_index(
-                r, outstream, byte_paths, diff_algorithm=diff_algorithm
+                r,
+                outstream,
+                byte_paths,
+                diff_algorithm=diff_algorithm,
+                config=r.get_config_stack(),
             )
 
 
@@ -2773,7 +2796,7 @@ def reset(
                 treeish.decode("utf-8")
                 if isinstance(treeish, bytes)
                 else str(treeish)
-                if not isinstance(treeish, (Commit, Tree, Tag))
+                if not isinstance(treeish, Commit | Tree | Tag)
                 else target_commit.id.hex()
             )
             default_message = f"reset: moving to {treeish_str}".encode()
@@ -2793,7 +2816,7 @@ def reset(
             from ..object_store import iter_tree_contents
 
             # Open the index
-            index = r.open_index()
+            index = r.open_index(config=r.get_config_stack())
 
             # Clear the current index
             index.clear()
@@ -2827,7 +2850,7 @@ def reset(
         elif mode == "hard":
             # Hard reset: update HEAD, index, and working tree
             # For reset --hard, use current index tree as old tree to get proper deletions
-            index = r.open_index()
+            index = r.open_index(config=r.get_config_stack())
             if len(index) > 0:
                 index_tree_id = index.commit(r.object_store)
             else:
@@ -2839,7 +2862,7 @@ def reset(
                 _get_worktree_update_config(r)
             )
 
-            blob_normalizer = r.get_blob_normalizer()
+            blob_normalizer = r.get_blob_normalizer(config=r.get_config_stack())
             changes = tree_changes(
                 r.object_store, index_tree_id, tree.id, want_unchanged=True
             )
@@ -2853,7 +2876,8 @@ def reset(
                 symlink_fn=symlink_fn,
                 force_remove_untracked=True,
                 blob_normalizer=blob_normalizer,
-                allow_overwrite_modified=True,  # Allow overwriting modified files
+                allow_overwrite_modified=True,  # Allow overwriting modified files,
+                config=r.get_config_stack(),
             )
         else:
             raise Error(f"Invalid reset mode: {mode}")
@@ -2968,7 +2992,7 @@ def _select_push_refs(
                 result.append((Ref(ref), Ref(ref), force))
     elif delete:
         assert refspecs is not None
-        if isinstance(refspecs, (str, bytes)):
+        if isinstance(refspecs, str | bytes):
             refspecs = [refspecs]
         remote_container = DictRefsContainer(remote_refs)  # type: ignore[arg-type]
         for spec in refspecs:
@@ -2988,7 +3012,7 @@ def _select_push_refs(
             if not active_ref.startswith(LOCAL_BRANCH_PREFIX):
                 raise ValueError(active_ref)
             refspecs = [active_ref[len(LOCAL_BRANCH_PREFIX) :]]
-        elif isinstance(refspecs, (str, bytes)):
+        elif isinstance(refspecs, str | bytes):
             refspecs = [refspecs]
         refspecs_bytes = [
             spec.encode() if isinstance(spec, str) else spec for spec in refspecs
@@ -3395,7 +3419,7 @@ def pull(
             head_commit = r[b"HEAD"]
             assert isinstance(head_commit, Commit)
             new_tree_id = head_commit.tree
-            blob_normalizer = r.get_blob_normalizer()
+            blob_normalizer = r.get_blob_normalizer(config=r.get_config_stack())
             changes = tree_changes(r.object_store, old_tree_id, new_tree_id)
             update_working_tree(
                 r,
@@ -3404,6 +3428,7 @@ def pull(
                 change_iterator=changes,
                 blob_normalizer=blob_normalizer,
                 allow_overwrite_modified=force,
+                config=r.get_config_stack(),
             )
         if remote_name is not None:
             _import_remote_refs(r.refs, remote_name, fetch_result.refs)
@@ -3441,11 +3466,11 @@ def status(
     """
     with open_repo_closing(repo) as r:
         # Open the index once and reuse it for both staged and unstaged checks
-        index = r.open_index()
+        index = r.open_index(config=r.get_config_stack())
         # 1. Get status of staged
         tracked_changes = get_tree_changes(r, index)
         # 2. Get status of unstaged
-        normalizer = r.get_blob_normalizer()
+        normalizer = r.get_blob_normalizer(config=r.get_config_stack())
 
         # Pass the normalizer's checkin_normalize method directly
         if normalizer is not None:
@@ -3642,7 +3667,7 @@ def get_untracked_paths(
     basepath_str = os.fsdecode(os.fspath(basepath))
 
     with open_repo_closing(basepath_str) as r:
-        ignore_manager = IgnoreFilterManager.from_repo(r)
+        ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
 
     ignored_dirs = []
     # List to store untracked directories found during traversal
@@ -3822,7 +3847,9 @@ def grep(
         # Set up ignore filter if requested
         ignore_manager = None
         if respect_ignores:
-            ignore_manager = IgnoreFilterManager.from_repo(r)
+            ignore_manager = IgnoreFilterManager.from_repo(
+                r, config=r.get_config_stack()
+            )
 
         # Convert pathspecs to bytes
         pathspecs_bytes: list[bytes] | None = None
@@ -3898,7 +3925,7 @@ def get_tree_changes(
     """
     with open_repo_closing(repo) as r:
         if index is None:
-            index = r.open_index()
+            index = r.open_index(config=r.get_config_stack())
 
         # Compares the Index to the HEAD & determines changes
         # Iterate through the changes and report add/delete/modify
@@ -4067,7 +4094,7 @@ def branch_delete(repo: RepoPath, name: str | bytes | Sequence[str | bytes]) -> 
       name: Name of the branch
     """
     with open_repo_closing(repo) as r:
-        if isinstance(name, (list, tuple)):
+        if isinstance(name, list | tuple):
             names = name
         else:
             names = [name]
@@ -4106,7 +4133,7 @@ def branch_create(
         elif local_branch_name(objectish_bytes) in r.refs:
             objectish = local_branch_name(objectish_bytes)
 
-        object = parse_object(r, objectish)
+        object = parse_object(r, objectish, config=r.get_config_stack())
         refname = _make_branch_ref(name)
         default_message = (
             b"branch: Created from " + original_objectish.encode(DEFAULT_ENCODING)
@@ -5033,6 +5060,9 @@ def ls_remote(
     """
     if config is None:
         config = StackedConfig.default()
+        env_override = env_config(os.environ)
+        if env_override is not None:
+            config.backends.insert(0, env_override)
     remote_str = remote.decode() if isinstance(remote, bytes) else remote
     client, host_path = get_transport_and_path(
         remote_str,
@@ -5248,8 +5278,8 @@ def check_ignore(
     Returns: List of ignored files
     """
     with open_repo_closing(repo) as r:
-        index = r.open_index()
-        ignore_manager = IgnoreFilterManager.from_repo(r)
+        index = r.open_index(config=r.get_config_stack())
+        ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
         for original_path in paths:
             # Convert path to string for consistent handling
             original_path_fspath = os.fspath(original_path)
@@ -5433,8 +5463,9 @@ def _perform_tree_switch(
         repo
     )
 
+    config = repo.get_config_stack()
     # Get blob normalizer for line ending conversion
-    blob_normalizer = repo.get_blob_normalizer()
+    blob_normalizer = repo.get_blob_normalizer(config=config)
 
     # Update working tree
     tree_change_iterator: Iterator[TreeChange] = tree_changes(
@@ -5451,6 +5482,7 @@ def _perform_tree_switch(
         force_remove_untracked=force,
         blob_normalizer=blob_normalizer,
         allow_overwrite_modified=force,
+        config=config,
     )
 
 
@@ -5543,7 +5575,7 @@ def checkout(
             target_tree = parse_tree(r, target)
 
             # Get blob normalizer for line ending conversion
-            blob_normalizer = r.get_blob_normalizer()
+            blob_normalizer = r.get_blob_normalizer(config=r.get_config_stack())
 
             # Restore specified paths from target tree
             for path in byte_paths:
@@ -5581,7 +5613,7 @@ def checkout(
                             f.write(obj.data)
 
                     # Update the index
-                    worktree.stage(path)
+                    worktree.stage(path, config=r.get_config_stack())
 
             return
 
@@ -5640,7 +5672,7 @@ def checkout(
             # Check if target is a branch name (with or without refs/heads/ prefix)
             branch_ref = None
             if (
-                isinstance(original_target, (str, bytes))
+                isinstance(original_target, str | bytes)
                 and target_bytes in r.refs.keys()
             ):
                 if target_bytes.startswith(LOCAL_BRANCH_PREFIX):
@@ -5649,7 +5681,7 @@ def checkout(
                 # Try adding refs/heads/ prefix
                 potential_branch = (
                     _make_branch_ref(target_bytes)
-                    if isinstance(original_target, (str, bytes))
+                    if isinstance(original_target, str | bytes)
                     else None
                 )
                 if potential_branch in r.refs.keys():
@@ -5706,7 +5738,7 @@ def restore(
                 # Restoring worktree files from index
                 from ..index import ConflictedIndexEntry, IndexEntry
 
-                index = r.open_index()
+                index = r.open_index(config=r.get_config_stack())
                 for path in paths:
                     if isinstance(path, str):
                         tree_path = _fs_to_tree_path(path)
@@ -5769,7 +5801,7 @@ def restore(
                 # Update the index with the blob from source
                 from ..index import IndexEntry
 
-                index = r.open_index()
+                index = r.open_index(config=r.get_config_stack())
 
                 # When only updating staged (not worktree), we want to reset the index
                 # to the source, but invalidate the stat cache so Git knows to check
@@ -5880,7 +5912,7 @@ def switch(
             # Check if target is a branch name (with or without refs/heads/ prefix)
             branch_ref = None
             if (
-                isinstance(original_target, (str, bytes))
+                isinstance(original_target, str | bytes)
                 and target_bytes in r.refs.keys()
             ):
                 if target_bytes.startswith(LOCAL_BRANCH_PREFIX):
@@ -5889,7 +5921,7 @@ def switch(
                 # Try adding refs/heads/ prefix
                 potential_branch = (
                     _make_branch_ref(target_bytes)
-                    if isinstance(original_target, (str, bytes))
+                    if isinstance(original_target, str | bytes)
                     else None
                 )
                 if potential_branch in r.refs.keys():
@@ -5982,12 +6014,17 @@ def sparse_checkout(
             repo_obj.get_worktree().set_sparse_checkout_patterns(patterns)
 
         # --- 2) Determine the set of included paths ---
-        index = repo_obj.open_index()
+        index = repo_obj.open_index(config=repo_obj.get_config_stack())
         included_paths = determine_included_paths(index, lines, cone)
 
         # --- 3) Apply those results to the index & working tree ---
         try:
-            apply_included_paths(repo_obj, included_paths, force=force)
+            apply_included_paths(
+                repo_obj,
+                included_paths,
+                force=force,
+                config=repo_obj.get_config_stack(),
+            )
         except SparseCheckoutConflictError as exc:
             raise CheckoutError(*exc.args) from exc
 
@@ -6150,7 +6187,7 @@ def cat_file_type(repo: str | os.PathLike[str] | Repo, objectish: str | bytes) -
     from ..objectspec import parse_object
 
     with open_repo_closing(repo) as r:
-        obj = parse_object(r, objectish)
+        obj = parse_object(r, objectish, config=r.get_config_stack())
         return obj.type_name
 
 
@@ -6167,7 +6204,7 @@ def cat_file_size(repo: str | os.PathLike[str] | Repo, objectish: str | bytes) -
     from ..objectspec import parse_object
 
     with open_repo_closing(repo) as r:
-        obj = parse_object(r, objectish)
+        obj = parse_object(r, objectish, config=r.get_config_stack())
         return len(obj.as_raw_string())
 
 
@@ -6186,7 +6223,7 @@ def cat_file_content(
     from ..objectspec import parse_object
 
     with open_repo_closing(repo) as r:
-        obj = parse_object(r, objectish)
+        obj = parse_object(r, objectish, config=r.get_config_stack())
         return obj.as_raw_string()
 
 
@@ -6257,7 +6294,7 @@ def rev_parse(repo: str | os.PathLike[str] | Repo, rev: str | bytes) -> bytes:
     from ..objectspec import parse_object
 
     with open_repo_closing(repo) as r:
-        obj = parse_object(r, rev)
+        obj = parse_object(r, rev, config=r.get_config_stack())
         return obj.id
 
 
@@ -6291,12 +6328,12 @@ def update_ref(
         if new_value is None:
             new_sha = None
         else:
-            new_obj = parse_object(r, new_value)
+            new_obj = parse_object(r, new_value, config=r.get_config_stack())
             new_sha = new_obj.id
 
         old_sha: bytes | None
         if old_value is not None:
-            old_obj = parse_object(r, old_value)
+            old_obj = parse_object(r, old_value, config=r.get_config_stack())
             old_sha = old_obj.id
         else:
             old_sha = None
@@ -6446,7 +6483,7 @@ def stash_push(repo: str | os.PathLike[str] | Repo) -> None:
         from ..stash import Stash
 
         stash = Stash.from_repo(r)
-        stash.push()
+        stash.push(config=r.get_config_stack())
 
 
 def stash_pop(repo: str | os.PathLike[str] | Repo) -> None:
@@ -6455,7 +6492,7 @@ def stash_pop(repo: str | os.PathLike[str] | Repo) -> None:
         from ..stash import Stash
 
         stash = Stash.from_repo(r)
-        stash.pop(0)
+        stash.pop(0, config=r.get_config_stack())
 
 
 def stash_drop(repo: str | os.PathLike[str] | Repo, index: int) -> None:
@@ -6470,7 +6507,7 @@ def stash_drop(repo: str | os.PathLike[str] | Repo, index: int) -> None:
 def ls_files(repo: RepoPath) -> list[bytes]:
     """List all files in an index."""
     with open_repo_closing(repo) as r:
-        return sorted(r.open_index())
+        return sorted(r.open_index(config=r.get_config_stack()))
 
 
 def find_unique_abbrev(
@@ -6622,7 +6659,7 @@ def get_object_by_path(
             path = commit_encode(commit, path)
         (_mode, sha) = tree_lookup_path(r.object_store.__getitem__, base_tree, path)
         obj = r[sha]
-        assert isinstance(obj, (Blob, Tree, Commit, Tag))
+        assert isinstance(obj, Blob | Tree | Commit | Tag)
         return obj
 
 
@@ -6634,7 +6671,7 @@ def write_tree(repo: RepoPath) -> bytes:
     Returns: tree id for the tree that was written
     """
     with open_repo_closing(repo) as r:
-        return r.open_index().commit(r.object_store)
+        return r.open_index(config=r.get_config_stack()).commit(r.object_store)
 
 
 def _do_merge(
@@ -6696,7 +6733,11 @@ def _do_merge(
         # Update the working directory
         changes = tree_changes(r.object_store, head_commit.tree, merge_commit.tree)
         update_working_tree(
-            r, head_commit.tree, merge_commit.tree, change_iterator=changes
+            r,
+            head_commit.tree,
+            merge_commit.tree,
+            change_iterator=changes,
+            config=r.get_config_stack(),
         )
         return (merge_commit_id, [])
 
@@ -6716,7 +6757,13 @@ def _do_merge(
 
     # Update index and working directory
     changes = tree_changes(r.object_store, head_commit.tree, merged_tree.id)
-    update_working_tree(r, head_commit.tree, merged_tree.id, change_iterator=changes)
+    update_working_tree(
+        r,
+        head_commit.tree,
+        merged_tree.id,
+        change_iterator=changes,
+        config=r.get_config_stack(),
+    )
 
     if conflicts or no_commit:
         # Don't create a commit if there are conflicts or no_commit is True
@@ -6839,7 +6886,13 @@ def _do_octopus_merge(
 
     # Update index and working directory
     changes = tree_changes(r.object_store, head_commit.tree, merged_tree.id)
-    update_working_tree(r, head_commit.tree, merged_tree.id, change_iterator=changes)
+    update_working_tree(
+        r,
+        head_commit.tree,
+        merged_tree.id,
+        change_iterator=changes,
+        config=r.get_config_stack(),
+    )
 
     if conflicts:
         # Don't create a commit if there are conflicts
@@ -6920,7 +6973,7 @@ def merge(
     """
     with open_repo_closing(repo) as r:
         # Handle both single commit and multiple commits
-        if isinstance(committish, (list, tuple)):
+        if isinstance(committish, list | tuple):
             # Multiple commits - use octopus merge
             merge_commit_ids = []
             for c in committish:
@@ -7215,7 +7268,7 @@ def cherry_pick(  # noqa: D417
             # Reset index to HEAD
             head_commit = r[b"HEAD"]
             assert isinstance(head_commit, Commit)
-            r.get_worktree().reset_index(head_commit.tree)
+            r.get_worktree().reset_index(head_commit.tree, config=r.get_config_stack())
             return None
 
         # Handle continue
@@ -7230,11 +7283,11 @@ def cherry_pick(  # noqa: D417
                 raise Error("No cherry-pick in progress")
 
             # Check for unresolved conflicts
-            if r.open_index().has_conflicts():
+            if r.open_index(config=r.get_config_stack()).has_conflicts():
                 raise Error("Unresolved conflicts remain")
 
             # Create the commit
-            tree_id = r.open_index().commit(r.object_store)
+            tree_id = r.open_index(config=r.get_config_stack()).commit(r.object_store)
 
             # Read saved message if any
             merge_msg_path = os.path.join(r.controldir(), "MERGE_MSG")
@@ -7252,6 +7305,7 @@ def cherry_pick(  # noqa: D417
                 author=cherry_pick_commit.author,
                 author_timestamp=cherry_pick_commit.author_time,
                 author_timezone=cherry_pick_commit.author_timezone,
+                config=r.get_config_stack(),
             )
 
             # Clean up state files
@@ -7303,7 +7357,7 @@ def cherry_pick(  # noqa: D417
 
         # Update working tree and index
         # Reset index to match merged tree
-        r.get_worktree().reset_index(merged_tree.id)
+        r.get_worktree().reset_index(merged_tree.id, config=r.get_config_stack())
 
         # Update working tree from the new index
         # Allow overwriting because we're applying the merge result
@@ -7315,6 +7369,7 @@ def cherry_pick(  # noqa: D417
             merged_tree.id,
             change_iterator=changes,
             allow_overwrite_modified=True,
+            config=r.get_config_stack(),
         )
 
         if conflicts:
@@ -7341,6 +7396,7 @@ def cherry_pick(  # noqa: D417
             author=cherry_pick_commit.author,
             author_timestamp=cherry_pick_commit.author_time,
             author_timezone=cherry_pick_commit.author_timezone,
+            config=r.get_config_stack(),
         )
 
         return new_commit
@@ -7377,7 +7433,7 @@ def revert(
     from ..merge import three_way_merge
 
     # Normalize commits to a list
-    if isinstance(commits, (str, bytes, Commit, Tag)):
+    if isinstance(commits, str | bytes | Commit | Tag):
         commits = [commits]
 
     with open_repo_closing(repo) as r:
@@ -7436,7 +7492,11 @@ def revert(
                 # Update working tree with conflicts
                 changes = tree_changes(r.object_store, current_tree, merged_tree.id)
                 update_working_tree(
-                    r, current_tree, merged_tree.id, change_iterator=changes
+                    r,
+                    current_tree,
+                    merged_tree.id,
+                    change_iterator=changes,
+                    config=r.get_config_stack(),
                 )
                 conflicted_paths = [c.decode("utf-8", "replace") for c in conflicts]
                 raise Error(f"Conflicts while reverting: {', '.join(conflicted_paths)}")
@@ -7447,7 +7507,11 @@ def revert(
             # Update working tree
             changes = tree_changes(r.object_store, current_tree, merged_tree.id)
             update_working_tree(
-                r, current_tree, merged_tree.id, change_iterator=changes
+                r,
+                current_tree,
+                merged_tree.id,
+                change_iterator=changes,
+                config=r.get_config_stack(),
             )
             current_tree = merged_tree.id
 
@@ -8168,7 +8232,7 @@ def bisect_start(
         state = BisectState(r)
 
         # Convert single good commit to sequence
-        if good is not None and isinstance(good, (str, bytes, Commit, Tag)):
+        if good is not None and isinstance(good, str | bytes | Commit | Tag):
             good = [good]
 
         # Parse commits
@@ -8189,7 +8253,13 @@ def bisect_start(
                 commit = r[next_sha]
                 assert isinstance(commit, Commit)
                 changes = tree_changes(r.object_store, old_tree, commit.tree)
-                update_working_tree(r, old_tree, commit.tree, change_iterator=changes)
+                update_working_tree(
+                    r,
+                    old_tree,
+                    commit.tree,
+                    change_iterator=changes,
+                    config=r.get_config_stack(),
+                )
             return next_sha
         return None
 
@@ -8221,7 +8291,13 @@ def bisect_bad(
             commit = r[next_sha]
             assert isinstance(commit, Commit)
             changes = tree_changes(r.object_store, old_tree, commit.tree)
-            update_working_tree(r, old_tree, commit.tree, change_iterator=changes)
+            update_working_tree(
+                r,
+                old_tree,
+                commit.tree,
+                change_iterator=changes,
+                config=r.get_config_stack(),
+            )
 
         return next_sha
 
@@ -8253,7 +8329,13 @@ def bisect_good(
             commit = r[next_sha]
             assert isinstance(commit, Commit)
             changes = tree_changes(r.object_store, old_tree, commit.tree)
-            update_working_tree(r, old_tree, commit.tree, change_iterator=changes)
+            update_working_tree(
+                r,
+                old_tree,
+                commit.tree,
+                change_iterator=changes,
+                config=r.get_config_stack(),
+            )
 
         return next_sha
 
@@ -8283,7 +8365,7 @@ def bisect_skip(
             rev_shas = None
         else:
             # Convert single rev to sequence
-            if isinstance(revs, (str, bytes, Commit, Tag)):
+            if isinstance(revs, str | bytes | Commit | Tag):
                 revs = [revs]
             rev_shas = [parse_commit(r, rev).id for rev in revs]
 
@@ -8298,7 +8380,13 @@ def bisect_skip(
             commit = r[next_sha]
             assert isinstance(commit, Commit)
             changes = tree_changes(r.object_store, old_tree, commit.tree)
-            update_working_tree(r, old_tree, commit.tree, change_iterator=changes)
+            update_working_tree(
+                r,
+                old_tree,
+                commit.tree,
+                change_iterator=changes,
+                config=r.get_config_stack(),
+            )
 
         return next_sha
 
@@ -8334,7 +8422,11 @@ def bisect_reset(
                 assert isinstance(new_commit, Commit)
                 changes = tree_changes(r.object_store, old_tree, new_commit.tree)
                 update_working_tree(
-                    r, old_tree, new_commit.tree, change_iterator=changes
+                    r,
+                    old_tree,
+                    new_commit.tree,
+                    change_iterator=changes,
+                    config=r.get_config_stack(),
                 )
         except KeyError:
             # No HEAD after reset
@@ -8368,7 +8460,7 @@ def bisect_replay(
     with open_repo_closing(repo) as r:
         state = BisectState(r)
 
-        if isinstance(log_file, (str, os.PathLike)):
+        if isinstance(log_file, str | os.PathLike):
             with open(log_file) as f:
                 log_content = f.read()
         else:
@@ -8579,7 +8671,7 @@ def merge_base(
         # Resolve committish references to commit IDs
         commit_ids = []
         for committish in committishes:
-            obj = parse_object(r, committish)
+            obj = parse_object(r, committish, config=r.get_config_stack())
             if not isinstance(obj, Commit):
                 raise ValueError(f"Expected commit, got {obj.type_name.decode()}")
             commit_ids.append(obj.id)
@@ -8619,10 +8711,10 @@ def is_ancestor(
 
     with open_repo_closing(repo) as r:
         # Resolve committish references to commit IDs
-        ancestor_obj = parse_object(r, ancestor)
+        ancestor_obj = parse_object(r, ancestor, config=r.get_config_stack())
         if not isinstance(ancestor_obj, Commit):
             raise ValueError(f"Expected commit, got {ancestor_obj.type_name.decode()}")
-        descendant_obj = parse_object(r, descendant)
+        descendant_obj = parse_object(r, descendant, config=r.get_config_stack())
         if not isinstance(descendant_obj, Commit):
             raise ValueError(
                 f"Expected commit, got {descendant_obj.type_name.decode()}"
@@ -8656,7 +8748,7 @@ def independent_commits(
         # Resolve committish references to commit IDs
         commit_ids = []
         for committish in committishes:
-            obj = parse_object(r, committish)
+            obj = parse_object(r, committish, config=r.get_config_stack())
             if not isinstance(obj, Commit):
                 raise ValueError(f"Expected commit, got {obj.type_name.decode()}")
             commit_ids.append(obj.id)
@@ -8699,7 +8791,7 @@ def mailsplit(
     if is_maildir:
         if input_path is None:
             raise ValueError("input_path is required for Maildir splitting")
-        if not isinstance(input_path, (str, bytes, os.PathLike)):
+        if not isinstance(input_path, str | bytes | os.PathLike):
             raise ValueError("Maildir splitting requires a path, not a file object")
         # Convert PathLike to str for split_maildir
         maildir_path: str | bytes = (
@@ -8838,7 +8930,7 @@ def rerere(repo: RepoPath = ".") -> tuple[list[tuple[bytes, str]], list[bytes]]:
 
     with open_repo_closing(repo) as r:
         # Get conflicts from the index (if available)
-        index = r.open_index()
+        index = r.open_index(config=r.get_config_stack())
         conflicts = []
 
         for path, entry in index.items():
@@ -8861,7 +8953,7 @@ def rerere(repo: RepoPath = ".") -> tuple[list[tuple[bytes, str]], list[bytes]]:
 
         # Record conflicts and apply known resolutions
         working_tree = r.path
-        return rerere_auto(r, working_tree, conflicts)
+        return rerere_auto(r, working_tree, conflicts, config=r.get_config_stack())
 
 
 def rerere_status(repo: RepoPath = ".") -> list[tuple[str, bool]]:
@@ -8990,7 +9082,7 @@ def apply_patch(
             import sys
 
             patch_content = sys.stdin.buffer.read()
-        elif isinstance(patch_file, (str, bytes)):
+        elif isinstance(patch_file, str | bytes):
             # Path to file
             if isinstance(patch_file, bytes):
                 path = patch_file.decode("utf-8")
@@ -9076,7 +9168,7 @@ def am(
 
     for inp in inputs:
         # Read content
-        if isinstance(inp, (str, bytes)):
+        if isinstance(inp, str | bytes):
             if isinstance(inp, str):
                 path = inp
             else:

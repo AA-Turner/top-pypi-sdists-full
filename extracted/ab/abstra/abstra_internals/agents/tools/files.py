@@ -30,10 +30,10 @@ def to_globs(g: Union[str, PathLike, Iterable[Union[str, PathLike]]]) -> Set[str
     return set(map(str, [g]))
 
 
-def path_in_glob(glob_exp: str, path: PathLike) -> bool:
+def path_in_glob(glob_exp: str, path: Union[str, PathLike]) -> bool:
     from glob import glob
 
-    return path in glob(glob_exp)
+    return str(path) in glob(glob_exp)
 
 
 class FilesTools(AgentTools):
@@ -139,7 +139,7 @@ class FilesTools(AgentTools):
 
         shutil.move(src, dst)
 
-    def list(self, path: PathLike) -> list[str]:
+    def list(self, path: PathLike) -> List[str]:
         import os
 
         if "list" not in self.actions:

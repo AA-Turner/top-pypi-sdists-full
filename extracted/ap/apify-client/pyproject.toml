@@ -4,19 +4,18 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify_client"
-version = "2.5.0"
+version = "3.0.0"
 description = "Apify API client for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -25,10 +24,10 @@ classifiers = [
 ]
 keywords = ["apify", "api", "client", "automation", "crawling", "scraping"]
 dependencies = [
-    "apify-shared>=2.1.0,<3.0.0",
     "colorama>=0.4.0",
     "impit>=0.9.2",
     "more_itertools>=10.0.0",
+    "pydantic[email]>=2.11.0",
 ]
 
 [project.urls]
@@ -47,27 +46,37 @@ dev = [
     # See https://github.com/apify/apify-client-python/pull/582/ for more details.
     # We explicitly constrain black>=24.3.0 to override the transitive dependency.
     "black>=24.3.0",
+    "datamodel-code-generator[http,ruff]>=0.57.0,<1.0.0",
     "dycw-pytest-only<3.0.0",
-    "griffe",
+    "griffe<3.0.0",
     "poethepoet<1.0.0",
     "pre-commit<5.0.0",
     "pydoc-markdown<5.0.0",
     "pytest-asyncio<2.0.0",
     "pytest-cov<8.0.0",
+    "pytest-httpserver<2.0.0",
     "pytest-timeout<3.0.0",
     "pytest-xdist<4.0.0",
-    "pytest<9.0.0",
-    "pytest-httpserver<2.0.0",
-    "redbaron<1.0.0",
+    "pytest<10.0.0",
     "ruff~=0.15.0",
     "setuptools", # setuptools are used by pytest but not explicitly required
-    "ty~=0.0.0",
     "types-colorama<0.5.0",
+    "ty~=0.0.0",
     "werkzeug<4.0.0", # Werkzeug is used by pytest-httpserver
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/apify_client"]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "src/apify_client",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "pyproject.toml",
+]
 
 [tool.ruff]
 line-length = 120
@@ -77,6 +86,9 @@ include = [
     "scripts/**/*.py",
     "docs/**/*.py",
     "website/**/*.py",
+]
+exclude = [
+    "website/versioned_docs/**",
 ]
 
 [tool.ruff.lint]
@@ -121,6 +133,9 @@ indent-style = "space"
 "**/__init__.py" = [
     "F401", # Unused imports
 ]
+"**/_models.py" = [
+    "TC001", # Pydantic needs the literal aliases importable at runtime to resolve forward references
+]
 "**/{scripts}/*" = [
     "D",       # Everything from the pydocstyle
     "INP001",  # File {filename} is part of an implicit namespace package, add an __init__.py
@@ -144,6 +159,18 @@ indent-style = "space"
     "N999",   # Invalid module name
     "T201",   # print found
 ]
+"**/docs/02_concepts/code/10_architecture_imports.py" = [
+    "F401",   # Imported but unused
+]
+"**/docs/03_guides/code/05_custom_http_client_{async,sync}.py" = [
+    "ARG002", # Unused method argument
+]
+"src/apify_client/_{models,typeddicts}.py" = [
+    "D",      # Everything from the pydocstyle
+    "E501",   # Line too long
+    "ERA001", # Commented-out code
+    "TC003",  # Move standard library import into a type-checking block
+]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
@@ -162,28 +189,75 @@ max-branches = 18
 addopts = "-r a --verbose"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
+pythonpath = ["."]
 timeout = 1800
 
 [tool.ty.environment]
-python-version = "3.10"
+python-version = "3.11"
 
 [tool.ty.src]
 include = ["src", "tests", "scripts", "docs", "website"]
+exclude = ["website/versioned_docs"]
+
+[tool.ty.rules]
+unused-ignore-comment = "error"
 
 [[tool.ty.overrides]]
-include = [
-    "docs/**/*.py",
-    "website/**/*.py",
-]
-
+include = ["docs/**/*.py", "website/**/*.py"]
 [tool.ty.overrides.rules]
 unresolved-import = "ignore"
+
+[[tool.ty.overrides]]
+include = ["docs/**/10_plugging_in_async.py", "docs/**/10_plugging_in_sync.py"]
+[tool.ty.overrides.rules]
+empty-body = "ignore"
+
+[[tool.ty.overrides]]
+include = ["docs/**/05_custom_http_client_async.py", "docs/**/05_custom_http_client_sync.py"]
+[tool.ty.overrides.rules]
+invalid-argument-type = "ignore"
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "assert_never()"]
 
 [tool.ipdb]
 context = 7
+
+# https://koxudaxi.github.io/datamodel-code-generator/
+[tool.datamodel-codegen]
+input_file_type = "openapi"
+output = "src/apify_client/_models.py"
+target_python_version = "3.11"
+output_model_type = "pydantic_v2.BaseModel"
+use_schema_description = true
+use_field_description = true
+use_union_operator = true
+capitalise_enum_members = true
+collapse_root_models = true
+set_default_enum_member = true
+use_annotated = true
+wrap_string_literal = true
+snake_case_field = true
+use_subclass_enum = true
+reuse_model = true
+extra_fields = "allow"
+allow_population_by_field_name = true
+aliases = "datamodel_codegen_aliases.json"
+formatters = ["ruff-check", "ruff-format"]
+custom_file_header = "# generated by datamodel-codegen"
+disable_timestamp = true
+keep_model_order = true
+
+[tool.uv]
+# Minimal defense against supply-chain atatcks.
+exclude-newer = "24 hours"
+
+[tool.uv.exclude-newer-package]
+# Allow internal Apify packages to install immediately.
+apify-client = false
+apify-shared = false
+apify_fingerprint_datapoints = false
+crawlee = false
 
 # Run tasks with: uv run poe <task>
 [tool.poe.tasks]
@@ -196,9 +270,9 @@ unit-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit
 unit-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_client --cov-report=xml:coverage-unit.xml tests/unit"
 integration-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration"
 integration-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_client --cov-report=xml:coverage-integration.xml tests/integration"
-check-async-docstrings = "uv run python scripts/check_async_docstrings.py"
-fix-async-docstrings = "uv run python scripts/fix_async_docstrings.py"
-check-code = ["lint", "type-check", "unit-tests", "check-async-docstrings"]
+check-docstrings = "uv run python -m scripts.check_docstrings"
+fix-docstrings = "uv run python -m scripts.fix_docstrings"
+check-code = ["lint", "type-check", "check-docstrings", "unit-tests"]
 
 [tool.poe.tasks.install-dev]
 shell = "uv sync --all-extras && uv run pre-commit install"
@@ -210,13 +284,34 @@ shell = "uv run ruff format --check && uv run ruff check"
 shell = "uv run ruff check --fix && uv run ruff format"
 
 [tool.poe.tasks.update-docs-theme]
-shell = "corepack enable && yarn up @apify/docs-theme"
+shell = "pnpm update @apify/docs-theme"
 cwd = "website"
 
 [tool.poe.tasks.build-docs]
-shell = "./build_api_reference.sh && corepack enable && yarn && uv run yarn build"
+shell = "./build_api_reference.sh && pnpm install && uv run pnpm build"
 cwd = "website"
 
 [tool.poe.tasks.run-docs]
-shell = "./build_api_reference.sh && corepack enable && yarn && uv run yarn start"
+shell = "./build_api_reference.sh && pnpm install && uv run pnpm start"
 cwd = "website"
+
+[tool.poe.tasks.generate-models]
+shell = """
+uv run datamodel-codegen --url https://docs.apify.com/api/openapi.json \
+    && uv run datamodel-codegen --url https://docs.apify.com/api/openapi.json \
+        --output src/apify_client/_typeddicts.py \
+        --output-model-type typing.TypedDict \
+        --no-use-closed-typed-dict \
+    && python scripts/postprocess_generated_models.py
+"""
+
+[tool.poe.tasks.generate-models-from-file]
+shell = """
+uv run datamodel-codegen --input $input_file \
+    && uv run datamodel-codegen --input $input_file \
+        --output src/apify_client/_typeddicts.py \
+        --output-model-type typing.TypedDict \
+        --no-use-closed-typed-dict \
+    && python scripts/postprocess_generated_models.py
+"""
+args = [{ name = "input-file", positional = true, required = true }]

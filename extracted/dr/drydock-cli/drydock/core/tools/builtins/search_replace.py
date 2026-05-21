@@ -761,22 +761,49 @@ class SearchReplace(
         # Calculate line changes
         if modified_content == original_content:
             lines_changed = 0
-            # The SEARCH text was found and the REPLACE was identical — nothing
-            # actually changed. Tell the model clearly so it doesn't retry.
+            # The SEARCH text was found and the REPLACE produced the SAME
+            # content as the file already has. Tell the model. Track
+            # consecutive no-ops per file so we can escalate — without
+            # a counter the byte-identical path hard-stops at #2 but
+            # this path lets the model loop indefinitely. Observed
+            # 2026-05-20: 3+ no-op retries on the same file with the
+            # same SEARCH text. Parity with the byte-identical
+            # hard-stop below.
+            noop_state = self.state.__dict__.setdefault(
+                "_sr_noop_history", {}
+            )
+            n = noop_state.get(str(file_path), 0) + 1
+            noop_state[str(file_path)] = n
+            base_msg = (
+                f"{file_path.name}: ALREADY CORRECT — the search text was found "
+                f"but the replacement is identical to the current content. "
+                f"No change was written. The file already has the desired state. "
+                f"Move on to the next task."
+            )
+            if n >= 2:
+                base_msg += (
+                    f"\n\n[HARD-STOP: #{n} consecutive no-op on "
+                    f"{file_path.name}. STOP retrying this file. Either: "
+                    f"(a) move on to the NEXT task — your change is "
+                    f"already done; (b) edit a DIFFERENT file; or "
+                    f"(c) end your turn. The next identical-result "
+                    f"search_replace on this file will produce the same "
+                    f"no-op.]"
+                )
             yield SearchReplaceResult(
                 file=str(file_path),
                 blocks_applied=block_result.applied,
                 lines_changed=0,
                 warnings=block_result.warnings,
-                content=(
-                    f"{file_path.name}: ALREADY CORRECT — the search text was found "
-                    f"but the replacement is identical to the current content. "
-                    f"No change was written. The file already has the desired state. "
-                    f"Move on to the next task."
-                ),
+                content=base_msg,
             )
             return
         else:
+            # success-with-real-change path — reset the no-op counter
+            noop_state = self.state.__dict__.setdefault(
+                "_sr_noop_history", {}
+            )
+            noop_state.pop(str(file_path), None)
             original_lines = len(original_content.splitlines())
             new_lines = len(modified_content.splitlines())
             lines_changed = new_lines - original_lines
@@ -856,16 +883,40 @@ class SearchReplace(
         # SEARCH/REPLACE payload back. Model already has it in history;
         # echoing wastes context and tempts re-reading. Warnings still go
         # through so the model sees actionable issues.
+        # 2026-05-20: when ALL applied blocks are no-ops (already
+        # applied / already correct) the content used to say "edited
+        # successfully (N block(s), +0 line(s))". The model read
+        # "successfully" and assumed the edit worked, then tried again.
+        # Mirror the no-op detection from get_result_display so the LLM
+        # sees the truth in its tool result.
+        _warns = block_result.warnings or []
+        _all_noop = (
+            lines_changed == 0
+            and block_result.applied > 0
+            and _warns
+            and all(w.startswith(f"Block {i+1}: ALREADY")
+                    for i, w in enumerate(_warns[:block_result.applied]))
+        )
+        if _all_noop:
+            content_msg = (
+                f"{file_path.name}: NO-OP — all "
+                f"{block_result.applied} block(s) were already applied. "
+                f"The file's current state already matches what your "
+                f"SEARCH/REPLACE would produce. DO NOT retry this edit; "
+                f"move on to the next task or read_file to verify."
+            )
+        else:
+            content_msg = (
+                f"{file_path.name} edited successfully "
+                f"({block_result.applied} block(s), "
+                f"{lines_changed:+d} line(s))."
+            )
         yield SearchReplaceResult(
             file=str(file_path),
             blocks_applied=block_result.applied,
             lines_changed=lines_changed,
             warnings=block_result.warnings,
-            content=(
-                f"{file_path.name} edited successfully "
-                f"({block_result.applied} block(s), "
-                f"{lines_changed:+d} line(s))."
-            ),
+            content=content_msg,
         )
 
     @final

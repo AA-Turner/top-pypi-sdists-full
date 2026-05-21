@@ -134,7 +134,27 @@ def _scan(line: str) -> None:
     if not isinstance(content, str):
         content = json.dumps(content, default=str)
     tool_name = msg.get("name") or ""
+    # `retrieve`, `read_file`, `grep`, `glob` return verbatim file/doc
+    # content that may legitimately mention tool names + error words
+    # ("exit_plan_mode", "ToolError", etc.). Skip patterns that scan
+    # for those tokens on these tools to avoid false positives —
+    # observed 2026-05-20: CLAUDE.md text returned by `retrieve`
+    # triggered `hallucinated_tool` and `tool_panic_retry` findings.
+    _PROSE_SAFE_TOOLS = {"retrieve", "read_file", "grep", "glob", "ls"}
+    _DOCUMENTATION_PATTERNS = {
+        "hallucinated_tool", "tool_panic_retry",
+        # CLAUDE.md describes "Two-tier context compaction" + "auto_compact"
+        # in plain prose; that's not a real compaction event.
+        "compaction_triggered",
+        # Many tracebacks/errors are quoted as documentation examples in
+        # READMEs and CLAUDE.md. Skip them on prose-passthrough tools to
+        # avoid every retrieve hit looking like a fresh crash.
+        "python_traceback", "attribute_error", "name_error",
+    }
+    is_prose_source = tool_name in _PROSE_SAFE_TOOLS
     for pat_name, pat in PATTERNS:
+        if is_prose_source and pat_name in _DOCUMENTATION_PATTERNS:
+            continue
         m = pat.search(content)
         if m:
             start = max(0, m.start() - 60)

@@ -201,6 +201,7 @@ def test_configuration_view(
             "revocation_endpoint": "http://testserver/identity/o/api/revoke",
             "subject_types_supported": ["public"],
             "token_endpoint": "http://testserver/identity/o/api/token",
+            "token_endpoint_auth_methods_supported": ["client_secret_post"],
             "userinfo_endpoint": (
                 "https://remote/userinfo"
                 if custom_userinfo_endpoint

@@ -4,6 +4,7 @@ import functools
 import warnings
 from typing import TYPE_CHECKING
 
+from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ImproperlyConfigured, MultipleObjectsReturned
 from django.db.models import Q
 from django.http import HttpRequest
@@ -18,7 +19,12 @@ if TYPE_CHECKING:
 
 from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.account.internal.emailkit import valid_email_or_none
-from allauth.account.utils import user_email, user_field, user_username
+from allauth.account.utils import (
+    filter_users_by_email,
+    user_email,
+    user_field,
+    user_username,
+)
 from allauth.core.internal.adapter import BaseAdapter
 from allauth.core.internal.modelkit import deserialize_instance, serialize_instance
 from allauth.utils import import_attribute
@@ -358,7 +364,7 @@ class DefaultSocialAccountAdapter(BaseAdapter):
             raise ImproperlyConfigured("verified_email wrongly configured")
         return verified_email
 
-    def can_authenticate_by_email(self, login, email) -> bool:
+    def can_authenticate_by_email(self, login: SocialLogin, email: str) -> bool:
         """
         Returns ``True`` if  authentication by email is active for this login/email.
 
@@ -366,7 +372,7 @@ class DefaultSocialAccountAdapter(BaseAdapter):
         app settings, or a ``"EMAIL_AUTHENTICATION"`` in the global provider settings
         (``SOCIALACCOUNT_PROVIDERS``).
         """
-        ret = None
+        ret: bool | None = None
         provider = login.provider
         if provider.app:
             ret = provider.app.settings.get("email_authentication")
@@ -374,7 +380,26 @@ class DefaultSocialAccountAdapter(BaseAdapter):
             ret = app_settings.EMAIL_AUTHENTICATION or provider.get_settings().get(
                 "EMAIL_AUTHENTICATION", False
             )
-        return ret
+        return ret or False
+
+    def authenticate_by_email(
+        self, sociallogin: SocialLogin
+    ) -> tuple[AbstractUser, str] | None:
+        """
+        Attempts to authenticate an existing user by matching verified email
+        addresses from the social login against local accounts.
+
+        Returns a tuple of ``(user, email)`` if a match is found, or ``None``
+        if authentication by email is not possible.
+        """
+        emails = [e.email for e in sociallogin.email_addresses if e.verified]
+        for email in emails:
+            if not self.can_authenticate_by_email(sociallogin, email):
+                continue
+            users = filter_users_by_email(email, prefer_verified=True)
+            if users:
+                return users[0], email
+        return None
 
     def generate_state_param(self, state: dict) -> str:
         """

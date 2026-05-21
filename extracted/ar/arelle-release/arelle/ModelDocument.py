@@ -25,7 +25,7 @@ from arelle.ModelInstanceObject import ModelFact, ModelContext, ModelUnit, Model
 from arelle.ModelObjectFactory import parser, KnownNamespacesModelObjectClassLookup, DiscoveringClassLookup
 from arelle.PrototypeDtsObject import LinkPrototype, LocPrototype, ArcPrototype, DocumentPrototype, PrototypeElementTree
 from arelle.PythonUtil import OrderedDefaultDict, isLegacyAbs, normalizeSpace
-from arelle.XhtmlValidate import ixMsgCode
+from arelle.XhtmlInlineUtil import ixMsgCode
 from arelle.XmlValidateConst import VALID
 from arelle.XmlValidate import validate as xmlValidate, lxmlSchemaValidate
 from arelle.ModelTestcaseObject import ModelTestcaseVariation
@@ -530,7 +530,7 @@ def create(modelXbrl: ModelXbrl, type: int, uri: str, schemaRefs: list[str] | No
         xmlDocument = None
     if type == Type.RSSFEED:
         from arelle.ModelRssObject import ModelRssObject
-        modelDocument = ModelRssObject(modelXbrl, type, uri, filepath, xmlDocument)  # type: ignore[no-untyped-call]
+        modelDocument = ModelRssObject(modelXbrl, type, uri, filepath, xmlDocument)
     else:
         modelDocument = ModelDocument(modelXbrl, type, normalizedUri, filepath, xmlDocument)  # type: ignore[assignment,arg-type]
     if Xml and xmlDocument:
@@ -552,7 +552,7 @@ def create(modelXbrl: ModelXbrl, type: int, uri: str, schemaRefs: list[str] | No
     if type == Type.INSTANCE and discover:
         modelDocument.instanceDiscover(modelDocument.xmlRootElement)
     elif type == Type.RSSFEED and discover:
-        modelDocument.rssFeedDiscover(modelDocument.xmlRootElement)  # type: ignore[no-untyped-call]
+        modelDocument.rssFeedDiscover(modelDocument.xmlRootElement)
     elif type == Type.SCHEMA:
         modelDocument.targetNamespace = None
         modelDocument.isQualifiedElementFormDefault = False
@@ -955,7 +955,7 @@ class ModelDocument(ModelDocumentBase):
                     modelObject=rootElement, fileName=self.basename,
                     namespace=namespace, targetNamespace=targetNamespace)
             if (self.modelXbrl.modelManager.validateDisclosureSystem and
-                self.modelXbrl.modelManager.disclosureSystem.disallowedHrefOfNamespace(self.uri, targetNamespace)):  # type: ignore[no-untyped-call]
+                self.modelXbrl.modelManager.disclosureSystem.disallowedHrefOfNamespace(self.uri, targetNamespace)):
                     self.modelXbrl.error(("EFM.6.22.02", "GFM.1.1.3", "SBR.NL.2.1.0.06" if self.uri.startswith("http") else "SBR.NL.2.2.0.17"),
                             _("Namespace: %(namespace)s disallowed schemaLocation %(schemaLocation)s"),
                             modelObject=rootElement, namespace=targetNamespace, schemaLocation=self.uri, url=self.uri,
@@ -1075,7 +1075,7 @@ class ModelDocument(ModelDocumentBase):
             importSchemaLocation = self.modelXbrl.modelManager.cntlr.webCache.normalizeUrl(schemaLocation, importElementBase)
             if (self.modelXbrl.modelManager.validateDisclosureSystem and
                     self.modelXbrl.modelManager.disclosureSystem.blockDisallowedReferences and
-                    self.modelXbrl.modelManager.disclosureSystem.disallowedHrefOfNamespace(importSchemaLocation, importNamespace)):  # type: ignore[no-untyped-call]
+                    self.modelXbrl.modelManager.disclosureSystem.disallowedHrefOfNamespace(importSchemaLocation, importNamespace)):
                 self.modelXbrl.error(("EFM.6.22.02", "GFM.1.1.3", "SBR.NL.2.1.0.06" if importSchemaLocation.startswith("http") else "SBR.NL.2.2.0.17"),
                         _("Namespace: %(namespace)s disallowed schemaLocation blocked %(schemaLocation)s"),
                         modelObject=element, namespace=importNamespace, schemaLocation=importSchemaLocation, url=importSchemaLocation,
@@ -1571,7 +1571,7 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
                 continuationElements[elt.id] = elt
         for elt in htmlElement.iterdescendants(tag=XbrlConst.qnIXbrl11Footnote.clarkNotation):
             if isinstance(elt,ModelObject):
-                modelInlineFootnotesById[elt.footnoteID] = elt  # type: ignore[attr-defined]
+                modelInlineFootnotesById[elt.footnoteID] = elt
         for elt in htmlElement.iterdescendants(tag=ixNStag + "references"):
             if isinstance(elt,ModelObject):
                 target = elt.get("target")
@@ -2012,7 +2012,7 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
                 # link
                 linkrole = modelInlineFootnote.get("footnoteLinkRole", XbrlConst.defaultLinkRole)
                 arcrole = modelInlineFootnote.get("arcrole", XbrlConst.factFootnote)
-                footnoteID = modelInlineFootnote.footnoteID or ""  # type: ignore[attr-defined]
+                footnoteID = modelInlineFootnote.footnoteID or ""
                 # check if any footnoteRef fact is in this target instance
                 if not any(modelFact.get("target") == ixdsTarget for modelFact in footnoteRefs[footnoteID]):
                     continue # skip footnote, it's not in this target document
@@ -2020,7 +2020,7 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
                 if linkrole in footnoteLinkPrototypes:
                     linkPrototype = footnoteLinkPrototypes[linkrole]
                 else:
-                    linkPrototype = LinkPrototype(modelIxdsDocument, mdlDoc.xmlRootElement, XbrlConst.qnLinkFootnoteLink, linkrole)  # type: ignore[no-untyped-call]
+                    linkPrototype = LinkPrototype(modelIxdsDocument, mdlDoc.xmlRootElement, XbrlConst.qnLinkFootnoteLink, linkrole)
                     footnoteLinkPrototypes[linkrole] = linkPrototype
                     for baseSetKey in (("XBRL-footnotes",None,None,None),
                                        ("XBRL-footnotes",linkrole,None,None),
@@ -2030,14 +2030,14 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
                         modelXbrl.baseSets[baseSetKey].append(linkPrototype)
                 # locs
                 for modelFact in footnoteRefs[footnoteID]:
-                    locPrototype = LocPrototype(modelIxdsDocument, linkPrototype, footnoteLocLabel, modelFact)  # type: ignore[no-untyped-call]
+                    locPrototype = LocPrototype(modelIxdsDocument, linkPrototype, footnoteLocLabel, modelFact)
                     linkPrototype.childElements.append(locPrototype)
                     linkPrototype.labeledResources[footnoteLocLabel].append(locPrototype)
                 # resource
                 linkPrototype.childElements.append(modelInlineFootnote)
                 linkPrototype.labeledResources[footnoteID].append(modelInlineFootnote)
                 # arc
-                linkPrototype.childElements.append(ArcPrototype(mdlDoc, linkPrototype, XbrlConst.qnLinkFootnoteArc,  # type: ignore[no-untyped-call]
+                linkPrototype.childElements.append(ArcPrototype(mdlDoc, linkPrototype, XbrlConst.qnLinkFootnoteArc,
                                                                 footnoteLocLabel, footnoteID,
                                                                 linkrole, arcrole, sourceElement=modelInlineFootnote))
 
@@ -2045,7 +2045,7 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
             if isinstance(modelInlineRel,ModelObject):
                 linkrole = modelInlineRel.get("linkRole", XbrlConst.defaultLinkRole)
                 if linkrole not in linkPrototypes:
-                    linkPrototypes[linkrole] = LinkPrototype(modelIxdsDocument, mdlDoc.xmlRootElement, XbrlConst.qnLinkFootnoteLink, linkrole, sourceElement=modelInlineRel)  # type: ignore[no-untyped-call]
+                    linkPrototypes[linkrole] = LinkPrototype(modelIxdsDocument, mdlDoc.xmlRootElement, XbrlConst.qnLinkFootnoteLink, linkrole, sourceElement=modelInlineRel)
 
 
     for htmlElement in modelXbrl.ixdsHtmlElements:
@@ -2072,7 +2072,7 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
                 for fromId in fromLabels:
                     if fromId not in linkModelLocIds[linkrole] and relHasFromFactsInTarget and fromId in factsByFactID:
                         linkModelLocIds[linkrole].add(fromId)
-                        locPrototype = LocPrototype(factsByFactID[fromId].modelDocument, linkPrototype, fromId, fromId, sourceElement=modelInlineRel)  # type: ignore[no-untyped-call]
+                        locPrototype = LocPrototype(factsByFactID[fromId].modelDocument, linkPrototype, fromId, fromId, sourceElement=modelInlineRel)
                         linkPrototype.childElements.append(locPrototype)
                         linkPrototype.labeledResources[fromId].append(locPrototype)
                 toLabels = set()
@@ -2105,8 +2105,8 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
                                 locateFactInTuple(modelInlineFact, tuplesByTupleID, modelInlineFact.modelDocument.ixNStag)
                             if modelInlineFact.get("target") == ixdsTarget:
                                 linkModelLocIds[linkrole].add(toId)
-                                locPrototype = LocPrototype(factsByFactID[toId].modelDocument, linkPrototype, toId, toId, sourceElement=modelInlineRel)  # type: ignore[no-untyped-call]
-                                toFactQnames.add(str(locPrototype.dereference().qname))  # type: ignore[no-untyped-call]
+                                locPrototype = LocPrototype(factsByFactID[toId].modelDocument, linkPrototype, toId, toId, sourceElement=modelInlineRel)
+                                toFactQnames.add(str(locPrototype.dereference().qname))
                                 linkPrototype.childElements.append(locPrototype)
                                 linkPrototype.labeledResources[toId].append(locPrototype)
                                 relHasToObjectsInTarget = True
@@ -2126,7 +2126,7 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
                                     modelObject=modelInlineRel, fromToMatchedIds=', '.join(sorted(fromToMatchedIds)))
                 for fromLabel in fromLabels:
                     for toLabel in toLabels: # toLabels is empty if no to fact or footnote is in target
-                        linkPrototype.childElements.append(ArcPrototype(modelIxdsDocument, linkPrototype, XbrlConst.qnLinkFootnoteArc,  # type: ignore[no-untyped-call]
+                        linkPrototype.childElements.append(ArcPrototype(modelIxdsDocument, linkPrototype, XbrlConst.qnLinkFootnoteArc,
                                                                         fromLabel, toLabel,
                                                                         linkrole, arcrole,
                                                                         modelInlineRel.get("order", "1"), sourceElement=modelInlineRel))
@@ -2160,7 +2160,7 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
 
     if ixdsTarget in modelXbrl.ixTargetRootElements:  # type: ignore[attr-defined]
         modelIxdsDocument.targetXbrlRootElement = modelXbrl.ixTargetRootElements[ixdsTarget]  # type: ignore[attr-defined]
-        modelIxdsDocument.targetXbrlElementTree = PrototypeElementTree(modelIxdsDocument.targetXbrlRootElement)  # type: ignore[no-untyped-call,assignment]
+        modelIxdsDocument.targetXbrlElementTree = PrototypeElementTree(modelIxdsDocument.targetXbrlRootElement)  # type: ignore[assignment]
 
     for pluginMethod in modelXbrl.modelManager.cntlr.plugins.hooks("ModelDocument.IxdsTargetDiscovered"):
         pluginMethod(modelXbrl, modelIxdsDocument)

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "telnetlib3"
-version = "4.0.2"  # Keep in sync with telnetlib3/accessories.py::get_version !
+version = "4.0.3"  # Keep in sync with telnetlib3/accessories.py::get_version !
 description = " Python Telnet server and client CLI and Protocol library"
 readme = "README.rst"
 license = "ISC"
@@ -45,7 +45,7 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "wcwidth>=0.6.0",
-    "blessed>=1.33; platform_system == 'Windows'",
+    "blessed>=1.41; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +55,7 @@ docs = [
     "sphinx-autodoc-typehints",
 ]
 extras = [
+    "blessed>=1.41",
     "prettytable>=3.17,<4",
     "ucs-detect>=2,<3",
 ]
@@ -82,10 +83,14 @@ include = [
     "/requirements*.txt",
     "/.gitignore",
     "/pyproject.toml",
+    "/telnetlib.py",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["telnetlib3"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"telnetlib.py" = "telnetlib.py"
 
 [tool.pylint.main]
 load-plugins = [
@@ -182,7 +187,7 @@ reports = false
 msg-template = "{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.14"
 strict = true
 disallow_subclassing_any = false
 ignore_missing_imports = true
@@ -193,7 +198,7 @@ module = ["telnetlib3.tests.*"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["telnetlib3.telnetlib"]
+module = ["telnetlib3.telnetlib", "telnetlib"]
 ignore_errors = true
 
 [tool.black]

@@ -13,9 +13,9 @@
             "src/gevent/_gevent_clocal.pxd"
         ],
         "include_dirs": [
-            "/opt/local/Library/Frameworks/Python.framework/Versions/3.14/include/python3.14",
-            "/opt/local/Library/Frameworks/Python.framework/Versions/3.14/include/python3.14",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-26.4.0-264zdiwa/gitclone/deps"
+            "/opt/local/Library/Frameworks/Python.framework/Versions/3.15/include/python3.15",
+            "/opt/local/Library/Frameworks/Python.framework/Versions/3.15/include/python3.15",
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-26.5.0-s6eym871/gitclone/deps"
         ],
         "name": "gevent._gevent_clocal",
         "sources": [

@@ -3896,9 +3896,23 @@ class AgentLoop:
                 )
                 continue
             hits = getattr(result, "text", None) or getattr(result, "text_hits", []) or []
+            # Filter out drydock test-infrastructure files. stress_prompts_*.txt
+            # files contain repetitive task templates (e.g. "Doc: README section
+            # about X" repeated 200 times) that score 100-200 on TF-IDF against
+            # any query, burying real content. autonomous_review_prompt.md is the
+            # cron-loop instructions file — it scores ~84 against any query about
+            # drydock internals and is not useful project context for user sessions.
+            # Both are in the home DB because the project ingest ingested scripts/.
+            _EXCLUDE_PATHS = ("stress_prompts", "autonomous_review_prompt")
+            hits = [
+                h for h in hits
+                if not any(
+                    p in (getattr(h, "file", "") or "") for p in _EXCLUDE_PATHS
+                )
+            ]
             gh = [h for h in hits if getattr(h, "score", 0) >= QUALITY_THRESHOLD]
             logger.warning(
-                "[AUTO-RETRIEVE] %s: %d total hits, %d above threshold %.1f",
+                "[AUTO-RETRIEVE] %s: %d total hits (after path filter), %d above threshold %.1f",
                 db, len(hits), len(gh), QUALITY_THRESHOLD,
             )
             if gh:

@@ -34,6 +34,7 @@ class PasswordField(forms.CharField):
         render_value = kwargs.pop(
             "render_value", app_settings.PASSWORD_INPUT_RENDER_VALUE
         )
+        kwargs.setdefault("strip", False)
         kwargs["widget"] = forms.PasswordInput(
             render_value=render_value,
             attrs={"placeholder": kwargs.get("label")},

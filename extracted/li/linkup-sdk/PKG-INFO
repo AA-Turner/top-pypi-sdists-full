@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linkup-sdk
-Version: 0.13.0
+Version: 0.14.0
 Summary: A Python Client SDK for the Linkup API
 Project-URL: Documentation, https://github.com/LinkupPlatform/linkup-python-sdk#readme
 Project-URL: Homepage, https://github.com/LinkupPlatform/linkup-python-sdk
@@ -14,11 +14,13 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: <4.0,>=3.10
 Requires-Dist: httpx>=0.23.0
 Requires-Dist: pydantic>=2.0.0
 Provides-Extra: build
-Requires-Dist: uv<0.9.0,>=0.8.0; extra == 'build'
+Requires-Dist: uv<0.11.0,>=0.10.0; extra == 'build'
+Provides-Extra: x402
+Requires-Dist: x402[evm,httpx]>=2.0.0; extra == 'x402'
 Description-Content-Type: text/markdown
 
 # 🚀 Linkup Python SDK
@@ -39,9 +41,10 @@ benefit from Linkup services to the full extent. 📝
 ## 🌟 Features
 
 - ✅ **Simple and intuitive API client.**
-- 🔍 **Support all Linkup entrypoints and parameters.**
+- 🔍 **Supports Linkup search, fetch, research, and task workflows.**
 - ⚡ **Support synchronous and asynchronous calls.**
 - 🔒 **Handle authentication and request management.**
+- 💳 **Built-in x402 payment protocol support for on-chain payments.**
 
 ## 📦 Installation
 
@@ -49,6 +52,12 @@ Simply install the Linkup Python SDK as any Python package, for instance using `
 
 ```bash
 pip install linkup-sdk
+```
+
+To use the x402 payment protocol (on-chain payments via EVM), install the optional x402 extras:
+
+```bash
+pip install linkup-sdk[x402]
 ```
 
 ## 🛠️ Usage
@@ -182,6 +191,50 @@ Check the code or the
 [official documentation](https://docs.linkup.so/pages/documentation/api-reference/endpoint/post-fetch)
 for the detailed list of available parameters.
 
+#### 🧠 Research
+
+The `research` function creates an asynchronous research task. You can then use `get_research` or
+`list_research` to inspect it later.
+
+```python
+from linkup import LinkupClient, LinkupResearchTask
+
+client = LinkupClient()
+research_task: LinkupResearchTask = client.research(
+    query="What changed in the AI browser market this quarter?",
+    output_type="sourcedAnswer",
+)
+print(research_task.id)
+```
+
+#### 🗂️ Tasks
+
+The `create_tasks` function lets you submit mixed `search`, `fetch`, and `research` jobs in a single
+batch, then inspect them through `get_task` or `list_tasks`.
+
+```python
+from linkup import (
+    LinkupClient,
+    LinkupFetchTaskInput,
+    LinkupSearchTaskInput,
+)
+
+client = LinkupClient()
+tasks = client.create_tasks(
+    [
+        LinkupSearchTaskInput(
+            query="Linkup latest product updates",
+            depth="deep",
+            output_type="sourcedAnswer",
+        ),
+        LinkupFetchTaskInput(
+            url="https://docs.linkup.so",
+        ),
+    ]
+)
+print([task.id for task in tasks])
+```
+
 #### ⌛ Asynchronous Calls
 
 All the Linkup main functions come with an asynchronous counterpart, with the same behavior and the
@@ -224,6 +277,45 @@ Which prints:
     ...
   ]
 }
+```
+
+#### 💳 x402 Payment Protocol
+
+The SDK supports the [x402 payment protocol](https://www.x402.org/), allowing clients to
+automatically handle HTTP 402 responses by signing and retrying requests with on-chain payments via
+[EVM](https://ethereum.org/en/developers/docs/evm/)-compatible networks (currently Base). This can
+be used as an alternative to API key authentication.
+
+Create an `eth_account` `LocalAccount` compatible with Base (Ethereum):
+
+```python
+from eth_account import Account
+
+account = Account.from_key("<YOUR WALLET PRIVATE KEY>")
+```
+
+```python
+from eth_account import Account
+
+Account.enable_unaudited_hdwallet_features()
+account = Account.from_mnemonic("<YOUR MNEMONIC PHRASE>")
+```
+
+Then pass it to `create_x402_signer` and use the Linkup client:
+
+```python
+from linkup import LinkupClient
+from linkup.x402 import create_x402_signer
+
+signer = create_x402_signer(account)
+client = LinkupClient(x402_signer=signer)
+
+result = client.search(
+    query="What is x402?",
+    depth="standard",
+    output_type="sourcedAnswer",
+)
+print(result.answer)
 ```
 
 #### 📚 More Examples

@@ -4,8 +4,8 @@ import asyncio
 import reprlib
 import threading
 from asyncio.events import AbstractEventLoop, TimerHandle
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 import pytest
 
@@ -41,10 +41,17 @@ def long_repr_strings() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def verify_no_lingering_tasks(
-    event_loop: asyncio.AbstractEventLoop,
-) -> Generator[None, None, None]:
+def verify_no_lingering_tasks() -> Generator[None, None, None]:
     """Verify that all tasks are cleaned up."""
+    try:
+        event_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop (e.g. a synchronous test). Calling
+        # asyncio.get_event_loop() here would implicitly create and leak a
+        # new loop on Python >= 3.10, raising a DeprecationWarning and a
+        # ResourceWarning. There is nothing to verify, so just skip.
+        yield
+        return
     tasks_before = asyncio.all_tasks(event_loop)
     yield
 

@@ -621,6 +621,8 @@ class WebRegister(Register):
         return info, '\n'.join(lines)
 
     def upgrade_to_pro(self, keyfile, product):
+        raise CliError('this feature is not available now')
+
         logger.info('process upgrading file "%s"', keyfile)
         reginfo = self.parse_keyfile(keyfile)
 
@@ -791,6 +793,7 @@ class WebRegister(Register):
             f.writestr('license.lic', licdata)
             f.writestr('.pyarmor_capsule.zip', capsule)
             f.writestr('group.tokens', b'')
+            f.writestr('dev.info', b'%s,%s' % (devid, machid))
             f.writestr('tokens/' + machid, data)
 
         logger.info('please copy deivce regfile to offline device and run')

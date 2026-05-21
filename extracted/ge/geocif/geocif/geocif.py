@@ -237,6 +237,7 @@ class Geocif:
             **di.dict_ndvi,
             **di.dict_gcvi,
             **di.dict_esi4wk,
+            **di.dict_etref,
             **di.dict_hindex,
             **di.dict_aef,
             **di.dict_fldas,
@@ -1925,12 +1926,17 @@ class Geocif:
         
         self.feature_names = []
 
-        if not stages_features:
+        if not stages_features or self.is_pre_season:
             # Forecast-only mode (pre-season / in-season init month) — df_train
             # carries unstaged FLDAS/S2S CID columns named like
             # MEAN_FLDAS_*_LEAD{0..5} / MEAN_S2S_*_LEAD{1..6}.  Skip the stage-
             # suffixed loop and use all CID columns directly.  Engineered
             # features below are appended as usual.
+            # NOTE: is_pre_season check is load-bearing — _setup_seasons_and_stages
+            # sets simulation_stages = [np.array([0])] (a truthy sentinel) for
+            # pre-season runs, so `not stages_features` alone misses this branch
+            # and the else loop produces feature_names = [] (root-caused via
+            # flat-MAPE-across-init-months bug, 2026-05).
             self.feature_names = list(self.get_cid_column_names(self.df_train))
         else:
             method = "latest" if self.model_name.startswith("cumulative_") else "fraction"
@@ -1953,6 +1959,7 @@ class Geocif:
 
             candidates_seen = 0
             candidates_matched = 0
+            sample_attempts = []  # collects up to 5 (_t, tmp_col) pairs for empty-match dump
             for stage in stages_features:
                 _stage = "_".join(map(str, stage))
                 _tmp = [f"{col}_{_stage}" for col in self.combined_keys]
@@ -1973,6 +1980,8 @@ class Geocif:
                             dict_fn = stages.get_stage_information_dict(_t, self.method)
                             tmp_col = f"{dict_fn['CID']}"
 
+                            if len(sample_attempts) < 5:
+                                sample_attempts.append((_t, tmp_col))
                             if tmp_col in self.df_train.columns:
                                 self.feature_names.append(tmp_col)
                                 candidates_matched += 1
@@ -1985,6 +1994,8 @@ class Geocif:
                                     dict_fn = stages.get_stage_information_dict(_t, self.method)
                                     tmp_col = f"{dict_fn['CID']} {dict_fn['Stage Name']}"
 
+                                    if len(sample_attempts) < 5:
+                                        sample_attempts.append((_t, tmp_col))
                                     if tmp_col in self.df_train.columns:
                                         self.feature_names.append(tmp_col)
                                         candidates_matched += 1
@@ -2001,6 +2012,26 @@ class Geocif:
                 f"candidates_matched={candidates_matched}, "
                 f"feature_names={len(self.feature_names)}"
             )
+
+            # Mismatch dump: side-by-side sample of attempted tmp_col vs actual
+            # df_train CID columns. Fires only when the loop matched nothing
+            # despite df_train having CID-shaped columns — that's the bug
+            # we're hunting (producer/consumer naming divergence for multi-
+            # stage cumulative spans). Cheap to log, gated to failure case.
+            if candidates_matched == 0 and len(cid_cols_in_df) > 0:
+                sel_cids_sample = []
+                try:
+                    if hasattr(selected_features, "columns") and "CID" in selected_features.columns:
+                        sel_cids_sample = selected_features["CID"].head(5).tolist()
+                except Exception:
+                    sel_cids_sample = ["<unreadable>"]
+                self.logger.warning(
+                    f"[create_feature_names] MISMATCH DUMP ({self.country} {self.crop} "
+                    f"forecast_season={getattr(self, 'forecast_season', '?')}): "
+                    f"df_train CID cols (first 5)={list(cid_cols_in_df)[:5]} | "
+                    f"selected_features['CID'] (first 5)={sel_cids_sample} | "
+                    f"attempted (_t -> tmp_col) (first 5)={sample_attempts}"
+                )
         
         if self.median_yield_as_feature:
             self.feature_names.append(f"Median {self.target}")
@@ -2300,6 +2331,14 @@ class Geocif:
                 )
                 y_pred = np.full(len(X_test), fallback)
             else:
+                _n_uniq = int(past["Harvest Year"].nunique())
+                if _n_uniq < 2:
+                    self.logger.warning(
+                        f"[trend baseline] degenerate Harvest Year for "
+                        f"region={region_id} forecast_season={self.forecast_season}: "
+                        f"{_n_uniq} unique year(s) across {len(past)} rows — "
+                        f"scipy will emit 'All x coordinates are identical'."
+                    )
                 slope, intercept, _lo, _hi = theilslopes(
                     past[self.target].astype(float).values,
                     past["Harvest Year"].astype(float).values,

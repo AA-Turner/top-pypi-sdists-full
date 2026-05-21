@@ -547,6 +547,9 @@ class RunnerSessionMixin:
 
             if not streamed:
                 self._submit(rid, "", done=True, session_id=sid)
+            drain = getattr(self, "_drain_submit_results", None)
+            if drain:
+                await drain()
         except Exception as exc:
             if session is not None and "session_data_dirty" in locals() and session_data_dirty:
                 resp = await self._persist(session, base_data=base_session_data)
@@ -555,6 +558,9 @@ class RunnerSessionMixin:
             _log(f"handle error request_id={rid}: {exc}")
             if not streamed and rid:
                 self._submit(rid, f"Runner error: {exc}", done=True, session_id=sid)
+            drain = getattr(self, "_drain_submit_results", None)
+            if drain:
+                await drain()
         finally:
             await self._track_end()
             if session is not None:

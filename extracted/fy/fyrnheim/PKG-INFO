@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fyrnheim
-Version: 0.14.0
+Version: 0.15.0
 Summary: Define typed Python entities, generate transformations, run anywhere. A dbt alternative built on Pydantic + Ibis.
 Project-URL: Homepage, https://github.com/deepskydatahq/fyrnheim
 Project-URL: Repository, https://github.com/deepskydatahq/fyrnheim
@@ -36,10 +36,13 @@ Requires-Dist: mypy>=1.17.0; extra == 'dev'
 Requires-Dist: pytest-cov>=6.0.0; extra == 'dev'
 Requires-Dist: pytest>=8.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.12.0; extra == 'dev'
+Requires-Dist: sqlglot>=28.0.0; extra == 'dev'
 Requires-Dist: types-pyyaml>=6.0.0; extra == 'dev'
 Provides-Extra: duckdb
 Requires-Dist: duckdb>=1.4.0; extra == 'duckdb'
 Requires-Dist: ibis-framework[duckdb]>=11.0.0; extra == 'duckdb'
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.13.0; extra == 'mcp'
 Provides-Extra: postgres
 Requires-Dist: ibis-framework[postgres]>=11.0.0; extra == 'postgres'
 Description-Content-Type: text/markdown

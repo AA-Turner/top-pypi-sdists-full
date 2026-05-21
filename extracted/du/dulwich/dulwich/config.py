@@ -38,6 +38,7 @@ __all__ = [
     "FileOpener",
     "StackedConfig",
     "apply_instead_of",
+    "env_config",
     "get_win_legacy_system_paths",
     "get_win_system_paths",
     "get_xdg_config_home_path",
@@ -179,7 +180,7 @@ def lower_key(key: ConfigKey) -> ConfigKey:
     Raises:
       TypeError: If key is not str, bytes, or tuple
     """
-    if isinstance(key, (bytes, str)):
+    if isinstance(key, bytes | str):
         return key.lower()
 
     if isinstance(key, tuple):
@@ -187,7 +188,7 @@ def lower_key(key: ConfigKey) -> ConfigKey:
         # but preserve the case of subsection names (remaining elements)
         if len(key) > 0:
             first = key[0]
-            assert isinstance(first, (bytes, str))
+            assert isinstance(first, bytes | str)
             return (first.lower(), *key[1:])
         return key
 
@@ -820,6 +821,39 @@ def _escape_value(value: bytes) -> bytes:
     return value
 
 
+def _escape_subsection(name: bytes) -> bytes:
+    r"""Escape a subsection name for writing in a section header.
+
+    Per git-config: inside the quoted subsection name, only ``"`` and ``\``
+    need (and may) be escaped; newline and NUL are not permitted at all.
+    """
+    if b"\n" in name or b"\0" in name:
+        raise ValueError(f"subsection name {name!r} contains a forbidden character")
+    return name.replace(b"\\", b"\\\\").replace(b'"', b'\\"')
+
+
+def _unescape_subsection(name: bytes) -> bytes:
+    r"""Unescape a quoted subsection name read from a section header.
+
+    Per git-config, ``\"`` and ``\\`` are the only recognised escapes.
+    Git silently drops the backslash on any other ``\x`` sequence, so we
+    match that lenient behaviour to stay compatible with config files
+    written by git or by hand (notably ``includeIf`` headers containing
+    Windows paths where backslashes were not doubled).
+    """
+    out = bytearray()
+    i = 0
+    while i < len(name):
+        c = name[i : i + 1]
+        if c == b"\\" and i + 1 < len(name):
+            out += name[i + 1 : i + 2]
+            i += 2
+        else:
+            out += c
+            i += 1
+    return bytes(out)
+
+
 def _check_variable_name(name: bytes) -> bool:
     for i in range(len(name)):
         c = name[i : i + 1]
@@ -913,13 +947,13 @@ def _parse_section_header_line(line: bytes) -> tuple[Section, bytes]:
         # Handle subsections - Git allows more complex syntax for certain sections like includeIf
         if pts[1][:1] == b'"' and pts[1][-1:] == b'"':
             # Standard quoted subsection
-            pts[1] = pts[1][1:-1]
+            pts[1] = _unescape_subsection(pts[1][1:-1])
         elif pts[0] == b"includeIf":
             # Special handling for includeIf sections which can have complex conditions
             # Git allows these without strict quote validation
             pts[1] = pts[1].strip()
             if pts[1][:1] == b'"' and pts[1][-1:] == b'"':
-                pts[1] = pts[1][1:-1]
+                pts[1] = _unescape_subsection(pts[1][1:-1])
         else:
             # Other sections must have quoted subsections
             raise ValueError(f"Invalid subsection {pts[1]!r}")
@@ -1333,7 +1367,13 @@ class ConfigFile(ConfigDict):
             if subsection_name is None:
                 f.write(b"[" + section_name + b"]\n")
             else:
-                f.write(b"[" + section_name + b' "' + subsection_name + b'"]\n')
+                f.write(
+                    b"["
+                    + section_name
+                    + b' "'
+                    + _escape_subsection(subsection_name)
+                    + b'"]\n'
+                )
             for key, value in values.items():
                 value = _format_string(value)
                 f.write(b"\t" + key + b" = " + value + b"\n")
@@ -1429,6 +1469,66 @@ def get_win_legacy_system_paths() -> Iterator[str]:
         yield os.path.join(git_dir, "etc", "gitconfig")
 
 
+def env_config(
+    environ: Mapping[str, str],
+) -> "ConfigFile | None":
+    """Build a ConfigFile from GIT_CONFIG_COUNT/KEY_n/VALUE_n vars.
+
+    See git-config(1). Any missing key/value, a key without a dot, or a
+    non-numeric or negative ``GIT_CONFIG_COUNT`` is treated as an error.
+    Callers that want git's "env overrides everything" precedence should
+    prepend the result to their ``StackedConfig.backends``; nothing in
+    dulwich consults ``os.environ`` for these variables on its own.
+
+    Args:
+      environ: Mapping to read the variables from (e.g. ``os.environ``).
+
+    Returns:
+      A ConfigFile holding the overrides, or None if GIT_CONFIG_COUNT is
+      unset or empty (which git treats as zero pairs).
+    """
+    raw_count = environ.get("GIT_CONFIG_COUNT")
+    if raw_count is None or raw_count == "":
+        return None
+    try:
+        count = int(raw_count)
+    except ValueError:
+        raise ValueError(f"bogus count in GIT_CONFIG_COUNT: {raw_count!r}") from None
+    if count < 0:
+        raise ValueError(f"bogus count in GIT_CONFIG_COUNT: {raw_count!r}")
+
+    cf = ConfigFile()
+    for i in range(count):
+        key_var = f"GIT_CONFIG_KEY_{i}"
+        value_var = f"GIT_CONFIG_VALUE_{i}"
+        try:
+            key = environ[key_var]
+        except KeyError:
+            raise KeyError(f"missing config key {key_var}") from None
+        try:
+            value = environ[value_var]
+        except KeyError:
+            raise KeyError(f"missing config value {value_var}") from None
+        if "." not in key:
+            raise ValueError(f"invalid config format: {key}")
+        # Git keys are <section>.<name> or <section>.<subsection>.<name>.
+        # The subsection (if present) may itself contain dots.
+        first_dot = key.find(".")
+        last_dot = key.rfind(".")
+        section_name = key[:first_dot]
+        name = key[last_dot + 1 :]
+        if first_dot == last_dot:
+            section: Section = (section_name.encode("utf-8"),)
+        else:
+            subsection = key[first_dot + 1 : last_dot]
+            section = (
+                section_name.encode("utf-8"),
+                subsection.encode("utf-8"),
+            )
+        cf.add(section, name.encode("utf-8"), value.encode("utf-8"))
+    return cf
+
+
 class StackedConfig(Config):
     """Configuration which reads from multiple config files.."""
 
@@ -1492,6 +1592,7 @@ class StackedConfig(Config):
                 logger.debug("Gitconfig file not found: %s", path)
                 continue
             backends.append(cf)
+
         return backends
 
     def get(self, section: SectionLike, name: NameLike) -> Value:

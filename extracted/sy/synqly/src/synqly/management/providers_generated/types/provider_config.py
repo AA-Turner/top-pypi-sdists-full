@@ -55,6 +55,7 @@ from .slack_credential import SlackCredential
 from .cloud_security_aws_events import CloudSecurityAwsEvents
 from .cloud_security_event_bridge_sqs_queues import CloudSecurityEventBridgeSqsQueues
 from .cloud_security_crowd_strike_dataset import CloudSecurityCrowdStrikeDataset
+from .google_service_account_credential import GoogleServiceAccountCredential
 from .palo_alto_credential import PaloAltoCredential
 from .upwind_credential import UpwindCredential
 from .upwind_region import UpwindRegion
@@ -75,6 +76,7 @@ from .automox_api_key_credential import AutomoxApiKeyCredential
 from .intune_credential import IntuneCredential
 from .jamf_credential import JamfCredential
 from .entra_id_credential import EntraIdCredential
+from .identity_entra_id_dataset import IdentityEntraIdDataset
 from .google_credential import GoogleCredential
 from .okta_credential import OktaCredential
 from .ping_one_auth_url import PingOneAuthUrl
@@ -92,7 +94,6 @@ from .datadog_api_key_credential import DatadogApiKeyCredential
 from .elasticsearch_auth_options import ElasticsearchAuthOptions
 from .elasticsearch_credential import ElasticsearchCredential
 from .google_chronicle_credential import GoogleChronicleCredential
-from .google_service_account_credential import GoogleServiceAccountCredential
 from .open_search_credential import OpenSearchCredential
 from .api_config import ApiConfig
 from .http_ingest import HttpIngest
@@ -125,6 +126,7 @@ from .custom_field_mapping import CustomFieldMapping
 from .ticketing_pagerduty_dataset import TicketingPagerdutyDataset
 from .torq_credential import TorqCredential
 from .zendesk_credential import ZendeskCredential
+from .vulnerabilities_axonius_dataset import VulnerabilitiesAxoniusDataset
 from .vulnerabilities_crowd_strike_dataset import VulnerabilitiesCrowdStrikeDataset
 from .horizon_3_credential import Horizon3Credential
 from .horizon_3_region import Horizon3Region
@@ -772,6 +774,22 @@ class ProviderConfig_CloudsecurityDefender(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_CloudsecurityGoogle(UncheckedBaseModel):
+    type: typing.Literal["cloudsecurity_google"] = "cloudsecurity_google"
+    credential: GoogleServiceAccountCredential
+    scope_path: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_CloudsecurityPaloalto(UncheckedBaseModel):
     type: typing.Literal["cloudsecurity_paloalto"] = "cloudsecurity_paloalto"
     credential: PaloAltoCredential
@@ -1090,11 +1108,42 @@ class ProviderConfig_EndpointmanagementJamf(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_IdentityAwsIam(UncheckedBaseModel):
+    type: typing.Literal["identity_aws_iam"] = "identity_aws_iam"
+    credential: AwsProviderCredential
+    region: AwsRegion
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_IdentityEntraId(UncheckedBaseModel):
     type: typing.Literal["identity_entra_id"] = "identity_entra_id"
     credential: EntraIdCredential
     tenant_id: str
     url: typing.Optional[str] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_IdentityEntraIdMock(UncheckedBaseModel):
+    type: typing.Literal["identity_entra_id_mock"] = "identity_entra_id_mock"
+    dataset: IdentityEntraIdDataset
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -2218,6 +2267,23 @@ class ProviderConfig_VulnerabilitiesAxonius(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_VulnerabilitiesAxoniusMock(UncheckedBaseModel):
+    type: typing.Literal["vulnerabilities_axonius_mock"] = (
+        "vulnerabilities_axonius_mock"
+    )
+    dataset: VulnerabilitiesAxoniusDataset
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_VulnerabilitiesCrowdstrike(UncheckedBaseModel):
     type: typing.Literal["vulnerabilities_crowdstrike"] = "vulnerabilities_crowdstrike"
     credential: CrowdStrikeCredential
@@ -2515,6 +2581,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_CloudsecurityCrowdstrike,
         ProviderConfig_CloudsecurityCrowdstrikeMock,
         ProviderConfig_CloudsecurityDefender,
+        ProviderConfig_CloudsecurityGoogle,
         ProviderConfig_CloudsecurityPaloalto,
         ProviderConfig_CloudsecurityUpwind,
         ProviderConfig_CloudsecurityWiz,
@@ -2534,7 +2601,9 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_EndpointmanagementIntune,
         ProviderConfig_EndpointmanagementIru,
         ProviderConfig_EndpointmanagementJamf,
+        ProviderConfig_IdentityAwsIam,
         ProviderConfig_IdentityEntraId,
+        ProviderConfig_IdentityEntraIdMock,
         ProviderConfig_IdentityGoogle,
         ProviderConfig_IdentityOkta,
         ProviderConfig_IdentityPingone,
@@ -2598,6 +2667,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_TicketingZendesk,
         ProviderConfig_VulnerabilitiesAmazonInspector,
         ProviderConfig_VulnerabilitiesAxonius,
+        ProviderConfig_VulnerabilitiesAxoniusMock,
         ProviderConfig_VulnerabilitiesCrowdstrike,
         ProviderConfig_VulnerabilitiesCrowdstrikeMock,
         ProviderConfig_VulnerabilitiesDefender,

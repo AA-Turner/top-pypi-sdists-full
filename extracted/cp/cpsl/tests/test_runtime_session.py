@@ -1001,6 +1001,9 @@ class ShowTableTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(table["filterable"])
         self.assertEqual(table["paginate"], 25)
 
+        await session.show_table(contacts, title="Updated Contacts", mode="preview")
+        self.assertEqual(blocks[1]["id"], blocks[0]["id"])
+
     async def test_show_table_accepts_rows_inline(self):
         session = self.new_session()
         blocks = await self.capture_blocks(session)
@@ -1058,10 +1061,12 @@ class ShowTableTests(unittest.IsolatedAsyncioTestCase):
         session = self.new_session()
         blocks = await self.capture_blocks(session)
 
+        await session.show_table([{"name": "Ada"}])
         await session.hide_table()
 
-        self.assertEqual(blocks[0]["type"], "table_preview")
-        self.assertTrue(blocks[0]["payload"]["close"])
+        self.assertEqual(blocks[1]["type"], "table_preview")
+        self.assertEqual(blocks[1]["id"], blocks[0]["id"])
+        self.assertTrue(blocks[1]["payload"]["close"])
 
 
 class ShowUiTests(unittest.IsolatedAsyncioTestCase):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snakemake-interface-logger-plugins
-Version: 2.0.1
+Version: 2.1.0
 Summary: Logger plugin interface for snakemake
 Author: Cade Mirchandani, Christopher Tomkins-Tinch, Johannes Köster
 License-File: LICENSE

@@ -5,9 +5,11 @@ Module handling the file naming operation (relative -> absolute, etc)
 import logging
 import os.path
 import platform
+import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Union, Callable, Optional
+from typing import TYPE_CHECKING
 
 from crytic_compile.platform.exceptions import InvalidCompilation
 
@@ -61,7 +63,7 @@ def extract_filename(name: str) -> str:
     Returns:
         str: extracted filename
     """
-    if not ":" in name:
+    if ":" not in name:
         return name
     return name[: name.rfind(":")]
 
@@ -116,17 +118,70 @@ def _verify_filename_existence(filename: Path, cwd: Path) -> Path:
                 break
 
     if not filename.exists():
-        raise InvalidCompilation(f"Unknown file: {filename}")
+        raise InvalidCompilation(_unknown_file_message(filename, cwd))
 
     return filename
 
 
-# pylint: disable=too-many-branches
+def _unknown_file_message(filename: Path, cwd: Path) -> str:
+    """Build an actionable error message for a path that could not be resolved.
+
+    Includes hints to verify the path exists and, when the import resembles an
+    npm/yarn dependency (e.g. ``@openzeppelin/...``), to install project
+    dependencies.
+
+    Args:
+        filename (Path): the unresolved filename
+        cwd (Path): the working directory used during resolution
+
+    Returns:
+        str: a multi-line error message
+    """
+    lines = [
+        f"Unknown file: {filename}",
+        f"  - Verify the path exists (e.g. `ls {filename}`).",
+    ]
+    if _looks_like_npm_import(filename):
+        lines.append(
+            f"  - If this is an npm/yarn dependency, install project "
+            f"dependencies first (e.g. `npm install` or `yarn install` in `{cwd}`)."
+        )
+    return "\n".join(lines)
+
+
+def _looks_like_npm_import(filename: Path) -> bool:
+    """Heuristic: is ``filename`` likely an npm/yarn dependency import?
+
+    Treats scoped (``@org/pkg/...``) and bare-name (``pkg/...``) paths with
+    multiple segments as package imports. Excludes absolute paths, paths that
+    start with ``.`` or ``..``, and the common Solidity project source roots
+    (``contracts``, ``src``, ``lib``, ``test``, ``script``).
+
+    Args:
+        filename (Path): filename to classify
+
+    Returns:
+        bool: True if the path resembles a package import
+    """
+    if filename.is_absolute():
+        return False
+    parts = filename.parts
+    if len(parts) < 2:
+        return False
+    first = parts[0]
+    if first.startswith("."):
+        return False
+    if first in {"contracts", "src", "lib", "test", "tests", "script"}:
+        return False
+    # @scope/package or bare package name (no extension/dot in first segment)
+    return first.startswith("@") or "." not in first
+
+
 def convert_filename(
-    used_filename: Union[str, Path],
+    used_filename: str | Path,
     relative_to_short: Callable[[Path], Path],
     crytic_compile: "CryticCompile",
-    working_dir: Optional[Union[str, Path]] = None,
+    working_dir: str | Path | None = None,
 ) -> Filename:
     """Convert a filename to CryticCompile Filename object.
     The used_filename can be absolute, relative, or missing node_modules/contracts directory
@@ -196,3 +251,27 @@ def convert_filename(
         short=short.as_posix(),
         used=Path(used_filename).as_posix(),
     )
+
+
+def process_hardhat_v3_filename(filename: str) -> str:
+    """Process hardhat v3 filename format
+    If the filename is in v3 format, it will be converted to v2 format.
+
+    Args:
+        filename (str): filename to convert
+
+    Returns:
+        str: converted filename
+    """
+    # CASE 1 — npm/... → ...
+    hh3_npm_path = re.match(r"npm/(.+?)@[^/]+/(.+)", filename)
+    if hh3_npm_path:
+        package = hh3_npm_path.group(1)
+        rest = hh3_npm_path.group(2)
+        filename = f"{package}/{rest}"
+
+    # CASE 2 — project/contracts/... → contracts/...
+    hh3_contracts_path = re.match(r"project/contracts/(.+)", filename)
+    if hh3_contracts_path:
+        filename = f"contracts/{hh3_contracts_path.group(1)}"
+    return filename

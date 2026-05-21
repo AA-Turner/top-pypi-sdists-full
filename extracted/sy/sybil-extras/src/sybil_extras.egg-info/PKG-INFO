@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sybil-extras
-Version: 2026.5.19
+Version: 2026.5.20
 Summary: Additions to Sybil, the documentation testing tool.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -33,7 +33,7 @@ Requires-Dist: doc8==2.0.0; extra == "dev"
 Requires-Dist: furo==2025.12.19; extra == "dev"
 Requires-Dist: interrogate==1.7.0; extra == "dev"
 Requires-Dist: mypy[faster-cache]==2.1.0; extra == "dev"
-Requires-Dist: mypy-strict-kwargs==2026.1.12; extra == "dev"
+Requires-Dist: mypy-strict-kwargs==2026.5.19; extra == "dev"
 Requires-Dist: prek==0.4.0; extra == "dev"
 Requires-Dist: pydocstringformatter==0.7.5; extra == "dev"
 Requires-Dist: pydocstyle==6.3; extra == "dev"
@@ -55,7 +55,7 @@ Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
 Requires-Dist: sphinx-pyproject==0.3.0; extra == "dev"
 Requires-Dist: sphinx-substitution-extensions==2026.1.12; extra == "dev"
 Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "dev"
-Requires-Dist: strict-kwargs==2026.5.19.post1; extra == "dev"
+Requires-Dist: strict-kwargs==2026.5.19.post3; extra == "dev"
 Requires-Dist: sybil==10.0.1; extra == "dev"
 Requires-Dist: ty==0.0.37; extra == "dev"
 Requires-Dist: uv==0.11.15; extra == "dev"

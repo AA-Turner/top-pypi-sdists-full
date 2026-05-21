@@ -152,8 +152,20 @@ def parse_stack_json(raw: str) -> StackProfile:
             return val.strip().lower()
         return None
 
+    # Normalize frontend aliases — LLMs often return "react-native" but the
+    # canonical key throughout sage is "react-native-web" (Expo SDK with web
+    # support). Any mobile-first React Native value should map there.
+    _FRONTEND_ALIASES: dict[str, str] = {
+        "react-native": "react-native-web",
+        "reactnative": "react-native-web",
+        "expo": "react-native-web",
+        "expo-router": "react-native-web",
+    }
+    raw_frontend = _get("frontend")
+    frontend = _FRONTEND_ALIASES.get(raw_frontend or "", raw_frontend)
+
     return StackProfile(
-        frontend=_get("frontend"),
+        frontend=frontend,
         backend=_get("backend"),
         database=_get("database"),
         cache=_get("cache"),
@@ -193,14 +205,25 @@ Spec:
 _STACK_PROMPT = """You are choosing the technical stack for a software spec.
 
 Output a single JSON object with these string keys (or null):
-  - frontend: framework name (e.g. "react", "react-native-web", "nextjs",
-              "vue", "svelte", "flutter", "ios-swift", "android-compose")
-              or null if the project has no frontend
+  - frontend: framework name — MUST be one of the exact strings below:
+              "react-native-web" — React Native + Expo SDK (iOS/Android/Web). Use
+                  this for ANY spec mentioning React Native, Expo, mobile app,
+                  cross-platform app. NEVER use "react-native" (wrong key).
+              "react" — plain Vite+React web app (no mobile)
+              "nextjs" — Next.js SSR web app
+              "vue", "svelte" — other web frameworks
+              "flutter" — Dart/Flutter
+              "ios-swift" — native iOS Swift
+              "android-compose" — Jetpack Compose Android
+              null — if the project has no frontend
   - backend:  framework name (e.g. "fastapi", "django", "spring-boot",
               "express", "rust-axum", "go-microservices") or null
   - database: db name (e.g. "postgres", "mysql", "sqlite", "mongo") or null
   - cache:    cache name (e.g. "redis", "memcached") or null
   - queue:    queue name (e.g. "celery", "rq", "sqs", "kafka") or null
+
+IMPORTANT: For React Native / mobile / cross-platform apps ALWAYS output
+"react-native-web" (NOT "react-native", NOT "expo"). This is the canonical key.
 
 Prefer the explicit choices in the spec. If the spec is ambiguous, pick
 the most common production-grade option for that domain.

@@ -21,6 +21,7 @@
 
 """Tests for dulwich.refs."""
 
+import errno
 import os
 import sys
 import tempfile
@@ -61,10 +62,10 @@ class CheckRefFormatTests(TestCase):
     def test_valid(self) -> None:
         self.assertTrue(check_ref_format(b"heads/foo"))
         self.assertTrue(check_ref_format(b"foo/bar/baz"))
-        self.assertTrue(check_ref_format(b"refs///heads/foo"))
         self.assertTrue(check_ref_format(b"foo./bar"))
         self.assertTrue(check_ref_format(b"heads/foo@bar"))
         self.assertTrue(check_ref_format(b"heads/fix.lock.error"))
+        self.assertTrue(check_ref_format(b"heads/foo.lock.bar"))
 
     def test_invalid(self) -> None:
         self.assertFalse(check_ref_format(b"foo"))
@@ -76,6 +77,13 @@ class CheckRefFormatTests(TestCase):
         self.assertFalse(check_ref_format(b"heads/foo.lock"))
         self.assertFalse(check_ref_format(b"heads/v@{ation"))
         self.assertFalse(check_ref_format(b"heads/foo\bar"))
+        self.assertFalse(check_ref_format(b"refs//a"))
+        self.assertFalse(check_ref_format(b"refs/heads//a"))
+        self.assertFalse(check_ref_format(b"refs///heads/foo"))
+        self.assertFalse(check_ref_format(b"/refs/heads/foo"))
+        self.assertFalse(check_ref_format(b"refs/a.lock/a"))
+        self.assertFalse(check_ref_format(b"refs/heads/a.lock/a"))
+        self.assertFalse(check_ref_format(b"@"))
 
 
 ONES = b"1" * 40
@@ -771,8 +779,18 @@ class DiskRefsContainerTests(RefsContainerTests, TestCase):
         # reported in https://github.com/dulwich/dulwich/issues/608
         name = b"\xcd\xee\xe2\xe0\xff\xe2\xe5\xf2\xea\xe01"
         encoded_ref = b"refs/heads/" + name
-        with open(os.path.join(os.fsencode(self._repo.path), encoded_ref), "w") as f:
-            f.write("00" * 20)
+        try:
+            with open(
+                os.path.join(os.fsencode(self._repo.path), encoded_ref), "w"
+            ) as f:
+                f.write("00" * 20)
+        except OSError as e:
+            if e.errno == errno.EILSEQ:
+                # Filesystem rejects non-UTF8 filenames (e.g. ZFS utf8only=on).
+                raise SkipTest(
+                    f"filesystem rejects non-UTF8 filename {e.filename!r}"
+                ) from e
+            raise
 
         expected_refs = set(_TEST_REFS.keys())
         expected_refs.add(encoded_ref)
@@ -861,6 +879,7 @@ class IsPerWorktreeRefsTests(TestCase):
 
 class DiskRefsContainerWorktreeRefsTest(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         # Create temporary directories
         temp_dir = tempfile.mkdtemp()
         test_dir = os.path.join(temp_dir, "main")

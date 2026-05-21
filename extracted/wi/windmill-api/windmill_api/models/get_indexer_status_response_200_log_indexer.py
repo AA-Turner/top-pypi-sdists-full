@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.get_indexer_status_response_200_log_indexer_state import GetIndexerStatusResponse200LogIndexerState
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -21,12 +22,14 @@ class GetIndexerStatusResponse200LogIndexer:
     """
     Attributes:
         is_alive (Union[Unset, bool]):
+        state (Union[Unset, GetIndexerStatusResponse200LogIndexerState]):
         last_locked_at (Union[Unset, None, datetime.datetime]):
         owner (Union[Unset, None, str]):
         storage (Union[Unset, GetIndexerStatusResponse200LogIndexerStorage]):
     """
 
     is_alive: Union[Unset, bool] = UNSET
+    state: Union[Unset, GetIndexerStatusResponse200LogIndexerState] = UNSET
     last_locked_at: Union[Unset, None, datetime.datetime] = UNSET
     owner: Union[Unset, None, str] = UNSET
     storage: Union[Unset, "GetIndexerStatusResponse200LogIndexerStorage"] = UNSET
@@ -34,6 +37,10 @@ class GetIndexerStatusResponse200LogIndexer:
 
     def to_dict(self) -> Dict[str, Any]:
         is_alive = self.is_alive
+        state: Union[Unset, str] = UNSET
+        if not isinstance(self.state, Unset):
+            state = self.state.value
+
         last_locked_at: Union[Unset, None, str] = UNSET
         if not isinstance(self.last_locked_at, Unset):
             last_locked_at = self.last_locked_at.isoformat() if self.last_locked_at else None
@@ -48,6 +55,8 @@ class GetIndexerStatusResponse200LogIndexer:
         field_dict.update({})
         if is_alive is not UNSET:
             field_dict["is_alive"] = is_alive
+        if state is not UNSET:
+            field_dict["state"] = state
         if last_locked_at is not UNSET:
             field_dict["last_locked_at"] = last_locked_at
         if owner is not UNSET:
@@ -65,6 +74,13 @@ class GetIndexerStatusResponse200LogIndexer:
 
         d = src_dict.copy()
         is_alive = d.pop("is_alive", UNSET)
+
+        _state = d.pop("state", UNSET)
+        state: Union[Unset, GetIndexerStatusResponse200LogIndexerState]
+        if isinstance(_state, Unset):
+            state = UNSET
+        else:
+            state = GetIndexerStatusResponse200LogIndexerState(_state)
 
         _last_locked_at = d.pop("last_locked_at", UNSET)
         last_locked_at: Union[Unset, None, datetime.datetime]
@@ -86,6 +102,7 @@ class GetIndexerStatusResponse200LogIndexer:
 
         get_indexer_status_response_200_log_indexer = cls(
             is_alive=is_alive,
+            state=state,
             last_locked_at=last_locked_at,
             owner=owner,
             storage=storage,

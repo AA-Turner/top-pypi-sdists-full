@@ -120,6 +120,7 @@ class FakePage:
     def __init__(self):
         self.clicked_selector = None
         self.download_timeout = None
+        self.set_input_files_calls: list[tuple[str, str, int]] = []
 
     def query_selector(self, selector: str):
         return object()
@@ -130,6 +131,9 @@ class FakePage:
 
     def click(self, selector: str, timeout: int):
         self.clicked_selector = selector
+
+    def set_input_files(self, selector: str, files: str, timeout: int):
+        self.set_input_files_calls.append((selector, files, timeout))
 
 
 class FakeResponse:
@@ -255,3 +259,244 @@ class TestDownloadHelpers:
             tools.download_url("page-1", "https://other.example.com/data.csv")
 
         assert context.request.called_url is None
+
+
+class TestResolveDefaultDownloadPath:
+    def test_default_uses_helper_and_creates_parent(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_dir = Path(tmpdir) / "browser_tools" / "downloads" / "exec-abc123"
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser._default_download_dir",
+                lambda: target_dir,
+            )
+
+            path = _resolve_download_path(None, "report.csv", overwrite=False)
+
+            assert path == target_dir / "report.csv"
+            assert path.parent.exists()
+
+    def test_default_path_rejects_existing_file_without_overwrite(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_dir = Path(tmpdir)
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser._default_download_dir",
+                lambda: target_dir,
+            )
+
+            first = _resolve_download_path(None, "report.csv", overwrite=False)
+            first.write_text("already here")
+
+            with pytest.raises(FileExistsError):
+                _resolve_download_path(None, "report.csv", overwrite=False)
+
+    def test_default_path_allows_overwrite(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_dir = Path(tmpdir)
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser._default_download_dir",
+                lambda: target_dir,
+            )
+
+            first = _resolve_download_path(None, "report.csv", overwrite=False)
+            first.write_text("already here")
+
+            second = _resolve_download_path(None, "report.csv", overwrite=True)
+            assert second == first
+
+
+class TestDefaultDownloadDir:
+    def _inject_fake_execution_module(self, monkeypatch, get_execution_id):
+        import sys
+        import types
+
+        fake_module = types.ModuleType("abstra_internals.execution")
+        fake_module.get_execution_id = get_execution_id  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "abstra_internals.execution", fake_module)
+
+    def test_uses_persisted_dir_with_exec_id_subdir(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            persisted = Path(tmpdir)
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser.get_persistent_dir",
+                lambda: persisted,
+            )
+            self._inject_fake_execution_module(monkeypatch, lambda: "exec-abc123")
+
+            from abstra_internals.agents.tools.browser import _default_download_dir
+
+            assert (
+                _default_download_dir()
+                == persisted / "browser_tools" / "downloads" / "exec-abc123"
+            )
+
+    def test_falls_back_without_exec_id_when_sdk_raises(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            persisted = Path(tmpdir)
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser.get_persistent_dir",
+                lambda: persisted,
+            )
+
+            def _raise():
+                raise RuntimeError("no SDK context")
+
+            self._inject_fake_execution_module(monkeypatch, _raise)
+
+            from abstra_internals.agents.tools.browser import _default_download_dir
+
+            assert _default_download_dir() == persisted / "browser_tools" / "downloads"
+
+    def test_falls_back_without_exec_id_when_empty(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            persisted = Path(tmpdir)
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser.get_persistent_dir",
+                lambda: persisted,
+            )
+            self._inject_fake_execution_module(monkeypatch, lambda: "")
+
+            from abstra_internals.agents.tools.browser import _default_download_dir
+
+            assert _default_download_dir() == persisted / "browser_tools" / "downloads"
+
+
+def _browser_tools_for_upload_tests(page: FakePage):
+    tools = object.__new__(BrowserTools)
+    tools.pages = cast(Any, {"page-1": page})
+    tools.debug_mode = False
+    tools._extracted_elements = {}
+    tools.urls = None
+    return tools
+
+
+class TestUploadFile:
+    def test_accepts_file_inside_persisted_dir(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            persisted = Path(tmpdir).resolve()
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser.get_persistent_dir",
+                lambda: persisted,
+            )
+            file_path = persisted / "data" / "foo.csv"
+            file_path.parent.mkdir(parents=True)
+            file_path.write_bytes(b"hello\n")
+
+            page = FakePage()
+            tools = _browser_tools_for_upload_tests(page)
+
+            result = tools.upload_file(
+                "page-1",
+                file_path=str(file_path),
+                selector="input[type=file]",
+                timeout_ms=4321,
+            )
+
+            assert result == {
+                "path": str(file_path),
+                "size_bytes": 6,
+                "selector": "input[type=file]",
+            }
+            assert page.set_input_files_calls == [
+                ("input[type=file]", str(file_path), 4321)
+            ]
+
+    def test_rejects_file_outside_persisted_dir(self, monkeypatch):
+        with (
+            tempfile.TemporaryDirectory() as persisted_tmp,
+            tempfile.TemporaryDirectory() as outside_tmp,
+        ):
+            persisted = Path(persisted_tmp).resolve()
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser.get_persistent_dir",
+                lambda: persisted,
+            )
+            outside = Path(outside_tmp) / "leak.csv"
+            outside.write_bytes(b"")
+
+            page = FakePage()
+            tools = _browser_tools_for_upload_tests(page)
+
+            with pytest.raises(PermissionError):
+                tools.upload_file(
+                    "page-1",
+                    file_path=str(outside),
+                    selector="input[type=file]",
+                )
+
+            assert page.set_input_files_calls == []
+
+    def test_rejects_symlink_escape(self, monkeypatch):
+        with (
+            tempfile.TemporaryDirectory() as persisted_tmp,
+            tempfile.TemporaryDirectory() as outside_tmp,
+        ):
+            persisted = Path(persisted_tmp).resolve()
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser.get_persistent_dir",
+                lambda: persisted,
+            )
+            real_target = Path(outside_tmp) / "secret.csv"
+            real_target.write_bytes(b"top secret")
+            link_inside = persisted / "decoy.csv"
+            link_inside.symlink_to(real_target)
+
+            page = FakePage()
+            tools = _browser_tools_for_upload_tests(page)
+
+            with pytest.raises(PermissionError):
+                tools.upload_file(
+                    "page-1",
+                    file_path=str(link_inside),
+                    selector="input[type=file]",
+                )
+
+            assert page.set_input_files_calls == []
+
+    def test_raises_when_file_missing(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            persisted = Path(tmpdir).resolve()
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser.get_persistent_dir",
+                lambda: persisted,
+            )
+
+            page = FakePage()
+            tools = _browser_tools_for_upload_tests(page)
+
+            with pytest.raises(FileNotFoundError):
+                tools.upload_file(
+                    "page-1",
+                    file_path=str(persisted / "nope.csv"),
+                    selector="input[type=file]",
+                )
+
+            assert page.set_input_files_calls == []
+
+    def test_rejects_selector_and_index_together(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            persisted = Path(tmpdir).resolve()
+            monkeypatch.setattr(
+                "abstra_internals.agents.tools.browser.get_persistent_dir",
+                lambda: persisted,
+            )
+            file_path = persisted / "foo.csv"
+            file_path.write_bytes(b"")
+
+            page = FakePage()
+            tools = _browser_tools_for_upload_tests(page)
+
+            with pytest.raises(ValueError):
+                tools.upload_file(
+                    "page-1",
+                    file_path=str(file_path),
+                    selector="input",
+                    index=0,
+                )
+
+    def test_upload_file_exposed_in_tools(self):
+        tools = object.__new__(BrowserTools)
+        tools.allow_close_page = False
+        tools.listen_network = False
+        tools.listen_console = False
+        tools.listen_websocket = False
+        assert "upload_file" in tools.__tools__()

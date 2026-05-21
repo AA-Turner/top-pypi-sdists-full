@@ -15,6 +15,7 @@ from ._events import Events
 from ._models import EventType, InFlightEvent
 from ._span_builder import build_otlp_span, _nano_timestamp
 from ._utils import (
+    coerce_chain_payload,
     extract_assistant_tool_calls,
     extract_model_name,
     extract_model_parameters,
@@ -23,6 +24,8 @@ from ._utils import (
     logger,
     normalize_messages,
     resolve_span_name,
+    root_output_delta,
+    serialize_tool_payload,
 )
 
 
@@ -75,6 +78,7 @@ class AsyncOrqLangchainCallback(AsyncCallbackHandler):
         span = build_otlp_span(event)
         await self._client.send_span(span)
         self._events.remove(rid)
+        self._events.clear_root(rid)
 
     # ── LLM callbacks ──────────────────────────────────────────────
 
@@ -226,7 +230,7 @@ class AsyncOrqLangchainCallback(AsyncCallbackHandler):
                 run_id, parent_run_id, EventType.CHAIN, serialized, metadata, tags,
                 name=kwargs.get("name"),
             )
-            event.inputs = inputs if isinstance(inputs, dict) else {"inputs": inputs}
+            event.inputs = coerce_chain_payload(inputs)
 
             rid = str(run_id)
             if parent_run_id is None:
@@ -251,7 +255,10 @@ class AsyncOrqLangchainCallback(AsyncCallbackHandler):
             if not event:
                 return
             event.end_time_ns = _nano_timestamp()
-            event.outputs = outputs if isinstance(outputs, dict) else {"outputs": outputs}
+            outputs_dict = coerce_chain_payload(outputs)
+            if self._events.is_root(rid):
+                outputs_dict = root_output_delta(event.inputs, outputs_dict)
+            event.outputs = outputs_dict
 
             if self._events.is_graph_node(rid):
                 self._events.graph.on_node_end(event.name, str(self._events.root_run_id))
@@ -303,7 +310,13 @@ class AsyncOrqLangchainCallback(AsyncCallbackHandler):
             event = self._start_event(
                 run_id, parent_run_id, EventType.TOOL, serialized, metadata, tags
             )
-            event.tool_input = input_str
+            # LangChain's input_str is str(tool_input), which calls __repr__ on
+            # Pydantic-model values. Prefer the structured `inputs` kwarg when
+            # present so the trace carries valid JSON.
+            inputs = kwargs.get("inputs")
+            event.tool_input = (
+                serialize_tool_payload(inputs) if inputs is not None else input_str
+            )
         except Exception:
             logger.debug("on_tool_start error", exc_info=True)
 
@@ -320,7 +333,17 @@ class AsyncOrqLangchainCallback(AsyncCallbackHandler):
             if not event:
                 return
             event.end_time_ns = _nano_timestamp()
-            event.tool_output = str(output)
+            # When invoked via tool_call (agents/langgraph), LangChain wraps the
+            # tool's return in a ToolMessage. The backend parses the legacy
+            # str(ToolMessage) shape to extract .content; dumping the whole
+            # message via to_jsonable_python surfaces internal fields
+            # (additional_kwargs, response_metadata, artifact, ...) in the
+            # viewer. Unwrap to .content so the result stays clean while still
+            # letting non-message Pydantic returns serialize structurally.
+            unwrapped: Any = output
+            if isinstance(output, BaseMessage):
+                unwrapped = getattr(output, "content", output)
+            event.tool_output = serialize_tool_payload(unwrapped)
             await self._finish_and_send(run_id)
         except Exception:
             logger.debug("on_tool_end error", exc_info=True)
@@ -434,7 +457,7 @@ class AsyncOrqLangchainCallback(AsyncCallbackHandler):
                 event.agent_actions = []
             event.agent_actions.append({
                 "tool": action.tool,
-                "tool_input": str(action.tool_input),
+                "tool_input": serialize_tool_payload(action.tool_input),
                 "log": action.log,
             })
         except Exception:

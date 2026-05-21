@@ -210,6 +210,11 @@ class ProviderConfigId(str, enum.Enum):
     Microsoft Defender for Cloud
     """
 
+    CLOUD_SECURITY_GOOGLE = "cloudsecurity_google"
+    """
+    Google Security Command Center
+    """
+
     CLOUD_SECURITY_PALO_ALTO = "cloudsecurity_paloalto"
     """
     Palo Alto Networks Cortex Cloud Security
@@ -305,9 +310,19 @@ class ProviderConfigId(str, enum.Enum):
     Jamf Pro
     """
 
+    IDENTITY_AWS_IAM = "identity_aws_iam"
+    """
+    AWS IAM Identity
+    """
+
     IDENTITY_ENTRA_ID = "identity_entra_id"
     """
     Microsoft Entra ID
+    """
+
+    IDENTITY_ENTRA_ID_MOCK = "identity_entra_id_mock"
+    """
+    [MOCK] Microsoft Entra ID
     """
 
     IDENTITY_GOOGLE = "identity_google"
@@ -625,6 +640,11 @@ class ProviderConfigId(str, enum.Enum):
     Axonius
     """
 
+    VULNERABILITIES_AXONIUS_MOCK = "vulnerabilities_axonius_mock"
+    """
+    [MOCK] Axonius
+    """
+
     VULNERABILITIES_CROWD_STRIKE = "vulnerabilities_crowdstrike"
     """
     CrowdStrike Falcon® Spotlight
@@ -759,6 +779,7 @@ class ProviderConfigId(str, enum.Enum):
         cloud_security_crowd_strike: typing.Callable[[], T_Result],
         cloud_security_crowd_strike_mock: typing.Callable[[], T_Result],
         cloud_security_defender: typing.Callable[[], T_Result],
+        cloud_security_google: typing.Callable[[], T_Result],
         cloud_security_palo_alto: typing.Callable[[], T_Result],
         cloud_security_upwind: typing.Callable[[], T_Result],
         cloud_security_wiz: typing.Callable[[], T_Result],
@@ -778,7 +799,9 @@ class ProviderConfigId(str, enum.Enum):
         endpointmanagement_intune: typing.Callable[[], T_Result],
         endpointmanagement_iru: typing.Callable[[], T_Result],
         endpointmanagement_jamf: typing.Callable[[], T_Result],
+        identity_aws_iam: typing.Callable[[], T_Result],
         identity_entra_id: typing.Callable[[], T_Result],
+        identity_entra_id_mock: typing.Callable[[], T_Result],
         identity_google: typing.Callable[[], T_Result],
         identity_okta: typing.Callable[[], T_Result],
         identity_ping_one: typing.Callable[[], T_Result],
@@ -842,6 +865,7 @@ class ProviderConfigId(str, enum.Enum):
         ticketing_zendesk: typing.Callable[[], T_Result],
         vulnerabilities_amazon_inspector: typing.Callable[[], T_Result],
         vulnerabilities_axonius: typing.Callable[[], T_Result],
+        vulnerabilities_axonius_mock: typing.Callable[[], T_Result],
         vulnerabilities_crowd_strike: typing.Callable[[], T_Result],
         vulnerabilities_crowd_strike_mock: typing.Callable[[], T_Result],
         vulnerabilities_defender: typing.Callable[[], T_Result],
@@ -938,6 +962,8 @@ class ProviderConfigId(str, enum.Enum):
             return cloud_security_crowd_strike_mock()
         if self is ProviderConfigId.CLOUD_SECURITY_DEFENDER:
             return cloud_security_defender()
+        if self is ProviderConfigId.CLOUD_SECURITY_GOOGLE:
+            return cloud_security_google()
         if self is ProviderConfigId.CLOUD_SECURITY_PALO_ALTO:
             return cloud_security_palo_alto()
         if self is ProviderConfigId.CLOUD_SECURITY_UPWIND:
@@ -976,8 +1002,12 @@ class ProviderConfigId(str, enum.Enum):
             return endpointmanagement_iru()
         if self is ProviderConfigId.ENDPOINTMANAGEMENT_JAMF:
             return endpointmanagement_jamf()
+        if self is ProviderConfigId.IDENTITY_AWS_IAM:
+            return identity_aws_iam()
         if self is ProviderConfigId.IDENTITY_ENTRA_ID:
             return identity_entra_id()
+        if self is ProviderConfigId.IDENTITY_ENTRA_ID_MOCK:
+            return identity_entra_id_mock()
         if self is ProviderConfigId.IDENTITY_GOOGLE:
             return identity_google()
         if self is ProviderConfigId.IDENTITY_OKTA:
@@ -1104,6 +1134,8 @@ class ProviderConfigId(str, enum.Enum):
             return vulnerabilities_amazon_inspector()
         if self is ProviderConfigId.VULNERABILITIES_AXONIUS:
             return vulnerabilities_axonius()
+        if self is ProviderConfigId.VULNERABILITIES_AXONIUS_MOCK:
+            return vulnerabilities_axonius_mock()
         if self is ProviderConfigId.VULNERABILITIES_CROWD_STRIKE:
             return vulnerabilities_crowd_strike()
         if self is ProviderConfigId.VULNERABILITIES_CROWD_STRIKE_MOCK:

@@ -6,8 +6,8 @@ requires = ["cmeel[build]"]
 description = "cmeel distribution for zlib"
 license = "Zlib"
 name = "cmeel-zlib"
-requires-python = ">= 3.8"
-version = "1.3.1"
+requires-python = ">= 3.10"
+version = "1.3.2"
 
 [project.urls]
 homepage = "https://github.com/cmake-wheel/cmeel-zlib"
@@ -15,7 +15,6 @@ repository = "https://github.com/cmake-wheel/cmeel-zlib.git"
 upstream = "https://zlib.net/"
 
 [tool.cmeel]
-build-number = 0
 has-sitelib = false
 run-tests = false
 

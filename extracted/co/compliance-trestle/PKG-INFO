@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: compliance-trestle
-Version: 4.0.2
+Version: 4.0.3
 Summary: Tools to manage & autogenerate python objects representing the OSCAL layers/models
 Project-URL: Homepage, https://oscal-compass.github.io/compliance-trestle
 Project-URL: Documentation, https://oscal-compass.github.io/compliance-trestle
@@ -31,7 +31,7 @@ Requires-Dist: importlib-resources
 Requires-Dist: jinja2==3.1.6
 Requires-Dist: openpyxl~=3.0
 Requires-Dist: orjson
-Requires-Dist: paramiko==4.0.0
+Requires-Dist: paramiko==5.0.0
 Requires-Dist: pydantic[email]>=2.0.0
 Requires-Dist: python-dotenv>=0.10.4
 Requires-Dist: python-frontmatter
@@ -198,6 +198,10 @@ Please refer to the community [README](https://github.com/oscal-compass/communit
 ## Contributing to Trestle
 
 Our project welcomes external contributions. Please consult [contributing](https://oscal-compass.github.io/compliance-trestle/latest/contributing/mkdocs_contributing/) to get started.
+
+## Security
+
+For information about security features, best practices, and how to report security vulnerabilities, please see our [Security Policy](SECURITY.md).
 
 ## Code of Conduct
 

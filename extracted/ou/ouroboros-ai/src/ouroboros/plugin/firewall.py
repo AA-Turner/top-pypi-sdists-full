@@ -18,10 +18,11 @@ firewall is the single chokepoint that:
   6. Emit `plugin.completed` (status=success) or `plugin.failed`
      (status=failed) on terminal.
 
-Audit events conform to schemas/0.1/audit-event.schema.json. Bounded
-payloads: argv stored as-is, raw stdout/stderr replaced with a sha256
-hash. Tokens, channel IDs, free-form user messages are forbidden by
-contract.
+Command audit events conform to schemas/0.1/audit-event.schema.json;
+v0.3 lifecycle hook events conform to schemas/0.3/audit-event.schema.json.
+Bounded payloads: argv stored as-is, raw stdout/stderr replaced with a
+sha256 hash. Tokens, channel IDs, free-form user messages are forbidden
+by contract.
 
 The firewall does NOT own the audit log. Callers pass an `event_sink`
 (any callable taking a dict) which is typically wired to the core
@@ -45,11 +46,20 @@ from ouroboros.plugin.digest import (
     UnsupportedFileTypeError,
     canonical_tree_hash,
 )
-from ouroboros.plugin.manifest import PluginManifest
+from ouroboros.plugin.hooks import (
+    HOOK_BLOCKED_EVENT,
+    HOOK_COMPLETED_EVENT,
+    HOOK_FAILED_EVENT,
+    HOOK_INVOKED_EVENT,
+    HookFailurePolicy,
+    HookKind,
+)
+from ouroboros.plugin.manifest import HookSpec, PluginManifest
 from ouroboros.plugin.trust_store import TrustRecord
 from ouroboros.plugin.userlevel_registry import RegisteredProgram
 
 SCHEMA_VERSION = "0.1"
+HOOK_AUDIT_SCHEMA_VERSION = "0.3"
 DEFAULT_PLUGIN_INVOCATION_TIMEOUT_SECONDS = 300.0
 
 EventSink = Callable[[dict], None]
@@ -264,6 +274,7 @@ def _event_envelope(
     permissions_used: Iterable[str] = (),
     result: dict | None = None,
     provenance: dict[str, str] | None = None,
+    schema_version: str = SCHEMA_VERSION,
 ) -> dict:
     """Build an event matching schemas/0.1/audit-event.schema.json.
 
@@ -287,7 +298,7 @@ def _event_envelope(
         if redaction_fired:
             argv_hash = _argv_sha256(list(argv))
     event: dict = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": schema_version,
         "event_type": event_type,
         "occurred_at": _utc_now_iso(),
         "plugin": {
@@ -307,6 +318,16 @@ def _event_envelope(
     if final_provenance:
         event["provenance"] = final_provenance
     return event
+
+
+def _matching_hooks(manifest: PluginManifest, hook_kind: HookKind) -> tuple[HookSpec, ...]:
+    if manifest.schema_version != "0.3":
+        return ()
+    return tuple(hook for hook in manifest.hooks if hook.name == hook_kind.value)
+
+
+def _hook_timeout_seconds(hook: HookSpec) -> float:
+    return float(hook.timeout_seconds or DEFAULT_PLUGIN_INVOCATION_TIMEOUT_SECONDS)
 
 
 def _required_permissions(manifest: PluginManifest) -> list[str]:
@@ -448,6 +469,7 @@ def invoke_plugin(
     expected_source_identity: str | None = None,
     expected_artifact_digest: str | None = None,
     is_disabled: bool = False,
+    cancellation_requested: bool = False,
 ) -> InvocationResult:
     """Invoke a UserLevel plugin command through the firewall.
 
@@ -485,6 +507,13 @@ def invoke_plugin(
             unconditionally. RFC: "the firewall MUST consult the disable
             record before any invocation, independently of whether trust
             records exist".
+        cancellation_requested: When True, the firewall short-circuits
+            the invocation: no command entrypoint is launched, the
+            terminal ``plugin.failed`` event records reason
+            ``cancelled``, and observability ``on_cancel`` hooks (if any)
+            run after the terminal event. The hook dispatch is fail-open
+            by contract — a hook failure cannot mask the original
+            cancellation cause from the returned ``InvocationResult``.
 
     Returns:
         `InvocationResult` with status, exit code, sha256 hashes of
@@ -511,10 +540,139 @@ def invoke_plugin(
     )
     risks = _scope_risk_index(manifest)
     emitted: list[dict] = []
+    runner = subprocess_runner or subprocess.run
 
     def _emit(event: dict) -> None:
         event_sink(event)
         emitted.append(event)
+
+    # Coerce stdout/stderr to bytes for hashing, regardless of whether
+    # the runner returned ``bytes`` (real subprocess.run without
+    # ``text=True``) or ``str`` (test fakes that pre-decode). This also
+    # handles partial buffers attached to ``subprocess.TimeoutExpired``.
+    # ``surrogateescape`` round-trips arbitrary byte sequences through
+    # str without raising, matching how Python decodes filesystem paths.
+    def _to_bytes(value: object) -> bytes:
+        if value is None:
+            return b""
+        if isinstance(value, bytes):
+            return value
+        if isinstance(value, str):
+            return value.encode("utf-8", errors="surrogateescape")
+        # Defensive: any other type is treated as empty so we never
+        # crash on an unexpected runner return shape.
+        return b""
+
+    def _run_lifecycle_hooks(hook_kind: HookKind) -> tuple[bool, str]:
+        for hook in _matching_hooks(manifest, hook_kind):
+            hook_provenance = {
+                "correlation_id": correlation_id,
+                "hook_name": hook.name,
+                "failure_policy": hook.failure_policy,
+            }
+            _emit(
+                _event_envelope(
+                    event_type=HOOK_INVOKED_EVENT,
+                    manifest=manifest,
+                    namespace=namespace,
+                    command_name=command_name,
+                    argv=argv,
+                    trust_state=trust_state,
+                    permissions_used=hook.permissions,
+                    provenance=hook_provenance,
+                    schema_version=HOOK_AUDIT_SCHEMA_VERSION,
+                )
+            )
+            try:
+                hook_argv = shlex.split(hook.entrypoint.command)
+            except ValueError as exc:
+                hook_argv = []
+                hook_error = f"hook entrypoint is not parseable: {exc}"
+            else:
+                hook_error = ""
+            if not hook_argv and not hook_error:
+                hook_error = "hook entrypoint command is empty after tokenization"
+
+            if not hook_error:
+                try:
+                    hook_completed = runner(
+                        hook_argv,
+                        capture_output=True,
+                        check=False,
+                        timeout=_hook_timeout_seconds(hook),
+                        cwd=str(plugin_home) if plugin_home is not None else None,
+                    )
+                    hook_stdout = _to_bytes(hook_completed.stdout)
+                    hook_stderr = _to_bytes(hook_completed.stderr)
+                    hook_provenance["returncode"] = str(hook_completed.returncode)
+                    hook_provenance["stdout_sha256"] = hashlib.sha256(hook_stdout).hexdigest()
+                    hook_provenance["stderr_sha256"] = hashlib.sha256(hook_stderr).hexdigest()
+                    if hook_completed.returncode != 0:
+                        hook_error = (
+                            f"hook {hook.name} exited with code {hook_completed.returncode}"
+                        )
+                except subprocess.TimeoutExpired as exc:
+                    hook_stdout = _to_bytes(exc.stdout)
+                    hook_stderr = _to_bytes(exc.stderr)
+                    hook_provenance["stdout_sha256"] = hashlib.sha256(hook_stdout).hexdigest()
+                    hook_provenance["stderr_sha256"] = hashlib.sha256(hook_stderr).hexdigest()
+                    hook_error = (
+                        f"hook {hook.name} timed out after {_hook_timeout_seconds(hook):g}s: "
+                        f"{type(exc).__name__}"
+                    )
+                except OSError as exc:
+                    hook_error = f"hook {hook.name} failed to start: {type(exc).__name__}: {exc}"
+
+            if hook_error:
+                blocks_invocation = hook.failure_policy == HookFailurePolicy.FAIL_CLOSED.value
+                _emit(
+                    _event_envelope(
+                        event_type=HOOK_BLOCKED_EVENT if blocks_invocation else HOOK_FAILED_EVENT,
+                        manifest=manifest,
+                        namespace=namespace,
+                        command_name=command_name,
+                        argv=argv,
+                        trust_state=trust_state,
+                        permissions_used=hook.permissions,
+                        result={
+                            "status": "blocked" if blocks_invocation else "failed",
+                            "message": hook_error,
+                        },
+                        provenance=hook_provenance,
+                        schema_version=HOOK_AUDIT_SCHEMA_VERSION,
+                    )
+                )
+                if blocks_invocation:
+                    return False, hook_error
+                continue
+
+            _emit(
+                _event_envelope(
+                    event_type=HOOK_COMPLETED_EVENT,
+                    manifest=manifest,
+                    namespace=namespace,
+                    command_name=command_name,
+                    argv=argv,
+                    trust_state=trust_state,
+                    permissions_used=hook.permissions,
+                    provenance=hook_provenance,
+                    schema_version=HOOK_AUDIT_SCHEMA_VERSION,
+                )
+            )
+        return True, ""
+
+    def _run_failed_invocation_observability_hooks() -> None:
+        """Dispatch fail-open observation hooks after a terminal failure.
+
+        Once the plugin command has reached the launched-command phase,
+        every controlled ``plugin.failed`` outcome should expose the same
+        terminal observation surface: ``after_invocation`` first, then
+        ``on_error``. The hooks are fail-open here, so their failures must
+        never replace the original launch/runtime failure returned below.
+        """
+
+        _run_lifecycle_hooks(HookKind.AFTER_INVOCATION)
+        _run_lifecycle_hooks(HookKind.ON_ERROR)
 
     # 0. Disable check — fires before everything, including before the
     # trust check, so a plugin with no `required: true` permissions
@@ -701,6 +859,39 @@ def invoke_plugin(
                 events=tuple(emitted),
             )
 
+    # 1a. Cancellation short-circuit — evaluated only after disable,
+    # digest/tamper verification, and required-permission trust gates
+    # have passed. It still fires before confirmation, before_invocation,
+    # plugin.invoked, permission_used emission, and command launch. The
+    # terminal ``plugin.failed`` event records the original cancel cause
+    # and observability ``on_cancel`` hooks (fail-open, observation-only)
+    # run after the terminal event so a hook failure can never mask the
+    # cancellation cause that already reached the caller.
+    if cancellation_requested:
+        message = (
+            f"plugin {manifest.name!r} invocation cancelled before launch "
+            f"(correlation_id={correlation_id!r})"
+        )
+        _emit(
+            _event_envelope(
+                event_type="plugin.failed",
+                manifest=manifest,
+                namespace=namespace,
+                command_name=command_name,
+                argv=argv,
+                trust_state=trust_state,
+                result={"status": "failed", "message": message},
+                provenance={"correlation_id": correlation_id, "reason": "cancelled"},
+            )
+        )
+        _run_lifecycle_hooks(HookKind.ON_CANCEL)
+        return InvocationResult(
+            status="failed",
+            exit_code=None,
+            message=message,
+            events=tuple(emitted),
+        )
+
     # 2. Confirmation gate (locked Q2 — ONE prompt, command-level).
     if command.requires_confirmation:
         redacted_prompt_argv, _ = _redact_argv(list(argv))
@@ -730,6 +921,16 @@ def invoke_plugin(
                 message=message,
                 events=tuple(emitted),
             )
+
+    before_ok, before_message = _run_lifecycle_hooks(HookKind.BEFORE_INVOCATION)
+    if not before_ok:
+        message = f"before_invocation hook blocked invocation: {before_message}"
+        return InvocationResult(
+            status="blocked",
+            exit_code=None,
+            message=message,
+            events=tuple(emitted),
+        )
 
     # 3. Emit `plugin.invoked` before launch.
     _emit(
@@ -796,6 +997,7 @@ def invoke_plugin(
                 },
             )
         )
+        _run_failed_invocation_observability_hooks()
         return InvocationResult(
             status="failed",
             exit_code=126,
@@ -816,6 +1018,7 @@ def invoke_plugin(
                 provenance={"correlation_id": correlation_id},
             )
         )
+        _run_failed_invocation_observability_hooks()
         return InvocationResult(
             status="failed",
             exit_code=126,
@@ -823,7 +1026,6 @@ def invoke_plugin(
             events=tuple(emitted),
         )
     cmd_argv = parsed_argv + [command_name] + list(argv)
-    runner = subprocess_runner or subprocess.run
     # Capture stdout/stderr as **bytes** rather than asking subprocess
     # to decode them. The firewall only ever stores a sha256 hash of
     # those streams (the RFC's bounded-payload contract), so we do
@@ -838,23 +1040,6 @@ def invoke_plugin(
     }
     if plugin_home is not None:
         run_kwargs["cwd"] = str(plugin_home)
-
-    # Coerce stdout/stderr to bytes for hashing, regardless of whether
-    # the runner returned ``bytes`` (real subprocess.run without
-    # ``text=True``) or ``str`` (test fakes that pre-decode). This also
-    # handles partial buffers attached to ``subprocess.TimeoutExpired``.
-    # ``surrogateescape`` round-trips arbitrary byte sequences through
-    # str without raising, matching how Python decodes filesystem paths.
-    def _to_bytes(value: object) -> bytes:
-        if value is None:
-            return b""
-        if isinstance(value, bytes):
-            return value
-        if isinstance(value, str):
-            return value.encode("utf-8", errors="surrogateescape")
-        # Defensive: any other type is treated as empty so we never
-        # crash on an unexpected runner return shape.
-        return b""
 
     try:
         completed = runner(cmd_argv, **run_kwargs)
@@ -874,6 +1059,7 @@ def invoke_plugin(
                 provenance={"correlation_id": correlation_id},
             )
         )
+        _run_failed_invocation_observability_hooks()
         return InvocationResult(
             status="failed",
             exit_code=127,
@@ -913,6 +1099,7 @@ def invoke_plugin(
                 },
             )
         )
+        _run_failed_invocation_observability_hooks()
         return InvocationResult(
             status="failed",
             exit_code=124,
@@ -947,6 +1134,7 @@ def invoke_plugin(
                 },
             )
         )
+        _run_failed_invocation_observability_hooks()
         return InvocationResult(
             status="failed",
             exit_code=126,
@@ -959,7 +1147,15 @@ def invoke_plugin(
     stdout_hash = hashlib.sha256(stdout_bytes).hexdigest()
     stderr_hash = hashlib.sha256(stderr_bytes).hexdigest()
 
-    # 6. Terminal event: completed or failed.
+    terminal_provenance = {
+        "correlation_id": correlation_id,
+        "stdout_sha256": stdout_hash,
+        "stderr_sha256": stderr_hash,
+    }
+
+    # 6. Terminal event: completed or failed. after_invocation hooks are
+    # fail-open observation only and run after the command terminal event,
+    # so they can never change the returned InvocationResult.
     if completed.returncode == 0:
         _emit(
             _event_envelope(
@@ -970,13 +1166,10 @@ def invoke_plugin(
                 argv=argv,
                 trust_state=trust_state,
                 result={"status": "success"},
-                provenance={
-                    "correlation_id": correlation_id,
-                    "stdout_sha256": stdout_hash,
-                    "stderr_sha256": stderr_hash,
-                },
+                provenance=terminal_provenance,
             )
         )
+        _run_lifecycle_hooks(HookKind.AFTER_INVOCATION)
         return InvocationResult(
             status="success",
             exit_code=0,
@@ -986,34 +1179,35 @@ def invoke_plugin(
             stderr_bytes=stderr_bytes,
             events=tuple(emitted),
         )
-    else:
-        message = f"entrypoint exited with code {completed.returncode}"
-        _emit(
-            _event_envelope(
-                event_type="plugin.failed",
-                manifest=manifest,
-                namespace=namespace,
-                command_name=command_name,
-                argv=argv,
-                trust_state=trust_state,
-                result={"status": "failed", "message": message},
-                provenance={
-                    "correlation_id": correlation_id,
-                    "stdout_sha256": stdout_hash,
-                    "stderr_sha256": stderr_hash,
-                },
-            )
+
+    message = f"entrypoint exited with code {completed.returncode}"
+    _emit(
+        _event_envelope(
+            event_type="plugin.failed",
+            manifest=manifest,
+            namespace=namespace,
+            command_name=command_name,
+            argv=argv,
+            trust_state=trust_state,
+            result={"status": "failed", "message": message},
+            provenance=terminal_provenance,
         )
-        return InvocationResult(
-            status="failed",
-            exit_code=completed.returncode,
-            message=message,
-            stdout_sha256=stdout_hash,
-            stderr_sha256=stderr_hash,
-            stdout_bytes=stdout_bytes,
-            stderr_bytes=stderr_bytes,
-            events=tuple(emitted),
-        )
+    )
+    _run_lifecycle_hooks(HookKind.AFTER_INVOCATION)
+    # ``on_error`` runs strictly after the terminal ``plugin.failed`` event
+    # and after the v0.3 ``after_invocation`` hook, so a hook failure can
+    # never mask the non-zero exit cause that already reached the caller.
+    _run_lifecycle_hooks(HookKind.ON_ERROR)
+    return InvocationResult(
+        status="failed",
+        exit_code=completed.returncode,
+        message=message,
+        stdout_sha256=stdout_hash,
+        stderr_sha256=stderr_hash,
+        stdout_bytes=stdout_bytes,
+        stderr_bytes=stderr_bytes,
+        events=tuple(emitted),
+    )
 
 
 __all__ = [

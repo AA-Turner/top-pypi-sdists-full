@@ -13,6 +13,7 @@ critical non-atomic code section simultaneously.
 """
 
 import hashlib
+import ipaddress
 import time
 from collections import namedtuple
 from dataclasses import dataclass
@@ -91,14 +92,34 @@ def parse_rates(rates: str | None) -> list[Rate]:
     return ret
 
 
+def truncate_ip(ip: str) -> str:
+    from allauth import app_settings as allauth_settings
+
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+
+    if isinstance(addr, ipaddress.IPv6Address):
+        prefix = allauth_settings.RATE_LIMIT_IPV6_PREFIX
+        network = ipaddress.IPv6Network(f"{addr}/{prefix}", strict=False)
+        return str(network.network_address)
+    return ip
+
+
+def get_ip(request: HttpRequest) -> str:
+    from allauth.account.adapter import get_adapter
+
+    ip = get_adapter().get_client_ip(request)
+    return truncate_ip(ip)
+
+
 def get_cache_key(
     request: HttpRequest, *, action: str, rate: Rate, key=None, user=None
 ) -> str:
-    from allauth.account.adapter import get_adapter
-
     source: tuple[str, ...]
     if rate.per == "ip":
-        source = ("ip", get_adapter().get_client_ip(request))
+        source = ("ip", get_ip(request))
     elif rate.per == "user":
         if user is None:
             if not request.user.is_authenticated:

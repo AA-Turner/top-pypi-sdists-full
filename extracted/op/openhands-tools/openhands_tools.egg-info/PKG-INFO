@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openhands-tools
-Version: 1.22.1
+Version: 1.23.0
 Summary: OpenHands Tools - Runtime tools for AI agents
 Project-URL: Source, https://github.com/OpenHands/software-agent-sdk
 Project-URL: Homepage, https://github.com/OpenHands/software-agent-sdk
@@ -8,7 +8,8 @@ Project-URL: Documentation, https://docs.openhands.dev/sdk
 Project-URL: Bug Tracker, https://github.com/OpenHands/software-agent-sdk/issues
 Requires-Python: >=3.12
 Requires-Dist: openhands-sdk
-Requires-Dist: bashlex>=0.18
+Requires-Dist: tree-sitter>=0.24
+Requires-Dist: tree-sitter-bash>=0.23
 Requires-Dist: binaryornot>=0.4.4
 Requires-Dist: cachetools
 Requires-Dist: libtmux>=0.53.0

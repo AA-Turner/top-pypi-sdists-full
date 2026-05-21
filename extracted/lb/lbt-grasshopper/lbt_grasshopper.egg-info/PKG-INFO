@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lbt-grasshopper
-Version: 1.10.30
+Version: 1.10.32
 Summary: Collection of all Ladybug Tools plugins for Grasshopper
 Home-page: https://github.com/ladybug-tools/lbt-grasshopper
 Author: Ladybug Tools
@@ -11,10 +11,10 @@ Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ladybug-grasshopper==1.72.4
+Requires-Dist: ladybug-grasshopper==1.72.5
 Requires-Dist: honeybee-grasshopper-core==1.44.2
 Requires-Dist: honeybee-grasshopper-radiance==1.37.1
-Requires-Dist: honeybee-grasshopper-energy==1.60.5
+Requires-Dist: honeybee-grasshopper-energy==1.60.6
 Requires-Dist: dragonfly-grasshopper==1.72.1
 Requires-Dist: fairyfly-grasshopper==0.6.0
 Dynamic: author

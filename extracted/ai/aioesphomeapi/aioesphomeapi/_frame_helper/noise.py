@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from cryptography.exceptions import InvalidTag
 from noise.connection import NoiseConnection
 
+from .._sanitize import MAX_EXPLANATION_LEN, MAX_MAC_LEN, MAX_NAME_LEN, safe_label_str
 from ..core import (
     APIConnectionError,
     BadMACAddressAPIError,
@@ -19,14 +20,7 @@ from ..core import (
     InvalidEncryptionKeyAPIError,
     ProtocolAPIError,
 )
-from .base import (
-    _LOGGER,
-    MAX_EXPLANATION_LEN,
-    MAX_MAC_LEN,
-    MAX_NAME_LEN,
-    APIFrameHelper,
-    safe_label_str,
-)
+from .base import _LOGGER, APIFrameHelper
 from .noise_encryption import ESPHOME_NOISE_BACKEND, DecryptCipher, EncryptCipher
 from .packets import make_noise_packets
 
@@ -51,9 +45,9 @@ NOISE_HELLO = b"\x01\x00\x00"
 
 int_ = int
 
-# Cython resolves _MAX_* and safe_label_str via cimport from .base
-# (noise.pxd); these assignments are the pure-Python (SKIP_CYTHON=1) fallback
-# so callers below have a name to resolve.
+# Cython resolves _MAX_* via cimport from .base and safe_label_str via cimport
+# from .._sanitize (noise.pxd); these assignments are the pure-Python
+# (SKIP_CYTHON=1) fallback so callers below have a name to resolve.
 _MAX_NAME_LEN = MAX_NAME_LEN
 _MAX_MAC_LEN = MAX_MAC_LEN
 _MAX_EXPLANATION_LEN = MAX_EXPLANATION_LEN
@@ -256,13 +250,13 @@ class APINoiseFrameHelper(APIFrameHelper):
         server_mac = self._server_mac
         try:
             psk_bytes = binascii.a2b_base64(psk)
-        except ValueError:
+        except ValueError as err:
             raise InvalidEncryptionKeyAPIError(
                 f"{self._log_name}: Malformed PSK (length={len(psk)}), "
                 "expected base64-encoded 32-byte value",
                 server_name,
                 server_mac,
-            )
+            ) from err
         if len(psk_bytes) != 32:
             raise InvalidEncryptionKeyAPIError(
                 f"{self._log_name}: Malformed PSK (length={len(psk)}), "
@@ -304,10 +298,38 @@ class APINoiseFrameHelper(APIFrameHelper):
         self._handle_error_and_close(exc)
 
     def _handle_handshake(self, msg: bytes) -> None:
+        if not msg:
+            self._handle_error_and_close(
+                HandshakeAPIError(f"{self._log_name}: Handshake frame is empty")
+            )
+            return
         if msg[0] != 0:
             self._error_on_incorrect_preamble(msg)
             return
-        self._proto.read_message(msg[1:])
+        try:
+            self._proto.read_message(msg[1:])
+        except InvalidTag as exc:
+            # The peer's handshake response failed AEAD authentication. Either
+            # the PSK doesn't match or the ciphertext was tampered with. ESPHome
+            # firmware normally rejects with the dedicated preamble=0x01
+            # "Handshake MAC failure" frame, so reaching this path means the
+            # peer is buggy or hostile; surface the same friendly error the
+            # named-failure branch raises.
+            key_err = InvalidEncryptionKeyAPIError(
+                f"{self._log_name}: Invalid encryption key",
+                self._server_name,
+                self._server_mac,
+            )
+            key_err.__cause__ = exc
+            self._handle_error_and_close(key_err)
+            return
+        except Exception as exc:
+            handshake_err = HandshakeAPIError(
+                f"{self._log_name}: Handshake failed: {exc}"
+            )
+            handshake_err.__cause__ = exc
+            self._handle_error_and_close(handshake_err)
+            return
         self._state = NOISE_STATE_READY
         noise_protocol = self._proto.noise_protocol
         self._decrypt_cipher = DecryptCipher(noise_protocol.cipher_state_decrypt)  # pylint: disable=no-member

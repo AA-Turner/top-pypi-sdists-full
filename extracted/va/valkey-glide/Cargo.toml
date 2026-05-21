@@ -21,6 +21,8 @@ redis = { path = "local_dependencies/redis", features = [
 ] }
 glide-core = { path = "local_dependencies/glide-core", features = ["socket-layer"] }
 logger_core = { path = "local_dependencies/logger_core" }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
 
 [profile.release]
 lto = true

@@ -5,16 +5,24 @@ import kubernetes.client
 
 class V1beta1DeviceAttribute:
     bool: typing.Optional[bool]
+    bools: typing.Optional[list[bool]]
     int: typing.Optional[int]
+    ints: typing.Optional[list[int]]
     string: typing.Optional[str]
+    strings: typing.Optional[list[str]]
     version: typing.Optional[str]
+    versions: typing.Optional[list[str]]
     
-    def __init__(self, *, bool: typing.Optional[bool] = ..., int: typing.Optional[int] = ..., string: typing.Optional[str] = ..., version: typing.Optional[str] = ...) -> None:
+    def __init__(self, *, bool: typing.Optional[bool] = ..., bools: typing.Optional[list[bool]] = ..., int: typing.Optional[int] = ..., ints: typing.Optional[list[int]] = ..., string: typing.Optional[str] = ..., strings: typing.Optional[list[str]] = ..., version: typing.Optional[str] = ..., versions: typing.Optional[list[str]] = ...) -> None:
         ...
     def to_dict(self) -> V1beta1DeviceAttributeDict:
         ...
 class V1beta1DeviceAttributeDict(typing.TypedDict, total=False):
     bool: typing.Optional[bool]
+    bools: typing.Optional[list[bool]]
     int: typing.Optional[int]
+    ints: typing.Optional[list[int]]
     string: typing.Optional[str]
+    strings: typing.Optional[list[str]]
     version: typing.Optional[str]
+    versions: typing.Optional[list[str]]

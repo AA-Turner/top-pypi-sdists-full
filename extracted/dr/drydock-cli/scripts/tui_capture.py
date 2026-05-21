@@ -87,6 +87,19 @@ SESSION_ROOT = Path.home() / ".drydock" / "logs" / "session"
 ACTIVE_WINDOW_SEC = 120.0
 
 
+def _is_noise_path(p: Path) -> bool:
+    """Skip pytest-internal session dirs. The drydock test suite spawns
+    short-lived sessions under /tmp/pytest-of-*/pytest-N/... that produce
+    deliberate tool errors (e.g. grep `/nonexistent` to verify the error
+    response). Those polluted ~/.drydock/tui_findings.jsonl with 22+
+    fake findings; the bug-finding pipeline was chasing ghosts.
+    Observed 2026-05-20."""
+    s = str(p)
+    return ("/pytest-of-" in s
+            or "/tmp/pytest-" in s
+            or "/popen-gw" in s)
+
+
 def _discover_sessions() -> set[Path]:
     """Return the set of session_dirs currently being written by an
     active drydock process.
@@ -100,6 +113,8 @@ def _discover_sessions() -> set[Path]:
        for reasons we haven't pinned down yet.
     2. `~/.drydock/sessions_by_pid/<pid>.txt` for living PIDs.
     3. `~/.drydock/current_session.txt` (legacy global).
+
+    Pytest-internal session dirs are filtered out (see _is_noise_path).
     """
     found: set[Path] = set()
     now = time.time()
@@ -109,6 +124,8 @@ def _discover_sessions() -> set[Path]:
         try:
             for entry in SESSION_ROOT.iterdir():
                 if not entry.is_dir():
+                    continue
+                if _is_noise_path(entry):
                     continue
                 mjsonl = entry / "messages.jsonl"
                 if not mjsonl.exists():
@@ -138,7 +155,7 @@ def _discover_sessions() -> set[Path]:
                 pass  # alive
             try:
                 p = Path(pidfile.read_text().strip())
-                if p.is_dir():
+                if p.is_dir() and not _is_noise_path(p):
                     found.add(p)
             except Exception:
                 continue
@@ -146,7 +163,7 @@ def _discover_sessions() -> set[Path]:
     # (3) legacy global
     try:
         p = Path(GLOBAL_MARKER.read_text().strip())
-        if p.is_dir():
+        if p.is_dir() and not _is_noise_path(p):
             found.add(p)
     except Exception:
         pass

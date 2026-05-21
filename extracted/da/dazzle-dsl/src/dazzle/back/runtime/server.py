@@ -148,6 +148,36 @@ class ServerConfig:
     storage_defs: "dict[str, StorageConfig]" = field(default_factory=dict)
 
 
+def _maybe_configure_tracer() -> None:
+    """Configure the OTel tracer when ``dazzle perf trace`` set the env.
+
+    Delegates to :func:`dazzle.perf.bootstrap.maybe_configure_tracer`
+    which is also called at CLI entry (``dazzle/cli/__init__.py``) so
+    that framework-boot spans (``dsl.parse``, route generation) are
+    captured before the FastAPI app is built (#1158).  Keeping this
+    call inside ``_create_app`` is harmless — the function is idempotent
+    and the CLI path fires first.
+    """
+    from dazzle.perf.bootstrap import maybe_configure_tracer
+
+    maybe_configure_tracer()
+
+
+def _maybe_instrument_for_perf(app: Any) -> None:
+    """Apply ``dazzle perf`` instrumentation when ``DAZZLE_PERF_ENABLED``
+    is set. The env var is the only signal — `dazzle perf trace` sets
+    it before spawning the runtime; humans starting the server directly
+    don't pay the instrumentation cost.
+    """
+    import os
+
+    if os.environ.get("DAZZLE_PERF_ENABLED") != "1":
+        return
+    from dazzle.perf.instrument import instrument_app
+
+    instrument_app(app)
+
+
 # =============================================================================
 # Application Builder
 # =============================================================================
@@ -399,11 +429,13 @@ class DazzleBackendApp:
 
     def _create_app(self) -> None:
         """Create the FastAPI app instance and apply middleware."""
+        _maybe_configure_tracer()
         self._app = _FastAPI(
             title=self._appspec.name,
             description=self._appspec.title or f"Dazzle Backend: {self._appspec.name}",
             version=self._appspec.version,
         )
+        _maybe_instrument_for_perf(self._app)
 
         # Attach runtime service container (v0.49.0, #673)
         from dazzle.back.runtime.renderers.init import register_default_renderers

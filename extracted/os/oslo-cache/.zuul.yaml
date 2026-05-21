@@ -15,11 +15,14 @@
     vars:
       tox_envlist: functional
     irrelevant-files:
+      - ^\.gitignore$
+      - ^\.gitreview$
       - ^.*\.rst$
       - ^doc/.*$
       - LICENSE
       - ^releasenotes/.*$
       - ^\.pre-commit-config\.yaml$
+      - ^oslo_cache/tests/unit/.*$
 
 - job:
     name: oslo.cache-functional-etcd3gw
@@ -88,6 +91,14 @@
       - publish-openstack-docs-pti
       - release-notes-jobs-python3
     check:
+      jobs:
+        - oslo.cache-functional-etcd3gw
+        - oslo.cache-functional-dogpile.cache.bmemcached
+        - oslo.cache-functional-dogpile.cache.pymemcache
+        - oslo.cache-functional-memcache_pool
+        - oslo.cache-functional-dogpile.cache.redis
+        - oslo.cache-functional-dogpile.cache.redis_sentinel
+    gate:
       jobs:
         - oslo.cache-functional-etcd3gw
         - oslo.cache-functional-dogpile.cache.bmemcached

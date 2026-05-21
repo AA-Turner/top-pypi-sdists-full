@@ -296,7 +296,7 @@ def _render_node(
         color = str(
             match_variants(
                 node["border_color"],
-                {**need},
+                need.filter_context(),
                 config.variants,
                 location=node,
             )
@@ -336,8 +336,8 @@ def _render_subgraph(
         params.append(("shape", "rectangle"))
 
     # fill color
-    params.append(("style", "filled"))
     if need["type_color"]:
+        params.append(("style", "filled"))
         params.append(("fillcolor", _quote(need["type_color"])))
 
     # outline color
@@ -347,7 +347,7 @@ def _render_subgraph(
         color = str(
             match_variants(
                 node["border_color"],
-                {**need},
+                need.filter_context(),
                 config.variants,
                 location=node,
             )

@@ -8,6 +8,7 @@ from ._tile_layer import TileLayer
 from ._gui_layer import GuiLayer
 from ._light_layer import LightLayer
 from ._particle_layer import ParticleLayer
+from ._postfx_layer import PostFxLayer
 from ._scene import Scene
 
 # ======================================== STATE ========================================
@@ -131,6 +132,8 @@ __all__ = [
     "GuiLayer",
     "LightLayer",
     "ParticleLayer",
+    "PostFxLayer",
+    
     "Scene",
 
     "get_current",

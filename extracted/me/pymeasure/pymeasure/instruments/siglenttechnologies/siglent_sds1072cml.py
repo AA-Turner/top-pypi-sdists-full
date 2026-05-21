@@ -1,7 +1,7 @@
 #
 # This file is part of the PyMeasure package.
 #
-# Copyright (c) 2013-2025 PyMeasure Developers
+# Copyright (c) 2013-2026 PyMeasure Developers
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -188,7 +188,7 @@ class TriggerChannel(Channel):
 
         """,
         preprocess_reply=lambda v: v.split(" ", 1)[1],
-        get_process=lambda v: {
+        get_process_list=lambda v: {
             "type": v[0],
             "source": v[2],
             "hold_type": v[4],
@@ -374,7 +374,7 @@ class SDS1072CML(SCPIMixin, Instrument):
         - first: the index of the data point from which to begin data transfer (0 is first)
 
         """,
-        get_process=lambda v: {"sparsing": int(v[1]), "number": int(v[3]), "first": int(v[5])},
+        get_process_list=lambda v: {"sparsing": int(v[1]), "number": int(v[3]), "first": int(v[5])},
         set_process=lambda dict_in: (
             dict_in.get("sparsing"),
             dict_in.get("number"),

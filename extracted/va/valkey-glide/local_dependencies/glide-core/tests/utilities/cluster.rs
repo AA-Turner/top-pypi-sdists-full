@@ -306,6 +306,10 @@ impl RedisCluster {
             .map(|server| ClusterType::build_addr(self.use_tls, &server.host, server.port as u16))
             .collect()
     }
+
+    pub fn all_server_pids(&self) -> Vec<u32> {
+        self.servers.iter().map(|s| s.pid).collect()
+    }
 }
 
 pub struct ClusterTestBasics {
@@ -389,14 +393,6 @@ pub async fn setup_cluster_with_replicas(
     };
     let client = create_cluster_client(cluster.as_ref(), configuration).await;
     ClusterTestBasics { cluster, client }
-}
-
-pub async fn setup_test_basics(use_tls: bool) -> ClusterTestBasics {
-    setup_test_basics_internal(TestConfiguration {
-        use_tls,
-        ..Default::default()
-    })
-    .await
 }
 
 #[cfg(test)]

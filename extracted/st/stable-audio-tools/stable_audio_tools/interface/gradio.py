@@ -1,7 +1,7 @@
 import gc
 import numpy as np
 import gradio as gr
-import json 
+import json
 import re
 import subprocess
 import torch
@@ -13,49 +13,148 @@ from torch.nn import functional as F
 from torchaudio import transforms as T
 
 from ..interface.aeiou import audio_spectrogram_image
+from ..verbose import vprint
 from ..inference.generation import generate_diffusion_cond, generate_diffusion_cond_inpaint, generate_diffusion_uncond
 from ..models.factory import create_model_from_config
+from ..models.lora import load_and_apply_loras
 from ..models.pretrained import get_pretrained_model
 from ..models.utils import copy_state_dict, load_ckpt_state_dict
 from ..inference.utils import prepare_audio
 
 from .interfaces.diffusion_cond import create_diffusion_cond_ui
+from .interfaces.autoencoder import create_autoencoder_ui
+
+# Mapping of model_type to the attribute name used in the training wrapper
+# e.g., DiffusionCondTrainingWrapper stores the model as self.diffusion
+WRAPPER_PREFIXES = {
+    "diffusion_cond": "diffusion.",
+    "diffusion_cond_inpaint": "diffusion.",
+    "diffusion_uncond": "diffusion.",
+    "diffusion_autoencoder": "diffusion.",
+    "autoencoder": "autoencoder.",
+    "lm": "lm.",
+    "clap": "clap.",
+}
+
+def unwrap_state_dict(state_dict, model_type):
+    """
+    Detect if state_dict is from a wrapped training checkpoint and unwrap it.
+    
+    Wrapped checkpoints have keys like 'diffusion.model.xxx' or 'diffusion_ema.ema_model.xxx'.
+    Unwrapped checkpoints have keys like 'model.xxx' directly.
+    
+    Returns the unwrapped state_dict.
+    """
+    prefix = WRAPPER_PREFIXES.get(model_type)
+    if prefix is None:
+        # Unknown model type, return as-is
+        return state_dict
+    
+    # Check if this is a wrapped checkpoint by looking for the prefix
+    has_wrapper_prefix = any(k.startswith(prefix) for k in state_dict.keys())
+    
+    if not has_wrapper_prefix:
+        # Already unwrapped
+        return state_dict
+    
+    vprint(f"Detected wrapped checkpoint, unwrapping with prefix '{prefix}'")
+    
+    ema_prefix = prefix.replace(".", "_ema.ema_model.")  # e.g., "diffusion." -> "diffusion_ema.ema_model."
+    has_ema = any(k.startswith(ema_prefix) for k in state_dict.keys())
+
+    # For diffusion models, the EMA only wraps the inner model (self.diffusion.model),
+    # not the conditioner/pretransform. So we need to handle them separately:
+    #   EMA keys: diffusion_ema.ema_model.xxx -> model.xxx
+    #   Conditioner keys: diffusion.conditioner.xxx -> conditioner.xxx
+    #   Pretransform keys: diffusion.pretransform.xxx -> pretransform.xxx
+    #
+    # For autoencoder models, the EMA wraps the entire autoencoder (self.autoencoder),
+    # including encoder, decoder, bottleneck, and pretransform. So we just strip the
+    # EMA prefix directly:
+    #   EMA keys: autoencoder_ema.ema_model.encoder.xxx -> encoder.xxx
+
+    # Model types where EMA wraps the entire model (not just an inner .model sub-module)
+    ema_wraps_whole_model = model_type in ("autoencoder",)
+
+    unwrapped = {}
+
+    if has_ema:
+        vprint(f"Using EMA weights with prefix '{ema_prefix}'")
+        for k, v in state_dict.items():
+            if k.startswith(ema_prefix):
+                suffix = k[len(ema_prefix):]
+                if ema_wraps_whole_model:
+                    # EMA wraps the whole model, just use the suffix directly
+                    new_key = suffix
+                else:
+                    # EMA wraps only .model, so re-add the "model." prefix
+                    new_key = "model." + suffix
+                unwrapped[new_key] = v
+
+        if not ema_wraps_whole_model:
+            # Get conditioner and other non-model weights from the main prefix
+            conditioner_prefix = prefix + "conditioner."
+            pretransform_prefix = prefix + "pretransform."
+            for k, v in state_dict.items():
+                if k.startswith(conditioner_prefix):
+                    new_key = k[len(prefix):]  # strip "diffusion." to get "conditioner.xxx"
+                    unwrapped[new_key] = v
+                elif k.startswith(pretransform_prefix):
+                    new_key = k[len(prefix):]  # strip to get "pretransform.xxx"
+                    unwrapped[new_key] = v
+    else:
+        # No EMA, just strip the wrapper prefix from all keys
+        for k, v in state_dict.items():
+            if k.startswith(prefix):
+                new_key = k[len(prefix):]
+                unwrapped[new_key] = v
+    
+    return unwrapped
 
 model = None
 model_type = None
 sample_rate = 32000
 sample_size = 1920000
 
-def load_model(model_config=None, model_ckpt_path=None, pretrained_name=None, pretransform_ckpt_path=None, device="cuda", model_half=False):
+def load_model(model_config=None, model_ckpt_path=None, pretrained_name=None, pretransform_ckpt_path=None, device="cuda", model_half=False, lora_ckpt_paths=None):
     global model, sample_rate, sample_size, model_type
-    
+
     if pretrained_name is not None:
         print(f"Loading pretrained model {pretrained_name}")
         model, model_config = get_pretrained_model(pretrained_name)
 
     elif model_config is not None and model_ckpt_path is not None:
-        print(f"Creating model from config")
+        vprint(f"Creating model from config")
         model = create_model_from_config(model_config)
 
         print(f"Loading model checkpoint from {model_ckpt_path}")
-        # Load checkpoint
-        copy_state_dict(model, load_ckpt_state_dict(model_ckpt_path))
-        #model.load_state_dict(load_ckpt_state_dict(model_ckpt_path))
+        # Load checkpoint and unwrap if it's a wrapped training checkpoint
+        state_dict = load_ckpt_state_dict(model_ckpt_path)
+        state_dict = unwrap_state_dict(state_dict, model_config.get("model_type"))
+        copy_state_dict(model, state_dict)
 
     sample_rate = model_config["sample_rate"]
     sample_size = model_config["sample_size"]
     model_type = model_config["model_type"]
 
     if pretransform_ckpt_path is not None:
-        print(f"Loading pretransform checkpoint from {pretransform_ckpt_path}")
+        vprint(f"Loading pretransform checkpoint from {pretransform_ckpt_path}")
         model.pretransform.load_state_dict(load_ckpt_state_dict(pretransform_ckpt_path), strict=False)
-        print(f"Done loading pretransform")
+        vprint(f"Done loading pretransform")
+
+    if lora_ckpt_paths:
+        model.to(device)
+        svd_bases_path = model_config.get("svd_bases_path") if model_config else None
+        load_and_apply_loras(model, lora_ckpt_paths, model_type, svd_bases_path=svd_bases_path)
+    else:
+        model.use_lora = False
+        model.lora_names = []
 
     model.to(device).eval().requires_grad_(False)
 
     if model_half:
         model.to(torch.float16)
-        
+
     print(f"Done loading model")
 
     return model, model_config
@@ -126,6 +225,10 @@ def generate_uncond(
         denoised = callback_info["denoised"]
         current_step = callback_info["i"]
         sigma = callback_info["sigma"]
+
+        # Extract scalar from tensor if needed (samplers pass tensors to avoid GPU sync)
+        if isinstance(sigma, torch.Tensor):
+            sigma = sigma[0].item() if sigma.dim() > 0 else sigma.item()
 
         if (current_step - 1) % preview_every == 0:
 
@@ -309,24 +412,24 @@ def autoencoder_process(audio, latent_noise, n_quantizers):
 
     return "output.wav"
 
-def create_autoencoder_ui(model_config):
+# def create_autoencoder_ui(model_config):
 
-    is_dac_rvq = "model" in model_config and "bottleneck" in model_config["model"] and model_config["model"]["bottleneck"]["type"] in ["dac_rvq","dac_rvq_vae"]
+#     is_dac_rvq = "model" in model_config and "bottleneck" in model_config["model"] and model_config["model"]["bottleneck"]["type"] in ["dac_rvq","dac_rvq_vae"]
 
-    if is_dac_rvq:
-        n_quantizers = model_config["model"]["bottleneck"]["config"]["n_codebooks"]
-    else:
-        n_quantizers = 0
+#     if is_dac_rvq:
+#         n_quantizers = model_config["model"]["bottleneck"]["config"]["n_codebooks"]
+#     else:
+#         n_quantizers = 0
 
-    with gr.Blocks() as ui:
-        input_audio = gr.Audio(label="Input audio")
-        output_audio = gr.Audio(label="Output audio", interactive=False)
-        n_quantizers_slider = gr.Slider(minimum=1, maximum=n_quantizers, step=1, value=n_quantizers, label="# quantizers", visible=is_dac_rvq)
-        latent_noise_slider = gr.Slider(minimum=0.0, maximum=10.0, step=0.001, value=0.0, label="Add latent noise")
-        process_button = gr.Button("Process", variant='primary', scale=1)
-        process_button.click(fn=autoencoder_process, inputs=[input_audio, latent_noise_slider, n_quantizers_slider], outputs=output_audio, api_name="process")
+#     with gr.Blocks() as ui:
+#         input_audio = gr.Audio(label="Input audio")
+#         output_audio = gr.Audio(label="Output audio", interactive=False)
+#         n_quantizers_slider = gr.Slider(minimum=1, maximum=n_quantizers, step=1, value=n_quantizers, label="# quantizers", visible=is_dac_rvq)
+#         latent_noise_slider = gr.Slider(minimum=0.0, maximum=10.0, step=0.001, value=0.0, label="Add latent noise")
+#         process_button = gr.Button("Process", variant='primary', scale=1)
+#         process_button.click(fn=autoencoder_process, inputs=[input_audio, latent_noise_slider, n_quantizers_slider], outputs=output_audio, api_name="process")
 
-    return ui
+#     return ui
 
 def create_lm_ui(model_config):
     with gr.Blocks() as ui:
@@ -353,7 +456,7 @@ def create_lm_ui(model_config):
 
     return ui
 
-def create_ui(model_config_path=None, ckpt_path=None, pretrained_name=None, pretransform_ckpt_path=None, model_half=False, gradio_title=""):
+def create_ui(model_config_path=None, ckpt_path=None, pretrained_name=None, pretransform_ckpt_path=None, model_half=False, gradio_title="", lora_ckpt_paths=None, default_prompt=None):
     assert (pretrained_name is not None) ^ (model_config_path is not None and ckpt_path is not None), "Must specify either pretrained name or provide a model config and checkpoint, but not both"
 
     if model_config_path is not None:
@@ -364,14 +467,14 @@ def create_ui(model_config_path=None, ckpt_path=None, pretrained_name=None, pret
         model_config = None
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    _, model_config = load_model(model_config, ckpt_path, pretrained_name=pretrained_name, pretransform_ckpt_path=pretransform_ckpt_path, model_half=model_half, device=device)
+    _, model_config = load_model(model_config, ckpt_path, pretrained_name=pretrained_name, pretransform_ckpt_path=pretransform_ckpt_path, model_half=model_half, lora_ckpt_paths=lora_ckpt_paths, device=device)
     
     if model_type == "diffusion_cond" or model_type == "diffusion_cond_inpaint":
-        ui = create_diffusion_cond_ui(model_config, model, in_model_half=model_half, gradio_title=gradio_title)
+        ui = create_diffusion_cond_ui(model_config, model, in_model_half=model_half, gradio_title=gradio_title, default_prompt=default_prompt)
     elif model_type == "diffusion_uncond":
         ui = create_diffusion_uncond_ui(model_config)
     elif model_type == "autoencoder" or model_type == "diffusion_autoencoder":
-        ui = create_autoencoder_ui(model_config)
+        ui = create_autoencoder_ui(model_config, in_model=model)
     elif model_type == "lm":
         ui = create_lm_ui(model_config)
         

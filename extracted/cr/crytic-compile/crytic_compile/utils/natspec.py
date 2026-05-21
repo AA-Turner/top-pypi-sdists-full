@@ -1,7 +1,70 @@
 """
 Natspec module https://solidity.readthedocs.io/en/latest/natspec-format.html
 """
-from typing import Dict, Optional, Union
+
+
+class DevStateVariable:
+    """
+    Model the dev state variable
+    """
+
+    def __init__(self, variable: dict) -> None:
+        """Init the object
+
+        Args:
+            method (Dict): Method infos (details, params, returns, custom:*)
+        """
+        self._details: str | None = variable.get("details", None)
+        if "returns" in variable:
+            self._returns: dict[str, str] = variable["returns"]
+        elif "return" in variable:
+            self._returns: dict[str, str] = {"_0": variable["return"]}
+        else:
+            self._returns: dict[str, str] = {}
+        # Extract custom fields (keys starting with "custom:")
+        self._custom: dict[str, str] = {
+            k: v for k, v in variable.items() if k.startswith("custom:")
+        }
+
+    @property
+    def details(self) -> str | None:
+        """Return the state variable details
+
+        Returns:
+            Optional[str]: state variable details
+        """
+        return self._details
+
+    @property
+    def variable_returns(self) -> dict[str, str]:
+        """Return the state variable returns
+
+        Returns:
+            dict[str, str]: state variable returns
+        """
+        return self._returns
+
+    @property
+    def custom(self) -> dict[str, str]:
+        """Return the state variable custom fields
+
+        Returns:
+            Dict[str, str]: custom field name => value (e.g. "custom:security" => "value")
+        """
+        return self._custom
+
+    def export(self) -> dict:
+        """Export to a python dict
+
+        Returns:
+            Dict: Exported dev state variable
+        """
+        result = {
+            "details": self.details,
+            "returns": self.variable_returns,
+            "custom": self.custom,
+        }
+        return result
 
 
 class UserMethod:
@@ -9,7 +72,7 @@ class UserMethod:
     Model the user method
     """
 
-    def __init__(self, method: Union[Dict, str]) -> None:
+    def __init__(self, method: dict | str) -> None:
         """Init the object
 
         Args:
@@ -17,12 +80,12 @@ class UserMethod:
         """
         # Constructors dont have "notice: '..'"
         if isinstance(method, str):
-            self._notice: Optional[str] = method
+            self._notice: str | None = method
         else:
             self._notice = method.get("notice", None)
 
     @property
-    def notice(self) -> Optional[str]:
+    def notice(self) -> str | None:
         """Return the method notice
 
         Returns:
@@ -30,7 +93,7 @@ class UserMethod:
         """
         return self._notice
 
-    def export(self) -> Dict:
+    def export(self) -> dict:
         """Export to a python dict
 
         Returns:
@@ -44,19 +107,26 @@ class DevMethod:
     Model the dev method
     """
 
-    def __init__(self, method: Dict) -> None:
+    def __init__(self, method: dict) -> None:
         """Init the object
 
         Args:
-            method (Dict): Method infos (author, details, params, return)
+            method (Dict): Method infos (author, details, params, returns, custom:*)
         """
-        self._author: Optional[str] = method.get("author", None)
-        self._details: Optional[str] = method.get("details", None)
-        self._params: Dict[str, str] = method.get("params", {})
-        self._return: Optional[str] = method.get("return", None)
+        self._author: str | None = method.get("author", None)
+        self._details: str | None = method.get("details", None)
+        self._params: dict[str, str] = method.get("params", {})
+        if "returns" in method:
+            self._returns: dict[str, str] = method["returns"]
+        elif "return" in method:
+            self._returns: dict[str, str] = {"_0": method["return"]}
+        else:
+            self._returns: dict[str, str] = {}
+        # Extract custom fields (keys starting with "custom:")
+        self._custom: dict[str, str] = {k: v for k, v in method.items() if k.startswith("custom:")}
 
     @property
-    def author(self) -> Optional[str]:
+    def author(self) -> str | None:
         """Return the method author
 
         Returns:
@@ -65,7 +135,7 @@ class DevMethod:
         return self._author
 
     @property
-    def details(self) -> Optional[str]:
+    def details(self) -> str | None:
         """Return the method details
 
         Returns:
@@ -74,16 +144,16 @@ class DevMethod:
         return self._details
 
     @property
-    def method_return(self) -> Optional[str]:
-        """Return the method return
+    def method_returns(self) -> dict[str, str]:
+        """Return the method returns
 
         Returns:
-            Optional[str]: method return
+            dict[str, str]: method returns
         """
-        return self._return
+        return self._returns
 
     @property
-    def params(self) -> Dict[str, str]:
+    def params(self) -> dict[str, str]:
         """Return the method params
 
         Returns:
@@ -91,18 +161,30 @@ class DevMethod:
         """
         return self._params
 
-    def export(self) -> Dict:
+    @property
+    def custom(self) -> dict[str, str]:
+        """Return the method custom fields
+
+        Returns:
+            Dict[str, str]: custom field name => value (e.g. "custom:security" => "value")
+        """
+        return self._custom
+
+    def export(self) -> dict:
         """Export to a python dict
 
         Returns:
             Dict: Exported dev method
         """
-        return {
+        result = {
             "author": self.author,
             "details": self.details,
             "params": self.params,
-            "return": self.method_return,
+            "returns": self.method_returns,
         }
+        # Include custom fields if present
+        result.update(self.custom)
+        return result
 
 
 class UserDoc:
@@ -116,13 +198,13 @@ class UserDoc:
         Args:
             userdoc (dict): User doc (notice, methods)
         """
-        self._notice: Optional[str] = userdoc.get("notice", None)
-        self._methods: Dict[str, UserMethod] = {
+        self._notice: str | None = userdoc.get("notice", None)
+        self._methods: dict[str, UserMethod] = {
             k: UserMethod(item) for k, item in userdoc.get("methods", {}).items()
         }
 
     @property
-    def notice(self) -> Optional[str]:
+    def notice(self) -> str | None:
         """Return the user notice
 
         Returns:
@@ -131,7 +213,7 @@ class UserDoc:
         return self._notice
 
     @property
-    def methods(self) -> Dict[str, UserMethod]:
+    def methods(self) -> dict[str, UserMethod]:
         """Return the user methods
 
         Returns:
@@ -139,7 +221,7 @@ class UserDoc:
         """
         return self._methods
 
-    def export(self) -> Dict:
+    def export(self) -> dict:
         """Export to a python dict
 
         Returns:
@@ -156,21 +238,26 @@ class DevDoc:
     Model the dev doc
     """
 
-    def __init__(self, devdoc: Dict):
+    def __init__(self, devdoc: dict):
         """Init the object
 
         Args:
-            devdoc (Dict): dev doc (author, details, methods, title)
+            devdoc (Dict): dev doc (author, details, methods, title, custom:*)
         """
-        self._author: Optional[str] = devdoc.get("author", None)
-        self._details: Optional[str] = devdoc.get("details", None)
-        self._methods: Dict[str, DevMethod] = {
+        self._author: str | None = devdoc.get("author", None)
+        self._details: str | None = devdoc.get("details", None)
+        self._methods: dict[str, DevMethod] = {
             k: DevMethod(item) for k, item in devdoc.get("methods", {}).items()
         }
-        self._title: Optional[str] = devdoc.get("title", None)
+        self._state_variables: dict[str, DevStateVariable] = {
+            k: DevStateVariable(item) for k, item in devdoc.get("stateVariables", {}).items()
+        }
+        self._title: str | None = devdoc.get("title", None)
+        # Extract contract-level custom fields (keys starting with "custom:")
+        self._custom: dict[str, str] = {k: v for k, v in devdoc.items() if k.startswith("custom:")}
 
     @property
-    def author(self) -> Optional[str]:
+    def author(self) -> str | None:
         """Return the dev author
 
         Returns:
@@ -179,7 +266,7 @@ class DevDoc:
         return self._author
 
     @property
-    def details(self) -> Optional[str]:
+    def details(self) -> str | None:
         """Return the dev details
 
         Returns:
@@ -188,7 +275,7 @@ class DevDoc:
         return self._details
 
     @property
-    def methods(self) -> Dict[str, DevMethod]:
+    def methods(self) -> dict[str, DevMethod]:
         """Return the dev methods
 
         Returns:
@@ -197,7 +284,16 @@ class DevDoc:
         return self._methods
 
     @property
-    def title(self) -> Optional[str]:
+    def state_variables(self) -> dict[str, DevStateVariable]:
+        """Return the dev state variables
+
+        Returns:
+            Dict[str, DevStateVariable]: state_variable_name => DevStateVariable
+        """
+        return self._state_variables
+
+    @property
+    def title(self) -> str | None:
         """Return the dev title
 
         Returns:
@@ -205,18 +301,31 @@ class DevDoc:
         """
         return self._title
 
-    def export(self) -> Dict:
+    @property
+    def custom(self) -> dict[str, str]:
+        """Return the contract-level custom fields
+
+        Returns:
+            Dict[str, str]: custom field name => value (e.g. "custom:security" => "value")
+        """
+        return self._custom
+
+    def export(self) -> dict:
         """Export to a python dict
 
         Returns:
             Dict: Exported dev doc
         """
-        return {
+        result = {
             "methods": {k: items.export() for k, items in self.methods.items()},
             "author": self.author,
             "details": self.details,
             "title": self.title,
+            "state_variables": self.state_variables,
         }
+        # Include custom fields if present
+        result.update(self.custom)
+        return result
 
 
 class Natspec:
@@ -224,7 +333,7 @@ class Natspec:
     Model natspec
     """
 
-    def __init__(self, userdoc: Dict, devdoc: Dict):
+    def __init__(self, userdoc: dict, devdoc: dict):
         """Init the object
 
         Args:

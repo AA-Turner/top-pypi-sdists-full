@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.223
+Version: 0.3.224
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -21,7 +21,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aioboto3>=13.0.0
-Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: anyio>=4.8.0
 Requires-Dist: beautifulsoup4>=4.10.0
 Requires-Dist: boto3
@@ -29,6 +28,7 @@ Requires-Dist: click!=8.2.0,<8.2.2,>=8.1.3
 Requires-Dist: debugpy
 Requires-Dist: docstring-parser>=0.16
 Requires-Dist: exceptiongroup>=1.0.2; python_version < "3.11"
+Requires-Dist: fastapi>=0.119.0
 Requires-Dist: fsspec<=2025.9.0,>=2023.1.0
 Requires-Dist: httpx
 Requires-Dist: ijson>=3.2.0
@@ -55,6 +55,7 @@ Requires-Dist: textual>=2.1.0
 Requires-Dist: tiktoken>=0.12.0
 Requires-Dist: typing_extensions>=4.14.0
 Requires-Dist: universal-pathlib>=0.2.6
+Requires-Dist: uvicorn
 Requires-Dist: zipfile-zstd>=0.0.4; python_version < "3.14"
 Requires-Dist: zipp>=3.19.1
 Requires-Dist: zstandard>=0.20.0
@@ -63,7 +64,6 @@ Requires-Dist: adlfs>=2025.8.0; extra == "dev"
 Requires-Dist: anthropic>=0.96.0; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
-Requires-Dist: fastapi>=0.119.0; extra == "dev"
 Requires-Dist: google-genai>=1.69.0; extra == "dev"
 Requires-Dist: griffe>=2; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
@@ -108,7 +108,6 @@ Requires-Dist: types-psutil; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: types-regex; extra == "dev"
-Requires-Dist: uvicorn; extra == "dev"
 Requires-Dist: xai_sdk>=1.7.0; extra == "dev"
 Requires-Dist: zipfile-zstd>=0.0.4; python_version < "3.14" and extra == "dev"
 Provides-Extra: doc

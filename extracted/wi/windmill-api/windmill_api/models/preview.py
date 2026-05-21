@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.preview_args import PreviewArgs
     from ..models.preview_modules import PreviewModules
+    from ..models.preview_temp_script_refs import PreviewTempScriptRefs
 
 
 T = TypeVar("T", bound="Preview")
@@ -30,6 +31,9 @@ class Preview:
         lock (Union[Unset, str]):
         flow_path (Union[Unset, str]):
         modules (Union[Unset, None, PreviewModules]): Additional script modules keyed by relative file path
+        temp_script_refs (Union[Unset, None, PreviewTempScriptRefs]): Map of relative-import script path -> temp storage
+            hash so the preview job resolves those imports from not-yet-deployed local content instead of the deployed
+            script
     """
 
     args: "PreviewArgs"
@@ -43,6 +47,7 @@ class Preview:
     lock: Union[Unset, str] = UNSET
     flow_path: Union[Unset, str] = UNSET
     modules: Union[Unset, None, "PreviewModules"] = UNSET
+    temp_script_refs: Union[Unset, None, "PreviewTempScriptRefs"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -66,6 +71,10 @@ class Preview:
         modules: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.modules, Unset):
             modules = self.modules.to_dict() if self.modules else None
+
+        temp_script_refs: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.temp_script_refs, Unset):
+            temp_script_refs = self.temp_script_refs.to_dict() if self.temp_script_refs else None
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -94,6 +103,8 @@ class Preview:
             field_dict["flow_path"] = flow_path
         if modules is not UNSET:
             field_dict["modules"] = modules
+        if temp_script_refs is not UNSET:
+            field_dict["temp_script_refs"] = temp_script_refs
 
         return field_dict
 
@@ -101,6 +112,7 @@ class Preview:
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.preview_args import PreviewArgs
         from ..models.preview_modules import PreviewModules
+        from ..models.preview_temp_script_refs import PreviewTempScriptRefs
 
         d = src_dict.copy()
         args = PreviewArgs.from_dict(d.pop("args"))
@@ -142,6 +154,15 @@ class Preview:
         else:
             modules = PreviewModules.from_dict(_modules)
 
+        _temp_script_refs = d.pop("temp_script_refs", UNSET)
+        temp_script_refs: Union[Unset, None, PreviewTempScriptRefs]
+        if _temp_script_refs is None:
+            temp_script_refs = None
+        elif isinstance(_temp_script_refs, Unset):
+            temp_script_refs = UNSET
+        else:
+            temp_script_refs = PreviewTempScriptRefs.from_dict(_temp_script_refs)
+
         preview = cls(
             args=args,
             content=content,
@@ -154,6 +175,7 @@ class Preview:
             lock=lock,
             flow_path=flow_path,
             modules=modules,
+            temp_script_refs=temp_script_refs,
         )
 
         preview.additional_properties = d

@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "zeroconf"
-version = "0.149.9"
+version = "0.149.13"
 license = "LGPL-2.1-or-later"
 description = "A pure python implementation of multicast DNS service discovery"
 readme = "README.rst"
@@ -161,9 +161,7 @@ select = [
     "SLF001",
     "PLR2004", # too many to fix right now
     "PT011", # too many to fix right now
-    "PT006", # too many to fix right now
     "PGH003", # too many to fix right now
-    "PT007", # too many to fix right now
     "PT027",  # too many to fix right now
     "PLW0603" , # too many to fix right now
     "PLR0915", # too many to fix right now

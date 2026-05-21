@@ -4919,6 +4919,18 @@ components:
             comment:
               description: Reviewer's Comments
               type: string
+            reviewChanges:
+              description: A list of the Review Changes that have been made to this
+                entry
+              items:
+                $ref: '#/components/schemas/ReviewChange'
+              type: array
+            reviewProcesses:
+              description: Review Processes associated with the Entry
+              items:
+                $ref: '#/components/schemas/EntryReviewProcess'
+              nullable: true
+              type: array
             status:
               description: Review Status of the entry
               enum:

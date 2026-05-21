@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: audiofile
-Version: 1.6.0
+Version: 1.6.1
 Summary: Fast reading of all kind of audio files
 Author-email: Hagen Wierstorf <hwierstorf@audeering.com>, Johannes Wagner <jwagner@audeering.com>, Christian Geng <cgeng@audeering.com>
 License-Expression: MIT

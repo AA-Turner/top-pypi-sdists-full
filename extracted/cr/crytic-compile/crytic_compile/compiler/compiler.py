@@ -1,12 +1,12 @@
-"""Handle the compiler version
-"""
+"""Handle the compiler version"""
+
 import logging
-from typing import Optional
-from solc_select.solc_select import installed_versions, install_artifacts
+
+from solc_select.solc_select import install_artifacts, installed_versions
 
 LOGGER = logging.getLogger("CryticCompile")
 
-# pylint: disable=too-few-public-methods
+
 class CompilerVersion:
     """
     Class representing the compiler information
@@ -15,23 +15,26 @@ class CompilerVersion:
     def __init__(
         self,
         compiler: str,
-        version: Optional[str],
-        optimized: Optional[bool],
-        optimize_runs: Optional[int] = None,
+        version: str | None,
+        optimized: bool | None,
+        optimize_runs: int | None = None,
+        via_ir: bool | None = None,
     ) -> None:
         """
-        Initialize a compier version object
+        Initialize a compiler version object
 
         Args:
             compiler (str): compiler (in most of the case use "solc")
             version (str): compiler version
             optimized (Optional[bool]): true if optimization are enabled
             optimize_runs (Optional[int]): optimize runs number
+            via_ir: (Optional[bool]): true if --via-ir is used
         """
         self.compiler: str = compiler
-        self.version: Optional[str] = version
-        self.optimized: Optional[bool] = optimized
-        self.optimize_runs: Optional[int] = optimize_runs
+        self.version: str | None = version
+        self.optimized: bool | None = optimized
+        self.optimize_runs: int | None = optimize_runs
+        self.via_ir: bool | None = via_ir
 
     def look_for_installed_version(self) -> None:
         """
@@ -41,7 +44,7 @@ class CompilerVersion:
         Returns:
 
         """
-        if self.version not in installed_versions():
+        if self.version is not None and self.version not in installed_versions():
             # TODO: check that the solc version was installed.
             # Blocked by https://github.com/crytic/solc-select/issues/143
             install_artifacts([self.version])

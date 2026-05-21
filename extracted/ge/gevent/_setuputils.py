@@ -255,6 +255,10 @@ def cythonize1(ext):
                 'always_allow_keywords': False,
                 'infer_types': True,
                 'nonecheck': False,
+                # Mostly we're compatible with free-threading, but
+                # some of our cross-thread locking primitives still
+                # depend on the gil.
+                # 'freethreading_compatible': True,
             },
             # XXX: Cython developers say: "Please use C macros instead
             # of Pyrex defines. Taking this kind of decision based on
@@ -472,13 +476,13 @@ class GeventClean(clean):
         if self.dry_run:
             def remove_file(f):
                 if os.path.isdir(f):
-                    remove_tree(f, dry_run=self.dry_run)
+                    log.info("Would remove directory '%s'", f)
                 elif os.path.exists(f):
                     log.info("Would remove '%s'", f)
         else:
             def remove_file(f):
                 if os.path.isdir(f):
-                    remove_tree(f, dry_run=self.dry_run)
+                    remove_tree(f)
                 elif os.path.exists(f):
                     log.info("Removing '%s'", f)
                     os.remove(f)

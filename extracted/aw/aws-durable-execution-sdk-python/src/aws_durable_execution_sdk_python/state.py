@@ -16,6 +16,7 @@ from aws_durable_execution_sdk_python.exceptions import (
     BackgroundThreadError,
     CallableRuntimeError,
     DurableExecutionsError,
+    GetExecutionStateError,
     OrphanedChildException,
 )
 from aws_durable_execution_sdk_python.lambda_service import (
@@ -174,6 +175,13 @@ class CheckpointedResult:
             return False
         return op.status is OperationStatus.PENDING
 
+    def is_ready(self) -> bool:
+        """Return True if the checkpointed operation is READY."""
+        op = self.operation
+        if not op:
+            return False
+        return op.status is OperationStatus.READY
+
     def is_timed_out(self) -> bool:
         """Return True if the checkpointed operation is TIMED_OUT."""
         op = self.operation
@@ -275,20 +283,65 @@ class ExecutionState:
             initial_operations: initial operations to be added to ExecutionState
             checkpoint_token: checkpoint token used to call Durable Functions API.
             next_marker: a marker indicates that there are paginated operations.
+
+        Raises:
+            GetExecutionStateError: If the API call fails. The error is logged
+                with structured extras before re-raising. Callers are responsible
+                for deciding whether to fail the execution or allow Lambda retry
+                based on is_retryable().
         """
         all_operations: list[Operation] = (
             initial_operations.copy() if initial_operations else []
         )
-        while next_marker:
-            output: StateOutput = self._service_client.get_execution_state(
-                durable_execution_arn=self.durable_execution_arn,
-                checkpoint_token=checkpoint_token,
-                next_marker=next_marker,
+        try:
+            while next_marker:
+                output: StateOutput = self._service_client.get_execution_state(
+                    durable_execution_arn=self.durable_execution_arn,
+                    checkpoint_token=checkpoint_token,
+                    next_marker=next_marker,
+                )
+                all_operations.extend(output.operations)
+                next_marker = output.next_marker
+        except GetExecutionStateError as e:
+            logger.exception(
+                "Durable API error during state fetch.",
+                extra=e.build_logger_extras(),
             )
-            all_operations.extend(output.operations)
-            next_marker = output.next_marker
-        with self._operations_lock:
-            self.operations.update({op.operation_id: op for op in all_operations})
+            raise
+        finally:
+            # Always store whatever operations we successfully fetched
+            if all_operations:
+                with self._operations_lock:
+                    self.operations.update(
+                        {op.operation_id: op for op in all_operations}
+                    )
+
+    def get_input_payload(self) -> str | None:
+        # It is possible that backend will not provide an execution operation
+        # for the initial page of results.
+        if not (operations := self.get_execution_operation()):
+            return None
+        if not (execution_details := operations.execution_details):
+            return None
+        return execution_details.input_payload
+
+    def get_execution_operation(self) -> Operation | None:
+        # invocation id is id of execution operation
+        invocation_id = self.durable_execution_arn.split("/")[-1]
+        candidate = self.operations.get(invocation_id)
+        if not candidate:
+            # Due to payload size limitations we may have an empty operations list.
+            # This will only happen when loading the initial page of results and is
+            # expected behaviour. We don't fail, but instead return None
+            # as the execution operation does not exist
+            msg: str = "No durable operations found in execution state."
+            logger.debug(msg)
+            return None
+        if candidate.operation_type is not OperationType.EXECUTION:
+            msg = f"The execution operation in execution state does not have EXECUTION type: {candidate.operation_type}"
+            raise DurableExecutionsError(msg)
+
+        return candidate
 
     def track_replay(self, operation_id: str) -> None:
         """Check if operation exists with completed status; if not, transition to NEW status.
@@ -332,6 +385,18 @@ class ExecutionState:
         """
         with self._replay_status_lock:
             return self._replay_status is ReplayStatus.REPLAY
+
+    def mark_replaying_if_prior_operations_exist(self) -> None:
+        """Mark execution state as replaying when non-execution operations exist."""
+        with self._operations_lock:
+            has_prior_operations: bool = any(
+                op.operation_type is not OperationType.EXECUTION
+                for op in self.operations.values()
+            )
+
+        if has_prior_operations:
+            with self._replay_status_lock:
+                self._replay_status = ReplayStatus.REPLAY
 
     def get_checkpoint_result(self, checkpoint_id: str) -> CheckpointedResult:
         """Get checkpoint result.

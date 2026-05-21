@@ -4853,19 +4853,6 @@ class MonitoredRuleType(sgqlc.types.Enum):
     )
 
 
-class MonitoredTableRuleJobStatus(sgqlc.types.Enum):
-    """Enumeration Choices:
-
-    * `COMPLETED`None
-    * `FAILED`None
-    * `IN_PROGRESS`None
-    * `QUEUED`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("COMPLETED", "FAILED", "IN_PROGRESS", "QUEUED")
-
-
 class MonitoredTableRuleTableAttribute(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -7345,6 +7332,27 @@ class TriageBatchSource(sgqlc.types.Enum):
     __choices__ = ("ALERT", "FEED")
 
 
+class TriagePriority(sgqlc.types.Enum):
+    """Single-axis triage priority surfaced on the alerts feed.
+    Derived from the two-axis ``(alert_confidence, alert_impact)``
+    pair on the     latest :class:`TriageAgentRunV2Model` for an
+    incident via     :func:`consolidate_triage_priority`.
+    ``NOT_TRIAGED`` covers both "no run     has been recorded" and
+    "run exists but is not COMPLETED" (nullable
+    confidence/impact).
+
+    Enumeration Choices:
+
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    * `NOT_TRIAGED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HIGH", "LOW", "MEDIUM", "NOT_TRIAGED")
+
+
 class TriageScore(sgqlc.types.Enum):
     """Closed value space for triage score axes (confidence, impact).
     Mirrors the LLM boundary's ``Literal["HIGH", "MEDIUM", "LOW"]``
@@ -8155,6 +8163,7 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
         "data_product_ids",
         "slo_statuses",
         "from_agent_monitor",
+        "triage_priorities",
     )
     types = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AlertType)), graphql_name="types"
@@ -8277,6 +8286,14 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
     created by an agent user. When false, returns only alerts whose
     monitor was created by a non-agent user. When null or omitted, no
     agent-monitor filter is applied.
+    """
+
+    triage_priorities = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TriagePriority)), graphql_name="triagePriorities"
+    )
+    """Return alerts whose consolidated triage priority is one of the
+    given buckets. ``NOT_TRIAGED`` matches alerts with no completed
+    triage run (no row, or a PENDING/ERROR row with null scores).
     """
 
 
@@ -11678,49 +11695,6 @@ class MonitorTuningRecInput(sgqlc.types.Input):
     target_mcon = sgqlc.types.Field(String, graphql_name="targetMcon")
 
     target_metric = sgqlc.types.Field(String, graphql_name="targetMetric")
-
-
-class MonitoredTableRuleInput(sgqlc.types.Input):
-    __schema__ = schema
-    __field_names__ = (
-        "is_exclude",
-        "rule_type",
-        "table_rule_text",
-        "table_rule_attribute",
-        "id",
-        "monitored_rule_type",
-    )
-    is_exclude = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isExclude")
-    """Whether the rule is an exclusion rule"""
-
-    rule_type = sgqlc.types.Field(MonitoredTableRuleType, graphql_name="ruleType")
-    """Deprecated, use monitored_rule_type"""
-
-    table_rule_text = sgqlc.types.Field(String, graphql_name="tableRuleText")
-    """The rule. If rule_type=ALL, this field must be empty.If the rule
-    is a tag rule, this field must be a JSON string. Construct the
-    tags in this format: If tags are 'monitor' and 'importance:high'
-    (where monitor & importance are the propertyName and null & high
-    are the propertyValue. See
-    [ObjectProperty]({{Types.ObjectProperty}})), then pass in
-    '[["monitor",null],["name","value"]]'
-    """
-
-    table_rule_attribute = sgqlc.types.Field(
-        MonitoredTableRuleTableAttribute, graphql_name="tableRuleAttribute"
-    )
-    """Table attribute to match against. Omit if rule_type=ALL. If
-    rule_type != ALL, and this field is omitted, by default the rule
-    will match against table_id.
-    """
-
-    id = sgqlc.types.Field(String, graphql_name="id")
-    """ID of the rule. If provided, the rule will be updated instead of
-    created.
-    """
-
-    monitored_rule_type = sgqlc.types.Field(MonitoredRuleType, graphql_name="monitoredRuleType")
-    """Monitoring rule type"""
 
 
 class MonteCarloStatusMappingInput(sgqlc.types.Input):
@@ -16967,22 +16941,6 @@ class AdditionalData(sgqlc.types.Type):
     """JSON object containing all data returned from validation."""
 
 
-class AdditionalMonitoredTablesCountOutput(sgqlc.types.Type):
-    """Number of additional tables that would be monitored by"""
-
-    __schema__ = schema
-    __field_names__ = ("count", "total_count")
-    count = sgqlc.types.Field(Int, graphql_name="count")
-    """Number of additional tables that would be monitored by current and
-    new rules if applied
-    """
-
-    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
-    """Total number of tables encapsulated by the rule (both currently
-    monitored and unmonitored)
-    """
-
-
 class AdfJobConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -17344,6 +17302,41 @@ class AgentCustomConnectors(sgqlc.types.Type):
         graphql_name="customConnectors",
     )
     """Custom connector types registered by this agent."""
+
+
+class AgentDetails(sgqlc.types.Type):
+    """Summary stats for a single agent."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "mcon",
+        "last_trace_time",
+        "total_traces",
+        "active_alerts_count",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Echo of the agent name the lookup was scoped to."""
+
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """Echo of the trace-table or platform-agent MCON the lookup was
+    scoped to.
+    """
+
+    last_trace_time = sgqlc.types.Field(DateTime, graphql_name="lastTraceTime")
+    """Timestamp of the most recent trace span recorded for this agent.
+    Null when no spans have landed yet.
+    """
+
+    total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
+    """Count of distinct traces recorded for this agent across all time."""
+
+    active_alerts_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="activeAlertsCount"
+    )
+    """Number of active (non-resolved, non-merged) incidents from agent
+    monitors targeting this agent.
+    """
 
 
 class AgentGraph(sgqlc.types.Type):
@@ -20926,6 +20919,21 @@ class BulkMonitorTable(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CustomRuleComparison"))),
         graphql_name="alertConditions",
     )
+
+
+class BulkMonitorWarning(sgqlc.types.Type):
+    """User-facing advisory message for a bulk monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("type", "message", "data")
+    type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
+    """Stable warning type identifier"""
+
+    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
+    """Human-readable warning message"""
+
+    data = sgqlc.types.Field(GenericScalar, graphql_name="data")
+    """Structured warning metadata"""
 
 
 class BulkSetEtlJobGeneratesAlerts(sgqlc.types.Type):
@@ -30405,7 +30413,13 @@ class FivetranDestinationEdge(sgqlc.types.Type):
 
 class FlattenedLineageGraphEdges(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("mcon", "directly_connected_mcons", "directly_connected_nodes")
+    __field_names__ = (
+        "mcon",
+        "directly_connected_mcons",
+        "directly_connected_nodes",
+        "agent_name",
+        "tool_call",
+    )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Monte Carlo full identifier for an entity"""
 
@@ -30418,6 +30432,15 @@ class FlattenedLineageGraphEdges(sgqlc.types.Type):
         sgqlc.types.list_of("LineageGraphEdgeNode"), graphql_name="directlyConnectedNodes"
     )
     """Nodes directly connected to the entity, including edge properties"""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Agent name of the source node, when the source is an agent or
+    tool-call node. Lets callers disambiguate adjacency entries that
+    share an mcon.
+    """
+
+    tool_call = sgqlc.types.Field(String, graphql_name="toolCall")
+    """Tool-call name of the source node, set only on tool-call sources."""
 
 
 class Freshness(sgqlc.types.Type):
@@ -32832,7 +32855,7 @@ class LineageGraphEdgeJobs(sgqlc.types.Type):
 
 class LineageGraphEdgeNode(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("mcon", "jobs", "hidden")
+    __field_names__ = ("mcon", "jobs", "hidden", "agent_name", "tool_call")
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Target MCON of this edge"""
 
@@ -32843,6 +32866,15 @@ class LineageGraphEdgeNode(sgqlc.types.Type):
 
     hidden = sgqlc.types.Field(Int, graphql_name="hidden")
     """The number of hidden nodes for virtual/collapsed edges"""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Agent name of the target node, when the target is an agent or
+    tool-call node. Lets callers disambiguate targets that share an
+    mcon.
+    """
+
+    tool_call = sgqlc.types.Field(String, graphql_name="toolCall")
+    """Tool-call name of the target node, set only on tool-call targets."""
 
 
 class LineageGraphNode(sgqlc.types.Type):
@@ -32862,6 +32894,8 @@ class LineageGraphNode(sgqlc.types.Type):
         "last_activity",
         "model_execution_status",
         "element_id",
+        "agent_name",
+        "tool_call",
     )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Monte Carlo full identifier for an entity"""
@@ -32910,6 +32944,16 @@ class LineageGraphNode(sgqlc.types.Type):
 
     element_id = sgqlc.types.Field(Int, graphql_name="elementId")
     """Internal lineage node id. Only unique for current run."""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Name of the AI agent this node represents (for ``agent`` nodes) or
+    belongs to (for ``tool`` nodes). Null on table nodes.
+    """
+
+    tool_call = sgqlc.types.Field(String, graphql_name="toolCall")
+    """Name of the tool call. Set only on ``tool``-typed nodes; null on
+    agent and table nodes.
+    """
 
 
 class LineageGraphNodeJobs(sgqlc.types.Type):
@@ -35009,41 +35053,6 @@ class MonitorWarehouse(sgqlc.types.Type):
     """List of MCONs for the warehouses with this name"""
 
 
-class MonitoredTableRuleJobStatusObject(sgqlc.types.Type):
-    """Job status for updating monitored table rules"""
-
-    __schema__ = schema
-    __field_names__ = ("created_time", "updated_time", "uuid", "tables_updated", "status")
-    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
-    """Time when the job was created"""
-
-    updated_time = sgqlc.types.Field(DateTime, graphql_name="updatedTime")
-    """Time when the job was last updated"""
-
-    uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
-    """Job ID for the job"""
-
-    tables_updated = sgqlc.types.Field(Int, graphql_name="tablesUpdated")
-    """Number of tables updated by the job"""
-
-    status = sgqlc.types.Field(MonitoredTableRuleJobStatus, graphql_name="status")
-    """Status of the job"""
-
-
-class MonitoredTableRuleListUpdateOutput(sgqlc.types.Type):
-    """Output of the async update of the monitored table rules"""
-
-    __schema__ = schema
-    __field_names__ = ("rules", "job_id")
-    rules = sgqlc.types.Field(sgqlc.types.list_of("MonitoredTableRuleObject"), graphql_name="rules")
-    """The complete list of rules for deciding which tables are monitored
-    within the given project & dataset scope
-    """
-
-    job_id = sgqlc.types.Field(UUID, graphql_name="jobId")
-    """The job ID for the async update"""
-
-
 class MonitoredTableRuleObject(sgqlc.types.Type):
     """Rule for deciding which tables are monitored"""
 
@@ -35389,9 +35398,6 @@ class Mutation(sgqlc.types.Type):
         "create_webex_integration",
         "update_webex_integration",
         "delete_webex_integration",
-        "update_monitored_table_rule_list",
-        "update_monitored_table_rule_list_async",
-        "add_monitored_table_rule_async",
         "toggle_performance_dashboard_for_domain_restricted_users",
         "create_or_update_agent",
         "delete_agent",
@@ -39895,128 +39901,6 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `integration_id` (`UUID!`): The integration ID
-    """
-
-    update_monitored_table_rule_list = sgqlc.types.Field(
-        sgqlc.types.list_of(MonitoredTableRuleObject),
-        graphql_name="updateMonitoredTableRuleList",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "dataset",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="dataset", default=None
-                    ),
-                ),
-                (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                (
-                    "project",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="project", default=None
-                    ),
-                ),
-                (
-                    "rules",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(MonitoredTableRuleInput)),
-                        graphql_name="rules",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """Deprecated - use async version
-
-    Arguments:
-
-    * `dataset` (`String!`): Rules apply to tables in this
-      dataset/schema
-    * `dw_id` (`UUID!`): Rules apply to tables in this warehouse
-    * `project` (`String!`): Rules apply to tables in this
-      project/database
-    * `rules` (`[MonitoredTableRuleInput]!`): The complete list of
-      rules for deciding which tables are monitored
-    """
-
-    update_monitored_table_rule_list_async = sgqlc.types.Field(
-        MonitoredTableRuleListUpdateOutput,
-        graphql_name="updateMonitoredTableRuleListAsync",
-        args=sgqlc.types.ArgDict(
-            (
-                ("dataset", sgqlc.types.Arg(String, graphql_name="dataset", default=None)),
-                (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                ("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),
-                (
-                    "rules",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(MonitoredTableRuleInput)),
-                        graphql_name="rules",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """Updates the list of rules for deciding and applies them
-    asynchronously.
-
-    Arguments:
-
-    * `dataset` (`String`): Rules apply to tables in this
-      dataset/schema
-    * `dw_id` (`UUID!`): Rules apply to tables in this warehouse
-    * `project` (`String`): Rules apply to tables in this
-      project/database
-    * `rules` (`[MonitoredTableRuleInput]!`): The complete list of
-      rules for deciding which tables are monitored
-    """
-
-    add_monitored_table_rule_async = sgqlc.types.Field(
-        MonitoredTableRuleListUpdateOutput,
-        graphql_name="addMonitoredTableRuleAsync",
-        args=sgqlc.types.ArgDict(
-            (
-                ("dataset", sgqlc.types.Arg(String, graphql_name="dataset", default=None)),
-                (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                (
-                    "priority_mcon",
-                    sgqlc.types.Arg(String, graphql_name="priorityMcon", default=None),
-                ),
-                ("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),
-                (
-                    "rule",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(MonitoredTableRuleInput),
-                        graphql_name="rule",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """(general availability) Adds a new monitoring rule in the requested
-    scope.
-
-    Arguments:
-
-    * `dataset` (`String`): Rules apply to tables in this
-      dataset/schema
-    * `dw_id` (`UUID!`): Rules apply to tables in this warehouse
-    * `priority_mcon` (`String`): Apply rules so that this MCON is
-      enabled first
-    * `project` (`String`): Rules apply to tables in this
-      project/database
-    * `rule` (`MonitoredTableRuleInput!`): New monitoring rule
     """
 
     toggle_performance_dashboard_for_domain_restricted_users = sgqlc.types.Field(
@@ -50225,8 +50109,10 @@ class Mutation(sgqlc.types.Type):
 
     * `config_overrides` (`JSONString`): Per-run overrides merged onto
       the pipeline's config. Triage pipelines accept
-      `lookback_seconds` and `limit`; `monitor_tuning` accepts
-      `monitor_uuid` to target a single monitor.
+      `lookback_seconds`, `limit`, and `include_non_agent_monitors`
+      (bool — when true, includes incidents from monitors not created
+      by an agent user); `monitor_tuning` accepts `monitor_uuid` to
+      target a single monitor.
     * `pipeline_uuid` (`UUID!`): UUID of the pipeline to run.
     """
 
@@ -59405,6 +59291,7 @@ class Query(sgqlc.types.Type):
         "get_conversation_thread_v2",
         "get_conversation_message_content_v2",
         "get_tool_detail",
+        "get_agent_details",
         "get_node_detail",
         "get_trace_explanation",
         "get_conversation_explanation",
@@ -59474,10 +59361,7 @@ class Query(sgqlc.types.Type):
         "get_pipelines",
         "get_not_monitored_reason",
         "get_assets_usage",
-        "get_monitored_table_rule_list",
-        "get_monitored_tables_count_with_new_rule",
         "get_account_usage",
-        "get_monitored_table_rule_job",
         "get_streaming_systems",
         "get_tableau_asset_warning_by_id",
         "get_informatica_mapping_task_runs",
@@ -60959,6 +60843,38 @@ class Query(sgqlc.types.Type):
       looked up.
     * `tool_name` (`String!`): Name of the tool to retrieve detail
       for.
+    """
+
+    get_agent_details = sgqlc.types.Field(
+        AgentDetails,
+        graphql_name="getAgentDetails",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get summary stats for a single agent (last trace,
+    total traces, active alerts count). Returns null when the MCON is
+    malformed/unsupported or the agent name is empty.
+
+    Arguments:
+
+    * `mcon` (`String!`): Trace-table MCON or platform-agent MCON that
+      scopes the lookup. Both flavors are accepted.
+    * `agent_name` (`String!`): Name of the agent within the trace
+      table / platform agent.
     """
 
     get_node_detail = sgqlc.types.Field(
@@ -62905,78 +62821,6 @@ class Query(sgqlc.types.Type):
       Default is ascending order.
     """
 
-    get_monitored_table_rule_list = sgqlc.types.Field(
-        sgqlc.types.list_of(MonitoredTableRuleObject),
-        graphql_name="getMonitoredTableRuleList",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                ("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),
-                ("dataset", sgqlc.types.Arg(String, graphql_name="dataset", default=None)),
-            )
-        ),
-    )
-    """List of rules for deciding which tables are monitored for a given
-    project & dataset scope
-
-    Arguments:
-
-    * `dw_id` (`UUID!`): Warehouse ID to filter the rules
-    * `project` (`String`): Project/database name to filter the rules.
-      If not provided, return warehouse level rules.
-    * `dataset` (`String`): Dataset/schema name to filter the rules.
-      If not provided, return project level rules.
-    """
-
-    get_monitored_tables_count_with_new_rule = sgqlc.types.Field(
-        AdditionalMonitoredTablesCountOutput,
-        graphql_name="getMonitoredTablesCountWithNewRule",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                ("project", sgqlc.types.Arg(String, graphql_name="project", default=None)),
-                ("dataset", sgqlc.types.Arg(String, graphql_name="dataset", default=None)),
-                (
-                    "rule",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(MonitoredTableRuleInput),
-                        graphql_name="rule",
-                        default=None,
-                    ),
-                ),
-                (
-                    "domain_restrictions",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
-                        graphql_name="domainRestrictions",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Simulates applying a new rule and returns number of
-    additional tables monitored. Does not support exclusion rules.
-
-    Arguments:
-
-    * `dw_id` (`UUID!`): Rules apply to tables in this warehouse
-    * `project` (`String`): Rules apply to tables in this
-      project/database
-    * `dataset` (`String`): Rules apply to tables in this
-      dataset/schema
-    * `rule` (`MonitoredTableRuleInput!`): New monitoring rule
-    * `domain_restrictions` (`[UUID!]`): Filter by domain UUIDs.Only
-      count tables that belong to the specified domains. If not
-      provided, all tables are considered.
-    """
-
     get_account_usage = sgqlc.types.Field(
         sgqlc.types.list_of(AccountUsageObject),
         graphql_name="getAccountUsage",
@@ -62995,25 +62839,6 @@ class Query(sgqlc.types.Type):
       UTC) to get time-bound values for.
     * `end_time` (`DateTime`): End time is inclusive (timezone in UTC)
       to get time-bound values for.
-    """
-
-    get_monitored_table_rule_job = sgqlc.types.Field(
-        MonitoredTableRuleJobStatusObject,
-        graphql_name="getMonitoredTableRuleJob",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "job_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="jobId", default=None),
-                ),
-            )
-        ),
-    )
-    """Get the job for updating monitored table rules
-
-    Arguments:
-
-    * `job_id` (`UUID!`): Job ID to get the job details
     """
 
     get_streaming_systems = sgqlc.types.Field(
@@ -76080,13 +75905,14 @@ class Query(sgqlc.types.Type):
     * `filters` (`[LineageFilter]`): List of lineage filters (default:
       `[]`)
     * `agent_name` (`String`): Agent name to scope the lineage query
-      to within the supplied trace-table or platform-agent MCON. When
-      provided, the query returns lineage rooted at the named agent.
-      Requires exactly one mcon. Required if `toolCalls` is provided.
-    * `tool_calls` (`[String!]`): Tool call names to further scope the
-      agent-rooted lineage query. When provided, lineage returns the
-      upstream chain for each named tool call. Requires `agentName` to
-      be set.
+      to within the supplied trace-table MCON. When provided, the
+      query returns lineage rooted at the named agent. Requires
+      exactly one mcon.
+    * `tool_calls` (`[String!]`): Tool call names that should appear
+      in the agent's lineage tree. A single name additionally focuses
+      the response on that tool (its upstream data tables / downstream
+      agent). Two or more names render those tools alongside the
+      agent. Requires `agentName`.
     """
 
     get_table_lineage_v2 = sgqlc.types.Field(
@@ -76140,13 +75966,14 @@ class Query(sgqlc.types.Type):
       to traverse the lineage graph
     * `filters` (`[LineageFilter]`): List of lineage filters
     * `agent_name` (`String`): Agent name to scope the lineage query
-      to within the supplied trace-table or platform-agent MCON. When
-      provided, the query returns lineage rooted at the named agent.
-      Requires exactly one mcon. Required if `toolCalls` is provided.
-    * `tool_calls` (`[String!]`): Tool call names to further scope the
-      agent-rooted lineage query. When provided, lineage returns the
-      upstream chain for each named tool call. Requires `agentName` to
-      be set.
+      to within the supplied trace-table MCON. When provided, the
+      query returns lineage rooted at the named agent. Requires
+      exactly one mcon.
+    * `tool_calls` (`[String!]`): Tool call names that should appear
+      in the agent's lineage tree. A single name additionally focuses
+      the response on that tool (its upstream data tables / downstream
+      agent). Two or more names render those tools alongside the
+      agent. Requires `agentName`.
     """
 
     get_table_lineage_v3 = sgqlc.types.Field(
@@ -79875,7 +79702,9 @@ class Query(sgqlc.types.Type):
     * `first` (`Int`)None
     * `last` (`Int`)None
     * `order_by` (`String`): Order results by `createdTime`,
-      `updatedTime`, or `sloBreachedTime`
+      `updatedTime`, `sloBreachedTime`, or `triagePriority`. Sorting
+      by `triagePriority` always puts `NOT_TRIAGED` alerts at the
+      bottom, regardless of asc/desc.
     """
 
     get_alert = sgqlc.types.Field(
@@ -91623,6 +91452,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "owner",
         "severity",
         "priority",
+        "triage_priority",
         "status",
         "tables",
         "assets",
@@ -91668,6 +91498,14 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
     priority = sgqlc.types.Field(Priority, graphql_name="priority")
     """Value is inherited from the associated monitor"""
+
+    triage_priority = sgqlc.types.Field(
+        sgqlc.types.non_null(TriagePriority), graphql_name="triagePriority"
+    )
+    """Consolidated triage priority derived from the latest triage run's
+    alert confidence and impact. ``NOT_TRIAGED`` when no completed run
+    exists for this alert.
+    """
 
     status = sgqlc.types.Field(AlertStatus, graphql_name="status")
 
@@ -93568,6 +93406,7 @@ class BulkMonitor(sgqlc.types.Type, Node):
         "agg_time_interval",
         "sampling_config",
         "tables",
+        "warnings",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -93686,6 +93525,12 @@ class BulkMonitor(sgqlc.types.Type, Node):
 
     tables = sgqlc.types.Field(sgqlc.types.list_of(BulkMonitorTable), graphql_name="tables")
     """Tables from child monitors with their resolved alert conditions"""
+
+    warnings = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(BulkMonitorWarning))),
+        graphql_name="warnings",
+    )
+    """User-facing advisory messages generated for this bulk monitor"""
 
 
 class CatalogObjectMetadata(sgqlc.types.Type, Node):

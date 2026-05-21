@@ -312,7 +312,13 @@ class ProviderRouter:
         except KeyboardInterrupt:
             raise  # Never swallow Ctrl+C
         except Exception as exc:
-            print(f"  [{provider.name}] failed: {exc}", file=sys.stderr)
+            # Print to stdout (not stderr) so it's visible in the terminal inline,
+            # not silently swallowed. Use a clear, actionable message.
+            exc_str = str(exc)
+            if "disconnected" in exc_str.lower() or "connect" in exc_str.lower():
+                print(f"\n  ↺ {provider.name}: connection issue — {exc_str[:120]}", flush=True)
+            else:
+                print(f"\n  ✕ {provider.name}: {exc_str[:120]}", flush=True)
             error_details.append(f"{provider.name}: {exc}")
             if lock_provider:
                 raise RuntimeError(

@@ -1234,6 +1234,79 @@ class CdkCommands:
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.CloudFormationResourceJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "logical_id": "logicalId",
+        "template_path": "templatePath",
+        "property_paths": "propertyPaths",
+    },
+)
+class CloudFormationResourceJson:
+    def __init__(
+        self,
+        *,
+        logical_id: builtins.str,
+        template_path: builtins.str,
+        property_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''A node in the construct creation stack trace.
+
+        :param logical_id: The logical ID of the resource in the CloudFormation template.
+        :param template_path: The path to the CloudFormation template containing this resource.
+        :param property_paths: Properties within the construct where the violation was detected. Either a single component, in which case it regards a top-level property name, or a JSON path (starting with ``$.``) to indicate a deeper property. Default: - no locations
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__196f925349696ccfb09b5c5688d15502322c2b6b9f4c3c70f64845094a7db00a)
+            check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
+            check_type(argname="argument template_path", value=template_path, expected_type=type_hints["template_path"])
+            check_type(argname="argument property_paths", value=property_paths, expected_type=type_hints["property_paths"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "logical_id": logical_id,
+            "template_path": template_path,
+        }
+        if property_paths is not None:
+            self._values["property_paths"] = property_paths
+
+    @builtins.property
+    def logical_id(self) -> builtins.str:
+        '''The logical ID of the resource in the CloudFormation template.'''
+        result = self._values.get("logical_id")
+        assert result is not None, "Required property 'logical_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_path(self) -> builtins.str:
+        '''The path to the CloudFormation template containing this resource.'''
+        result = self._values.get("template_path")
+        assert result is not None, "Required property 'template_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def property_paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Properties within the construct where the violation was detected.
+
+        Either a single component, in which case it regards a top-level property
+        name, or a JSON path (starting with ``$.``) to indicate a deeper property.
+
+        :default: - no locations
+        '''
+        result = self._values.get("property_paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudFormationResourceJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/cloud-assembly-schema.ContainerImageAssetCacheOption",
     jsii_struct_bases=[],
     name_mapping={"type": "type", "params": "params"},
@@ -5685,6 +5758,21 @@ class Manifest(
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast("IntegManifest", jsii.sinvoke(cls, "loadIntegManifest", [file_path]))
 
+    @jsii.member(jsii_name="loadValidationReport")
+    @builtins.classmethod
+    def load_validation_report(
+        cls,
+        file_path: builtins.str,
+    ) -> "PolicyValidationReportJson":
+        '''Load and validate the policy validation report from file.
+
+        :param file_path: - path to the validation report file.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be6f05e4a70d5b061187154a8ef7c01c33e18d7f73c2fd1f2f9408ebac336bca)
+            check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
+        return typing.cast("PolicyValidationReportJson", jsii.sinvoke(cls, "loadValidationReport", [file_path]))
+
     @jsii.member(jsii_name="save")
     @builtins.classmethod
     def save(
@@ -6002,6 +6090,293 @@ class PluginContextQuery:
 
     def __repr__(self) -> str:
         return "PluginContextQuery(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.PluginReportJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "conclusion": "conclusion",
+        "plugin_name": "pluginName",
+        "violations": "violations",
+        "metadata": "metadata",
+        "plugin_version": "pluginVersion",
+    },
+)
+class PluginReportJson:
+    def __init__(
+        self,
+        *,
+        conclusion: builtins.str,
+        plugin_name: builtins.str,
+        violations: typing.Sequence[typing.Union["PolicyViolationJson", typing.Dict[builtins.str, typing.Any]]],
+        metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        plugin_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''A report from a single validation plugin.
+
+        :param conclusion: Whether the plugin's validation passed or failed.
+        :param plugin_name: The name of the plugin that produced this report.
+        :param violations: Violations found by this plugin.
+        :param metadata: Additional plugin-specific metadata. Default: - no metadata
+        :param plugin_version: Version of the plugin that produced this report. Default: - no version
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12d9034a523d5e1b70ce03c12c614dbdf637694660012238ce4f3c820f2b294a)
+            check_type(argname="argument conclusion", value=conclusion, expected_type=type_hints["conclusion"])
+            check_type(argname="argument plugin_name", value=plugin_name, expected_type=type_hints["plugin_name"])
+            check_type(argname="argument violations", value=violations, expected_type=type_hints["violations"])
+            check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            check_type(argname="argument plugin_version", value=plugin_version, expected_type=type_hints["plugin_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "conclusion": conclusion,
+            "plugin_name": plugin_name,
+            "violations": violations,
+        }
+        if metadata is not None:
+            self._values["metadata"] = metadata
+        if plugin_version is not None:
+            self._values["plugin_version"] = plugin_version
+
+    @builtins.property
+    def conclusion(self) -> builtins.str:
+        '''Whether the plugin's validation passed or failed.'''
+        result = self._values.get("conclusion")
+        assert result is not None, "Required property 'conclusion' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def plugin_name(self) -> builtins.str:
+        '''The name of the plugin that produced this report.'''
+        result = self._values.get("plugin_name")
+        assert result is not None, "Required property 'plugin_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def violations(self) -> typing.List["PolicyViolationJson"]:
+        '''Violations found by this plugin.'''
+        result = self._values.get("violations")
+        assert result is not None, "Required property 'violations' is missing"
+        return typing.cast(typing.List["PolicyViolationJson"], result)
+
+    @builtins.property
+    def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional plugin-specific metadata.
+
+        :default: - no metadata
+        '''
+        result = self._values.get("metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def plugin_version(self) -> typing.Optional[builtins.str]:
+        '''Version of the plugin that produced this report.
+
+        :default: - no version
+        '''
+        result = self._values.get("plugin_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PluginReportJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.PolicyValidationReportJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "plugin_reports": "pluginReports",
+        "version": "version",
+        "title": "title",
+    },
+)
+class PolicyValidationReportJson:
+    def __init__(
+        self,
+        *,
+        plugin_reports: typing.Sequence[typing.Union["PluginReportJson", typing.Dict[builtins.str, typing.Any]]],
+        version: builtins.str,
+        title: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''The top-level structure of the policy validation report file.
+
+        :param plugin_reports: Reports from all validation plugins that ran during synthesis.
+        :param version: Protocol version.
+        :param title: Report title, if present.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e1317fac44f2c3b8504883ed830f609b68b5b87ac3b25765c0a2457eeae72af)
+            check_type(argname="argument plugin_reports", value=plugin_reports, expected_type=type_hints["plugin_reports"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "plugin_reports": plugin_reports,
+            "version": version,
+        }
+        if title is not None:
+            self._values["title"] = title
+
+    @builtins.property
+    def plugin_reports(self) -> typing.List["PluginReportJson"]:
+        '''Reports from all validation plugins that ran during synthesis.'''
+        result = self._values.get("plugin_reports")
+        assert result is not None, "Required property 'plugin_reports' is missing"
+        return typing.cast(typing.List["PluginReportJson"], result)
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''Protocol version.'''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def title(self) -> typing.Optional[builtins.str]:
+        '''Report title, if present.'''
+        result = self._values.get("title")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyValidationReportJson(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.PolicyViolationJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "rule_name": "ruleName",
+        "severity": "severity",
+        "violating_constructs": "violatingConstructs",
+        "custom_severity": "customSeverity",
+        "rule_metadata": "ruleMetadata",
+        "suggested_fix": "suggestedFix",
+    },
+)
+class PolicyViolationJson:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        rule_name: builtins.str,
+        severity: builtins.str,
+        violating_constructs: typing.Sequence[typing.Union["ViolatingConstructJson", typing.Dict[builtins.str, typing.Any]]],
+        custom_severity: typing.Optional[builtins.str] = None,
+        rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        suggested_fix: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''A single policy violation found by a validation plugin.
+
+        :param description: A description of the violation.
+        :param rule_name: The name of the rule that was violated.
+        :param severity: The severity of the violation.
+        :param violating_constructs: Constructs that violated the rule.
+        :param custom_severity: If the plugin wants to report using a non-standard severity, put it here.
+        :param rule_metadata: Additional rule-specific metadata. Default: - no metadata
+        :param suggested_fix: How to fix the violation. Default: - no fix provided
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bcde3a625348e3e8f67b81b338da206a992b7dc357454bef1a69462b2af19447)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
+            check_type(argname="argument violating_constructs", value=violating_constructs, expected_type=type_hints["violating_constructs"])
+            check_type(argname="argument custom_severity", value=custom_severity, expected_type=type_hints["custom_severity"])
+            check_type(argname="argument rule_metadata", value=rule_metadata, expected_type=type_hints["rule_metadata"])
+            check_type(argname="argument suggested_fix", value=suggested_fix, expected_type=type_hints["suggested_fix"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "rule_name": rule_name,
+            "severity": severity,
+            "violating_constructs": violating_constructs,
+        }
+        if custom_severity is not None:
+            self._values["custom_severity"] = custom_severity
+        if rule_metadata is not None:
+            self._values["rule_metadata"] = rule_metadata
+        if suggested_fix is not None:
+            self._values["suggested_fix"] = suggested_fix
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the violation.'''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule_name(self) -> builtins.str:
+        '''The name of the rule that was violated.'''
+        result = self._values.get("rule_name")
+        assert result is not None, "Required property 'rule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def severity(self) -> builtins.str:
+        '''The severity of the violation.'''
+        result = self._values.get("severity")
+        assert result is not None, "Required property 'severity' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def violating_constructs(self) -> typing.List["ViolatingConstructJson"]:
+        '''Constructs that violated the rule.'''
+        result = self._values.get("violating_constructs")
+        assert result is not None, "Required property 'violating_constructs' is missing"
+        return typing.cast(typing.List["ViolatingConstructJson"], result)
+
+    @builtins.property
+    def custom_severity(self) -> typing.Optional[builtins.str]:
+        '''If the plugin wants to report using a non-standard severity, put it here.'''
+        result = self._values.get("custom_severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rule_metadata(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Additional rule-specific metadata.
+
+        :default: - no metadata
+        '''
+        result = self._values.get("rule_metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def suggested_fix(self) -> typing.Optional[builtins.str]:
+        '''How to fix the violation.
+
+        :default: - no fix provided
+        '''
+        result = self._values.get("suggested_fix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyViolationJson(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -6668,6 +7043,118 @@ class UnconfiguredBehavesLike:
 
     def __repr__(self) -> str:
         return "UnconfiguredBehavesLike(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/cloud-assembly-schema.ViolatingConstructJson",
+    jsii_struct_bases=[],
+    name_mapping={
+        "construct_path": "constructPath",
+        "cloud_formation_resource": "cloudFormationResource",
+        "construct_fqn": "constructFqn",
+        "library_version": "libraryVersion",
+        "stack_traces": "stackTraces",
+    },
+)
+class ViolatingConstructJson:
+    def __init__(
+        self,
+        *,
+        construct_path: builtins.str,
+        cloud_formation_resource: typing.Optional[typing.Union["CloudFormationResourceJson", typing.Dict[builtins.str, typing.Any]]] = None,
+        construct_fqn: typing.Optional[builtins.str] = None,
+        library_version: typing.Optional[builtins.str] = None,
+        stack_traces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''A construct that violated a policy rule.
+
+        :param construct_path: The construct path as defined in the application. Default: - no construct path
+        :param cloud_formation_resource: If this construct violation regards a CloudFormation resource, a reference to the resource details.
+        :param construct_fqn: The fully qualified name of the construct class (includes the library name). Default: - no construct info
+        :param library_version: The version of the library that contains this construct. The library name is the first component of the construct FQN. Default: - no version info
+        :param stack_traces: Stack traces associated with this violation. This can be all the stack traces where a violating property got its value, or just the construct creation stack trace. Every element of the array is a stack trace, where each stack trace is a ``\\n``-delimited string. Default: - No stack traces
+        '''
+        if isinstance(cloud_formation_resource, dict):
+            cloud_formation_resource = CloudFormationResourceJson(**cloud_formation_resource)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea3cc2fdbd7a3b30805176d2b25feae7fa77bcaa4cb28f0be77e73de5086956f)
+            check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
+            check_type(argname="argument cloud_formation_resource", value=cloud_formation_resource, expected_type=type_hints["cloud_formation_resource"])
+            check_type(argname="argument construct_fqn", value=construct_fqn, expected_type=type_hints["construct_fqn"])
+            check_type(argname="argument library_version", value=library_version, expected_type=type_hints["library_version"])
+            check_type(argname="argument stack_traces", value=stack_traces, expected_type=type_hints["stack_traces"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "construct_path": construct_path,
+        }
+        if cloud_formation_resource is not None:
+            self._values["cloud_formation_resource"] = cloud_formation_resource
+        if construct_fqn is not None:
+            self._values["construct_fqn"] = construct_fqn
+        if library_version is not None:
+            self._values["library_version"] = library_version
+        if stack_traces is not None:
+            self._values["stack_traces"] = stack_traces
+
+    @builtins.property
+    def construct_path(self) -> builtins.str:
+        '''The construct path as defined in the application.
+
+        :default: - no construct path
+        '''
+        result = self._values.get("construct_path")
+        assert result is not None, "Required property 'construct_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cloud_formation_resource(self) -> typing.Optional["CloudFormationResourceJson"]:
+        '''If this construct violation regards a CloudFormation resource, a reference to the resource details.'''
+        result = self._values.get("cloud_formation_resource")
+        return typing.cast(typing.Optional["CloudFormationResourceJson"], result)
+
+    @builtins.property
+    def construct_fqn(self) -> typing.Optional[builtins.str]:
+        '''The fully qualified name of the construct class (includes the library name).
+
+        :default: - no construct info
+        '''
+        result = self._values.get("construct_fqn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def library_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the library that contains this construct.
+
+        The library name is the first component of the construct FQN.
+
+        :default: - no version info
+        '''
+        result = self._values.get("library_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def stack_traces(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Stack traces associated with this violation.
+
+        This can be all the stack traces where a violating property got its value,
+        or just the construct creation stack trace.
+
+        Every element of the array is a stack trace, where each stack trace is a ``\\n``-delimited string.
+
+        :default: - No stack traces
+        '''
+        result = self._values.get("stack_traces")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ViolatingConstructJson(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -7748,6 +8235,7 @@ __all__ = [
     "CcApiContextQuery",
     "CdkCommand",
     "CdkCommands",
+    "CloudFormationResourceJson",
     "ContainerImageAssetCacheOption",
     "ContainerImageAssetMetadataEntry",
     "ContextLookupRoleOptions",
@@ -7785,6 +8273,9 @@ __all__ = [
     "MissingContext",
     "NestedCloudAssemblyProperties",
     "PluginContextQuery",
+    "PluginReportJson",
+    "PolicyValidationReportJson",
+    "PolicyViolationJson",
     "PropertyMutationMetadataEntry",
     "RequireApproval",
     "RuntimeInfo",
@@ -7795,6 +8286,7 @@ __all__ = [
     "TestOptions",
     "TreeArtifactProperties",
     "UnconfiguredBehavesLike",
+    "ViolatingConstructJson",
     "VpcContextQuery",
 ]
 
@@ -7905,6 +8397,15 @@ def _typecheckingstub__e70083930fac08756906559ae682dfd16e60aaa124657034325e3065d
     *,
     deploy: typing.Optional[typing.Union[DeployCommand, typing.Dict[builtins.str, typing.Any]]] = None,
     destroy: typing.Optional[typing.Union[DestroyCommand, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__196f925349696ccfb09b5c5688d15502322c2b6b9f4c3c70f64845094a7db00a(
+    *,
+    logical_id: builtins.str,
+    template_path: builtins.str,
+    property_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8314,6 +8815,12 @@ def _typecheckingstub__7bfc67a947aecf959646220e5d0176838484c69b5a013165eaa15fd29
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__be6f05e4a70d5b061187154a8ef7c01c33e18d7f73c2fd1f2f9408ebac336bca(
+    file_path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1904dee688ea79823f072f8042f189d6cdb69ecfbca35e6d7a3de85776c2ad0f(
     manifest: typing.Union[AssemblyManifest, typing.Dict[builtins.str, typing.Any]],
     file_path: builtins.str,
@@ -8371,6 +8878,39 @@ def _typecheckingstub__a8d8e2a3b3221fe0ebbf9a1e150d3485208466d606d1495e12837594e
 def _typecheckingstub__3a412879879a442f136b5a913c4ab5a5e1b62e2a4a0297b01b929d26013f1ff8(
     *,
     plugin_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12d9034a523d5e1b70ce03c12c614dbdf637694660012238ce4f3c820f2b294a(
+    *,
+    conclusion: builtins.str,
+    plugin_name: builtins.str,
+    violations: typing.Sequence[typing.Union[PolicyViolationJson, typing.Dict[builtins.str, typing.Any]]],
+    metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    plugin_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e1317fac44f2c3b8504883ed830f609b68b5b87ac3b25765c0a2457eeae72af(
+    *,
+    plugin_reports: typing.Sequence[typing.Union[PluginReportJson, typing.Dict[builtins.str, typing.Any]]],
+    version: builtins.str,
+    title: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcde3a625348e3e8f67b81b338da206a992b7dc357454bef1a69462b2af19447(
+    *,
+    description: builtins.str,
+    rule_name: builtins.str,
+    severity: builtins.str,
+    violating_constructs: typing.Sequence[typing.Union[ViolatingConstructJson, typing.Dict[builtins.str, typing.Any]]],
+    custom_severity: typing.Optional[builtins.str] = None,
+    rule_metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    suggested_fix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8447,6 +8987,17 @@ def _typecheckingstub__24e6acea6db216da68872ce6a70889e9d753101f47a05729ee1577a0c
     *,
     v1: typing.Any = None,
     v2: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea3cc2fdbd7a3b30805176d2b25feae7fa77bcaa4cb28f0be77e73de5086956f(
+    *,
+    construct_path: builtins.str,
+    cloud_formation_resource: typing.Optional[typing.Union[CloudFormationResourceJson, typing.Dict[builtins.str, typing.Any]]] = None,
+    construct_fqn: typing.Optional[builtins.str] = None,
+    library_version: typing.Optional[builtins.str] = None,
+    stack_traces: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

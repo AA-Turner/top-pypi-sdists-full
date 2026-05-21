@@ -10,12 +10,13 @@ from connector_sdk_types.generated import (
     ValidatedCredentialConfig,
 )
 from connector_sdk_types.oai.modules.credentials_module_types import (
+    AUTH_TYPE_MAP,
     CredentialConfig,
     CredentialsSettings,
     OAuthConfig,
     ValidateCredentialConfigCallable,
 )
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from connector.oai.capabilities.errors import CapabilityExecutionError
 from connector.oai.errors import InvalidConfigurationError, InvalidValueError, MissingParameterError
@@ -238,18 +239,25 @@ class CredentialsModule(BaseIntegrationModule):
             )
 
         try:
-            from connector_sdk_types.oai.modules.credentials_module_types import AUTH_TYPE_MAP
-
-            credential_model = AUTH_TYPE_MAP[credential_config.type](
-                **credential_dict[credential_config.type]
+            # Use the input model if provided, otherwise use the default model for the credential type
+            credential_model_type = (
+                credential_config.input_model or AUTH_TYPE_MAP[credential_config.type]
             )
-            connector_credential = credential_model.model_validate(credential_model)
-        except ValidationError as e:
-            # This should be raised sooner than this module, but is here as a guard
+            if not isinstance(credential_model_type, type) or not issubclass(
+                credential_model_type, BaseModel
+            ):
+                raise InvalidConfigurationError(
+                    message=f"Invalid input model configured for credential ID {credential_config_id}"
+                )
+
+            credential_payload = credential_dict.get(credential_config.type) or {}
+            credential_model = credential_model_type(**credential_payload)
+
+        except (ValidationError, TypeError) as e:
             raise InvalidValueError(message="Invalid or malformed credential received") from e
 
         # Dump the model
-        credential_dict = connector_credential.model_dump(exclude_none=True)
+        credential_dict = credential_model.model_dump(exclude_none=True)
 
         # Check for empty models
         if credential_dict == {}:

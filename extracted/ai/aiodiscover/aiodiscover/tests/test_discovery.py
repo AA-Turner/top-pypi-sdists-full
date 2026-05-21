@@ -25,50 +25,50 @@ class MockReply:
 @pytest.mark.asyncio
 async def test_async_discover_hosts() -> None:
     """Verify discover hosts does not throw."""
-    discover_hosts = discovery.DiscoverHosts()
-    with patch.object(discovery, "MAX_ADDRESSES", 16):
-        hosts = await discover_hosts.async_discover()
+    async with discovery.DiscoverHosts() as discover_hosts:
+        with patch.object(discovery, "MAX_ADDRESSES", 16):
+            hosts = await discover_hosts.async_discover()
     assert isinstance(hosts, list)
 
 
 @pytest.mark.asyncio
 async def test_async_discover_hosts_with_dns_mock() -> None:
     """Verify discover hosts does not throw."""
-    discover_hosts = discovery.DiscoverHosts()
-    with (
-        patch.object(discovery, "MAX_ADDRESSES", 2),
-        patch(
-            "aiodiscover.discovery.dns_message_short_hostname",
-            return_value="router",
-        ),
-    ):
-        hosts = await discover_hosts.async_discover()
+    async with discovery.DiscoverHosts() as discover_hosts:
+        with (
+            patch.object(discovery, "MAX_ADDRESSES", 2),
+            patch(
+                "aiodiscover.discovery.dns_message_short_hostname",
+                return_value="router",
+            ),
+        ):
+            hosts = await discover_hosts.async_discover()
     assert isinstance(hosts, list)
 
 
 @pytest.mark.asyncio
 async def test_async_discover_hosts_with_dns_mock_neighbor_mock() -> None:
     """Verify discover hosts does not throw."""
-    discover_hosts = discovery.DiscoverHosts()
+    async with discovery.DiscoverHosts() as discover_hosts:
 
-    async def _async_get_hostnames(sys_network_data: Any) -> dict[str, str]:
-        return {"1.2.3.4": "router", "4.5.5.6": "any"}
+        async def _async_get_hostnames(sys_network_data: Any) -> dict[str, str]:
+            return {"1.2.3.4": "router", "4.5.5.6": "any"}
 
-    discover_hosts.async_get_hostnames = _async_get_hostnames  # type: ignore
-    with (
-        patch(
-            "aiodiscover.network.SystemNetworkData.async_get_neighbours",
-            return_value={
-                "1.2.3.4": "aa:bb:cc:dd:ee:ff",
-                "4.5.5.6": "ff:bb:cc:0d:ee:ff",
-            },
-        ),
-        patch(
-            "aiodiscover.network.get_network",
-            return_value=IPv4Network("1.2.3.0/24", False),
-        ),
-    ):
-        hosts = await discover_hosts.async_discover()
+        discover_hosts.async_get_hostnames = _async_get_hostnames  # type: ignore
+        with (
+            patch(
+                "aiodiscover.network.SystemNetworkData.async_get_neighbours",
+                return_value={
+                    "1.2.3.4": "aa:bb:cc:dd:ee:ff",
+                    "4.5.5.6": "ff:bb:cc:0d:ee:ff",
+                },
+            ),
+            patch(
+                "aiodiscover.network.get_network",
+                return_value=IPv4Network("1.2.3.0/24", False),
+            ),
+        ):
+            hosts = await discover_hosts.async_discover()
 
     assert hosts == [
         {"hostname": "router", "ip": "1.2.3.4", "macaddress": "aa:bb:cc:dd:ee:ff"},
@@ -92,12 +92,10 @@ async def test_async_query_for_ptrs() -> None:
             future.set_result(MockReply(name=f"name{count}"))
         return future
 
-    with (
-        patch.object(discovery, "DNS_RESPONSE_TIMEOUT", 0),
-        patch("aiodiscover.discovery.DNSResolver.query", mock_query),
-    ):
-        resolver = aiodns.DNSResolver(timeout=0)
-        resolver.nameservers = ["192.168.107.1"]
+    resolver = MagicMock(spec=aiodns.DNSResolver)
+    resolver.query.side_effect = mock_query
+    resolver.nameservers = ["192.168.107.1"]
+    with patch.object(discovery, "DNS_RESPONSE_TIMEOUT", 0):
         response = await discovery.async_query_for_ptrs(
             resolver,
             [
@@ -114,9 +112,10 @@ async def test_async_query_for_ptrs() -> None:
 
 
 @pytest.mark.asyncio
-async def test_nameservers_excludes_router_when_in_network_nameserver() -> None:
+async def test_nameservers_excludes_router_when_in_network_nameserver(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verifynameservers excludes the router when there is an in-network nameserver."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/24")
@@ -133,9 +132,10 @@ async def test_nameservers_excludes_router_when_in_network_nameserver() -> None:
 
 
 @pytest.mark.asyncio
-async def test_nameservers_includes_router_no_in_network_nameserver() -> None:
+async def test_nameservers_includes_router_no_in_network_nameserver(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify nameservers includes the router when no in-network nameserver and it responds to ARP."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/24")
@@ -153,9 +153,10 @@ async def test_nameservers_includes_router_no_in_network_nameserver() -> None:
 
 
 @pytest.mark.asyncio
-async def test_nameservers_includes_router_no_in_network_nameserver_no_arp() -> None:
+async def test_nameservers_includes_router_no_in_network_nameserver_no_arp(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify nameservers excludes the router when no in-network nameserver and no ARP response."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/24")
@@ -191,13 +192,13 @@ async def test_async_query_for_ptrs_chunked() -> None:
             future.set_result(MockReply(name=f"name{count}"))
         return future
 
+    resolver = MagicMock(spec=aiodns.DNSResolver)
+    resolver.query.side_effect = mock_query
+    resolver.nameservers = ["192.168.107.1"]
     with (
         patch.object(discovery, "DNS_RESPONSE_TIMEOUT", 0),
-        patch("aiodiscover.discovery.DNSResolver.query", mock_query),
         patch.object(discovery, "QUERY_BUCKET_SIZE", 1),
     ):
-        resolver = aiodns.DNSResolver(timeout=0)
-        resolver.nameservers = ["192.168.107.1"]
         response = await discovery.async_query_for_ptrs(
             resolver,
             [
@@ -231,12 +232,10 @@ async def test_async_query_for_ptrs_pending_futures_marked_none() -> None:
             future.set_result(MockReply(name=f"name{count}"))
         return future
 
-    with (
-        patch.object(discovery, "DNS_RESPONSE_TIMEOUT", 0),
-        patch("aiodiscover.discovery.DNSResolver.query", mock_query),
-    ):
-        resolver = aiodns.DNSResolver(timeout=0)
-        resolver.nameservers = ["192.168.107.1"]
+    resolver = MagicMock(spec=aiodns.DNSResolver)
+    resolver.query.side_effect = mock_query
+    resolver.nameservers = ["192.168.107.1"]
+    with patch.object(discovery, "DNS_RESPONSE_TIMEOUT", 0):
         response = await discovery.async_query_for_ptrs(
             resolver,
             [
@@ -255,9 +254,10 @@ async def test_async_query_for_ptrs_pending_futures_marked_none() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_get_hostnames_no_results() -> None:
+async def test_async_get_hostnames_no_results(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify async_get_hostnames with no results."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/24")
@@ -283,9 +283,10 @@ async def test_async_get_hostnames_no_results() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_get_hostnames_silent_failure_is_blacklisted() -> None:
+async def test_async_get_hostnames_silent_failure_is_blacklisted(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Cache a nameserver as failed when every PTR response was None."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/31")
@@ -313,9 +314,10 @@ async def test_async_get_hostnames_silent_failure_is_blacklisted() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_get_hostnames_all_silent_does_not_blacklist() -> None:
+async def test_async_get_hostnames_all_silent_does_not_blacklist(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Leave the failed-nameserver cache empty when no nameserver succeeded."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/31")
@@ -336,9 +338,10 @@ async def test_async_get_hostnames_all_silent_does_not_blacklist() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_get_hostnames_all_responding() -> None:
+async def test_async_get_hostnames_all_responding(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify async_get_hostnames with responses for all IPs."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/24")
@@ -363,9 +366,10 @@ async def test_async_get_hostnames_all_responding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_get_hostnames_partial_responding() -> None:
+async def test_async_get_hostnames_partial_responding(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify async_get_hostnames with responses for some IPs."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/31")
@@ -393,9 +397,10 @@ async def test_async_get_hostnames_partial_responding() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_get_hostnames_first_nameserver_fails() -> None:
+async def test_async_get_hostnames_first_nameserver_fails(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify async_get_hostnames when the first nameserver fails."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/31")
@@ -464,9 +469,10 @@ async def test_async_get_hostnames_first_nameserver_fails() -> None:
 
 
 @pytest.mark.asyncio
-async def test_silent_nameserver_timeout_is_blacklisted() -> None:
+async def test_silent_nameserver_timeout_is_blacklisted(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Pin: a fully silent nameserver must land in _failed_nameservers."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/31")
@@ -496,9 +502,10 @@ async def test_silent_nameserver_timeout_is_blacklisted() -> None:
 
 
 @pytest.mark.asyncio
-async def test_silent_nameserver_skipped_on_second_run() -> None:
+async def test_silent_nameserver_skipped_on_second_run(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Pin: a silently-failed nameserver must not be queried on the next run."""
-    discover_hosts = discovery.DiscoverHosts()
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/31")
@@ -534,28 +541,31 @@ async def test_cache_clear() -> None:
     """Verify async_get_hostnames when the first nameserver fails."""
     loop = asyncio.get_running_loop()
     with patch.object(loop, "time", return_value=0) as mock_time:
-        discover_hosts = discovery.DiscoverHosts()
-        net_data = SystemNetworkData(None, None)
-        net_data.router_ip = IPv4Address("192.168.0.1")
-        net_data.network = IPv4Network("192.168.0.0/31")
-        net_data.nameservers = [IPv4Address("172.0.0.3"), IPv4Address("172.0.0.4")]
-        discover_hosts._failed_nameservers = {IPv4Address("172.0.0.3")}
-        assert discover_hosts._last_cache_clear == 0
-        discover_hosts._cleanup_cache()
-        assert discover_hosts._failed_nameservers == {IPv4Address("172.0.0.3")}
-        mock_time.return_value = discovery.CACHE_CLEAR_INTERVAL - 10
-        discover_hosts._cleanup_cache()
-        assert discover_hosts._failed_nameservers == {IPv4Address("172.0.0.3")}
-        mock_time.return_value = discovery.CACHE_CLEAR_INTERVAL + 10
-        discover_hosts._cleanup_cache()
-        assert discover_hosts._failed_nameservers == set()
+        async with discovery.DiscoverHosts() as discover_hosts:
+            net_data = SystemNetworkData(None, None)
+            net_data.router_ip = IPv4Address("192.168.0.1")
+            net_data.network = IPv4Network("192.168.0.0/31")
+            net_data.nameservers = [
+                IPv4Address("172.0.0.3"),
+                IPv4Address("172.0.0.4"),
+            ]
+            discover_hosts._failed_nameservers = {IPv4Address("172.0.0.3")}
+            assert discover_hosts._last_cache_clear == 0
+            discover_hosts._cleanup_cache()
+            assert discover_hosts._failed_nameservers == {IPv4Address("172.0.0.3")}
+            mock_time.return_value = discovery.CACHE_CLEAR_INTERVAL - 10
+            discover_hosts._cleanup_cache()
+            assert discover_hosts._failed_nameservers == {IPv4Address("172.0.0.3")}
+            mock_time.return_value = discovery.CACHE_CLEAR_INTERVAL + 10
+            discover_hosts._cleanup_cache()
+            assert discover_hosts._failed_nameservers == set()
 
 
 @pytest.mark.asyncio
-async def test_reload_on_resolv_conf_change() -> None:
+async def test_reload_on_resolv_conf_change(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify async_discover reloads system network data when resolv.conf changes."""
-    discover_hosts = discovery.DiscoverHosts()
-
     net_data_1 = SystemNetworkData(None, None)
     net_data_1.router_ip = IPv4Address("192.168.0.1")
     net_data_1.network = IPv4Network("192.168.0.0/24")
@@ -602,10 +612,10 @@ async def test_reload_on_resolv_conf_change() -> None:
 
 
 @pytest.mark.asyncio
-async def test_no_reload_when_resolv_conf_unchanged() -> None:
+async def test_no_reload_when_resolv_conf_unchanged(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify async_discover keeps cached data and failed cache when resolv.conf is stable."""
-    discover_hosts = discovery.DiscoverHosts()
-
     net_data = SystemNetworkData(None, None)
     net_data.router_ip = IPv4Address("192.168.0.1")
     net_data.network = IPv4Network("192.168.0.0/24")
@@ -646,10 +656,10 @@ async def test_no_reload_when_resolv_conf_unchanged() -> None:
 
 
 @pytest.mark.asyncio
-async def test_reload_when_resolv_conf_appears() -> None:
+async def test_reload_when_resolv_conf_appears(
+    discover_hosts: discovery.DiscoverHosts,
+) -> None:
     """Verify async_discover reloads when resolv.conf transitions from missing to present."""
-    discover_hosts = discovery.DiscoverHosts()
-
     net_data_1 = SystemNetworkData(None, None)
     net_data_1.router_ip = IPv4Address("192.168.0.1")
     net_data_1.network = IPv4Network("192.168.0.0/24")
@@ -836,9 +846,9 @@ async def test_close_releases_resolver_and_ip_route() -> None:
     fake_resolver = MagicMock()
     fake_resolver.close = AsyncMock()
     fake_ip_route = MagicMock()
-    async with discovery.DiscoverHosts() as discover_hosts:
-        discover_hosts._resolver = fake_resolver
-        discover_hosts._sys_network_data = MagicMock(ip_route=fake_ip_route)
+    with patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver):
+        async with discovery.DiscoverHosts() as discover_hosts:
+            discover_hosts._sys_network_data = MagicMock(ip_route=fake_ip_route)
 
     fake_resolver.close.assert_awaited_once()
     fake_ip_route.close.assert_called_once()
@@ -850,8 +860,9 @@ async def test_close_when_no_sys_network_data() -> None:
     """close() works even if async_discover was never called."""
     fake_resolver = MagicMock()
     fake_resolver.close = AsyncMock()
-    async with discovery.DiscoverHosts() as discover_hosts:
-        discover_hosts._resolver = fake_resolver
+    with patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver):
+        async with discovery.DiscoverHosts() as discover_hosts:
+            pass
 
     fake_resolver.close.assert_awaited_once()
     assert discover_hosts._sys_network_data is None
@@ -864,9 +875,9 @@ async def test_close_tolerates_ip_route_close_error() -> None:
     fake_resolver.close = AsyncMock()
     fake_ip_route = MagicMock()
     fake_ip_route.close.side_effect = OSError("already closed")
-    async with discovery.DiscoverHosts() as discover_hosts:
-        discover_hosts._resolver = fake_resolver
-        discover_hosts._sys_network_data = MagicMock(ip_route=fake_ip_route)
+    with patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver):
+        async with discovery.DiscoverHosts() as discover_hosts:
+            discover_hosts._sys_network_data = MagicMock(ip_route=fake_ip_route)
 
     fake_resolver.close.assert_awaited_once()
     assert discover_hosts._sys_network_data is None
@@ -890,10 +901,10 @@ async def test_close_with_real_resolver() -> None:
 @pytest.mark.asyncio
 async def test_close_is_idempotent() -> None:
     """A second close() call is a no-op and does not re-await the resolver."""
-    discover_hosts = discovery.DiscoverHosts()
     fake_resolver = MagicMock()
     fake_resolver.close = AsyncMock()
-    discover_hosts._resolver = fake_resolver
+    with patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver):
+        discover_hosts = discovery.DiscoverHosts()
 
     await discover_hosts.close()
     await discover_hosts.close()
@@ -904,10 +915,10 @@ async def test_close_is_idempotent() -> None:
 @pytest.mark.asyncio
 async def test_close_clears_ip_route_when_resolver_close_raises() -> None:
     """If resolver.close() raises, the pyroute2 socket is still released."""
-    discover_hosts = discovery.DiscoverHosts()
     fake_resolver = MagicMock()
     fake_resolver.close = AsyncMock(side_effect=RuntimeError("boom"))
-    discover_hosts._resolver = fake_resolver
+    with patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver):
+        discover_hosts = discovery.DiscoverHosts()
 
     fake_ip_route = MagicMock()
     fake_net_data = MagicMock(ip_route=fake_ip_route)
@@ -927,3 +938,180 @@ async def test_async_discover_after_close_raises() -> None:
         pass
     with pytest.raises(RuntimeError, match="closed"):
         await discover_hosts.async_discover()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="pyroute2.iproute imports fcntl, which is not available on Windows",
+)
+@pytest.mark.asyncio
+async def test_setup_failure_closes_ip_route() -> None:
+    """_setup_sys_network_data closes the IPRoute if SystemNetworkData.setup() raises."""
+    fake_resolver = MagicMock()
+    fake_resolver.close = AsyncMock()
+    fake_ip_route = MagicMock()
+
+    import pyroute2.iproute as pyroute2_iproute
+
+    with (
+        patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver),
+        patch.object(pyroute2_iproute, "IPRoute", return_value=fake_ip_route),
+        patch(
+            "aiodiscover.network.SystemNetworkData.setup",
+            side_effect=RuntimeError("no local ip"),
+        ),
+    ):
+        async with discovery.DiscoverHosts() as discover_hosts:
+            with pytest.raises(RuntimeError, match="no local ip"):
+                discover_hosts._setup_sys_network_data()
+
+    fake_ip_route.close.assert_called_once()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="pyroute2.iproute imports fcntl, which is not available on Windows",
+)
+@pytest.mark.asyncio
+async def test_setup_failure_tolerates_close_error() -> None:
+    """An OSError from IPRoute.close() during a setup failure does not mask the original error."""
+    fake_resolver = MagicMock()
+    fake_resolver.close = AsyncMock()
+    fake_ip_route = MagicMock()
+    fake_ip_route.close.side_effect = OSError("already closed")
+
+    import pyroute2.iproute as pyroute2_iproute
+
+    with (
+        patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver),
+        patch.object(pyroute2_iproute, "IPRoute", return_value=fake_ip_route),
+        patch(
+            "aiodiscover.network.SystemNetworkData.setup",
+            side_effect=RuntimeError("no local ip"),
+        ),
+    ):
+        async with discovery.DiscoverHosts() as discover_hosts:
+            with pytest.raises(RuntimeError, match="no local ip"):
+                discover_hosts._setup_sys_network_data()
+
+    fake_ip_route.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_resolv_conf_reload_closes_old_ip_route() -> None:
+    """When resolv.conf changes, the previous IPRoute socket is closed before reloading."""
+    fake_ip_route_1 = MagicMock()
+    fake_ip_route_2 = MagicMock()
+
+    net_data_1 = SystemNetworkData(None, None)
+    net_data_1.ip_route = fake_ip_route_1
+    net_data_1.router_ip = IPv4Address("192.168.0.1")
+    net_data_1.network = IPv4Network("192.168.0.0/24")
+    net_data_1.nameservers = [IPv4Address("192.168.0.254")]
+
+    net_data_2 = SystemNetworkData(None, None)
+    net_data_2.ip_route = fake_ip_route_2
+    net_data_2.router_ip = IPv4Address("192.168.0.1")
+    net_data_2.network = IPv4Network("192.168.0.0/24")
+    net_data_2.nameservers = [IPv4Address("192.168.0.99")]
+
+    setup_results = [net_data_1, net_data_2]
+
+    def fake_setup() -> SystemNetworkData:
+        return setup_results.pop(0)
+
+    signature_calls = iter([(1, 100), (2, 100)])
+
+    def fake_sig() -> tuple[int, int]:
+        return next(signature_calls)
+
+    subnet_size = len(list(net_data_1.network.hosts()))
+
+    fake_resolver = MagicMock()
+    fake_resolver.close = AsyncMock()
+    with patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver):
+        discover_hosts = discovery.DiscoverHosts()
+
+    with (
+        patch.object(discover_hosts, "_setup_sys_network_data", fake_setup),
+        patch("aiodiscover.discovery.resolv_conf_signature", fake_sig),
+        patch.object(discovery, "MAX_ADDRESSES", 1024),
+        patch(
+            "aiodiscover.network.SystemNetworkData.async_get_neighbours",
+            return_value={},
+        ),
+        patch(
+            "aiodiscover.discovery.async_query_for_ptrs",
+            return_value=[None] * subnet_size,
+        ),
+    ):
+        await discover_hosts.async_discover()
+        assert discover_hosts._sys_network_data is net_data_1
+        fake_ip_route_1.close.assert_not_called()
+
+        await discover_hosts.async_discover()
+        assert discover_hosts._sys_network_data is net_data_2
+
+    fake_ip_route_1.close.assert_called_once()
+    fake_ip_route_2.close.assert_not_called()
+
+    await discover_hosts.close()
+    fake_ip_route_2.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_resolv_conf_reload_tolerates_old_ip_route_close_error() -> None:
+    """An OSError from the discarded IPRoute.close() does not break the reload."""
+    fake_ip_route_1 = MagicMock()
+    fake_ip_route_1.close.side_effect = OSError("already closed")
+    fake_ip_route_2 = MagicMock()
+
+    net_data_1 = SystemNetworkData(None, None)
+    net_data_1.ip_route = fake_ip_route_1
+    net_data_1.router_ip = IPv4Address("192.168.0.1")
+    net_data_1.network = IPv4Network("192.168.0.0/24")
+    net_data_1.nameservers = [IPv4Address("192.168.0.254")]
+
+    net_data_2 = SystemNetworkData(None, None)
+    net_data_2.ip_route = fake_ip_route_2
+    net_data_2.router_ip = IPv4Address("192.168.0.1")
+    net_data_2.network = IPv4Network("192.168.0.0/24")
+    net_data_2.nameservers = [IPv4Address("192.168.0.99")]
+
+    setup_results = [net_data_1, net_data_2]
+
+    def fake_setup() -> SystemNetworkData:
+        return setup_results.pop(0)
+
+    signature_calls = iter([(1, 100), (2, 100)])
+
+    def fake_sig() -> tuple[int, int]:
+        return next(signature_calls)
+
+    subnet_size = len(list(net_data_1.network.hosts()))
+
+    fake_resolver = MagicMock()
+    fake_resolver.close = AsyncMock()
+    with patch("aiodiscover.discovery.DNSResolver", return_value=fake_resolver):
+        discover_hosts = discovery.DiscoverHosts()
+
+    with (
+        patch.object(discover_hosts, "_setup_sys_network_data", fake_setup),
+        patch("aiodiscover.discovery.resolv_conf_signature", fake_sig),
+        patch.object(discovery, "MAX_ADDRESSES", 1024),
+        patch(
+            "aiodiscover.network.SystemNetworkData.async_get_neighbours",
+            return_value={},
+        ),
+        patch(
+            "aiodiscover.discovery.async_query_for_ptrs",
+            return_value=[None] * subnet_size,
+        ),
+    ):
+        await discover_hosts.async_discover()
+        await discover_hosts.async_discover()
+
+    assert discover_hosts._sys_network_data is net_data_2
+    fake_ip_route_1.close.assert_called_once()
+
+    await discover_hosts.close()

@@ -508,7 +508,9 @@ def read_pkt_refs_v2(
         parts = pkt.rstrip(b"\n").split(b" ")
         sha_bytes = parts[0]
         sha: ObjectID | None
-        if sha_bytes == b"unborn":
+        if sha_bytes == b"ERR":
+            raise GitProtocolError(b" ".join(parts[1:]).decode("utf-8", "replace"))
+        elif sha_bytes == b"unborn":
             sha = None
         else:
             sha = ObjectID(sha_bytes)
@@ -1470,7 +1472,7 @@ class GitClient:
                 target = Repo.init_bare(target_path)
 
             # TODO(jelmer): abstract method for get_location?
-            if isinstance(self, (LocalGitClient, SubprocessGitClient)):
+            if isinstance(self, LocalGitClient | SubprocessGitClient):
                 encoded_path = path.encode("utf-8")
             else:
                 encoded_path = self.get_url(path).encode("utf-8")
@@ -1579,7 +1581,7 @@ class GitClient:
                     head = None
 
             if checkout and head is not None:
-                target.get_worktree().reset_index()
+                target.get_worktree().reset_index(config=target.get_config_stack())
         except BaseException:
             if target is not None:
                 target.close()
@@ -3272,7 +3274,7 @@ class LocalGitClient(GitClient):
                     head = None
 
             if checkout and head is not None:
-                target.get_worktree().reset_index()
+                target.get_worktree().reset_index(config=target.get_config_stack())
         except BaseException:
             if target is not None:
                 target.close()

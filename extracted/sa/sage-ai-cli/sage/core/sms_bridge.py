@@ -54,9 +54,12 @@ class SMSConfig:
     Stored at ~/.sage/sms_config.json.
     No email credentials here — SAGE owns the bridge inbox.
     """
-    computer_name: str = field(default_factory=lambda: _default_name())
-    working_dir:   str = str(Path.home())
-    model:         str = ""
+    computer_name: str   = field(default_factory=lambda: _default_name())
+    working_dir:   str   = str(Path.home())
+    model:         str   = ""
+    temperature:   float = 0.7   # @temp <val>
+    task_timeout:  int   = 0     # @timeout <secs>; 0 = unlimited
+    output_mode:   str   = ""    # "verbose" | "quiet" | "" (auto)
 
     def save(self) -> None:
         SAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1058,6 +1061,93 @@ class SAGEMessageBridge:
         else:
             self._log(f"⚠ failed to relay [{replier}] reply to {sender}")
 
+    # ── Shared help text (both handlers use this) ───────────────────────────
+
+    def _build_help_text(self) -> str:
+        """Full command reference sent in response to @help."""
+        model = self.cfg.model or self._resolve_dispatch_model() or "default"
+        return (
+            f"SAGE [{self.cfg.computer_name}] — all commands:\n"
+            "\n"
+            "── Tasks ──\n"
+            "  <any text>         run as sage task (auto-routed)\n"
+            "  @run <task>        force agentic mode (file edits, tests)\n"
+            "  @ask <question>    force chat mode (fast Q&A, no edits)\n"
+            "\n"
+            "── Models ──\n"
+            "  @models            list all available models\n"
+            f"  @model             show current model ({model})\n"
+            "  @model <name>      switch model (e.g. @model cloud:mistral-small)\n"
+            "\n"
+            "── Directory ──\n"
+            "  @dir / @pwd        show working directory\n"
+            "  cd <path>          change working directory\n"
+            "\n"
+            "── Settings ──\n"
+            "  @temp <0.0-1.0>    set model temperature\n"
+            "  @timeout <secs>    set per-task timeout (0 = unlimited)\n"
+            "  @verbose           full output for next task\n"
+            "  @quiet             summary-only output for next task\n"
+            "\n"
+            "── Routing ──\n"
+            f"  @{self.cfg.computer_name}: <task>  route to this computer\n"
+            "  @all: <task>       broadcast to all computers\n"
+            "\n"
+            "── System ──\n"
+            "  @status            show status (dir, model, uptime)\n"
+            "  @stop              stop the sage daemon\n"
+            "  @help / ?          show this help"
+        )
+
+    def _list_models_text(self) -> str:
+        """Run `sage models` and return a condensed SMS-friendly list."""
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "sage", "models", "--all"],
+                capture_output=True, text=True, timeout=15, env=_clean_env(),
+            )
+            raw = result.stdout or ""
+        except Exception:
+            try:
+                result = subprocess.run(
+                    ["sage", "models", "--all"],
+                    capture_output=True, text=True, timeout=15, env=_clean_env(),
+                )
+                raw = result.stdout or ""
+            except Exception:
+                raw = ""
+
+        if not raw.strip():
+            return "Could not list models. Is sage installed?"
+
+        # Extract model IDs from table output (lines containing "cloud:" or "openrouter:")
+        lines = raw.splitlines()
+        model_ids: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            for prefix in ("cloud:", "openrouter:", "ollama:", "llama_cpp:", "gemini:"):
+                if prefix in stripped:
+                    # Grab the first token that starts with the prefix
+                    for token in stripped.split():
+                        if token.startswith(prefix):
+                            model_ids.append(token)
+                            break
+                    break
+
+        current = self.cfg.model or self._resolve_dispatch_model() or "?"
+        if not model_ids:
+            # Fall back to showing raw output trimmed
+            return f"Current: {current}\n" + raw[:400]
+
+        chunks = [f"Models (current: {current}):"]
+        for mid in model_ids[:20]:  # cap at 20 for SMS readability
+            marker = " ←" if mid == current else ""
+            chunks.append(f"  {mid}{marker}")
+        if len(model_ids) > 20:
+            chunks.append(f"  … +{len(model_ids) - 20} more (use sage models --all locally)")
+        chunks.append("Use: @model <name> to switch")
+        return "\n".join(chunks)
+
     def _handle_local_imessage_task(self, msg: dict, service: str, device_type: str = "") -> None:
         """Run sage and reply on the channel that matches the inbound device.
 
@@ -1071,28 +1161,101 @@ class SAGEMessageBridge:
         sender = msg.get("from", "")
         lower  = task.lower()
 
-        # Built-in commands run instantly without invoking `sage ask`
+        # ── Built-in commands (no sage invocation needed) ──────────────────
         if lower in ("help", "?", "@help"):
-            output = (
-                f"SAGE [{self.cfg.computer_name}] commands:\n"
-                "Any text → sage task\n"
-                "@status, @dir, @help, @stop\n"
-                "@<computer>: <task> → route to a specific computer"
-            )
+            output = self._build_help_text()
+
+        elif lower in ("@models", "@list", "@list-models", "models"):
+            output = self._list_models_text()
+
+        elif lower in ("@model", "@current-model"):
+            model = self.cfg.model or self._resolve_dispatch_model() or "default"
+            output = f"🤖 Current model: {model}\nUse @model <name> to switch."
+
+        elif lower.startswith("@model "):
+            new_model = task.split(None, 1)[1].strip()
+            self.cfg.model = new_model
+            self.cfg.save()
+            output = f"🤖 [{self.cfg.computer_name}] model → {new_model}"
+
         elif lower in ("@dir", "@pwd", "pwd"):
             output = f"📁 [{self.cfg.computer_name}] {self.working_dir}"
+
         elif lower in ("@status", "status"):
+            model = self.cfg.model or self._resolve_dispatch_model() or "default"
             output = (
                 f"✅ [{self.cfg.computer_name}]\n"
-                f"📁 {self.working_dir}"
+                f"📁 {self.working_dir}\n"
+                f"🤖 {model}"
             )
+
+        elif lower.startswith(("cd ", "@dir ")):
+            raw = task.split(None, 1)[1].strip()
+            new = Path(raw).expanduser().resolve()
+            if new.is_dir():
+                self.working_dir = new
+                self.cfg.working_dir = str(new)
+                self.cfg.save()
+                output = f"📁 [{self.cfg.computer_name}] {self.working_dir}"
+            else:
+                output = f"❌ Not found: {raw}"
+
+        elif lower.startswith("@temp "):
+            try:
+                val = float(task.split(None, 1)[1])
+                val = max(0.0, min(2.0, val))
+                self.cfg.temperature = val
+                self.cfg.save()
+                output = f"🌡 Temperature set to {val}"
+            except (ValueError, IndexError):
+                output = "Usage: @temp 0.7  (range 0.0–2.0)"
+
+        elif lower.startswith("@timeout "):
+            try:
+                val = int(task.split(None, 1)[1])
+                self.cfg.task_timeout = max(0, val)
+                self.cfg.save()
+                output = f"⏱ Timeout set to {val}s (0 = unlimited)"
+            except (ValueError, IndexError):
+                output = "Usage: @timeout 120  (seconds, 0 = unlimited)"
+
+        elif lower in ("@verbose",):
+            self.cfg.output_mode = "verbose"
+            self.cfg.save()
+            output = "📢 Next task will return full output."
+
+        elif lower in ("@quiet",):
+            self.cfg.output_mode = "quiet"
+            self.cfg.save()
+            output = "🔇 Next task will return a short summary."
+
+        elif lower.startswith("@run "):
+            # Force agentic mode (sage run --prompt)
+            actual_task = task.split(None, 1)[1].strip()
+            output = self._run_sage_task(actual_task, mode="agent")
+            if len(output) > 280:
+                output = self._summarize_for_sms(output, actual_task)
+
+        elif lower.startswith("@ask "):
+            # Force chat mode (sage ask)
+            actual_task = task.split(None, 1)[1].strip()
+            output = self._run_sage_task(actual_task, mode="chat")
+            if len(output) > 280:
+                output = self._summarize_for_sms(output, actual_task)
+
         elif lower in ("@stop", "stop"):
             output = f"⏹ [{self.cfg.computer_name}] stopping."
             self._stop.set()
+
         else:
-            output = self._run_sage_task(task)
+            timeout = getattr(self.cfg, "task_timeout", None) or None
+            output = self._run_sage_task(task, timeout=timeout)
             if len(output) > 280:
                 output = self._summarize_for_sms(output, task)
+            # Reset one-shot output mode after task
+            if getattr(self.cfg, "output_mode", None) in ("verbose", "quiet"):
+                self.cfg.output_mode = None
+                self.cfg.save()
 
         body = f"[SAGE — {self.cfg.computer_name}] {output}"
         e164 = self._normalize_e164(sender)
@@ -1295,15 +1458,30 @@ class SAGEMessageBridge:
         # if both are available — avoids Metal-shader compilation failures.
         resolved_model = self._resolve_dispatch_model()
         model_flags = ["--model", resolved_model] if resolved_model else []
+
+        # Temperature flag (non-default only)
+        temp = getattr(self.cfg, "temperature", 0.7)
+        temp_flags = ["--temperature", str(temp)] if temp != 0.7 else []
+
+        # Output mode flag for agent (sage run)
+        out_mode = getattr(self.cfg, "output_mode", "") or ""
+        out_flags = (
+            ["--output", "verbose"] if out_mode == "verbose"
+            else ["--quiet"] if out_mode == "quiet"
+            else ["--quiet"]  # always quiet for SMS — we post-process output ourselves
+        )
+
         if mode == "agent":
             cmd_variants = (
-                [sys.executable, "-m", "sage", "run"] + model_flags + ["--prompt", task],
-                ["sage", "run"] + model_flags + ["--prompt", task],
+                [sys.executable, "-m", "sage", "run"]
+                + model_flags + temp_flags + out_flags + ["--prompt", task],
+                ["sage", "run"]
+                + model_flags + temp_flags + out_flags + ["--prompt", task],
             )
         else:
             cmd_variants = (
-                [sys.executable, "-m", "sage", "ask"] + model_flags + ["--raw", task],
-                ["sage", "ask"] + model_flags + ["--raw", task],
+                [sys.executable, "-m", "sage", "ask"] + model_flags + temp_flags + ["--raw", task],
+                ["sage", "ask"] + model_flags + temp_flags + ["--raw", task],
             )
         for cmd in cmd_variants:
             try:
@@ -1404,26 +1582,33 @@ class SAGEMessageBridge:
 
         self._log(f"← {sender}: {task[:80]}")
 
-        # Built-in commands
+        # ── Built-in commands (shared with iMessage handler) ──────────────
         if lower in ("help", "?", "@help"):
-            output = (
-                f"SAGE [{self.cfg.computer_name}] — commands:\n"
-                "Any text   → run as sage task\n"
-                f"@{self.cfg.computer_name}: msg → route here\n"
-                "@all: msg  → all computers\n"
-                "cd <path>  → change directory\n"
-                "@dir       → show directory\n"
-                "@status    → show status\n"
-                "@stop      → stop this daemon"
-            )
+            output = self._build_help_text()
+
+        elif lower in ("@models", "@list", "@list-models", "models"):
+            output = self._list_models_text()
+
+        elif lower in ("@model", "@current-model"):
+            model = self.cfg.model or self._resolve_dispatch_model() or "default"
+            output = f"🤖 Current model: {model}\nUse @model <name> to switch."
+
+        elif lower.startswith("@model "):
+            self.cfg.model = task.split(None, 1)[1].strip()
+            self.cfg.save()
+            output = f"🤖 [{self.cfg.computer_name}] model → {self.cfg.model}"
+
         elif lower in ("@dir", "@pwd", "pwd"):
             output = f"📁 [{self.cfg.computer_name}] {self.working_dir}"
+
         elif lower in ("@status", "status"):
+            model = self.cfg.model or self._resolve_dispatch_model() or "default"
             output = (
                 f"✅ [{self.cfg.computer_name}]\n"
                 f"📁 {self.working_dir}\n"
-                f"🤖 {self.cfg.model or 'default model'}"
+                f"🤖 {model}"
             )
+
         elif lower.startswith(("cd ", "@dir ")):
             raw = task.split(None, 1)[1].strip()
             new = Path(raw).expanduser().resolve()
@@ -1434,22 +1619,64 @@ class SAGEMessageBridge:
                 output = f"📁 [{self.cfg.computer_name}] {self.working_dir}"
             else:
                 output = f"❌ Not found: {raw}"
-        elif lower.startswith("@model "):
-            self.cfg.model = task.split(None, 1)[1].strip()
+
+        elif lower.startswith("@temp "):
+            try:
+                val = float(task.split(None, 1)[1])
+                val = max(0.0, min(2.0, val))
+                self.cfg.temperature = val
+                self.cfg.save()
+                output = f"🌡 Temperature set to {val}"
+            except (ValueError, IndexError):
+                output = "Usage: @temp 0.7  (range 0.0–2.0)"
+
+        elif lower.startswith("@timeout "):
+            try:
+                val = int(task.split(None, 1)[1])
+                self.cfg.task_timeout = max(0, val)
+                self.cfg.save()
+                output = f"⏱ Timeout set to {val}s (0 = unlimited)"
+            except (ValueError, IndexError):
+                output = "Usage: @timeout 120  (seconds, 0 = unlimited)"
+
+        elif lower in ("@verbose",):
+            self.cfg.output_mode = "verbose"
             self.cfg.save()
-            output = f"🤖 [{self.cfg.computer_name}] model → {self.cfg.model}"
+            output = "📢 Next task will return full output."
+
+        elif lower in ("@quiet",):
+            self.cfg.output_mode = "quiet"
+            self.cfg.save()
+            output = "🔇 Next task will return a short summary."
+
+        elif lower.startswith("@run "):
+            actual_task = task.split(None, 1)[1].strip()
+            output = self._run_sage_task(actual_task, mode="agent")
+            if self._is_sms_gateway(sender):
+                output = self._summarize_for_sms(output, actual_task)
+
+        elif lower.startswith("@ask "):
+            actual_task = task.split(None, 1)[1].strip()
+            output = self._run_sage_task(actual_task, mode="chat")
+            if self._is_sms_gateway(sender):
+                output = self._summarize_for_sms(output, actual_task)
+
         elif lower in ("@stop", "stop"):
             output = f"⏹ [{self.cfg.computer_name}] stopping."
             self._stop.set()
+
         else:
-            # Run the FULL task (sage ask) — all real work happens here
-            output = self._run_sage_task(task)
-            # If the reply is going to a phone-number SMS gateway, generate a
-            # concise summary. The full output is logged locally; the user
-            # gets a phone-friendly version back.
+            # Run the FULL task — all real work happens here
+            timeout = getattr(self.cfg, "task_timeout", None) or None
+            output = self._run_sage_task(task, timeout=timeout)
+            # SMS gateway senders get a concise summary; email/iMessage get full output
             if self._is_sms_gateway(sender):
                 self._log(f"Summarizing for SMS gateway {sender} (full {len(output)} chars)")
                 output = self._summarize_for_sms(output, task)
+            # Reset one-shot output mode after task
+            if getattr(self.cfg, "output_mode", None) in ("verbose", "quiet"):
+                self.cfg.output_mode = None
+                self.cfg.save()
 
         # If the backend asked us to deliver natively (carrier-gateway sender +
         # known device_type), do that NOW from this machine. SMTP through

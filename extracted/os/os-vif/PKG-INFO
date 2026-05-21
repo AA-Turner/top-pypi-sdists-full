@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: os_vif
-Version: 4.3.0
+Version: 5.0.0
 Summary: A library for plugging and unplugging virtual interfaces in OpenStack.
-Home-page: https://docs.openstack.org/os-vif/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/os_vif
+Project-URL: Repository, https://opendev.org/openstack/os_vif
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -12,13 +13,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=3.0.0
 Requires-Dist: oslo.concurrency>=3.20.0
@@ -28,33 +27,19 @@ Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: oslo.privsep>=1.23.0
 Requires-Dist: oslo.serialization>=2.20.0
 Requires-Dist: oslo.utils>=2.0.0
-Requires-Dist: oslo.versionedobjects>=1.28.0
+Requires-Dist: oslo.versionedobjects>=3.10.2
 Requires-Dist: ovsdbapp>=0.12.1
-Requires-Dist: pyroute2>=0.5.2
+Requires-Dist: pyroute2>=0.5.13
 Requires-Dist: stevedore>=1.20.0
 Requires-Dist: debtcollector>=1.19.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
 Dynamic: license-file
 Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
-
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/os-vif.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
 
 ======
 os-vif
 ======
+
+.. image:: https://governance.openstack.org/tc/badges/os-vif.svg
 
 .. image:: https://img.shields.io/pypi/v/os-vif.svg
     :target: https://pypi.org/project/os-vif/
@@ -71,4 +56,3 @@ A library for plugging and unplugging virtual interfaces in OpenStack.
 * Source: https://opendev.org/openstack/os-vif
 * Bugs: https://bugs.launchpad.net/os-vif
 * Release Notes: https://docs.openstack.org/releasenotes/os-vif
-

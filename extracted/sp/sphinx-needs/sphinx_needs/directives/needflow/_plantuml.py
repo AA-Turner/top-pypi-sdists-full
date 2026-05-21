@@ -46,7 +46,7 @@ def get_need_node_rep_for_plantuml(
 
     node_text = render_template_string(
         needs_config.diagram_template,
-        {**need_info, **needs_config.render_context},
+        {**need_info.filter_context(), **needs_config.render_context},
         autoescape=False,
     )
 
@@ -65,7 +65,7 @@ def get_need_node_rep_for_plantuml(
     elif current_needflow["border_color"]:
         color = match_variants(
             current_needflow["border_color"],
-            {**need_info},
+            need_info.filter_context(),
             needs_config.variants,
             location=(current_needflow["docname"], current_needflow["lineno"]),
         )
@@ -76,11 +76,12 @@ def get_need_node_rep_for_plantuml(
     node_style = need_info["type_style"] if need_info["is_need"] else "rectangle"
 
     # node representation for plantuml
-    need_node_code = '{style} "{node_text}" as {id} [[{link}]] #{color}'.format(
+    color_suffix = f" #{';'.join(node_colors)}" if node_colors else ""
+    need_node_code = '{style} "{node_text}" as {id} [[{link}]]{color_suffix}'.format(
         id=make_entity_name(need_info["id_complete"]),
         node_text=node_text,
         link=node_link,
-        color=";".join(node_colors),
+        color_suffix=color_suffix,
         style=node_style,
     )
     return need_node_code

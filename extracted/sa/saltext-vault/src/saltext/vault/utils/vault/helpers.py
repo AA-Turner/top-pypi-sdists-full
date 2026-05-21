@@ -3,12 +3,15 @@ Several utility functions for the Vault modules
 """
 
 import datetime
+import logging
 import re
 import string
 
 from salt.exceptions import InvalidConfigError
 from salt.exceptions import SaltInvocationError
 from salt.state import STATE_INTERNAL_KEYWORDS as _STATE_INTERNAL_KEYWORDS
+
+log = logging.getLogger(__name__)
 
 SALT_RUNTYPE_MASTER = 0
 SALT_RUNTYPE_MASTER_IMPERSONATING = 1
@@ -20,9 +23,12 @@ SALT_RUNTYPE_MINION_REMOTE = 4
 def _get_salt_run_type(opts):
     if "vault" in opts and opts.get("__role", "minion") == "master":
         if opts.get("minion_id"):
+            log.debug("Salt runtype: impersonating master")
             return SALT_RUNTYPE_MASTER_IMPERSONATING
         if "grains" in opts and "id" in opts["grains"]:
+            log.debug("Salt runtype: peer run master")
             return SALT_RUNTYPE_MASTER_PEER_RUN
+        log.debug("Salt runtype: regular master")
         return SALT_RUNTYPE_MASTER
 
     config_location = opts.get("vault", {}).get("config_location")
@@ -41,7 +47,9 @@ def _get_salt_run_type(opts):
             config_location == "local",
         )
     ):
+        log.debug("Salt runtype: local minion")
         return SALT_RUNTYPE_MINION_LOCAL
+    log.debug("Salt runtype: regular minion")
     return SALT_RUNTYPE_MINION_REMOTE
 
 
@@ -99,7 +107,7 @@ def expand_pattern_lists(pattern, **mappings):
           - web
           - database
 
-    This function will expand into two patterns,
+    This function expands into two patterns,
     ``[by-role/web, by-role/database]``.
 
     Note that this method does not expand any non-list patterns.
@@ -109,9 +117,9 @@ def expand_pattern_lists(pattern, **mappings):
 
     # This function uses a string.Formatter to get all the formatting tokens from
     # the pattern, then recursively replaces tokens whose expanded value is a
-    # list. For a list with N items, it will create N new pattern strings and
+    # list. For a list with N items, it creates N new pattern strings and
     # then continue with the next token. In practice this is expected to not be
-    # very expensive, since patterns will typically involve a handful of lists at
+    # very expensive, since patterns typically involve a handful of lists at
     # most.
 
     for _, field_name, _, _ in f.parse(pattern):

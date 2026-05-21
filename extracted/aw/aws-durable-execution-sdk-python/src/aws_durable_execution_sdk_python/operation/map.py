@@ -12,8 +12,9 @@ from aws_durable_execution_sdk_python.concurrency.models import (
     BatchResult,
     Executable,
 )
-from aws_durable_execution_sdk_python.config import MapConfig
+from aws_durable_execution_sdk_python.config import MapConfig, NestingType
 from aws_durable_execution_sdk_python.lambda_service import OperationSubType
+
 
 if TYPE_CHECKING:
     from aws_durable_execution_sdk_python.context import DurableContext
@@ -46,6 +47,8 @@ class MapExecutor(Generic[T, R], ConcurrentExecutor[Callable, R]):  # noqa: PYI0
         serdes: SerDes | None,
         summary_generator: SummaryGenerator | None = None,
         item_serdes: SerDes | None = None,
+        nesting_type: NestingType = NestingType.NESTED,
+        item_namer: Callable[[T, int], str] | None = None,
     ):
         super().__init__(
             executables=executables,
@@ -57,15 +60,17 @@ class MapExecutor(Generic[T, R], ConcurrentExecutor[Callable, R]):  # noqa: PYI0
             serdes=serdes,
             summary_generator=summary_generator,
             item_serdes=item_serdes,
+            nesting_type=nesting_type,
         )
         self.items = items
+        self._item_namer = item_namer
 
     @classmethod
     def from_items(
         cls,
         items: Sequence[T],
         func: Callable,
-        config: MapConfig,
+        config: MapConfig[T],
     ) -> MapExecutor[T, R]:
         """Create MapExecutor from items and a callable."""
         executables: list[Executable[Callable]] = [
@@ -83,7 +88,15 @@ class MapExecutor(Generic[T, R], ConcurrentExecutor[Callable, R]):  # noqa: PYI0
             serdes=config.serdes,
             summary_generator=config.summary_generator,
             item_serdes=config.item_serdes,
+            nesting_type=config.nesting_type,
+            item_namer=config.item_namer,
         )
+
+    def get_iteration_name(self, index: int) -> str:
+        """Return custom item name if item_namer is provided, otherwise default."""
+        if self._item_namer is not None:
+            return self._item_namer(self.items[index], index)
+        return super().get_iteration_name(index)
 
     def execute_item(self, child_context, executable: Executable[Callable]) -> R:
         logger.debug("🗺️ Processing map item: %s", executable.index)

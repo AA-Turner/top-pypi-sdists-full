@@ -5,6 +5,7 @@ Supports both LiteLLM (external API) and Claude Code (Max Plan) modes.
 """
 
 import asyncio
+from datetime import UTC, datetime
 from enum import Enum, auto
 from pathlib import Path
 from typing import Annotated
@@ -27,11 +28,23 @@ from ouroboros.cli.formatters.panels import print_error, print_info, print_succe
 from ouroboros.cli.formatters.prompting import multiline_prompt_async
 from ouroboros.config import get_clarification_model, get_llm_backend
 from ouroboros.core.errors import ProviderError
+from ouroboros.core.hitl_contract import (
+    HumanInputKind,
+    HumanInputRequest,
+    HumanInputResponse,
+    HumanInputResponseKind,
+    HumanInputRiskClass,
+    HumanInputSource,
+)
 from ouroboros.core.initial_context import (
     load_pm_seed_as_context as _load_pm_seed_as_context_result,
 )
 from ouroboros.core.initial_context import (
     resolve_initial_context_input,
+)
+from ouroboros.events.hitl import (
+    create_hitl_answered_event,
+    create_hitl_requested_event,
 )
 from ouroboros.observability import LoggingConfig, configure_logging
 from ouroboros.providers import create_llm_adapter, resolve_llm_backend
@@ -171,9 +184,86 @@ def _get_adapter(
     return create_llm_adapter(backend=resolved_backend, cwd=Path.cwd())
 
 
+def _interview_hitl_request(
+    state: InterviewState,
+    *,
+    round_number: int,
+    question: str,
+    created_at: datetime | None = None,
+) -> HumanInputRequest:
+    return HumanInputRequest(
+        request_id=f"hitl_interview_{state.interview_id}_{round_number}",
+        session_id=state.interview_id,
+        run_id=state.interview_id,
+        invocation_id=f"interview-round-{round_number}",
+        created_by="ouroboros.init",
+        kind=HumanInputKind.FREE_TEXT,
+        source=HumanInputSource.INTERVIEW,
+        risk_class=HumanInputRiskClass.LOW,
+        question=question,
+        resume_target=f"init:interview:{state.interview_id}:round:{round_number}",
+        title=f"Interview round {round_number}",
+        surface="cli.init.interview",
+        created_at=created_at or datetime.now(UTC),
+    )
+
+
+def _interview_hitl_response(
+    request: HumanInputRequest,
+    response: str,
+    *,
+    received_at: datetime | None = None,
+) -> HumanInputResponse:
+    return HumanInputResponse(
+        request_id=request.request_id,
+        session_id=request.session_id,
+        run_id=request.run_id,
+        invocation_id=request.invocation_id,
+        actor="local-user",
+        response_kind=HumanInputResponseKind.TEXT,
+        text=response,
+        surface="cli.init.interview",
+        received_at=received_at or datetime.now(UTC),
+    )
+
+
+async def _append_hitl_events(event_store, events: list) -> bool:
+    if event_store is None:
+        return True
+    try:
+        await event_store.append_batch(events)
+    except Exception as exc:  # noqa: BLE001 - HITL telemetry must not block CLI init.
+        print_warning(f"HITL telemetry persistence failed; continuing without it: {exc}")
+        return False
+    return True
+
+
+async def _get_init_event_store():
+    from ouroboros.persistence.event_store import EventStore
+
+    event_store = None
+    try:
+        db_path = Path.home() / ".ouroboros" / "ouroboros.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        event_store = EventStore(f"sqlite+aiosqlite:///{db_path}")
+        await event_store.initialize()
+    except Exception as exc:  # noqa: BLE001 - init interview must not depend on telemetry.
+        if event_store is not None:
+            try:
+                await event_store.close()
+            except Exception:
+                pass
+        print_warning(f"HITL telemetry is unavailable; continuing without it: {exc}")
+        return None
+    return event_store
+
+
 async def _run_interview_loop(
     engine: InterviewEngine,
     state: InterviewState,
+    *,
+    event_store=None,
+    disabled_event_stores: set[int] | None = None,
 ) -> InterviewState:
     """Run the interview question loop until completion or user exit.
 
@@ -211,6 +301,8 @@ async def _run_interview_loop(
         console.print(f"[bold yellow]Q:[/] {question}")
         console.print()
 
+        hitl_request = _interview_hitl_request(state, round_number=current_round, question=question)
+
         # Get user response (multiline-safe for paste)
         response = await multiline_prompt_async("Your response")
 
@@ -218,7 +310,10 @@ async def _run_interview_loop(
             print_error("Response cannot be empty. Please try again.")
             continue
 
-        # Record response
+        # Record and save the accepted response before best-effort HITL telemetry
+        # touches SQLite. CLI init's durable interview state must not wait behind
+        # telemetry locks/retries; HITL events are emitted only after the
+        # interview transition is durably saved.
         record_result = await engine.record_response(state, response, question)
         if record_result.is_err:
             print_error(f"Failed to record response: {record_result.error.message}")
@@ -230,6 +325,19 @@ async def _run_interview_loop(
         save_result = await engine.save_state(state)
         if save_result.is_err:
             print_error(f"Warning: Failed to save state: {save_result.error.message}")
+        elif not await _append_hitl_events(
+            event_store,
+            [
+                create_hitl_requested_event(hitl_request),
+                create_hitl_answered_event(
+                    hitl_request,
+                    _interview_hitl_response(hitl_request, response),
+                ),
+            ],
+        ):
+            if disabled_event_stores is not None and event_store is not None:
+                disabled_event_stores.add(id(event_store))
+            event_store = None
 
         console.print()
 
@@ -303,69 +411,96 @@ async def _run_interview(
     console.print()
 
     # Run initial interview loop
-    state = await _run_interview_loop(engine, state)
+    event_store = await _get_init_event_store()
+    disabled_event_stores: set[int] = set()
 
-    # Outer loop for retry on high ambiguity
-    while True:
-        # Interview complete
+    try:
+        loop_event_store = None if event_store is None else event_store
+        state = await _run_interview_loop(
+            engine,
+            state,
+            event_store=loop_event_store,
+            disabled_event_stores=disabled_event_stores,
+        )
+
+        # Outer loop for retry on high ambiguity
+        while True:
+            # Interview complete
+            console.print()
+            print_success("Interview completed!")
+            console.print(f"[muted]Total rounds: {len(state.rounds)}[/]")
+            console.print(f"[muted]Interview ID: {state.interview_id}[/]")
+
+            # Save final state
+            save_result = await engine.save_state(state)
+            if save_result.is_ok:
+                console.print(f"[muted]State saved to: {save_result.value}[/]")
+
+            console.print()
+
+            # Ask if user wants to proceed to Seed generation
+            should_generate_seed = Confirm.ask(
+                "[bold cyan]Proceed to generate Seed specification?[/]",
+                default=True,
+            )
+
+            if not should_generate_seed:
+                console.print(
+                    "[muted]You can resume later with:[/] "
+                    f"[bold]ouroboros init start --resume {state.interview_id}[/]"
+                )
+                return
+
+            # Generate Seed
+            seed_path, result = await _generate_seed_from_interview(state, llm_adapter, llm_backend)
+
+            if result == SeedGenerationResult.CONTINUE_INTERVIEW:
+                # Re-open interview for more questions
+                console.print()
+                print_info("Continuing interview to reduce ambiguity...")
+                state.status = InterviewStatus.IN_PROGRESS
+                await engine.save_state(state)  # Save status change immediately
+
+                # Continue interview loop (reusing the same helper)
+                loop_event_store = (
+                    None
+                    if event_store is None or id(event_store) in disabled_event_stores
+                    else event_store
+                )
+                state = await _run_interview_loop(
+                    engine,
+                    state,
+                    event_store=loop_event_store,
+                    disabled_event_stores=disabled_event_stores,
+                )
+                continue
+
+            if result == SeedGenerationResult.CANCELLED:
+                return
+
+            # Success - proceed to workflow
+            break
+
+        # Ask if user wants to start workflow
         console.print()
-        print_success("Interview completed!")
-        console.print(f"[muted]Total rounds: {len(state.rounds)}[/]")
-        console.print(f"[muted]Interview ID: {state.interview_id}[/]")
-
-        # Save final state
-        save_result = await engine.save_state(state)
-        if save_result.is_ok:
-            console.print(f"[muted]State saved to: {save_result.value}[/]")
-
-        console.print()
-
-        # Ask if user wants to proceed to Seed generation
-        should_generate_seed = Confirm.ask(
-            "[bold cyan]Proceed to generate Seed specification?[/]",
+        should_start_workflow = Confirm.ask(
+            "[bold cyan]Start workflow now?[/]",
             default=True,
         )
 
-        if not should_generate_seed:
-            console.print(
-                "[muted]You can resume later with:[/] "
-                f"[bold]ouroboros init start --resume {state.interview_id}[/]"
+        if should_start_workflow:
+            await _start_workflow(
+                seed_path,
+                use_orchestrator,
+                runtime_backend=workflow_runtime_backend,
             )
-            return
 
-        # Generate Seed
-        seed_path, result = await _generate_seed_from_interview(state, llm_adapter, llm_backend)
-
-        if result == SeedGenerationResult.CONTINUE_INTERVIEW:
-            # Re-open interview for more questions
-            console.print()
-            print_info("Continuing interview to reduce ambiguity...")
-            state.status = InterviewStatus.IN_PROGRESS
-            await engine.save_state(state)  # Save status change immediately
-
-            # Continue interview loop (reusing the same helper)
-            state = await _run_interview_loop(engine, state)
-            continue
-
-        if result == SeedGenerationResult.CANCELLED:
-            return
-
-        # Success - proceed to workflow
-        break
-
-    # Ask if user wants to start workflow
-    console.print()
-    should_start_workflow = Confirm.ask(
-        "[bold cyan]Start workflow now?[/]",
-        default=True,
-    )
-
-    if should_start_workflow:
-        await _start_workflow(
-            seed_path,
-            use_orchestrator,
-            runtime_backend=workflow_runtime_backend,
-        )
+    finally:
+        if event_store is not None:
+            try:
+                await event_store.close()
+            except Exception:
+                pass
 
 
 async def _generate_seed_from_interview(

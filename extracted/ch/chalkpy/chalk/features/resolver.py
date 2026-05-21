@@ -359,6 +359,9 @@ class FunctionCapturedGlobalFunction(FunctionCapturedGlobal):
     module: str | None
     name: str
     captured_globals: Mapping[str, FunctionCapturedGlobal] | None
+    source_file_name: str | None = None
+    source_line_start: int | None = None
+    source_line_end: int | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1449,11 +1452,15 @@ def parse_helper_function(
             raise ValueError("Functions with **kwargs are not supported")
     module = inspect.getmodule(fn)
     module_name = module.__name__ if module is not None else None
+    source_lines, source_line_start = inspect.getsourcelines(fn)
     return FunctionCapturedGlobalFunction(
-        source=inspect.getsource(fn),
+        source="".join(source_lines),
         module=module_name,
         captured_globals=parse_extract_function_object_captured_globals(fn, gas),
         name=fn.__name__,
+        source_file_name=inspect.getsourcefile(fn) or inspect.getfile(fn),
+        source_line_start=source_line_start,
+        source_line_end=source_line_start + len(source_lines) - 1,
     )
 
 

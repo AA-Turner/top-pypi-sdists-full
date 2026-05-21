@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-nvidia-ai-endpoints
-Version: 1.3.0
+Version: 1.4.0
 Summary: An integration package connecting NVIDIA AI Endpoints and LangChain
 License: MIT
 License-File: LICENSE

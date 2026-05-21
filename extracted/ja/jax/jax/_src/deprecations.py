@@ -36,7 +36,7 @@ import warnings
 # __getattr__ = _deprecation_getattr(__name__, _deprecations)
 # del _deprecation_getattr
 
-# Note that type checkers such as Pytype will not know about the deprecated
+# Note that type checkers such as Pyrefly will not know about the deprecated
 # names. If it is desirable that a deprecated name is known to the type checker,
 # add:
 # import typing
@@ -128,3 +128,4 @@ def warn(deprecation_id: str, message: str, stacklevel: int, *,
 register('jax-array-numpy-dtype')
 register('jax-nn-one-hot-float-input')
 register('jax-numpy-astype-complex-to-real')
+register('jax-array-positional-args')

@@ -2,7 +2,8 @@ name: Lint
 
 on:
   pull_request:
+  merge_group:
 
 jobs:
   Lint:
-    uses: tskit-dev/.github/.github/workflows/lint.yml@v14
+    uses: tskit-dev/.github/.github/workflows/lint.yml@v15

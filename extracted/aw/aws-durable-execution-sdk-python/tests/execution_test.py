@@ -14,7 +14,9 @@ from aws_durable_execution_sdk_python.exceptions import (
     BotoClientError,
     CheckpointError,
     CheckpointErrorCategory,
+    DurableApiErrorCategory,
     ExecutionError,
+    GetExecutionStateError,
     InvocationError,
     SuspendExecution,
 )
@@ -41,6 +43,7 @@ from aws_durable_execution_sdk_python.lambda_service import (
     OperationStatus,
     OperationType,
     OperationUpdate,
+    StateOutput,
     StepDetails,
     WaitDetails,
 )
@@ -774,51 +777,6 @@ def test_durable_execution_client_selection_default():
         mock_lambda_client.initialize_client.assert_called_once()
 
 
-def test_initial_execution_state_get_execution_operation_no_operations():
-    """Test get_execution_operation logs debug and returns None when no operations exist."""
-    state = InitialExecutionState(operations=[], next_marker="")
-
-    with patch("aws_durable_execution_sdk_python.execution.logger") as mock_logger:
-        result = state.get_execution_operation()
-
-        assert result is None
-        mock_logger.debug.assert_called_once_with(
-            "No durable operations found in initial execution state."
-        )
-
-
-def test_initial_execution_state_get_execution_operation_wrong_type():
-    """Test get_execution_operation raises error when first operation is not EXECUTION."""
-    operation = Operation(
-        operation_id="step1",
-        operation_type=OperationType.STEP,
-        status=OperationStatus.STARTED,
-    )
-
-    state = InitialExecutionState(operations=[operation], next_marker="")
-
-    with pytest.raises(
-        Exception,
-        match="First operation in initial execution state is not an execution operation",
-    ):
-        state.get_execution_operation()
-
-
-def test_initial_execution_state_get_input_payload_none():
-    """Test get_input_payload returns None when execution_details is None."""
-    operation = Operation(
-        operation_id="exec1",
-        operation_type=OperationType.EXECUTION,
-        status=OperationStatus.STARTED,
-        execution_details=None,
-    )
-
-    state = InitialExecutionState(operations=[operation], next_marker="")
-
-    result = state.get_input_payload()
-    assert result is None
-
-
 def test_durable_handler_empty_input_payload():
     """Test durable_handler handles empty input payload correctly."""
     mock_client = Mock(spec=DurableServiceClient)
@@ -916,7 +874,7 @@ def test_durable_handler_invalid_json_input_payload():
     initial_state = InitialExecutionState(operations=[operation], next_marker="")
 
     invocation_input = DurableExecutionInvocationInputWithClient(
-        durable_execution_arn="arn:test:execution",
+        durable_execution_arn="arn:test:execution/exec1",
         checkpoint_token="token123",  # noqa: S106
         initial_execution_state=initial_state,
         service_client=mock_client,
@@ -1066,8 +1024,9 @@ def test_durable_execution_checkpoint_error_in_background_thread():
     # Make the service client checkpoint call fail with CheckpointError
     mock_client.checkpoint.side_effect = failing_checkpoint
 
-    with pytest.raises(CheckpointError, match="Background checkpoint failed"):
-        test_handler(invocation_input, lambda_context)
+    response = test_handler(invocation_input, lambda_context)
+    assert response["Status"] == InvocationStatus.FAILED.value
+    assert response["Error"]["ErrorType"] == "CheckpointError"
 
 
 # endregion durable_execution
@@ -1120,16 +1079,13 @@ def test_durable_execution_checkpoint_execution_error_stops_background():
         "aws_durable_execution_sdk_python.state.ExecutionState.checkpoint_batches_forever",
         side_effect=slow_background,
     ):
-        with pytest.raises(CheckpointError, match="Checkpoint system failed"):
-            test_handler(invocation_input, lambda_context)
+        response = test_handler(invocation_input, lambda_context)
+        assert response["Status"] == InvocationStatus.FAILED.value
+        assert response["Error"]["ErrorType"] == "CheckpointError"
 
 
-def test_durable_execution_checkpoint_invocation_error_stops_background():
-    """Test that CheckpointError handler stops background checkpointing.
-
-    When user code raises CheckpointError, the handler should stop the background
-    thread before re-raising to terminate the Lambda.
-    """
+def test_durable_execution_checkpoint_invocation_error_retries():
+    """Test that CheckpointError with INVOCATION category re-raises to trigger Lambda retry."""
     mock_client = Mock(spec=DurableServiceClient)
 
     @durable_execution
@@ -1171,13 +1127,12 @@ def test_durable_execution_checkpoint_invocation_error_stops_background():
         "aws_durable_execution_sdk_python.state.ExecutionState.checkpoint_batches_forever",
         side_effect=slow_background,
     ):
-        response = test_handler(invocation_input, lambda_context)
-        assert response["Status"] == InvocationStatus.FAILED.value
-        assert response["Error"]["ErrorType"] == "CheckpointError"
+        with pytest.raises(CheckpointError, match="Checkpoint system failed"):
+            test_handler(invocation_input, lambda_context)
 
 
-def test_durable_execution_background_thread_execution_error_retries():
-    """Test that background thread Execution errors are retried (re-raised)."""
+def test_durable_execution_background_thread_execution_error_returns_failed():
+    """Test that background thread Execution errors return FAILED (permanent, no retry)."""
     mock_client = Mock(spec=DurableServiceClient)
 
     def failing_checkpoint(*args, **kwargs):
@@ -1215,12 +1170,13 @@ def test_durable_execution_background_thread_execution_error_retries():
 
     mock_client.checkpoint.side_effect = failing_checkpoint
 
-    with pytest.raises(CheckpointError, match="Background checkpoint failed"):
-        test_handler(invocation_input, lambda_context)
+    response = test_handler(invocation_input, lambda_context)
+    assert response["Status"] == InvocationStatus.FAILED.value
+    assert response["Error"]["ErrorType"] == "CheckpointError"
 
 
-def test_durable_execution_background_thread_invocation_error_returns_failed():
-    """Test that background thread Invocation errors return FAILED status."""
+def test_durable_execution_background_thread_invocation_error_retries():
+    """Test that background thread Invocation errors re-raise to trigger Lambda retry."""
     mock_client = Mock(spec=DurableServiceClient)
 
     def failing_checkpoint(*args, **kwargs):
@@ -1258,13 +1214,12 @@ def test_durable_execution_background_thread_invocation_error_returns_failed():
 
     mock_client.checkpoint.side_effect = failing_checkpoint
 
-    response = test_handler(invocation_input, lambda_context)
-    assert response["Status"] == InvocationStatus.FAILED.value
-    assert response["Error"]["ErrorType"] == "CheckpointError"
+    with pytest.raises(CheckpointError, match="Background checkpoint failed"):
+        test_handler(invocation_input, lambda_context)
 
 
-def test_durable_execution_final_success_checkpoint_execution_error_retries():
-    """Test that execution errors on final success checkpoint trigger retry."""
+def test_durable_execution_final_success_checkpoint_execution_error_returns_failed():
+    """Test that execution errors on final success checkpoint return FAILED (permanent, no retry)."""
     mock_client = Mock(spec=DurableServiceClient)
 
     def failing_final_checkpoint(*args, **kwargs):
@@ -1303,12 +1258,13 @@ def test_durable_execution_final_success_checkpoint_execution_error_retries():
 
     mock_client.checkpoint.side_effect = failing_final_checkpoint
 
-    with pytest.raises(CheckpointError, match="Final checkpoint failed"):
-        test_handler(invocation_input, lambda_context)
+    response = test_handler(invocation_input, lambda_context)
+    assert response["Status"] == InvocationStatus.FAILED.value
+    assert response["Error"]["ErrorType"] == "CheckpointError"
 
 
-def test_durable_execution_final_success_checkpoint_invocation_error_returns_failed():
-    """Test that invocation errors on final success checkpoint return FAILED."""
+def test_durable_execution_final_success_checkpoint_invocation_error_retries():
+    """Test that invocation errors on final success checkpoint re-raise to trigger Lambda retry."""
     mock_client = Mock(spec=DurableServiceClient)
 
     def failing_final_checkpoint(*args, **kwargs):
@@ -1348,14 +1304,12 @@ def test_durable_execution_final_success_checkpoint_invocation_error_returns_fai
 
     mock_client.checkpoint.side_effect = failing_final_checkpoint
 
-    response = test_handler(invocation_input, lambda_context)
-    assert response["Status"] == InvocationStatus.FAILED.value
-    assert response["Error"]["ErrorType"] == "CheckpointError"
-    assert response["Error"]["ErrorMessage"] == "Final checkpoint failed"
+    with pytest.raises(CheckpointError, match="Final checkpoint failed"):
+        test_handler(invocation_input, lambda_context)
 
 
-def test_durable_execution_final_failure_checkpoint_execution_error_retries():
-    """Test that execution errors on final failure checkpoint trigger retry."""
+def test_durable_execution_final_failure_checkpoint_execution_error_returns_failed():
+    """Test that execution errors on final failure checkpoint return FAILED (permanent, no retry)."""
     mock_client = Mock(spec=DurableServiceClient)
 
     def failing_final_checkpoint(*args, **kwargs):
@@ -1396,12 +1350,13 @@ def test_durable_execution_final_failure_checkpoint_execution_error_retries():
 
     mock_client.checkpoint.side_effect = failing_final_checkpoint
 
-    with pytest.raises(CheckpointError, match="Final checkpoint failed"):
-        test_handler(invocation_input, lambda_context)
+    response = test_handler(invocation_input, lambda_context)
+    assert response["Status"] == InvocationStatus.FAILED.value
+    assert response["Error"]["ErrorType"] == "CheckpointError"
 
 
-def test_durable_execution_final_failure_checkpoint_invocation_error_returns_failed():
-    """Test that invocation errors on final failure checkpoint return FAILED."""
+def test_durable_execution_final_failure_checkpoint_invocation_error_retries():
+    """Test that invocation errors on final failure checkpoint re-raise to trigger Lambda retry."""
     mock_client = Mock(spec=DurableServiceClient)
 
     def failing_final_checkpoint(*args, **kwargs):
@@ -1442,10 +1397,8 @@ def test_durable_execution_final_failure_checkpoint_invocation_error_returns_fai
 
     mock_client.checkpoint.side_effect = failing_final_checkpoint
 
-    response = test_handler(invocation_input, lambda_context)
-    assert response["Status"] == InvocationStatus.FAILED.value
-    assert response["Error"]["ErrorType"] == "CheckpointError"
-    assert response["Error"]["ErrorMessage"] == "Final checkpoint failed"
+    with pytest.raises(CheckpointError, match="Final checkpoint failed"):
+        test_handler(invocation_input, lambda_context)
 
 
 def test_durable_handler_background_thread_failure_on_succeed_checkpoint():
@@ -1809,14 +1762,16 @@ def test_durable_execution_logs_checkpoint_error_extras_from_background_thread()
     mock_client.checkpoint.side_effect = failing_checkpoint
 
     with patch("aws_durable_execution_sdk_python.execution.logger", mock_logger):
-        with pytest.raises(CheckpointError):
-            test_handler(invocation_input, lambda_context)
+        response = test_handler(invocation_input, lambda_context)
+        assert response["Status"] == InvocationStatus.FAILED.value
+        assert response["Error"]["ErrorType"] == "CheckpointError"
 
-    mock_logger.exception.assert_called_once()
-    call_args = mock_logger.exception.call_args
-    assert "Checkpoint processing failed" in call_args[0][0]
-    assert call_args[1]["extra"]["Error"] == error_obj
-    assert call_args[1]["extra"]["ResponseMetadata"] == metadata_obj
+    mock_logger.exception.assert_called()
+    # First call: "Checkpoint processing failed" with error extras
+    first_call = mock_logger.exception.call_args_list[0]
+    assert "Checkpoint processing failed" in first_call[0][0]
+    assert first_call[1]["extra"]["Error"] == error_obj
+    assert first_call[1]["extra"]["ResponseMetadata"] == metadata_obj
 
 
 def test_durable_execution_logs_boto_client_error_extras_from_background_thread():
@@ -1922,8 +1877,9 @@ def test_durable_execution_logs_checkpoint_error_extras_from_user_code():
     lambda_context.tenant_id = None
 
     with patch("aws_durable_execution_sdk_python.execution.logger", mock_logger):
-        with pytest.raises(CheckpointError):
-            test_handler(invocation_input, lambda_context)
+        response = test_handler(invocation_input, lambda_context)
+        assert response["Status"] == InvocationStatus.FAILED.value
+        assert response["Error"]["ErrorType"] == "CheckpointError"
 
     mock_logger.exception.assert_called_once()
     call_args = mock_logger.exception.call_args
@@ -2693,4 +2649,181 @@ def test_from_dict_leaves_timestamps_as_integers():
     ):
         _ = operations[1].wait_details.scheduled_end_timestamp < datetime.datetime.now(
             tz=datetime.UTC
+        )
+
+
+# =============================================================================
+# Non-retryable Durable API error handling tests
+# =============================================================================
+
+
+def _make_invocation_input(mock_client, next_marker=""):
+    """Helper to create a standard test invocation input."""
+    operation = Operation(
+        operation_id="exec1",
+        operation_type=OperationType.EXECUTION,
+        status=OperationStatus.STARTED,
+        execution_details=ExecutionDetails(input_payload="{}"),
+    )
+    return DurableExecutionInvocationInputWithClient(
+        durable_execution_arn="arn:test:execution",
+        checkpoint_token="token123",  # noqa: S106
+        initial_execution_state=InitialExecutionState(
+            operations=[operation], next_marker=next_marker
+        ),
+        service_client=mock_client,
+    )
+
+
+def _make_lambda_context():
+    """Helper to create a standard mock Lambda context."""
+    ctx = Mock()
+    ctx.aws_request_id = "test-request"
+    ctx.client_context = None
+    ctx.identity = None
+    ctx._epoch_deadline_time_in_ms = 1000000  # noqa: SLF001
+    ctx.invoked_function_arn = None
+    ctx.tenant_id = None
+    return ctx
+
+
+def test_durable_execution_replays_when_paginated_state_has_prior_operations():
+    """Test paginated execution state starts in replay mode when prior operations exist."""
+    mock_client = Mock(spec=DurableServiceClient)
+    step_operation = Operation(
+        operation_id="step1",
+        operation_type=OperationType.STEP,
+        status=OperationStatus.SUCCEEDED,
+    )
+    mock_client.get_execution_state.return_value = StateOutput(
+        operations=[step_operation],
+        next_marker=None,
+    )
+
+    invocation_input = _make_invocation_input(mock_client, next_marker="page2")
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        return {"is_replaying": context.state.is_replaying()}
+
+    result = test_handler(invocation_input, _make_lambda_context())
+
+    assert result["Status"] == InvocationStatus.SUCCEEDED.value
+    assert json.loads(result["Result"]) == {"is_replaying": True}
+    mock_client.get_execution_state.assert_called_once_with(
+        durable_execution_arn="arn:test:execution",
+        checkpoint_token="token123",
+        next_marker="page2",
+    )
+
+
+def test_durable_execution_non_retryable_invocation_error_returns_failed():
+    """Test that non-retryable InvocationError returns FAILED instead of retrying."""
+    mock_client = Mock(spec=DurableServiceClient)
+    non_retryable_error = GetExecutionStateError(
+        message="KMS access denied",
+        error_category=DurableApiErrorCategory.EXECUTION,
+        error={"Code": "KMSAccessDeniedException", "Message": "KMS access denied"},
+        response_metadata={"HTTPStatusCode": 502},
+    )
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        raise non_retryable_error
+
+    result = test_handler(_make_invocation_input(mock_client), _make_lambda_context())
+    assert result["Status"] == InvocationStatus.FAILED.value
+    assert result["Error"]["ErrorType"] == "GetExecutionStateError"
+
+
+def test_durable_execution_retryable_invocation_error_raises():
+    """Test that retryable InvocationError raises to trigger Lambda retry."""
+    mock_client = Mock(spec=DurableServiceClient)
+    retryable_error = GetExecutionStateError(
+        message="Service error",
+        error={"Code": "ServiceException", "Message": "Internal error"},
+        response_metadata={"HTTPStatusCode": 500},
+    )
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        raise retryable_error
+
+    with pytest.raises(GetExecutionStateError, match="Service error"):
+        test_handler(_make_invocation_input(mock_client), _make_lambda_context())
+
+
+def test_durable_execution_non_retryable_background_thread_error_returns_failed():
+    """Test that non-retryable error from background thread returns FAILED."""
+    mock_client = Mock(spec=DurableServiceClient)
+    non_retryable_error = GetExecutionStateError(
+        message="KMS key disabled",
+        error_category=DurableApiErrorCategory.EXECUTION,
+        error={"Code": "KMSDisabledException", "Message": "KMS key disabled"},
+        response_metadata={"HTTPStatusCode": 502},
+    )
+    mock_client.checkpoint.side_effect = lambda *a, **kw: (_ for _ in ()).throw(
+        non_retryable_error
+    )
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        context.step(lambda ctx: "step_result")
+        return {"result": "success"}
+
+    result = test_handler(_make_invocation_input(mock_client), _make_lambda_context())
+    assert result["Status"] == InvocationStatus.FAILED.value
+    assert result["Error"]["ErrorType"] == "GetExecutionStateError"
+
+
+@pytest.mark.parametrize(
+    ("error_code", "status_code", "error_category"),
+    [
+        ("KMSAccessDeniedException", 502, DurableApiErrorCategory.EXECUTION),
+        ("ValidationException", 400, DurableApiErrorCategory.EXECUTION),
+    ],
+)
+def test_durable_execution_non_retryable_initial_pagination_error_returns_failed(
+    error_code: str, status_code: int, error_category: DurableApiErrorCategory
+):
+    """Test that non-retryable errors during initial pagination return FAILED."""
+    mock_client = Mock(spec=DurableServiceClient)
+    non_retryable_error = GetExecutionStateError(
+        message=f"{error_code} error",
+        error_category=error_category,
+        error={"Code": error_code, "Message": f"{error_code} error"},
+        response_metadata={"HTTPStatusCode": status_code},  # type: ignore[arg-type]
+    )
+    mock_client.get_execution_state.side_effect = non_retryable_error
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        return {"result": "success"}
+
+    result = test_handler(
+        _make_invocation_input(mock_client, next_marker="next-page-marker"),
+        _make_lambda_context(),
+    )
+    assert result["Status"] == InvocationStatus.FAILED.value
+    assert result["Error"]["ErrorType"] == "GetExecutionStateError"
+
+
+def test_durable_execution_retryable_initial_pagination_error_raises():
+    """Test that retryable error during initial pagination raises to trigger Lambda retry."""
+    mock_client = Mock(spec=DurableServiceClient)
+    retryable_error = GetExecutionStateError(
+        message="Service error",
+        error={"Code": "ServiceException", "Message": "Internal error"},
+        response_metadata={"HTTPStatusCode": 500},
+    )
+    mock_client.get_execution_state.side_effect = retryable_error
+
+    @durable_execution
+    def test_handler(event: Any, context: DurableContext) -> dict:
+        return {"result": "success"}
+
+    with pytest.raises(GetExecutionStateError, match="Service error"):
+        test_handler(
+            _make_invocation_input(mock_client, next_marker="next-page-marker"),
+            _make_lambda_context(),
         )

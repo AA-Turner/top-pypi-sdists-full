@@ -118,6 +118,7 @@ class DatasetRevision(Protocol):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | None | ellipsis = ...,
+        translate_fqns: bool = False,
     ) -> pl.DataFrame:
         """Loads a `pl.DataFrame` containing the output. Use `.to_polars_lazyframe()` if you want
         a `LazyFrame` instead, which allows local filtering of datasets that are larger than memory.
@@ -140,6 +141,10 @@ class DatasetRevision(Protocol):
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
+        translate_fqns
+            If `True`, rewrite windowed feature column names from their internal FQN format
+            (e.g. `user.login_count__86400__`) to a human-readable format
+            (e.g. `user.login_count["1d"]`).
 
         Returns
         -------
@@ -155,6 +160,7 @@ class DatasetRevision(Protocol):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | None | ellipsis = ...,
+        translate_fqns: bool = False,
     ) -> pl.LazyFrame:
         """Loads a `pl.LazyFrame` containing the output. This method is appropriate for working with larger-than-memory datasets.
         Use `.to_polars()` if you want a `DataFrame` instead.
@@ -177,6 +183,10 @@ class DatasetRevision(Protocol):
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
+        translate_fqns
+            If `True`, rewrite windowed feature column names from their internal FQN format
+            (e.g. `user.login_count__86400__`) to a human-readable format
+            (e.g. `user.login_count["1d"]`).
 
         Returns
         -------
@@ -783,6 +793,7 @@ class Dataset(Protocol):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | None | ellipsis = ...,
+        translate_fqns: bool = False,
     ) -> pl.DataFrame:
         """Loads a `pl.DataFrame` containing the output. Use `.to_polars_lazyframe()` if you want
         a `LazyFrame` instead, which allows local filtering of datasets that are larger than memory.
@@ -805,6 +816,10 @@ class Dataset(Protocol):
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
+        translate_fqns
+            If `True`, rewrite windowed feature column names from their internal FQN format
+            (e.g. `user.login_count__86400__`) to a human-readable format
+            (e.g. `user.login_count["1d"]`).
 
         Returns
         -------
@@ -938,6 +953,7 @@ class Dataset(Protocol):
         ignore_errors: bool = False,
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | None | ellipsis = ...,
+        translate_fqns: bool = False,
     ) -> pl.LazyFrame:
         """Loads a `pl.LazyFrame` containing the output. This method is appropriate for working with larger-than-memory datasets.
         Use `.to_polars()` if you want a `DataFrame` instead.
@@ -960,6 +976,10 @@ class Dataset(Protocol):
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
+        translate_fqns
+            If `True`, rewrite windowed feature column names from their internal FQN format
+            (e.g. `user.login_count__86400__`) to a human-readable format
+            (e.g. `user.login_count["1d"]`).
 
         Returns
         -------
@@ -1085,6 +1105,7 @@ class Dataset(Protocol):
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | None | ellipsis = ...,
         skip_failed_shards: bool = False,
+        translate_fqns: bool = False,
     ) -> pd.DataFrame:
         """Loads a `pd.DataFrame` containing the output of the most recent revision.
 
@@ -1106,6 +1127,10 @@ class Dataset(Protocol):
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
+        translate_fqns
+            If `True`, rewrite windowed feature column names from their internal FQN format
+            (e.g. `user.login_count__86400__`) to a human-readable format
+            (e.g. `user.login_count["1d"]`).
 
         Returns
         -------

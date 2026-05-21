@@ -118,6 +118,7 @@ from .cloud_security_crowd_strike_dataset import CloudSecurityCrowdStrikeDataset
 from .cloud_security_crowd_strike_mock import CloudSecurityCrowdStrikeMock
 from .cloud_security_defender import CloudSecurityDefender
 from .cloud_security_event_bridge_sqs_queues import CloudSecurityEventBridgeSqsQueues
+from .cloud_security_google import CloudSecurityGoogle
 from .cloud_security_palo_alto import CloudSecurityPaloAlto
 from .cloud_security_upwind import CloudSecurityUpwind
 from .cloud_security_wiz import CloudSecurityWiz
@@ -289,7 +290,10 @@ from .http_receiver_token_credential import (
     HttpReceiverTokenCredential_TokenId,
 )
 from .http_request_body_format import HttpRequestBodyFormat
+from .identity_aws_iam import IdentityAwsIam
 from .identity_entra_id import IdentityEntraId
+from .identity_entra_id_dataset import IdentityEntraIdDataset
+from .identity_entra_id_mock import IdentityEntraIdMock
 from .identity_google import IdentityGoogle
 from .identity_okta import IdentityOkta
 from .identity_ping_one import IdentityPingOne
@@ -446,6 +450,7 @@ from .provider_config import (
     ProviderConfig_CloudsecurityCrowdstrike,
     ProviderConfig_CloudsecurityCrowdstrikeMock,
     ProviderConfig_CloudsecurityDefender,
+    ProviderConfig_CloudsecurityGoogle,
     ProviderConfig_CloudsecurityPaloalto,
     ProviderConfig_CloudsecurityUpwind,
     ProviderConfig_CloudsecurityWiz,
@@ -465,7 +470,9 @@ from .provider_config import (
     ProviderConfig_EndpointmanagementIntune,
     ProviderConfig_EndpointmanagementIru,
     ProviderConfig_EndpointmanagementJamf,
+    ProviderConfig_IdentityAwsIam,
     ProviderConfig_IdentityEntraId,
+    ProviderConfig_IdentityEntraIdMock,
     ProviderConfig_IdentityGoogle,
     ProviderConfig_IdentityOkta,
     ProviderConfig_IdentityPingone,
@@ -529,6 +536,7 @@ from .provider_config import (
     ProviderConfig_TicketingZendesk,
     ProviderConfig_VulnerabilitiesAmazonInspector,
     ProviderConfig_VulnerabilitiesAxonius,
+    ProviderConfig_VulnerabilitiesAxoniusMock,
     ProviderConfig_VulnerabilitiesCrowdstrike,
     ProviderConfig_VulnerabilitiesCrowdstrikeMock,
     ProviderConfig_VulnerabilitiesDefender,
@@ -739,6 +747,8 @@ from .veracode_credential import (
 from .veracode_region import VeracodeRegion
 from .vulnerabilities_amazon_inspector import VulnerabilitiesAmazonInspector
 from .vulnerabilities_axonius import VulnerabilitiesAxonius
+from .vulnerabilities_axonius_dataset import VulnerabilitiesAxoniusDataset
+from .vulnerabilities_axonius_mock import VulnerabilitiesAxoniusMock
 from .vulnerabilities_crowd_strike import VulnerabilitiesCrowdStrike
 from .vulnerabilities_crowd_strike_dataset import VulnerabilitiesCrowdStrikeDataset
 from .vulnerabilities_crowd_strike_mock import VulnerabilitiesCrowdStrikeMock
@@ -870,6 +880,7 @@ __all__ = [
     "CloudSecurityCrowdStrikeMock",
     "CloudSecurityDefender",
     "CloudSecurityEventBridgeSqsQueues",
+    "CloudSecurityGoogle",
     "CloudSecurityPaloAlto",
     "CloudSecurityUpwind",
     "CloudSecurityWiz",
@@ -993,7 +1004,10 @@ __all__ = [
     "HttpReceiverTokenCredential_Token",
     "HttpReceiverTokenCredential_TokenId",
     "HttpRequestBodyFormat",
+    "IdentityAwsIam",
     "IdentityEntraId",
+    "IdentityEntraIdDataset",
+    "IdentityEntraIdMock",
     "IdentityGoogle",
     "IdentityOkta",
     "IdentityPingOne",
@@ -1114,6 +1128,7 @@ __all__ = [
     "ProviderConfig_CloudsecurityCrowdstrike",
     "ProviderConfig_CloudsecurityCrowdstrikeMock",
     "ProviderConfig_CloudsecurityDefender",
+    "ProviderConfig_CloudsecurityGoogle",
     "ProviderConfig_CloudsecurityPaloalto",
     "ProviderConfig_CloudsecurityUpwind",
     "ProviderConfig_CloudsecurityWiz",
@@ -1133,7 +1148,9 @@ __all__ = [
     "ProviderConfig_EndpointmanagementIntune",
     "ProviderConfig_EndpointmanagementIru",
     "ProviderConfig_EndpointmanagementJamf",
+    "ProviderConfig_IdentityAwsIam",
     "ProviderConfig_IdentityEntraId",
+    "ProviderConfig_IdentityEntraIdMock",
     "ProviderConfig_IdentityGoogle",
     "ProviderConfig_IdentityOkta",
     "ProviderConfig_IdentityPingone",
@@ -1197,6 +1214,7 @@ __all__ = [
     "ProviderConfig_TicketingZendesk",
     "ProviderConfig_VulnerabilitiesAmazonInspector",
     "ProviderConfig_VulnerabilitiesAxonius",
+    "ProviderConfig_VulnerabilitiesAxoniusMock",
     "ProviderConfig_VulnerabilitiesCrowdstrike",
     "ProviderConfig_VulnerabilitiesCrowdstrikeMock",
     "ProviderConfig_VulnerabilitiesDefender",
@@ -1353,6 +1371,8 @@ __all__ = [
     "VeracodeRegion",
     "VulnerabilitiesAmazonInspector",
     "VulnerabilitiesAxonius",
+    "VulnerabilitiesAxoniusDataset",
+    "VulnerabilitiesAxoniusMock",
     "VulnerabilitiesCrowdStrike",
     "VulnerabilitiesCrowdStrikeDataset",
     "VulnerabilitiesCrowdStrikeMock",

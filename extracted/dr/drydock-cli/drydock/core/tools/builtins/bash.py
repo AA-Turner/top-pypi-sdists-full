@@ -689,6 +689,21 @@ class Bash(
                 run_count_state[args.command] = _run_cnt
                 if _run_cnt >= 5:
                     cmd_preview = args.command[:80]
+                    # Truncate the previous stdout heavily so the
+                    # loop-breaker preamble isn't overshadowed by full
+                    # test output the model would re-engage with.
+                    # Observed 2026-05-20: model ran `pytest -q` 12×
+                    # because each loop-breaker response still embedded
+                    # the full pytest failure list. Model read past the
+                    # warning, saw the failures, "had to fix them" →
+                    # called pytest again → cached failures returned →
+                    # re-engaged → loop.
+                    _stdout_tail = stdout[-300:] if len(stdout) > 300 else stdout
+                    _tail_note = (
+                        " (output truncated — full output already in your "
+                        "history from the first run)"
+                        if len(stdout) > 300 else ""
+                    )
                     yield self._build_result(
                         command=args.command,
                         stdout=(
@@ -696,12 +711,16 @@ class Bash(
                             f"{_run_cnt} times this session with the same "
                             f"command text. The output is stable — re-running "
                             f"it will not produce new information. "
-                            f"Stop repeating this command and move on to the "
-                            f"next task step. If you are benchmarking, one "
-                            f"run is enough. If you are checking an import, "
-                            f"the result is already known.]\n{stdout}"
+                            f"Stop repeating this command and CHANGE TACTIC: "
+                            f"either edit the source files to fix what the "
+                            f"output shows, or read a different file, or end "
+                            f"your turn. If the output above shows test "
+                            f"failures, the next step is search_replace or "
+                            f"write_file on the source — NOT another pytest "
+                            f"run.]\n\n--- previous stdout tail{_tail_note} ---\n"
+                            f"{_stdout_tail}"
                         ),
-                        stderr=stderr,
+                        stderr="",  # don't re-emit stderr either
                         returncode=returncode,
                     )
                     return

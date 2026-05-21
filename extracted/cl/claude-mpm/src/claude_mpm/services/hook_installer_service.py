@@ -24,9 +24,11 @@ class HookInstallerService:
         # This ensures hooks are scoped to the current project only
         self.project_root = Path.cwd()
         self.claude_dir = self.project_root / ".claude"
-        # Use settings.local.json for project-level hook settings
-        # Claude Code reads project-level settings from .claude/settings.local.json
-        self.settings_file = self.claude_dir / "settings.local.json"
+        # Use settings.json for project-level (team-shared, checked-in) hook settings.
+        # Previously this service wrote to settings.local.json; writing to settings.json
+        # keeps MPM hooks consistent with the project-level HookInstaller and allows
+        # hooks to be shared across the team.
+        self.settings_file = self.claude_dir / "settings.json"
 
     def is_hooks_configured(self) -> bool:
         """Check if hooks are configured in Claude settings.
@@ -328,10 +330,14 @@ class HookInstallerService:
             # Configure hooks with async timeout
             # The hook script returns {"async": true} for non-blocking execution
             # timeout: 60 seconds max wait for initial response (async returns immediately)
+            # The "_mpm": True marker is the authoritative signal that this
+            # hook belongs to claude-mpm (used by the v6_3_19 migration to
+            # identify MPM hooks; substring matching is only a legacy fallback).
             new_hook_command = {
                 "type": "command",
                 "command": hook_script_path,
                 "timeout": 60,
+                "_mpm": True,
             }
 
             # Update settings

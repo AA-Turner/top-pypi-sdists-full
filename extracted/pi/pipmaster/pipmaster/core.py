@@ -62,7 +62,7 @@ class PackageManager:
         self._version_cache: Dict[str, Optional[str]] = {}
 
         if self.venv_path:
-            venv_path_obj = Path(self.venv_path)
+            venv_path_obj = Path(self.venv_path) / "pyvenv.cfg"
 
             if not venv_path_obj.exists() and create_if_not_exist:
                 logger.info(f"{EMOJI['gear']} Virtual environment not found at '{self.venv_path}'. Creating it...")

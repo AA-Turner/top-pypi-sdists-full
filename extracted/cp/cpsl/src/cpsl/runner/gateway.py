@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 import signal
 import subprocess
@@ -28,7 +29,6 @@ from ..clients.capsule import (
 from .shared import (
     _HEARTBEAT_INTERVAL,
     _PORT,
-    _SUBMIT_RESULT_WORKERS,
     _log,
     _log_buffer,
     _log_buffer_lock,
@@ -36,6 +36,34 @@ from .shared import (
 
 
 class RunnerGatewayMixin:
+    def _track_submit_future(self, future: concurrent.futures.Future) -> None:
+        lock = getattr(self, "_submit_futures_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            self._submit_futures_lock = lock
+        with lock:
+            futures = getattr(self, "_submit_futures", None)
+            if futures is None:
+                futures = []
+                self._submit_futures = futures
+            futures[:] = [f for f in futures if not f.done()]
+            futures.append(future)
+
+    async def _drain_submit_results(self) -> None:
+        while True:
+            lock = getattr(self, "_submit_futures_lock", None)
+            if lock is None:
+                return
+            with lock:
+                futures = list(getattr(self, "_submit_futures", []))
+                self._submit_futures = []
+            if not futures:
+                return
+            await asyncio.gather(
+                *(asyncio.wrap_future(f) for f in futures),
+                return_exceptions=True,
+            )
+
     def _submit(
         self,
         request_id: str,
@@ -71,25 +99,12 @@ class RunnerGatewayMixin:
         executor = getattr(self, "_submit_executor", None)
         if executor is None:
             executor = ThreadPoolExecutor(
-                max_workers=max(1, _SUBMIT_RESULT_WORKERS),
+                max_workers=1,
                 thread_name_prefix="cpsl-submit-result",
             )
             self._submit_executor = executor
 
-        loop = None
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = self._loop if self._loop and self._loop.is_running() else None
-
-        if loop and loop.is_running():
-            loop.run_in_executor(executor, _call)
-            return
-
-        try:
-            self._runner_stub.submit_result(req)
-        except Exception as exc:
-            _log(f"submit_result failed: {exc}")
+        self._track_submit_future(executor.submit(_call))
 
     def _submit_block(self, session_id: str, block_json: str) -> None:
         """Send a structured block as a session-scoped message.

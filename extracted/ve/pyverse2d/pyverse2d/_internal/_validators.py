@@ -39,6 +39,8 @@ def expect(value: object, types: type | Tuple[type, ...]):
     Raises:
         TypeError: si la valeur n'est pas conforme
     """
+    __tracebackhide__ = True
+
     # (T1, T2, T3)
     if isinstance(types, tuple):
         types = tuple(type(None) if t is None else t for t in types)
@@ -157,6 +159,8 @@ def expect_callable(value: object, include_none: bool = False, arg: str = "Argum
         include_none: accepte que la valeur soit ``None``
         arg: nom de l'argument
     """
+    __tracebackhide__ = True
+
     if callable(value):
         return value
     if include_none and value is None:
@@ -172,6 +176,8 @@ def expect_subclass(value: object, superclass: Type, arg: str = "Argument") -> o
         superclass: classe dont l'objet doit hériter
         arg: nom de l'argument
     """
+    __tracebackhide__ = True
+
     if not issubclass(value, superclass):
         raise TypeError(f"{arg} ({type(value).__name__}) must be a subclass of {superclass.__name__}")
     return value
@@ -186,6 +192,8 @@ def not_null(value: object, arg: str = "Argument"):
         value(object): valeur à vérifier
         arg(str): nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     # None
     if value is None:
         raise ValueError(f"{arg} cannot be None")
@@ -221,6 +229,8 @@ def not_in(value: object, forbidden: object | tuple[object], arg: str = "Argumen
         forbidden(object | tuple[object]): valeur(s) interdite(s)
         arg(str): nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     forbidden = forbidden if isinstance(forbidden, tuple) else (forbidden,)
     if value in forbidden:
         readable = " | ".join(repr(f) for f in forbidden)
@@ -236,6 +246,8 @@ def positive(value: Real, arg: str = "Argument"):
         value: valeur à vérifier
         arg: nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     if value < 0:
         raise ValueError(f"{arg} cannot be negative")
     return value
@@ -249,6 +261,8 @@ def over(value: Real, threshold: Real, include: bool = True, arg: str = "Argumen
         threshold: seuil minimum exclu
         arg: nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     if (value < threshold if include else value <= threshold):
         raise ValueError(f"{arg} must be over {threshold}")
     return value
@@ -262,6 +276,8 @@ def under(value: Real, threshold: Real, include: bool = True, arg: str = "Argume
         threshold: seuil maximum exclu
         arg: nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     if (value > threshold if include else value >= threshold):
         raise ValueError(f"{arg} must be under {threshold}")
     return value
@@ -276,6 +292,8 @@ def clamped(value: Real, min: Real = 0.0, max: Real = 1.0, include_min: bool = T
         max: valeur maximale autorisée
         arg: nom de l'argument à vérifier
     """    
+    __tracebackhide__ = True
+
     if (value < min if include_min else value <= min) or (value > max if include_max else value >= max):
         raise ValueError(f"{arg} must be between {min} {'included' if include_min else 'excluded'} and {max} {'included' if include_max else 'excluded'}")
     return value
@@ -290,6 +308,8 @@ def inferior_to(value: Real, threshold: Real, include: bool = True, arg: str = "
         include: inclure le seuil
         arg: nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     if (value > threshold if include else value >= threshold):
         raise ValueError(f"{arg} must be inferior to {threshold}")
     return value
@@ -304,6 +324,8 @@ def superior_to(value: Real, threshold: Real, include: bool = True, arg: str = "
         include: inclure le seuil
         arg: nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     if (value < threshold if include else value <= threshold):
         raise ValueError(f"{arg} must be superior to {threshold}")
     return value
@@ -317,6 +339,8 @@ def equal_to(value: Real, target: object, arg: str = "Argument"):
         target: valeur attendue
         arg: nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     if value != target:
         raise ValueError(f"{arg} must be equal to {target!r}, got {value!r}")
     return value
@@ -330,6 +354,8 @@ def different_from(value: Real, target: object, arg: str = "Argument"):
         target: valeur interdite
         arg: nom de l'argument à vérifier
     """
+    __tracebackhide__ = True
+
     if value == target:
         raise ValueError(f"{arg} must be different from {target!r}")
     return value

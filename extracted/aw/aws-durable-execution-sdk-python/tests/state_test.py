@@ -9,13 +9,15 @@ import threading
 import time
 import unittest.mock
 from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 
 from aws_durable_execution_sdk_python.exceptions import (
     BackgroundThreadError,
     CallableRuntimeError,
+    DurableApiErrorCategory,
+    GetExecutionStateError,
     OrphanedChildException,
 )
 from aws_durable_execution_sdk_python.identifier import OperationIdentifier
@@ -328,6 +330,21 @@ def test_checkpointerd_result_is_pending():
     # Test with no operation
     result_no_op = CheckpointedResult.create_not_found()
     assert result_no_op.is_pending() is False
+
+
+def test_checkpointerd_result_is_ready():
+    """Test CheckpointedResult.is_ready method."""
+    operation = Operation(
+        operation_id="op1",
+        operation_type=OperationType.STEP,
+        status=OperationStatus.READY,
+    )
+    result = CheckpointedResult.create_from_operation(operation)
+    assert result.is_ready() is True
+
+    # Test with no operation
+    result_no_op = CheckpointedResult.create_not_found()
+    assert result_no_op.is_ready() is False
 
 
 def test_checkpointed_result_is_started():
@@ -722,6 +739,88 @@ def test_fetch_paginated_operations_with_marker():
         assert op_id in expected_operations
         expected_op = expected_operations[op_id]
         assert operation.operation_id == expected_op.operation_id
+
+
+def test_fetch_paginated_operations_stores_partial_results_on_error():
+    """Test that operations from successful pages are stored even when a later page fails."""
+    mock_lambda_client = Mock(spec=LambdaClient)
+
+    non_retryable_error = GetExecutionStateError(
+        message="KMS access denied",
+        error_category=DurableApiErrorCategory.EXECUTION,
+        error={"Code": "KMSAccessDeniedException", "Message": "KMS access denied"},
+        response_metadata={"HTTPStatusCode": 502},
+    )
+
+    def mock_get_execution_state(durable_execution_arn, checkpoint_token, next_marker):
+        if next_marker == "marker1":
+            return StateOutput(
+                operations=[
+                    Operation(
+                        operation_id="1",
+                        operation_type=OperationType.STEP,
+                        status=OperationStatus.STARTED,
+                    )
+                ],
+                next_marker="marker2",
+            )
+        raise non_retryable_error
+
+    mock_lambda_client.get_execution_state.side_effect = mock_get_execution_state
+
+    state = ExecutionState(
+        durable_execution_arn="test_arn",
+        initial_checkpoint_token="token123",  # noqa: S106
+        operations={},
+        service_client=mock_lambda_client,
+    )
+
+    with pytest.raises(GetExecutionStateError):
+        state.fetch_paginated_operations(
+            initial_operations=[
+                Operation(
+                    operation_id="0",
+                    operation_type=OperationType.STEP,
+                    status=OperationStatus.STARTED,
+                )
+            ],
+            checkpoint_token="test_token",  # noqa: S106
+            next_marker="marker1",
+        )
+
+    # Initial operation + page 1 should be stored despite page 2 failing
+    assert "0" in state.operations
+    assert "1" in state.operations
+    assert len(state.operations) == 2
+
+
+def test_fetch_paginated_operations_logs_error(caplog):
+    """Test that GetExecutionStateError is logged with structured extras."""
+    mock_lambda_client = Mock(spec=LambdaClient)
+
+    error = GetExecutionStateError(
+        message="Service error",
+        error_category=DurableApiErrorCategory.INVOCATION,
+        error={"Code": "ServiceException", "Message": "Service error"},
+        response_metadata={"HTTPStatusCode": 500},
+    )
+    mock_lambda_client.get_execution_state.side_effect = error
+
+    state = ExecutionState(
+        durable_execution_arn="test_arn",
+        initial_checkpoint_token="token123",  # noqa: S106
+        operations={},
+        service_client=mock_lambda_client,
+    )
+
+    with pytest.raises(GetExecutionStateError):
+        state.fetch_paginated_operations(
+            initial_operations=[],
+            checkpoint_token="test_token",  # noqa: S106
+            next_marker="marker1",
+        )
+
+    assert "Durable API error during state fetch." in caplog.text
 
 
 # ============================================================================
@@ -3562,3 +3661,90 @@ def test_collect_checkpoint_batch_first_empty_counts_toward_limit():
     )  # Only the leading empty; trailing deferred to next batch
     # op_2 and trailing empties remain in the queue
     assert state._checkpoint_queue.qsize() == 51
+
+
+def test_execution_state_get_execution_operation_no_operations():
+    """Test get_execution_operation logs debug and returns None when no operations exist."""
+    mock_lambda_client = Mock(spec=LambdaClient)
+    config = CheckpointBatcherConfig(
+        max_batch_size_bytes=10 * 1024 * 1024,
+        max_batch_time_seconds=10.0,
+        max_batch_operations=2,
+    )
+    state = ExecutionState(
+        durable_execution_arn="test_arn",
+        initial_checkpoint_token="token123",  # noqa: S106
+        operations={},
+        service_client=mock_lambda_client,
+        batcher_config=config,
+    )
+
+    with patch("aws_durable_execution_sdk_python.state.logger") as mock_logger:
+        result = state.get_execution_operation()
+
+        assert result is None
+        mock_logger.debug.assert_called_once_with(
+            "No durable operations found in execution state."
+        )
+
+
+def test_initial_execution_state_get_execution_operation_wrong_type():
+    """Test get_execution_operation raises error when first operation is not EXECUTION."""
+    operation = Operation(
+        operation_id="step1",
+        operation_type=OperationType.STEP,
+        status=OperationStatus.STARTED,
+    )
+
+    mock_lambda_client = Mock(spec=LambdaClient)
+    config = CheckpointBatcherConfig(
+        max_batch_size_bytes=10 * 1024 * 1024,
+        max_batch_time_seconds=10.0,
+        max_batch_operations=2,
+    )
+    state = ExecutionState(
+        durable_execution_arn="test_arn/step1",
+        initial_checkpoint_token="token123",  # noqa: S106
+        operations={"step1": operation},
+        service_client=mock_lambda_client,
+        batcher_config=config,
+    )
+
+    with pytest.raises(
+        Exception,
+        match="The execution operation in execution state does not have EXECUTION type: OperationType.STEP",
+    ):
+        state.get_execution_operation()
+
+
+def test_initial_execution_state_get_input_payload_none():
+    """Test get_input_payload returns None when execution_details is None."""
+    operation = Operation(
+        operation_id="exec1",
+        operation_type=OperationType.EXECUTION,
+        status=OperationStatus.STARTED,
+        execution_details=None,
+    )
+
+    operation = Operation(
+        operation_id="step1",
+        operation_type=OperationType.STEP,
+        status=OperationStatus.STARTED,
+    )
+
+    mock_lambda_client = Mock(spec=LambdaClient)
+    config = CheckpointBatcherConfig(
+        max_batch_size_bytes=10 * 1024 * 1024,
+        max_batch_time_seconds=10.0,
+        max_batch_operations=2,
+    )
+    state = ExecutionState(
+        durable_execution_arn="test_arn/exec1",
+        initial_checkpoint_token="token123",  # noqa: S106
+        operations={"step1": operation},
+        service_client=mock_lambda_client,
+        batcher_config=config,
+    )
+
+    result = state.get_input_payload()
+    assert result is None

@@ -28,6 +28,8 @@ from typing import Any, TYPE_CHECKING, cast
 import regex as re
 from lxml import etree
 
+from arelle.Cntlr import TypeLogFileName
+
 try:
     import win32file, win32api, win32process, pywintypes
 except ImportError: # win32 not installed
@@ -1389,7 +1391,7 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
         parser.exit()
     elif options.disclosureSystemName in ("help", "help-verbose"):
         text = _("Disclosure system choices: \n{0}").format(
-            " \n".join(cntlr.modelManager.disclosureSystem.dirlist(options.disclosureSystemName))  # type: ignore[no-untyped-call]
+            " \n".join(cntlr.modelManager.disclosureSystem.dirlist(options.disclosureSystemName))  # type: ignore[arg-type]
             )
         try:
             print(text)
@@ -1585,7 +1587,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
 
     def __init__(
             self,
-            logFileName: str | None = None,
+            logFileName: TypeLogFileName | None = None,
             uiLang: str | None = None,
             disable_persistent_config: bool = False
         ) -> None:
@@ -1792,18 +1794,18 @@ class CntlrCmdLine(Cntlr.Cntlr):
         self.password = options.password
         if options.disclosureSystemName:
             self.modelManager.validateDisclosureSystem = True
-            self.modelManager.disclosureSystem.select(options.disclosureSystemName)  # type: ignore[no-untyped-call]
+            self.modelManager.disclosureSystem.select(options.disclosureSystemName)
             if options.validateEFM:
                 self.addToLog(_("both --efm and --disclosureSystem validation are requested, ignoring --efm only"),
                               messageCode="info", file=options.entrypointFile)  # type: ignore[arg-type]
         elif options.validateEFM:
             self.modelManager.validateDisclosureSystem = True
-            self.modelManager.disclosureSystem.select("efm")  # type: ignore[no-untyped-call]
+            self.modelManager.disclosureSystem.select("efm")
         elif options.validateHMRC:
             self.modelManager.validateDisclosureSystem = True
-            self.modelManager.disclosureSystem.select("hmrc")  # type: ignore[no-untyped-call]
+            self.modelManager.disclosureSystem.select("hmrc")
         else:
-            self.modelManager.disclosureSystem.select(None)  # type: ignore[no-untyped-call] # just load ordinary mappings
+            self.modelManager.disclosureSystem.select(None)  # just load ordinary mappings
             self.modelManager.validateDisclosureSystem = False
         if self.modelManager.disclosureSystem.keepOpen:
             # Force keepOpen if specified by disclosure system.

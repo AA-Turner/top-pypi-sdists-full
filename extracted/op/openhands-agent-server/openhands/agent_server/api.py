@@ -38,6 +38,7 @@ from openhands.agent_server.file_router import file_router
 from openhands.agent_server.git_router import git_router
 from openhands.agent_server.hooks_router import hooks_router
 from openhands.agent_server.llm_router import llm_router
+from openhands.agent_server.mcp_router import mcp_router
 from openhands.agent_server.middleware import LocalhostCORSMiddleware
 from openhands.agent_server.profiles_router import profiles_router
 from openhands.agent_server.server_details_router import (
@@ -53,6 +54,7 @@ from openhands.agent_server.tool_router import tool_router
 from openhands.agent_server.vscode_router import vscode_router
 from openhands.agent_server.vscode_service import get_vscode_service
 from openhands.agent_server.workspace_router import workspace_router
+from openhands.agent_server.workspaces_router import workspaces_router
 from openhands.sdk.logger import DEBUG, get_logger
 from openhands.sdk.utils.redact import sanitize_dict
 from openhands.tools.terminal.constants import TMUX_SOCKET_NAME
@@ -288,7 +290,9 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
     api_router.include_router(skills_router)
     api_router.include_router(hooks_router)
     api_router.include_router(llm_router)
+    api_router.include_router(mcp_router)
     api_router.include_router(settings_router)
+    api_router.include_router(workspaces_router)
     api_router.include_router(profiles_router)
     api_router.include_router(cloud_proxy_router)
     # /api/auth/* mints workspace cookies and requires the header to bootstrap,

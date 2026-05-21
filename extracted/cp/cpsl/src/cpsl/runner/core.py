@@ -61,7 +61,6 @@ from .shared import (
     _MAX_BACKOFF,
     _PORT,
     _RPC_WORKERS,
-    _SUBMIT_RESULT_WORKERS,
     _find_hook,
     _log,
     _maybe_await,
@@ -132,9 +131,11 @@ class Runner(RunnerSessionMixin, RunnerTaskMixin, RunnerGatewayMixin, RunnerRout
         self._preview_port: int | None = None
         self._active_lock = asyncio.Lock()
         self._submit_executor = ThreadPoolExecutor(
-            max_workers=max(1, _SUBMIT_RESULT_WORKERS),
+            max_workers=1,
             thread_name_prefix="cpsl-submit-result",
         )
+        self._submit_futures = []
+        self._submit_futures_lock = threading.Lock()
         self._rpc_executor = ThreadPoolExecutor(
             max_workers=max(1, _RPC_WORKERS),
             thread_name_prefix="cpsl-rpc",

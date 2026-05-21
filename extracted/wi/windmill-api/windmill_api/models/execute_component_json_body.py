@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     )
     from ..models.execute_component_json_body_raw_code import ExecuteComponentJsonBodyRawCode
     from ..models.execute_component_json_body_run_query_params import ExecuteComponentJsonBodyRunQueryParams
+    from ..models.execute_component_json_body_temp_script_refs import ExecuteComponentJsonBodyTempScriptRefs
 
 
 T = TypeVar("T", bound="ExecuteComponentJsonBody")
@@ -35,6 +36,9 @@ class ExecuteComponentJsonBody:
         force_viewer_sensitive_inputs (Union[Unset, List[str]]):
         force_viewer_delete_after_secs (Union[Unset, int]):
         run_query_params (Union[Unset, ExecuteComponentJsonBodyRunQueryParams]): Runnable query parameters
+        temp_script_refs (Union[Unset, None, ExecuteComponentJsonBodyTempScriptRefs]): Map of relative-import script
+            path -> temp storage hash. Only honored for inline-script (raw_code) execution so app dev resolves those imports
+            from not-yet-deployed local content.
     """
 
     component: str
@@ -49,6 +53,7 @@ class ExecuteComponentJsonBody:
     force_viewer_sensitive_inputs: Union[Unset, List[str]] = UNSET
     force_viewer_delete_after_secs: Union[Unset, int] = UNSET
     run_query_params: Union[Unset, "ExecuteComponentJsonBodyRunQueryParams"] = UNSET
+    temp_script_refs: Union[Unset, None, "ExecuteComponentJsonBodyTempScriptRefs"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -82,6 +87,10 @@ class ExecuteComponentJsonBody:
         if not isinstance(self.run_query_params, Unset):
             run_query_params = self.run_query_params.to_dict()
 
+        temp_script_refs: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.temp_script_refs, Unset):
+            temp_script_refs = self.temp_script_refs.to_dict() if self.temp_script_refs else None
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -110,6 +119,8 @@ class ExecuteComponentJsonBody:
             field_dict["force_viewer_delete_after_secs"] = force_viewer_delete_after_secs
         if run_query_params is not UNSET:
             field_dict["run_query_params"] = run_query_params
+        if temp_script_refs is not UNSET:
+            field_dict["temp_script_refs"] = temp_script_refs
 
         return field_dict
 
@@ -123,6 +134,7 @@ class ExecuteComponentJsonBody:
         )
         from ..models.execute_component_json_body_raw_code import ExecuteComponentJsonBodyRawCode
         from ..models.execute_component_json_body_run_query_params import ExecuteComponentJsonBodyRunQueryParams
+        from ..models.execute_component_json_body_temp_script_refs import ExecuteComponentJsonBodyTempScriptRefs
 
         d = src_dict.copy()
         component = d.pop("component")
@@ -173,6 +185,15 @@ class ExecuteComponentJsonBody:
         else:
             run_query_params = ExecuteComponentJsonBodyRunQueryParams.from_dict(_run_query_params)
 
+        _temp_script_refs = d.pop("temp_script_refs", UNSET)
+        temp_script_refs: Union[Unset, None, ExecuteComponentJsonBodyTempScriptRefs]
+        if _temp_script_refs is None:
+            temp_script_refs = None
+        elif isinstance(_temp_script_refs, Unset):
+            temp_script_refs = UNSET
+        else:
+            temp_script_refs = ExecuteComponentJsonBodyTempScriptRefs.from_dict(_temp_script_refs)
+
         execute_component_json_body = cls(
             component=component,
             args=args,
@@ -186,6 +207,7 @@ class ExecuteComponentJsonBody:
             force_viewer_sensitive_inputs=force_viewer_sensitive_inputs,
             force_viewer_delete_after_secs=force_viewer_delete_after_secs,
             run_query_params=run_query_params,
+            temp_script_refs=temp_script_refs,
         )
 
         execute_component_json_body.additional_properties = d

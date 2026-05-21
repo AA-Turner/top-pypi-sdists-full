@@ -2,31 +2,22 @@ install:
 	uv sync
 install-dev:
 	@$(MAKE) install
-	uv run pre-commit install
+	uv run prek install
 
-format-lint:
-	SKIP=no-commit-to-branch uv run pre-commit run --all-files
-format-lint-unsafe:
-	uv run --with ruff ruff check --fix --unsafe-fixes .
-	@echo
-	@$(MAKE) format-lint
+lint:
+	SKIP=no-commit-to-branch uv run prek run --all-files
 
-test-mypy:
-	@# Avoid running mypy on the whole directory ("./") to avoid potential conflicts with files with the same name (e.g. between different types of tests)
-	uv run mypy ./src/
-	uv run mypy ./tests/unit/
-test-pytest:
-	uv run pytest --cov=src/linkup/ ./tests/unit/
+typecheck:
+	@# Ignore pyright-python warnings (only warn when a new pyright version is available)
+	PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright
+
 test:
-	@$(MAKE) test-mypy
-	@echo
-	@$(MAKE) test-pytest
+	uv run pytest --cov=src/linkup/ ./tests/unit/
 
-update-uv:
+update-dependencies:
 	uv lock --upgrade
-	uv sync
-update-pre-commit:
-	uv run pre-commit autoupdate
+update-pre-commit-hooks:
+	uv run prek autoupdate --cooldown-days 14
 
 clean:
 	rm -rf dist/

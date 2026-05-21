@@ -3,6 +3,7 @@ from pysat.formula import CNF
 
 solvers = ['cadical103',
            'cadical153',
+           'cadical300',
            'gluecard30',
            'gluecard41',
            'glucose30',
@@ -14,7 +15,8 @@ solvers = ['cadical103',
            'mergesat3',
            'minicard',
            'minisat22',
-           'minisat-gh']
+           'minisat-gh',
+           'minisatep']
 
 def test_solvers():
     cnf = CNF(from_clauses=[[1, 2, 3], [-1, 2], [-2]])

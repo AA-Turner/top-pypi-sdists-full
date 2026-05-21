@@ -295,6 +295,21 @@ class TestCodebaseControllerGetFile(unittest.TestCase):
         resp = self.client.get("/codebase/read-file?path=../../etc/passwd")
         self.assertEqual(resp.status_code, 403)
 
+    def test_get_file_translates_worker_files_prefix_to_persistent_dir(self):
+        """Paths under WORKER_FILES_FOLDER (worker's mount) are rewritten to the editor's persistent dir."""
+        with tempfile.TemporaryDirectory() as tmp_persistent:
+            persistent_dir = Path(tmp_persistent)
+            (persistent_dir / "foo.png").write_bytes(b"image-bytes")
+
+            with patch(
+                "abstra_internals.constants.get_persistent_dir",
+                return_value=persistent_dir,
+            ):
+                resp = self.client.get("/codebase/read-file?path=/files/foo.png")
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.data, b"image-bytes")
+
 
 class TestCodebaseControllerRenameFile(unittest.TestCase):
     """Unit tests for CodebaseController.rename_file logic."""

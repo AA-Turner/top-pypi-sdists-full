@@ -373,7 +373,7 @@ DNS_POINTER = DNSPointer(
 
 @pytest.mark.parametrize(
     ("record", "should_trigger_zeroconf", "expected_state_after_trigger", "log_text"),
-    (
+    [
         (
             DNS_POINTER,
             True,
@@ -416,7 +416,7 @@ DNS_POINTER = DNSPointer(
             ReconnectLogicState.READY,
             "received mDNS record",
         ),
-    ),
+    ],
 )
 async def test_reconnect_zeroconf(
     patchable_api_client: APIClient,
@@ -460,8 +460,8 @@ async def test_reconnect_zeroconf(
         # This simulates the resolver waiting for mDNS records
         try:
             await asyncio.wait_for(resolve_event.wait(), timeout=0.1)
-        except TimeoutError:
-            raise APIConnectionError("Resolution timed out")
+        except TimeoutError as err:
+            raise APIConnectionError("Resolution timed out") from err
         else:
             return  # Resolution succeeded
 

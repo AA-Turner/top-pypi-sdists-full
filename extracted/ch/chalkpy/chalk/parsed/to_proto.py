@@ -507,8 +507,23 @@ class ToProtoConverter:
                 ),
             )
         elif isinstance(captured_global, FunctionCapturedGlobalFunction):
+            source_reference = None
+            if (
+                captured_global.source_file_name is not None
+                and captured_global.source_line_start is not None
+                and captured_global.source_line_end is not None
+            ):
+                source_reference = pb.SourceFileReference(
+                    code=captured_global.source,
+                    file_name=captured_global.source_file_name,
+                    range=Range(
+                        start=Position(line=captured_global.source_line_start, character=0),
+                        end=Position(line=captured_global.source_line_end, character=0),
+                    ),
+                )
             return pb.FunctionReferenceCapturedGlobal(
                 global_name=name,
+                source_reference=source_reference,
                 function=pb.FunctionGlobalCapturedFunction(
                     source=captured_global.source,
                     module=captured_global.module,

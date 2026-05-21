@@ -194,6 +194,166 @@ def add_missing_imports(path: Path) -> int:
     return len(to_add)
 
 
+# ──────────────────────── fix_wrong_python_imports ─────────────────────
+
+
+# Wrong import patterns seen in LLM-generated FastAPI code, paired with
+# correct replacements. Applied to every .py file in backend/.
+_WRONG_IMPORT_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
+    # AsyncSession is from sqlalchemy.ext.asyncio, NOT from sqlmodel
+    (
+        re.compile(r"from\s+sqlmodel\s+import\s+([^#\n]*)\bAsyncSession\b([^#\n]*)"),
+        None,  # handled specially below
+    ),
+    # Wrong current_tenant_id import paths — LLMs emit 5 different wrong paths.
+    # Canonical: from app.middleware.tenant import current_tenant_id
+    (re.compile(r"from\s+app\s+import\s+current_tenant_id"),
+     "from app.middleware.tenant import current_tenant_id"),
+    (re.compile(r"from\s+app\.core\.tenant\s+import\s+current_tenant_id"),
+     "from app.middleware.tenant import current_tenant_id"),
+    (re.compile(r"from\s+app\.utils\s+import\s+current_tenant_id"),
+     "from app.middleware.tenant import current_tenant_id"),
+    (re.compile(r"from\s+app\.dependencies\s+import\s+current_tenant_id"),
+     "from app.middleware.tenant import current_tenant_id"),
+    (re.compile(r"from\s+app\.core\.dependencies\s+import\s+current_tenant_id"),
+     "from app.middleware.tenant import current_tenant_id"),
+    # Settings used as class attribute instead of instance — detect Settings.FIELD
+    # pattern and ensure settings instance is used instead
+    (re.compile(r"from\s+app\.core\.config\s+import\s+Settings\b"),
+     "from app.core.config import get_settings\n_settings = get_settings()"),
+)
+
+
+def _fix_sqlmodel_async_session_import(src: str) -> str:
+    """Move AsyncSession out of sqlmodel imports and ensure sqlalchemy import exists.
+
+    LLMs frequently write:
+        from sqlmodel import SQLModel, Field, AsyncSession  # WRONG
+    The fix splits it into:
+        from sqlmodel import SQLModel, Field
+        from sqlalchemy.ext.asyncio import AsyncSession
+    """
+    pattern = re.compile(
+        r"^(from\s+sqlmodel\s+import\s+)(.*\bAsyncSession\b.*)$",
+        re.MULTILINE,
+    )
+    match = pattern.search(src)
+    if not match:
+        return src
+
+    imports_str = match.group(2)
+    # Remove AsyncSession from the sqlmodel import line
+    remaining = re.sub(r",?\s*\bAsyncSession\b\s*,?", ",", imports_str)
+    remaining = re.sub(r",\s*,", ",", remaining)
+    remaining = remaining.strip(" ,")
+
+    new_sqlmodel = f"from sqlmodel import {remaining}" if remaining else ""
+    new_async = "from sqlalchemy.ext.asyncio import AsyncSession"
+
+    # Replace the old line with the corrected lines
+    replacement = "\n".join(filter(None, [new_sqlmodel, new_async]))
+    new_src = pattern.sub(replacement, src)
+
+    # If AsyncSession is already imported from sqlalchemy elsewhere, dedupe
+    if new_src.count("from sqlalchemy.ext.asyncio import AsyncSession") > 1:
+        # Keep only the first occurrence
+        first = new_src.find("from sqlalchemy.ext.asyncio import AsyncSession")
+        rest = new_src[first + len("from sqlalchemy.ext.asyncio import AsyncSession"):]
+        rest = rest.replace("from sqlalchemy.ext.asyncio import AsyncSession\n", "")
+        rest = rest.replace("from sqlalchemy.ext.asyncio import AsyncSession", "")
+        new_src = new_src[:first] + "from sqlalchemy.ext.asyncio import AsyncSession" + rest
+
+    return new_src
+
+
+def fix_wrong_python_imports(path: Path) -> int:
+    """Fix known wrong import patterns in LLM-generated Python files.
+
+    Returns the number of substitutions made.
+    """
+    try:
+        src = path.read_text("utf-8", errors="replace")
+    except OSError:
+        return 0
+
+    original = src
+    changes = 0
+
+    # Fix AsyncSession import first (special handling)
+    new_src = _fix_sqlmodel_async_session_import(src)
+    if new_src != src:
+        src = new_src
+        changes += 1
+
+    # Apply line-level regex fixes
+    for pattern, replacement in _WRONG_IMPORT_FIXES:
+        if replacement is None:
+            continue  # handled above
+        new_src, n = pattern.subn(replacement, src)
+        if n:
+            src = new_src
+            changes += n
+
+    if src != original:
+        path.write_text(src, encoding="utf-8")
+    return changes
+
+
+# ──────────────────────── fix_react_native_package_json ─────────────────
+
+
+def fix_react_native_package_json(frontend_root: Path) -> int:
+    """Ensure React Native projects use Jest (jest-expo), not Vitest.
+
+    If `react-native` is in dependencies but the test script uses vitest,
+    replace the test script with the correct jest --watchAll=false command
+    and remove vitest from both dependencies and devDependencies.
+    Returns 1 if the file was modified.
+    """
+    pkg = frontend_root / "package.json"
+    if not pkg.exists():
+        return 0
+    try:
+        data = _json.loads(pkg.read_text("utf-8", errors="replace"))
+    except Exception:
+        return 0
+
+    all_deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+    is_rn = "react-native" in all_deps or "expo" in all_deps
+    if not is_rn:
+        return 0
+
+    changed = False
+
+    # Fix test script to use jest
+    scripts = data.get("scripts", {})
+    test_cmd = scripts.get("test", "")
+    if "vitest" in test_cmd or "--watchAll" in test_cmd:
+        data["scripts"]["test"] = "jest --watchAll=false --passWithNoTests"
+        changed = True
+
+    # Remove vitest from deps (belongs in web projects only)
+    for section in ("dependencies", "devDependencies"):
+        if "vitest" in data.get(section, {}):
+            del data[section]["vitest"]
+            changed = True
+        # Also ensure @testing-library/react-native is in devDependencies
+        dev = data.setdefault("devDependencies", {})
+        if "@testing-library/react-native" not in dev:
+            dev["@testing-library/react-native"] = "^12.9.0"
+            changed = True
+        if "jest-expo" not in dev:
+            dev["jest-expo"] = "~52.0.0"
+            changed = True
+        if "jest" not in dev:
+            dev["jest"] = "^29.7.0"
+            changed = True
+
+    if changed:
+        pkg.write_text(_json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return 1 if changed else 0
+
+
 # ──────────────────────── fix_framework_collision ──────────────────────
 
 
@@ -480,6 +640,168 @@ def _frontend_files(root: Path) -> list[Path]:
     return out
 
 
+import json as _json
+
+
+def fix_misplaced_imports_in_test_files(root: Path) -> int:
+    """Fix test files where import statements ended up inside function bodies.
+
+    LLMs sometimes emit code like:
+        async def test_foo(db):
+            \"\"\"docstring.\"\"\"
+        from module import Thing   ← should be at top of file
+
+            actual_code = ...
+
+    This doctor collects all misplaced top-level imports and moves them to the
+    file header, making the file parse correctly. Returns number of files fixed.
+    """
+    fixed = 0
+    test_dirs = list(root.rglob("tests")) + [root / "tests"]
+    checked = set()
+    candidates: list[Path] = []
+    for td in test_dirs:
+        if td.is_dir() and td not in checked:
+            checked.add(td)
+            candidates.extend(td.rglob("*.py"))
+
+    for path in candidates:
+        try:
+            src = path.read_text("utf-8", errors="replace")
+        except OSError:
+            continue
+        try:
+            ast.parse(src)
+            continue  # already valid
+        except SyntaxError as exc:
+            if "indent" not in (exc.msg or "").lower():
+                continue
+
+        lines = src.splitlines(keepends=True)
+        import_lines: list[tuple[int, str]] = []
+        other_lines: list[tuple[int, str]] = []
+
+        # Classify each line: import-like at "wrong" location vs. everything else.
+        # A line is a "misplaced import" if it matches ^(import|from .* import)
+        # AND is NOT at the start of the file AND is surrounded by indented code.
+        for i, line in enumerate(lines):
+            stripped = line.lstrip()
+            is_import = re.match(r"^(import |from \S+ import )", stripped)
+            if is_import and not line.startswith(stripped[0]):
+                # Line has some indent before the import keyword — definitely wrong
+                import_lines.append((i, stripped))
+            elif is_import and i > 0:
+                # Unindented import but NOT at top — check if it's in a bad location
+                # (surrounded by indented context)
+                prev = lines[i - 1] if i > 0 else ""
+                if prev.strip() and (prev[0] in " \t" or "\"\"\"" in prev):
+                    import_lines.append((i, stripped))
+                else:
+                    other_lines.append((i, line))
+            else:
+                other_lines.append((i, line))
+
+        if not import_lines:
+            continue
+
+        # Rebuild: all collected imports go at the very top, rest follows.
+        # Deduplicate while preserving order.
+        seen = set()
+        top_imports: list[str] = []
+        for _, imp in import_lines:
+            key = imp.strip()
+            if key not in seen:
+                seen.add(key)
+                top_imports.append(imp if imp.endswith("\n") else imp + "\n")
+
+        # Find the last existing top-level import in other_lines to insert after
+        reconstructed = [ln for _, ln in other_lines]
+        insert_at = 0
+        for i, ln in enumerate(reconstructed):
+            stripped = ln.lstrip()
+            if re.match(r"^(import |from \S+ import )", stripped) and not ln[0:1].strip() == "":
+                insert_at = i + 1
+            elif stripped and not stripped.startswith("#") and i > 0:
+                break
+
+        new_src = "".join(
+            reconstructed[:insert_at] + top_imports + reconstructed[insert_at:]
+        )
+        try:
+            ast.parse(new_src)
+        except SyntaxError:
+            continue  # our fix made things worse, skip
+
+        path.write_text(new_src, encoding="utf-8")
+        fixed += 1
+
+    return fixed
+
+
+def fix_vitest_test_script(frontend_root: Path) -> int:
+    """Remove Jest-only --watchAll flag from vitest-based package.json test scripts.
+
+    Vitest uses 'vitest run' for CI/non-watch mode; --watchAll and --watchAll=false
+    are Jest flags that vitest rejects with 'Unknown option'. Returns 1 if patched.
+    """
+    pkg = frontend_root / "package.json"
+    if not pkg.exists():
+        return 0
+    try:
+        data = _json.loads(pkg.read_text("utf-8", errors="replace"))
+    except Exception:
+        return 0
+    # Only apply to vitest projects
+    all_deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+    if "vitest" not in all_deps:
+        return 0
+    scripts = data.get("scripts", {})
+    test_cmd = scripts.get("test", "")
+    # Strip --watchAll and --watchAll=false from any vitest test script
+    new_cmd = re.sub(r"\s*--watchAll(?:=\S+)?", "", test_cmd).strip()
+    if new_cmd == test_cmd:
+        return 0
+    data["scripts"]["test"] = new_cmd
+    pkg.write_text(_json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return 1
+
+
+def fix_missing_init_imports(backend_root: Path) -> int:
+    """Fix broken re-export imports in Python __init__.py files.
+
+    When an __init__.py does `from .user import User` but user.py doesn't exist,
+    we create a minimal stub so imports resolve. Only creates stubs for simple
+    single-class re-exports that look like ORM models (SQLModel / Base patterns).
+    Returns the number of stubs created.
+    """
+    import importlib.util
+    stubs = 0
+    for init in backend_root.rglob("__init__.py"):
+        try:
+            src = init.read_text("utf-8", errors="replace")
+        except OSError:
+            continue
+        for match in re.finditer(r"^from \.([\w]+) import (\w+)", src, re.MULTILINE):
+            mod_name, class_name = match.group(1), match.group(2)
+            target = init.parent / f"{mod_name}.py"
+            if target.exists():
+                continue
+            # Only stub simple model-like names (User, Profile, Tenant, etc.)
+            # to avoid creating noisy stubs for utility helpers
+            if not re.match(r"[A-Z][a-zA-Z]+$", class_name):
+                continue
+            target.write_text(
+                f"from sqlmodel import SQLModel, Field\nfrom typing import Optional\n\n\n"
+                f"class {class_name}(SQLModel, table=True):\n"
+                f'    """Auto-generated stub — replace with real model."""\n'
+                f"    __tablename__ = \"{mod_name}\"\n"
+                f"    id: Optional[int] = Field(default=None, primary_key=True)\n",
+                encoding="utf-8",
+            )
+            stubs += 1
+    return stubs
+
+
 def run_code_doctors(
     out_dir: Path,
     *,
@@ -519,6 +841,37 @@ def run_code_doctors(
                 f"  [doctor] repaired {report.init_stubs_written} truncated "
                 f"__init__.py + {report.indent_fixes_applied} indent errors"
             )
+        # Fix broken re-export imports (e.g. __init__.py references missing user.py)
+        n_stubs = fix_missing_init_imports(backend)
+        if n_stubs:
+            log(f"  [doctor] created {n_stubs} missing module stubs for __init__ imports")
+            report.files_touched += n_stubs
+        # Fix misplaced import statements in test files (common LLM generation bug)
+        n_test_imports = fix_misplaced_imports_in_test_files(backend)
+        if n_test_imports:
+            log(f"  [doctor] fixed misplaced imports in {n_test_imports} test files")
+            report.files_touched += n_test_imports
+
+    if frontend.is_dir():
+        # React Native projects: enforce Jest (jest-expo), remove vitest
+        n_rn = fix_react_native_package_json(frontend)
+        if n_rn:
+            log("  [doctor] fixed React Native package.json (jest-expo, removed vitest)")
+            report.files_touched += n_rn
+        # Web projects using vitest: remove Jest-only --watchAll flag
+        n_vitest = fix_vitest_test_script(frontend)
+        if n_vitest:
+            log("  [doctor] removed --watchAll from vitest test script in package.json")
+            report.files_touched += n_vitest
+
+    if backend.is_dir():
+        # Fix wrong import paths (AsyncSession from sqlmodel, current_tenant_id paths)
+        n_imports = 0
+        for p in _python_files(backend):
+            n_imports += fix_wrong_python_imports(p)
+        if n_imports:
+            log(f"  [doctor] fixed {n_imports} wrong import patterns in backend Python files")
+            report.files_touched += n_imports
 
     # ── 1. Python: add missing imports ──
     if fix_imports and backend.is_dir():

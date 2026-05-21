@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msprime
-Version: 1.4.1
+Version: 1.4.2
 Summary: Simulate genealogical trees and genomic sequence data using population genetic models
 Author-email: Tskit Developers <admin@tskit.dev>
 License-Expression: GPL-3.0-or-later

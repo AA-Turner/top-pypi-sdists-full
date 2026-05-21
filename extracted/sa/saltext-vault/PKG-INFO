@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: saltext.vault
-Version: 1.5.0
+Version: 1.6.0
 Summary: Salt Extension for interacting with Vault (or OpenBao)
 Author-email: Salt Core Team <saltproject@vmware.com>
 License: Apache Software License
@@ -30,9 +30,9 @@ Provides-Extra: dev
 Requires-Dist: nox[uv]!=2025.05.01,>=2024.3; extra == "dev"
 Requires-Dist: pre-commit>=2.21.0; extra == "dev"
 Provides-Extra: dev-extra
-Requires-Dist: black==26.1.0; extra == "dev-extra"
-Requires-Dist: isort==7.0.0; extra == "dev-extra"
-Requires-Dist: coverage==7.13.2; extra == "dev-extra"
+Requires-Dist: black==26.3.1; extra == "dev-extra"
+Requires-Dist: isort==8.0.1; extra == "dev-extra"
+Requires-Dist: coverage==7.13.4; extra == "dev-extra"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-prompt; extra == "docs"
@@ -54,6 +54,7 @@ Requires-Dist: pytest-salt-factories>=1.0.0; sys_platform == "win32" and extra =
 Requires-Dist: pytest-salt-factories[docker]>=1.0.0; sys_platform != "win32" and extra == "tests"
 Requires-Dist: pytest-instafail; extra == "tests"
 Requires-Dist: pytest-timeout; extra == "tests"
+Dynamic: license-file
 
 # Salt Extension for HashiCorp Vault
 

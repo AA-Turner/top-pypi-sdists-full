@@ -32,6 +32,9 @@ DEFAULT_REQUEST_TIMEOUT_SECONDS: float = 300.0
 # Timeout for lightweight discovery RPCs (list/get runners and profiles).
 DEFAULT_DISCOVERY_TIMEOUT_SECONDS: float = 30.0
 
+# Match the backend's default gRPC message-size limit for unary RPCs.
+DEFAULT_GRPC_MAX_MESSAGE_LENGTH_BYTES: int = 100 * 1024 * 1024
+
 # Wall-clock budget per retry burst (one trip to a stable status) on poll
 # RPCs.  The budget resets on any successful response, so a long-lived
 # sandbox that hits a transient error, recovers, then hits another much
@@ -109,6 +112,24 @@ def _merge_dicts(base: dict[str, str], additional: dict[str, str] | None) -> dic
     if additional:
         merged.update(additional)
     return merged
+
+
+def _normalize_tags(tags: Iterable[str] | None) -> tuple[str, ...]:
+    """Normalize tag sequences and reject bare strings.
+
+    Strings are iterable in Python, so accepting one would split it into
+    characters (``"prod"`` -> ``("p", "r", "o", "d")``).
+    """
+    if tags is None:
+        return ()
+    if isinstance(tags, str):
+        raise TypeError("tags must be a sequence of strings, not a bare string")
+
+    normalized = tuple(tags)
+    for tag in normalized:
+        if not isinstance(tag, str):
+            raise TypeError("tags must contain only strings")
+    return normalized
 
 
 def _validate_poll_config(
@@ -228,16 +249,17 @@ class SandboxDefaults:
             self.poll_retry_budget_seconds,
             self.poll_rpc_timeout_seconds,
         )
+        object.__setattr__(self, "tags", _normalize_tags(self.tags))
 
-    def merge_tags(self, additional: list[str] | None) -> list[str]:
+    def merge_tags(self, additional: Iterable[str] | None) -> list[str]:
         """Combine default tags with additional tags.
 
         Tags from both sources are included. Order is: defaults first,
         then additional tags appended.
         """
         base = list(self.tags)
-        if additional:
-            base.extend(additional)
+        if additional is not None:
+            base.extend(_normalize_tags(additional))
         return base
 
     def merge_environment_variables(self, additional: dict[str, str] | None) -> dict[str, str]:

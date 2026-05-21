@@ -3,6 +3,7 @@ Module handling the cli arguments
 
 Call cryticparser.init(parser: ArgumentParser) to setup all the crytic-compile arguments in the argument parser
 """
+
 from argparse import ArgumentParser
 
 from crytic_compile.crytic_compile import get_platforms
@@ -33,6 +34,13 @@ def init(parser: ArgumentParser) -> None:
         help='Libraries used for linking. Format: --compile-libraries "(name1, 0x00),(name2, 0x02)"',
         action="store",
         default=DEFAULTS_FLAG_IN_CONFIG["compile_libraries"],
+    )
+
+    group_compile.add_argument(
+        "--compile-autolink",
+        help="Automatically link all found libraries with sequential addresses starting from 0xa070",
+        action="store_true",
+        default=DEFAULTS_FLAG_IN_CONFIG["compile_autolink"],
     )
 
     group_compile.add_argument(
@@ -450,9 +458,25 @@ def _init_foundry(parser: ArgumentParser) -> None:
     )
 
     group_foundry.add_argument(
+        "--foundry-build-info-directory",
+        help="Use an alternative build-info directory (useful with --ignore-compile)",
+        action="store",
+        dest="foundry_build_info_directory",
+        default=DEFAULTS_FLAG_IN_CONFIG["foundry_build_info_directory"],
+    )
+
+    group_foundry.add_argument(
         "--foundry-compile-all",
         help="Don't skip compiling test and script",
         action="store_true",
         dest="foundry_compile_all",
         default=DEFAULTS_FLAG_IN_CONFIG["foundry_compile_all"],
+    )
+
+    group_foundry.add_argument(
+        "--foundry-deny",
+        help="Forge diagnostic level to deny (never, warn, all). Auto-detected for Foundry 1.4+",
+        action="store",
+        dest="foundry_deny",
+        default=DEFAULTS_FLAG_IN_CONFIG["foundry_deny"],
     )

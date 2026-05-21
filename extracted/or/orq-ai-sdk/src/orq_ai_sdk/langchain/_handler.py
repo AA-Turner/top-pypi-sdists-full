@@ -15,6 +15,7 @@ from ._events import Events
 from ._models import EventType, InFlightEvent
 from ._span_builder import build_otlp_span, _nano_timestamp
 from ._utils import (
+    coerce_chain_payload,
     extract_assistant_tool_calls,
     extract_model_name,
     extract_model_parameters,
@@ -23,6 +24,8 @@ from ._utils import (
     logger,
     normalize_messages,
     resolve_span_name,
+    root_output_delta,
+    serialize_tool_payload,
 )
 
 
@@ -77,6 +80,7 @@ class OrqLangchainCallback(BaseCallbackHandler):
         span = build_otlp_span(event)
         self._client.send_span(span)
         self._events.remove(rid)
+        self._events.clear_root(rid)
 
     # ── LLM callbacks ──────────────────────────────────────────────
 
@@ -230,7 +234,7 @@ class OrqLangchainCallback(BaseCallbackHandler):
                 run_id, parent_run_id, EventType.CHAIN, serialized, metadata, tags,
                 name=kwargs.get("name"),
             )
-            event.inputs = inputs if isinstance(inputs, dict) else {"inputs": inputs}
+            event.inputs = coerce_chain_payload(inputs)
 
             rid = str(run_id)
             # Track root chain (first parentless chain = LangGraph graph)
@@ -260,7 +264,15 @@ class OrqLangchainCallback(BaseCallbackHandler):
                 logger.debug("CHAIN_END MISSING run_id=%s", run_id)
                 return
             event.end_time_ns = _nano_timestamp()
-            event.outputs = outputs if isinstance(outputs, dict) else {"outputs": outputs}
+            outputs_dict = coerce_chain_payload(outputs)
+
+            # LangGraph hands the root chain its full merged state on completion,
+            # which echoes the input messages back. Subtract them so the root
+            # span's output contains only the messages this run produced.
+            if self._events.is_root(rid):
+                outputs_dict = root_output_delta(event.inputs, outputs_dict)
+
+            event.outputs = outputs_dict
 
             # Track graph node completion for edge building
             if self._events.is_graph_node(rid):
@@ -315,7 +327,13 @@ class OrqLangchainCallback(BaseCallbackHandler):
             event = self._start_event(
                 run_id, parent_run_id, EventType.TOOL, serialized, metadata, tags
             )
-            event.tool_input = input_str
+            # LangChain's input_str is str(tool_input), which calls __repr__ on
+            # Pydantic-model values. Prefer the structured `inputs` kwarg when
+            # present so the trace carries valid JSON.
+            inputs = kwargs.get("inputs")
+            event.tool_input = (
+                serialize_tool_payload(inputs) if inputs is not None else input_str
+            )
         except Exception:
             logger.debug("on_tool_start error", exc_info=True)
 
@@ -332,7 +350,17 @@ class OrqLangchainCallback(BaseCallbackHandler):
             if not event:
                 return
             event.end_time_ns = _nano_timestamp()
-            event.tool_output = str(output)
+            # When invoked via tool_call (agents/langgraph), LangChain wraps the
+            # tool's return in a ToolMessage. The backend parses the legacy
+            # str(ToolMessage) shape to extract .content; dumping the whole
+            # message via to_jsonable_python surfaces internal fields
+            # (additional_kwargs, response_metadata, artifact, ...) in the
+            # viewer. Unwrap to .content so the result stays clean while still
+            # letting non-message Pydantic returns serialize structurally.
+            unwrapped: Any = output
+            if isinstance(output, BaseMessage):
+                unwrapped = getattr(output, "content", output)
+            event.tool_output = serialize_tool_payload(unwrapped)
             self._finish_and_send(run_id)
         except Exception:
             logger.debug("on_tool_end error", exc_info=True)
@@ -446,7 +474,7 @@ class OrqLangchainCallback(BaseCallbackHandler):
                 event.agent_actions = []
             event.agent_actions.append({
                 "tool": action.tool,
-                "tool_input": str(action.tool_input),
+                "tool_input": serialize_tool_payload(action.tool_input),
                 "log": action.log,
             })
         except Exception:

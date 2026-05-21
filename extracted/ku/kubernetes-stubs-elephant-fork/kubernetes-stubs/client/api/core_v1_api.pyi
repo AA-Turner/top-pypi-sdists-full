@@ -16,7 +16,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1APIResourceList:
         ...
-    def list_component_status(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_component_status(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -38,7 +38,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ComponentStatus:
         ...
-    def list_config_map_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_config_map_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -49,7 +49,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ConfigMapList:
         ...
-    def list_endpoints_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_endpoints_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -60,7 +60,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1EndpointsList:
         ...
-    def list_event_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_event_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -71,7 +71,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.CoreV1EventList:
         ...
-    def list_limit_range_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_limit_range_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -82,7 +82,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1LimitRangeList:
         ...
-    def list_namespace(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespace(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -115,7 +115,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Binding:
         ...
-    def list_namespaced_config_map(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_config_map(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -137,7 +137,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ConfigMap:
         ...
-    def delete_collection_namespaced_config_map(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_config_map(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -192,7 +192,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ConfigMap:
         ...
-    def list_namespaced_endpoints(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_endpoints(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -214,7 +214,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Endpoints:
         ...
-    def delete_collection_namespaced_endpoints(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_endpoints(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -269,7 +269,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Endpoints:
         ...
-    def list_namespaced_event(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_event(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -291,7 +291,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.CoreV1Event:
         ...
-    def delete_collection_namespaced_event(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_event(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -346,7 +346,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.CoreV1Event:
         ...
-    def list_namespaced_limit_range(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_limit_range(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -368,7 +368,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1LimitRange:
         ...
-    def delete_collection_namespaced_limit_range(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_limit_range(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -423,7 +423,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1LimitRange:
         ...
-    def list_namespaced_persistent_volume_claim(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_persistent_volume_claim(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -445,7 +445,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PersistentVolumeClaim:
         ...
-    def delete_collection_namespaced_persistent_volume_claim(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_persistent_volume_claim(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -533,7 +533,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PersistentVolumeClaim:
         ...
-    def list_namespaced_pod(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_pod(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -555,7 +555,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Pod:
         ...
-    def delete_collection_namespaced_pod(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_pod(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -962,7 +962,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Pod:
         ...
-    def list_namespaced_pod_template(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_pod_template(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -984,7 +984,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PodTemplate:
         ...
-    def delete_collection_namespaced_pod_template(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_pod_template(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1039,7 +1039,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PodTemplate:
         ...
-    def list_namespaced_replication_controller(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_replication_controller(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1061,7 +1061,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ReplicationController:
         ...
-    def delete_collection_namespaced_replication_controller(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_replication_controller(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1182,7 +1182,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ReplicationController:
         ...
-    def list_namespaced_resource_quota(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_resource_quota(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1204,7 +1204,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ResourceQuota:
         ...
-    def delete_collection_namespaced_resource_quota(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_resource_quota(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1292,7 +1292,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ResourceQuota:
         ...
-    def list_namespaced_secret(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_secret(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1314,7 +1314,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Secret:
         ...
-    def delete_collection_namespaced_secret(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_secret(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1369,7 +1369,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Secret:
         ...
-    def list_namespaced_service_account(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_service_account(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1391,7 +1391,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ServiceAccount:
         ...
-    def delete_collection_namespaced_service_account(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_service_account(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1457,7 +1457,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.AuthenticationV1TokenRequest:
         ...
-    def list_namespaced_service(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_service(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1479,7 +1479,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Service:
         ...
-    def delete_collection_namespaced_service(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_service(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1809,7 +1809,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Namespace:
         ...
-    def list_node(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_node(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -1831,7 +1831,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Node:
         ...
-    def delete_collection_node(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_node(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2073,7 +2073,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1Node:
         ...
-    def list_persistent_volume_claim_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_persistent_volume_claim_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2084,7 +2084,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PersistentVolumeClaimList:
         ...
-    def list_persistent_volume(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_persistent_volume(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2106,7 +2106,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PersistentVolume:
         ...
-    def delete_collection_persistent_volume(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_persistent_volume(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2194,7 +2194,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PersistentVolume:
         ...
-    def list_pod_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_pod_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2205,7 +2205,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PodList:
         ...
-    def list_pod_template_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_pod_template_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2216,7 +2216,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1PodTemplateList:
         ...
-    def list_replication_controller_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_replication_controller_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2227,7 +2227,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ReplicationControllerList:
         ...
-    def list_resource_quota_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_resource_quota_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2238,7 +2238,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ResourceQuotaList:
         ...
-    def list_secret_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_secret_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2249,7 +2249,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1SecretList:
         ...
-    def list_service_account_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_service_account_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -2260,7 +2260,7 @@ class CoreV1Api:
         ] = ...
     ) -> kubernetes.client.V1ServiceAccountList:
         ...
-    def list_service_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_service_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,

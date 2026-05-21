@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.37.10
+Version: 0.37.11
 Summary: A compiler framework that automates translation from source code to silicon.
 Author: Zero ASIC
 License-Expression: Apache-2.0

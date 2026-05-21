@@ -89,6 +89,7 @@ class _GlideFFI:
                 struct CommandResponse* map_value;
                 struct CommandResponse* sets_value;
                 long sets_value_len;
+                void* user_data;
             } CommandResponse;
 
             typedef struct {
@@ -99,10 +100,12 @@ class _GlideFFI:
             typedef struct {
                 CommandResponse* response;
                 CommandError* command_error;
+                void* arena;
             } CommandResult;
 
             const char* get_response_type_string(int response_type);
             void free_command_response(CommandResponse* command_response_ptr);
+            void free_response_arena(void* arena_ptr);
             void free_command_result(CommandResult* command_result_ptr);
 
             CommandResult* command(
@@ -142,7 +145,8 @@ class _GlideFFI:
                 const size_t* args,
                 const unsigned long* args_len,
                 const unsigned char* route_bytes,
-                size_t route_bytes_len
+                size_t route_bytes_len,
+                uint64_t span_ptr
             );
 
             CommandResult* update_connection_password(
@@ -150,6 +154,17 @@ class _GlideFFI:
                 uintptr_t request_id,
                 const char* password,
                 bool immediate_authentication
+            );
+
+            CommandResult* refresh_iam_token(
+                const void* client_adapter_ptr,
+                uintptr_t request_id
+            );
+
+            CommandResult* get_cache_metrics(
+                const void* client_adapter_ptr,
+                uintptr_t request_id,
+                int metrics_type
             );
 
             // ============== CLIENT MANAGEMENT ==============
@@ -172,12 +187,22 @@ class _GlideFFI:
                 int64_t pattern_len
             );
 
+            typedef uint16_t (*AddressResolverCallback)(
+                const uint8_t* host,
+                size_t host_len,
+                uint16_t port,
+                uint8_t* resolved_host_buf,
+                size_t resolved_host_buf_len,
+                size_t* resolved_host_len
+            );
+
             typedef struct {
                 int _type;
                 union {
                     struct {
                         SuccessCallback success_callback;
                         FailureCallback failure_callback;
+                        bool allow_stack_response;
                     } async_client;
                 };
             } ClientType;
@@ -191,7 +216,8 @@ class _GlideFFI:
                 const uint8_t* connection_request_bytes,
                 size_t connection_request_len,
                 const ClientType* client_type,
-                PubSubCallback pubsub_callback
+                PubSubCallback pubsub_callback,
+                AddressResolverCallback address_resolver
             );
             void close_client(const void* client_adapter_ptr);
             void free_connection_response(ConnectionResponse* connection_response_ptr);

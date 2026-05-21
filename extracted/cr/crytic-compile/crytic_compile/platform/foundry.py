@@ -1,16 +1,17 @@
 """
 Foundry platform
 """
-import logging
-import subprocess
-from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, TypeVar, Union
 
 import json
+import logging
+import re
+import subprocess
+from pathlib import Path
+from typing import TYPE_CHECKING, TypeVar
 
 from crytic_compile.platform.abstract_platform import AbstractPlatform, PlatformConfig
-from crytic_compile.platform.types import Type
 from crytic_compile.platform.hardhat import hardhat_like_parsing
+from crytic_compile.platform.types import Type
 from crytic_compile.utils.subprocess import run
 
 # Handle cycle
@@ -20,6 +21,28 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 LOGGER = logging.getLogger("CryticCompile")
+
+
+def _get_forge_version() -> tuple[int, int, int] | None:
+    """Get forge version as tuple, or None if unable to parse.
+
+    Returns:
+        Version tuple (major, minor, patch) or None if detection fails.
+    """
+    try:
+        result = subprocess.run(
+            ["forge", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        versions = re.findall(r"\d+\.\d+\.\d+", result.stdout)
+        if versions:
+            parts = versions[0].split(".")
+            return (int(parts[0]), int(parts[1]), int(parts[2]))
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 class Foundry(AbstractPlatform):
@@ -38,14 +61,21 @@ class Foundry(AbstractPlatform):
         # if we are initializing this, it is indeed a foundry project and thus has a root path
         assert project_root is not None
         self._project_root: Path = project_root
+        self._config: PlatformConfig | None = None
 
-    # pylint: disable=too-many-locals,too-many-statements,too-many-branches
+    def _get_config(self) -> PlatformConfig | None:
+        """Get cached platform config, loading it if needed."""
+        if self._config is None:
+            self._config = self.config(self._project_root)
+        return self._config
+
     def compile(self, crytic_compile: "CryticCompile", **kwargs: str) -> None:
         """Compile
 
         Args:
             crytic_compile (CryticCompile): CryticCompile object to populate
-            **kwargs: optional arguments. Used: "foundry_ignore_compile", "foundry_out_directory"
+            **kwargs: optional arguments. Used: "foundry_ignore_compile", "foundry_out_directory",
+                "foundry_build_info_directory", "foundry_deny"
 
         """
 
@@ -60,11 +90,20 @@ class Foundry(AbstractPlatform):
                 "--ignore-compile used, if something goes wrong, consider removing the ignore compile flag"
             )
         else:
+            deny_level = kwargs.get("foundry_deny")
+            if deny_level is None:
+                forge_version = _get_forge_version()
+                if forge_version and forge_version >= (1, 4, 0):
+                    deny_level = "never"
+
             compilation_command = [
                 "forge",
                 "build",
                 "--build-info",
             ]
+
+            if deny_level:
+                compilation_command.extend(["--deny", deny_level])
 
             targeted_build = not self._project_root.samefile(self._target)
             if targeted_build:
@@ -74,7 +113,7 @@ class Foundry(AbstractPlatform):
 
             compile_all = kwargs.get("foundry_compile_all", False)
 
-            foundry_config = self.config(self._project_root)
+            foundry_config = self._get_config()
 
             if not targeted_build and not compile_all and foundry_config:
                 compilation_command += [
@@ -93,11 +132,14 @@ class Foundry(AbstractPlatform):
         out_directory_config = kwargs.get("foundry_out_directory", None)
         out_directory = out_directory_config if out_directory_config else out_directory_detected
 
-        build_directory = Path(
-            self._project_root,
-            out_directory,
-            "build-info",
-        )
+        # Determine build-info directory: CLI override > forge config > default
+        build_info_override = kwargs.get("foundry_build_info_directory", None)
+        if build_info_override:
+            build_directory = Path(self._project_root, build_info_override)
+        elif foundry_config and foundry_config.build_info_path:
+            build_directory = Path(self._project_root, foundry_config.build_info_path)
+        else:
+            build_directory = Path(self._project_root, out_directory, "build-info")
 
         hardhat_like_parsing(
             crytic_compile, str(self._target), build_directory, str(self._project_root)
@@ -120,7 +162,7 @@ class Foundry(AbstractPlatform):
         run(["forge", "clean"], cwd=self._project_root)
 
     @staticmethod
-    def locate_project_root(file_or_dir: str) -> Optional[Path]:
+    def locate_project_root(file_or_dir: str) -> Path | None:
         """Determine the project root (if the target is a Foundry project)
 
         Foundry projects are detected through the presence of their
@@ -167,7 +209,7 @@ class Foundry(AbstractPlatform):
         return Foundry.locate_project_root(target) is not None
 
     @staticmethod
-    def config(working_dir: Union[str, Path]) -> Optional[PlatformConfig]:
+    def config(working_dir: str | Path) -> PlatformConfig | None:
         """Return configuration data that should be passed to solc, such as remappings.
 
         Args:
@@ -200,10 +242,10 @@ class Foundry(AbstractPlatform):
         result.libs_path = json_config.get("libs")
         result.scripts_path = json_config.get("script")
         result.out_path = json_config.get("out")
+        result.build_info_path = json_config.get("build_info_path")
 
         return result
 
-    # pylint: disable=no-self-use
     def is_dependency(self, path: str) -> bool:
         """Check if the path is a dependency
 
@@ -215,12 +257,18 @@ class Foundry(AbstractPlatform):
         """
         if path in self._cached_dependencies:
             return self._cached_dependencies[path]
-        ret = "lib" in Path(path).parts or "node_modules" in Path(path).parts
+        path_parts = Path(path).parts
+        config = self._get_config()
+        libs_path = (config.libs_path if config else None) or []
+        ret = (
+            "lib" in path_parts
+            or "node_modules" in path_parts
+            or any(lib in path_parts for lib in libs_path)
+        )
         self._cached_dependencies[path] = ret
         return ret
 
-    # pylint: disable=no-self-use
-    def _guessed_tests(self) -> List[str]:
+    def _guessed_tests(self) -> list[str]:
         """Guess the potential unit tests commands
 
         Returns:

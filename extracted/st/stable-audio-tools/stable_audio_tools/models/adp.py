@@ -16,6 +16,7 @@ from torch import Tensor, einsum
 from torch.backends.cuda import sdp_kernel
 from torch.nn import functional as F
 
+from .blocks import ExpoFourierFeatures
 """
 Utils
 """
@@ -657,11 +658,11 @@ class SinusoidalEmbedding(nn.Module):
 class LearnedPositionalEmbedding(nn.Module):
     """Used for continuous time"""
 
-    def __init__(self, dim: int):
+    def __init__(self, dim: int, std=16.0):
         super().__init__()
         assert (dim % 2) == 0
         half_dim = dim // 2
-        self.weights = nn.Parameter(torch.randn(half_dim))
+        self.weights = nn.Parameter(torch.randn(half_dim) * std)
 
     def forward(self, x: Tensor) -> Tensor:
         x = rearrange(x, "b -> b 1")
@@ -1457,10 +1458,14 @@ class NumberEmbedder(nn.Module):
         self,
         features: int,
         dim: int = 256,
+        fourier_features_type: tp.Literal["learned", "expo"] = "learned"
     ):
         super().__init__()
         self.features = features
-        self.embedding = TimePositionalEmbedding(dim=dim, out_features=features)
+        if fourier_features_type == "expo":
+            self.embedding = nn.Sequential(ExpoFourierFeatures(dim=dim), nn.Linear(in_features=dim, out_features=features))
+        else:
+            self.embedding = TimePositionalEmbedding(dim=dim, out_features=features)
 
     def forward(self, x: Union[List[float], Tensor]) -> Tensor:
         if not torch.is_tensor(x):

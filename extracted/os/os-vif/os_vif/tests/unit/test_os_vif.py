@@ -25,22 +25,22 @@ from os_vif.tests.unit import base
 
 class DemoPlugin(plugin.PluginBase):
 
-    CONFIG_OPTS = (
+    CONFIG_OPTS = [
         cfg.BoolOpt("make_it_work",
                     default=False,
                     help="Make everything work correctly by setting this"),
         cfg.IntOpt("sleep_time",
                    default=0,
                    help="How long to artifically sleep")
-    )
+    ]
 
     def describe(self):
         pass
 
-    def plug(self, vif, instance_info, config):
+    def plug(self, vif, instance_info):
         pass
 
-    def unplug(self, vif, instance_info, config):
+    def unplug(self, vif, instance_info):
         pass
 
 
@@ -49,10 +49,10 @@ class DemoPluginNoConfig(plugin.PluginBase):
     def describe(self):
         pass
 
-    def plug(self, vif, instance_info, config):
+    def plug(self, vif, instance_info):
         pass
 
-    def unplug(self, vif, instance_info, config):
+    def unplug(self, vif, instance_info):
         pass
 
 
@@ -86,8 +86,7 @@ class TestOSVIF(base.TestCase):
     def test_load_plugin_no_config(self):
         obj = DemoPluginNoConfig.load("demonocfg")
         self.assertFalse(hasattr(cfg.CONF, "os_vif_demonocfg"))
-
-        self.assertIsNone(obj.config)
+        self.assertIsNotNone(obj.config)
 
     def test_plug_not_initialized(self):
         self.assertRaises(
@@ -101,8 +100,9 @@ class TestOSVIF(base.TestCase):
 
     @mock.patch.object(DemoPlugin, "plug")
     def test_plug(self, mock_plug):
+        # We don't bother building a fake EntryPoint here
         plg = extension.Extension(name="demo",
-                                  entry_point="os-vif",
+                                  entry_point=None,  # type: ignore
                                   plugin=DemoPlugin,
                                   obj=None)
         with mock.patch(
@@ -122,8 +122,9 @@ class TestOSVIF(base.TestCase):
 
     @mock.patch.object(DemoPlugin, "unplug")
     def test_unplug(self, mock_unplug):
+        # We don't bother building a fake EntryPoint here
         plg = extension.Extension(name="demo",
-                                  entry_point="os-vif",
+                                  entry_point=None,  # type: ignore
                                   plugin=DemoPlugin,
                                   obj=None)
         with mock.patch(
@@ -147,14 +148,11 @@ class TestOSVIF(base.TestCase):
         # NOTE(sean-k-mooney): as out of tree plugins could be
         # visable in path assert only at at least all the in
         # intree plugins are loaded instead of an exact match.
-        self.assertTrue(len(info.plugin_info) >= 3)
+        self.assertTrue(len(info.plugin_info) >= 2)
 
         plugins = {p.plugin_name: p for p in info.plugin_info}
-        in_tree_plugin_names = ("linux_bridge", "ovs", "noop")
+        in_tree_plugin_names = ("ovs", "noop")
         self.assertTrue(all(name in plugins for name in in_tree_plugin_names))
-        lb = plugins["linux_bridge"]
-        self.assertTrue(any("VIFBridge" == vif.vif_object_name
-                            for vif in lb.vif_info))
 
         ovs = plugins["ovs"]
         self.assertTrue(len(ovs.vif_info) >= 4)
@@ -183,4 +181,4 @@ class TestOSVIF(base.TestCase):
         for group in list_opts:
             for opt in group[1]:
                 self.assertTrue("oslo_config.cfg" == opt.__module__)
-        self.assertGreaterEqual(len(list_opts), 3)
+        self.assertGreaterEqual(len(list_opts), 2)

@@ -87,19 +87,20 @@ class ConfigurationView(View):
             "device_authorization_endpoint": build_absolute_uri(
                 request, reverse("idp:oidc:device_code")
             ),
+            "end_session_endpoint": build_absolute_uri(
+                request, reverse("idp:oidc:logout")
+            ),
+            "id_token_signing_alg_values_supported": ["RS256"],
+            "issuer": get_adapter().get_issuer(),
+            "jwks_uri": build_absolute_uri(request, reverse("idp:oidc:jwks")),
+            "response_types_supported": self._get_response_types_supported(),
             "revocation_endpoint": build_absolute_uri(
                 request, reverse("idp:oidc:revoke")
             ),
             "token_endpoint": build_absolute_uri(request, reverse("idp:oidc:token")),
+            "token_endpoint_auth_methods_supported": ["client_secret_post"],
             "userinfo_endpoint": userinfo_endpoint,
-            "end_session_endpoint": build_absolute_uri(
-                request, reverse("idp:oidc:logout")
-            ),
-            "jwks_uri": build_absolute_uri(request, reverse("idp:oidc:jwks")),
-            "issuer": get_adapter().get_issuer(),
-            "response_types_supported": self._get_response_types_supported(),
             "subject_types_supported": ["public"],
-            "id_token_signing_alg_values_supported": ["RS256"],
         }
         response = JsonResponse(data)
         response["Access-Control-Allow-Origin"] = "*"

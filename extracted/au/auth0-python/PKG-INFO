@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: auth0-python
-Version: 5.4.0
+Version: 5.5.0
 Summary: Auth0 Python SDK - Management and Authentication APIs
 License: MIT
 License-File: LICENSE
 Keywords: auth0,authentication,authorization,oauth,openid
 Author: Auth0
 Author-email: support@auth0.com
-Requires-Python: >=3.9.2,<4.0
+Requires-Python: >=3.10
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
@@ -22,7 +22,6 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: aiohttp (>=3.11.18)
@@ -74,7 +73,7 @@ pip install auth0-python
 ```
 
 **Requirements:**
-- Python ≥3.9 (Python 3.8 support has been dropped)
+- Python ≥3.10 (Python 3.9 support has been dropped)
 
 ## Reference
 

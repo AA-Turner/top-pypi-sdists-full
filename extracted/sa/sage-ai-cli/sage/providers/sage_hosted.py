@@ -378,6 +378,8 @@ class SageHostedProvider(ProviderBase):
         temperature: float,
         max_tokens: int,
     ) -> Iterator[str]:
+        import time as _time
+
         auth = self._auth_or_raise()
         payload = self._build_request_payload(
             messages, model_name, temperature, max_tokens, stream=True,
@@ -385,8 +387,52 @@ class SageHostedProvider(ProviderBase):
         # Streaming uses an unbounded read timeout because generation can
         # legitimately take 5+ minutes on long outputs from a cold model.
         # On 401 (expired token), refresh once and retry the stream open.
-        _stream_timeout = httpx.Timeout(connect=10.0, read=None, write=10.0, pool=10.0)
-        with httpx.Client(timeout=_stream_timeout) as client:
+        # On RemoteProtocolError / ReadError (server disconnected before
+        # sending any response — happens when the GPU pod takes too long to
+        # start generating on a large prompt), retry up to 3 times with
+        # exponential backoff (5s, 10s, 20s).
+        _stream_timeout = httpx.Timeout(connect=30.0, read=None, write=30.0, pool=10.0)
+        _MAX_STREAM_RETRIES = 3
+        _last_exc: Exception | None = None
+
+        for _attempt in range(_MAX_STREAM_RETRIES):
+            if _attempt > 0:
+                _delay = 5 * (2 ** (_attempt - 1))  # 5s, 10s
+                print(
+                    f"\n  [dim]↺ Connection dropped — retrying"
+                    f" ({_attempt}/{_MAX_STREAM_RETRIES - 1}),"
+                    f" waiting {_delay}s...[/dim]",
+                    flush=True,
+                )
+                _time.sleep(_delay)
+                auth = self._auth_or_raise()  # refresh token on retry
+
+            try:
+                yield from self._stream_once(auth, payload, _stream_timeout)
+                return
+            except (
+                httpx.RemoteProtocolError,
+                httpx.ReadError,
+                httpx.ConnectError,
+                httpx.ReadTimeout,
+            ) as exc:
+                _last_exc = exc
+                if _attempt < _MAX_STREAM_RETRIES - 1:
+                    continue
+                raise RuntimeError(
+                    f"Cloud model disconnected after {_MAX_STREAM_RETRIES} attempts. "
+                    f"The prompt may be too large or the model pod is unavailable. "
+                    f"Try a shorter prompt or switch models. (Detail: {exc})"
+                ) from exc
+
+    def _stream_once(
+        self,
+        auth: "_AuthHeaders",
+        payload: dict,
+        timeout: "httpx.Timeout",
+    ) -> Iterator[str]:
+        """Single streaming attempt — called by stream() with retry wrapper."""
+        with httpx.Client(timeout=timeout) as client:
             _headers = {"Authorization": f"Bearer {auth.bearer}", "X-CLI": "true"}
             _ctx = client.stream("POST", f"{self._api_base}/chat", json=payload, headers=_headers)
             response = _ctx.__enter__()

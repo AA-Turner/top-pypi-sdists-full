@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atlassian-jwt-auth
-Version: 22.0.0
+Version: 22.0.1
 Summary: Python implementation of the Atlassian Service to Service Authentication specification.
 Home-page: https://github.com/atlassian/asap-authentication-python
 Author: Atlassian
@@ -23,8 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: PyJWT<3.0.0,>=2.11.0
-Requires-Dist: PyJWT[crypto]<3.0.0,>=2.4.0
+Requires-Dist: PyJWT[crypto]<3.0.0,>=2.11.0
 Requires-Dist: requests<3.0.0,>=2.8.1
 Requires-Dist: CacheControl
 Dynamic: author

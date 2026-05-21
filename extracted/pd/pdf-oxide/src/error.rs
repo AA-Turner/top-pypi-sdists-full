@@ -100,8 +100,10 @@ pub enum Error {
     #[error("ML error: {0}")]
     Ml(String),
 
-    /// OCR error
-    #[cfg(feature = "ocr")]
+    /// OCR error. Available whenever the OCR module is compiled —
+    /// `ocr` (native ONNX Runtime) or `ocr-tract` (pure-Rust tract /
+    /// wasm, which `ml` implies — issue #524).
+    #[cfg(any(feature = "ocr", feature = "ocr-tract"))]
     #[error("OCR error: {0}")]
     Ocr(String),
 

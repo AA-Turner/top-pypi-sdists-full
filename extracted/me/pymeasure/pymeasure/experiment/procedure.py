@@ -1,7 +1,7 @@
 #
 # This file is part of the PyMeasure package.
 #
-# Copyright (c) 2013-2025 PyMeasure Developers
+# Copyright (c) 2013-2026 PyMeasure Developers
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@ import logging
 import sys
 import inspect
 from copy import deepcopy
-from importlib.machinery import SourceFileLoader
+import importlib.util
 import re
 from pint import UndefinedUnitError
 
@@ -352,7 +352,10 @@ class ProcedureWrapper:
         self.__dict__.update(state)
 
         # Restore the procedure
-        module = SourceFileLoader(self._module, self._file).load_module()
+        spec = importlib.util.spec_from_file_location(self._module, self._file)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[self._module] = module
+        spec.loader.exec_module(module)
         cls = getattr(module, self._class)
 
         self.procedure = cls()

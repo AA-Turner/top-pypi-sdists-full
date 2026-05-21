@@ -1,38 +1,30 @@
 Metadata-Version: 2.4
 Name: crytic-compile
-Version: 0.3.11
+Version: 0.4.1
 Summary: Util to facilitate smart contracts compilation.
-Home-page: https://github.com/crytic/crytic-compile
 Author: Trail of Bits
-License: AGPL-3.0
-Requires-Python: >=3.8,!=3.12.0
-Description-Content-Type: text/markdown
-License-File: LICENSE
+License-Expression: AGPL-3.0-only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: pycryptodome>=3.4.6
 Requires-Dist: cbor2
-Requires-Dist: solc-select>=v1.0.4
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Provides-Extra: lint
-Requires-Dist: black==22.3.0; extra == "lint"
-Requires-Dist: pylint==2.13.4; extra == "lint"
-Requires-Dist: mypy==0.942; extra == "lint"
-Requires-Dist: darglint==1.8.0; extra == "lint"
-Provides-Extra: doc
-Requires-Dist: pdoc; extra == "doc"
+Requires-Dist: solc-select>=1.0.4
+Requires-Dist: crytic-compile[test,lint,doc] ; extra == 'dev'
+Requires-Dist: pdoc ; extra == 'doc'
+Requires-Dist: ruff>=0.8 ; extra == 'lint'
+Requires-Dist: ty ; extra == 'lint'
+Requires-Dist: pytest ; extra == 'test'
+Requires-Dist: pytest-cov ; extra == 'test'
+Requires-Python: >=3.10, !=3.12.0
+Project-URL: Homepage, https://github.com/crytic/crytic-compile
 Provides-Extra: dev
-Requires-Dist: crytic-compile[doc,lint,test]; extra == "dev"
-Dynamic: author
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Provides-Extra: doc
+Provides-Extra: lint
+Provides-Extra: test
+Description-Content-Type: text/markdown
 
 # Crytic-compile
 [![Build Status](https://img.shields.io/github/actions/workflow/status/crytic/crytic-compile/ci.yml?branch=master)](https://github.com/crytic/crytic-compile/actions?query=workflow%3ACI)
@@ -48,6 +40,7 @@ Library to help smart contract compilation. It includes support for:
 - [Dapp](https://dapp.tools/dapp/)
 - [Embark](https://embark.status.im/)
 - [Etherlime](https://github.com/LimeChain/etherlime)
+- [Sourcify](https://sourcify.dev/)
 - [Etherscan](https://etherscan.io/) (including several alt-chain explorers and testnets)
 - [Truffle](https://truffleframework.com/)
 - [Waffle](https://github.com/EthWorks/Waffle)
@@ -70,7 +63,13 @@ The plugin is used in Trail of Bits tools, including:
 ## Installation
 
 ```shell
-pip3 install crytic-compile
+pip install crytic-compile
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```shell
+uv pip install crytic-compile
 ```
 
 ## Usage

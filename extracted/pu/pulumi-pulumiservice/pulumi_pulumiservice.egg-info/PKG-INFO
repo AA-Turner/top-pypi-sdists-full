@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: pulumi_pulumiservice
-Version: 0.40.0
-Summary: A native Pulumi package for creating and managing Pulumi Cloud constructs
+Version: 1.0.0
+Summary: A native Pulumi package for creating and managing Pulumi Cloud constructs.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.com
 Project-URL: Repository, https://github.com/pulumi/pulumi-pulumiservice

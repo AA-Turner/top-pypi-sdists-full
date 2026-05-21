@@ -40,6 +40,7 @@ from angr.ailment.expression import (
     Tmp,
     DirtyExpression,
     Reinterpret,
+    ComboRegister,
 )
 
 from angr.ailment.tagged_object import TaggedObject
@@ -89,6 +90,7 @@ class SimEngineSSARewriting(
 
         self._current_vvar_id = vvar_id_start
         self._extra_defs: list[int] = []
+        self._varid_to_combo_reg = {}
 
     @property
     def current_vvar_id(self) -> int:
@@ -316,6 +318,21 @@ class SimEngineSSARewriting(
             return None
         assert isinstance(dirty, DirtyExpression)
         return DirtyStatement(stmt.idx, dirty, **stmt.tags)
+
+    def _handle_expr_String(self, expr):
+        return expr
+
+    def _handle_expr_Struct(self, expr):
+        return expr
+
+    def _handle_expr_Array(self, expr):
+        return expr
+
+    def _handle_expr_Let(self, expr):
+        return expr
+
+    def _handle_expr_FunctionLikeMacro(self, expr):
+        return expr
 
     def _handle_expr_Register(self, expr: Register) -> VirtualVariable | Expression | None:
         vvar = self._expr_to_vvar(expr, True)
@@ -545,7 +562,11 @@ class SimEngineSSARewriting(
         if vvar.stack_offset == expr.offset:
             return refers
 
-        return BinaryOp(expr.idx, "Add", [refers, Const(None, None, vvar.stack_offset - expr.offset, refers.bits)])
+        return BinaryOp(
+            expr.idx,
+            "Add",
+            [refers, Const(self.ail_manager.next_atom(), None, vvar.stack_offset - expr.offset, refers.bits)],
+        )
 
     def _handle_expr_Extract(self, expr: Extract):
         base = self._expr(expr.base) or expr.base
@@ -576,6 +597,8 @@ class SimEngineSSARewriting(
             return self._replace_def_reg(thing, value, orig_tags)
         if isinstance(thing, Tmp) and self.rewrite_tmps:
             return self._replace_def_tmp(thing, value, orig_tags)
+        if isinstance(thing, ComboRegister):
+            return self._replace_def_combo_reg(thing, value, orig_tags)
         if isinstance(thing, VirtualVariable):
             # update liveness info
             if thing.category == VirtualVariableCategory.REGISTER:
@@ -586,6 +609,39 @@ class SimEngineSSARewriting(
                 for suboff in range(thing.stack_offset, thing.stack_offset + thing.size):
                     self.state.stackvars[suboff] = thing
         return None
+
+    def _replace_def_combo_reg(self, expr: ComboRegister, value: Expression, orig_tags: TaggedObject) -> Assignment:
+        # Create individual register VirtualVariables for each sub-register
+        reg_vvars = []
+        for reg in expr.registers:
+            reg_varid = self._current_vvar_id
+            self._current_vvar_id += 1
+            reg_vvar = VirtualVariable(
+                self.ail_manager.next_atom(),
+                reg_varid,
+                reg.bits,
+                VirtualVariableCategory.REGISTER,
+                oident=reg.reg_offset,
+                **(reg.tags | {"ins_addr": self.ins_addr}),
+            )
+            for suboff in range(reg.reg_offset, reg.reg_offset + reg.size):
+                self.state.registers[suboff] = reg_vvar
+            reg_vvars.append(reg_vvar)
+
+        vvid = self._current_vvar_id
+        self._current_vvar_id += 1
+        result = VirtualVariable(
+            expr.idx,
+            vvid,
+            expr.bits,
+            VirtualVariableCategory.COMBO_REGISTER,
+            oident=tuple(reg.reg_offset for reg in expr.registers),
+            reg_vvars=reg_vvars,
+            **expr.tags,
+        )
+        for reg_vvar in result.reg_vvars:
+            self._varid_to_combo_reg[reg_vvar.varid] = result
+        return Assignment(self.ail_manager.next_atom(), result, value, **orig_tags.tags)
 
     def _replace_def_reg(self, expr: Register, value: Expression, orig_tags: TaggedObject) -> Assignment:
         """
@@ -679,7 +735,7 @@ class SimEngineSSARewriting(
         if size > vvar.size:
             if self._fail_fast:
                 assert False, "Invariant failure: we generated a vvar which is smaller than one of its uses"
-            remainder = Const(None, None, 0, size * 8 - vvar.bits, uninitalized=True)
+            remainder = Const(self.ail_manager.next_atom(), None, 0, size * 8 - vvar.bits, uninitalized=True)
             order = [vvar, remainder] if endness == archinfo.Endness.LE else [remainder, vvar]
             return BinaryOp(
                 self.ail_manager.next_atom(),
@@ -688,7 +744,12 @@ class SimEngineSSARewriting(
                 bits=size * 8,
             )
         return Extract(
-            self.ail_manager.next_atom(), size * 8, vvar, Const(None, None, offset, 64), endness, **orig_tags.tags
+            self.ail_manager.next_atom(),
+            size * 8,
+            vvar,
+            Const(self.ail_manager.next_atom(), None, offset, 64),
+            endness,
+            **orig_tags.tags,
         )
 
     def _vvar_update(
@@ -705,7 +766,7 @@ class SimEngineSSARewriting(
             else:
                 raise TypeError(vvar.category)
             if base is None:
-                base = Const(None, None, 0, vvar.bits, uninitialized=True)
+                base = Const(self.ail_manager.next_atom(), None, 0, vvar.bits, uninitialized=True)
             endness = (
                 self.project.arch.memory_endness
                 if vvar.was_stack or (vvar.was_parameter and vvar.parameter_category == VirtualVariableCategory.STACK)
@@ -715,12 +776,24 @@ class SimEngineSSARewriting(
                 base = BinaryOp(
                     self.ail_manager.next_atom(),
                     "Concat",
-                    [base, Const(None, None, 0, vvar.bits - base.bits, uninitialized=True)],
+                    [base, Const(self.ail_manager.next_atom(), None, 0, vvar.bits - base.bits, uninitialized=True)],
                     bits=vvar.bits,
                 )
             elif base.bits > vvar.bits:
-                base = Extract(self.ail_manager.next_atom(), vvar.bits, base, Const(None, None, offset, 64), endness)
-            combined = Insert(self.ail_manager.next_atom(), base, Const(None, None, offset, 64), value, endness)
+                base = Extract(
+                    self.ail_manager.next_atom(),
+                    vvar.bits,
+                    base,
+                    Const(self.ail_manager.next_atom(), None, offset, 64),
+                    endness,
+                )
+            combined = Insert(
+                self.ail_manager.next_atom(),
+                base,
+                Const(self.ail_manager.next_atom(), None, offset, 64),
+                value,
+                endness,
+            )
 
         if vvar.category == VirtualVariableCategory.STACK:
             self.state.stackvars = self.state.stackvars.clean()

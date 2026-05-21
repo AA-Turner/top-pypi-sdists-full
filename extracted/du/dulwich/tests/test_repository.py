@@ -21,6 +21,7 @@
 
 """Tests for the repository."""
 
+import errno
 import glob
 import importlib
 import locale
@@ -1871,8 +1872,17 @@ class BuildRepoRootTests(TestCase):
         names = ["À".encode(encoding) for encoding in encodings]
         for name, encoding in zip(names, encodings):
             full_path = os.path.join(repo_path_bytes, name)
-            with open(full_path, "wb") as f:
-                f.write(encoding.encode("ascii"))
+            try:
+                with open(full_path, "wb") as f:
+                    f.write(encoding.encode("ascii"))
+            except OSError as e:
+                if e.errno == errno.EILSEQ:
+                    # Filesystem rejects non-UTF8 filenames
+                    # (e.g. OpenZFS with utf8only=on).
+                    self.skipTest(
+                        f"filesystem rejects non-UTF8 filename {e.filename!r}"
+                    )
+                raise
             # These files are break tear_down_repo, so cleanup these files
             # ourselves.
             self.addCleanup(os.remove, full_path)
@@ -1953,10 +1963,12 @@ class RepoConfigIncludeIfTests(TestCase):
             with open(included_path, "wb") as f:
                 f.write(b"[user]\n    email = work@example.com\n")
 
-            # Add includeIf to the repo config
+            # Add includeIf to the repo config. Backslashes must be doubled
+            # both inside the quoted subsection name and in the value.
             config_path = os.path.join(repo_path, ".git", "config")
+            escaped_repo_path = repo_path.replace("\\", "\\\\")
             with open(config_path, "ab") as f:
-                f.write(f'\n[includeIf "gitdir:{repo_path}/.git/"]\n'.encode())
+                f.write(f'\n[includeIf "gitdir:{escaped_repo_path}/.git/"]\n'.encode())
                 escaped_path = included_path.replace("\\", "\\\\")
                 f.write(f"    path = {escaped_path}\n".encode())
 
@@ -2055,10 +2067,12 @@ class RepoConfigIncludeIfTests(TestCase):
             with open(included_path, "wb") as f:
                 f.write(b"[receive]\n    denyNonFastForwards = true\n")
 
-            # Add includeIf to the repo config
+            # Add includeIf to the repo config. Backslashes must be doubled
+            # both inside the quoted subsection name and in the value.
             config_path = os.path.join(repo_path, "config")
+            escaped_repo_path = repo_path.replace("\\", "\\\\")
             with open(config_path, "ab") as f:
-                f.write(f'\n[includeIf "gitdir:{repo_path}/"]\n'.encode())
+                f.write(f'\n[includeIf "gitdir:{escaped_repo_path}/"]\n'.encode())
                 escaped_path = included_path.replace("\\", "\\\\")
                 f.write(f"    path = {escaped_path}\n".encode())
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm-tpu
-Version: 0.19.0
+Version: 0.20.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -11,12 +11,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: regex
@@ -41,7 +42,7 @@ Requires-Dist: prometheus-fastapi-instrumentator>=7.0.0
 Requires-Dist: tiktoken>=0.6.0
 Requires-Dist: lm-format-enforcer==0.11.3
 Requires-Dist: llguidance<1.4.0,>=1.3.0; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ppc64le"
-Requires-Dist: outlines_core==0.2.11
+Requires-Dist: outlines_core==0.2.14
 Requires-Dist: diskcache==5.6.3
 Requires-Dist: lark==1.2.2
 Requires-Dist: xgrammar<1.0.0,>=0.1.32; platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "s390x" or platform_machine == "ppc64le"
@@ -52,9 +53,7 @@ Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
 Requires-Dist: gguf>=0.17.0
 Requires-Dist: mistral_common[image]>=1.11.0
-Requires-Dist: av
 Requires-Dist: opencv-python-headless>=4.13.0
-Requires-Dist: soundfile
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
 Requires-Dist: setuptools<81.0.0,>=77.0.3; python_version > "3.11"
@@ -86,9 +85,9 @@ Requires-Dist: ray[default]
 Requires-Dist: ray[data]
 Requires-Dist: setuptools==78.1.0
 Requires-Dist: nixl==0.3.0
-Requires-Dist: tpu-inference==0.19.0
+Requires-Dist: tpu-inference==0.20.0
 Provides-Extra: zen
-Requires-Dist: zentorch; extra == "zen"
+Requires-Dist: zentorch-weekly==5.2.1.dev20260408; extra == "zen"
 Provides-Extra: bench
 Requires-Dist: pandas; extra == "bench"
 Requires-Dist: matplotlib; extra == "bench"
@@ -105,14 +104,16 @@ Requires-Dist: instanttensor>=0.1.5; extra == "instanttensor"
 Provides-Extra: runai
 Requires-Dist: runai-model-streamer[azure,gcs,s3]>=0.15.7; extra == "runai"
 Provides-Extra: audio
+Requires-Dist: av; extra == "audio"
 Requires-Dist: scipy; extra == "audio"
+Requires-Dist: soundfile; extra == "audio"
 Requires-Dist: mistral_common[audio]; extra == "audio"
 Provides-Extra: video
 Provides-Extra: flashinfer
 Provides-Extra: helion
 Requires-Dist: helion==1.0.0; extra == "helion"
 Provides-Extra: grpc
-Requires-Dist: smg-grpc-servicer[vllm]>=0.5.0; extra == "grpc"
+Requires-Dist: smg-grpc-servicer[vllm]>=0.5.2; extra == "grpc"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk>=1.26.0; extra == "otel"
 Requires-Dist: opentelemetry-api>=1.26.0; extra == "otel"
@@ -138,7 +139,7 @@ Easy, fast, and cheap LLM serving for everyone
 | <a href="https://docs.vllm.ai"><b>Documentation</b></a> | <a href="https://blog.vllm.ai/"><b>Blog</b></a> | <a href="https://arxiv.org/abs/2309.06180"><b>Paper</b></a> | <a href="https://x.com/vllm_project"><b>Twitter/X</b></a> | <a href="https://discuss.vllm.ai"><b>User Forum</b></a> | <a href="https://slack.vllm.ai"><b>Developer Slack</b></a> |
 </p>
 
-🔥 We have built a vllm website to help you get started with vllm. Please visit [vllm.ai](https://vllm.ai) to learn more.
+🔥 We have built a vLLM website to help you get started with vLLM. Please visit [vllm.ai](https://vllm.ai) to learn more.
 For events, please visit [vllm.ai/events](https://vllm.ai/events) to join us.
 
 ---
@@ -174,7 +175,7 @@ vLLM is flexible and easy to use with:
 - Efficient multi-LoRA support for dense and MoE layers
 - Support for NVIDIA GPUs, AMD GPUs, and x86/ARM/PowerPC CPUs. Additionally, diverse hardware plugins such as Google TPUs, Intel Gaudi, IBM Spyre, Huawei Ascend, Rebellions NPU, Apple Silicon, MetaX GPU, and more.
 
-vLLM seamlessly supports 200+ model architectures on HuggingFace, including:
+vLLM seamlessly supports 200+ model architectures on Hugging Face, including:
 
 - Decoder-only LLMs (e.g., Llama, Qwen, Gemma)
 - Mixture-of-Expert LLMs (e.g., Mixtral, DeepSeek-V3, Qwen-MoE, GPT-OSS)

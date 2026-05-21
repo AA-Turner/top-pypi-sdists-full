@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: checkdmarc
-Version: 5.15.4
+Version: 5.16.2
 Summary: A Python module and command line parser for SPF and DMARC records
 Project-URL: Homepage, https://github.com/domainaware/checkdmarc
 Project-URL: Documentation, https://domainaware.github.io/checkdmarc/
@@ -29,6 +29,7 @@ Provides-Extra: build
 Requires-Dist: hatch>=1.14.0; extra == 'build'
 Requires-Dist: myst-parser[linkify]; extra == 'build'
 Requires-Dist: nose; extra == 'build'
+Requires-Dist: pyright; extra == 'build'
 Requires-Dist: pytest; extra == 'build'
 Requires-Dist: pytest-cov; extra == 'build'
 Requires-Dist: ruff; extra == 'build'
@@ -39,12 +40,13 @@ Description-Content-Type: text/markdown
 # checkdmarc
 
 [![Python tests](https://github.com/domainaware/checkdmarc/actions/workflows/python-tests.yaml/badge.svg)](https://github.com/domainaware/checkdmarc/actions/workflows/python-tests.yaml)
+[![Code Coverage](https://codecov.io/gh/domainaware/checkdmarc/branch/main/graph/badge.svg)](https://codecov.io/gh/domainaware/checkdmarc)
 [![PyPI](https://img.shields.io/pypi/v/checkdmarc)](https://pypi.org/project/checkdmarc/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/checkdmarc?color=blue)](https://pypistats.org/packages/checkdmarc)
 
 A Python module, command line utility, and [web application](https://github.com/domainaware/checkdmarc-web-frontend) for validating SPF and DMARC DNS records.
 
-## Sponcers
+## Sponcors
 
 This is a project is maintained by one developer.
 Please consider [sponsoring my work](https://github.com/sponsors/seanthegeek) if you or your organization benefit from it.
@@ -61,7 +63,7 @@ Please consider [sponsoring my work](https://github.com/sponsors/seanthegeek) if
   - Counting of lookups per mechanism
 - DMARC
   - Validation and parsing of DMARC records
-  - Shows warnings when the DMARC record is made ineffective by `pct` or `sp` values
+  - Shows warnings when the DMARC record is made ineffective by `sp` values, or by use of the `pct`/`rf`/`ri` tags that were removed in RFC 9989
   - Checks for authorization records on reporting email addresses
 - BIMI
   - Validation of the mark format and certificate against the [Minimum Security Requirements for Issuance of Mark Certificates](https://bimigroup.org/resources/VMC_Requirements_latest.pdf)

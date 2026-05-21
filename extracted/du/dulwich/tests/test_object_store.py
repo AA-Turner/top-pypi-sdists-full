@@ -48,6 +48,7 @@ from dulwich.objects import (
     SubmoduleEncountered,
     Tree,
     TreeEntry,
+    hex_to_sha,
     sha_to_hex,
 )
 from dulwich.pack import REF_DELTA, write_pack_objects
@@ -116,6 +117,29 @@ class MemoryObjectStoreTests(ObjectStoreTests, TestCase):
         entries = build_pack(f, [], store=o)
         self.assertEqual([], entries)
         o.add_thin_pack(f.read, None)
+
+    def test_add_pack_rejects_truncated_checksum(self) -> None:
+        # A pack stream that lost the last few bytes of its trailing
+        # checksum must be rejected by MemoryObjectStore.add_pack;
+        # otherwise a MemoryRepo non-thin fetch would silently accept
+        # truncated network input. add_thin_pack already validates via
+        # PackStreamCopier.verify().
+        from dulwich.errors import ChecksumMismatch
+
+        o = MemoryObjectStore()
+        f, commit, abort = o.add_pack()
+        try:
+            scratch = BytesIO()
+            build_pack(scratch, [(Blob.type_num, b"hello world")])
+            data = scratch.getvalue()
+            # Drop a few bytes of the 20-byte trailing checksum.
+            f.write(data[:-5])
+            self.assertRaises(ChecksumMismatch, commit)
+        except BaseException:
+            abort()
+            raise
+        # The truncated pack must not have leaked objects into the store.
+        self.assertEqual([], list(o))
 
     def test_add_pack_data_with_deltas(self) -> None:
         """Test that add_pack_data properly handles delta objects.
@@ -350,6 +374,28 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             entries = build_pack(f, [], store=o)
             self.assertEqual([], entries)
             o.add_thin_pack(f.read, None)
+
+    def test_add_pack_rejects_malformed_tree(self) -> None:
+        # A pack containing a "tree" whose body cannot be parsed must not
+        # be ingested: MemoryObjectStore and ``git fsck`` already reject
+        # such objects, so DiskObjectStore must too. Otherwise a malicious
+        # remote can poison the repository.
+        from dulwich.errors import ObjectFormatException
+
+        o = DiskObjectStore(self.store_dir)
+        self.addCleanup(o.close)
+        f, commit, abort = o.add_pack()
+        try:
+            build_pack(f, [(Tree.type_num, b"this is not a tree at all")])
+            # build_pack rewinds f; commit() detects the pack only when
+            # f.tell() > 0, so re-seek to the end of the written pack.
+            f.seek(0, os.SEEK_END)
+            self.assertRaises(ObjectFormatException, commit)
+        except BaseException:
+            abort()
+            raise
+        # No pack/index files should have been left behind.
+        self.assertEqual([], os.listdir(o.pack_dir))
 
     def test_pack_index_version_config(self) -> None:
         # Test that pack.indexVersion configuration is respected
@@ -990,6 +1036,77 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             self.assertEqual(1024, pack.delta_base_cache_limit)
             self.assertEqual(1024, pack.data._offset_cache._max_size)
 
+    def _add_blob_in_pack(self, store, data):
+        b = make_object(Blob, data=data)
+        f, commit, abort = store.add_pack()
+        try:
+            write_pack_objects(
+                f.write, [(b, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
+        except BaseException:
+            abort()
+            raise
+        else:
+            commit()
+        return b
+
+    def test_get_pack_by_name_uses_bare_hash_key(self) -> None:
+        """_get_pack_by_name and _update_pack_cache must agree on cache keys.
+
+        Otherwise both populate _pack_cache for the same file under different
+        keys, causing duplicate Pack objects and spurious eviction in
+        _update_pack_cache's "remove disappeared pack files" loop (the same
+        class of bug as commit d86353e4).
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b = self._add_blob_in_pack(store, b"midx test")
+        # Force _update_pack_cache to populate the cache with bare-hash keys.
+        store.get_raw(b.id)
+
+        # All keys in _pack_cache must be bare hashes (no "pack-" prefix).
+        for key in store._pack_cache:
+            self.assertFalse(
+                key.startswith("pack-"),
+                f"_pack_cache key {key!r} should be a bare hash",
+            )
+
+        cached_keys = set(store._pack_cache)
+        self.assertEqual(1, len(cached_keys))
+
+        # Looking up the same pack via _get_pack_by_name (the path used by
+        # MIDXObjectStore.get_raw) must hit the existing cache entry rather
+        # than creating a duplicate keyed differently.
+        pack = next(iter(store._pack_cache.values()))
+        pack_name = os.path.basename(pack._basename) + ".idx"
+        same_pack = store._get_pack_by_name(pack_name)
+        self.assertIs(pack, same_pack)
+        self.assertEqual(cached_keys, set(store._pack_cache))
+
+    def test_get_pack_by_name_does_not_cause_eviction(self) -> None:
+        """After _get_pack_by_name, _update_pack_cache must not evict the pack.
+
+        This is the failure mode that surfaced as a KeyError during reads:
+        a duplicate cache entry under a `pack-HASH` key looked like a
+        "disappeared" pack on the next rescan and got closed while still
+        in use.
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b = self._add_blob_in_pack(store, b"eviction test")
+        store.get_raw(b.id)
+
+        pack = next(iter(store._pack_cache.values()))
+        pack_name = os.path.basename(pack._basename) + ".idx"
+        store._get_pack_by_name(pack_name)
+
+        # Trigger _update_pack_cache; nothing on disk has changed, so no
+        # pack should be evicted.
+        store._update_pack_cache()
+        self.assertEqual((Blob.type_num, b"eviction test"), store.get_raw(b.id))
+
     def test_delta_base_cache_limit_uses_default(self) -> None:
         from dulwich.pack import DEFAULT_DELTA_BASE_CACHE_LIMIT
 
@@ -1017,6 +1134,151 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
                 DEFAULT_DELTA_BASE_CACHE_LIMIT,
                 pack.data._offset_cache._max_size,
             )
+
+    def test_pack_disappeared_during_lookup_recovers(self) -> None:
+        """A concurrent repack that deletes a pack must not raise KeyError.
+
+        Regression for https://github.com/jelmer/dulwich/issues/2159: when a
+        pack is removed between the moment ``_update_pack_cache`` snapshots
+        the pack directory and the moment its index is lazily opened, the
+        store should drop the stale Pack, rescan, and find the object in
+        the replacement pack.
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        # Two packs that overlap on b1. The "doomed" pack also contains b2
+        # so it has a distinct hash from the survivor (otherwise add_pack
+        # would dedupe).
+        b1 = make_object(Blob, data=b"shared-object")
+        b2 = make_object(Blob, data=b"only-in-doomed")
+
+        f, commit, _abort = store.add_pack()
+        write_pack_objects(
+            f.write, [(b1, None), (b2, None)], object_format=DEFAULT_OBJECT_FORMAT
+        )
+        doomed = commit()
+        self.assertIsNotNone(doomed)
+
+        f, commit, _abort = store.add_pack()
+        write_pack_objects(f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT)
+        survivor = commit()
+        self.assertIsNotNone(survivor)
+
+        assert doomed is not None
+        # Drop file handles (mimicking eviction or process restart) before
+        # deleting on disk, so the next access goes through lazy load.
+        doomed.close()
+        os.remove(doomed._idx_path)
+        os.remove(doomed._data_path)
+
+        # b1 must still be found via the survivor pack rather than raising
+        # KeyError because of the disappeared doomed pack.
+        type_num, data = store.get_raw(b1.id)
+        self.assertEqual(Blob.type_num, type_num)
+        self.assertEqual(b"shared-object", data)
+
+    def test_contains_packed_recovers_after_pack_disappears(self) -> None:
+        """contains_packed must not return False if a replacement pack exists."""
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b1 = make_object(Blob, data=b"contains-after-repack")
+        b2 = make_object(Blob, data=b"only-in-doomed-2")
+
+        f, commit, _abort = store.add_pack()
+        write_pack_objects(
+            f.write, [(b1, None), (b2, None)], object_format=DEFAULT_OBJECT_FORMAT
+        )
+        doomed = commit()
+        self.assertIsNotNone(doomed)
+
+        f, commit, _abort = store.add_pack()
+        write_pack_objects(f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT)
+        survivor = commit()
+        self.assertIsNotNone(survivor)
+
+        assert doomed is not None
+        doomed.close()
+        os.remove(doomed._idx_path)
+        os.remove(doomed._data_path)
+
+        self.assertTrue(store.contains_packed(b1.id))
+
+    def test_iter_handles_disappeared_pack(self) -> None:
+        """Iterating SHAs must not crash when a cached pack file vanishes."""
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b1 = make_object(Blob, data=b"iter-after-repack")
+        f, commit, _abort = store.add_pack()
+        write_pack_objects(f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT)
+        original = commit()
+        self.assertIsNotNone(original)
+
+        assert original is not None
+        original.close()
+        os.remove(original._idx_path)
+        os.remove(original._data_path)
+
+        # Should not raise; the disappeared pack is silently dropped.
+        self.assertEqual([], list(store))
+
+    def test_write_midx_handles_disappeared_pack(self) -> None:
+        """write_midx must not crash if a pack disappears mid-collection."""
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b1 = make_object(Blob, data=b"midx-after-repack")
+        b2 = make_object(Blob, data=b"midx-survivor")
+
+        f, commit, _abort = store.add_pack()
+        write_pack_objects(f.write, [(b1, None)], object_format=DEFAULT_OBJECT_FORMAT)
+        doomed = commit()
+        self.assertIsNotNone(doomed)
+
+        f, commit, _abort = store.add_pack()
+        write_pack_objects(f.write, [(b2, None)], object_format=DEFAULT_OBJECT_FORMAT)
+        survivor = commit()
+        self.assertIsNotNone(survivor)
+
+        assert doomed is not None
+        doomed.close()
+        os.remove(doomed._idx_path)
+        os.remove(doomed._data_path)
+
+        # No exception. The midx is written from the surviving pack.
+        store.write_midx()
+        midx_path = os.path.join(store.pack_dir, "multi-pack-index")
+        self.assertTrue(os.path.exists(midx_path))
+
+    def test_contains_packed_hex_sha_with_midx(self) -> None:
+        """contains_packed must accept hex SHAs even when a MIDX is loaded.
+
+        Regression test for #2178: BaseRepo.__contains__ passes 40-char hex
+        SHAs down to contains_packed, which then consults MIDX. MIDX has a
+        binary-only contract, so contains_packed must normalise hex SHAs
+        before the MIDX lookup. Previously this raised
+        ``ValueError: SHA size mismatch: expected 20, got 40``.
+        """
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+
+        b = self._add_blob_in_pack(store, b"hex-sha-midx-lookup")
+        store.write_midx()
+
+        # Drop any cached state so the freshly written MIDX is loaded.
+        store.close()
+        store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
+        self.assertIsNotNone(store.get_midx())
+
+        # Hex SHA (what BaseRepo.__contains__ hands down) must work.
+        self.assertTrue(store.contains_packed(b.id))
+        # Binary SHA must still work.
+        self.assertTrue(store.contains_packed(hex_to_sha(b.id)))
+        # Unknown hex SHA: clean False, no exception.
+        self.assertFalse(store.contains_packed(b"0" * 40))
 
 
 class TreeLookupPathTests(TestCase):

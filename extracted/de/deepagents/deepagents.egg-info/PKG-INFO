@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents
-Version: 0.6.2
+Version: 0.6.3
 Summary: General purpose 'deep agent' with sub-agent spawning, todo list capabilities, and mock file system. Built on LangGraph.
 License: MIT
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview

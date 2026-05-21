@@ -21,14 +21,14 @@ import os
 import pathlib
 import subprocess
 
-_version = "0.10.0"
+_version = "0.10.1"
 # The following line is overwritten by build scripts in distributions &
 # releases. Do not modify this manually, or jax/jaxlib build will fail.
-_release_version: str = '0.10.0'
+_release_version: str = '0.10.1'
 
 # The following line is overwritten by build scripts in distributions &
 # releases. Do not modify this manually, or jax/jaxlib build will fail.
-_git_hash: str = 'a33ed614c58ee8a10d0b7536c50c2609c38500c1'
+_git_hash: str = '619764c15117fbefc4ba13ab941871cb514c23f6'
 
 def _get_version_string() -> str:
   # The build/source distribution for jax & jaxlib overwrites _release_version.
@@ -102,7 +102,7 @@ def _is_prerelease() -> bool:
 def _write_version(fname: str) -> None:
   """Used by setup.py to write the specified version info into the source tree."""
   release_version = _get_version_for_build()
-  old_version_string = "_release_version: str = '0.10.0'"
+  old_version_string = "_release_version: str = '0.10.1'"
   new_version_string = f"_release_version: str = {release_version!r}"
   fhandle = pathlib.Path(fname)
   contents = fhandle.read_text()
@@ -113,7 +113,7 @@ def _write_version(fname: str) -> None:
 
   githash = os.environ.get("JAX_GIT_HASH")
   if githash:
-    old_githash_string = "_git_hash: str = 'a33ed614c58ee8a10d0b7536c50c2609c38500c1'"
+    old_githash_string = "_git_hash: str = '619764c15117fbefc4ba13ab941871cb514c23f6'"
     new_githash_string = f"_git_hash: str = {githash!r}"
     if contents.count(old_githash_string) != 2:
       raise RuntimeError(f"Build: could not find {old_githash_string!r} in {fname}")
@@ -122,8 +122,8 @@ def _write_version(fname: str) -> None:
 
 
 def _get_cmdclass(pkg_source_path):
-  from setuptools.command.build_py import build_py as build_py_orig  # pytype: disable=import-error
-  from setuptools.command.sdist import sdist as sdist_orig  # pytype: disable=import-error
+  from setuptools.command.build_py import build_py as build_py_orig  # pyrefly: ignore[missing-source-for-stubs]
+  from setuptools.command.sdist import sdist as sdist_orig  # pyrefly: ignore[missing-source-for-stubs]
 
   class _build_py(build_py_orig):
     def run(self):
@@ -156,7 +156,7 @@ def _get_cmdclass(pkg_source_path):
 
 
 __version__ = _get_version_string()
-_minimum_jaxlib_version = '0.10.0'
+_minimum_jaxlib_version = '0.10.1'
 
 def _version_as_tuple(version_str):
   return tuple(int(i) for i in version_str.split(".") if i.isdigit())

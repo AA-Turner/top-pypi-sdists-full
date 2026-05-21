@@ -16,7 +16,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1APIResourceList:
         ...
-    def list_device_class(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_device_class(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -38,7 +38,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2DeviceClass:
         ...
-    def delete_collection_device_class(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_device_class(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -93,7 +93,117 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2DeviceClass:
         ...
-    def list_namespaced_resource_claim(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_device_taint_rule(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRuleList:
+        ...
+    def create_device_taint_rule(self, body: kubernetes.client.V1beta2DeviceTaintRule, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRule:
+        ...
+    def delete_collection_device_taint_rule(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1Status:
+        ...
+    def read_device_taint_rule(self, name: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRule:
+        ...
+    def replace_device_taint_rule(self, name: str, body: kubernetes.client.V1beta2DeviceTaintRule, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRule:
+        ...
+    def delete_device_taint_rule(self, name: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., dry_run: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRule:
+        ...
+    def patch_device_taint_rule(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRule:
+        ...
+    def read_device_taint_rule_status(self, name: str, *, pretty: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRule:
+        ...
+    def replace_device_taint_rule_status(self, name: str, body: kubernetes.client.V1beta2DeviceTaintRule, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRule:
+        ...
+    def patch_device_taint_rule_status(self, name: str, body: typing.Any, *, pretty: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_manager: typing.Optional[str] = ..., field_validation: typing.Optional[str] = ..., force: typing.Optional[bool] = ..., 
+        _request_timeout: typing.Union[
+            None,
+            int,
+            typing.Tuple[
+                typing.Union[float, int],
+                typing.Union[float, int],
+            ]
+        ] = ...
+    ) -> kubernetes.client.V1beta2DeviceTaintRule:
+        ...
+    def list_namespaced_resource_claim(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -115,7 +225,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2ResourceClaim:
         ...
-    def delete_collection_namespaced_resource_claim(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_resource_claim(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -203,7 +313,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2ResourceClaim:
         ...
-    def list_namespaced_resource_claim_template(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_namespaced_resource_claim_template(self, namespace: str, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -225,7 +335,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2ResourceClaimTemplate:
         ...
-    def delete_collection_namespaced_resource_claim_template(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_namespaced_resource_claim_template(self, namespace: str, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -280,7 +390,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2ResourceClaimTemplate:
         ...
-    def list_resource_claim_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_resource_claim_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -291,7 +401,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2ResourceClaimList:
         ...
-    def list_resource_claim_template_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_resource_claim_template_for_all_namespaces(self, *, allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., pretty: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -302,7 +412,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2ResourceClaimTemplateList:
         ...
-    def list_resource_slice(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
+    def list_resource_slice(self, *, pretty: typing.Optional[str] = ..., allow_watch_bookmarks: typing.Optional[bool] = ..., _continue: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., watch: typing.Optional[bool] = ..., 
         _request_timeout: typing.Union[
             None,
             int,
@@ -324,7 +434,7 @@ class ResourceV1beta2Api:
         ] = ...
     ) -> kubernetes.client.V1beta2ResourceSlice:
         ...
-    def delete_collection_resource_slice(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., timeout_seconds: typing.Optional[int] = ..., 
+    def delete_collection_resource_slice(self, *, pretty: typing.Optional[str] = ..., body: typing.Optional[kubernetes.client.V1DeleteOptions] = ..., _continue: typing.Optional[str] = ..., dry_run: typing.Optional[str] = ..., field_selector: typing.Optional[str] = ..., grace_period_seconds: typing.Optional[int] = ..., ignore_store_read_error_with_cluster_breaking_potential: typing.Optional[bool] = ..., label_selector: typing.Optional[str] = ..., limit: typing.Optional[int] = ..., orphan_dependents: typing.Optional[bool] = ..., propagation_policy: typing.Optional[str] = ..., resource_version: typing.Optional[str] = ..., resource_version_match: typing.Optional[str] = ..., send_initial_events: typing.Optional[bool] = ..., shard_selector: typing.Optional[str] = ..., timeout_seconds: typing.Optional[int] = ..., 
         _request_timeout: typing.Union[
             None,
             int,

@@ -5,6 +5,8 @@ from ._light_effect import LightEffect
 from ._particle_emitter import ParticleEmitter
 from ._particle_modifier import ParticleModifier
 
+from ._postfx_effect import PostFxEffect
+
 # ======================================== EXPORTS ========================================
 __all__ = [
     "LightSource",
@@ -12,4 +14,6 @@ __all__ = [
 
     "ParticleEmitter",
     "ParticleModifier",
+
+    "PostFxEffect",
 ]

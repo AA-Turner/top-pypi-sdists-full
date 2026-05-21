@@ -1908,47 +1908,6 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
         first_df = next(iter(model_dfs.values()))
         area_pct = diag.compute_area_pct(first_df, country)
 
-        # National-scale metric per model (for legend labels). Computed on
-        # production-aggregated national yields per year — i.e. the metric a
-        # stakeholder would observe by summing predicted production into a
-        # national total.  Distinct from the area-weighted average of per-
-        # region scores, which cannot capture cross-region error cancellation.
-        national_metrics = {}
-        for model, df in model_dfs.items():
-            df = df.dropna(subset=[obs_col, pred_col])
-            if df.empty:
-                continue
-            df = df[df[obs_col] != 0].copy()
-            has_area = "Area (ha)" in df.columns and df["Area (ha)"].notna().any()
-            if has_area:
-                nat = _aggregate_national_yields(df)
-            else:
-                nat = (
-                    df.groupby("Harvest Year")
-                    .agg({obs_col: "mean", pred_col: "mean"})
-                    .reset_index()
-                )
-            nat = nat[nat[obs_col] != 0]
-            if nat.empty:
-                continue
-            err = nat[pred_col] - nat[obs_col]
-            w_mape = (err.abs() / nat[obs_col] * 100).mean()
-            w_rmse = float(np.sqrt((err ** 2).mean()))
-            _nat_obs_mean = float(nat[obs_col].mean())
-            w_rrmse = (100.0 * w_rmse / _nat_obs_mean) if _nat_obs_mean else np.nan
-            national_metrics[model] = {
-                "MAPE": w_mape, "RMSE": w_rmse, "RRMSE": w_rrmse,
-            }
-
-        def _model_legend(model, metric):
-            """Model display name with national metric in parentheses."""
-            display = _display_model_name(model)
-            nm = national_metrics.get(model, {})
-            val = nm.get(metric)
-            if val is not None:
-                unit = "%" if metric in ("MAPE", "RRMSE") else "tn/ha" if metric == "RMSE" else ""
-                return f"{display} (nat: {val:.1f}{unit})"
-            return display
 
         with plt.style.context(["science", "no-latex"]):
             # By region: grouped bar for each metric
@@ -1968,9 +1927,33 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 # Rename columns to include national metric
                 # Use consistent model colors
                 bar_colors = [_MODEL_COLORS.get(m, "steelblue") for m in pivot.columns]
-                pivot.columns = [_model_legend(m, metric) for m in pivot.columns]
+                pivot.columns = [_display_model_name(m) for m in pivot.columns]
                 fig, ax = plt.subplots(figsize=(10, max(4, len(pivot) * 0.5)))
                 pivot.plot.barh(ax=ax, color=bar_colors)
+                # Per-model mean across regions (dashed vertical line, same
+                # color as bars, numeric value annotated at the top edge).
+                # Arithmetic mean of the plotted values — not area-weighted.
+                y_top = ax.get_ylim()[1]
+                for col, c in zip(pivot.columns, bar_colors):
+                    m_mean = pivot[col].dropna().mean()
+                    if pd.notna(m_mean):
+                        ax.axvline(m_mean, color=c, linestyle="--",
+                                   linewidth=1.2, alpha=0.8)
+                        unit = "%" if metric in ("MAPE", "RRMSE") else ""
+                        ax.annotate(
+                            f"{m_mean:.1f}{unit}",
+                            xy=(m_mean, y_top),
+                            xytext=(3, -3),
+                            textcoords="offset points",
+                            color=c, fontsize=8, ha="left", va="top",
+                            rotation=90,
+                            bbox=dict(
+                                boxstyle="round,pad=0.2",
+                                facecolor="white",
+                                edgecolor="none",
+                                alpha=0.7,
+                            ),
+                        )
                 ax.set_xlabel(ylabel)
                 ax.set_title(f"{ylabel} by Region — {base_title}", fontweight="bold")
                 ax.legend(title="Model", fontsize=8)
@@ -1988,7 +1971,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook):
                 if pivot.empty:
                     continue
                 bar_colors = [_MODEL_COLORS.get(m, "steelblue") for m in pivot.columns]
-                pivot.columns = [_model_legend(m, metric) for m in pivot.columns]
+                pivot.columns = [_display_model_name(m) for m in pivot.columns]
                 fig, ax = plt.subplots(figsize=(12, 5))
                 pivot.plot.bar(ax=ax, color=bar_colors)
                 ax.set_ylabel(ylabel)

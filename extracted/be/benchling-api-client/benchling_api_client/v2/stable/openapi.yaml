@@ -27564,6 +27564,18 @@ components:
             comment:
               description: Reviewer's Comments
               type: string
+            reviewChanges:
+              description: A list of the Review Changes that have been made to this
+                entry
+              items:
+                $ref: '#/components/schemas/ReviewChange'
+              type: array
+            reviewProcesses:
+              description: Review Processes associated with the Entry
+              items:
+                $ref: '#/components/schemas/EntryReviewProcess'
+              nullable: true
+              type: array
             status:
               description: Review Status of the entry
               enum:
@@ -27806,6 +27818,70 @@ components:
       - $ref: '#/components/schemas/InventoryPlateTableNotePart'
       - $ref: '#/components/schemas/ChartNotePart'
       - $ref: '#/components/schemas/AppCanvasNotePart'
+      type: object
+    EntryReviewProcess:
+      properties:
+        completionStatus:
+          description: State of the Entry at the end of the Review Process
+          enum:
+          - APPROVED
+          - COMPLETED
+          - ACCEPTED
+          - REVIEWED
+          - WITNESSED
+          - SELF_REVIEWED
+          type: string
+        id:
+          description: ID of the Review Process
+          type: string
+        name:
+          description: Name of the Review Process
+          type: string
+        stages:
+          description: Array of Stages for the Review Process
+          items:
+            properties:
+              actionLabel:
+                description: Action reviewer is doing during the review
+                enum:
+                - APPROVE
+                - COMPLETE
+                - ACCEPT
+                - REVIEW
+                - WITNESS
+                - SELF_REVIEW
+                type: string
+              id:
+                description: ID of the Review Stage
+                type: string
+              name:
+                description: Name of the Review Stage
+                type: string
+              reviewers:
+                description: Reviewers for the Review Stage
+                items:
+                  allOf:
+                  - $ref: '#/components/schemas/PartySummary'
+                  - properties:
+                      status:
+                        description: Status of the Reviewer
+                        enum:
+                        - BLOCKED
+                        - PENDING
+                        - FINISHED
+                        - REJECTED
+                        type: string
+                  type: object
+                type: array
+            type: object
+          type: array
+        type:
+          description: Type of the Review Process
+          enum:
+          - SELF_REVIEW
+          - SEQUENTIAL
+          - PARALLEL
+          type: string
       type: object
     EntrySchema:
       description: Entry schema

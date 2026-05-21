@@ -2,7 +2,7 @@
 
 import pytest
 from connector.oai.capabilities.errors import CapabilityExecutionError
-from connector.oai.errors import InvalidConfigurationError, MissingParameterError
+from connector.oai.errors import InvalidConfigurationError, InvalidValueError, MissingParameterError
 from connector.oai.integration import DescriptionData, Integration
 from connector.oai.modules.credentials_module import CredentialsModule
 from connector_sdk_types.generated import (
@@ -398,9 +398,7 @@ async def test_validate_credential_config_whitespace(integration):
 async def test_validate_credential_config_invalid_type(integration):
     """Test validation when credential type doesn't match the configured type.
 
-    When the credential type doesn't match, credential_dict[credential_config.type] will be None,
-    which causes a TypeError when trying to unpack it. This is caught and re-raised as a
-    ValidationError, which is then converted to a CapabilityExecutionError.
+    When the credential type doesn't match, base_validation should fail with InvalidValueError.
     """
     request = ValidateCredentialConfigRequest(
         request=ValidateCredentialConfig(
@@ -411,10 +409,57 @@ async def test_validate_credential_config_invalid_type(integration):
         ),
     )
 
-    # The implementation tries to unpack None with **, which raises a TypeError
-    # The except block only catches ValidationError, so TypeError bubbles up
-    with pytest.raises(TypeError, match="argument after \\*\\* must be a mapping"):
+    with pytest.raises(InvalidValueError, match="Invalid or malformed credential received"):
         await integration.capabilities[StandardCapabilityName.VALIDATE_CREDENTIAL_CONFIG](request)
+
+
+@pytest.mark.asyncio
+async def test_validate_credential_config_uses_custom_input_model() -> None:
+    """Test that base_validation respects CredentialConfig.input_model semantics."""
+
+    class RuntimeStyleServiceAccountCredential(ServiceAccountCredential):
+        service_type: ServiceAccountType | None = ServiceAccountType.AWS
+        key: dict[str, str] | None = None
+        impersonation_email: str = ""
+        tenant_id: str = ""
+        scopes: list[str] | None = None
+
+    integration = Integration(
+        app_id="test_app",
+        version="0.1.0",
+        credentials=[
+            CredentialConfig(
+                id="service_account_credential",
+                type=AuthModel.SERVICE_ACCOUNT,
+                description="Service account credential",
+                input_model=RuntimeStyleServiceAccountCredential,
+            ),
+        ],
+        exception_handlers=[],
+        description_data=DescriptionData(user_friendly_name="test", categories=[]),
+    )
+
+    request = ValidateCredentialConfigRequest(
+        request=ValidateCredentialConfig(
+            credential=AuthCredential(
+                id="service_account_credential",
+                service_account=ServiceAccountCredential(
+                    service_type=ServiceAccountType.AWS,
+                    key={},
+                    impersonation_email="",
+                    tenant_id="",
+                    scopes=[],
+                ),
+            )
+        )
+    )
+
+    response = await integration.capabilities[StandardCapabilityName.VALIDATE_CREDENTIAL_CONFIG](
+        request
+    )
+
+    assert isinstance(response, ValidateCredentialConfigResponse)
+    assert response.response.valid is True
 
 
 @pytest.mark.asyncio

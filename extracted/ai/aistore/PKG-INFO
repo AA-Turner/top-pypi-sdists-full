@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aistore
-Version: 1.24.0
+Version: 1.25.0
 Summary: Client-side APIs to access and utilize clusters, buckets, and objects on AIStore.
 Project-URL: Homepage, https://aistore.nvidia.com
 Project-URL: Documentation, https://aistore.nvidia.com/docs/python-sdk

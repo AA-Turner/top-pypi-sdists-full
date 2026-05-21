@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydata-sphinx-theme
-Version: 0.17.1
+Version: 0.18.0
 Summary: Bootstrap-based Sphinx theme from the PyData community
 Maintainer-Email: Joris Van den Bossche <jorisvandenbossche@gmail.com>
 License-File: LICENSE
@@ -17,7 +17,7 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Project-URL: Source, https://github.com/pydata/pydata-sphinx-theme
 Requires-Python: >=3.10
-Requires-Dist: sphinx<10,>=7.0
+Requires-Dist: sphinx<10,>=8.0
 Requires-Dist: beautifulsoup4
 Requires-Dist: docutils!=0.17.0
 Requires-Dist: Babel

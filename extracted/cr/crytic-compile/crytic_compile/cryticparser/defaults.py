@@ -2,7 +2,6 @@
 Default value for options
 """
 
-
 # Those are the flags shared by the command line and the config file
 DEFAULTS_FLAG_IN_CONFIG = {
     "compile_force_framework": None,
@@ -45,7 +44,10 @@ DEFAULTS_FLAG_IN_CONFIG = {
     "hardhat_artifacts_directory": None,
     "foundry_ignore_compile": False,
     "foundry_out_directory": None,
+    "foundry_build_info_directory": None,
     "foundry_compile_all": False,
+    "foundry_deny": None,
     "export_dir": "crytic-export",
     "compile_libraries": None,
+    "compile_autolink": False,
 }

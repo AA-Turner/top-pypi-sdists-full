@@ -2320,12 +2320,14 @@ class RecommenderConfigOutputTypeDef(TypedDict):
     TrainingFrequency: NotRequired[int]
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
     IncludedColumns: NotRequired[dict[str, list[str]]]
+    ExcludedColumns: NotRequired[dict[str, list[str]]]
 
 class RecommenderConfigTypeDef(TypedDict):
     EventsConfig: NotRequired[EventsConfigTypeDef]
     TrainingFrequency: NotRequired[int]
     InferenceConfig: NotRequired[InferenceConfigTypeDef]
     IncludedColumns: NotRequired[Mapping[str, Sequence[str]]]
+    ExcludedColumns: NotRequired[Mapping[str, Sequence[str]]]
 
 class EventTriggerConditionOutputTypeDef(TypedDict):
     EventTriggerDimensions: list[EventTriggerDimensionOutputTypeDef]

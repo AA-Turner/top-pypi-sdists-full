@@ -43,9 +43,14 @@ def lookup_kid_jwk(keys_data, kid):
             }]
         }
     """
+    algorithms = jwt.algorithms.get_default_algorithms()
     for d in keys_data["keys"]:
         if d["kid"] == kid:
-            public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(d))
+            alg = d["alg"]
+            algorithm = algorithms.get(alg)
+            if not algorithm:
+                raise OAuth2Error(f"Unsupported signing algorithm: {d['alg']}")
+            public_key = algorithm.from_jwk(json.dumps(d))
             return public_key
 
 

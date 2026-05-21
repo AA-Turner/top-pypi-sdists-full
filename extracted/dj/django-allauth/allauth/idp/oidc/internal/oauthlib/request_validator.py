@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import timedelta
+from typing import Any
 
 from django.utils import timezone
 
@@ -23,7 +24,9 @@ from allauth.idp.oidc.models import Client, Token
 
 class OAuthLibRequestValidator(RequestValidator):
 
-    def validate_client_id(self, client_id: str, request) -> bool:
+    def validate_client_id(self, client_id: Any, request) -> bool:
+        if not isinstance(client_id, str):
+            return False
         client = self._lookup_client(request, client_id)
         if not client:
             return False
@@ -425,10 +428,27 @@ class OAuthLibRequestValidator(RequestValidator):
         return set(request.scopes).issubset(granted_scopes)
 
     def validate_jwt_bearer_token(self, token, scopes, request) -> bool:
+        payload = decode_jwt_token(token, verify_iss=True, verify_exp=True)
+        if not payload:
+            return False
+        token_use = payload.get("token_use")
+        if token_use == "access":  # nosec
+            return self._validate_jwt_bearer_access_token(
+                token, scopes, request, payload
+            )
+        return self._validate_jwt_bearer_id_token(token, scopes, request, payload)
+
+    def _validate_jwt_bearer_id_token(self, token, scopes, request, payload) -> bool:
         if scopes:
             # We don't have scope for the ID token
             return False
-        payload = decode_jwt_token(token, verify_iss=True, verify_exp=True)
-        if payload is None:
+        client_id = payload.get("aud")
+        return self.validate_client_id(client_id, request)
+
+    def _validate_jwt_bearer_access_token(
+        self, token, scopes, request, payload
+    ) -> bool:
+        client_id = payload.get("client_id")
+        if not self.validate_client_id(client_id, request):
             return False
-        return self.validate_client_id(payload["aud"], request)
+        return self.validate_bearer_token(token, scopes, request)

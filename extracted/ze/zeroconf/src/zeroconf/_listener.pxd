@@ -14,6 +14,9 @@ cdef bint TYPE_CHECKING
 
 cdef cython.uint _MAX_MSG_ABSOLUTE
 cdef cython.uint _DUPLICATE_PACKET_SUPPRESSION_INTERVAL
+cdef cython.uint _RECENT_PACKETS_MAX
+cdef cython.uint _MAX_DEFERRED_ADDRS
+cdef cython.uint _MAX_DEFERRED_PER_ADDR
 
 
 cdef class AsyncListener:
@@ -29,16 +32,23 @@ cdef class AsyncListener:
     cdef public object sock_description
     cdef public cython.dict _deferred
     cdef public cython.dict _timers
+    cdef public cython.dict _deferred_deadlines
+    cdef public cython.dict _recent_packets
 
     @cython.locals(now=double, debug=cython.bint)
     cpdef datagram_received(self, cython.bytes bytes, cython.tuple addrs)
 
-    @cython.locals(msg=DNSIncoming)
+    @cython.locals(msg=DNSIncoming, recent_time=double)
     cpdef _process_datagram_at_time(self, bint debug, cython.uint data_len, double now, bytes data, cython.tuple addrs)
 
     cdef _cancel_any_timers_for_addr(self, object addr)
 
-    @cython.locals(incoming=DNSIncoming, deferred=list)
+    cdef _evict_oldest_deferred(self)
+
+    @cython.locals(deadline=object, fire_at=double)
+    cdef double _compute_deferred_fire_at(self, object addr, double now, double delay)
+
+    @cython.locals(incoming=DNSIncoming, deferred=list, now=double, delay=double, fire_at=double)
     cpdef handle_query_or_defer(
         self,
         DNSIncoming msg,

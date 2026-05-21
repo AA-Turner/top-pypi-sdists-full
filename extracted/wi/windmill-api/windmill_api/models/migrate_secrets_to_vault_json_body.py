@@ -14,6 +14,10 @@ class MigrateSecretsToVaultJsonBody:
     Attributes:
         address (str): HashiCorp Vault server address (e.g., https://vault.company.com:8200)
         mount_path (str): KV v2 secrets engine mount path (e.g., windmill)
+        kv_secret_path_prefix (Union[Unset, str]): Optional path prefix inserted between the KV data/metadata segment
+            and the workspace id (e.g., "apps/windmill"). When set, secrets are stored at
+            `<mount>/data/<prefix>/<workspace>/<secret>`, allowing a Vault policy scoped to exactly
+            `<mount>/data/<prefix>/*`.
         jwt_role (Union[Unset, str]): Vault JWT auth role name for Windmill (optional, if not provided token auth is
             used)
         jwt_mount_path (Union[Unset, str]): Mount path for the JWT auth method in Vault (optional, defaults to "jwt").
@@ -28,6 +32,7 @@ class MigrateSecretsToVaultJsonBody:
 
     address: str
     mount_path: str
+    kv_secret_path_prefix: Union[Unset, str] = UNSET
     jwt_role: Union[Unset, str] = UNSET
     jwt_mount_path: Union[Unset, str] = UNSET
     namespace: Union[Unset, str] = UNSET
@@ -38,6 +43,7 @@ class MigrateSecretsToVaultJsonBody:
     def to_dict(self) -> Dict[str, Any]:
         address = self.address
         mount_path = self.mount_path
+        kv_secret_path_prefix = self.kv_secret_path_prefix
         jwt_role = self.jwt_role
         jwt_mount_path = self.jwt_mount_path
         namespace = self.namespace
@@ -52,6 +58,8 @@ class MigrateSecretsToVaultJsonBody:
                 "mount_path": mount_path,
             }
         )
+        if kv_secret_path_prefix is not UNSET:
+            field_dict["kv_secret_path_prefix"] = kv_secret_path_prefix
         if jwt_role is not UNSET:
             field_dict["jwt_role"] = jwt_role
         if jwt_mount_path is not UNSET:
@@ -72,6 +80,8 @@ class MigrateSecretsToVaultJsonBody:
 
         mount_path = d.pop("mount_path")
 
+        kv_secret_path_prefix = d.pop("kv_secret_path_prefix", UNSET)
+
         jwt_role = d.pop("jwt_role", UNSET)
 
         jwt_mount_path = d.pop("jwt_mount_path", UNSET)
@@ -85,6 +95,7 @@ class MigrateSecretsToVaultJsonBody:
         migrate_secrets_to_vault_json_body = cls(
             address=address,
             mount_path=mount_path,
+            kv_secret_path_prefix=kv_secret_path_prefix,
             jwt_role=jwt_role,
             jwt_mount_path=jwt_mount_path,
             namespace=namespace,

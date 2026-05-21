@@ -188,6 +188,54 @@ async def test_resolve_mdns_name_unspec_trailing_dot(
 
 
 @pytest.mark.asyncio
+async def test_resolve_mdns_name_mixed_case(resolver: AsyncMDNSResolver) -> None:
+    """Test the .local suffix is matched case-insensitively (RFC 6762)."""
+    with (
+        patch.object(IPv6orIPv4HostResolver, "async_request", return_value=True),
+        patch.object(
+            IPv6orIPv4HostResolver,
+            "ip_addresses_by_version",
+            return_value=[IPv4Address("127.0.0.1"), IPv6Address("::1")],
+        ),
+    ):
+        result = await resolver.resolve("Localhost.LOCAL", family=socket.AF_UNSPEC)
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0]["host"] == "127.0.0.1"
+    assert result[1]["host"] == "::1"
+
+
+@pytest.mark.asyncio
+async def test_resolve_mdns_name_mixed_case_trailing_dot_async_dual_mdns_resolver(
+    dual_resolver: AsyncDualMDNSResolver,
+) -> None:
+    """Test the dual resolver matches .local case-insensitively (RFC 6762).
+
+    Uses a mixed-case host with a trailing dot to cover both the
+    AsyncDualMDNSResolver routing path and the ``.local.`` suffix branch.
+    """
+    with (
+        patch(
+            "aiohttp_asyncmdnsresolver._impl.AsyncResolver.resolve",
+            return_value=[
+                ResolveResult(hostname="MyHost.Local.", host="127.0.0.1", port=0)  # type: ignore[typeddict-item]
+            ],
+        ),
+        patch.object(IPv4HostResolver, "async_request", return_value=True),
+        patch.object(
+            IPv4HostResolver,
+            "ip_addresses_by_version",
+            return_value=[IPv4Address("127.0.0.1")],
+        ),
+    ):
+        results = await dual_resolver.resolve("MyHost.Local.")
+    assert results is not None
+    assert len(results) == 1
+    assert results[0]["host"] == "127.0.0.1"
+
+
+@pytest.mark.asyncio
 async def test_resolve_mdns_name_af_inet(resolver: AsyncMDNSResolver) -> None:
     """Test the resolve method with socket.AF_INET family."""
     with (
@@ -270,6 +318,54 @@ async def test_create_destroy_resolver_no_aiozc() -> None:
     await resolver.close()
     assert resolver._aiozc is None
     assert resolver._aiozc_owner is True
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_closes_resolver() -> None:
+    """Test ``async with`` closes an owned resolver on exit."""
+    async with AsyncMDNSResolver(mdns_timeout=0.1) as resolver:
+        assert isinstance(resolver, AsyncMDNSResolver)
+        assert resolver._aiozc is not None
+        assert resolver._aiozc_owner is True
+    assert resolver._aiozc is None
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_closes_dual_resolver() -> None:
+    """Test ``async with`` closes an owned dual resolver on exit."""
+    async with AsyncDualMDNSResolver(mdns_timeout=0.1) as resolver:
+        assert isinstance(resolver, AsyncDualMDNSResolver)
+        assert resolver._aiozc is not None
+    assert resolver._aiozc is None
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_returns_self() -> None:
+    """Test ``__aenter__`` yields the resolver instance itself."""
+    resolver = AsyncMDNSResolver(mdns_timeout=0.1)
+    async with resolver as entered:
+        assert entered is resolver
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_closes_on_exception() -> None:
+    """Test the resolver is closed even when the body raises."""
+    resolver = AsyncMDNSResolver(mdns_timeout=0.1)
+    with pytest.raises(ValueError, match="boom"):
+        async with resolver:
+            raise ValueError("boom")
+    assert resolver._aiozc is None
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_passed_in_zeroconf_not_closed() -> None:
+    """Test exiting the context manager does not close a borrowed zeroconf."""
+    aiozc = AsyncZeroconf()
+    async with AsyncMDNSResolver(mdns_timeout=0.1, async_zeroconf=aiozc) as resolver:
+        assert resolver._aiozc_owner is False
+    assert resolver._aiozc is None
+    # The borrowed instance is the caller's to close; doing so must still work.
+    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -469,6 +565,39 @@ async def test_different_results_async_dual_mdns_resolver(
 
 
 @pytest.mark.asyncio
+async def test_duplicate_ip_differing_hostname_async_dual_mdns_resolver(
+    dual_resolver: AsyncMDNSResolver,
+) -> None:
+    """Test the dual resolver collapses the same address from mDNS and DNS.
+
+    The mDNS path reports the zeroconf ``info.server`` hostname (with a
+    trailing dot) while the DNS path echoes the caller's input host (no
+    trailing dot). Both describe the same endpoint, so the combined result
+    must not contain the address twice.
+    """
+    with (
+        patch(
+            "aiohttp_asyncmdnsresolver._impl.AsyncResolver.resolve",
+            return_value=[
+                ResolveResult(hostname="localhost.local", host="127.0.0.1", port=0)  # type: ignore[typeddict-item]
+            ],
+        ),
+        patch.object(IPv4HostResolver, "async_request", return_value=True),
+        patch.object(
+            IPv4HostResolver,
+            "ip_addresses_by_version",
+            return_value=[IPv4Address("127.0.0.1")],
+        ),
+    ):
+        results = await dual_resolver.resolve("localhost.local")
+    assert results is not None
+    assert len(results) == 1
+    result = results[0]
+    assert result["hostname"] == "localhost.local."
+    assert result["host"] == "127.0.0.1"
+
+
+@pytest.mark.asyncio
 async def test_different_results_async_dual_mdns_resolver_zero_timeout(
     dual_resolver: AsyncMDNSResolver,
 ) -> None:
@@ -584,6 +713,31 @@ async def test_all_failed_async_dual_mdns_resolver(
 
 
 @pytest.mark.asyncio
+async def test_close_idempotent_owned_zeroconf() -> None:
+    """Closing a resolver that owns its AsyncZeroconf twice is a no-op."""
+    resolver = AsyncMDNSResolver(mdns_timeout=0.1)
+    assert resolver._aiozc_owner is True
+    await resolver.close()
+    assert resolver._aiozc is None
+    # A second close must not raise (e.g. AttributeError on None).
+    await resolver.close()
+    assert resolver._aiozc is None
+
+
+@pytest.mark.asyncio
+async def test_close_idempotent_custom_zeroconf() -> None:
+    """Closing a resolver with a passed-in AsyncZeroconf twice is a no-op."""
+    aiozc = AsyncZeroconf()
+    resolver = AsyncMDNSResolver(mdns_timeout=0.1, async_zeroconf=aiozc)
+    assert resolver._aiozc_owner is False
+    await resolver.close()
+    await resolver.close()
+    assert resolver._aiozc is None
+    # The caller still owns the passed-in instance and closes it themselves.
+    await aiozc.async_close()
+
+
+@pytest.mark.asyncio
 async def test_no_cancel_swallow_dual_mdns_resolver(
     dual_resolver: AsyncMDNSResolver,
 ) -> None:
@@ -605,3 +759,179 @@ async def test_no_cancel_swallow_dual_mdns_resolver(
         resolve_tasks.cancel()
         with pytest.raises(asyncio.CancelledError):
             await resolve_tasks
+
+
+@pytest.mark.asyncio
+async def test_cancel_cancels_child_tasks_dual_mdns_resolver(
+    dual_resolver: AsyncDualMDNSResolver,
+) -> None:
+    """Test cancelling resolve() cancels both child tasks instead of orphaning them."""
+    cancelled = {"mdns": False, "dns": False}
+
+    async def _mdns_op(*args: Any, **kwargs: Any) -> NoReturn:
+        try:
+            await asyncio.sleep(0.5)
+        except asyncio.CancelledError:
+            cancelled["mdns"] = True
+            raise
+        raise RuntimeError("Should not finish")
+
+    async def _dns_op(*args: Any, **kwargs: Any) -> NoReturn:
+        try:
+            await asyncio.sleep(0.5)
+        except asyncio.CancelledError:
+            cancelled["dns"] = True
+            raise
+        raise RuntimeError("Should not finish")
+
+    with (
+        patch("aiohttp_asyncmdnsresolver._impl.AsyncResolver.resolve", _dns_op),
+        patch.object(IPv4HostResolver, "async_request", _mdns_op),
+    ):
+        resolve_task = asyncio.create_task(dual_resolver.resolve("localhost.local."))
+        await asyncio.sleep(0.1)
+        resolve_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await resolve_task
+
+    assert cancelled["mdns"] is True
+    assert cancelled["dns"] is True
+
+
+@pytest.mark.asyncio
+async def test_loser_non_cancel_exception_does_not_override_result_dual_mdns_resolver(
+    dual_resolver: AsyncDualMDNSResolver,
+) -> None:
+    """Test loser raising a non-cancel exception during cleanup does not override winner."""
+
+    async def _dns_swallows_cancel_and_raises(*args: Any, **kwargs: Any) -> NoReturn:
+        try:
+            await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            raise RuntimeError("Loser blew up on cancel") from None
+        raise RuntimeError("Should not finish")
+
+    with (
+        patch(
+            "aiohttp_asyncmdnsresolver._impl.AsyncResolver.resolve",
+            _dns_swallows_cancel_and_raises,
+        ),
+        patch.object(IPv4HostResolver, "async_request", return_value=True),
+        patch.object(
+            IPv4HostResolver,
+            "ip_addresses_by_version",
+            return_value=[IPv4Address("127.0.0.1")],
+        ),
+    ):
+        results = await dual_resolver.resolve("localhost.local.")
+
+    assert results is not None
+    assert len(results) == 1
+    assert results[0]["host"] == "127.0.0.1"
+
+
+@pytest.mark.asyncio
+async def test_cancel_during_loser_wait_dual_mdns_resolver(
+    dual_resolver: AsyncDualMDNSResolver,
+) -> None:
+    """Test cancellation while waiting for the loser (after winner failed) propagates."""
+    dns_cancelled = False
+
+    async def _mdns_fast_failure(*args: Any, **kwargs: Any) -> NoReturn:
+        raise OSError(None, "MDNS lookup failed")
+
+    async def _dns_slow(*args: Any, **kwargs: Any) -> NoReturn:
+        nonlocal dns_cancelled
+        try:
+            await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            dns_cancelled = True
+            raise
+        raise RuntimeError("Should not finish")
+
+    with (
+        patch("aiohttp_asyncmdnsresolver._impl.AsyncResolver.resolve", _dns_slow),
+        patch.object(IPv4HostResolver, "async_request", _mdns_fast_failure),
+    ):
+        resolve_task = asyncio.create_task(dual_resolver.resolve("localhost.local."))
+        await asyncio.sleep(0.05)
+        resolve_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await resolve_task
+
+    assert dns_cancelled is True
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_winner_completes_dual_mdns_resolver(
+    dual_resolver: AsyncDualMDNSResolver,
+) -> None:
+    """Test cancellation arriving while the loser is being drained propagates."""
+    dns_cancelled = False
+
+    async def _dns_slow(*args: Any, **kwargs: Any) -> NoReturn:
+        nonlocal dns_cancelled
+        try:
+            await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            dns_cancelled = True
+            raise
+        raise RuntimeError("Should not finish")
+
+    with (
+        patch("aiohttp_asyncmdnsresolver._impl.AsyncResolver.resolve", _dns_slow),
+        patch.object(IPv4HostResolver, "async_request", return_value=True),
+        patch.object(
+            IPv4HostResolver,
+            "ip_addresses_by_version",
+            return_value=[IPv4Address("127.0.0.1")],
+        ),
+    ):
+        resolve_task = asyncio.create_task(dual_resolver.resolve("localhost.local."))
+        # Yield enough times for resolve() to advance past asyncio.wait, collect
+        # the mDNS result and enter the gather await inside the finally block.
+        for _ in range(5):
+            await asyncio.sleep(0)
+        resolve_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await resolve_task
+
+    assert dns_cancelled is True
+
+
+@pytest.mark.asyncio
+async def test_double_cancel_dual_mdns_resolver(
+    dual_resolver: AsyncDualMDNSResolver,
+) -> None:
+    """Test that double-cancelling resolve() still propagates CancelledError."""
+    cancelled = {"mdns": False, "dns": False}
+
+    async def _mdns_op(*args: Any, **kwargs: Any) -> NoReturn:
+        try:
+            await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            cancelled["mdns"] = True
+            raise
+        raise RuntimeError("Should not finish")
+
+    async def _dns_op(*args: Any, **kwargs: Any) -> NoReturn:
+        try:
+            await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            cancelled["dns"] = True
+            raise
+        raise RuntimeError("Should not finish")
+
+    with (
+        patch("aiohttp_asyncmdnsresolver._impl.AsyncResolver.resolve", _dns_op),
+        patch.object(IPv4HostResolver, "async_request", _mdns_op),
+    ):
+        resolve_task = asyncio.create_task(dual_resolver.resolve("localhost.local."))
+        await asyncio.sleep(0.05)
+        resolve_task.cancel()
+        resolve_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await resolve_task
+
+    assert cancelled["mdns"] is True
+    assert cancelled["dns"] is True

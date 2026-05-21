@@ -324,9 +324,12 @@ class CacheRegionTest(test_cache.BaseTestCase):
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
         self.assertEqual(
-            'redis://localhost:6379/0',
-            config_dict['test_prefix.arguments.url'],
+            'localhost', config_dict['test_prefix.arguments.host']
         )
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertIsNone(config_dict['test_prefix.arguments.username'])
+        self.assertIsNone(config_dict['test_prefix.arguments.password'])
+        self.assertEqual(0, config_dict['test_prefix.arguments.db'])
         self.assertFalse(self.config_fixture.conf.cache.tls_enabled)
         self.assertNotIn(
             'test_prefix.arguments.connection_kwargs', config_dict
@@ -390,6 +393,7 @@ class CacheRegionTest(test_cache.BaseTestCase):
             tls_cafile='path_to_ca_file',
             tls_keyfile='path_to_key_file',
             tls_certfile='path_to_cert_file',
+            tls_allowed_ciphers='allowed_ciphers',
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
@@ -397,14 +401,19 @@ class CacheRegionTest(test_cache.BaseTestCase):
         self.assertTrue(self.config_fixture.conf.cache.tls_enabled)
         self.assertIn('test_prefix.arguments.connection_kwargs', config_dict)
         self.assertEqual(
-            'rediss://localhost:6379/0',
-            config_dict['test_prefix.arguments.url'],
+            'localhost', config_dict['test_prefix.arguments.host']
         )
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertIsNone(config_dict['test_prefix.arguments.username'])
+        self.assertIsNone(config_dict['test_prefix.arguments.password'])
+        self.assertEqual(0, config_dict['test_prefix.arguments.db'])
         self.assertEqual(
             {
+                'ssl': True,
                 'ssl_ca_certs': 'path_to_ca_file',
                 'ssl_keyfile': 'path_to_key_file',
                 'ssl_certfile': 'path_to_cert_file',
+                'ssl_ciphers': 'allowed_ciphers',
             },
             config_dict['test_prefix.arguments.connection_kwargs'],
         )
@@ -421,6 +430,7 @@ class CacheRegionTest(test_cache.BaseTestCase):
             tls_cafile='path_to_ca_file',
             tls_keyfile='path_to_key_file',
             tls_certfile='path_to_cert_file',
+            tls_allowed_ciphers='allowed_ciphers',
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
@@ -433,6 +443,7 @@ class CacheRegionTest(test_cache.BaseTestCase):
                 'ssl_ca_certs': 'path_to_ca_file',
                 'ssl_keyfile': 'path_to_key_file',
                 'ssl_certfile': 'path_to_cert_file',
+                'ssl_ciphers': 'allowed_ciphers',
             },
             config_dict['test_prefix.arguments.connection_kwargs'],
         )
@@ -443,6 +454,7 @@ class CacheRegionTest(test_cache.BaseTestCase):
                 'ssl_ca_certs': 'path_to_ca_file',
                 'ssl_keyfile': 'path_to_key_file',
                 'ssl_certfile': 'path_to_cert_file',
+                'ssl_ciphers': 'allowed_ciphers',
             },
             config_dict['test_prefix.arguments.sentinel_kwargs'],
         )
@@ -752,9 +764,11 @@ class CacheRegionTest(test_cache.BaseTestCase):
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
-        self.assertEqual(
-            'redis://[::1]:6379/0', config_dict['test_prefix.arguments.url']
-        )
+        self.assertEqual('::1', config_dict['test_prefix.arguments.host'])
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertIsNone(config_dict['test_prefix.arguments.username'])
+        self.assertIsNone(config_dict['test_prefix.arguments.password'])
+        self.assertEqual(0, config_dict['test_prefix.arguments.db'])
         self.assertEqual(
             1.0, config_dict['test_prefix.arguments.socket_timeout']
         )
@@ -774,9 +788,11 @@ class CacheRegionTest(test_cache.BaseTestCase):
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
-        self.assertEqual(
-            'redis://[::1]:6379/1', config_dict['test_prefix.arguments.url']
-        )
+        self.assertEqual('::1', config_dict['test_prefix.arguments.host'])
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertIsNone(config_dict['test_prefix.arguments.username'])
+        self.assertIsNone(config_dict['test_prefix.arguments.password'])
+        self.assertEqual(1, config_dict['test_prefix.arguments.db'])
         self.assertEqual(
             1.0, config_dict['test_prefix.arguments.socket_timeout']
         )
@@ -796,9 +812,11 @@ class CacheRegionTest(test_cache.BaseTestCase):
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
-        self.assertEqual(
-            'redis://[::1]:6379/0', config_dict['test_prefix.arguments.url']
-        )
+        self.assertEqual('::1', config_dict['test_prefix.arguments.host'])
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertIsNone(config_dict['test_prefix.arguments.username'])
+        self.assertIsNone(config_dict['test_prefix.arguments.password'])
+        self.assertEqual(0, config_dict['test_prefix.arguments.db'])
         self.assertEqual(
             10.0, config_dict['test_prefix.arguments.socket_timeout']
         )
@@ -818,9 +836,11 @@ class CacheRegionTest(test_cache.BaseTestCase):
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
-        self.assertEqual(
-            'redis://[::1]:6379/0', config_dict['test_prefix.arguments.url']
-        )
+        self.assertEqual('::1', config_dict['test_prefix.arguments.host'])
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertIsNone(config_dict['test_prefix.arguments.username'])
+        self.assertIsNone(config_dict['test_prefix.arguments.password'])
+        self.assertEqual(0, config_dict['test_prefix.arguments.db'])
         self.assertEqual(
             1.0, config_dict['test_prefix.arguments.socket_timeout']
         )
@@ -848,9 +868,11 @@ class CacheRegionTest(test_cache.BaseTestCase):
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
-        self.assertEqual(
-            'redis://[::1]:6379/0', config_dict['test_prefix.arguments.url']
-        )
+        self.assertEqual('::1', config_dict['test_prefix.arguments.host'])
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertIsNone(config_dict['test_prefix.arguments.username'])
+        self.assertIsNone(config_dict['test_prefix.arguments.password'])
+        self.assertEqual(0, config_dict['test_prefix.arguments.db'])
         self.assertEqual(
             1.0, config_dict['test_prefix.arguments.socket_timeout']
         )
@@ -875,10 +897,13 @@ class CacheRegionTest(test_cache.BaseTestCase):
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
+        self.assertEqual('::1', config_dict['test_prefix.arguments.host'])
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertIsNone(config_dict['test_prefix.arguments.username'])
         self.assertEqual(
-            'redis://:secrete@[::1]:6379/0',
-            config_dict['test_prefix.arguments.url'],
+            'secrete', config_dict['test_prefix.arguments.password']
         )
+        self.assertEqual(0, config_dict['test_prefix.arguments.db'])
 
     def test_cache_config_builder_redis_with_auth_and_user(self):
         """Validate we build a sane dogpile.cache dictionary config."""
@@ -887,15 +912,18 @@ class CacheRegionTest(test_cache.BaseTestCase):
             config_prefix='test_prefix',
             backend='dogpile.cache.redis',
             redis_server='[::1]:6379',
-            redis_username='user',
-            redis_password='secrete',
+            username='user',
+            password='secrete',
         )
 
         config_dict = cache._build_cache_config(self.config_fixture.conf)
+        self.assertEqual('::1', config_dict['test_prefix.arguments.host'])
+        self.assertEqual(6379, config_dict['test_prefix.arguments.port'])
+        self.assertEqual('user', config_dict['test_prefix.arguments.username'])
         self.assertEqual(
-            'redis://user:secrete@[::1]:6379/0',
-            config_dict['test_prefix.arguments.url'],
+            'secrete', config_dict['test_prefix.arguments.password']
         )
+        self.assertEqual(0, config_dict['test_prefix.arguments.db'])
 
     def test_cache_config_builder_redis_sentinel(self):
         """Validate we build a sane dogpile.cache dictionary config."""
@@ -1002,8 +1030,8 @@ class CacheRegionTest(test_cache.BaseTestCase):
             enabled=True,
             config_prefix='test_prefix',
             backend='dogpile.cache.redis_sentinel',
-            redis_username='user',
-            redis_password='secrete',
+            username='user',
+            password='secrete',
             redis_db=1,
             redis_sentinels=[
                 '127.0.0.1:26379',
@@ -1100,6 +1128,7 @@ class CacheRegionTest(test_cache.BaseTestCase):
             self.assertEqual(NO_VALUE, value)
 
     def test_configure_non_region_object_raises_error(self):
+        # we're intentionally calling this with the wrong type
         self.assertRaises(
             exception.ConfigurationError,
             cache.configure_cache_region,

@@ -1,0 +1,187 @@
+[project]
+name = 'flufl.bounce'
+authors = [
+    {name = 'Barry Warsaw', email = 'barry@python.org'},
+    {name = 'Mark Sapiro', email = 'mark@msapiro.net'},
+]
+description = 'Email bounce detectors'
+readme = 'README.rst'
+requires-python = '>=3.10'
+license = {text = 'Apache-2.0'}
+keywords = [
+    'email',
+    'bounce',
+    'mailman',
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Development Status :: 6 - Mature',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: POSIX',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Topic :: Communications :: Email',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+]
+dependencies = [
+    'atpublic',
+]
+dynamic = ['version']
+
+[dependency-groups]
+docs = [
+    'furo',
+    'sphinx',
+    'sphinx-autobuild',
+    'sphinx-copybutton',
+]
+
+[project.urls]
+'Home Page' = 'https://fluflbounce.readthedocs.io'
+'Documentation' = 'https://fluflbounce.readthedocs.io'
+'Source Code' = 'https://gitlab.com/flufl/flufl.bounce.git'
+'Bug Tracker' = 'https://gitlab.com/flufl/flufl.bounce/issues'
+
+[tool.hatch.version]
+path = 'src/flufl/bounce/__init__.py'
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    'src/flufl',
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    'src/flufl/',
+    'docs/',
+    'tests/',
+    'conftest.py',
+]
+
+[tool.hatch.envs.default]
+
+[tool.hatch.envs.default.scripts]
+all = [
+    'hatch test --all',
+    'hatch run qa:qa',
+    'hatch run docs:docs',
+]
+
+[tool.hatch.envs.hatch-test]
+default-args = ['tests', 'docs']
+extra-dependencies = [
+    'diff-cover',
+    'importlib_resources; python_version < "3.12"',
+    'sybil',
+]
+
+[tool.hatch.envs.hatch-test.scripts]
+run = [
+    'coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}',
+    'coverage combine',
+    'coverage report',
+    'coverage xml',
+    '- diff-cover coverage.xml',
+]
+run-cov = 'hatch test'
+cov-combine = ''
+cov-report = ''
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+
+[tool.hatch.envs.qa]
+dependencies = [
+    'ruff',
+    'pyrefly',
+]
+
+[tool.hatch.envs.qa.env-vars]
+MODULE_NAME = '{env:MODULE_NAME:flufl.bounce}'
+MODULE_PATH = '{env:MODULE_PATH:src/flufl/bounce}'
+
+[tool.hatch.envs.qa.scripts]
+qa = [
+    'hatch fmt --check src',
+    'pyrefly check',
+]
+fix = [
+    'hatch fmt src',
+]
+preview = [
+    'hatch fmt --diff src',
+]
+
+[tool.hatch.envs.hatch-static-analysis]
+config-path = 'none'
+
+[tool.hatch.envs.docs]
+dependency-groups = [
+    'docs',
+]
+
+[tool.hatch.envs.docs.scripts]
+docs = [
+    'sphinx-build docs build/html',
+]
+serve = [
+    'sphinx-autobuild docs build/html --port 9000 --open-browser',
+]
+
+[tool.coverage.run]
+source = ['flufl.bounce']
+branch = true
+parallel = true
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+exclude_also = [
+    'if TYPE_CHECKING:',
+]
+
+[tool.ruff]
+line-length = 100
+src = ['src']
+
+[tool.ruff.format]
+quote-style = 'single'
+
+[tool.ruff.lint.extend-per-file-ignores]
+# Essentially, ignore all lint warnings in these configuration files.
+'conftest.py' = [
+    'ARG002',
+    'I001',
+    'S101',
+]
+'docs/conf.py' = [
+    'A',
+    'DTZ',
+    'E',
+    'I',
+    'UP',
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = 'pep257'
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+forced-separate = ['docutils', 'sphinx']
+known-first-party = ['flufl.bounce']
+length-sort-straight = true
+lines-after-imports = 2
+lines-between-types = 1
+order-by-type = true
+section-order = ['standard-library', 'third-party', 'local-folder', 'first-party']
+
+[tool.pyrefly]
+project-includes = ['src']
+
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'

@@ -16,7 +16,7 @@ from pymammotion.device.state_reducer import StateReducer, get_state_reducer
 from pymammotion.mammotion.commands.mammotion_command import MammotionCommand
 from pymammotion.messaging.broker import DeviceMessageBroker
 from pymammotion.messaging.command_queue import DeviceCommandQueue, Priority
-from pymammotion.proto import LubaMsg, RptAct, RptInfoType
+from pymammotion.proto import LubaMsg, MsgDevice, RptAct, RptInfoType
 from pymammotion.state.device_state import (
     DeviceAvailability,
     DeviceConnectionState,
@@ -331,11 +331,15 @@ class DeviceHandle:
         self._rearm_event.set()  # wake MQTT loop early so it sees BLE is now connected
         self._start_ble_loop()
         self._start_ble_polling_loop()
-        try:
-            cmd = self.commands.get_report_cfg()
-            await self.send_raw(cmd, prefer_ble=True)
-        except Exception:
-            _logger.debug("_on_ble_connected [%s]: report_cfg request failed", self.device_name, exc_info=True)
+        cmd = self.commands.get_report_cfg()
+
+        async def _send_report_cfg() -> None:
+            try:
+                await self.send_raw(cmd, prefer_ble=True)
+            except Exception:
+                _logger.debug("_on_ble_connected [%s]: report_cfg request failed", self.device_name, exc_info=True)
+
+        await self.queue.enqueue(_send_report_cfg, priority=Priority.BACKGROUND, skip_if_saga_active=True)
 
     async def _send_marked(self, transport: Transport, payload: bytes) -> None:
         """Send *payload* on *transport* and record the send time.
@@ -414,7 +418,21 @@ class DeviceHandle:
             _logger.info("Failed to parse incoming bytes as LubaMsg (%d bytes)", len(payload))
             return
 
-        _logger.debug("← %s  %s", self.device_name, luba_msg.to_dict(include_default_values=False))
+        # Sanity-check the envelope fields. If sender/rcver parsed as a list
+        # (packed repeated bytes misidentified as field 2/3) the payload is not
+        # a LubaMsg — protobuf silently accepts alien wire formats, so we must
+        # guard here rather than letting garbage propagate to the state machine.
+        # NOTE: msgtype is intentionally NOT checked here — MsgCmdType.START == 0
+        # is the protobuf default, so legitimate cloud messages that omit msgtype
+        # would be incorrectly dropped.
+        if not isinstance(luba_msg.sender, MsgDevice) or not isinstance(luba_msg.rcver, MsgDevice):
+            _logger.debug("← %s  ignored non-LubaMsg BLE notification (%d bytes)", self.device_name, len(payload))
+            return
+
+        try:
+            _logger.debug("← %s  %s", self.device_name, luba_msg.to_dict(include_default_values=False))
+        except (ValueError, KeyError):
+            _logger.debug("← %s  <unparseable protobuf — unknown enum value>", self.device_name)
         self._last_report_at = time.monotonic()
 
         if self._availability.mqtt_reported_offline and transport_type != TransportType.BLE:
@@ -952,7 +970,10 @@ class DeviceHandle:
             count=0,
         )
 
-        await self.send_raw(cmd_bytes)
+        async def _send() -> None:
+            await self.send_raw(cmd_bytes)
+
+        await self.queue.enqueue(_send, priority=Priority.BACKGROUND, skip_if_saga_active=True)
 
     async def _send_report_stream_keep(self) -> None:
         """Enqueue RPT_KEEP to refresh an already-active continuous stream."""
@@ -1012,7 +1033,11 @@ class DeviceHandle:
             timeout=timeout,
             count=count,
         )
-        await self.send_raw(cmd_bytes)
+
+        async def _send() -> None:
+            await self.send_raw(cmd_bytes)
+
+        await self.queue.enqueue(_send, priority=Priority.BACKGROUND, skip_if_saga_active=True)
 
     async def _enqueue_ble_stream_command(self, act: RptAct, count: int) -> None:
         """Enqueue a BLE-pinned ``request_iot_sys`` config command.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.0.14
+Version: 8.0.15
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -166,6 +166,10 @@ Unreleased
 ----------
 
 * nothing unreleased
+
+[8.0.15] - 2026-05-15
+---------------------
+* feat: add GradeEventContextEnricher pipeline step for grade analytics (ENT-11563)
 
 [8.0.14] - 2026-05-14
 ---------------------

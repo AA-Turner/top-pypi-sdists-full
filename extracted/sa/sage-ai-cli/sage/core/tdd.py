@@ -864,10 +864,7 @@ class _RetryProgressTracker:
             self.file_signatures.append(file_signature)
 
         if self._same_recent_failure(3):
-            if files_written is None or not files_written:
-                return "The same failure kept repeating without meaningful code changes."
-            if response is None:
-                return "The same failure kept repeating without a new fix response."
+            return "The same test failure repeated 3 times — no meaningful progress."
 
         return None
 

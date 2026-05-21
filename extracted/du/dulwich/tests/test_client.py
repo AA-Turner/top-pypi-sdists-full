@@ -34,7 +34,7 @@ from urllib.parse import quote as urlquote
 from urllib.parse import urlparse
 
 import dulwich
-from dulwich import client
+from dulwich import client, errors
 from dulwich.bundle import create_bundle_from_repo, write_bundle
 from dulwich.client import (
     AuthCallbackPoolManager,
@@ -670,6 +670,16 @@ class GitClientTests(TestCase):
             generate_pack_data,
             atomic=True,
         )
+
+    def test_read_pkt_refs_v1_error(self):
+        with self.assertRaises(errors.GitProtocolError) as cm:
+            client.read_pkt_refs_v1([b"ERR An error occurred on the git server"])
+        self.assertEqual("An error occurred on the git server", str(cm.exception))
+
+    def test_read_pkt_refs_v2_error(self):
+        with self.assertRaises(errors.GitProtocolError) as cm:
+            client.read_pkt_refs_v2([b"ERR An error occurred on the git server"])
+        self.assertEqual("An error occurred on the git server", str(cm.exception))
 
 
 class TestGetTransportAndPath(TestCase):
@@ -2903,6 +2913,7 @@ class DefaultUrllib3ManagerTest(TestCase):
 
 class SubprocessSSHVendorTests(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         # Monkey Patch client subprocess popen
         self._orig_popen = dulwich.client.subprocess.Popen
         dulwich.client.subprocess.Popen = DummyPopen
@@ -3002,6 +3013,7 @@ class SubprocessSSHVendorTests(TestCase):
 
 class PLinkSSHVendorTests(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         # Monkey Patch client subprocess popen
         self._orig_popen = dulwich.client.subprocess.Popen
         dulwich.client.subprocess.Popen = DummyPopen
@@ -3410,6 +3422,7 @@ class TestBuildFetchRequestV2(TestCase):
 
 class TestPackfileUris(TestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.rin = BytesIO()
         self.rout = BytesIO()
 

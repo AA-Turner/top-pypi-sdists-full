@@ -8,7 +8,7 @@ from datetime import datetime
 import logging
 import sys
 
-from .api_pb2 import SubscribeLogsResponse  # type: ignore
+from .api_pb2 import SubscribeLogsResponse  # type: ignore[attr-defined]
 from .client import APIClient
 from .log_parser import parse_log_message
 from .log_runner import async_run
@@ -32,6 +32,15 @@ async def main(argv: list[str]) -> None:
             "If --noise-psk is set and the device is running plaintext "
             "firmware, downgrade to plaintext (with a warning) instead of "
             "failing repeatedly."
+        ),
+    )
+    parser.add_argument(
+        "--strip-ansi-escapes",
+        action="store_true",
+        help=(
+            "Strip ANSI escape sequences (colors, cursor moves) from log "
+            "output. Useful when piping to a file or to a terminal that "
+            "doesn't render them."
         ),
     )
     parser.add_argument("address")
@@ -61,7 +70,9 @@ async def main(argv: list[str]) -> None:
         )
 
         # Parse and print the log message
-        for line in parse_log_message(text, timestamp):
+        for line in parse_log_message(
+            text, timestamp, strip_ansi_escapes=args.strip_ansi_escapes
+        ):
             print(line)
 
     stop = await async_run(

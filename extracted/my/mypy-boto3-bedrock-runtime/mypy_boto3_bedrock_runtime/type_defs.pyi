@@ -724,6 +724,7 @@ class InvokeModelRequestTypeDef(TypedDict):
     guardrailVersion: NotRequired[str]
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
     serviceTier: NotRequired[ServiceTierTypeType]
+    requestMetadata: NotRequired[str]
 
 class InvokeModelTokensRequestTypeDef(TypedDict):
     body: BlobTypeDef
@@ -738,6 +739,7 @@ class InvokeModelWithResponseStreamRequestTypeDef(TypedDict):
     guardrailVersion: NotRequired[str]
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
     serviceTier: NotRequired[ServiceTierTypeType]
+    requestMetadata: NotRequired[str]
 
 VideoSourceTypeDef = TypedDict(
     "VideoSourceTypeDef",

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchmark-runner"
-version = "1.0.999"
+version = "1.0.1001"
 description = "Benchmark Runner Tool"
 readme = "README.md"
 license = "Apache-2.0"
@@ -62,11 +62,15 @@ include = ["benchmark_runner", "benchmark_runner.*"]
 "benchmark_runner.common.template_operations.templates.hammerdb.internal_data" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.stressng" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.stressng.internal_data" = ["*.yaml"]
+"benchmark_runner.common.template_operations.templates.sysbench" = ["*.yaml"]
+"benchmark_runner.common.template_operations.templates.sysbench.internal_data" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.uperf" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.uperf.internal_data" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.scale" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.vdbench" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.vdbench.internal_data" = ["*.yaml"]
+"benchmark_runner.common.template_operations.templates.fio" = ["*.yaml"]
+"benchmark_runner.common.template_operations.templates.fio.internal_data" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.bootstorm" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.bootstorm.internal_data" = ["*.yaml"]
 "benchmark_runner.common.template_operations.templates.windows" = ["*.yaml"]

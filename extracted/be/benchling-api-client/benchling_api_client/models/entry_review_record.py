@@ -3,7 +3,9 @@ from typing import Any, cast, Dict, List, Optional, Type, TypeVar, Union
 import attr
 
 from ..extensions import NotPresentError
+from ..models.entry_review_process import EntryReviewProcess
 from ..models.entry_review_record_status import EntryReviewRecordStatus
+from ..models.review_change import ReviewChange
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="EntryReviewRecord")
@@ -14,18 +16,41 @@ class EntryReviewRecord:
     """ Review record if set """
 
     _comment: Union[Unset, str] = UNSET
+    _review_changes: Union[Unset, List[ReviewChange]] = UNSET
+    _review_processes: Union[Unset, None, List[EntryReviewProcess]] = UNSET
     _status: Union[Unset, EntryReviewRecordStatus] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
     def __repr__(self):
         fields = []
         fields.append("comment={}".format(repr(self._comment)))
+        fields.append("review_changes={}".format(repr(self._review_changes)))
+        fields.append("review_processes={}".format(repr(self._review_processes)))
         fields.append("status={}".format(repr(self._status)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "EntryReviewRecord({})".format(", ".join(fields))
 
     def to_dict(self) -> Dict[str, Any]:
         comment = self._comment
+        review_changes: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._review_changes, Unset):
+            review_changes = []
+            for review_changes_item_data in self._review_changes:
+                review_changes_item = review_changes_item_data.to_dict()
+
+                review_changes.append(review_changes_item)
+
+        review_processes: Union[Unset, None, List[Any]] = UNSET
+        if not isinstance(self._review_processes, Unset):
+            if self._review_processes is None:
+                review_processes = None
+            else:
+                review_processes = []
+                for review_processes_item_data in self._review_processes:
+                    review_processes_item = review_processes_item_data.to_dict()
+
+                    review_processes.append(review_processes_item)
+
         status: Union[Unset, int] = UNSET
         if not isinstance(self._status, Unset):
             status = self._status.value
@@ -35,6 +60,10 @@ class EntryReviewRecord:
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
         if comment is not UNSET:
             field_dict["comment"] = comment
+        if review_changes is not UNSET:
+            field_dict["reviewChanges"] = review_changes
+        if review_processes is not UNSET:
+            field_dict["reviewProcesses"] = review_processes
         if status is not UNSET:
             field_dict["status"] = status
 
@@ -54,6 +83,40 @@ class EntryReviewRecord:
             if strict:
                 raise
             comment = cast(Union[Unset, str], UNSET)
+
+        def get_review_changes() -> Union[Unset, List[ReviewChange]]:
+            review_changes = []
+            _review_changes = d.pop("reviewChanges")
+            for review_changes_item_data in _review_changes or []:
+                review_changes_item = ReviewChange.from_dict(review_changes_item_data, strict=False)
+
+                review_changes.append(review_changes_item)
+
+            return review_changes
+
+        try:
+            review_changes = get_review_changes()
+        except KeyError:
+            if strict:
+                raise
+            review_changes = cast(Union[Unset, List[ReviewChange]], UNSET)
+
+        def get_review_processes() -> Union[Unset, None, List[EntryReviewProcess]]:
+            review_processes = []
+            _review_processes = d.pop("reviewProcesses")
+            for review_processes_item_data in _review_processes or []:
+                review_processes_item = EntryReviewProcess.from_dict(review_processes_item_data, strict=False)
+
+                review_processes.append(review_processes_item)
+
+            return review_processes
+
+        try:
+            review_processes = get_review_processes()
+        except KeyError:
+            if strict:
+                raise
+            review_processes = cast(Union[Unset, None, List[EntryReviewProcess]], UNSET)
 
         def get_status() -> Union[Unset, EntryReviewRecordStatus]:
             status = UNSET
@@ -75,6 +138,8 @@ class EntryReviewRecord:
 
         entry_review_record = cls(
             comment=comment,
+            review_changes=review_changes,
+            review_processes=review_processes,
             status=status,
         )
 
@@ -114,6 +179,36 @@ class EntryReviewRecord:
     @comment.deleter
     def comment(self) -> None:
         self._comment = UNSET
+
+    @property
+    def review_changes(self) -> List[ReviewChange]:
+        """ A list of the Review Changes that have been made to this entry """
+        if isinstance(self._review_changes, Unset):
+            raise NotPresentError(self, "review_changes")
+        return self._review_changes
+
+    @review_changes.setter
+    def review_changes(self, value: List[ReviewChange]) -> None:
+        self._review_changes = value
+
+    @review_changes.deleter
+    def review_changes(self) -> None:
+        self._review_changes = UNSET
+
+    @property
+    def review_processes(self) -> Optional[List[EntryReviewProcess]]:
+        """ Review Processes associated with the Entry """
+        if isinstance(self._review_processes, Unset):
+            raise NotPresentError(self, "review_processes")
+        return self._review_processes
+
+    @review_processes.setter
+    def review_processes(self, value: Optional[List[EntryReviewProcess]]) -> None:
+        self._review_processes = value
+
+    @review_processes.deleter
+    def review_processes(self) -> None:
+        self._review_processes = UNSET
 
     @property
     def status(self) -> EntryReviewRecordStatus:

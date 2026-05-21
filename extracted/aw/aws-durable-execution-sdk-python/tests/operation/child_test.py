@@ -645,11 +645,13 @@ def test_small_payload_with_summary_generator():
 
 
 def test_small_payload_without_summary_generator():
-    """Test: Small payload without summary_generator -> replay_children = False
+    """Test: small payload without summary_generator -> replay_children=False.
 
-    Verifies:
-    - Small payload does NOT trigger replay_children
-    - get_checkpoint_result called once
+    Restored from pre-PR #351. For small payloads we always checkpoint
+    the actual result (JSON-serialized); ReplayChildren mode exists only
+    to handle payloads that exceed the size limit, so a small payload
+    without a summary generator must still round-trip through a normal
+    SUCCEED checkpoint.
     """
     mock_state = Mock(spec=ExecutionState)
     mock_state.durable_execution_arn = "test_arn"
@@ -661,26 +663,261 @@ def test_small_payload_without_summary_generator():
     mock_result.is_existent.return_value = False
     mock_state.get_checkpoint_result.return_value = mock_result
 
-    # Small payload (< 256KB)
+    # Small payload (< 256KB); no summary_generator provided
     small_result = "small_payload"
     mock_callable = Mock(return_value=small_result)
 
-    child_config = ChildConfig[str]()  # No summary_generator
+    child_config: ChildConfig[str] = ChildConfig[str]()
 
     actual_result = child_handler(
         mock_callable,
         mock_state,
-        OperationIdentifier("op2", None, "test_name"),
+        OperationIdentifier("op1", None, "test_name"),
         child_config,
     )
 
     assert actual_result == small_result
-    # Verify get_checkpoint_result called once
     assert mock_state.get_checkpoint_result.call_count == 1
+
     success_call = mock_state.create_checkpoint.call_args_list[1]
     success_operation = success_call[1]["operation_update"]
 
-    # Small payload should NOT trigger replay_children
+    # Small payload MUST NOT trigger replay_children.
     assert not success_operation.context_options.replay_children
-    # Should checkpoint the actual result
-    assert success_operation.payload == '"small_payload"'  # JSON serialized
+    # Payload MUST be the JSON-serialized result, not a summary.
+    assert success_operation.payload == '"small_payload"'
+
+
+def test_child_handler_is_virtual_no_start():
+    """Skip the START checkpoint when is_virtual=True.
+
+    A virtual branch is a logical scope for step-id prefixing but does
+    not appear in the execution history, so no START entry is emitted.
+    """
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    mock_result = Mock()
+    mock_result.is_succeeded.return_value = False
+    mock_result.is_failed.return_value = False
+    mock_result.is_started.return_value = False
+    mock_result.is_replay_children.return_value = False
+    mock_result.is_existent.return_value = False
+    mock_state.get_checkpoint_result.return_value = mock_result
+    mock_callable = Mock(return_value="no_checkpoint_result")
+
+    config = ChildConfig(is_virtual=True)
+
+    result = child_handler(
+        mock_callable,
+        mock_state,
+        OperationIdentifier("op1", None, "test_name"),
+        config,
+    )
+
+    assert result == "no_checkpoint_result"
+
+    # Verify get_checkpoint_result called once
+    assert mock_state.get_checkpoint_result.call_count == 1
+
+    # Verify no checkpoints created (virtual context writes none)
+    assert mock_state.create_checkpoint.call_count == 0
+
+    mock_callable.assert_called_once()
+
+
+def test_child_handler_is_virtual_no_succeed():
+    """Skip the SUCCEED checkpoint when is_virtual=True.
+
+    A virtual branch is not represented in the execution history; its
+    successful completion is observable only via the values returned
+    to the calling concurrency executor.
+    """
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    mock_result = Mock()
+    mock_result.is_succeeded.return_value = False
+    mock_result.is_failed.return_value = False
+    mock_result.is_started.return_value = False
+    mock_result.is_replay_children.return_value = False
+    mock_result.is_existent.return_value = False
+    mock_state.get_checkpoint_result.return_value = mock_result
+    mock_callable = Mock(return_value="no_checkpoint_result")
+
+    config = ChildConfig(is_virtual=True)
+
+    result = child_handler(
+        mock_callable,
+        mock_state,
+        OperationIdentifier("op2", None, "test_name"),
+        config,
+    )
+
+    assert result == "no_checkpoint_result"
+
+    # Verify no checkpoints created
+    mock_state.create_checkpoint.assert_not_called()
+
+    mock_callable.assert_called_once()
+
+
+def test_child_handler_not_is_virtual_finish_mode():
+    """Create START + SUCCEED checkpoints when is_virtual=False."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    mock_result = Mock()
+    mock_result.is_succeeded.return_value = False
+    mock_result.is_failed.return_value = False
+    mock_result.is_started.return_value = False
+    mock_result.is_replay_children.return_value = False
+    mock_result.is_existent.return_value = False
+    mock_state.get_checkpoint_result.return_value = mock_result
+    mock_callable = Mock(return_value="checkpoint_result")
+
+    config = ChildConfig(is_virtual=False)
+
+    result = child_handler(
+        mock_callable,
+        mock_state,
+        OperationIdentifier("op3", None, "test_name"),
+        config,
+    )
+
+    assert result == "checkpoint_result"
+
+    # Verify both START and SUCCEED checkpoints created
+    assert mock_state.create_checkpoint.call_count == 2
+
+    # Verify START checkpoint
+    start_call = mock_state.create_checkpoint.call_args_list[0]
+    start_operation = start_call[1]["operation_update"]
+    assert start_operation.action.value == "START"
+    assert start_call[1]["is_sync"] is False
+
+    # Verify SUCCEED checkpoint
+    success_call = mock_state.create_checkpoint.call_args_list[1]
+    success_operation = success_call[1]["operation_update"]
+    assert success_operation.action.value == "SUCCEED"
+
+    mock_callable.assert_called_once()
+
+
+def test_child_handler_is_virtual_with_exception():
+    """Skip the FAIL checkpoint when is_virtual=True and the user function raises.
+
+    A virtual branch emits no lifecycle entries in the execution
+    history, so a failure inside the branch does not get its own FAIL
+    checkpoint. The exception still propagates (wrapped as
+    CallableRuntimeError for non-InvocationError exceptions) so the
+    concurrency executor records the failure in the BatchResult and
+    its completion-tolerance logic still applies.
+    """
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    mock_result = Mock()
+    mock_result.is_succeeded.return_value = False
+    mock_result.is_failed.return_value = False
+    mock_result.is_started.return_value = False
+    mock_result.is_replay_children.return_value = False
+    mock_result.is_existent.return_value = False
+    mock_state.get_checkpoint_result.return_value = mock_result
+    mock_callable = Mock(side_effect=ValueError("Test error"))
+
+    config = ChildConfig(is_virtual=True)
+
+    with pytest.raises(CallableRuntimeError):
+        child_handler(
+            mock_callable,
+            mock_state,
+            OperationIdentifier("op4", None, "test_name"),
+            config,
+        )
+
+    # Verify NO FAIL checkpoint created (virtual contexts suppress all lifecycle checkpoints).
+    assert mock_state.create_checkpoint.call_count == 0
+
+    mock_callable.assert_called_once()
+
+
+def test_child_handler_not_is_virtual_with_exception():
+    """Create a FAIL checkpoint when is_virtual=False and the user function raises."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = "test_arn"
+    mock_result = Mock()
+    mock_result.is_succeeded.return_value = False
+    mock_result.is_failed.return_value = False
+    mock_result.is_started.return_value = False
+    mock_result.is_replay_children.return_value = False
+    mock_result.is_existent.return_value = False
+    mock_state.get_checkpoint_result.return_value = mock_result
+    mock_callable = Mock(side_effect=ValueError("Test error"))
+
+    config = ChildConfig(is_virtual=False)
+
+    with pytest.raises(CallableRuntimeError):
+        child_handler(
+            mock_callable,
+            mock_state,
+            OperationIdentifier("op5", None, "test_name"),
+            config,
+        )
+
+    # Verify START + FAIL checkpoints created (non-virtual path).
+    assert mock_state.create_checkpoint.call_count == 2
+    start_call = mock_state.create_checkpoint.call_args_list[0]
+    start_operation = start_call[1]["operation_update"]
+    assert start_operation.action.value == "START"
+    fail_call = mock_state.create_checkpoint.call_args_list[1]
+    fail_operation = fail_call[1]["operation_update"]
+    assert fail_operation.action.value == "FAIL"
+
+    mock_callable.assert_called_once()
+
+
+def test_child_handler_is_virtual_comparison():
+    """Compare checkpoint counts between is_virtual=True and is_virtual=False for success.
+
+    - is_virtual=False: 2 checkpoints (START + SUCCEED)
+    - is_virtual=True:  0 checkpoints
+    """
+
+    # Setup common mocks
+    def setup_mocks():
+        mock_state = Mock(spec=ExecutionState)
+        mock_state.durable_execution_arn = "test_arn"
+        mock_result = Mock()
+        mock_result.is_succeeded.return_value = False
+        mock_result.is_failed.return_value = False
+        mock_result.is_started.return_value = False
+        mock_result.is_replay_children.return_value = False
+        mock_result.is_existent.return_value = False
+        mock_state.get_checkpoint_result.return_value = mock_result
+        mock_callable = Mock(return_value="test_result")
+        return mock_state, mock_callable
+
+    # is_virtual=False: 2 checkpoints
+    mock_state1, mock_callable1 = setup_mocks()
+    config1 = ChildConfig(is_virtual=False)
+
+    result1 = child_handler(
+        mock_callable1,
+        mock_state1,
+        OperationIdentifier("op1", None, "test_name"),
+        config1,
+    )
+
+    assert result1 == "test_result"
+    assert mock_state1.create_checkpoint.call_count == 2  # START + SUCCEED
+
+    # is_virtual=True: 0 checkpoints
+    mock_state2, mock_callable2 = setup_mocks()
+    config2 = ChildConfig(is_virtual=True)
+
+    result2 = child_handler(
+        mock_callable2,
+        mock_state2,
+        OperationIdentifier("op2", None, "test_name"),
+        config2,
+    )
+
+    assert result2 == "test_result"
+    assert mock_state2.create_checkpoint.call_count == 0  # No checkpoints

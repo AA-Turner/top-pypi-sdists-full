@@ -1,5 +1,6 @@
 """Unit tests for context."""
 
+import hashlib
 import json
 import random
 from itertools import islice
@@ -13,6 +14,7 @@ from aws_durable_execution_sdk_python.config import (
     Duration,
     InvokeConfig,
     MapConfig,
+    ParallelBranch,
     ParallelConfig,
     StepConfig,
 )
@@ -20,6 +22,7 @@ from aws_durable_execution_sdk_python.context import (
     Callback,
     DurableContext,
     ExecutionContext,
+    durable_parallel_branch,
 )
 from aws_durable_execution_sdk_python.exceptions import (
     CallbackError,
@@ -1923,7 +1926,7 @@ def test_execution_context_propagates_to_child_context():
     mock_state.durable_execution_arn = parent_arn
 
     parent_context = create_test_context(state=mock_state)
-    child_context = parent_context.create_child_context(parent_id="parent-op-123")
+    child_context = parent_context.create_child_context("parent-op-123")
 
     assert child_context.execution_context is not None
     assert child_context.execution_context.durable_execution_arn == parent_arn
@@ -1959,3 +1962,316 @@ def test_execution_context_type():
 
 
 # endregion ExecutionContext tests
+
+# region Virtual-context identity tests
+
+
+def test_should_default_step_id_prefix_to_parent_id_when_not_specified():
+    """A non-virtual context holds parent_id and step_id_prefix equal."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    execution_context = ExecutionContext(
+        durable_execution_arn=mock_state.durable_execution_arn
+    )
+
+    ctx = DurableContext(
+        state=mock_state,
+        execution_context=execution_context,
+        parent_id="parent-op-1",
+    )
+
+    assert ctx._parent_id == "parent-op-1"  # noqa: SLF001
+    assert ctx._step_id_prefix == "parent-op-1"  # noqa: SLF001
+    assert ctx.is_virtual is False
+
+
+def test_should_mark_context_virtual_when_parent_id_differs_from_step_prefix():
+    """A virtual context holds parent_id and step_id_prefix with different values."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    execution_context = ExecutionContext(
+        durable_execution_arn=mock_state.durable_execution_arn
+    )
+
+    ctx = DurableContext(
+        state=mock_state,
+        execution_context=execution_context,
+        parent_id="grandparent-op",
+        step_id_prefix="branch-op",
+    )
+
+    assert ctx._parent_id == "grandparent-op"  # noqa: SLF001
+    assert ctx._step_id_prefix == "branch-op"  # noqa: SLF001
+    assert ctx.is_virtual is True
+
+
+def test_should_use_step_id_prefix_when_generating_step_ids():
+    """Step ids derive from the step_id_prefix, not parent_id.
+
+    For virtual contexts this is load-bearing: step ids must stay stable
+    across virtual/non-virtual construction so replay ids match.
+    """
+
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    execution_context = ExecutionContext(
+        durable_execution_arn=mock_state.durable_execution_arn
+    )
+
+    virtual = DurableContext(
+        state=mock_state,
+        execution_context=execution_context,
+        parent_id="grandparent-op",
+        step_id_prefix="branch-op",
+    )
+    expected_prefixed = hashlib.blake2b(b"branch-op-1").hexdigest()[:64]
+
+    assert virtual._create_step_id_for_logical_step(1) == expected_prefixed  # noqa: SLF001
+
+
+def test_should_use_parent_id_as_step_prefix_when_non_virtual():
+    """Non-virtual contexts prefix step ids with parent_id (default fallback).
+
+    For the non-virtual case `step_id_prefix` is not passed explicitly;
+    it defaults to `parent_id`. Replay stability for executions produced
+    before the virtual-context refactor depends on this fallback
+    matching the pre-refactor behaviour exactly.
+    """
+
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    execution_context = ExecutionContext(
+        durable_execution_arn=mock_state.durable_execution_arn
+    )
+
+    non_virtual = DurableContext(
+        state=mock_state,
+        execution_context=execution_context,
+        parent_id="parent-op",
+    )
+    expected = hashlib.blake2b(b"parent-op-1").hexdigest()[:64]
+
+    assert non_virtual._create_step_id_for_logical_step(1) == expected  # noqa: SLF001
+    assert non_virtual.is_virtual is False
+
+
+def test_should_create_non_virtual_child_when_is_virtual_false():
+    """create_child_context(op_id) returns a non-virtual child."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    parent = create_test_context(state=mock_state, parent_id="parent-op")
+
+    child = parent.create_child_context("child-op")
+
+    assert child._parent_id == "child-op"  # noqa: SLF001
+    assert child._step_id_prefix == "child-op"  # noqa: SLF001
+    assert child.is_virtual is False
+
+
+def test_should_create_virtual_child_that_propagates_grandparent_id():
+    """create_child_context(op_id, is_virtual=True) propagates the grandparent as parent_id."""
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    parent = create_test_context(state=mock_state, parent_id="grandparent-op")
+
+    child = parent.create_child_context("child-op", is_virtual=True)
+
+    assert child._parent_id == "grandparent-op"  # noqa: SLF001
+    assert child._step_id_prefix == "child-op"  # noqa: SLF001
+    assert child.is_virtual is True
+
+
+def test_should_create_virtual_child_with_none_parent_when_parent_is_root():
+    """Virtual child of a root context (parent_id=None) keeps parent_id=None.
+
+    Inner operations then report at the top level; step ids still prefix
+    on the child's own operation id.
+    """
+
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+    root_parent = create_test_context(state=mock_state, parent_id=None)
+
+    child = root_parent.create_child_context("child-op", is_virtual=True)
+
+    assert child._parent_id is None  # noqa: SLF001
+    assert child._step_id_prefix == "child-op"  # noqa: SLF001
+    assert child.is_virtual is True
+
+    expected = hashlib.blake2b(b"child-op-1").hexdigest()[:64]
+    assert child._create_step_id_for_logical_step(1) == expected  # noqa: SLF001
+
+
+def test_should_propagate_outer_parent_id_when_virtual_is_nested_in_virtual():
+    """A virtual child of a virtual parent still reports to the outer non-virtual ancestor.
+
+    Nested concurrency is a real scenario: e.g. a FLAT `map` inside a
+    FLAT `parallel`. Each layer creates a virtual child. The inner
+    virtual child inherits `_parent_id` from its immediate (virtual)
+    parent, which in turn inherited it from its non-virtual
+    grandparent. The expected end result is that inner operations in
+    the doubly-nested virtual branch still stamp the outer
+    non-virtual ancestor's id — every virtual layer collapses out of
+    the observable hierarchy without accumulating.
+    """
+
+    mock_state = Mock(spec=ExecutionState)
+    mock_state.durable_execution_arn = (
+        "arn:aws:durable:us-east-1:123456789012:execution/test"
+    )
+
+    # Non-virtual outer context (e.g. the top-level parallel operation's context).
+    outer = create_test_context(state=mock_state, parent_id="outer-parallel-op")
+
+    # First virtual layer: outer parallel is FLAT, so its branch is virtual.
+    outer_branch = outer.create_child_context("outer-branch-op", is_virtual=True)
+    assert outer_branch._parent_id == "outer-parallel-op"  # noqa: SLF001
+    assert outer_branch._step_id_prefix == "outer-branch-op"  # noqa: SLF001
+    assert outer_branch.is_virtual is True
+
+    # Second virtual layer: an inner FLAT map inside the outer branch,
+    # whose per-item branch is also virtual.
+    inner_branch = outer_branch.create_child_context("inner-branch-op", is_virtual=True)
+    # Inner branch's parent_id must be the outermost non-virtual
+    # ancestor's id, not the outer virtual branch's id — otherwise the
+    # inner operations would report to a logical layer that does not
+    # appear in the execution history, breaking the hierarchy.
+    assert inner_branch._parent_id == "outer-parallel-op"  # noqa: SLF001
+    assert inner_branch._step_id_prefix == "inner-branch-op"  # noqa: SLF001
+    assert inner_branch.is_virtual is True
+
+    # Step ids inside the inner branch still prefix on the inner branch's
+    # own operation id; they must not leak the outer ancestor into the
+    # step-id namespace.
+    expected = hashlib.blake2b(b"inner-branch-op-1").hexdigest()[:64]
+    assert inner_branch._create_step_id_for_logical_step(1) == expected  # noqa: SLF001
+
+
+# endregion Virtual-context identity tests
+
+
+# region durable_parallel_branch
+
+
+def test_durable_parallel_branch_returns_parallel_branch_with_name():
+    """Test that the decorator produces a ParallelBranch with the given name."""
+
+    @durable_parallel_branch(name="fetch-user-data")
+    def fetch_user(ctx: DurableContext, user_id: str) -> dict:
+        return {"id": user_id}
+
+    result = fetch_user("user-123")
+
+    assert isinstance(result, ParallelBranch)
+    assert result.name == "fetch-user-data"
+
+
+def test_durable_parallel_branch_with_no_name():
+    """Test that when name is None, ParallelBranch.name is None."""
+
+    @durable_parallel_branch()
+    def fetch_orders(ctx: DurableContext) -> list:
+        return ["order1"]
+
+    result = fetch_orders()
+
+    assert isinstance(result, ParallelBranch)
+    assert result.name is None
+
+
+def test_durable_parallel_branch_callable_delegates_to_func():
+    """Test that calling the ParallelBranch delegates to the wrapped function."""
+
+    @durable_parallel_branch(name="my-branch")
+    def my_branch(ctx: DurableContext, value: int) -> int:
+        return value * 2
+
+    branch = my_branch(21)
+    mock_ctx = Mock(spec=DurableContext)
+
+    result = branch(mock_ctx)
+
+    assert result == 42
+
+
+def test_durable_parallel_branch_with_multiple_args_and_kwargs():
+    """Test that positional and keyword arguments are correctly bound."""
+
+    @durable_parallel_branch(name="compute")
+    def compute(ctx: DurableContext, a: int, b: int, op: str = "add") -> str:
+        if op == "add":
+            return f"{a + b}"
+        return f"{a * b}"
+
+    branch = compute(3, 4, op="mul")
+    mock_ctx = Mock(spec=DurableContext)
+
+    result = branch(mock_ctx)
+
+    assert result == "12"
+
+
+def test_durable_parallel_branch_passes_context_as_first_arg():
+    """Test that the DurableContext is passed as the first argument to the function."""
+    received_ctx = None
+
+    @durable_parallel_branch(name="capture-ctx")
+    def capture(ctx: DurableContext) -> str:
+        nonlocal received_ctx
+        received_ctx = ctx
+        return "done"
+
+    branch = capture()
+    mock_ctx = Mock(spec=DurableContext)
+    branch(mock_ctx)
+
+    assert received_ctx is mock_ctx
+
+
+def test_durable_parallel_branch_multiple_invocations_are_independent():
+    """Test that calling the wrapper multiple times produces independent branches."""
+
+    @durable_parallel_branch(name="greet")
+    def greet(ctx: DurableContext, name: str) -> str:
+        return f"hello {name}"
+
+    branch_a = greet("Alice")
+    branch_b = greet("Bob")
+
+    mock_ctx = Mock(spec=DurableContext)
+
+    assert branch_a(mock_ctx) == "hello Alice"
+    assert branch_b(mock_ctx) == "hello Bob"
+
+
+def test_durable_parallel_branch_is_compatible_with_parallel_functions_arg():
+    """Test that the result can be used in a functions list alongside plain callables."""
+
+    @durable_parallel_branch(name="named-branch")
+    def named(ctx: DurableContext) -> str:
+        return "named"
+
+    plain = lambda ctx: "plain"  # noqa: E731
+
+    functions = [named(), plain]
+
+    assert isinstance(functions[0], ParallelBranch)
+    assert callable(functions[0])
+    assert callable(functions[1])
+
+
+# endregion durable_parallel_branch

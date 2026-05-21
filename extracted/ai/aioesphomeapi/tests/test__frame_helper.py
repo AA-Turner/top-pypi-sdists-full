@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aioesphomeapi import APIConnection, EncryptionPlaintextAPIError
+from aioesphomeapi._frame_helper.base import safe_label_str
 from aioesphomeapi._frame_helper.noise import MAX_NAME_LEN, APINoiseFrameHelper
 from aioesphomeapi._frame_helper.noise_encryption import EncryptCipher
 from aioesphomeapi._frame_helper.packets import (
@@ -98,7 +99,7 @@ if sys.platform != "win32":
 
 
 @pytest.mark.parametrize(
-    "in_bytes, pkt_data, pkt_type",
+    ("in_bytes", "pkt_data", "pkt_type"),
     _PLAINTEXT_TESTS,
 )
 async def test_plaintext_frame_helper(
@@ -131,7 +132,7 @@ async def test_plaintext_frame_helper(
 
 
 @pytest.mark.parametrize(
-    "in_bytes, pkt_data, pkt_type",
+    ("in_bytes", "pkt_data", "pkt_type"),
     _PLAINTEXT_TESTS,
 )
 async def test_plaintext_frame_helper_multiple_payloads_single_packet(
@@ -154,7 +155,7 @@ async def test_plaintext_frame_helper_multiple_payloads_single_packet(
         # Make sure we correctly handle multiple payloads in a single packet
         mock_data_received(helper, in_bytes * 5)
 
-        for i in range(5):
+        for _ in range(5):
             pkt = packets.pop()
             type_, data = pkt
 
@@ -166,7 +167,7 @@ async def test_plaintext_frame_helper_multiple_payloads_single_packet(
 
 @pytest.mark.parametrize(
     "byte_type",
-    (bytes, bytearray, memoryview),
+    [bytes, bytearray, memoryview],
 )
 async def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> None:
     """Test the plaintext frame helper with the protractor event loop.
@@ -206,7 +207,7 @@ async def test_plaintext_frame_helper_protractor_event_loop(byte_type: Any) -> N
 
 @pytest.mark.parametrize(
     "byte_type",
-    (bytes, bytearray, memoryview),
+    [bytes, bytearray, memoryview],
 )
 async def test_noise_protector_event_loop(byte_type: Any) -> None:
     """Test the noise frame helper with the protractor event loop.
@@ -417,7 +418,7 @@ VARUINT_TESTCASES = [
 ]
 
 
-@pytest.mark.parametrize("val, encoded", VARUINT_TESTCASES)
+@pytest.mark.parametrize(("val", "encoded"), VARUINT_TESTCASES)
 def test_varuint_to_bytes(val, encoded):
     assert varuint_to_bytes(val) == encoded
     assert cached_varuint_to_bytes(val) == encoded
@@ -966,6 +967,91 @@ async def test_noise_frame_helper_empty_hello():
         await helper.ready_future
 
 
+async def test_noise_frame_helper_empty_handshake_frame():
+    """Empty handshake frame surfaces as HandshakeAPIError, not IndexError."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    # 3-byte header advertising a zero-length frame, no payload bytes.
+    empty_handshake_with_header = bytes((0x01, 0x00, 0x00))
+    mock_data_received(helper, empty_handshake_with_header)
+
+    with pytest.raises(HandshakeAPIError, match="Handshake frame is empty"):
+        await helper.ready_future
+
+
+async def test_noise_frame_helper_handshake_invalid_tag() -> None:
+    """Handshake body with valid preamble but bogus AEAD payload surfaces as InvalidEncryptionKeyAPIError."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    await asyncio.sleep(0)  # let the task run to read the hello packet
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    # preamble=0x00 (handshake), then 48 bytes of garbage that look like a
+    # valid-length NN responder reply (32-byte ephemeral pubkey + 16-byte MAC)
+    # but fail authentication. Without explicit InvalidTag handling the
+    # cryptography library exception would propagate raw to the caller.
+    bogus_handshake = b"\x00" + (b"\xff" * 48)
+    pkt_len = len(bogus_handshake)
+    handshake_pkt_with_header = (
+        bytes((0x01, (pkt_len >> 8) & 0xFF, pkt_len & 0xFF)) + bogus_handshake
+    )
+    mock_data_received(helper, handshake_pkt_with_header)
+
+    with pytest.raises(InvalidEncryptionKeyAPIError) as exc_info:
+        await helper.ready_future
+    assert exc_info.value.received_name == "servicetest"
+
+
+async def test_noise_frame_helper_handshake_other_noise_error():
+    """A non-InvalidTag noise lib exception is wrapped as HandshakeAPIError."""
+    connection, _ = _make_mock_connection()
+    helper = MockAPINoiseFrameHelper(
+        connection=connection,
+        noise_psk="QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc=",
+        expected_name="servicetest",
+        client_info="my client",
+        log_name="test",
+        expected_mac=None,
+    )
+
+    await asyncio.sleep(0)
+    hello_pkt_with_header = _make_noise_hello_pkt(b"\x01servicetest\0")
+    mock_data_received(helper, hello_pkt_with_header)
+
+    # preamble=0x00 then a too-short body. The noise library raises
+    # NoiseInvalidMessage (not InvalidTag) when the responder reply is
+    # shorter than the protocol's e + ee size.
+    bogus_handshake = b"\x00\x01\x02"
+    pkt_len = len(bogus_handshake)
+    handshake_pkt_with_header = (
+        bytes((0x01, (pkt_len >> 8) & 0xFF, pkt_len & 0xFF)) + bogus_handshake
+    )
+    mock_data_received(helper, handshake_pkt_with_header)
+
+    with pytest.raises(HandshakeAPIError, match="Handshake failed"):
+        await helper.ready_future
+
+
 async def test_noise_frame_helper_wrong_protocol():
     """Test noise with the wrong protocol."""
     connection, _ = _make_mock_connection()
@@ -987,6 +1073,51 @@ async def test_noise_frame_helper_wrong_protocol():
         HandshakeAPIError, match="Unknown protocol selected by client 5"
     ):
         await helper.ready_future
+
+
+@pytest.mark.parametrize(
+    ("raw", "limit", "expected"),
+    [
+        # Plain ASCII passes through untouched.
+        ("hello", 32, "hello"),
+        # Length cap applied after stripping non-printables.
+        ("abcdefghij", 4, "abcd"),
+        # Empty string round-trips as empty.
+        ("", 32, ""),
+        # CRLF, NUL, and ANSI escape are non-printable per str.isprintable.
+        ("evil\r\nFAKE\x1b[31m", 64, "evilFAKE[31m"),
+        ("\x00\x00\x00\x00", 64, ""),
+        ("a\nb\rc\td", 64, "abcd"),
+        # Tab is non-printable; space is printable.
+        ("a\tb c", 64, "ab c"),
+        # Non-ASCII printable characters survive (str.isprintable is Unicode-aware).
+        ("café", 32, "café"),
+        # Cap counts code points, not bytes — multi-byte chars are not double-counted.
+        ("é" * 100, 8, "é" * 8),
+        # 3-byte UTF-8 (CJK) passes through untouched.
+        ("日本語デバイス", 32, "日本語デバイス"),
+        # Cap counts code points on 3-byte UTF-8: 7 chars x 3 bytes = 21 bytes; limit 3 -> 3 chars.
+        ("日本語デバイス", 3, "日本語"),
+        # Mixed-width: ASCII + CJK survive, control char stripped, cap counts code points.
+        ("hi\x00日本", 4, "hi日本"),
+        # Strip first, then cap: a 100-char input of only non-printables yields "".
+        ("\r" * 100, 8, ""),
+        # Mixed: control chars between printables get removed before the cap fires.
+        ("\rhello\nworld\r", 5, "hello"),
+        # limit=0 produces an empty string regardless of input.
+        ("anything", 0, ""),
+    ],
+)
+def test_safe_label_str(raw: str, limit: int, expected: str) -> None:
+    """safe_label_str strips non-printables then length-caps to `limit` code points."""
+    assert safe_label_str(raw, limit) == expected
+
+
+def test_safe_label_str_is_idempotent() -> None:
+    """Re-sanitizing an already-sanitized string returns the same value."""
+    once = safe_label_str("evil\r\nFAKE\x1b[31m", 64)
+    twice = safe_label_str(once, 64)
+    assert once == twice == "evilFAKE[31m"
 
 
 async def test_noise_frame_helper_sanitizes_server_name_in_error() -> None:
@@ -1242,10 +1373,10 @@ async def test_connection_lost_closes_connection_and_logs(
 
 @pytest.mark.parametrize(
     ("bad_psk", "error"),
-    (
+    [
         ("dGhpc2lzbm90MzJieXRlcw==", "expected base64-encoded 32-byte value"),
         ("QRTIErOb/fcE9Ukd/5qA3RGYMn0Y+p06U58SCtOXvPc", "Malformed PSK"),
-    ),
+    ],
 )
 async def test_noise_bad_psks(bad_psk: str, error: str) -> None:
     """Test we raise on bad psks."""

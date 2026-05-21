@@ -42,8 +42,8 @@
             ]
         ],
         "depends": [
-            "/opt/local/Library/Frameworks/Python.framework/Versions/3.14/include/python3.14/Python.h",
-            "/opt/local/Library/Frameworks/Python.framework/Versions/3.14/include/python3.14/pythread.h",
+            "/opt/local/Library/Frameworks/Python.framework/Versions/3.15/include/python3.15/Python.h",
+            "/opt/local/Library/Frameworks/Python.framework/Versions/3.15/include/python3.15/pythread.h",
             "deps/libev/ev++.h",
             "deps/libev/ev.c",
             "deps/libev/ev.h",
@@ -68,10 +68,10 @@
         ],
         "include_dirs": [
             "src/gevent/libev",
-            "/opt/local/Library/Frameworks/Python.framework/Versions/3.14/include/python3.14",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-26.4.0-264zdiwa/gitclone/deps",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-26.4.0-264zdiwa/gitclone/src/gevent/libev",
-            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-26.4.0-264zdiwa/gitclone/deps/libev"
+            "/opt/local/Library/Frameworks/Python.framework/Versions/3.15/include/python3.15",
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-26.5.0-s6eym871/gitclone/deps",
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-26.5.0-s6eym871/gitclone/src/gevent/libev",
+            "/private/var/folders/y5/x7pvzk651c3dqkllbxd1jd280000gn/T/gevent-26.5.0-s6eym871/gitclone/deps/libev"
         ],
         "name": "gevent.libev.corecext",
         "sources": [

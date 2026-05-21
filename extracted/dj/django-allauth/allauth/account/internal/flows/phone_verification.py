@@ -205,7 +205,7 @@ def phone_already_exists(
     """
     adapter = get_adapter()
     other_user = adapter.get_user_by_phone(phone)
-    already_exists = other_user and (not user or user.pk != other_user.pk)
+    already_exists = bool(other_user and (not user or user.pk != other_user.pk))
     if already_exists and (not app_settings.PREVENT_ENUMERATION or always_raise):
         raise adapter.validation_error("phone_taken")
     return already_exists

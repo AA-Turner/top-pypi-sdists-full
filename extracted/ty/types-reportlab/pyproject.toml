@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-reportlab"
-version = "4.5.0.20260518"
+version = "4.5.1.20260521"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for reportlab"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`reportlab`](https://github.com/MrBitBucket/reportlab-mirror) package. It can be used by type checkers
 to check code that uses `reportlab`. This version of
 `types-reportlab` aims to provide accurate annotations for
-`reportlab==4.5.0`.
+`reportlab==4.5.1`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.409
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`132ae01fd184883857189406b5f13439c00078e4`](https://github.com/python/typeshed/commit/132ae01fd184883857189406b5f13439c00078e4).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

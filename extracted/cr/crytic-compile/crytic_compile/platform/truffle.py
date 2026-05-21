@@ -1,6 +1,7 @@
 """
 Truffle platform
 """
+
 import glob
 import json
 import logging
@@ -11,7 +12,7 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING
 
 from crytic_compile.compilation_unit import CompilationUnit
 from crytic_compile.compiler.compiler import CompilerVersion
@@ -29,57 +30,6 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("CryticCompile")
 
 
-def export_to_truffle(crytic_compile: "CryticCompile", **kwargs: str) -> List[str]:
-    """Export to the truffle format
-
-    Args:
-        crytic_compile (CryticCompile): CryticCompile object to export
-        **kwargs: optional arguments. Used: "export_dir"
-
-    Raises:
-        InvalidCompilation: If there are more than 1 compilation unit
-
-    Returns:
-        List[str]: Singleton with the generated directory
-    """
-    # Get our export directory, if it's set, we create the path.
-    export_dir = kwargs.get("export_dir", "crytic-export")
-    if export_dir and not os.path.exists(export_dir):
-        os.makedirs(export_dir)
-
-    compilation_units = list(crytic_compile.compilation_units.values())
-    if len(compilation_units) != 1:
-        raise InvalidCompilation("Truffle export require 1 compilation unit")
-    compilation_unit = compilation_units[0]
-
-    # Loop for each contract filename.
-
-    libraries = compilation_unit.crytic_compile.libraries
-
-    results: List[Dict] = []
-    for source_unit in compilation_unit.source_units.values():
-        for contract_name in source_unit.contracts_names:
-            # Create the informational object to output for this contract
-            output = {
-                "contractName": contract_name,
-                "abi": source_unit.abi(contract_name),
-                "bytecode": "0x" + source_unit.bytecode_init(contract_name, libraries),
-                "deployedBytecode": "0x" + source_unit.bytecode_runtime(contract_name, libraries),
-                "ast": source_unit.ast,
-                "userdoc": source_unit.natspec[contract_name].userdoc.export(),
-                "devdoc": source_unit.natspec[contract_name].devdoc.export(),
-            }
-            results.append(output)
-
-            # If we have an export directory, export it.
-
-            path = os.path.join(export_dir, contract_name + ".json")
-            with open(path, "w", encoding="utf8") as file_desc:
-                json.dump(output, file_desc)
-
-    return [export_dir]
-
-
 class Truffle(AbstractPlatform):
     """
     Truffle platform
@@ -89,7 +39,6 @@ class Truffle(AbstractPlatform):
     PROJECT_URL = "https://github.com/trufflesuite/truffle"
     TYPE = Type.TRUFFLE
 
-    # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     def compile(self, crytic_compile: "CryticCompile", **kwargs: str) -> None:
         """Compile
 
@@ -176,7 +125,6 @@ class Truffle(AbstractPlatform):
                 cwd=self._target,
                 executable=shutil.which(cmd[0]),
             ) as process:
-
                 stdout_bytes, stderr_bytes = process.communicate()
                 stdout, stderr = (
                     stdout_bytes.decode(errors="backslashreplace"),
@@ -207,7 +155,7 @@ class Truffle(AbstractPlatform):
         for filename_txt in filenames:
             with open(filename_txt, encoding="utf8") as file_desc:
                 target_loaded = json.load(file_desc)
-                # pylint: disable=too-many-nested-blocks
+
                 if optimized is None:
                     if "metadata" in target_loaded:
                         metadata = target_loaded["metadata"]
@@ -224,7 +172,7 @@ class Truffle(AbstractPlatform):
                 devdoc = target_loaded.get("devdoc", {})
                 natspec = Natspec(userdoc, devdoc)
 
-                if not "ast" in target_loaded:
+                if "ast" not in target_loaded:
                     continue
 
                 filename = target_loaded["ast"]["absolutePath"]
@@ -241,7 +189,7 @@ class Truffle(AbstractPlatform):
                 except InvalidCompilation as i:
                     txt = str(i)
                     txt += "\nConsider removing the build/contracts content (rm build/contracts/*)"
-                    # pylint: disable=raise-missing-from
+
                     raise InvalidCompilation(txt)
 
                 source_unit = compilation_unit.create_source_unit(filename)
@@ -309,7 +257,6 @@ class Truffle(AbstractPlatform):
             os.path.join(target, "truffle-config.js")
         )
 
-    # pylint: disable=no-self-use
     def is_dependency(self, path: str) -> bool:
         """Check if the path is a dependency
 
@@ -325,8 +272,7 @@ class Truffle(AbstractPlatform):
         self._cached_dependencies[path] = ret
         return ret
 
-    # pylint: disable=no-self-use
-    def _guessed_tests(self) -> List[str]:
+    def _guessed_tests(self) -> list[str]:
         """Guess the potential unit tests commands
 
         Returns:
@@ -335,7 +281,7 @@ class Truffle(AbstractPlatform):
         return ["truffle test"]
 
 
-def _get_version_from_config(target: str) -> Optional[Tuple[str, str]]:
+def _get_version_from_config(target: str) -> tuple[str, str] | None:
     """Naive check on the truffleconfig file to get the version
 
     Args:
@@ -349,7 +295,7 @@ def _get_version_from_config(target: str) -> Optional[Tuple[str, str]]:
         config = Path(target, "truffle.js")
         if not config.exists():
             return None
-    with open(config, "r", encoding="utf8") as config_f:
+    with open(config, encoding="utf8") as config_f:
         config_buffer = config_f.read()
 
     # The config is a javascript file
@@ -362,7 +308,7 @@ def _get_version_from_config(target: str) -> Optional[Tuple[str, str]]:
     return None
 
 
-def _get_version(truffle_call: List[str], cwd: str) -> Tuple[str, str]:
+def _get_version(truffle_call: list[str], cwd: str) -> tuple[str, str]:
     """Get the compiler version
 
     Args:
@@ -400,11 +346,10 @@ def _get_version(truffle_call: List[str], cwd: str) -> Tuple[str, str]:
 
             raise InvalidCompilation(f"Solidity version not found {stdout}")
     except OSError as error:
-        # pylint: disable=raise-missing-from
         raise InvalidCompilation(f"Truffle failed: {error}")
 
 
-def _save_config(cwd: Path) -> Tuple[Optional[Path], Optional[Path]]:
+def _save_config(cwd: Path) -> tuple[Path | None, Path | None]:
     """Save truffle-config.js / truffle.js to a temporary file.
 
     Args:
@@ -427,7 +372,7 @@ def _save_config(cwd: Path) -> Tuple[Optional[Path], Optional[Path]]:
     return None, None
 
 
-def _reload_config(cwd: Path, original_config: Optional[Path], tmp_config: Path) -> None:
+def _reload_config(cwd: Path, original_config: Path | None, tmp_config: Path) -> None:
     """Restore the original config
 
     Args:
@@ -440,7 +385,7 @@ def _reload_config(cwd: Path, original_config: Optional[Path], tmp_config: Path)
         shutil.move(str(Path(cwd, original_config)), str(Path(cwd, tmp_config)))
 
 
-def _write_config(cwd: Path, original_config: Path, version: Optional[str]) -> None:
+def _write_config(cwd: Path, original_config: Path, version: str | None) -> None:
     """Write the config file
 
     Args:

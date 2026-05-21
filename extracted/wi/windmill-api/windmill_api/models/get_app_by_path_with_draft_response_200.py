@@ -39,6 +39,8 @@ class GetAppByPathWithDraftResponse200:
         labels (Union[Unset, List[str]]):
         draft_only (Union[Unset, bool]):
         draft (Union[Unset, Any]):
+        draft_created_at (Union[Unset, datetime.datetime]): Timestamp at which the most recent DB draft was created.
+            Used by the frontend's UserDraft staleness check.
     """
 
     id: int
@@ -58,6 +60,7 @@ class GetAppByPathWithDraftResponse200:
     labels: Union[Unset, List[str]] = UNSET
     draft_only: Union[Unset, bool] = UNSET
     draft: Union[Unset, Any] = UNSET
+    draft_created_at: Union[Unset, datetime.datetime] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -86,6 +89,9 @@ class GetAppByPathWithDraftResponse200:
 
         draft_only = self.draft_only
         draft = self.draft
+        draft_created_at: Union[Unset, str] = UNSET
+        if not isinstance(self.draft_created_at, Unset):
+            draft_created_at = self.draft_created_at.isoformat()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -115,6 +121,8 @@ class GetAppByPathWithDraftResponse200:
             field_dict["draft_only"] = draft_only
         if draft is not UNSET:
             field_dict["draft"] = draft
+        if draft_created_at is not UNSET:
+            field_dict["draft_created_at"] = draft_created_at
 
         return field_dict
 
@@ -160,6 +168,13 @@ class GetAppByPathWithDraftResponse200:
 
         draft = d.pop("draft", UNSET)
 
+        _draft_created_at = d.pop("draft_created_at", UNSET)
+        draft_created_at: Union[Unset, datetime.datetime]
+        if isinstance(_draft_created_at, Unset):
+            draft_created_at = UNSET
+        else:
+            draft_created_at = isoparse(_draft_created_at)
+
         get_app_by_path_with_draft_response_200 = cls(
             id=id,
             workspace_id=workspace_id,
@@ -178,6 +193,7 @@ class GetAppByPathWithDraftResponse200:
             labels=labels,
             draft_only=draft_only,
             draft=draft,
+            draft_created_at=draft_created_at,
         )
 
         get_app_by_path_with_draft_response_200.additional_properties = d

@@ -58,10 +58,10 @@ class SimType:
         self.qualifier = qualifier
 
     @staticmethod
-    def _simtype_eq(self_type: SimType, other: SimType, avoid: dict[str, set[SimType]] | None) -> bool:
+    def _simtype_eq(self_type: SimType, other: SimType, avoid: dict[str, set[int]] | None) -> bool:
         if self_type is other:
             return True
-        if avoid is not None and self_type in avoid["self"] and other in avoid["other"]:
+        if avoid is not None and id(self_type) in avoid["self"] and id(other) in avoid["other"]:
             return True
         return self_type.__eq__(other, avoid=avoid)  # pylint:disable=unnecessary-dunder-call
 
@@ -929,7 +929,7 @@ class SimTypePointer(SimTypeReg):
             d.pop("offset")
         if "q" in d and not d["q"]:
             d.pop("q")
-        if (disp := d.pop("disposition")) != PointerDisposition.UNKNOWN:
+        if (disp := d.pop("disposition", PointerDisposition.UNKNOWN)) != PointerDisposition.UNKNOWN:
             d["disp"] = int(disp)
         return d
 
@@ -1667,28 +1667,29 @@ class SimStruct(NamedTypeMixin, SimType):
         if self._arch is None:
             raise ValueError("Need an arch to calculate offsets")
 
-        offsets = {}
-        offset_so_far = 0
+        offsets = {}  # field name -> offset in bytes
+        bitoffset_so_far = 0  # offset in *bits*
         for name, ty in self.fields.items():
-            if ty.size is None:
+            ty_size = ty.size
+            if ty_size is None:
                 l.debug(
                     "Found a bottom field in struct %s. Ignore and increment the offset using the default "
                     "element size.",
                     self.name,
                 )
                 continue
-            if not self._pack:
-                align = ty.alignment
+            if not self._pack and ty_size > 0:
+                align = ty.alignment * self._arch.byte_width
                 if align is NotImplemented:
                     # hack!
                     align = 1
-                if offset_so_far % align != 0:
-                    offset_so_far += align - offset_so_far % align
-                offsets[name] = offset_so_far
-                offset_so_far += ty.size // self._arch.byte_width
+                if bitoffset_so_far % align != 0:
+                    bitoffset_so_far += align - bitoffset_so_far % align
+                offsets[name] = bitoffset_so_far // self._arch.byte_width
+                bitoffset_so_far += ty_size
             else:
-                offsets[name] = offset_so_far // self._arch.byte_width
-                offset_so_far += ty.size
+                offsets[name] = bitoffset_so_far // self._arch.byte_width
+                bitoffset_so_far += ty_size
 
         return offsets
 
@@ -1827,7 +1828,7 @@ class SimStruct(NamedTypeMixin, SimType):
     def copy(self):
         return SimStruct(dict(self.fields), name=self.name, pack=self._pack, align=self._align)
 
-    def __eq__(self, other, avoid: dict[str, set[SimType]] | None = None):
+    def __eq__(self, other, avoid: dict[str, set[int]] | None = None):
         if not isinstance(other, SimStruct):
             return False
         if not (
@@ -1846,14 +1847,14 @@ class SimStruct(NamedTypeMixin, SimType):
         if keys_self != keys_other:
             return False
         if avoid is None:
-            avoid = {"self": {self}, "other": {other}}
+            avoid = {"self": {id(self)}, "other": {id(other)}}
         for key in keys_self:
             field_self = self.fields[key]
             field_other = other.fields[key]
-            if field_self in avoid["self"] and field_other in avoid["other"]:
+            if id(field_self) in avoid["self"] and id(field_other) in avoid["other"]:
                 continue
-            avoid["self"].add(field_self)
-            avoid["other"].add(field_other)
+            avoid["self"].add(id(field_self))
+            avoid["other"].add(id(field_other))
             if not field_self.__eq__(field_other, avoid=avoid):
                 return False
         return True

@@ -1,27 +1,25 @@
 Metadata-Version: 2.4
-Name: dify_plugin
-Version: 0.8.0
+Name: dify-plugin
+Version: 0.9.0
 Summary: Dify Plugin SDK
 Keywords: dify,plugin,sdk
 Author: langgenius
 Author-email: langgenius <hello@dify.ai>
 License-Expression: Apache-2.0
 License-File: LICENSE
-Requires-Dist: flask~=3.1.3
-Requires-Dist: werkzeug~=3.1.4
-Requires-Dist: dpkt~=1.9.8
-Requires-Dist: gevent~=25.5.1
-Requires-Dist: httpx~=0.28.1
-Requires-Dist: pydantic-settings>=2.5.0,<3.0.0
-Requires-Dist: pydantic>=2.8.2
-Requires-Dist: pyyaml~=6.0.1
-Requires-Dist: requests~=2.32.3
-Requires-Dist: socksio==1.0.0
-Requires-Dist: tiktoken~=0.8.0
-Requires-Dist: yarl>=1.9.4,<2.0
-Requires-Dist: packaging>=25.0
-Requires-Dist: urllib3>=2.6.3
-Requires-Dist: aiohttp>=3.13.3
+Requires-Dist: flask>=3.1.3
+Requires-Dist: werkzeug>=3.1.8
+Requires-Dist: dpkt>=1.9.8
+Requires-Dist: gevent>=26.4.0
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pydantic-settings>=2.14.1
+Requires-Dist: pydantic>=2.13.4
+Requires-Dist: pyyaml>=6.0.3
+Requires-Dist: requests>=2.33.1
+Requires-Dist: socksio>=1.0.0
+Requires-Dist: tiktoken>=0.12.0
+Requires-Dist: yarl>=1.23.0
+Requires-Dist: packaging>=26.2
 Requires-Python: >=3.12
 Project-URL: source, https://github.com/langgenius/dify-plugin-sdks
 Project-URL: homepage, https://github.com/langgenius/dify-plugin-sdks
@@ -33,6 +31,37 @@ Description-Content-Type: text/markdown
 A Python SDK for building plugins for Dify.
 
 Here is a short introduction to Dify Plugin: <https://docs.dify.ai/plugins/introduction>
+
+## Development
+
+This repository uses [`just`](https://github.com/casey/just) as its command runner.
+Install it with your preferred package manager, or with uv:
+
+```bash
+uv tool install rust-just
+```
+
+Common development commands:
+
+```bash
+just dev      # Sync default dev dependencies
+just check    # Check lockfile, formatting, and linting
+just test     # Run all tests
+just build    # Build source and wheel distributions
+```
+
+## LLM Polling Support
+
+SDK 0.9.0 adds support for polling-based LLM invocation. A model can now
+declare the `polling` feature and implement polling methods, allowing plugins
+to submit long-running provider jobs and return later checks through a short
+request/response flow.
+
+Polling results use three states:
+
+- `running` returns plugin-owned state for the next check.
+- `succeeded` returns the final LLM result.
+- `failed` returns a terminal error.
 
 ## Version Management
 
@@ -52,7 +81,7 @@ When depending on this SDK, it's recommended to specify version constraints that
 Example in your project's dependency management:
 
 ```python
-dify_plugin~=0.7
+dify_plugin >= 0.8
 ```
 
 ## Manifest Version Reference
@@ -84,3 +113,5 @@ For the manifest specification, we've introduced two versioning fields:
 | 1.9.0                | 0.5.0         | Support Datasource functionality for plugins       |
 | 1.10.0               | 0.6.0         | Support Trigger functionality for plugins          |
 | 1.11.0               | 0.7.0         | Support Multimodal Reranking / Embeddings          |
+| 1.14.0               | 0.8.1         | Dependency and project structure cleanup           |
+| 1.14.2               | 0.9.0         | Support polling-based LLM plugin invocations       |

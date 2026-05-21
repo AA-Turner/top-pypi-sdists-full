@@ -260,13 +260,24 @@ def _verify_node(project: DiscoveredProject) -> list[StepResult]:
 
     # 2. Test (only if defined)
     if _has_script(pkg, "test"):
-        steps.append(
-            run_step(
-                "npm test",
-                ["npm", "test", "--silent", "--", "--watchAll=false"],
-                cwd=root,
-            )
+        # Vitest rejects --watchAll (a Jest-only flag). Detect by checking
+        # devDependencies for "vitest" and omit the flag for those projects.
+        _is_vitest = False
+        try:
+            _pkg_data = json.loads(pkg.read_text("utf-8", errors="replace"))
+            _deps = {
+                **_pkg_data.get("devDependencies", {}),
+                **_pkg_data.get("dependencies", {}),
+            }
+            _is_vitest = "vitest" in _deps
+        except Exception:
+            pass
+        _test_cmd = (
+            ["npm", "test", "--silent"]
+            if _is_vitest
+            else ["npm", "test", "--silent", "--", "--watchAll=false"]
         )
+        steps.append(run_step("npm test", _test_cmd, cwd=root))
 
     # 3. Typecheck
     if _has_script(pkg, "typecheck"):

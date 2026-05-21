@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: praisonaiagents
-Version: 1.6.42
+Version: 1.6.44
 Summary: Praison AI agents for completing complex tasks with Self Reflection Agents
 Author: Mervin Praison
 Requires-Python: >=3.10
@@ -56,6 +56,9 @@ Requires-Dist: crawl4ai>=0.4.0; extra == "crawl"
 Requires-Dist: playwright>=1.47.0; extra == "crawl"
 Provides-Extra: sandbox
 Requires-Dist: e2b-code-interpreter>=1.0.0; extra == "sandbox"
+Provides-Extra: a2ui
+Requires-Dist: a2ui-agent-sdk>=0.2.1; extra == "a2ui"
+Requires-Dist: a2a-sdk<1.0.0,>=0.3.0; extra == "a2ui"
 Provides-Extra: sandbox-docker
 Requires-Dist: docker>=7.0.0; extra == "sandbox-docker"
 Provides-Extra: all
@@ -73,6 +76,7 @@ Requires-Dist: praisonaiagents[search]; extra == "all"
 Requires-Dist: praisonaiagents[crawl]; extra == "all"
 Requires-Dist: praisonaiagents[autonomy]; extra == "all"
 Requires-Dist: praisonaiagents[os]; extra == "all"
+Requires-Dist: praisonaiagents[a2ui]; extra == "all"
 
 <p align="center">
   <picture>

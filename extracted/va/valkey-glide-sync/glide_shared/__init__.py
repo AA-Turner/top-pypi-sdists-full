@@ -1,5 +1,6 @@
 # Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 
+from .cache import ClientSideCache, EvictionPolicy
 from .commands.batch import Batch, ClusterBatch, ClusterTransaction, TBatch, Transaction
 from .commands.batch_options import (
     BatchOptions,
@@ -73,9 +74,12 @@ from .commands.server_modules.ft_options.ft_profile_options import (
     QueryType,
 )
 from .commands.server_modules.ft_options.ft_search_options import (
+    ConsistencyMode,
     FtSearchLimit,
     FtSearchOptions,
+    InfoScope,
     ReturnField,
+    ShardScope,
 )
 from .commands.server_modules.json_options import (
     JsonArrIndexOptions,
@@ -114,6 +118,7 @@ from .commands.stream import (
     TrimByMinId,
 )
 from .config import (
+    AddressResolver,
     AdvancedGlideClientConfiguration,
     AdvancedGlideClusterClientConfiguration,
     BackoffStrategy,
@@ -123,6 +128,7 @@ from .config import (
     GlideClusterClientConfiguration,
     IamAuthConfig,
     NodeAddress,
+    NodeDiscoveryMode,
     PeriodicChecksManualInterval,
     PeriodicChecksStatus,
     ProtocolVersion,
@@ -191,6 +197,7 @@ __all__ = [
     "BatchRetryStrategy",
     "ClusterBatchOptions",
     # Config
+    "AddressResolver",
     "AdvancedGlideClientConfiguration",
     "AdvancedGlideClusterClientConfiguration",
     "CompressionBackend",
@@ -199,6 +206,7 @@ __all__ = [
     "GlideClusterClientConfiguration",
     "BackoffStrategy",
     "ReadFrom",
+    "NodeDiscoveryMode",
     "ServerCredentials",
     "ServiceType",
     "IamAuthConfig",
@@ -331,6 +339,9 @@ __all__ = [
     "FtSearchLimit",
     "ReturnField",
     "FtSearchOptions",
+    "InfoScope",
+    "ShardScope",
+    "ConsistencyMode",
     "FtAggregateApply",
     "FtAggregateFilter",
     "FtAggregateClause",
@@ -346,4 +357,7 @@ __all__ = [
     "OpenTelemetryConfig",
     "OpenTelemetryMetricsConfig",
     "OpenTelemetryTracesConfig",
+    # Cache
+    "ClientSideCache",
+    "EvictionPolicy",
 ]

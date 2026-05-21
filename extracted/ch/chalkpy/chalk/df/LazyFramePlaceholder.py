@@ -1696,6 +1696,40 @@ class LazyFramePlaceholder:
             return_table_write_result=return_table_write_result,
         )
 
+    def write_to(self, destination: str, **kwargs: typing.Any) -> "LazyFramePlaceholder":
+        """Record a write to a named destination on this lazy plan.
+
+        The chalkdf-side ``DataFrame.write_to`` records a recording-only entry
+        on the lazy frame so the resulting ``DataFramePlan`` proto carries the
+        intent (destination + per-call primitives) across the wire. Runtime
+        resolution of the destination — looking up the live writer against the
+        active ``BindingRegistry`` — happens later, at libchalk plan compile
+        time, via the ``BindNodeResources`` rewriter.
+
+        Only primitive ``kwargs`` are supported here. Runtime handles must not
+        be passed in; they cannot be encoded as proto operands.
+
+        Parameters
+        ----------
+        destination
+            String identifier for the destination (e.g.
+            ``"redis_online_store"``). Round-trips through the proto.
+        **kwargs
+            Additional primitive options (namespace, pkey column, ts column,
+            column-to-feature map, ttl seconds, etc.) that round-trip through
+            the proto.
+
+        Returns
+        -------
+        LazyFramePlaceholder with the ``write_to`` op appended.
+        """
+        return self._construct(
+            self_dataframe=self,
+            function_name="write_to",
+            destination=destination,
+            **kwargs,
+        )
+
     def rename(self, new_names: typing.Mapping[str | Underscore, str]) -> LazyFramePlaceholder:
         """Rename columns in the DataFrame.
 

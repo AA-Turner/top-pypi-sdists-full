@@ -1488,11 +1488,18 @@ class Session:
             "mode": mode,
             "table": widget,
         }
-        await self.show(Block(type="table_preview", payload=payload))
+        block_id = "" if mode == "inline" else _preview_block_id(self.id, "table_preview")
+        await self.show(Block(type="table_preview", id=block_id, payload=payload))
 
     async def hide_table(self) -> None:
         """Close the table preview pane."""
-        await self.show(Block(type="table_preview", payload={"close": True}))
+        await self.show(
+            Block(
+                type="table_preview",
+                id=_preview_block_id(self.id, "table_preview"),
+                payload={"close": True},
+            )
+        )
 
     async def show_ui(
         self,
@@ -2281,6 +2288,11 @@ def _slugify_step_label(label: str) -> str:
 def _terminal_block_id(session_id: str, name: str) -> str:
     raw = f"{session_id}:{name}".encode()
     return "term_" + hashlib.sha1(raw).hexdigest()[:16]
+
+
+def _preview_block_id(session_id: str, name: str) -> str:
+    raw = f"{session_id}:{name}".encode()
+    return "preview_" + hashlib.sha1(raw).hexdigest()[:16]
 
 
 def _derive_media_filename(source: Any, fallback: str) -> str:

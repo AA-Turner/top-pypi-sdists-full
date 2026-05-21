@@ -10,6 +10,8 @@
 from .....schema_classes import AssertionActionClass
 from .....schema_classes import AssertionActionTypeClass
 from .....schema_classes import AssertionActionsClass
+from .....schema_classes import AssertionFailureSeverityConfigClass
+from .....schema_classes import AssertionFailureSeverityRuleClass
 from .....schema_classes import AssertionInfoClass
 from .....schema_classes import AssertionNoteClass
 from .....schema_classes import AssertionResultClass
@@ -65,6 +67,8 @@ from .....schema_classes import VolumeAssertionTypeClass
 AssertionAction = AssertionActionClass
 AssertionActionType = AssertionActionTypeClass
 AssertionActions = AssertionActionsClass
+AssertionFailureSeverityConfig = AssertionFailureSeverityConfigClass
+AssertionFailureSeverityRule = AssertionFailureSeverityRuleClass
 AssertionInfo = AssertionInfoClass
 AssertionNote = AssertionNoteClass
 AssertionResult = AssertionResultClass

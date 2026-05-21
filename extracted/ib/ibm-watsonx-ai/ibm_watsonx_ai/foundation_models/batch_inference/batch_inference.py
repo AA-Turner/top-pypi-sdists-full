@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ibm_watsonx_ai.wml_client_error import InvalidValue, MissingValue, WMLClientError
@@ -53,15 +54,13 @@ class BatchInference(WMLResource):
 
     def create(
         self,
-        input_file_id: str,
         endpoint: str,
         completion_window: str,
         metadata: dict | None = None,
+        input_file_path: str | Path | None = None,
+        input_file_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create a batch inference job.
-
-        :param input_file_id: ID of the uploaded input file for the batch job
-        :type input_file_id: str
+        """Create a batch inference job. If provided with file_path first upload the batch file.
 
         :param endpoint: API endpoint to use for processing each batch item, e.g. "/v1/chat/completions"
         :type endpoint: str
@@ -72,24 +71,56 @@ class BatchInference(WMLResource):
         :param metadata: metadata properties
         :type metadata: dict, optional
 
+        :param input_file_path: Path to the file to upload for the batch job
+        :type input_file_path: str | Path, optional
+
+        :param input_file_id: ID of the uploaded input file for the batch job
+        :type input_file_id: str, optional
+
         :return: batch job details
         :rtype: dict
+        :raises MissingValue: If both input_file_path and input_file_id are None
 
-        **Example:**
+        **Example using file path:**
 
         .. code-block:: python
 
             batch_details = batch_inference.create(
-                input_file_id=input_file_id,
                 endpoint="/v1/chat/completions",
                 completion_window="24h",
+                input_file_path="/path/to/batch_file.jsonl",
             )
 
+        **Example using file id obtained by uploading file by File API:**
+
+        .. code-block:: python
+
+            batch_details = batch_inference.create(
+                endpoint="/v1/chat/completions",
+                completion_window="24h",
+                input_file_id=file_id,
+            )
+
+
         """
-        self._validate_type(input_file_id, "input_file_id", str, True)
+
         self._validate_type(endpoint, "endpoint", str, True)
         self._validate_type(completion_window, "completion_window", str, True)
         self._validate_type(metadata, "metadata", dict, False)
+        self._validate_type(
+            input_file_path, "input_file_path", [str, Path], False, True
+        )
+        self._validate_type(input_file_id, "input_file_id", str, False)
+
+        if input_file_path is None and input_file_id is None:
+            raise MissingValue("input_file_path | input_file_id")
+
+        if input_file_id is not None and input_file_path is not None:
+            raise WMLClientError("Both input_file_id and input_file_path can't be set")
+
+        if input_file_id is None and input_file_path is not None:
+            file_details = self.files.upload(input_file_path)
+            input_file_id = self.files.get_id(file_details)
 
         payload: dict[str, Any] = {
             "input_file_id": input_file_id,

@@ -1825,6 +1825,8 @@ def main() -> None:
                           tokens, str(watch_path), suggested_questions=questions,
                           min_community_size=min_community_size, built_at_commit=_commit)
         (out / "GRAPH_REPORT.md").write_text(report, encoding="utf-8")
+        from graphify.export import backup_if_protected as _backup
+        _backup(out)
         to_json(G, communities, str(out / "graph.json"))
         labels_path.write_text(json.dumps({str(k): v for k, v in labels.items()}, ensure_ascii=False), encoding="utf-8")
 
@@ -2429,6 +2431,7 @@ def main() -> None:
         # Clustering tuning knobs
         cli_resolution: float = 1.0
         cli_exclude_hubs: float | None = None
+        cli_excludes: list[str] = []
 
         def _parse_int(name: str, raw: str) -> int:
             try:
@@ -2502,6 +2505,10 @@ def main() -> None:
                 cli_exclude_hubs = float(args[i + 1]); i += 2
             elif a.startswith("--exclude-hubs="):
                 cli_exclude_hubs = float(a.split("=", 1)[1]); i += 1
+            elif a == "--exclude" and i + 1 < len(args):
+                cli_excludes.append(args[i + 1]); i += 2
+            elif a.startswith("--exclude="):
+                cli_excludes.append(a.split("=", 1)[1]); i += 1
             else:
                 i += 1
 
@@ -2608,10 +2615,11 @@ def main() -> None:
                 target,
                 manifest_path=str(manifest_path),
                 google_workspace=google_workspace or None,
+                extra_excludes=cli_excludes or None,
             )
         else:
             print(f"[graphify extract] scanning {target}")
-            detection = _detect(target, google_workspace=google_workspace or None)
+            detection = _detect(target, google_workspace=google_workspace or None, extra_excludes=cli_excludes or None)
 
         files_by_type = detection.get("files", {})
         if incremental_mode:
@@ -2769,6 +2777,8 @@ def main() -> None:
         if no_cluster:
             # --no-cluster: dump the raw merged extraction as graph.json.
             # No NetworkX, no community detection, no analysis sidecar.
+            from graphify.export import backup_if_protected as _backup
+            _backup(graphify_out)
             graph_json_path.write_text(
                 json.dumps(merged, indent=2), encoding="utf-8"
             )
@@ -2846,7 +2856,13 @@ def main() -> None:
         except Exception:
             surprises = []
 
+        from graphify.export import backup_if_protected as _backup
+        _backup(graphify_out)
         _to_json(G, communities, str(graph_json_path), force=True)
+        if merged.get("output_tokens", 0) > 0:
+            (graphify_out / ".graphify_semantic_marker").write_text(
+                json.dumps({"output_tokens": merged["output_tokens"]}), encoding="utf-8"
+            )
         if global_merge:
             from graphify.global_graph import global_add as _global_add
             _tag = global_repo_tag or target.name

@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["crates/running-process-core", "crates/running-process-proto", "crates/running-process-client", "crates/running-process-py", "crates/test-watchdog"]
+
+[workspace.package]
+version = "3.3.0"
+edition = "2021"
+rust-version = "1.85"
+license = "BSD-3-Clause"
+repository = "https://github.com/zackees/running-process"
+homepage = "https://github.com/zackees/running-process"
+
+[workspace.dependencies]
+pyo3 = { version = "0.23", features = ["abi3-py310"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+thiserror = "2"
+
+[profile.release]
+debug = true
+strip = "none"
+
+[profile.dev]
+debug = true
+strip = "none"

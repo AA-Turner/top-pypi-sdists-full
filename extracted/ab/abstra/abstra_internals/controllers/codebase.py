@@ -282,10 +282,21 @@ class CodebaseController:
         return AbstraLibApiEditorCodebaseFilesPutResponse(ok=True)
 
     def get_file(self, path):
+        from abstra_internals.constants import get_persistent_dir
+        from abstra_internals.environment import WORKER_FILES_FOLDER
+
         if isinstance(path, str):
             path = Path(path)
         elif not isinstance(path, Path):
             raise ValueError(f"Invalid path: {path}")
+
+        if path.is_absolute():
+            try:
+                relative_to_worker = path.relative_to(WORKER_FILES_FOLDER)
+                path = get_persistent_dir() / relative_to_worker
+            except ValueError:
+                pass  # not a worker path, leave alone
+
         resolved = (
             (Settings.root_path / path).resolve()
             if not path.is_absolute()

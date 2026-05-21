@@ -58,6 +58,9 @@ from shakedown_interactive import (  # noqa: E402
 )
 from _eval_live_printer import stream_new_messages  # noqa: E402
 from _gauntlet_seed import seed_mdparse  # noqa: E402
+from _test_harness_seeds import (  # noqa: E402
+    seed_keystore, seed_loglens, seed_miniapi, seed_pipeflow, seed_taskvault,
+)
 
 
 CASES_JSON = Path("/data3/drydock/test_harness/cases.json")
@@ -144,12 +147,53 @@ def _seed_p1_clean_plus_l9(cwd: Path) -> None:
     (cwd / "stack_trace.txt").write_text("\n".join(trace_lines))
 
 
+def _seed_empty(_cwd: Path) -> None:
+    """No-op seed for P0-B1 (model scaffolds the project from scratch)."""
+    return None
+
+
 SEED_ADAPTERS: dict[str, Callable[[Path], None]] = {
+    # P0 — model scaffolds from scratch
+    "none": _seed_empty,
+    # P1 mdparse
     "P1@clean": _seed_p1_clean,
     "P1@bug-blockquote": _seed_p1_bug_blockquote,
     "P1@bug-trio": _seed_p1_bug_trio,
-    "P1@bug-trio (C1-continue)": _seed_p1_bug_trio,  # chain re-seed if needed
+    "P1@bug-trio (C1-continue)": _seed_p1_bug_trio,
     "P1@clean +L9 payload": _seed_p1_clean_plus_l9,
+    # P2 taskvault
+    "P2@clean": lambda cwd: seed_taskvault(cwd, "clean"),
+    "P2@bug-search": lambda cwd: seed_taskvault(cwd, "bug-search"),
+    "P2@bug-search (C2-continue)": lambda cwd: seed_taskvault(cwd, "bug-search"),
+    "P2@bug-dates": lambda cwd: seed_taskvault(cwd, "bug-dates"),
+    "P2@v1 (C1-continue C2)": lambda cwd: seed_taskvault(cwd, "v1"),
+    # P3 loglens
+    "P3@clean": lambda cwd: seed_loglens(cwd, "clean"),
+    "P3@bug-ipv6": lambda cwd: seed_loglens(cwd, "bug-ipv6"),
+    "P3@bug-percentile": lambda cwd: seed_loglens(cwd, "bug-percentile"),
+    "P3@clean +nginx fixture": lambda cwd: seed_loglens(cwd, "clean"),
+    # P4 pipeflow
+    "P4@clean": lambda cwd: seed_pipeflow(cwd, "clean"),
+    "P4@bug-mean": lambda cwd: seed_pipeflow(cwd, "bug-mean"),
+    "P4@bug-dedupe": lambda cwd: seed_pipeflow(cwd, "bug-dedupe"),
+    "P4@clean +big.csv": lambda cwd: seed_pipeflow(cwd, "clean"),
+    "P3@clean + P4@clean": lambda cwd: (
+        seed_loglens(cwd, "clean") or seed_pipeflow(cwd, "clean")
+    ),
+    # P5 keystore
+    "P5@clean": lambda cwd: seed_keystore(cwd, "clean"),
+    "P5@bug-lru": lambda cwd: seed_keystore(cwd, "bug-lru"),
+    "P5@bug-ttl": lambda cwd: seed_keystore(cwd, "bug-ttl"),
+    "P5@bug-compact": lambda cwd: seed_keystore(cwd, "bug-compact"),
+    "P5@clean +impossible test": lambda cwd: seed_keystore(cwd, "clean"),
+    "P5@clean +noise files": lambda cwd: seed_keystore(cwd, "clean"),
+    # P6 miniapi
+    "P6@clean": lambda cwd: seed_miniapi(cwd, "clean"),
+    "P6@bug-pathparse": lambda cwd: seed_miniapi(cwd, "bug-pathparse"),
+    "P6@vuln-sqli": lambda cwd: seed_miniapi(cwd, "vuln-sqli"),
+    "P6@clean +50 items": lambda cwd: seed_miniapi(cwd, "clean"),
+    # Long-horizon final case: no seed + scratch state
+    "none + PRD.md + site/ fixture": _seed_empty,
 }
 # Chain markers — runner reuses prior workspace, no re-seed.
 CHAIN_CONTINUE_SEEDS = {"C1-continue", "C2-continue",
@@ -198,7 +242,10 @@ def _check_green(spec: str, cwd: Path) -> CheckResult:
 
 
 def _check_cmd_stdout(spec: str, cwd: Path) -> CheckResult | None:
-    """Recognize: '<cmd> -> 'X'' / '<cmd> -> \"X\"'."""
+    """Recognize: '<cmd> -> 'X'' / '<cmd> -> \"X\"'.
+
+    Quoted RHS only; unquoted forms (e.g. "-> 5 data rows") go to
+    _check_cmd_assertion below."""
     m = re.match(r"^(.+?)\s*->\s*['\"](.+?)['\"]\s*$", spec)
     if not m:
         return None
@@ -217,6 +264,75 @@ def _check_cmd_stdout(spec: str, cwd: Path) -> CheckResult | None:
     return CheckResult(
         spec, False,
         f"stdout did NOT contain {expected!r}; got: {r.stdout[:140]!r}",
+    )
+
+
+_CMD_HINTS = ("python3 ", "python ", "python3.", "pytest ",
+              "curl ", "grep ", "ls ", "cat ")
+
+
+def _check_cmd_assertion(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: '<cmd> -> <expectation>' with UNQUOTED expectation.
+
+    e.g. 'read sales.csv --limit 5 -> 5 data rows'
+         '--limit 0 -> all rows'
+         'python -m mdparse to-roman 1994 -> MCMXCIV'
+
+    Heuristics:
+    - The form must contain ' -> '.
+    - LHS treated as a shell command if it starts with `python`/`pytest`/
+      `curl` etc, OR if it includes 'sales.csv'/'--' (CLI args). Otherwise
+      it's prose like 'new test present' — not interpretable, fall through.
+    - Expectation: any digit-token or quoted-look word from the RHS must
+      appear in stdout OR stderr.
+
+    Conservative: when we can't synthesize a real command, fall through
+    to the not_supported default so we don't FALSELY PASS.
+    """
+    if " -> " not in spec:
+        return None
+    lhs, rhs = spec.split(" -> ", 1)
+    lhs, rhs = lhs.strip(), rhs.strip()
+    if not rhs:
+        return None
+    # If RHS contains "stderr matches /R/" it's the regex check, skip
+    if "stderr matches" in rhs:
+        return None
+    # If RHS is a quoted string the other check should have matched
+    if rhs.startswith(("'", '"')) and rhs.endswith(("'", '"')):
+        return None
+    # Build a candidate command. We accept LHS as a CLI invocation
+    # only if it looks like one.
+    looks_like_cmd = (
+        any(lhs.startswith(h) for h in _CMD_HINTS)
+        or lhs.startswith("python -m ")
+        or lhs.startswith("python3 -m ")
+        or "--" in lhs
+    )
+    if not looks_like_cmd:
+        return None
+    # Substring match: if RHS has a quoted-ish token (digits / capital
+    # word / hyphenated identifier), test for it. Otherwise compare
+    # the literal RHS.
+    needle_match = re.search(r"['\"]([^'\"]+)['\"]|\b(\d[\w./-]*)\b|\b([A-Z]+[A-Z0-9_-]+)\b", rhs)
+    needle = needle_match.group(1) or needle_match.group(2) or needle_match.group(3) if needle_match else rhs
+    if not needle:
+        needle = rhs
+    try:
+        r = subprocess.run(
+            ["/bin/bash", "-c", lhs], cwd=cwd,
+            capture_output=True, timeout=30, text=True,
+        )
+    except subprocess.TimeoutExpired:
+        return CheckResult(spec, False, "command timed out")
+    except Exception as e:
+        return CheckResult(spec, False, f"run error: {e!r}")
+    haystack = (r.stdout or "") + "\n" + (r.stderr or "")
+    if needle in haystack:
+        return CheckResult(spec, True, f"output contains {needle!r}")
+    return CheckResult(
+        spec, False,
+        f"output did NOT contain {needle!r}; got: {haystack[:160]!r}",
     )
 
 
@@ -319,6 +435,39 @@ def _check_file_has_strings(spec: str, cwd: Path) -> CheckResult | None:
     return CheckResult(spec, True, f"{m.group(1)} contains all needles")
 
 
+def _check_fix_is_in(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: 'fix is in <path>' / 'change is in <path>'.
+
+    Pass when that file exists. Cheap signal that the model touched
+    the right area; doesn't verify the fix is correct (the green(N)
+    check covers that). Common shape across debug cases.
+    """
+    m = re.match(r"^(?:fix|change|edit) is in\s+(\S+)", spec)
+    if not m:
+        return None
+    p = cwd / m.group(1).strip().rstrip(".,")
+    if p.is_file() or p.is_dir():
+        return CheckResult(spec, True, f"{p.name} present in workspace")
+    return CheckResult(spec, False, f"{m.group(1)} missing")
+
+
+def _check_file_absent(spec: str, cwd: Path) -> CheckResult | None:
+    """Recognize: 'old <file> gone', '<file> removed', 'no top-level <file>'."""
+    patterns = [
+        r"^old\s+(\S+\.\w+)\s+(?:gone|removed|deleted)",
+        r"^(\S+\.\w+)\s+(?:gone|removed|deleted)\s*$",
+        r"^no top-level\s+(\S+)\s+",
+    ]
+    for pat in patterns:
+        m = re.match(pat, spec)
+        if m:
+            p = cwd / m.group(1).strip().rstrip(",.")
+            if not p.exists():
+                return CheckResult(spec, True, f"{m.group(1)} is absent")
+            return CheckResult(spec, False, f"{m.group(1)} still present")
+    return None
+
+
 def evaluate_check(
     spec: str, cwd: Path, baselines: dict[str, Any],
 ) -> CheckResult:
@@ -327,7 +476,8 @@ def evaluate_check(
     for fn in (
         _check_artifact, _check_no_token, _check_import_probe,
         _check_path_exists, _check_stderr_regex, _check_cmd_stdout,
-        _check_file_has_strings,
+        _check_cmd_assertion, _check_file_has_strings,
+        _check_fix_is_in, _check_file_absent,
     ):
         r = fn(spec, cwd)
         if r is not None:
@@ -347,8 +497,14 @@ def evaluate_check(
     if "files_touched" in spec:
         return CheckResult(spec, True, "files_touched checked separately",
                            kind="manual_review")
-    return CheckResult(spec, True, "unrecognized check shape (manual review)",
-                       kind="manual_review")
+    # 2026-05-20: unrecognized shapes used to default to passed=True/
+    # kind=manual_review. That produced FALSE POSITIVE passes when a
+    # case's only `kind=exact` check was a `green(N)` against a clean
+    # seed (which passes trivially because the model did nothing).
+    # P4-B1 PASS'd this way despite the model never responding.
+    # Default is now passed=False so unimplemented checks block pass.
+    return CheckResult(spec, False, "unrecognized check shape — NOT verified",
+                       kind="not_supported")
 
 
 # ── per-case telemetry ────────────────────────────────────────────────
@@ -373,14 +529,26 @@ class CaseMetrics:
     detail: str = ""
 
 
+_IGNORE_DIRS = {".drydock", "__pycache__", ".pytest_cache", ".git",
+                ".mypy_cache", ".ruff_cache"}
+
+
 def _list_user_files(cwd: Path) -> set[str]:
+    """User-visible workspace files. Excludes drydock + build/cache dirs
+    that would otherwise inflate files_touched with .pyc noise generated
+    by `pytest` runs the model performs inside the case."""
     out: set[str] = set()
     for p in cwd.rglob("*"):
-        if p.is_file() and ".drydock" not in p.parts:
-            try:
-                out.add(str(p.relative_to(cwd)))
-            except ValueError:
-                pass
+        if not p.is_file():
+            continue
+        if any(part in _IGNORE_DIRS for part in p.parts):
+            continue
+        if p.suffix == ".pyc":
+            continue
+        try:
+            out.add(str(p.relative_to(cwd)))
+        except ValueError:
+            pass
     return out
 
 
@@ -486,6 +654,19 @@ def run_cases(only_ids: list[str] | None = None,
     live_index = 0
     watcher: SessionWatcher | None = None
 
+    def _flush_meta() -> None:
+        """Incremental JSON write — operator wants partial results to
+        survive a hard kill, since cases.json takes >1h end-to-end."""
+        attempted = [r for r in meta["results"] if not r.get("skipped")]
+        passed = [r for r in attempted if r.get("passed")]
+        meta["score_running"] = f"{len(passed)}/{len(attempted)}"
+        meta["skipped_running"] = sum(1 for r in meta["results"] if r.get("skipped"))
+        meta["last_update"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            run_meta_path.write_text(json.dumps(meta, indent=2))
+        except Exception:
+            pass
+
     try:
         for case in all_cases:
             cid = case["id"]
@@ -533,19 +714,43 @@ def run_cases(only_ids: list[str] | None = None,
                 watcher = SessionWatcher(cwd, since=spawned)
                 time.sleep(6)
                 drain_pty(child, seconds=2.0)
-                for _ in range(300):
+                # Aggressive session detection: drydock publishes
+                # cwd/.drydock/current_session.txt within 2s of spawn.
+                # Don't wait for find_session's mtime/meta-wd checks
+                # (which can race with drydock's session_dir mkdir and
+                # produce 30s timeouts even though the marker exists).
+                # Just hand-set watcher.session_dir as soon as the
+                # marker resolves to an existing dir.
+                _fs_t0 = time.time()
+                _marker = cwd / ".drydock" / "current_session.txt"
+                for _ in range(30):
+                    try:
+                        if _marker.is_file():
+                            _target = Path(_marker.read_text().strip())
+                            if _target.is_dir():
+                                watcher.session_dir = _target
+                                break
+                    except Exception:
+                        pass
+                    # fall-back: also try the proper find_session in case
+                    # the marker path doesn't exist for some reason
                     try:
                         if watcher.find_session():
                             break
                     except Exception:
                         pass
                     time.sleep(1)
+                _fs_elapsed = time.time() - _fs_t0
+                print(f"  find_session: {'OK' if watcher.session_dir else 'TIMEOUT'} "
+                      f"in {_fs_elapsed:.1f}s "
+                      f"({watcher.session_dir.name if watcher.session_dir else 'no marker'})")
                 last_message_index = 0
                 live_index = 0
             else:
                 metrics.skipped = True
                 metrics.skip_reason = f"seed not implemented: {seed_spec}"
                 meta["results"].append(asdict(metrics))
+                _flush_meta()
                 print(f"[{time.strftime('%H:%M:%S')}] {cid}: SKIP — {metrics.skip_reason}")
                 continue
 
@@ -553,6 +758,7 @@ def run_cases(only_ids: list[str] | None = None,
                 metrics.skipped = True
                 metrics.skip_reason = "drydock did not start"
                 meta["results"].append(asdict(metrics))
+                _flush_meta()
                 continue
 
             pre_case_snapshot = _list_user_files(cwd)
@@ -576,10 +782,12 @@ def run_cases(only_ids: list[str] | None = None,
             except Exception as e:
                 metrics.detail = f"prompt_send_error: {e!r}"
                 meta["results"].append(asdict(metrics))
+                _flush_meta()
                 continue
             if not accepted:
                 metrics.detail = "prompt not accepted"
                 meta["results"].append(asdict(metrics))
+                _flush_meta()
                 continue
 
             # --- settle ---
@@ -599,9 +807,18 @@ def run_cases(only_ids: list[str] | None = None,
                 except Exception as e:
                     r = CheckResult(chk, False, f"check raised: {e!r}")
                 results.append(r)
-            # Pass = every "exact" check passed; manual_review doesn't count.
+            # Pass requires:
+            # - at least one exact check
+            # - every exact check passed
+            # - no `not_supported` check (those are real assertions we
+            #   couldn't interpret; can't claim PASS while they're unmet).
             exact_results = [r for r in results if r.kind == "exact"]
-            passed = bool(exact_results) and all(r.passed for r in exact_results)
+            not_supported = [r for r in results if r.kind == "not_supported"]
+            passed = (
+                bool(exact_results)
+                and all(r.passed for r in exact_results)
+                and not not_supported
+            )
             metrics.passed = passed
             metrics.check_results = [asdict(r) for r in results]
             metrics.duration_sec = round(time.time() - t0, 1)
@@ -653,6 +870,7 @@ def run_cases(only_ids: list[str] | None = None,
                 f"yielded={metrics.yielded_cleanly} ({metrics.duration_sec}s)"
             )
             meta["results"].append(asdict(metrics))
+            _flush_meta()
 
         # --- run-level rollups ---
         attempted = [r for r in meta["results"] if not r.get("skipped")]

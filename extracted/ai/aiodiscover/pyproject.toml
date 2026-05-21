@@ -1,6 +1,6 @@
 [project]
 name = "aiodiscover"
-version = "3.2.0"
+version = "3.2.2"
 license = "Apache-2.0"
 description = "Discover hosts by arp and ptr lookup"
 authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
@@ -44,6 +44,7 @@ pytest-asyncio = ">=0.23.7,<1.2.0"
 pytest-sugar = "^1.1.1"
 pytest-timeout = "^2.3.1"
 mypy = "^1.19.1"
+blockbuster = ">=1.5.5,<2.0.0"
 
 [tool.poetry.group.docs]
 optional = true

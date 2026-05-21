@@ -4,6 +4,7 @@
 import contextlib
 from distutils.command.build_ext import build_ext
 import os
+from pathlib import Path
 from typing import Any
 
 from setuptools import find_packages, setup
@@ -14,6 +15,7 @@ except ImportError:
     from distutils.core import Extension
 
 TO_CYTHONIZE = [
+    "aioesphomeapi/_sanitize.py",
     "aioesphomeapi/client_base.py",
     "aioesphomeapi/connection.py",
     "aioesphomeapi/_frame_helper/base.py",
@@ -35,13 +37,13 @@ EXTENSIONS = [
 ]
 
 
-here = os.path.abspath(os.path.dirname(__file__))
+here = Path(__file__).parent.resolve()
 
-with open(os.path.join(here, "README.rst"), encoding="utf-8") as readme_file:
+with (here / "README.rst").open(encoding="utf-8") as readme_file:
     long_description = readme_file.read()
 
 
-VERSION = "45.0.3"
+VERSION = "45.0.4"
 PROJECT_NAME = "aioesphomeapi"
 PROJECT_PACKAGE_NAME = "aioesphomeapi"
 PROJECT_LICENSE = "MIT"
@@ -59,7 +61,7 @@ GITHUB_URL = f"https://github.com/{GITHUB_PATH}"
 
 DOWNLOAD_URL = f"{GITHUB_URL}/archive/{VERSION}.zip"
 
-with open(os.path.join(here, "requirements/base.txt")) as requirements_txt:
+with (here / "requirements" / "base.txt").open() as requirements_txt:
     REQUIRES = requirements_txt.read().splitlines()
 
 pkgs = find_packages(exclude=["tests", "tests.*"])

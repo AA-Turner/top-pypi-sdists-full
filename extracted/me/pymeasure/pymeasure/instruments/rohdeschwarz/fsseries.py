@@ -1,7 +1,7 @@
 #
 # This file is part of the PyMeasure package.
 #
-# Copyright (c) 2013-2025 PyMeasure Developers
+# Copyright (c) 2013-2026 PyMeasure Developers
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -356,7 +356,7 @@ class FSW(FSSeries):
     available_channels = Instrument.measurement(
         "INST:LIST?",
         "Measure open channel names and corresponding types",
-        get_process=_channel_list_to_dict,
+        get_process_list=_channel_list_to_dict,
     )
 
     def select_channel(self, channel_name):

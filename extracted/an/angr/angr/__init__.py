@@ -2,7 +2,7 @@
 # pylint: disable=wrong-import-position
 from __future__ import annotations
 
-__version__ = "9.2.215"
+__version__ = "9.2.217"
 
 if bytes is str:
     raise Exception("""
@@ -197,6 +197,9 @@ from .emulator import Emulator, EmulatorStopReason
 # for compatibility reasons
 from . import sim_manager as manager
 
+from .rust import analyses as rust_analyses
+from .rust import knowledge_plugins as rust_knowledge_plugins
+
 # now that we have everything loaded, re-grab the list of loggers
 loggers.load_all_loggers()
 
@@ -363,6 +366,8 @@ __all__ = (
     "manager",
     "options",
     "register_analysis",
+    "rust_analyses",
+    "rust_knowledge_plugins",
     "sim_options",
     "types",
 )

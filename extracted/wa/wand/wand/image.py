@@ -22,6 +22,7 @@ from .api import libc, libmagick, library
 from .cdefs.structures import (AffineMatrix, CCObjectInfo, CCObjectInfo70A,
                                CCObjectInfo710, ChannelFeature, GeometryInfo,
                                PixelInfo, RectangleInfo)
+from .cdefs.wandtypes import c_magick_size_t
 from .color import Color
 from .compat import binary, encode_filename, text, to_bytes
 from .exceptions import (MissingDelegateError, WandException,
@@ -602,6 +603,10 @@ if MAGICK_VERSION_NUMBER >= 0x700:  # pragma: no cover
 #: - ``'cosine'``
 #: - ``'spline'``
 #: - ``'sentinel'``
+#: - ``'lanczosradius'``
+#: - ``'cubicspline'``
+#: - ``'magickernelsharp2013'``
+#: - ``'magickernelsharp2021'``
 #:
 #: .. seealso::
 #:
@@ -615,7 +620,9 @@ FILTER_TYPES = ('undefined', 'point', 'box', 'triangle', 'hermite', 'hanning',
                 'catrom', 'mitchell', 'jinc', 'sinc', 'sincfast', 'kaiser',
                 'welsh', 'parzen', 'bohman', 'bartlett', 'lagrange', 'lanczos',
                 'lanczossharp', 'lanczos2', 'lanczos2sharp', 'robidoux',
-                'robidouxsharp', 'cosine', 'spline', 'sentinel')
+                'robidouxsharp', 'cosine', 'spline', 'lanczosradius',
+                'cubicspline', 'magickernelsharp2013', 'magickernelsharp2021',
+                'sentinel')
 
 
 #: (:class:`tuple`) The list of :attr:`Image.function <BaseImage.function>`
@@ -2061,7 +2068,7 @@ class BaseImage(Resource):
 
         .. versionadded:: 0.5.4
         """
-        size_ptr = ctypes.c_size_t(0)
+        size_ptr = c_magick_size_t(0)
         library.MagickGetImageLength(self.wand, ctypes.byref(size_ptr))
         return size_ptr.value
 
@@ -2782,12 +2789,13 @@ class BaseImage(Resource):
 
         Some methods in MagickWand's C-API do not respect gravity, but
         instead, expect a x/y offset. This is confusing to folks coming from
-        the CLI documentation that does respect gravity
+        the CLI documentation that does respect gravity.
 
         :param gravity: Value from :const:`GRAVITY_TYPES`.
         :type gravity: :class:`str`
         :raises: :class:`ValueError` if gravity is no known.
-        :returns: :class:`numbers.Intergal` top, :class:`numbers.Intergal` left
+        :returns: :class:`numbers.Integral` top, :class:`numbers.Integral`
+                  left.
 
         .. versionadded:: 0.5.3
         """
@@ -2829,7 +2837,7 @@ class BaseImage(Resource):
         .. versionadded:: 0.5.3
 
         .. versionchanged:: 0.5.5
-           Added optional ``channel`` argument
+           Added optional ``channel`` argument.
         """
         assertions.assert_real(radius=radius, sigma=sigma)
         if channel is None:
@@ -2956,17 +2964,17 @@ class BaseImage(Resource):
                 img.affine(sx=0.9, ry=1.1)
                 img.save(filename='output.png')
 
-        :param sx: Horizontal scale/shear. Default value `1.0`
+        :param sx: Horizontal scale/shear. Default value `1.0`.
         :type sx: :class:`numbers.Real`
-        :param rx: Horizontal rotation. Default value `0.0`
+        :param rx: Horizontal rotation. Default value `0.0`.
         :type rx: :class:`numbers.Real`
-        :param ry: Vertical rotation. Default value `0.0`
+        :param ry: Vertical rotation. Default value `0.0`.
         :type ry: :class:`numbers.Real`
-        :param sy: Vertical scale/shear. Default value `1.0`
+        :param sy: Vertical scale/shear. Default value `1.0`.
         :type sy: :class:`numbers.Real`
-        :param tx: Horizontal translation. Default value `0.0`
+        :param tx: Horizontal translation. Default value `0.0`.
         :type tx: :class:`numbers.Real`
-        :param ty: Vertical translation. Default value `0.0`
+        :param ty: Vertical translation. Default value `0.0`.
         :type ty: :class:`numbers.Real`
 
         .. versionadded:: 0.7.0
@@ -4195,7 +4203,9 @@ class BaseImage(Resource):
         .. tip::
 
             Set :attr:`fuzz` property to increase pixel matching by reducing
-            tolerance of color-value comparisons::
+            tolerance of color-value comparisons.
+
+            .. code::
 
                 from wand.image import Image
                 from wand.version import QUANTUM_RANGE
@@ -7772,17 +7782,17 @@ class BaseImage(Resource):
         """Resizes the image.
 
         :param width: the width in the scaled image. default is the original
-                      width
+                      width.
         :type width: :class:`numbers.Integral`
         :param height: the height in the scaled image. default is the original
                        height
         :type height: :class:`numbers.Integral`
         :param filter: a filter type to use for resizing. choose one in
                        :const:`FILTER_TYPES`. default is ``'undefined'``
-                       which means IM will try to guess best one to use
+                       which means IM will try to guess best one to use.
         :type filter: :class:`str`, :class:`numbers.Integral`
         :param blur: the blur factor where > 1 is blurry, < 1 is sharp.
-                     default is 1
+                     default is 1.
         :type blur: :class:`numbers.Real`
 
         .. versionchanged:: 0.2.1
@@ -9931,9 +9941,31 @@ class Image(BaseImage):
 
     @property
     def animation(self):
-        is_gif = self.mimetype in ('image/gif', 'image/x-gif')
-        frames = library.MagickGetNumberImages(self.wand)
-        return is_gif and frames > 1
+        """(:class:`bool`) Returns ``True`` if the image mimetype matches a
+        known animation format, and contains more than one frame.
+
+        .. versionadded:: 0.3.0
+
+        .. versionchanged:: 0.7.1
+           Included additional popular animation formats.
+        """
+        mimetype = self.mimetype
+        if mimetype is None:
+            return False
+        if mimetype.startswith('video/'):
+            return True
+        possible_mimetypes = (
+            'image/apng',
+            'image/avif',
+            'image/gif',
+            'image/jxl',
+            'image/webp',
+            'image/x-gif',
+            'image/x-jxl',
+        )
+        maybe_animation = mimetype in possible_mimetypes
+        frame_count = library.MagickGetNumberImages(self.wand)
+        return maybe_animation and frame_count > 1
 
     @property
     def mimetype(self):

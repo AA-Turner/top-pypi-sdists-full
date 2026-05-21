@@ -1,10 +1,11 @@
 """Adapter from firewall audit events to the core event store.
 
-The firewall (`plugin/firewall.py`) emits events that conform to
-`schemas/0.1/audit-event.schema.json`. Those events have
-`additionalProperties: false`, so any wrapping fields the core ledger
-needs (`id`, `aggregate_type`, `aggregate_id`, `timestamp`) MUST live
-in a layer ABOVE the audit-event boundary, not inside it.
+The firewall (`plugin/firewall.py`) emits command events that conform to
+`schemas/0.1/audit-event.schema.json` and v0.3 lifecycle hook events that
+conform to `schemas/0.3/audit-event.schema.json`. Those events have
+`additionalProperties: false`, so any wrapping fields the core ledger needs
+(`id`, `aggregate_type`, `aggregate_id`, `timestamp`) MUST live in a layer
+ABOVE the audit-event boundary, not inside it.
 
 This adapter:
 
@@ -36,13 +37,13 @@ from collections.abc import Callable
 import copy
 import uuid
 
+from ouroboros.plugin.hooks import HOOK_EVENT_TYPES
+
 PLUGIN_AGGREGATE_TYPE = "plugin"
 
-# Plugin audit event types currently emitted by the v0.1 runtime.
-# Hook and permission-denial-specific event names are intentionally not
-# part of this manifest/audit vocabulary until the runtime emits them;
-# permission denials are represented as plugin.failed with
-# result.status == "blocked".
+# Plugin audit event types accepted by the current core ledger adapter.
+# Hook event names are schema-vendored here so runtime dispatch and ledger
+# wrapping use the same closed audit vocabulary.
 AUDIT_EVENT_TYPES: tuple[str, ...] = (
     "plugin.discovered",
     "plugin.installed",
@@ -51,6 +52,7 @@ AUDIT_EVENT_TYPES: tuple[str, ...] = (
     "plugin.permission_used",
     "plugin.completed",
     "plugin.failed",
+    *tuple(sorted(HOOK_EVENT_TYPES)),
 )
 
 

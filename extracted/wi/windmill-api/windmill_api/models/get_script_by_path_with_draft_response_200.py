@@ -1,7 +1,9 @@
+import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+from dateutil.parser import isoparse
 
 from ..models.get_script_by_path_with_draft_response_200_kind import GetScriptByPathWithDraftResponse200Kind
 from ..models.get_script_by_path_with_draft_response_200_language import GetScriptByPathWithDraftResponse200Language
@@ -67,6 +69,8 @@ class GetScriptByPathWithDraftResponse200:
             relative file path
         labels (Union[Unset, List[str]]):
         draft (Union[Unset, GetScriptByPathWithDraftResponse200Draft]):
+        draft_created_at (Union[Unset, datetime.datetime]): Timestamp at which the most recent DB draft was created.
+            Used by the frontend's UserDraft staleness check.
     """
 
     path: str
@@ -110,6 +114,7 @@ class GetScriptByPathWithDraftResponse200:
     modules: Union[Unset, None, "GetScriptByPathWithDraftResponse200Modules"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
     draft: Union[Unset, "GetScriptByPathWithDraftResponse200Draft"] = UNSET
+    draft_created_at: Union[Unset, datetime.datetime] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -182,6 +187,10 @@ class GetScriptByPathWithDraftResponse200:
         draft: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.draft, Unset):
             draft = self.draft.to_dict()
+
+        draft_created_at: Union[Unset, str] = UNSET
+        if not isinstance(self.draft_created_at, Unset):
+            draft_created_at = self.draft_created_at.isoformat()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -266,6 +275,8 @@ class GetScriptByPathWithDraftResponse200:
             field_dict["labels"] = labels
         if draft is not UNSET:
             field_dict["draft"] = draft
+        if draft_created_at is not UNSET:
+            field_dict["draft_created_at"] = draft_created_at
 
         return field_dict
 
@@ -390,6 +401,13 @@ class GetScriptByPathWithDraftResponse200:
         else:
             draft = GetScriptByPathWithDraftResponse200Draft.from_dict(_draft)
 
+        _draft_created_at = d.pop("draft_created_at", UNSET)
+        draft_created_at: Union[Unset, datetime.datetime]
+        if isinstance(_draft_created_at, Unset):
+            draft_created_at = UNSET
+        else:
+            draft_created_at = isoparse(_draft_created_at)
+
         get_script_by_path_with_draft_response_200 = cls(
             path=path,
             summary=summary,
@@ -432,6 +450,7 @@ class GetScriptByPathWithDraftResponse200:
             modules=modules,
             labels=labels,
             draft=draft,
+            draft_created_at=draft_created_at,
         )
 
         get_script_by_path_with_draft_response_200.additional_properties = d

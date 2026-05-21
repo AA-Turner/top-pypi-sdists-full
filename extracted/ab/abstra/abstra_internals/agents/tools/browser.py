@@ -14,7 +14,22 @@ import playwright.sync_api
 from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from abstra_internals.constants import get_persistent_dir
+
 from .base import AgentTools
+
+
+def _default_download_dir() -> Path:
+    base = get_persistent_dir() / "browser_tools" / "downloads"
+    try:
+        from abstra_internals.execution import get_execution_id
+
+        exec_id = get_execution_id()
+        if exec_id:
+            return base / exec_id
+    except Exception:
+        pass
+    return base
 
 
 class ClientCertificate(TypedDict):
@@ -673,8 +688,14 @@ def _resolve_download_path(
 ) -> Path:
     filename = _safe_download_filename(suggested_filename)
     if output_path is None:
-        download_dir = Path(tempfile.mkdtemp(prefix="abstra-download-"))
-        return download_dir / filename
+        download_dir = _default_download_dir()
+        download_dir.mkdir(parents=True, exist_ok=True)
+        path = download_dir / filename
+        if path.exists() and not overwrite:
+            raise FileExistsError(
+                f"File '{path}' already exists. Pass overwrite=True to replace it."
+            )
+        return path
 
     raw_output_path = os.path.expanduser(output_path)
     path = Path(raw_output_path)
@@ -1325,7 +1346,7 @@ class BrowserTools(AgentTools):
         overwrite: bool = False,
         timeout_ms: int = 30000,
     ) -> Dict[str, Any]:
-        """Download a file by clicking an element. Provide either selector OR index from get_page_summary. The file is saved to output_path when provided; if output_path is a directory, the browser's suggested filename is used inside it. If output_path is omitted, a temporary download path is created. Returns {path, suggested_filename, url, size_bytes}. Use this instead of click() for links or buttons that trigger downloads."""
+        """Download a file by clicking an element that triggers a real browser download event (Blob URLs, server endpoints responding with Content-Disposition: attachment, or <a download> links to binary files the browser does not preview inline). It does NOT work for clicks that merely navigate to a URL the browser renders inline (SVG, HTML, plain text, images) — for those, get the URL and use download_url instead. The selector must resolve in the main document; iframes are not traversed automatically. Provide either selector OR index from get_page_summary. The file is saved to output_path when provided; if output_path is a directory, the browser's suggested filename is used inside it. If output_path is omitted, the file is saved inside the project's persistent files folder under `browser_tools/downloads/<execution_id>/<filename>` so it survives across tool calls and can be read back later with FilesTools or fed into upload_file. If a file already exists at the resolved path (e.g. on retry), pass overwrite=True. Returns {path, suggested_filename, url, size_bytes}; the returned `path` is the absolute location of the saved file."""
         if timeout_ms <= 0 or timeout_ms > 120000:
             raise ValueError("timeout_ms must be between 1 and 120000.")
         if selector is not None and index is not None:
@@ -1392,7 +1413,7 @@ class BrowserTools(AgentTools):
         overwrite: bool = False,
         timeout_ms: int = 30000,
     ) -> Dict[str, Any]:
-        """Download a URL using the browser context's authenticated request state. Relative URLs are resolved against the page URL. The file is saved to output_path when provided; if output_path is a directory, the filename from the URL is used inside it. If output_path is omitted, a temporary download path is created. Returns {path, url, status, headers, size_bytes}. Use download_file() instead for blob URLs or buttons that only produce a file after a click."""
+        """Download a URL using the browser context's authenticated request state (preserves cookies and session). Relative URLs are resolved against the page URL. Prefer this over download_file whenever you already know the URL of the file — it is more robust than driving a click. The file is saved to output_path when provided; if output_path is a directory, the filename from the URL is used inside it. If output_path is omitted, the file is saved inside the project's persistent files folder under `browser_tools/downloads/<execution_id>/<filename>` so it survives across tool calls and can be read back later with FilesTools or fed into upload_file. If a file already exists at the resolved path (e.g. on retry), pass overwrite=True. Returns {path, url, status, headers, size_bytes}; the returned `path` is the absolute location of the saved file. Use download_file() instead only when the URL is unknown ahead of time and only revealed after a click (blob URLs created in-page, POST-triggered downloads, etc.)."""
         if timeout_ms <= 0 or timeout_ms > 120000:
             raise ValueError("timeout_ms must be between 1 and 120000.")
 
@@ -1435,6 +1456,76 @@ class BrowserTools(AgentTools):
             if self.debug_mode:
                 print(f"[DEBUG][BrowserTools.download_url] Result: {result}")
             return result
+        except Exception as e:
+            if _is_target_closed(e):
+                self._handle_page_crash(page_id)
+            raise
+
+    def upload_file(
+        self,
+        page_id: str,
+        file_path: str,
+        selector: Optional[str] = None,
+        index: Optional[int] = None,
+        timeout_ms: int = 30000,
+    ) -> Dict[str, Any]:
+        """Upload a file into an <input type=file> on the page. The selector must resolve in the main document — iframes are not traversed automatically. Provide either selector OR index from get_page_summary. file_path must be an absolute path inside the project's persistent files folder; this is the same folder where download_file and download_url save by default, so the natural pattern is: download → reuse the returned `path` here. Paths outside the persistent folder are rejected, and symlinks pointing outside are also rejected (file_path is resolved before validation). Returns {path, size_bytes, selector}."""
+        if timeout_ms <= 0 or timeout_ms > 120000:
+            raise ValueError("timeout_ms must be between 1 and 120000.")
+        if selector is not None and index is not None:
+            raise ValueError("Provide either selector OR index, not both.")
+        if selector is None and index is None:
+            raise ValueError("Provide either selector OR index.")
+
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.upload_file] page_id={page_id}, selector={selector}, index={index}, file_path={file_path}, timeout_ms={timeout_ms}"
+            )
+
+        try:
+            resolved = Path(os.path.expanduser(file_path)).resolve(strict=True)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File '{file_path}' does not exist.")
+
+        persisted = get_persistent_dir().resolve()
+        if not resolved.is_relative_to(persisted):
+            raise PermissionError(
+                f"File '{resolved}' is outside the project's persistent folder ('{persisted}'). Only files inside it can be uploaded."
+            )
+
+        if index is not None:
+            element = self._resolve_element(page_id, index)
+            selector = element["selector"]
+
+        assert selector is not None
+        page = self._get_page(page_id)
+
+        try:
+            element_handle = page.query_selector(selector)
+            if element_handle is None:
+                available = self._get_available_selectors_hint(page_id)
+                raise ValueError(
+                    f"Selector '{selector}' not found on the page. "
+                    f"Use upload_file(page_id, index=..., file_path=...) with an index from get_page_summary instead. "
+                    f"{available}"
+                )
+
+            page.set_input_files(selector, str(resolved), timeout=timeout_ms)
+
+            result = {
+                "path": str(resolved),
+                "size_bytes": resolved.stat().st_size,
+                "selector": selector,
+            }
+            if self.debug_mode:
+                print(f"[DEBUG][BrowserTools.upload_file] Result: {result}")
+            return result
+        except ValueError:
+            raise
+        except PlaywrightTimeoutError:
+            raise ValueError(
+                f"Setting file on '{selector}' did not complete within {timeout_ms}ms."
+            )
         except Exception as e:
             if _is_target_closed(e):
                 self._handle_page_crash(page_id)
@@ -1812,6 +1903,7 @@ class BrowserTools(AgentTools):
             self.get_all_links.__name__,
             self.download_file.__name__,
             self.download_url.__name__,
+            self.upload_file.__name__,
             self.execute_javascript.__name__,
             self.wait.__name__,
             self.screenshot.__name__,

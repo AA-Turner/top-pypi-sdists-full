@@ -26,12 +26,13 @@ import asyncio
 import platform
 import socket
 import time
+from collections.abc import Iterable
 from functools import cache
 from unittest import mock
 
 import ifaddr
 
-from zeroconf import DNSIncoming, DNSQuestion, DNSRecord, Zeroconf
+from zeroconf import DNSIncoming, DNSOutgoing, DNSQuestion, DNSRecord, Zeroconf, const
 from zeroconf._history import QuestionHistory
 
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
@@ -68,6 +69,14 @@ IPV6_LOOPBACK_FIND_TIMEOUT = 0.5
 class QuestionHistoryWithoutSuppression(QuestionHistory):
     def suppresses(self, question: DNSQuestion, now: float, known_answers: set[DNSRecord]) -> bool:
         return False
+
+
+def mock_incoming_msg(records: Iterable[DNSRecord]) -> DNSIncoming:
+    """Build a `DNSIncoming` response message from a list of `DNSRecord`s."""
+    generated = DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    for record in records:
+        generated.add_answer_at_time(record, 0)
+    return DNSIncoming(generated.packets()[0])
 
 
 def _inject_responses(zc: Zeroconf, msgs: list[DNSIncoming]) -> None:
@@ -118,6 +127,14 @@ def has_working_ipv6():
 def _clear_cache(zc: Zeroconf) -> None:
     zc.cache.cache.clear()
     zc.question_history.clear()
+    # Reset per-listener dedup state so identical packets sent in the
+    # next phase of the test are not suppressed by the bounded recency
+    # window populated during the previous phase.
+    if zc.engine is not None:
+        for protocol in zc.engine.protocols:
+            protocol._recent_packets.clear()
+            protocol.data = None
+            protocol.last_time = 0
 
 
 def _backdate_cache(zc: Zeroconf, ms: int = 1100) -> None:

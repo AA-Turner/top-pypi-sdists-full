@@ -60,6 +60,7 @@ INSTALLED_SOCIALACCOUNT_APPS: tuple[str, ...] = (
     "allauth.socialaccount.providers.instagram",
     "allauth.socialaccount.providers.jupyterhub",
     "allauth.socialaccount.providers.kakao",
+    "allauth.socialaccount.providers.klaviyo",
     "allauth.socialaccount.providers.lemonldap",
     "allauth.socialaccount.providers.lichess",
     "allauth.socialaccount.providers.line",

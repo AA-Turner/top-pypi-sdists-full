@@ -150,6 +150,27 @@ _REPLACE_NODE: dict[str, str | None] = {
     "react-native-zustand": "zustand",  # zustand has no RN-specific package
 }
 
+# Node packages that belong on the BACKEND (Express/Node server), NOT in a
+# React or React Native frontend. The LLM frequently emits these when asked
+# for Node packages for auth/database features. We drop them from frontend deps.
+_BACKEND_ONLY_NODE_PACKAGES: frozenset[str] = frozenset({
+    "express", "fastify", "@fastify/swagger", "koa", "hapi", "nestjs",
+    "passport", "passport-jwt", "passport-local",
+    "cors", "helmet", "morgan", "compression", "cookie-parser",
+    "jsonwebtoken", "bcrypt", "bcryptjs",
+    "pg", "pg-hstore", "mysql2", "sqlite3", "mongoose", "sequelize",
+    "typeorm", "prisma", "@prisma/client", "mikro-orm",
+    "bullmq", "bull", "agenda", "node-cron",
+    "nodemailer", "sendgrid", "mailgun-js",
+    "multer", "busboy", "formidable",
+    "socket.io", "ws", "uwebsockets.js",
+    "redis", "ioredis",
+    "dotenv",  # React Native uses Expo constants, not dotenv
+    "csv-writer", "csv-parse",
+    "uuid",  # fine in RN too, but keep for now
+    "tsyringe", "inversify",  # DI containers for Node backends
+})
+
 
 def _filter_replaced(specs: list[str], table: dict[str, str | None]) -> list[str]:
     """Drop or replace specs using the deny/replace table.
@@ -368,6 +389,15 @@ Rules:
 - Include ONLY direct deps, not transitive.
 - For Python, use bare package names (we'll pin versions ourselves).
 - For Node, use bare names too.
+- "node" packages are FRONTEND CLIENT packages only.
+  If frontend is "react-native-web" or "react", NEVER include server-side
+  Node packages: express, fastify, passport, bcrypt, cors, helmet, pg,
+  mongoose, typeorm, prisma, sequelize, bullmq, redis, jsonwebtoken,
+  dotenv, socket.io, multer, nodemailer, csv-writer, or any database driver.
+  Those belong on the backend (Python/FastAPI), not the React Native client.
+  Acceptable Node packages: react-native-*, expo-*, @react-navigation/*,
+  zustand, react-query, @tanstack/react-query, axios, zod, react-hook-form,
+  date-fns, victory-native, react-native-svg, i18n-js.
 - Output ONLY the JSON object. No prose.
 """
 
@@ -414,6 +444,11 @@ def _gather_feature_deps(
     return py, node
 
 
+def _is_backend_only_node_pkg(spec: str) -> bool:
+    """Return True if this Node package is server-only (not for React/RN frontends)."""
+    return _bare_name(spec) in _BACKEND_ONLY_NODE_PACKAGES
+
+
 def resolve_dependencies(plan: ProjectPlan, generate: GenerateFn) -> DepSet:
     """Build a fully-pinned `DepSet` from a project plan."""
     backend = plan.stack.backend
@@ -426,7 +461,16 @@ def resolve_dependencies(plan: ProjectPlan, generate: GenerateFn) -> DepSet:
     # 2. Per-feature gathering (keywords + LLM)
     feat_py, feat_node = _gather_feature_deps(plan.features, backend, frontend, generate)
 
-    # 3. Drop/replace deprecated packages BEFORE pinning, so pip/npm
+    # 3. For client frontends (React, React Native, Next.js etc.), strip
+    #    packages that belong on the Node.js server only. The LLM regularly
+    #    emits express/passport/bcrypt/pg for "auth" features even when the
+    #    frontend is a React Native app, which causes npm install to add
+    #    heavy server-only packages and pollutes the frontend bundle.
+    _client_frontends = {"react", "react-native-web", "nextjs", "vue", "svelte"}
+    if frontend in _client_frontends:
+        feat_node = [p for p in feat_node if not _is_backend_only_node_pkg(p)]
+
+    # 4. Drop/replace deprecated packages BEFORE pinning, so pip/npm
     #    don't choke on names that can't be resolved.
     py_raw = sanitize_python_deps(list(baseline_py + feat_py))
     node_raw = sanitize_node_deps(list(baseline_node + feat_node))
@@ -595,7 +639,7 @@ def emit_node_package_json(
         jest_config = (
             "module.exports = {\n"
             "  preset: 'jest-expo',\n"
-            "  setupFilesAfterEach: [],\n"
+            "  setupFilesAfterEnv: [],\n"
             "  transformIgnorePatterns: [\n"
             "    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|"
             "expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|"

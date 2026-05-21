@@ -33,6 +33,8 @@ from .type_defs import (
     EncryptDataOutputTypeDef,
     GenerateAs2805KekValidationInputTypeDef,
     GenerateAs2805KekValidationOutputTypeDef,
+    GenerateAuthRequestCryptogramInputTypeDef,
+    GenerateAuthRequestCryptogramOutputTypeDef,
     GenerateCardValidationDataInputTypeDef,
     GenerateCardValidationDataOutputTypeDef,
     GenerateMacEmvPinChangeInputTypeDef,
@@ -130,12 +132,25 @@ class PaymentCryptographyDataPlaneClient(BaseClient):
         self, **kwargs: Unpack[GenerateAs2805KekValidationInputTypeDef]
     ) -> GenerateAs2805KekValidationOutputTypeDef:
         """
-        Establishes node-to-node initialization between payment processing nodes such
-        as an acquirer, issuer or payment network using Australian Standard 2805
-        (AS2805).
+        Generates a <code>KekValidationRequest</code> or a
+        <code>KekValidationResponse</code> for node-to-node initialization between
+        payment processing nodes using <a
+        href="https://docs.aws.amazon.com/payment-cryptography/latest/userguide/as2805.html">Australian
+        Standard 2805 (AS2805)</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/generate_as2805_kek_validation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography_data/client/#generate_as2805_kek_validation)
+        """
+
+    def generate_auth_request_cryptogram(
+        self, **kwargs: Unpack[GenerateAuthRequestCryptogramInputTypeDef]
+    ) -> GenerateAuthRequestCryptogramOutputTypeDef:
+        """
+        Generates an Authorization Request Cryptogram (ARQC) for an EMV chip payment
+        card authorization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/generate_auth_request_cryptogram.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography_data/client/#generate_auth_request_cryptogram)
         """
 
     def generate_card_validation_data(

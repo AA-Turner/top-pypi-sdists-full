@@ -38,3 +38,25 @@ def test_parse(rate, values):
         assert rate.amount == values[i][0]
         assert rate.duration == values[i][1]
         assert rate.per == values[i][2]
+
+
+@pytest.mark.parametrize(
+    "ip,prefix,expected",
+    [
+        ("192.168.1.1", 64, "192.168.1.1"),
+        ("10.0.0.255", 48, "10.0.0.255"),
+        ("2001:db8:85a3::8a2e:370:7334", 64, "2001:db8:85a3::"),
+        ("2001:db8:85a3:1234:5678:abcd:ef01:2345", 64, "2001:db8:85a3:1234::"),
+        ("2001:db8:85a3:1234:5678:abcd:ef01:2345", 48, "2001:db8:85a3::"),
+        (
+            "2001:db8:85a3:1234:5678:abcd:ef01:2345",
+            128,
+            "2001:db8:85a3:1234:5678:abcd:ef01:2345",
+        ),
+        ("::1", 64, "::"),
+        ("invalid", 64, "invalid"),
+    ],
+)
+def test_truncate_ip(ip, prefix, expected, settings):
+    settings.ALLAUTH_RATE_LIMIT_IPV6_PREFIX = prefix
+    assert ratelimit.truncate_ip(ip) == expected

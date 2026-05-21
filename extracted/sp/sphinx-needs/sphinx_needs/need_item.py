@@ -248,6 +248,14 @@ class NeedLink:
     id: str
     part: str | None = None
     condition: str | None = None
+    _filter_string: str = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "_filter_string",
+            f"{self.id}.{self.part}" if self.part else self.id,
+        )
 
     @staticmethod
     def from_string(link_str: str, *, parse_conditions: bool = True) -> NeedLink:
@@ -335,7 +343,7 @@ class NeedLink:
 
         This does **not** include the condition.
         """
-        return f"{self.id}.{self.part}" if self.part else self.id
+        return self._filter_string
 
     def to_link_string(self) -> str:
         """Serialize the link including the condition, e.g. 'NEED-1[cond]' or 'NEED-1.part[cond]'.
@@ -1091,6 +1099,30 @@ class NeedItem:
         if _recompute:
             self._recompute()
 
+    def filter_context(self) -> dict[str, Any]:
+        """Build a flat dict of all need fields, suitable for use as an eval/template context.
+
+        This is more efficient than ``{**need}`` because it avoids the per-key
+        multi-namespace lookup chain and materializes link string lists only once.
+        """
+        ctx: dict[str, Any] = {}
+        ctx.update(self._core)
+        ctx.update(self._extras)
+        for key, links in self._links.items():
+            ctx[key] = [li.to_filter_string() for li in links]
+        for exposed_key, link_key in self._backlinks_keymap.items():
+            ctx[exposed_key] = [
+                li.to_filter_string() for li in self._backlinks[link_key]
+            ]
+        ctx.update(self._source.dict_repr)
+        ctx.update(self._content.dict_repr)
+        ctx.update(self._computed)
+        return ctx
+
+    def is_in_document(self, docname: str) -> bool:
+        """Check if the need is in a given document."""
+        return self._source.dict_repr.get("docname") == docname
+
 
 class NeedPartItem:
     """A class representing a part of a need, which is a sub-need, merged with the parent need.
@@ -1289,6 +1321,16 @@ class NeedPartItem:
             else:
                 yield (key, self._need[key])
 
+    def filter_context(self) -> dict[str, Any]:
+        """Build a flat dict of all need part fields, suitable for use as an eval/template context.
+
+        This is more efficient than ``{**need_part}`` because it avoids
+        per-key lookup overhead.
+        """
+        ctx = self._need.filter_context()
+        ctx.update(self._overrides)
+        return ctx
+
     def get_extra(self, key: str) -> str:
         """Get an extra by key.
 
@@ -1404,3 +1446,7 @@ class NeedPartItem:
                     key,
                     part.backlinks.get(key, []),
                 )
+
+    def is_in_document(self, docname: str) -> bool:
+        """Check if the need is in a given document."""
+        return self._need.is_in_document(docname)

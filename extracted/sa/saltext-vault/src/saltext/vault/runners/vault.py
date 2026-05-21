@@ -17,8 +17,6 @@ import salt.crypt
 import salt.exceptions
 import salt.pillar
 import salt.utils.data
-import salt.utils.json
-import salt.utils.versions
 from salt.defaults import NOT_SET
 from salt.exceptions import SaltInvocationError
 from salt.exceptions import SaltRunnerError
@@ -29,6 +27,7 @@ from saltext.vault.utils.vault import cache as vcache
 from saltext.vault.utils.vault import factory
 from saltext.vault.utils.vault import helpers
 from saltext.vault.utils.vault.client import VaultClient
+from saltext.vault.utils.vault.helpers import timestring_map
 from saltext.vault.utils.versions import warn_until
 
 log = logging.getLogger(__name__)
@@ -123,7 +122,7 @@ def generate_token(
     Generate a Vault token for minion <minion_id>.
 
     minion_id
-        The ID of the minion that requests a token.
+        ID of the minion that requests a token.
 
     signature
         Cryptographic signature which validates that the request is indeed sent
@@ -206,7 +205,7 @@ def generate_new_token(minion_id, signature, impersonated_by_master=False, issue
     Generate a Vault token for minion <minion_id>.
 
     minion_id
-        The ID of the minion that requests a token.
+        ID of the minion that requests a token.
 
     signature
         Cryptographic signature which validates that the request is indeed sent
@@ -293,7 +292,7 @@ def get_config(
     Return Vault configuration for minion <minion_id>.
 
     minion_id
-        The ID of the minion that requests the configuration.
+        ID of the minion that requests the configuration.
 
     signature
         Cryptographic signature which validates that the request is indeed sent
@@ -364,7 +363,7 @@ def get_role_id(minion_id, signature, impersonated_by_master=False, issue_params
     to generate AppRoles for minions (:vconf:`issue:type`).
 
     minion_id
-        The ID of the minion that requests a role-id.
+        ID of the minion that requests a role-id.
 
     signature
         Cryptographic signature which validates that the request is indeed sent
@@ -446,9 +445,8 @@ def _approle_params_match(current, issue_params):
     """
     Check if minion-overridable AppRole parameters match
     """
-    req = _parse_issue_params(issue_params)
     for var in set(VALID_PARAMS["approle"]) - set(NO_OVERRIDE_PARAMS["approle"]):
-        if var in req and req[var] != current.get(var, NOT_SET):
+        if var in issue_params and issue_params[var] != current.get(var, NOT_SET):
             return False
     return True
 
@@ -461,7 +459,7 @@ def generate_secret_id(minion_id, signature, impersonated_by_master=False, issue
     configured to generate AppRoles for minions (:vconf:`issue:type`).
 
     minion_id
-        The ID of the minion that requests a secret ID.
+        ID of the minion that requests a secret ID.
 
     signature
         Cryptographic signature which validates that the request is indeed sent
@@ -494,12 +492,14 @@ def generate_secret_id(minion_id, signature, impersonated_by_master=False, issue
         if approle_meta is False:
             raise vault.VaultNotFoundError(f"No AppRole found for minion {minion_id}.")
 
+        issue_params_parsed = _parse_issue_params(issue_params)
+
         if helpers._get_salt_run_type(
             __opts__
         ) != helpers.SALT_RUNTYPE_MASTER_IMPERSONATING and not _approle_params_match(
-            approle_meta, issue_params
+            approle_meta, issue_params_parsed
         ):
-            _manage_approle(minion_id, issue_params)
+            _manage_approle(minion_id, issue_params_parsed)
             approle_meta = _lookup_approle_cached(minion_id, refresh=True)
 
         if not approle_meta["bind_secret_id"]:
@@ -541,7 +541,7 @@ def unseal():
     Unseal the Vault server. Uses keys from the master config :vconf:`keys` .
 
     .. note::
-        This function will send unseal keys until the API returns success.
+        This function sends unseal keys until the API returns success.
 
     CLI Example:
 
@@ -565,11 +565,11 @@ def show_policies(minion_id, refresh_pillar=NOT_SET, expire=None):
     Show the Vault policies that are applied to tokens for the given minion.
 
     minion_id
-        The ID of the minion to show policies for.
+        ID of the minion to show policies for.
 
     refresh_pillar
         Whether to refresh the pillar data when rendering templated policies.
-        None will only refresh when the cached data is unavailable, boolean values
+        None only refreshs when the cached data is unavailable, boolean values
         force one behavior always.
         Defaults to :vconf:`policies:refresh_pillar` or None.
 
@@ -583,7 +583,7 @@ def show_policies(minion_id, refresh_pillar=NOT_SET, expire=None):
 
         When issuing AppRoles to minions, the shown policies are read from Vault
         configuration for the minion's AppRole and thus refresh_pillar/expire
-        will not be honored.
+        is not honored.
 
     CLI Example:
 
@@ -611,14 +611,14 @@ def sync_approles(minions=None, up=False, down=False):
     .. note::
         Only updates existing AppRoles. They are issued during the first request
         for one by the minion.
-        Running this will reset minion overrides, which are reapplied automatically
+        Running this resets minion overrides, which are reapplied automatically
         during the next request for authentication details.
 
     .. note::
         Unlike when issuing tokens, AppRole-associated policies are not regularly
         refreshed automatically. It is advised to schedule regular runs of this function.
 
-    If no parameter is specified, will try to sync AppRoles for all known minions.
+    If no parameter is specified, tries to sync AppRoles for all known minions.
 
     CLI Example:
 
@@ -700,7 +700,7 @@ def sync_entities(minions=None, up=False, down=False):
         This updates associated metadata only. Entities are created only
         when issuing AppRoles to minions (:vconf:`issue:type` == ``approle``).
 
-    If no parameter is specified, will try to sync entities for all known minions.
+    If no parameter is specified, tries to sync entities for all known minions.
 
     CLI Example:
 
@@ -1121,6 +1121,9 @@ def _parse_issue_params(params, issue_type=None):
             and params[valid_param] is not None
         ):
             ret[valid_param] = params[valid_param]
+
+    for ttl_param in (param for param in ret if param.endswith("_ttl") or param == "token_period"):
+        ret[ttl_param] = int(timestring_map(ret[ttl_param]))
 
     return ret
 

@@ -436,7 +436,7 @@ class JinjaFunctions:
 
         node_text = render_template_string(
             self.needs_config.diagram_template,
-            {**need_info, **self.needs_config.render_context},
+            {**need_info.filter_context(), **self.needs_config.render_context},
             autoescape=False,
             # new_env=True because flow() is called from within a template callback
             # (e.g. {{ flow("ID") }}) while the outer jinja2uml render holds a lock
@@ -447,11 +447,16 @@ class JinjaFunctions:
             new_env=True,
         )
 
-        need_uml = '{style} "{node_text}" as {id} [[{link}]] #{color}'.format(
+        color_suffix = (
+            f" #{need_info['type_color'].replace('#', '')}"
+            if need_info["type_color"]
+            else ""
+        )
+        need_uml = '{style} "{node_text}" as {id} [[{link}]]{color_suffix}'.format(
             id=make_entity_name(need_id),
             node_text=node_text,
             link=link,
-            color=need_info["type_color"].replace("#", ""),
+            color_suffix=color_suffix,
             style=need_info["type_style"],
         )
 

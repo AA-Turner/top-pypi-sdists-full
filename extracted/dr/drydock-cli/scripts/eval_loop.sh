@@ -49,12 +49,14 @@ while true; do
     fi
   fi
 
-  # Rotate three runners.
-  # Lifecycle ≈ 8-15 min, gauntlet ≈ 15-30 min, test-harness P1 ≈ 30-50 min.
+  # Rotate three runners. test_harness gets case 1 so a freshly-restarted
+  # eval_loop fires it on its very first iter (operator wants real
+  # cases.json scoring ASAP after restart).
+  # Lifecycle ≈ 8-15 min, gauntlet ≈ 15-30 min, test-harness P1+P2 ≈ 30-50 min.
   case $((iter % 3)) in
-    0) RUNNER="scripts/lifecycle_runner.py"; TIMEOUT=1500; RUNNER_ARGS="" ;;
-    1) RUNNER="scripts/gauntlet_runner.py"; TIMEOUT=2400; RUNNER_ARGS="" ;;
-    2) RUNNER="scripts/test_harness_runner.py"; TIMEOUT=3600; RUNNER_ARGS="--p1-only" ;;
+    1) RUNNER="scripts/test_harness_runner.py"; TIMEOUT=7200; RUNNER_ARGS="" ;;
+    2) RUNNER="scripts/lifecycle_runner.py"; TIMEOUT=1500; RUNNER_ARGS="" ;;
+    0) RUNNER="scripts/gauntlet_runner.py"; TIMEOUT=2400; RUNNER_ARGS="" ;;
   esac
 
   # Real-time log for `tail -f`. Runner prints one line per phase/

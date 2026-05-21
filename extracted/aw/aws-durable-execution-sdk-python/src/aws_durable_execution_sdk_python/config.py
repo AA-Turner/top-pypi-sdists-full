@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 from aws_durable_execution_sdk_python.exceptions import ValidationError
 
+
 P = TypeVar("P")  # Payload type
 R = TypeVar("R")  # Result type
 T = TypeVar("T")
@@ -74,6 +75,42 @@ class TerminationMode(Enum):
     CANCEL = "CANCEL"
     WAIT = "WAIT"
     ABANDON = "ABANDON"
+
+
+class NestingType(Enum):
+    """Control how child contexts are created for batch operations.
+
+    Applies to `map` and `parallel`. Each branch or iteration runs inside a
+    child context.
+
+        - NESTED: full checkpointed context
+        - FLAT: a virtual context that skips checkpoints for the branch/iteration.
+
+    """
+
+    NESTED = "NESTED"
+    """Create CONTEXT operations for each branch/iteration with full checkpointing.
+
+    Operations within each branch/iteration are wrapped in their own context.
+
+    - Observability: high — each branch/iteration appears as a separate
+      operation in execution history.
+    - Cost: higher — consumes more operations due to CONTEXT creation
+      overhead.
+    - Scale: lower maximum iterations due to operation limits.
+    """
+
+    FLAT = "FLAT"
+    """Skip CONTEXT operations for branches/iterations using virtual contexts.
+
+    Operations execute directly without individual context wrapping.
+
+    - Observability: lower — branches/iterations don't appear as separate
+      operations in execution history.
+    - Cost: ~30% lower — reduces operation consumption by skipping CONTEXT
+      overhead.
+    - Scale: higher maximum iterations possible within operation limits.
+    """
 
 
 @dataclass(frozen=True)
@@ -187,6 +224,10 @@ class ParallelConfig:
             Used internally by map/parallel operations to handle large BatchResult payloads.
             Signature: (result: T) -> str
 
+        nesting_type: How child operations should inherit context from their parent.
+            - NESTED: Each branch runs in its own isolated context (default)
+            - FLAT: All branches share the same parent context
+
     Example:
         # Run at most 3 branches concurrently, succeed if any one succeeds
         config = ParallelConfig(
@@ -202,6 +243,42 @@ class ParallelConfig:
     serdes: SerDes | None = None
     item_serdes: SerDes | None = None
     summary_generator: SummaryGenerator | None = None
+    nesting_type: NestingType = NestingType.NESTED
+
+
+@dataclass(frozen=True)
+class ParallelBranch(Generic[T]):
+    """A named branch for parallel execution.
+
+    Use this to provide custom names for parallel branches, improving
+    observability in execution history.
+
+    Type Parameters:
+        T: The return type of the branch function.
+
+    Args:
+        func: The callable to execute in this branch. Receives a DurableContext.
+        name: Optional custom name for this branch. When provided, replaces
+            the default "parallel-branch-{index}" naming in execution history.
+            This affects observability but not replay determinism.
+
+    Example:
+        context.parallel(
+            functions=[
+                ParallelBranch(func=lambda ctx: fetch_user(ctx), name="fetch-user-data"),
+                ParallelBranch(func=lambda ctx: fetch_orders(ctx), name="fetch-order-history"),
+            ],
+            name="load-data",
+            config=ParallelConfig(max_concurrency=2),
+        )
+    """
+
+    func: Callable
+    name: str | None = None
+
+    def __call__(self, *args, **kwargs):
+        """Delegate to the wrapped function, making ParallelBranch itself callable."""
+        return self.func(*args, **kwargs)
 
 
 class StepSemantics(Enum):
@@ -216,12 +293,6 @@ class StepConfig:
     retry_strategy: Callable[[Exception, int], RetryDecision] | None = None
     step_semantics: StepSemantics = StepSemantics.AT_LEAST_ONCE_PER_RETRY
     serdes: SerDes | None = None
-
-
-class CheckpointMode(Enum):
-    NO_CHECKPOINT = ("NO_CHECKPOINT",)
-    CHECKPOINT_AT_FINISH = ("CHECKPOINT_AT_FINISH",)
-    CHECKPOINT_AT_START_AND_FINISH = "CHECKPOINT_AT_START_AND_FINISH"
 
 
 @dataclass(frozen=True)
@@ -259,21 +330,23 @@ class ChildConfig(Generic[T]):
 
             Used internally by map/parallel operations to handle large BatchResult payloads.
             Signature: (result: T) -> str
-    Note:
-        checkpoint_mode field is commented out as it's not currently implemented.
-        When implemented, it will control when checkpoints are created:
-        - CHECKPOINT_AT_START_AND_FINISH: Checkpoint at both start and completion (default)
-        - CHECKPOINT_AT_FINISH: Only checkpoint when operation completes
-        - NO_CHECKPOINT: No automatic checkpointing
+
+        is_virtual: When True, skip all checkpoints (START, SUCCEED,
+            FAIL) for this child context and propagate the caller's reporting
+            parent id through to operations created inside the child. The
+            branch is a logical scope for step-id prefixing but does not
+            appear in the execution history. Used internally by
+            NestingType.FLAT branches. Use this to group operations without
+            adding a CONTEXT entry to the execution history.
 
     See TypeScript reference: aws-durable-execution-sdk-js/src/types/index.ts
     """
 
-    # checkpoint_mode: CheckpointMode = CheckpointMode.CHECKPOINT_AT_START_AND_FINISH
     serdes: SerDes | None = None
     item_serdes: SerDes | None = None
     sub_type: OperationSubType | None = None
     summary_generator: SummaryGenerator | None = None
+    is_virtual: bool = False
 
 
 class ItemsPerBatchUnit(Enum):
@@ -317,11 +390,14 @@ class ItemBatcher(Generic[T]):
 
 
 @dataclass(frozen=True)
-class MapConfig:
+class MapConfig(Generic[T]):
     """Configuration options for map operations over collections.
 
     This class configures how map operations process collections of items,
     including concurrency, batching, completion criteria, and serialization.
+
+    Type Parameters:
+        T: The type of items being processed in the map operation.
 
     Args:
         max_concurrency: Maximum number of items to process concurrently.
@@ -361,12 +437,28 @@ class MapConfig:
             Used internally by map/parallel operations to handle large BatchResult payloads.
             Signature: (result: T) -> str
 
+        nesting_type: How child operations should inherit context from their parent.
+            - NESTED: Each item runs in its own isolated context (default)
+            - FLAT: All items share the same parent context
+
+        item_namer: Optional callable to generate custom names for each map iteration.
+            When provided, replaces the default "map-item-{index}" naming scheme.
+            Receives the item and its index, and returns a string name for that iteration.
+            This affects observability (execution history names) but not replay determinism.
+            If None, uses the default naming: "map-item-{index}".
+
     Example:
         # Process 5 items at a time, batch by count, require all to succeed
         config = MapConfig(
             max_concurrency=5,
             item_batcher=ItemBatcher(max_items_per_batch=10),
             completion_config=CompletionConfig.all_successful()
+        )
+
+        # With custom iteration names
+        config = MapConfig(
+            max_concurrency=5,
+            item_namer=lambda item, index: f"process-order-{item.id}"
         )
     """
 
@@ -376,6 +468,8 @@ class MapConfig:
     serdes: SerDes | None = None
     item_serdes: SerDes | None = None
     summary_generator: SummaryGenerator | None = None
+    nesting_type: NestingType = NestingType.NESTED
+    item_namer: Callable[[T, int], str] | None = None
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,8 @@
 
 import importlib
 import json
+from collections.abc import Mapping
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -16,7 +18,11 @@ from aws_durable_execution_sdk_python.concurrency.models import (
     CompletionReason,
     Executable,
 )
-from aws_durable_execution_sdk_python.config import CompletionConfig, ParallelConfig
+from aws_durable_execution_sdk_python.config import (
+    CompletionConfig,
+    NestingType,
+    ParallelConfig,
+)
 from aws_durable_execution_sdk_python.context import DurableContext, ExecutionContext
 from aws_durable_execution_sdk_python.identifier import OperationIdentifier
 from aws_durable_execution_sdk_python.lambda_service import OperationSubType
@@ -48,6 +54,11 @@ def create_test_context(
     )
 
 
+def _mock_call_kwargs_by_operation_id(mock: Mock) -> dict[str, Mapping[str, Any]]:
+    """Return mock call keyword arguments keyed by operation_id."""
+    return {call.kwargs["operation_id"]: call.kwargs for call in mock.call_args_list}
+
+
 def test_parallel_executor_init():
     """Test ParallelExecutor initialization."""
     executables = [Executable(index=0, func=lambda x: x)]
@@ -61,6 +72,7 @@ def test_parallel_executor_init():
         iteration_sub_type=OperationSubType.PARALLEL_BRANCH,
         name_prefix="test-",
         serdes=None,
+        nesting_type=NestingType.FLAT,
     )
 
     assert executor.executables == executables
@@ -69,6 +81,7 @@ def test_parallel_executor_init():
     assert executor.sub_type_top == OperationSubType.PARALLEL
     assert executor.sub_type_iteration == OperationSubType.PARALLEL_BRANCH
     assert executor.name_prefix == "test-"
+    assert executor.nesting_type is NestingType.FLAT
 
 
 def test_parallel_executor_from_callables():
@@ -81,7 +94,7 @@ def test_parallel_executor_from_callables():
         return "result2"
 
     callables = [func1, func2]
-    config = ParallelConfig(max_concurrency=3)
+    config = ParallelConfig(max_concurrency=3, nesting_type=NestingType.FLAT)
 
     executor = ParallelExecutor.from_callables(callables, config)
 
@@ -94,6 +107,7 @@ def test_parallel_executor_from_callables():
     assert executor.sub_type_top == OperationSubType.PARALLEL
     assert executor.sub_type_iteration == OperationSubType.PARALLEL_BRANCH
     assert executor.name_prefix == "parallel-branch-"
+    assert executor.nesting_type is NestingType.FLAT
 
 
 def test_parallel_executor_from_callables_default_config():
@@ -110,6 +124,7 @@ def test_parallel_executor_from_callables_default_config():
     assert len(executor.executables) == 1
     assert executor.max_concurrency is None
     assert executor.completion_config == CompletionConfig.all_successful()
+    assert executor.nesting_type is NestingType.NESTED
 
 
 def test_parallel_executor_execute_item():
@@ -258,7 +273,7 @@ def test_parallel_handler_creates_executor_with_correct_config():
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
-    executor_context.create_child_context = lambda *args: Mock()
+    executor_context.create_child_context = lambda *args, **kwargs: Mock()
 
     with patch.object(ParallelExecutor, "from_callables") as mock_from_callables:
         mock_executor = Mock()
@@ -296,7 +311,7 @@ def test_parallel_handler_creates_executor_with_default_config_when_none():
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
-    executor_context.create_child_context = lambda *args: Mock()
+    executor_context.create_child_context = lambda *args, **kwargs: Mock()
 
     with patch.object(ParallelExecutor, "from_callables") as mock_from_callables:
         mock_executor = Mock()
@@ -395,7 +410,7 @@ def test_parallel_handler_with_serdes():
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
-    executor_context.create_child_context = lambda *args: Mock()
+    executor_context.create_child_context = lambda *args, **kwargs: Mock()
 
     result = parallel_handler(
         callables,
@@ -817,12 +832,12 @@ def test_parallel_item_serialize(mock_serialize, item_serdes, batch_serdes):
         )
 
     expected = item_serdes or batch_serdes
-    assert mock_serialize.call_args_list[0][1]["serdes"] is expected
-    assert mock_serialize.call_args_list[0][1]["operation_id"] == "child-0"
-    assert mock_serialize.call_args_list[1][1]["serdes"] is expected
-    assert mock_serialize.call_args_list[1][1]["operation_id"] == "child-1"
-    assert mock_serialize.call_args_list[2][1]["serdes"] is batch_serdes
-    assert mock_serialize.call_args_list[2][1]["operation_id"] == "parent"
+    calls_by_operation_id = _mock_call_kwargs_by_operation_id(mock_serialize)
+
+    assert set(calls_by_operation_id) == {"child-0", "child-1", "parent"}
+    assert calls_by_operation_id["child-0"]["serdes"] is expected
+    assert calls_by_operation_id["child-1"]["serdes"] is expected
+    assert calls_by_operation_id["parent"]["serdes"] is batch_serdes
 
 
 @pytest.mark.parametrize(
@@ -878,10 +893,11 @@ def test_parallel_item_deserialize(mock_deserialize, item_serdes, batch_serdes):
         )
 
     expected = item_serdes or batch_serdes
-    assert mock_deserialize.call_args_list[0][1]["serdes"] is expected
-    assert mock_deserialize.call_args_list[0][1]["operation_id"] == "child-0"
-    assert mock_deserialize.call_args_list[1][1]["serdes"] is expected
-    assert mock_deserialize.call_args_list[1][1]["operation_id"] == "child-1"
+    calls_by_operation_id = _mock_call_kwargs_by_operation_id(mock_deserialize)
+
+    assert set(calls_by_operation_id) == {"child-0", "child-1"}
+    assert calls_by_operation_id["child-0"]["serdes"] is expected
+    assert calls_by_operation_id["child-1"]["serdes"] is expected
 
 
 def test_parallel_result_serialization_roundtrip():
@@ -1102,3 +1118,123 @@ def test_parallel_custom_serdes_serializes_batch_result():
         assert parent_call[1]["serdes"] is custom_serdes
         assert isinstance(parent_call[1]["value"], BatchResult)
         assert parent_call[1]["value"] is result
+
+
+# region ParallelBranch and branch naming tests
+
+
+def test_parallel_branch_is_callable():
+    """ParallelBranch instances are callable."""
+    from aws_durable_execution_sdk_python.config import ParallelBranch
+
+    branch = ParallelBranch(func=lambda x: x * 2, name="double")
+    assert callable(branch)
+
+
+def test_parallel_branch_delegates_to_func():
+    """Calling ParallelBranch delegates to the wrapped func."""
+    from aws_durable_execution_sdk_python.config import ParallelBranch
+
+    branch = ParallelBranch(func=lambda x, y: x + y, name="add")
+    assert branch(3, 4) == 7
+
+
+def test_parallel_branch_passes_kwargs():
+    """ParallelBranch passes keyword arguments to func."""
+    from aws_durable_execution_sdk_python.config import ParallelBranch
+
+    branch = ParallelBranch(func=lambda ctx, flag=False: flag, name="test")
+    assert branch("ctx", flag=True) is True
+
+
+def test_parallel_branch_frozen():
+    """ParallelBranch is immutable (frozen dataclass)."""
+    from aws_durable_execution_sdk_python.config import ParallelBranch
+
+    branch = ParallelBranch(func=lambda: None, name="test")
+    with pytest.raises(AttributeError):
+        branch.name = "changed"  # type: ignore[misc]
+
+
+def test_parallel_executor_get_iteration_name_default():
+    """Plain callables use default 'parallel-branch-{index}' naming."""
+    callables = [lambda ctx: "a", lambda ctx: "b", lambda ctx: "c"]
+    config = ParallelConfig()
+
+    executor = ParallelExecutor.from_callables(callables, config)
+
+    assert executor.get_iteration_name(0) == "parallel-branch-0"
+    assert executor.get_iteration_name(1) == "parallel-branch-1"
+    assert executor.get_iteration_name(2) == "parallel-branch-2"
+
+
+def test_parallel_executor_get_iteration_name_with_named_branches():
+    """ParallelBranch with name uses the custom name."""
+    from aws_durable_execution_sdk_python.config import ParallelBranch
+
+    branches = [
+        ParallelBranch(func=lambda ctx: "user", name="fetch-user-data"),
+        ParallelBranch(func=lambda ctx: "orders", name="fetch-order-history"),
+    ]
+    config = ParallelConfig()
+
+    executor = ParallelExecutor.from_callables(branches, config)
+
+    assert executor.get_iteration_name(0) == "fetch-user-data"
+    assert executor.get_iteration_name(1) == "fetch-order-history"
+
+
+def test_parallel_executor_get_iteration_name_mixed():
+    """Mix of ParallelBranch (with/without name) and plain callables."""
+    from aws_durable_execution_sdk_python.config import ParallelBranch
+
+    branches = [
+        ParallelBranch(func=lambda ctx: "a", name="named-branch"),
+        lambda ctx: "b",
+        ParallelBranch(func=lambda ctx: "c"),
+    ]
+    config = ParallelConfig()
+
+    executor = ParallelExecutor.from_callables(branches, config)
+
+    assert executor.get_iteration_name(0) == "named-branch"
+    assert executor.get_iteration_name(1) == "parallel-branch-1"
+    assert executor.get_iteration_name(2) == "parallel-branch-2"
+
+
+def test_parallel_executor_get_iteration_name_none_name():
+    """ParallelBranch with name=None falls back to default naming."""
+    from aws_durable_execution_sdk_python.config import ParallelBranch
+
+    branches = [
+        ParallelBranch(func=lambda ctx: "x", name=None),
+    ]
+    config = ParallelConfig()
+
+    executor = ParallelExecutor.from_callables(branches, config)
+
+    assert executor.get_iteration_name(0) == "parallel-branch-0"
+
+
+def test_parallel_branch_execute_item():
+    """ParallelBranch works correctly in execute_item."""
+    from aws_durable_execution_sdk_python.config import ParallelBranch
+
+    branch = ParallelBranch(func=lambda ctx: f"result-{ctx}", name="my-branch")
+    executable = Executable(index=0, func=branch)
+
+    executor = ParallelExecutor(
+        executables=[executable],
+        max_concurrency=None,
+        completion_config=CompletionConfig.all_successful(),
+        top_level_sub_type=OperationSubType.PARALLEL,
+        iteration_sub_type=OperationSubType.PARALLEL_BRANCH,
+        name_prefix="parallel-branch-",
+        serdes=None,
+    )
+
+    result = executor.execute_item("test-ctx", executable)
+    assert result == "result-test-ctx"
+
+
+# endregion

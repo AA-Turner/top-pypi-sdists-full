@@ -2,6 +2,7 @@ import time
 import uuid
 from datetime import timedelta
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from django.utils import timezone
 
@@ -12,6 +13,7 @@ from allauth.idp.oidc.adapter import get_adapter
 from allauth.idp.oidc.internal.oauthlib.request_validator import (
     OAuthLibRequestValidator,
 )
+from allauth.idp.oidc.internal.oauthlib.server import generate_jwt_access_token
 from allauth.idp.oidc.models import Client, Token
 
 
@@ -64,9 +66,18 @@ def id_token_generator(rf):
 
 
 @pytest.fixture
-def access_token_generator():
+def access_token_generator(access_token_format, rf):
     def f(client, user, scopes=["openid"]):
-        token = uuid.uuid4().hex
+        if access_token_format == "jwt":
+            o_request = MagicMock()
+            o_request.user = user
+            o_request.client.id = client.id
+            request = rf.get("/")
+            request.user = user
+            with request_context(request):
+                token = generate_jwt_access_token(o_request)
+        else:
+            token = uuid.uuid4().hex
         token_hash = get_adapter().hash_token(token)
         instance = Token(
             type=Token.Type.ACCESS_TOKEN,
@@ -100,3 +111,10 @@ def refresh_token_factory():
         return value, rt
 
     return f
+
+
+@pytest.fixture(params=["jwt", "opaque"])
+def access_token_format(request, settings) -> str:
+    fmt = request.param
+    settings.IDP_OIDC_ACCESS_TOKEN_FORMAT = fmt
+    return fmt

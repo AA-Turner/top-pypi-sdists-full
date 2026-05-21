@@ -18,6 +18,7 @@ from aws_durable_execution_sdk_python.config import (
     CompletionConfig,
     ItemBatcher,
     MapConfig,
+    NestingType,
 )
 from aws_durable_execution_sdk_python.context import DurableContext, ExecutionContext
 from aws_durable_execution_sdk_python.identifier import OperationIdentifier
@@ -61,10 +62,12 @@ def test_map_executor_init():
         iteration_sub_type=OperationSubType.MAP_ITERATION,
         name_prefix="test-",
         serdes=None,
+        nesting_type=NestingType.FLAT,
     )
 
     assert executor.items == items
     assert executor.executables == executables
+    assert executor.nesting_type is NestingType.FLAT
 
 
 def test_map_executor_from_items():
@@ -74,7 +77,7 @@ def test_map_executor_from_items():
     def callable_func(ctx, item, idx, items):
         return item.upper()
 
-    config = MapConfig(max_concurrency=3)
+    config = MapConfig(max_concurrency=3, nesting_type=NestingType.FLAT)
 
     executor = MapExecutor.from_items(items, callable_func, config)
 
@@ -82,6 +85,7 @@ def test_map_executor_from_items():
     assert executor.items == items
     assert all(exe.func == callable_func for exe in executor.executables)
     assert [exe.index for exe in executor.executables] == [0, 1, 2]
+    assert executor.nesting_type is NestingType.FLAT
 
 
 def test_map_executor_from_items_default_config():
@@ -91,10 +95,15 @@ def test_map_executor_from_items_default_config():
     def callable_func(ctx, item, idx, items):
         return item
 
-    executor = MapExecutor.from_items(items, callable_func, MapConfig())
+    executor = MapExecutor.from_items(
+        items,
+        callable_func,
+        MapConfig(),
+    )
 
     assert len(executor.executables) == 1
     assert executor.items == items
+    assert executor.nesting_type is NestingType.NESTED
 
 
 @patch("aws_durable_execution_sdk_python.operation.map.logger")
@@ -105,7 +114,11 @@ def test_map_executor_execute_item(mock_logger):
     def callable_func(ctx, item, idx, items):
         return f"{item}_{idx}"
 
-    executor = MapExecutor.from_items(items, callable_func, MapConfig())
+    executor = MapExecutor.from_items(
+        items,
+        callable_func,
+        MapConfig(),
+    )
     executable = executor.executables[0]
 
     result = executor.execute_item(None, executable)
@@ -123,7 +136,11 @@ def test_map_executor_execute_item_with_context():
     def callable_func(ctx, item, idx, items):
         return item * 2 + idx
 
-    executor = MapExecutor.from_items(items, callable_func, MapConfig())
+    executor = MapExecutor.from_items(
+        items,
+        callable_func,
+        MapConfig(),
+    )
     executable = executor.executables[1]
 
     result = executor.execute_item("mock_context", executable)
@@ -210,7 +227,11 @@ def test_map_executor_execute_item_accesses_all_parameters():
         assert items_list == items
         return f"{item}_{idx}_{len(items_list)}"
 
-    executor = MapExecutor.from_items(items, callable_func, MapConfig())
+    executor = MapExecutor.from_items(
+        items,
+        callable_func,
+        MapConfig(),
+    )
     executable = executor.executables[2]
 
     result = executor.execute_item("test_context", executable)
@@ -225,7 +246,11 @@ def test_map_executor_from_items_empty_list():
     def callable_func(ctx, item, idx, items):
         return item
 
-    executor = MapExecutor.from_items(items, callable_func, MapConfig())
+    executor = MapExecutor.from_items(
+        items,
+        callable_func,
+        MapConfig(),
+    )
 
     assert len(executor.executables) == 0
     assert executor.items == []
@@ -238,7 +263,11 @@ def test_map_executor_from_items_single_item():
     def callable_func(ctx, item, idx, items):
         return f"processed_{item}"
 
-    executor = MapExecutor.from_items(items, callable_func, MapConfig())
+    executor = MapExecutor.from_items(
+        items,
+        callable_func,
+        MapConfig(),
+    )
 
     assert len(executor.executables) == 1
     assert executor.executables[0].index == 0
@@ -252,7 +281,11 @@ def test_map_executor_inheritance():
     def callable_func(ctx, item, idx, items):
         return item
 
-    executor = MapExecutor.from_items(items, callable_func, MapConfig())
+    executor = MapExecutor.from_items(
+        items,
+        callable_func,
+        MapConfig(),
+    )
 
     # Verify it has inherited attributes from ConcurrentExecutor
     assert hasattr(executor, "executables")
@@ -274,7 +307,7 @@ def test_map_handler_calls_executor_execute():
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
-    executor_context.create_child_context = lambda *args: Mock()
+    executor_context.create_child_context = lambda *args, **kwargs: Mock()
 
     with patch.object(
         MapExecutor, "execute", return_value=mock_batch_result
@@ -325,7 +358,7 @@ def test_map_handler_with_none_config_creates_default():
 
         executor_context = Mock()
         executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
-        executor_context.create_child_context = lambda *args: Mock()
+        executor_context.create_child_context = lambda *args, **kwargs: Mock()
 
         class MockExecutionState:
             def get_checkpoint_result(self, operation_id):
@@ -371,7 +404,7 @@ def test_map_handler_with_serdes():
 
     executor_context = Mock()
     executor_context._create_step_id_for_logical_step = lambda *args: "1"  # noqa SLF001
-    executor_context.create_child_context = lambda *args: Mock()
+    executor_context.create_child_context = lambda *args, **kwargs: Mock()
 
     class MockExecutionState:
         def get_checkpoint_result(self, operation_id):
@@ -1145,3 +1178,122 @@ def test_map_with_empty_list_should_exit_early():
     assert result.total_count == 0
     assert result.success_count == 0
     assert result.failure_count == 0
+
+
+# region item_namer tests
+
+
+def test_map_executor_get_iteration_name_default():
+    """Without item_namer, iterations use default 'map-item-{index}' naming."""
+    items = ["a", "b", "c"]
+    config = MapConfig(max_concurrency=2)
+
+    executor = MapExecutor.from_items(
+        items=items,
+        func=lambda ctx, item, idx, items: item,
+        config=config,
+    )
+
+    assert executor.get_iteration_name(0) == "map-item-0"
+    assert executor.get_iteration_name(1) == "map-item-1"
+    assert executor.get_iteration_name(2) == "map-item-2"
+
+
+def test_map_executor_get_iteration_name_with_item_namer():
+    """With item_namer, iterations use custom names."""
+    items = [{"id": "order-1"}, {"id": "order-2"}, {"id": "order-3"}]
+    config = MapConfig(
+        max_concurrency=2,
+        item_namer=lambda item, index: f"process-{item['id']}",
+    )
+
+    executor = MapExecutor.from_items(
+        items=items,
+        func=lambda ctx, item, idx, items: item,
+        config=config,
+    )
+
+    assert executor.get_iteration_name(0) == "process-order-1"
+    assert executor.get_iteration_name(1) == "process-order-2"
+    assert executor.get_iteration_name(2) == "process-order-3"
+
+
+def test_map_executor_item_namer_receives_item_and_index():
+    """item_namer receives both the item and its index."""
+    items = ["alpha", "beta", "gamma"]
+    received_args: list[tuple] = []
+
+    def namer(item, index):
+        received_args.append((item, index))
+        return f"item-{index}-{item}"
+
+    config = MapConfig(item_namer=namer)
+
+    executor = MapExecutor.from_items(
+        items=items,
+        func=lambda ctx, item, idx, items: item,
+        config=config,
+    )
+
+    executor.get_iteration_name(0)
+    executor.get_iteration_name(2)
+
+    assert received_args == [("alpha", 0), ("gamma", 2)]
+
+
+def test_map_executor_item_namer_uses_index():
+    """item_namer can use the index to generate names."""
+    items = [10, 20, 30]
+    config = MapConfig(item_namer=lambda item, index: f"step-{index + 1}")
+
+    executor = MapExecutor.from_items(
+        items=items,
+        func=lambda ctx, item, idx, items: item,
+        config=config,
+    )
+
+    assert executor.get_iteration_name(0) == "step-1"
+    assert executor.get_iteration_name(1) == "step-2"
+    assert executor.get_iteration_name(2) == "step-3"
+
+
+def test_map_executor_item_namer_none_falls_back_to_default():
+    """Explicitly passing item_namer=None uses default naming."""
+    items = ["x", "y"]
+    config = MapConfig(item_namer=None)
+
+    executor = MapExecutor.from_items(
+        items=items,
+        func=lambda ctx, item, idx, items: item,
+        config=config,
+    )
+
+    assert executor.get_iteration_name(0) == "map-item-0"
+    assert executor.get_iteration_name(1) == "map-item-1"
+
+
+def test_map_executor_from_items_passes_item_namer():
+    """MapExecutor.from_items correctly passes item_namer from config."""
+    namer = lambda item, index: f"custom-{index}"  # noqa: E731
+    config = MapConfig(item_namer=namer)
+
+    executor = MapExecutor.from_items(
+        items=["a"],
+        func=lambda ctx, item, idx, items: item,
+        config=config,
+    )
+
+    assert executor._item_namer is namer
+
+
+def test_map_config_generic_with_item_namer():
+    """MapConfig can be parameterized with a type and use item_namer."""
+    config: MapConfig[dict] = MapConfig(
+        item_namer=lambda item, index: f"item-{item['name']}",
+    )
+
+    assert config.item_namer is not None
+    assert config.item_namer({"name": "test"}, 0) == "item-test"
+
+
+# endregion

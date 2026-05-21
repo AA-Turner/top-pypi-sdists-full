@@ -1,7 +1,11 @@
 from importlib import metadata
 
-from .client import ApifyClient, ApifyClientAsync
+from ._apify_client import ApifyClient, ApifyClientAsync
 
 __version__ = metadata.version('apify-client')
 
-__all__ = ['ApifyClient', 'ApifyClientAsync', '__version__']
+__all__ = [
+    'ApifyClient',
+    'ApifyClientAsync',
+    '__version__',
+]

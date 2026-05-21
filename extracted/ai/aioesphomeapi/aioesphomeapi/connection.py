@@ -22,7 +22,7 @@ import aioesphomeapi.host_resolver as hr
 from ._frame_helper.base import MAX_NAME_LEN, safe_label_str
 from ._frame_helper.noise import APINoiseFrameHelper
 from ._frame_helper.plain_text import APIPlaintextFrameHelper
-from .api_pb2 import (  # type: ignore  # type: ignore
+from .api_pb2 import (  # type: ignore[attr-defined]
     DST_RULE_TYPE_DAY_OF_YEAR as DST_RULE_TYPE_DAY_OF_YEAR_PB,
     DST_RULE_TYPE_JULIAN_NO_LEAP as DST_RULE_TYPE_JULIAN_NO_LEAP_PB,
     DST_RULE_TYPE_MONTH_WEEK_DAY as DST_RULE_TYPE_MONTH_WEEK_DAY_PB,
@@ -114,6 +114,15 @@ CONNECT_REQUEST_TIMEOUT = 30.0
 TCP_CONNECT_TIMEOUT = 60.0
 
 WRITE_EXCEPTIONS = (RuntimeError, ConnectionResetError, OSError)
+
+# Cap on how many bytes of the offending peer payload we embed in the
+# "Invalid protobuf message" log entry and ProtocolAPIError text. A peer
+# can send up to MAX_PLAINTEXT_FRAME_SIZE (65535 bytes) or a 16-bit-length
+# noise frame of crafted garbage; with repr() escaping that balloons ~4x
+# in the log file. The truncated prefix is plenty for debugging the
+# message shape, and the total length is still reported separately.
+MAX_PROTOBUF_ERROR_DATA_BYTES = 255
+_MAX_PROTOBUF_ERROR_DATA_BYTES = MAX_PROTOBUF_ERROR_DATA_BYTES
 
 _WIN32 = sys.platform == "win32"
 
@@ -1053,15 +1062,25 @@ class APIConnection:
         try:
             merge(msg, data)
         except Exception as e:
+            data_len = len(data)
+            truncated = data[:_MAX_PROTOBUF_ERROR_DATA_BYTES]
+            suffix = (
+                ""
+                if data_len <= _MAX_PROTOBUF_ERROR_DATA_BYTES
+                else f"...(+{data_len - _MAX_PROTOBUF_ERROR_DATA_BYTES} bytes)"
+            )
             _LOGGER.exception(
-                "%s: Invalid protobuf message: type=%s data=%s",
+                "%s: Invalid protobuf message: type=%s len=%d data=%r%s",
                 self.log_name,
                 klass.__name__,
-                data,
+                data_len,
+                truncated,
+                suffix,
             )
             self.report_fatal_error(
                 ProtocolAPIError(
-                    f"Invalid protobuf message: type={klass.__name__} data={data!r}: {e}"
+                    f"Invalid protobuf message: type={klass.__name__} "
+                    f"len={data_len} data={truncated!r}{suffix}: {e}"
                 )
             )
             raise

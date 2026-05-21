@@ -26,7 +26,7 @@ USERNAME_SUFFIX_CHARS = [string.digits] * 4 + [string.ascii_letters] * (
 )
 
 
-def _generate_unique_username_base(txts, regex=None) -> str:
+def _generate_unique_username_base(txts: list[str | None], regex=None) -> str:
     from .account.adapter import get_adapter
 
     adapter = get_adapter()
@@ -92,7 +92,7 @@ def generate_username_candidates(basename) -> list:
     return ret
 
 
-def generate_unique_username(txts, regex=None) -> str:
+def generate_unique_username(txts: list[str | None], regex=None) -> str:
     from allauth.account.utils import filter_users_by_username
 
     from .account.adapter import get_adapter

@@ -39,6 +39,7 @@ from dulwich.config import (
     _format_string,
     _parse_string,
     apply_instead_of,
+    env_config,
     get_git_proxy_command,
     parse_submodules,
 )
@@ -217,6 +218,38 @@ class ConfigFileTests(TestCase):
         f = BytesIO()
         c.write_to_file(f)
         self.assertEqual(b'[branch "blie"]\n\tfoo = bar\n', f.getvalue())
+
+    def test_write_to_file_subsection_escapes_quote_and_backslash(self) -> None:
+        c = ConfigFile()
+        c.set((b"branch", b'foo"bar'), b"x", b"1")
+        c.set((b"branch", b"a\\b"), b"y", b"2")
+        f = BytesIO()
+        c.write_to_file(f)
+        self.assertEqual(
+            b'[branch "foo\\"bar"]\n\tx = 1\n[branch "a\\\\b"]\n\ty = 2\n',
+            f.getvalue(),
+        )
+
+    def test_subsection_roundtrip_with_special_chars(self) -> None:
+        for name in (b'foo"bar', b"a\\b", b'a\\"b', b"trailing\\"):
+            c = ConfigFile()
+            c.set((b"branch", name), b"k", b"v")
+            f = BytesIO()
+            c.write_to_file(f)
+            reparsed = self.from_file(f.getvalue())
+            self.assertEqual(b"v", reparsed.get((b"branch", name), b"k"))
+
+    def test_write_to_file_subsection_rejects_newline(self) -> None:
+        c = ConfigFile()
+        c.set((b"branch", b"foo\nbar"), b"k", b"v")
+        self.assertRaises(ValueError, c.write_to_file, BytesIO())
+
+    def test_from_file_subsection_unknown_escape_is_lenient(self) -> None:
+        # Git silently drops the backslash on unrecognised escape sequences
+        # in subsection names; we match that behaviour for compatibility
+        # with includeIf headers containing literal Windows backslashes.
+        cf = self.from_file(b'[branch "foo\\nbar"]\nk = v\n')
+        self.assertEqual(b"v", cf.get((b"branch", b"foonbar"), b"k"))
 
     def test_write_to_file_preserves_quoted_trailing_whitespace(self) -> None:
         c = ConfigFile()
@@ -984,6 +1017,162 @@ class StackedConfigTests(TestCase):
                 config_path.encode() if isinstance(paths[0], bytes) else config_path,
                 paths,
             )
+        finally:
+            os.unlink(config_path)
+
+
+class EnvConfigTests(TestCase):
+    def test_unset(self) -> None:
+        self.assertIsNone(env_config({}))
+
+    def test_empty_count(self) -> None:
+        self.assertIsNone(
+            env_config({"GIT_CONFIG_COUNT": ""}),
+        )
+
+    def test_zero(self) -> None:
+        cf = env_config({"GIT_CONFIG_COUNT": "0"})
+        self.assertIsNotNone(cf)
+        self.assertEqual([], list(cf.sections()))
+
+    def test_simple_key(self) -> None:
+        cf = env_config(
+            {
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "user.name",
+                "GIT_CONFIG_VALUE_0": "Alice",
+            }
+        )
+        self.assertEqual(b"Alice", cf.get((b"user",), b"name"))
+
+    def test_subsection_key(self) -> None:
+        cf = env_config(
+            {
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "remote.upstream.url",
+                "GIT_CONFIG_VALUE_0": "https://example.com/repo.git",
+            }
+        )
+        self.assertEqual(
+            b"https://example.com/repo.git",
+            cf.get((b"remote", b"upstream"), b"url"),
+        )
+
+    def test_subsection_with_dots(self) -> None:
+        # Subsection names may contain dots (e.g. url.<base>.insteadOf).
+        cf = env_config(
+            {
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "url.https://example.com/.insteadOf",
+                "GIT_CONFIG_VALUE_0": "git@example.com:",
+            }
+        )
+        self.assertEqual(
+            b"git@example.com:",
+            cf.get((b"url", b"https://example.com/"), b"insteadOf"),
+        )
+
+    def test_multi_value(self) -> None:
+        cf = env_config(
+            {
+                "GIT_CONFIG_COUNT": "2",
+                "GIT_CONFIG_KEY_0": "remote.origin.fetch",
+                "GIT_CONFIG_VALUE_0": "+refs/heads/*:refs/remotes/origin/*",
+                "GIT_CONFIG_KEY_1": "remote.origin.fetch",
+                "GIT_CONFIG_VALUE_1": "+refs/tags/*:refs/tags/*",
+            }
+        )
+        self.assertEqual(
+            [
+                b"+refs/heads/*:refs/remotes/origin/*",
+                b"+refs/tags/*:refs/tags/*",
+            ],
+            list(cf.get_multivar((b"remote", b"origin"), b"fetch")),
+        )
+
+    def test_bogus_count_non_numeric(self) -> None:
+        self.assertRaises(
+            ValueError,
+            env_config,
+            {"GIT_CONFIG_COUNT": "abc"},
+        )
+
+    def test_bogus_count_negative(self) -> None:
+        self.assertRaises(
+            ValueError,
+            env_config,
+            {"GIT_CONFIG_COUNT": "-1"},
+        )
+
+    def test_missing_key(self) -> None:
+        self.assertRaises(
+            KeyError,
+            env_config,
+            {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_VALUE_0": "x"},
+        )
+
+    def test_missing_value(self) -> None:
+        self.assertRaises(
+            KeyError,
+            env_config,
+            {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "user.name"},
+        )
+
+    def test_invalid_key_no_dot(self) -> None:
+        self.assertRaises(
+            ValueError,
+            env_config,
+            {
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "nodot",
+                "GIT_CONFIG_VALUE_0": "x",
+            },
+        )
+
+    def test_default_does_not_consult_env_count(self) -> None:
+        # StackedConfig.default() must not silently pick up GIT_CONFIG_COUNT
+        # overrides; callers have to opt in via env_overrides().
+        with tempfile.NamedTemporaryFile(
+            suffix=".gitconfig", delete=False
+        ) as global_config:
+            global_config.write(b"[user]\n\tname = FromFile\n")
+            global_config.flush()
+            config_path = global_config.name
+
+        try:
+            self.overrideEnv("GIT_CONFIG_GLOBAL", config_path)
+            self.overrideEnv("GIT_CONFIG_NOSYSTEM", "1")
+            self.overrideEnv("GIT_CONFIG_COUNT", "1")
+            self.overrideEnv("GIT_CONFIG_KEY_0", "user.name")
+            self.overrideEnv("GIT_CONFIG_VALUE_0", "FromEnv")
+            sc = StackedConfig.default()
+            self.assertEqual(b"FromFile", sc.get((b"user",), b"name"))
+        finally:
+            os.unlink(config_path)
+
+    def test_env_overrides_opt_in(self) -> None:
+        # Callers that want git's "env wins" behaviour prepend the
+        # env_config() result themselves.
+        with tempfile.NamedTemporaryFile(
+            suffix=".gitconfig", delete=False
+        ) as global_config:
+            global_config.write(b"[user]\n\tname = FromFile\n")
+            global_config.flush()
+            config_path = global_config.name
+
+        try:
+            self.overrideEnv("GIT_CONFIG_GLOBAL", config_path)
+            self.overrideEnv("GIT_CONFIG_NOSYSTEM", "1")
+            environ = {
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "user.name",
+                "GIT_CONFIG_VALUE_0": "FromEnv",
+            }
+            backends = StackedConfig.default_backends()
+            override = env_config(environ)
+            self.assertIsNotNone(override)
+            sc = StackedConfig([override, *backends])
+            self.assertEqual(b"FromEnv", sc.get((b"user",), b"name"))
         finally:
             os.unlink(config_path)
 

@@ -1,11 +1,8 @@
 """Plugin lifecycle hook contract types.
 
-This module is the first reviewable slice of issue #939. It introduces
-the typed vocabulary the harness will use to dispatch plugin lifecycle
-hooks — without changing runtime behavior, manifest schema validation,
-or audit emission yet. The shape mirrors the contract documented in
-``docs/rfc/userlevel-plugins.md`` (the boundary doc that landed in
-``f718ef89e``).
+This module defines the typed vocabulary used to validate and dispatch
+v1 plugin lifecycle hooks. The shape mirrors the contract documented in
+``docs/rfc/userlevel-plugins.md``.
 
 What this module owns:
 
@@ -16,28 +13,18 @@ What this module owns:
   silently accepting them at manifest-validation time.
 * :class:`HookFailurePolicy` — the v1 failure policies (``fail_open``
   / ``fail_closed``).
-* :data:`HOOK_OUTCOME_AUDIT_EVENTS` — the v1 hook outcome event names
-  currently vendored in the manifest/audit schemas
-  (``plugin.hook.blocked`` / ``plugin.hook.failed``). These are not the
-  full future hook telemetry set; successful hook start/completion
-  events remain deferred until their schema/runtime slice lands.
+* :data:`HOOK_EVENT_TYPES` — the v1 hook event names vendored in the
+  manifest/audit schemas and emitted or reserved by the firewall
+  lifecycle wrapper (``plugin.hook.invoked``,
+  ``plugin.hook.completed``, ``plugin.hook.blocked``, and
+  ``plugin.hook.failed``).
 * :func:`is_v1_hook_kind` / :func:`is_v1_failure_policy` — helpers
-  consumed by manifest validators in follow-up PRs. They live here so
-  the contract is the single source of truth.
+  consumed by manifest validators. They live here so the contract is
+  the single source of truth.
 
-What this module does **not** do:
-
-* Wire hook dispatch into ``HarnessRunner`` or any runtime path.
-* Change the manifest schema or the existing :class:`HookSpec`
-  dataclass (validators that consume these helpers land in a follow-up
-  PR).
-* Emit audit events. The event names are exported as constants only.
-* Add or remove permissions. Hook-specific permission emission is a
-  future extension per the RFC.
-
-Routes to #939. The full lifecycle slate lands incrementally; this
-module is intentionally narrow enough to review as a typed contract
-before any wiring change.
+This module deliberately stays contract-only: runtime execution belongs
+to ``ouroboros.plugin.firewall`` and manifest shape belongs to the
+versioned schemas plus ``ouroboros.plugin.manifest``.
 """
 
 from __future__ import annotations
@@ -59,7 +46,8 @@ class HookKind(StrEnum):
 
     #: Runs after trust check and confirmation gate, before
     #: ``plugin.invoked`` is emitted. Intended for read-only
-    #: inspection or ``fail_closed`` policy decisions.
+    #: inspection or policy decisions declared with the stronger
+    #: lifecycle policy scope.
     BEFORE_INVOCATION = "before_invocation"
 
     #: Runs after ``plugin.completed`` / ``plugin.failed`` is known,
@@ -67,6 +55,23 @@ class HookKind(StrEnum):
     #: observability or summary emission. Scoped to started command
     #: entrypoint invocations only.
     AFTER_INVOCATION = "after_invocation"
+
+    #: Observability-only hook that runs after the firewall has emitted
+    #: a terminal ``plugin.failed`` event. The hook receives a bounded,
+    #: redacted payload; its exit code, output, or failure can never
+    #: mask the original error cause, which has already reached the
+    #: caller through the terminal event and the returned
+    #: ``InvocationResult``. Must declare ``fail_open`` and is gated by
+    #: the read-only ``plugin:lifecycle:read`` permission.
+    ON_ERROR = "on_error"
+
+    #: Observability-only hook that runs after a cancellation signal
+    #: forced the firewall to emit a terminal ``plugin.failed`` event
+    #: with reason ``cancelled``. Same fail-open / observation-only /
+    #: bounded-payload contract as :data:`ON_ERROR`; cleanup side
+    #: effects are explicitly out of scope and must wait for a
+    #: separate ``plugin:lifecycle:cleanup`` permission to be defined.
+    ON_CANCEL = "on_cancel"
 
 
 class DeferredHookKind(StrEnum):
@@ -90,8 +95,31 @@ class DeferredHookKind(StrEnum):
     AFTER_TOOL_CALL = "after_tool_call"
     BEFORE_ARTIFACT_WRITE = "before_artifact_write"
     AFTER_ARTIFACT_WRITE = "after_artifact_write"
-    ON_ERROR = "on_error"
-    ON_CANCEL = "on_cancel"
+
+
+#: Frozen subset of :class:`HookKind` that observes terminal plugin-wrapper
+#: outcomes only. ``on_error`` runs after the firewall emits a terminal
+#: ``plugin.failed`` event; ``on_cancel`` runs after an explicit cancellation
+#: signal forces the wrapper to fail with cause ``cancelled``. Both are
+#: observation-only: their failure cannot mask the original error/cancel cause,
+#: and they are constrained to ``fail_open`` at the manifest layer.
+TERMINAL_OBSERVABILITY_HOOK_KINDS: Final[frozenset[HookKind]] = frozenset(
+    {HookKind.ON_ERROR, HookKind.ON_CANCEL}
+)
+
+TERMINAL_OBSERVABILITY_HOOK_NAMES: Final[frozenset[str]] = frozenset(
+    hook.value for hook in TERMINAL_OBSERVABILITY_HOOK_KINDS
+)
+"""String names for v1 terminal observability hooks."""
+
+#: Backward-compatible aliases for the original #1129 export. ``on_error`` and
+#: ``on_cancel`` are no longer deferred; the empty frozensets keep downstream
+#: importers from breaking while the new
+#: :data:`TERMINAL_OBSERVABILITY_HOOK_KINDS` /
+#: :data:`TERMINAL_OBSERVABILITY_HOOK_NAMES` exports describe the promoted v1
+#: vocabulary.
+TERMINAL_DEFERRED_HOOK_KINDS: Final[frozenset[DeferredHookKind]] = frozenset()
+TERMINAL_DEFERRED_HOOK_NAMES: Final[frozenset[str]] = frozenset()
 
 
 class ExcludedHookKind(StrEnum):
@@ -129,27 +157,25 @@ class HookFailurePolicy(StrEnum):
     FAIL_CLOSED = "fail_closed"
 
 
-#: V1 hook outcome event names currently vendored in the
-#: manifest/audit schemas. These are exported as constants so manifest
-#: validators and audit consumers reference the same string set the
-#: wrapper will emit for hook block/failure outcomes when dispatch
-#: lands in a follow-up PR.
-#:
-#: This is deliberately narrower than the full future hook telemetry
-#: vocabulary in ``docs/rfc/userlevel-plugins.md``. Successful
-#: ``plugin.hook.invoked`` / ``plugin.hook.completed`` emission remains
-#: deferred until the upstream audit schema and core runtime wiring both
-#: support those events.
+#: V1 hook event names vendored in the manifest/audit schemas.
+#: These are exported as constants so manifest validators, audit
+#: consumers, and the firewall lifecycle wrapper reference the same
+#: string set for hook start, completion, blocked, and failed outcomes.
+HOOK_INVOKED_EVENT: Final[str] = "plugin.hook.invoked"
+HOOK_COMPLETED_EVENT: Final[str] = "plugin.hook.completed"
 HOOK_BLOCKED_EVENT: Final[str] = "plugin.hook.blocked"
 HOOK_FAILED_EVENT: Final[str] = "plugin.hook.failed"
+HOOK_RUNTIME_AUDIT_EVENTS: Final[frozenset[str]] = frozenset(
+    {HOOK_INVOKED_EVENT, HOOK_COMPLETED_EVENT}
+)
 HOOK_OUTCOME_AUDIT_EVENTS: Final[frozenset[str]] = frozenset(
     {HOOK_BLOCKED_EVENT, HOOK_FAILED_EVENT}
 )
+HOOK_EVENT_TYPES: Final[frozenset[str]] = HOOK_RUNTIME_AUDIT_EVENTS | HOOK_OUTCOME_AUDIT_EVENTS
 
 #: Backward-compatible alias for the original #984 export. Prefer
 #: :data:`HOOK_OUTCOME_AUDIT_EVENTS` in new call sites so the name does
-#: not imply that all future hook audit events are already schema-
-#: vendored or safe to emit.
+#: not imply that only blocked/failed hook outcomes exist.
 HOOK_AUDIT_EVENTS: Final[frozenset[str]] = HOOK_OUTCOME_AUDIT_EVENTS
 
 #: Hook permission scope reserved for read-only lifecycle observation
@@ -157,16 +183,22 @@ HOOK_AUDIT_EVENTS: Final[frozenset[str]] = HOOK_OUTCOME_AUDIT_EVENTS
 #: observability hooks per ``docs/rfc/userlevel-plugins.md``). Manifest
 #: authors declare it under top-level ``permissions[].scope`` so the
 #: existing ``plugin.permission_used`` emission rule covers it without
-#: a separate event family. Stronger lifecycle scopes for policy
-#: decisions are deferred to a follow-up RFC slice.
+#: a separate event family.
 HOOK_LIFECYCLE_READ_SCOPE: Final[str] = "plugin:lifecycle:read"
+
+#: Hook permission scope required for lifecycle hooks that can veto an
+#: invocation through ``fail_closed``. Read-only lifecycle observation
+#: remains available through :data:`HOOK_LIFECYCLE_READ_SCOPE`; this
+#: ``plugin:lifecycle:policy`` is the explicit authority boundary for
+#: policy decisions.
+HOOK_LIFECYCLE_POLICY_SCOPE: Final[str] = "plugin:lifecycle:policy"
 
 #: Frozen set of v1 hook permission scopes. Validators and manifest
 #: authors reference this set rather than the bare string so the
-#: contract intent is observable at every call site. The set is
-#: intentionally a single entry for v1 — additional lifecycle scopes
-#: land alongside the RFC update that introduces them.
-HOOK_LIFECYCLE_SCOPES: Final[frozenset[str]] = frozenset({HOOK_LIFECYCLE_READ_SCOPE})
+#: contract intent is observable at every call site.
+HOOK_LIFECYCLE_SCOPES: Final[frozenset[str]] = frozenset(
+    {HOOK_LIFECYCLE_READ_SCOPE, HOOK_LIFECYCLE_POLICY_SCOPE}
+)
 
 
 def is_v1_hook_kind(value: str) -> bool:
@@ -182,6 +214,31 @@ def is_v1_hook_kind(value: str) -> bool:
 def is_deferred_hook_kind(value: str) -> bool:
     """Return True iff ``value`` names a deferred candidate hook."""
     return value in {kind.value for kind in DeferredHookKind}
+
+
+def is_terminal_deferred_hook_kind(value: str) -> bool:
+    """Return True iff ``value`` names a deferred terminal outcome hook.
+
+    Retained as a backward-compatible no-op routing helper after PR #1131 / #939
+    Wave 1-E promoted ``on_error`` and ``on_cancel`` into the v1 manifest
+    vocabulary. Manifests should consume :func:`is_v1_hook_kind` or the new
+    :func:`is_terminal_observability_hook_kind` helper instead — this function
+    now returns ``False`` for every input.
+    """
+    return value in TERMINAL_DEFERRED_HOOK_NAMES
+
+
+def is_terminal_observability_hook_kind(value: str) -> bool:
+    """Return True iff ``value`` names a v1 terminal observability hook.
+
+    ``on_error`` and ``on_cancel`` are observation-only lifecycle hooks: they
+    receive bounded, redacted payloads after the firewall has emitted the
+    terminal ``plugin.failed`` event, and their failures cannot mask the
+    original error or cancel cause. Validators and runtime dispatch reference
+    :data:`TERMINAL_OBSERVABILITY_HOOK_NAMES` through this helper so the
+    contract intent is observable at every call site.
+    """
+    return value in TERMINAL_OBSERVABILITY_HOOK_NAMES
 
 
 def is_excluded_hook_kind(value: str) -> bool:
@@ -208,10 +265,19 @@ def is_hook_lifecycle_scope(value: str) -> bool:
 __all__ = [
     "HOOK_AUDIT_EVENTS",
     "HOOK_BLOCKED_EVENT",
+    "HOOK_COMPLETED_EVENT",
+    "HOOK_EVENT_TYPES",
     "HOOK_FAILED_EVENT",
+    "HOOK_INVOKED_EVENT",
+    "HOOK_LIFECYCLE_POLICY_SCOPE",
     "HOOK_LIFECYCLE_READ_SCOPE",
     "HOOK_LIFECYCLE_SCOPES",
     "HOOK_OUTCOME_AUDIT_EVENTS",
+    "HOOK_RUNTIME_AUDIT_EVENTS",
+    "TERMINAL_DEFERRED_HOOK_KINDS",
+    "TERMINAL_DEFERRED_HOOK_NAMES",
+    "TERMINAL_OBSERVABILITY_HOOK_KINDS",
+    "TERMINAL_OBSERVABILITY_HOOK_NAMES",
     "DeferredHookKind",
     "ExcludedHookKind",
     "HookFailurePolicy",
@@ -219,6 +285,8 @@ __all__ = [
     "is_deferred_hook_kind",
     "is_excluded_hook_kind",
     "is_hook_lifecycle_scope",
+    "is_terminal_deferred_hook_kind",
+    "is_terminal_observability_hook_kind",
     "is_v1_failure_policy",
     "is_v1_hook_kind",
 ]

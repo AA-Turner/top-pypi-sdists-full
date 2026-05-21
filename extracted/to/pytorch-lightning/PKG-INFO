@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytorch-lightning
-Version: 2.6.1
+Version: 2.6.4
 Summary: PyTorch Lightning is the lightweight PyTorch wrapper for ML researchers. Scale your models. Write less boilerplate.
 Home-page: https://github.com/Lightning-AI/lightning
 Download-URL: https://github.com/Lightning-AI/lightning
@@ -36,18 +36,8 @@ Requires-Dist: torchmetrics>0.7.0
 Requires-Dist: packaging>=23.0
 Requires-Dist: typing-extensions>4.5.0
 Requires-Dist: lightning-utilities>=0.10.0
-Provides-Extra: extra
-Requires-Dist: matplotlib>3.1; extra == "extra"
-Requires-Dist: omegaconf>=2.2.3; extra == "extra"
-Requires-Dist: hydra-core>=1.2.0; extra == "extra"
-Requires-Dist: jsonargparse[jsonnet,signatures]>=4.39.0; extra == "extra"
-Requires-Dist: rich>=12.3.0; extra == "extra"
-Requires-Dist: tensorboardX>=2.2; extra == "extra"
-Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "extra"
-Provides-Extra: strategies
-Requires-Dist: deepspeed<0.17.0,>=0.15.0; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
 Provides-Extra: test
-Requires-Dist: coverage==7.13.1; python_version >= "3.10" and extra == "test"
+Requires-Dist: coverage==7.13.4; python_version >= "3.10" and extra == "test"
 Requires-Dist: coverage==7.10.7; python_version < "3.10" and extra == "test"
 Requires-Dist: pytest==9.0.2; extra == "test"
 Requires-Dist: pytest-cov==7.0.0; extra == "test"
@@ -62,18 +52,30 @@ Requires-Dist: numpy>2.1.0; python_version >= "3.12" and extra == "test"
 Requires-Dist: onnx>1.12.0; extra == "test"
 Requires-Dist: onnxruntime>=1.12.0; extra == "test"
 Requires-Dist: onnxscript>=0.1.0; extra == "test"
+Requires-Dist: onnx-ir<0.1.16; extra == "test"
 Requires-Dist: psutil<7.3.0; extra == "test"
 Requires-Dist: pandas>2.0; extra == "test"
 Requires-Dist: fastapi; extra == "test"
 Requires-Dist: uvicorn; extra == "test"
 Requires-Dist: tensorboard>=2.11; extra == "test"
-Requires-Dist: torch-tensorrt; (platform_system != "Darwin" and python_version >= "3.12") and extra == "test"
 Requires-Dist: huggingface-hub; extra == "test"
 Provides-Extra: examples
 Requires-Dist: requests<2.33.0; extra == "examples"
 Requires-Dist: torchvision>=0.16.0; extra == "examples"
 Requires-Dist: ipython[all]>=8.0.0; extra == "examples"
 Requires-Dist: torchmetrics>=0.10.0; extra == "examples"
+Provides-Extra: extra
+Requires-Dist: matplotlib>3.1; extra == "extra"
+Requires-Dist: omegaconf>=2.2.3; extra == "extra"
+Requires-Dist: hydra-core>=1.2.0; extra == "extra"
+Requires-Dist: jsonargparse[jsonnet,signatures]>=4.39.0; extra == "extra"
+Requires-Dist: rich>=12.3.0; extra == "extra"
+Requires-Dist: tensorboardX>=2.2; extra == "extra"
+Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "extra"
+Provides-Extra: strategies
+Requires-Dist: deepspeed<0.17.0,>=0.15.0; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
+Provides-Extra: test-gpu
+Requires-Dist: torch-tensorrt; (platform_system != "Darwin" and python_version >= "3.12") and extra == "test-gpu"
 Provides-Extra: deepspeed
 Requires-Dist: deepspeed<0.17.0,>=0.15.0; (platform_system != "Windows" and platform_system != "Darwin") and extra == "deepspeed"
 Provides-Extra: all
@@ -102,7 +104,7 @@ Requires-Dist: requests<2.33.0; extra == "dev"
 Requires-Dist: torchvision>=0.16.0; extra == "dev"
 Requires-Dist: ipython[all]>=8.0.0; extra == "dev"
 Requires-Dist: torchmetrics>=0.10.0; extra == "dev"
-Requires-Dist: coverage==7.13.1; python_version >= "3.10" and extra == "dev"
+Requires-Dist: coverage==7.13.4; python_version >= "3.10" and extra == "dev"
 Requires-Dist: coverage==7.10.7; python_version < "3.10" and extra == "dev"
 Requires-Dist: pytest==9.0.2; extra == "dev"
 Requires-Dist: pytest-cov==7.0.0; extra == "dev"
@@ -117,12 +119,12 @@ Requires-Dist: numpy>2.1.0; python_version >= "3.12" and extra == "dev"
 Requires-Dist: onnx>1.12.0; extra == "dev"
 Requires-Dist: onnxruntime>=1.12.0; extra == "dev"
 Requires-Dist: onnxscript>=0.1.0; extra == "dev"
+Requires-Dist: onnx-ir<0.1.16; extra == "dev"
 Requires-Dist: psutil<7.3.0; extra == "dev"
 Requires-Dist: pandas>2.0; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: uvicorn; extra == "dev"
 Requires-Dist: tensorboard>=2.11; extra == "dev"
-Requires-Dist: torch-tensorrt; (platform_system != "Darwin" and python_version >= "3.12") and extra == "dev"
 Requires-Dist: huggingface-hub; extra == "dev"
 Dynamic: author
 Dynamic: author-email
@@ -168,7 +170,7 @@ ______________________________________________________________________
 [![DockerHub](https://img.shields.io/docker/pulls/pytorchlightning/pytorch_lightning.svg)](https://hub.docker.com/r/pytorchlightning/pytorch_lightning)
 [![codecov](https://codecov.io/gh/Lightning-AI/pytorch-lightning/graph/badge.svg?token=SmzX8mnKlA)](https://codecov.io/gh/Lightning-AI/pytorch-lightning)
 
-[![ReadTheDocs](https://readthedocs.org/projects/pytorch-lightning/badge/?version=2.6.1)](https://lightning.ai/docs/pytorch/stable/)[![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
+[![ReadTheDocs](https://readthedocs.org/projects/pytorch-lightning/badge/?version=2.6.4)](https://lightning.ai/docs/pytorch/stable/)[![Discord](https://img.shields.io/discord/1077906959069626439?style=plastic)](https://discord.gg/VptPCZkGNa)
 [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/pytorch-lightning/blob/master/LICENSE)
 
 <!--
@@ -351,9 +353,6 @@ trainer = Trainer(logger=loggers.CometLogger())
 
 # mlflow
 trainer = Trainer(logger=loggers.MLFlowLogger())
-
-# neptune
-trainer = Trainer(logger=loggers.NeptuneLogger())
 
 # ... and dozens more
 ```

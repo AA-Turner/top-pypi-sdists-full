@@ -32,7 +32,13 @@ from ._logger import QuietLogger, log
 from ._protocol.incoming import DNSIncoming
 from ._transport import _WrappedTransport, make_wrapped_transport
 from ._utils.time import current_time_millis, millis_to_seconds
-from .const import _DUPLICATE_PACKET_SUPPRESSION_INTERVAL, _MAX_MSG_ABSOLUTE
+from .const import (
+    _DUPLICATE_PACKET_SUPPRESSION_INTERVAL,
+    _MAX_DEFERRED_ADDRS,
+    _MAX_DEFERRED_PER_ADDR,
+    _MAX_MSG_ABSOLUTE,
+    _RECENT_PACKETS_MAX,
+)
 
 if TYPE_CHECKING:
     from ._core import Zeroconf
@@ -58,7 +64,9 @@ class AsyncListener:
 
     __slots__ = (
         "_deferred",
+        "_deferred_deadlines",
         "_query_handler",
+        "_recent_packets",
         "_record_manager",
         "_registry",
         "_timers",
@@ -82,6 +90,13 @@ class AsyncListener:
         self.sock_description: str | None = None
         self._deferred: dict[str, list[DNSIncoming]] = {}
         self._timers: dict[str, asyncio.TimerHandle] = {}
+        self._deferred_deadlines: dict[str, float] = {}
+        # Bounded recency window so an alternating (A, B, A, B, ...)
+        # flood cannot defeat single-slot dedup; relies on dict insertion
+        # order so the oldest entry is evicted first. Only payloads
+        # without a QU question are cached so unicast replies still go
+        # out on every receipt.
+        self._recent_packets: dict[bytes, float] = {}
         super().__init__()
 
     def datagram_received(self, data: _bytes, addrs: tuple[str, int] | tuple[str, int, int, int]) -> None:
@@ -128,6 +143,31 @@ class AsyncListener:
                 )
             return
 
+        # `get(data, -1e30)` keeps the suppression compare a single C
+        # double compare; the sentinel is far below any real `now -
+        # _DUPLICATE_PACKET_SUPPRESSION_INTERVAL` so a cache miss never
+        # triggers the branch even when `now` is small (time.monotonic
+        # is allowed to start near zero, leaving `now - INTERVAL`
+        # negative for the first ~1s after boot). Only non-QU payloads
+        # are cached, so any hit here is safe to suppress without re-
+        # checking has_qu_question.
+        recent_time = self._recent_packets.get(data, -1e30)
+        if (now - _DUPLICATE_PACKET_SUPPRESSION_INTERVAL) < recent_time:
+            # No timestamp refresh on hit so the suppression window
+            # ends at first-observation + interval; one parse-and-
+            # dispatch fires per payload per interval, capping the
+            # CPU cost under a sustained alternating flood.
+            if debug:
+                log.debug(
+                    "Ignoring duplicate message with no unicast questions"
+                    " received from %s [socket %s] (%d bytes) as [%r]",
+                    addrs,
+                    self.sock_description,
+                    data_len,
+                    data,
+                )
+            return
+
         if len(addrs) == 2:
             v6_flow_scope: tuple[()] | tuple[int, int] = ()
             # https://github.com/python/mypy/issues/1178
@@ -148,6 +188,15 @@ class AsyncListener:
         self.data = data
         self.last_time = now
         self.last_message = msg
+        if not msg.has_qu_question():
+            # Refresh LRU position when an entry exists but the
+            # suppression window has expired; otherwise evict the oldest
+            # entry once the window is full.
+            if data in self._recent_packets:
+                del self._recent_packets[data]
+            elif len(self._recent_packets) >= _RECENT_PACKETS_MAX:
+                del self._recent_packets[next(iter(self._recent_packets))]
+            self._recent_packets[data] = now
         if msg.valid is True:
             if debug:
                 log.debug(
@@ -197,18 +246,35 @@ class AsyncListener:
             self._respond_query(msg, addr, port, transport, v6_flow_scope)
             return
 
+        if addr not in self._deferred and len(self._deferred) >= _MAX_DEFERRED_ADDRS:
+            # Bound total deferred addrs so a spoofed-source flood
+            # cannot keep adding distinct entries; evict the oldest
+            # (insertion-order) entry and discard its in-flight queue.
+            self._evict_oldest_deferred()
+
         deferred = self._deferred.setdefault(addr, [])
+        if len(deferred) >= _MAX_DEFERRED_PER_ADDR:
+            # Bound per-addr queue length; further fragments from the
+            # same source are dropped until the timer flushes.
+            return
         # If we get the same packet we ignore it
         for incoming in reversed(deferred):
             if incoming.data == msg.data:
                 return
         deferred.append(msg)
-        delay = millis_to_seconds(random.randint(*_TC_DELAY_RANDOM_INTERVAL))  # noqa: S311
         loop = self.zc.loop
         assert loop is not None
+        now = loop.time()
+        delay = millis_to_seconds(random.randint(*_TC_DELAY_RANDOM_INTERVAL))  # noqa: S311
+        fire_at = self._compute_deferred_fire_at(addr, now, delay)
+        if fire_at < 0.0:
+            # Sentinel: a new reset would push the flush past the
+            # per-addr reassembly deadline, so leave the existing
+            # TimerHandle in place rather than re-arming it.
+            return
         self._cancel_any_timers_for_addr(addr)
         self._timers[addr] = loop.call_at(
-            loop.time() + delay,
+            fire_at,
             self._respond_query,
             None,
             addr,
@@ -217,10 +283,46 @@ class AsyncListener:
             v6_flow_scope,
         )
 
+    def _compute_deferred_fire_at(self, addr: _str, now: _float, delay: _float) -> _float:
+        """Return the bounded call_at time for a TC-deferred flush, or -1.0 to keep the existing timer."""
+        # RFC 6762 §18.5 frames the random delay as a fixed reassembly budget
+        # starting at first arrival, not a sliding heartbeat.
+        deadline = self._deferred_deadlines.get(addr)
+        if deadline is None:
+            deadline = now + millis_to_seconds(_TC_DELAY_RANDOM_INTERVAL[1])
+            self._deferred_deadlines[addr] = deadline
+        fire_at = now + delay
+        if fire_at >= deadline:
+            if addr in self._timers:
+                # Existing timer already fires at or before the deadline;
+                # signal the caller to leave it alone rather than reset it.
+                return -1.0
+            # First packet for this addr already proposes a fire-time at
+            # or past the deadline — clamp to the deadline so the flush
+            # still happens within the reassembly budget.
+            return deadline
+        # Within budget: schedule at the proposed fire-time.
+        return fire_at
+
     def _cancel_any_timers_for_addr(self, addr: _str) -> None:
         """Cancel any future truncated packet timers for the address."""
         if addr in self._timers:
             self._timers.pop(addr).cancel()
+
+    def _evict_oldest_deferred(self) -> None:
+        """Discard the oldest deferred addr's reassembly state.
+
+        Used when ``_MAX_DEFERRED_ADDRS`` would be exceeded; the
+        evicted addr's queue and timer are dropped without firing, so
+        the bound holds even when an attacker rotates source IPs.
+        Eviction is FIFO (oldest by first-seen, via dict insertion
+        order) rather than LRU so an active flooder cannot pin its
+        slots by re-sending into the same addr.
+        """
+        oldest_addr = next(iter(self._deferred))
+        self._cancel_any_timers_for_addr(oldest_addr)
+        self._deferred_deadlines.pop(oldest_addr, None)
+        del self._deferred[oldest_addr]
 
     def _respond_query(
         self,
@@ -232,6 +334,7 @@ class AsyncListener:
     ) -> None:
         """Respond to a query and reassemble any truncated deferred packets."""
         self._cancel_any_timers_for_addr(addr)
+        self._deferred_deadlines.pop(addr, None)
         packets = self._deferred.pop(addr, [])
         if msg:
             packets.append(msg)

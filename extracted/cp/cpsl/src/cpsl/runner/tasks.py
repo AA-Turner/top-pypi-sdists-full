@@ -299,6 +299,9 @@ class RunnerTaskMixin:
             await self._complete_task(task_id, TaskStatus.FAILED, f"dispatch error: {exc}")
         finally:
             _current_task_id.reset(token)
+            drain = getattr(self, "_drain_submit_results", None)
+            if drain:
+                await drain()
             await self._track_end()
             if session is not None and session.id:
                 asyncio.ensure_future(self._persist(session))

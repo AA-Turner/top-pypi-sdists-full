@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.29.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-05-12T17:11:58.075239                                                            #
+# Generated on 2026-05-21T04:04:58.856124                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.exceptions
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.exceptions
 
 from ._state_machine import LogLine as LogLine
 

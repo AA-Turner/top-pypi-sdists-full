@@ -1,4 +1,4 @@
-# pylint:disable=isinstance-second-argument-not-valid-type,no-self-use,arguments-renamed,too-many-boolean-expressions
+# pylint:disable=isinstance-second-argument-not-valid-type,no-self-use,arguments-renamed,too-many-boolean-expressions,unused-import
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -68,7 +68,7 @@ class Assignment(Statement):
         "src",
     )
 
-    def __init__(self, idx: int | None, dst: Atom, src: Expression, **kwargs):
+    def __init__(self, idx: int, dst: Atom, src: Expression, **kwargs):
         super().__init__(idx, **kwargs)
 
         self.dst = dst
@@ -129,7 +129,7 @@ class WeakAssignment(Statement):
         "src",
     )
 
-    def __init__(self, idx: int | None, dst: Atom, src: Expression, **kwargs):
+    def __init__(self, idx: int, dst: Atom, src: Expression, **kwargs):
         super().__init__(idx, **kwargs)
 
         self.dst = dst
@@ -198,7 +198,7 @@ class Store(Statement):
 
     def __init__(
         self,
-        idx: int | None,
+        idx: int,
         addr: Expression,
         data: Expression,
         size: int,
@@ -246,7 +246,10 @@ class Store(Statement):
 
     def __str__(self):
         if self.variable is None:
-            return f"STORE(addr={self.addr}, data={self.data!s}, size={self.size}, endness={self.endness}, guard={self.guard})"
+            return (
+                f"STORE(addr={self.addr}, data={self.data!s}, size={self.size},"
+                f" endness={self.endness}, guard={self.guard})"
+            )
         return f"{self.variable.name} ={'L' if self.endness == 'Iend_LE' else 'B'} {self.data}<{self.size}>" + (
             "" if self.guard is None else f"[{self.guard}]"
         )
@@ -326,7 +329,7 @@ class Jump(Statement):
         "target_idx",
     )
 
-    def __init__(self, idx: int | None, target: Expression, target_idx: int | None = None, **kwargs):
+    def __init__(self, idx: int, target: Expression, target_idx: int | None = None, **kwargs):
         super().__init__(idx, **kwargs)
 
         self.target = target
@@ -392,7 +395,7 @@ class ConditionalJump(Statement):
 
     def __init__(
         self,
-        idx: int | None,
+        idx: int,
         condition: Expression,
         true_target: Expression | None,
         false_target: Expression | None,
@@ -543,7 +546,7 @@ class SideEffectStatement(Statement):
 
     def __init__(
         self,
-        idx: int | None,
+        idx: int,
         expr: ailment.expression.Call,
         ret_expr: Expression | None = None,
         fp_ret_expr: Expression | None = None,
@@ -666,7 +669,7 @@ class Return(Statement):
 
     __slots__ = ("ret_exprs",)
 
-    def __init__(self, idx: int | None, ret_exprs: Iterable[Expression], **kwargs):
+    def __init__(self, idx: int, ret_exprs: Iterable[Expression], **kwargs):
         super().__init__(idx, **kwargs)
         self.ret_exprs = ret_exprs if isinstance(ret_exprs, list) else list(ret_exprs)
 
@@ -749,7 +752,7 @@ class CAS(Statement):
 
     def __init__(
         self,
-        idx: int | None,
+        idx: int,
         addr: Expression,
         data_lo: Expression,
         data_hi: Expression | None,
@@ -911,7 +914,7 @@ class DirtyStatement(Statement):
 
     __slots__ = ("dirty",)
 
-    def __init__(self, idx: int | None, dirty: DirtyExpression, **kwargs):
+    def __init__(self, idx: int, dirty: DirtyExpression, **kwargs):
         super().__init__(idx, **kwargs)
         self.dirty = dirty
 
@@ -957,7 +960,7 @@ class Label(Statement):
 
     __slots__ = ("name",)
 
-    def __init__(self, idx: int | None, name: str, **kwargs):
+    def __init__(self, idx: int, name: str, **kwargs):
         super().__init__(idx, **kwargs)
         self.name = name
 

@@ -19,15 +19,12 @@ class HomogeneousMedium(Medium):
         """
         # --- 1. Grid setup et respect de Nyquist ---
         dx = self.params.general['dx']
-        if dx >= self.params.acoustic['probe']['element_width']:
-            dx = self.params.acoustic['probe']['element_width'] / 2
+        dz = self.params.general['dz'] 
         # Dimensions physiques → pixels
-        width = self.params.acoustic['medium'].get('width',
-                self.params.general['Xrange'][1] - self.params.general['Xrange'][0])
-        height = self.params.acoustic['medium'].get('height',
-                self.params.general['Zrange'][1] - self.params.general['Zrange'][0])
+        width = self.params.acoustic['medium'].get('width', self.params.general['Xrange'][1] - self.params.general['Xrange'][0])
+        height = self.params.acoustic['medium'].get('height', self.params.general['Zrange'][1] - self.params.general['Zrange'][0])
         pva_nx = int(np.round(width / dx))
-        pva_nz = int(np.round(height / dx))
+        pva_nz = int(np.round(height / dz))
         
         # Ajout des marges d'air si nécessaire
         air_margin = 20 if self.params.acoustic['medium']['isAirReflection'] else 0

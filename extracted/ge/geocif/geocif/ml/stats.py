@@ -263,6 +263,10 @@ def add_statistics(
 
         def _resolve_season_filter(season_num):
             """Pick the hvstat season_name for a given CID season number."""
+            # Per-country override: Kenya Maize hvstat uses "Annual" rows;
+            # Long/Short are not the canonical season labels for that crop.
+            if country == "Kenya" and crop == "Maize" and "Annual" in available_seasons:
+                return ["Annual"]
             if season_num == 1:
                 for name in PRIMARY_SEASON_NAMES:
                     if name in available_seasons:

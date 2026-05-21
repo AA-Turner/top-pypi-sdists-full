@@ -9,7 +9,7 @@ from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import NoReverseMatch, reverse
 
-from pytest_django.asserts import assertTemplateUsed
+from pytest_django.asserts import assertRedirects, assertTemplateUsed
 
 from allauth.account import app_settings
 from allauth.account.authentication import AUTHENTICATION_METHODS_SESSION_KEY
@@ -347,3 +347,14 @@ def test_login_page(client, db):
     resp = client.get(reverse("account_login"))
     assert resp.status_code == HTTPStatus.OK
     assertTemplateUsed(resp, "account/login.html")
+
+
+def test_login_with_space_in_password(client, db, settings):
+    """Tests login behaviour when the password contains spaces at the beginning/end."""
+    settings.ACCOUNT_EMAIL_VERIFICATION = app_settings.EmailVerificationMethod.OPTIONAL
+    user = get_user_model().objects.create(username="john")
+    user.set_password(" doe ")
+    user.save()
+
+    resp = client.post(reverse("account_login"), {"login": "john", "password": " doe "})
+    assertRedirects(resp, settings.LOGIN_REDIRECT_URL, fetch_redirect_response=False)

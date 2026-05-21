@@ -4,13 +4,11 @@
 //! recognizes text from cropped text region images.
 
 use std::path::Path;
-use std::sync::Mutex;
 
 use image::DynamicImage;
 use ndarray::Array4;
-use ort::session::Session;
-use ort::value::TensorRef;
 
+use super::backend::{build_backend, InferenceBackend};
 use super::config::OcrConfig;
 use super::error::{OcrError, OcrResult};
 use super::preprocessor::preprocess_for_recognition;
@@ -26,13 +24,10 @@ pub struct RecognitionResult {
     pub char_confidences: Vec<f32>,
 }
 
-/// Text recognizer using SVTR ONNX model.
+/// Text recognizer using an SVTR ONNX model, run through a pluggable
+/// [`InferenceBackend`] (`ort` natively, `tract` on `wasm32`).
 pub struct TextRecognizer {
-    /// ONNX Runtime session (Mutex for thread-safe mutable access)
-    session: Mutex<Option<Session>>,
-    /// Model bytes for reference
-    #[allow(dead_code)]
-    model_bytes: Option<Vec<u8>>,
+    backend: Box<dyn InferenceBackend>,
     dictionary: Vec<char>,
     config: OcrConfig,
 }
@@ -84,20 +79,9 @@ impl TextRecognizer {
         config: OcrConfig,
     ) -> OcrResult<Self> {
         let dictionary = Self::parse_dictionary(dict_content)?;
-
-        // Build session with optimization
-        let session = Session::builder()
-            .map_err(|e| {
-                OcrError::ModelLoadError(format!("Failed to create session builder: {}", e))
-            })?
-            .with_intra_threads(config.num_threads)
-            .map_err(|e| OcrError::ModelLoadError(format!("Failed to set threads: {}", e)))?
-            .commit_from_memory(model_bytes)
-            .map_err(|e| OcrError::ModelLoadError(format!("Failed to load model: {}", e)))?;
-
+        let backend = build_backend(model_bytes, config.num_threads)?;
         Ok(Self {
-            session: Mutex::new(Some(session)),
-            model_bytes: Some(model_bytes.to_vec()),
+            backend,
             dictionary,
             config,
         })
@@ -109,6 +93,18 @@ impl TextRecognizer {
     /// and dictionary characters map to indices 1..N. We insert a blank
     /// placeholder at index 0 so that `dictionary[model_index]` gives
     /// the correct character.
+    ///
+    /// PaddleOCR also emits a **space** as its last class. Native
+    /// provisioning (`AutoExtractor::prefetch_models`) appends a
+    /// trailing-space line to the dict file so that class is decodable.
+    /// The `wasm32` build, however, receives dict *bytes* directly from
+    /// the host (no filesystem / no `prefetch_models` post-processing —
+    /// #524), so guarantee the space class here instead: append a
+    /// trailing space unless the dict already ends with one. Idempotent
+    /// (native dicts already end with `" "` → no-op) and safe for models
+    /// without a space class (the extra index is simply never the
+    /// arg-max). Without this, every inter-word space is dropped and the
+    /// text runs together (empirically confirmed, #524 task 5).
     fn parse_dictionary(content: &str) -> OcrResult<Vec<char>> {
         let chars: Vec<char> = content
             .lines()
@@ -121,9 +117,12 @@ impl TextRecognizer {
         }
 
         // Prepend blank character at index 0 (PaddleOCR CTC blank convention)
-        let mut dict = Vec::with_capacity(chars.len() + 1);
+        let mut dict = Vec::with_capacity(chars.len() + 2);
         dict.push('\0'); // index 0 = CTC blank
         dict.extend(chars);
+        if dict.last() != Some(&' ') {
+            dict.push(' '); // PaddleOCR space class (last)
+        }
 
         Ok(dict)
     }
@@ -160,40 +159,12 @@ impl TextRecognizer {
         crops.iter().map(|crop| self.recognize(crop)).collect()
     }
 
-    /// Run ONNX model inference.
+    /// Run model inference through the configured backend.
     fn run_inference(&self, input: &Array4<f32>) -> OcrResult<RecognitionResult> {
-        let mut session_guard = self.session.lock().map_err(|e| {
-            OcrError::InferenceError(format!("Failed to acquire session lock: {}", e))
-        })?;
-
-        let session = session_guard
-            .as_mut()
-            .ok_or_else(|| OcrError::InferenceError("Model session not initialized".to_string()))?;
-
-        // Create input tensor reference from ndarray
-        let input_tensor = TensorRef::from_array_view(input).map_err(|e| {
-            OcrError::InferenceError(format!("Failed to create input tensor: {}", e))
-        })?;
-
-        // Run inference
-        // SVTR typically has input named "x" and output named "softmax_0.tmp_0" or similar
-        let outputs = session
-            .run(ort::inputs!["x" => input_tensor])
-            .map_err(|e| OcrError::InferenceError(format!("Inference failed: {}", e)))?;
-
-        // Extract output - SVTR outputs [N, W, num_classes] softmax scores
-        // Get the first output (models typically have one output)
-        let (_, output_tensor) = outputs
-            .iter()
-            .next()
-            .ok_or_else(|| OcrError::InferenceError("No output tensor found".to_string()))?;
-
-        let output_array = output_tensor
-            .try_extract_array::<f32>()
-            .map_err(|e| OcrError::InferenceError(format!("Failed to extract output: {}", e)))?;
-
-        // Decode using CTC greedy decoding
-        self.ctc_greedy_decode(&output_array)
+        // SVTR outputs `[N, T, C]` (or `[T, C]`) softmax scores.
+        let output_array = self.backend.run(input)?;
+        // Decode using CTC greedy decoding.
+        self.ctc_greedy_decode(&output_array.view())
     }
 
     /// CTC greedy decoding.
@@ -272,13 +243,16 @@ impl TextRecognizer {
         &self.dictionary
     }
 
-    /// Check if model is loaded
+    /// Check if a model is loaded. A `TextRecognizer` cannot be
+    /// constructed without a successfully built backend, so this is
+    /// always `true` once the value exists (kept for API stability).
     pub fn is_loaded(&self) -> bool {
-        self.session.lock().map(|s| s.is_some()).unwrap_or(false)
+        true
     }
 }
 
-// TextRecognizer is Send + Sync because it uses Mutex<Session>
+// `TextRecognizer` is `Send + Sync`: the backend trait object is bound
+// `Send + Sync` and all other fields are.
 
 #[cfg(test)]
 mod tests {
@@ -289,11 +263,28 @@ mod tests {
         let dict_content = "a\nb\nc\n1\n2\n3";
         let dict = TextRecognizer::parse_dictionary(dict_content).unwrap();
 
-        // Should have 1 blank + 6 chars
-        assert_eq!(dict.len(), 7);
+        // 1 blank + 6 chars + appended PaddleOCR space class (#524).
+        assert_eq!(dict.len(), 8);
         assert_eq!(dict[0], '\0'); // Blank at index 0 (PaddleOCR CTC convention)
         assert_eq!(dict[1], 'a');
         assert_eq!(dict[6], '3');
+        assert_eq!(dict[7], ' '); // space is the last class
+    }
+
+    #[test]
+    fn test_parse_dictionary_space_class_is_idempotent() {
+        // A dict that already ends with a lone-space line (how native
+        // `prefetch_models` writes it) must NOT get a second space —
+        // otherwise the dict is one class too long and every output
+        // index is shifted, garbling all text (#524 task 5).
+        let with_space = TextRecognizer::parse_dictionary("a\nb\n ").unwrap();
+        assert_eq!(with_space, vec!['\0', 'a', 'b', ' ']);
+
+        // A raw dict with no space line (how the wasm host supplies
+        // bytes) gets exactly one space appended so the space class is
+        // decodable and inter-word spaces survive.
+        let no_space = TextRecognizer::parse_dictionary("a\nb").unwrap();
+        assert_eq!(no_space, vec!['\0', 'a', 'b', ' ']);
     }
 
     #[test]

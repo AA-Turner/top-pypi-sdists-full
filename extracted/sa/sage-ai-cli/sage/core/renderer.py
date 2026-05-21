@@ -1616,8 +1616,8 @@ def is_quiet() -> bool:
 
 
 def is_minimal() -> bool:
-    """Legacy: Check if in minimal mode (maps to clean/normal)."""
-    return _output_mode in ("clean", "normal")
+    """Check if in minimal/clean mode — suppresses phase output."""
+    return _output_mode == "clean"
 
 
 # ── Phase & Status Display ─────────────────────────────────
@@ -1625,17 +1625,25 @@ def is_minimal() -> bool:
 
 # Phase icons and colors for the agent workflow
 _PHASE_STYLES = {
-    "thinking": ("bold #9cc3ff", "◌"),
-    "planning": ("bold #8bb8ff", "◎"),
-    "reading": ("bold #b8dcff", "◍"),
-    "coding": ("bold #c8b9ff", "◆"),
-    "writing": ("bold #8fcd9d", "▸"),
-    "testing": ("bold #d7bb83", "◈"),
-    "fixing": ("bold #ef7f8c", "↺"),
-    "executing": ("bold #8ec5ff", "▹"),
+    "thinking":   ("bold #9cc3ff", "◌"),
+    "planning":   ("bold #8bb8ff", "◎"),
+    "reading":    ("bold #b8dcff", "◍"),
+    "coding":     ("bold #c8b9ff", "◆"),
+    "writing":    ("bold #8fcd9d", "▸"),
+    "testing":    ("bold #d7bb83", "◈"),
+    "fixing":     ("bold #ef7f8c", "↺"),
+    "executing":  ("bold #8ec5ff", "▹"),
     "validating": ("bold #dce8ff", "◇"),
-    "done": ("bold #8fcd9d", "✓"),
-    "error": ("bold #ef7f8c", "✕"),
+    "searching":  ("bold #b8dcff", "⌕"),
+    "scanning":   ("bold #b8dcff", "⌕"),
+    "analyzing":  ("bold #8bb8ff", "◎"),
+    "compacting": ("dim #aaaaaa",  "⋯"),
+    "fetching":   ("bold #8ec5ff", "↓"),
+    "delete":     ("bold #ef7f8c", "✕"),
+    "pull":       ("bold #8ec5ff", "↓"),
+    "update":     ("bold #8fcd9d", "↑"),
+    "done":       ("bold #8fcd9d", "✓"),
+    "error":      ("bold #ef7f8c", "✕"),
 }
 
 
@@ -1644,8 +1652,8 @@ def phase(name: str, detail: str = "") -> None:
 
     Respects output mode:
     - clean: Only shows critical phases (done, error)
-    - normal: Shows important phases (done, error, writing, reading)
-    - verbose: Shows all phases
+    - normal: Shows all phases so users see what sage is doing
+    - verbose: Same as normal plus raw thinking blocks in stream output
     """
     if has_bottom_dock():
         summary = f"{name.capitalize()}: {detail}" if detail else name.capitalize()
@@ -1655,10 +1663,7 @@ def phase(name: str, detail: str = "") -> None:
         # In clean mode, only show done/error
         if name not in ("done", "error"):
             return
-    elif not is_verbose():
-        # In normal mode, show essential phases only
-        if name not in ("done", "error", "writing", "reading"):
-            return
+    # normal and verbose both show every phase
     style, icon = _PHASE_STYLES.get(name, ("dim", "·"))
     detail_str = f"  [dim]{detail}[/dim]" if detail else ""
     console.print(f"  [{style}]{icon} {name.capitalize()}[/{style}]{detail_str}")
@@ -1932,16 +1937,51 @@ def stream_tokens_with_phase(
     # most important feedback signal. Without it, the terminal is completely
     # silent for 5-60s during cold starts or long reasoning chains, making
     # sage appear frozen. In clean mode it's a plain "Processing..." dot;
-    # in normal/verbose modes it's the familiar "⟡ Thinking..." indicator.
+    # in normal/verbose modes it's the familiar "⟡ Thinking..." indicator
+    # with the model name and elapsed seconds so the user knows it's working.
     show_spinner = not has_bottom_dock()  # always show unless dock is active
-    spinner_text = (
-        "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
-        if clean_mode
-        else "  [bold yellow]⟡ Thinking...[/bold yellow]  [dim](Ctrl+C to cancel)[/dim]"
-        + (f"  [dim]{model_id}[/dim]" if model_id else "")
-    )
-    spinner = Spinner("dots", text=Text.from_markup(spinner_text))
-    live = Live(spinner, console=console, refresh_per_second=12, transient=True)
+
+    _spinner_model = f"  [dim]{model_id}[/dim]" if model_id and not clean_mode else ""
+    _spinner_start = time.monotonic()
+
+    class _ElapsedSpinner:
+        """Spinner text that updates elapsed seconds so the user can see progress."""
+        def __rich__(self):
+            elapsed = time.monotonic() - _spinner_start
+            if clean_mode:
+                txt = "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
+            else:
+                txt = (
+                    f"  [bold yellow]⟡ Thinking...[/bold yellow]"
+                    f"  [dim]{elapsed:.0f}s[/dim]{_spinner_model}"
+                    f"  [dim](Ctrl+C to cancel)[/dim]"
+                )
+            from rich.spinner import Spinner as _Spinner
+            s = _Spinner("dots", text=Text.from_markup(txt))
+            return s.__rich__()
+
+    spinner = Spinner("dots", text=Text.from_markup(
+        "  [bold yellow]⟡ Thinking...[/bold yellow]"
+        f"{_spinner_model}  [dim](Ctrl+C to cancel)[/dim]"
+        if not clean_mode
+        else "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
+    ))
+    live = Live(spinner, console=console, refresh_per_second=4, transient=True)
+
+    def _update_spinner() -> None:
+        """Refresh spinner text with elapsed time — called on each token loop tick."""
+        if not live.is_started:
+            return
+        elapsed = time.monotonic() - _spinner_start
+        if clean_mode:
+            txt = "  [bold cyan]● Processing...[/bold cyan]  [dim](Ctrl+C to cancel)[/dim]"
+        else:
+            txt = (
+                f"  [bold yellow]⟡ Thinking...  {elapsed:.0f}s[/bold yellow]"
+                f"{_spinner_model}  [dim](Ctrl+C to cancel)[/dim]"
+            )
+        spinner.text = Text.from_markup(txt)
+
     if show_spinner:
         live.start()
 
@@ -1961,6 +2001,10 @@ def stream_tokens_with_phase(
             if _sigint_received:
                 cancelled = True
                 break
+
+            # Tick the elapsed-time counter so the spinner shows "5s", "10s"…
+            # keeping the user informed the model is still working.
+            _update_spinner()
 
             # Always capture the full response (including thinking) for callers
             parts.append(token)

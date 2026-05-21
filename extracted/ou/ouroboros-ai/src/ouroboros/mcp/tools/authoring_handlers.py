@@ -203,11 +203,24 @@ def _normalize_interview_answer(answer: str) -> str:
     return " ".join(re.findall(r"[a-z0-9']+", answer.lower()))
 
 
+def _is_safe_default_synthesis_completion(answer: str | None) -> bool:
+    """Return True for the auto driver's auditable safe-default close signal."""
+    return bool(
+        answer is not None
+        and answer.lstrip().lower().startswith("[from-auto][safe-default-synthesis]")
+    )
+
+
 def _is_interview_completion_signal(answer: str | None) -> bool:
     """Return True when the answer explicitly asks to end the interview.
 
     Only ``[from-user]`` and prefix-less answers represent human intent to close.
-    The auto driver's ``_feature_acceptance_answer`` echoes the LLM question into
+    The one deterministic non-human exception is the auto driver's
+    ``[from-auto][safe-default-synthesis]`` payload, which is emitted only after
+    the driver has already accepted auditable safe defaults for the remaining
+    required gaps and must close the persisted interview in the same turn.
+
+    The auto driver's ordinary ``_feature_acceptance_answer`` echoes the LLM question into
     its answer text, which can accidentally include phrases like "no remaining
     ambiguity" and trip the shortfall branch. Gate the heuristic by prefix so
     ``[from-auto]`` / ``[from-code]`` / ``[from-research]`` answers — which carry
@@ -224,7 +237,18 @@ def _is_interview_completion_signal(answer: str | None) -> bool:
         return False
 
     stripped = answer.lstrip().lower()
-    if stripped.startswith("[from-") and not stripped.startswith("[from-user]"):
+    # Auto-generated answers normally must not express user intent to close, but
+    # the safe-default finalizer is the one deterministic exception: the auto
+    # driver has already decided the remaining required gaps are conservative
+    # defaults and now needs the persisted interview session to close in the
+    # same turn that records those defaults.  Keep this allowance tied to the
+    # explicit synthesis tag so ordinary ``[from-auto]`` answers remain guarded.
+    allow_auto_safe_default_completion = _is_safe_default_synthesis_completion(answer)
+    if (
+        stripped.startswith("[from-")
+        and not stripped.startswith("[from-user]")
+        and not allow_auto_safe_default_completion
+    ):
         return False
 
     normalized = _normalize_interview_answer(answer)
@@ -311,6 +335,48 @@ def _milestone_for_score(score: AmbiguityScore | None) -> str | None:
     return milestone.value
 
 
+_MILESTONE_RANKS = {
+    "initial": 0,
+    "progress": 1,
+    "refined": 2,
+    "ready": 3,
+}
+
+
+def _maybe_record_lateral_review_advisory(
+    state: InterviewState,
+    *,
+    previous_milestone: str | None,
+    score: AmbiguityScore | None,
+) -> dict[str, Any] | None:
+    """Return advisory meta for a first-time forward milestone transition.
+
+    This helper is intentionally deterministic and side-effect free: it only
+    computes whether the next response should carry an advisory. The caller
+    persists the advised milestone after it knows a question-bearing response
+    will actually be returned, so auto-complete and question-generation failure
+    paths do not consume the advisory without surfacing it.
+    """
+    current_milestone = _milestone_for_score(score)
+    if previous_milestone is None or current_milestone is None:
+        return None
+
+    previous_rank = _MILESTONE_RANKS.get(previous_milestone)
+    current_rank = _MILESTONE_RANKS.get(current_milestone)
+    if previous_rank is None or current_rank is None or current_rank <= previous_rank:
+        return None
+
+    if current_milestone in state.lateral_review_advised_milestones:
+        return None
+
+    return {
+        "lateral_review_recommended": True,
+        "lateral_review_milestone": current_milestone,
+        "lateral_review_from_milestone": previous_milestone,
+        "lateral_review_reason": "first_forward_milestone_transition",
+    }
+
+
 def _compute_transcript_chars(state: InterviewState) -> int:
     """Sum question + user_response length over every round in ``state``.
 
@@ -363,6 +429,90 @@ def _length_guard_meta_fields() -> dict[str, Any]:
         "reason": "initial_context_too_large",
         "expected_action": "resend_with_summary",
         "max_chars": MAX_PROMPT_SAFE_INITIAL_CONTEXT_CHARS,
+    }
+
+
+def _interview_reasoning_meta(
+    *,
+    state: InterviewState | None,
+    session_id: str | None,
+    phase: str,
+    next_action: str,
+    score: AmbiguityScore | None = None,
+    question: str | None = None,
+    recoverable: bool = False,
+) -> dict[str, Any]:
+    """Build compact interview reasoning metadata for client-side UI surfaces."""
+    answered_rounds = _count_answered_rounds(state) if state is not None else None
+    total_rounds = len(state.rounds) if state is not None else None
+    pending_question = (
+        bool(state.rounds and state.rounds[-1].user_response is None)
+        if state is not None
+        else False
+    )
+    floor_failures: list[str] = []
+    completion_qualified: bool | None = None
+    if score is not None:
+        floor_failures = get_completion_floor_failures(
+            score,
+            is_brownfield=state.is_brownfield if state is not None else False,
+        )
+        completion_qualified = (
+            qualifies_for_seed_completion(
+                score,
+                is_brownfield=state.is_brownfield if state is not None else False,
+            )
+            and not floor_failures
+        )
+
+    lines = [f"phase: {phase}"]
+    if session_id:
+        lines.append(f"session: {session_id}")
+    if answered_rounds is not None and total_rounds is not None:
+        lines.append(f"rounds: {answered_rounds} answered / {total_rounds} total")
+    if state is not None:
+        lines.append(f"brownfield: {str(state.is_brownfield).lower()}")
+        if pending_question:
+            lines.append("pending: waiting for user answer")
+        if state.completion_candidate_streak:
+            lines.append(
+                f"stability: {state.completion_candidate_streak}/{AUTO_COMPLETE_STREAK_REQUIRED}"
+            )
+    if score is not None:
+        lines.append(f"ambiguity: {score.overall_score:.2f}")
+        milestone = _milestone_for_score(score)
+        if milestone:
+            lines.append(f"milestone: {milestone}")
+        if floor_failures:
+            lines.append(f"completion blocked: {'; '.join(floor_failures)}")
+    if question:
+        lines.append(f"question_chars: {len(question)}")
+    if recoverable:
+        lines.append("recoverable: true")
+    lines.append(f"next: {next_action}")
+
+    return {
+        "internal_reasoning": lines,
+        "interview_reasoning": {
+            "phase": phase,
+            "next_action": next_action,
+            "session_id": session_id,
+            "answered_rounds": answered_rounds,
+            "total_rounds": total_rounds,
+            "pending_question": pending_question,
+            "is_brownfield": state.is_brownfield if state is not None else None,
+            "ambiguity_score": score.overall_score if score is not None else None,
+            "milestone": _milestone_for_score(score),
+            "seed_ready": (score.is_ready_for_seed if score is not None else None),
+            "completion_qualified": completion_qualified,
+            "completion_floor_failures": floor_failures,
+            "completion_candidate_streak": (
+                state.completion_candidate_streak if state is not None else None
+            ),
+            "streak_required": AUTO_COMPLETE_STREAK_REQUIRED,
+            "recoverable": recoverable,
+            "question_chars": len(question) if question else None,
+        },
     }
 
 
@@ -1134,6 +1284,7 @@ class InterviewHandler:
         session_id: str,
         score: AmbiguityScore | None,
         *,
+        state: InterviewState | None = None,
         is_brownfield: bool,
     ) -> Result[MCPToolResult, MCPServerError]:
         """Build an MCP response refusing premature interview completion."""
@@ -1158,6 +1309,13 @@ class InterviewHandler:
                     "ambiguity_score": (score.overall_score if score is not None else None),
                     "milestone": _milestone_for_score(score),
                     "seed_ready": False,
+                    **_interview_reasoning_meta(
+                        state=state,
+                        session_id=session_id,
+                        phase="completion_gate",
+                        next_action="ask another clarification question",
+                        score=score,
+                    ),
                 },
             )
         )
@@ -1220,6 +1378,13 @@ class InterviewHandler:
                     "milestone": _milestone_for_score(score),
                     "seed_ready": score.is_ready_for_seed if score is not None else None,
                     "required_client_gates": REQUIRED_CLIENT_GATES,
+                    **_interview_reasoning_meta(
+                        state=state,
+                        session_id=session_id,
+                        phase="complete",
+                        next_action="generate seed after client gates",
+                        score=score,
+                    ),
                 },
             )
         )
@@ -1385,6 +1550,7 @@ class InterviewHandler:
 
             transcript = ""
             real_session_id = session_id
+            plugin_state: InterviewState | None = None
 
             if action == "start" and initial_context:
                 cwd = arguments.get("cwd") or os.getcwd()
@@ -1414,6 +1580,7 @@ class InterviewHandler:
                     interview_id=interview_id,
                     initial_context=resolved_context.value,
                 )
+                plugin_state = state
                 # Detect brownfield
                 if cwd:
                     from ouroboros.bigbang.explore import detect_brownfield
@@ -1437,6 +1604,7 @@ class InterviewHandler:
                         MCPToolError(str(load_result.error), tool_name="ouroboros_interview")
                     )
                 state = load_result.value
+                plugin_state = state
                 # Record answer into persisted state.
                 # In plugin mode each dispatch = new child session. The child
                 # generates questions but can't write back to server-side state.
@@ -1501,6 +1669,12 @@ class InterviewHandler:
                     "action": action,
                     "status": "delegated_to_subagent",
                     "dispatch_mode": "plugin",
+                    **_interview_reasoning_meta(
+                        state=plugin_state,
+                        session_id=real_session_id,
+                        phase=f"plugin_{action}",
+                        next_action="wait for OpenCode child interview response",
+                    ),
                     "next_turn_hint": (
                         "When the user answers, pass the child session's "
                         "question text as 'last_question' alongside 'answer' "
@@ -1672,7 +1846,18 @@ class InterviewHandler:
                                     ),
                                 ),
                                 is_error=True,
-                                meta={"session_id": state.interview_id, "recoverable": True},
+                                meta={
+                                    "session_id": state.interview_id,
+                                    "recoverable": True,
+                                    **_interview_reasoning_meta(
+                                        state=state,
+                                        session_id=state.interview_id,
+                                        phase="start_question_failed",
+                                        next_action="resume interview and retry question generation",
+                                        score=live_score,
+                                        recoverable=True,
+                                    ),
+                                },
                             )
                         )
                     # Generic question-generation failure (timeout etc.):
@@ -1696,7 +1881,18 @@ class InterviewHandler:
                                 ),
                             ),
                             is_error=True,
-                            meta={"session_id": state.interview_id, "recoverable": True},
+                            meta={
+                                "session_id": state.interview_id,
+                                "recoverable": True,
+                                **_interview_reasoning_meta(
+                                    state=state,
+                                    session_id=state.interview_id,
+                                    phase="start_question_failed",
+                                    next_action="resume interview and retry question generation",
+                                    score=live_score,
+                                    recoverable=True,
+                                ),
+                            },
                         )
                     )
 
@@ -1747,6 +1943,14 @@ class InterviewHandler:
                     "milestone": _milestone_for_score(live_score),
                     "seed_ready": (
                         live_score.is_ready_for_seed if live_score is not None else None
+                    ),
+                    **_interview_reasoning_meta(
+                        state=state,
+                        session_id=state.interview_id,
+                        phase="start",
+                        next_action="ask user to answer pending question",
+                        score=live_score,
+                        question=question,
                     ),
                 }
                 if is_length_guard:
@@ -1826,6 +2030,14 @@ class InterviewHandler:
                             state.ambiguity_score is not None
                             and state.ambiguity_score <= AMBIGUITY_THRESHOLD
                         ),
+                        **_interview_reasoning_meta(
+                            state=state,
+                            session_id=session_id,
+                            phase="resume_pending",
+                            next_action="ask user to answer pending question",
+                            score=_load_state_ambiguity_score(state),
+                            question=pending_question,
+                        ),
                     }
                     if resume_is_length_guard:
                         # Q00/ouroboros#831 (Direction A): structured signal
@@ -1864,9 +2076,12 @@ class InterviewHandler:
                         )
                     )
 
+                lateral_review_meta: dict[str, Any] | None = None
+
                 # If answer provided, record it first
                 if answer:
                     if _is_interview_completion_signal(answer):
+                        is_safe_default_synthesis = _is_safe_default_synthesis_completion(answer)
                         # Remember whether a round is awaiting an answer so we
                         # can pop it only on the branches that actually end
                         # the interview. Shortfall/refusal paths keep the
@@ -1904,6 +2119,16 @@ class InterviewHandler:
                             exit_score,
                             is_brownfield=state.is_brownfield,
                         ):
+                            if is_safe_default_synthesis:
+                                if has_pending_round:
+                                    state.rounds.pop()
+                                return await self._complete_interview_response(
+                                    engine,
+                                    state,
+                                    session_id,
+                                    exit_score,
+                                )
+
                             # Explicit 'done' with a qualifying score counts
                             # as an implicit stability signal — advance the
                             # streak so repeated 'done' inputs can progress
@@ -1986,6 +2211,13 @@ class InterviewHandler:
                                             state.completion_candidate_streak
                                         ),
                                         "streak_required": AUTO_COMPLETE_STREAK_REQUIRED,
+                                        **_interview_reasoning_meta(
+                                            state=state,
+                                            session_id=session_id,
+                                            phase="completion_stability_check",
+                                            next_action="confirm done again or answer pending question",
+                                            score=exit_score,
+                                        ),
                                     },
                                 )
                             )
@@ -2019,6 +2251,7 @@ class InterviewHandler:
                         return self._ambiguity_gate_response(
                             session_id,
                             exit_score,
+                            state=state,
                             is_brownfield=state.is_brownfield,
                         )
 
@@ -2047,6 +2280,17 @@ class InterviewHandler:
                     # answer to the previously-answered question, corrupting
                     # the transcript. Require the caller to supply the
                     # question via ``last_question``.
+                    # If this is the first live ambiguity score, the interview
+                    # is crossing from the implicit starting milestone.  Treat
+                    # the absent stored score as ``initial`` so the normal first
+                    # ``initial -> progress/refined/ready`` transition can
+                    # surface the advisory instead of being skipped forever.
+                    previous_milestone = (
+                        get_milestone(state.ambiguity_score)[0].value
+                        if state.ambiguity_score is not None
+                        else "initial"
+                    )
+
                     if state.rounds[-1].user_response is None:
                         pending_question = last_question or state.rounds[-1].question
                         state.rounds.pop()
@@ -2113,6 +2357,11 @@ class InterviewHandler:
                         # Running them in parallel would give the question
                         # generator stale routing context.
                         live_score = await self._score_interview_state(llm_adapter, state)
+                        lateral_review_meta = _maybe_record_lateral_review_advisory(
+                            state,
+                            previous_milestone=previous_milestone,
+                            score=live_score,
+                        )
                         if (
                             live_score is not None
                             and qualifies_for_seed_completion(
@@ -2173,12 +2422,40 @@ class InterviewHandler:
                                     ),
                                 ),
                                 is_error=True,
-                                meta={"session_id": session_id, "recoverable": True},
+                                meta={
+                                    "session_id": session_id,
+                                    "recoverable": True,
+                                    **_interview_reasoning_meta(
+                                        state=state,
+                                        session_id=session_id,
+                                        phase="next_question_failed",
+                                        next_action="resume interview and retry question generation",
+                                        score=live_score,
+                                        recoverable=True,
+                                    ),
+                                },
                             )
                         )
                     return Result.err(MCPToolError(error_msg, tool_name="ouroboros_interview"))
 
                 question = question_result.value
+                if lateral_review_meta is not None and live_score is not None:
+                    state.note_lateral_review_advisory(
+                        lateral_review_meta["lateral_review_milestone"]
+                    )
+                    from ouroboros.events.interview import (
+                        interview_lateral_review_recommended,
+                    )
+
+                    self._emit_event_bg(
+                        interview_lateral_review_recommended(
+                            session_id,
+                            from_milestone=lateral_review_meta["lateral_review_from_milestone"],
+                            to_milestone=lateral_review_meta["lateral_review_milestone"],
+                            ambiguity_score=live_score.overall_score,
+                            round_number=len(state.rounds),
+                        )
+                    )
                 display_question = _format_question_with_ambiguity(question, live_score)
 
                 # Save pending question as unanswered round for next resume
@@ -2215,6 +2492,14 @@ class InterviewHandler:
                     "seed_ready": (
                         live_score.is_ready_for_seed if live_score is not None else None
                     ),
+                    **_interview_reasoning_meta(
+                        state=state,
+                        session_id=session_id,
+                        phase="answer",
+                        next_action="ask user to answer pending question",
+                        score=live_score,
+                        question=question,
+                    ),
                 }
                 if answer_is_length_guard:
                     # Q00/ouroboros#831 (Direction A): structured signal when
@@ -2222,6 +2507,9 @@ class InterviewHandler:
                     # guard meta-directive.  ``is_error`` stays ``False`` so
                     # the auto driver's ``answer()`` path is not raised on.
                     answer_meta.update(_length_guard_meta_fields())
+
+                if lateral_review_meta is not None:
+                    answer_meta.update(lateral_review_meta)
 
                 answer_response_text = f"Session {session_id}\n\n{display_question}"
                 # Q00/ouroboros#831 (diagnostics): response-shape event for

@@ -31,7 +31,17 @@ from pathlib import Path
 from typing import Any
 
 from ouroboros.plugin.hooks import (
+    HOOK_BLOCKED_EVENT,
+    HOOK_COMPLETED_EVENT,
+    HOOK_EVENT_TYPES,
+    HOOK_FAILED_EVENT,
+    HOOK_INVOKED_EVENT,
+    HOOK_LIFECYCLE_POLICY_SCOPE,
     HOOK_LIFECYCLE_READ_SCOPE,
+    HOOK_LIFECYCLE_SCOPES,
+    TERMINAL_OBSERVABILITY_HOOK_NAMES,
+    HookFailurePolicy,
+    HookKind,
     is_deferred_hook_kind,
     is_excluded_hook_kind,
     is_v1_failure_policy,
@@ -163,6 +173,67 @@ class AuditSpec:
             )
         )
 
+    @staticmethod
+    def standard_events_for_schema(schema_version: str) -> AuditSpec:
+        if schema_version == "0.3":
+            return AuditSpec(
+                events=(
+                    *AuditSpec.standard_four_events().events,
+                    HOOK_INVOKED_EVENT,
+                    HOOK_COMPLETED_EVENT,
+                    HOOK_BLOCKED_EVENT,
+                    HOOK_FAILED_EVENT,
+                )
+            )
+        return AuditSpec.standard_four_events()
+
+
+@dataclass(frozen=True)
+class PluginActionDescriptor:
+    """Read-only action projection for one manifest command.
+
+    The descriptor is intentionally derived only from validated manifest data.
+    It must not import plugin modules or execute entrypoints.
+    """
+
+    action_id: str
+    namespace: str
+    name: str
+    summary: str
+    usage: str
+    risk: str
+    requires_confirmation: bool
+    arguments: tuple[CommandArgument, ...]
+    entrypoint: Entrypoint
+    required_permissions: tuple[str, ...]
+    optional_permissions: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PluginDescriptor:
+    """Harness-readable plugin component/action projection.
+
+    This is a validation/read-model contract for plugin discovery and future
+    conformance checks. It does not grant permissions, dispatch hooks, or run the
+    plugin entrypoint.
+    """
+
+    component_id: str
+    plugin_id: str
+    kind: str
+    name: str
+    version: str
+    schema_version: str
+    source: SourceSpec
+    entrypoint: Entrypoint
+    actions: tuple[PluginActionDescriptor, ...]
+    capabilities_declared: tuple[Capability, ...]
+    permissions_declared: tuple[Permission, ...]
+    lifecycle_hooks: tuple[HookSpec, ...]
+    audit_events: tuple[str, ...]
+    compatibility: tuple[str, ...]
+    description: str = ""
+
 
 @dataclass(frozen=True)
 class PluginManifest:
@@ -187,6 +258,55 @@ class PluginManifest:
     description: str = ""
     audit: AuditSpec = field(default_factory=AuditSpec.standard_four_events)
     hooks: tuple[HookSpec, ...] = ()
+
+    def to_descriptor(self) -> PluginDescriptor:
+        """Project this manifest into a pure component/action descriptor."""
+        return plugin_descriptor_from_manifest(self)
+
+
+def plugin_descriptor_from_manifest(manifest: PluginManifest) -> PluginDescriptor:
+    """Return a pure read-model descriptor for a validated plugin manifest.
+
+    The projection is manifest-only by design: it reuses frozen dataclasses from
+    ``load_manifest`` and never imports plugin code or executes entrypoint
+    commands.
+    """
+
+    required_permissions = tuple(p.scope for p in manifest.permissions if p.required)
+    optional_permissions = tuple(p.scope for p in manifest.permissions if not p.required)
+    actions = tuple(
+        PluginActionDescriptor(
+            action_id=f"{manifest.name}:{command.namespace}:{command.name}",
+            namespace=command.namespace,
+            name=command.name,
+            summary=command.summary,
+            usage=command.usage,
+            risk=command.risk,
+            requires_confirmation=command.requires_confirmation,
+            arguments=command.arguments,
+            entrypoint=manifest.entrypoint,
+            required_permissions=required_permissions,
+            optional_permissions=optional_permissions,
+        )
+        for command in manifest.commands
+    )
+    return PluginDescriptor(
+        component_id=manifest.name,
+        plugin_id=manifest.name,
+        kind="plugin",
+        name=manifest.name,
+        version=manifest.version,
+        schema_version=manifest.schema_version,
+        source=manifest.source,
+        entrypoint=manifest.entrypoint,
+        actions=actions,
+        capabilities_declared=manifest.capabilities,
+        permissions_declared=manifest.permissions,
+        lifecycle_hooks=manifest.hooks,
+        audit_events=manifest.audit.events,
+        compatibility=SUPPORTED_SCHEMA_VERSIONS,
+        description=manifest.description,
+    )
 
 
 def _load_schema(schema_version: str, *, manifest_path: str | Path) -> dict[str, Any]:
@@ -355,6 +475,7 @@ def _build_hook(
     raw: dict[str, Any],
     *,
     declared_permission_scopes: frozenset[str],
+    declared_required_permission_scopes: frozenset[str],
     hook_index: int,
     manifest_path: str | Path,
     schema_version: str,
@@ -373,6 +494,13 @@ def _build_hook(
         hook_index=hook_index,
         manifest_path=manifest_path,
     )
+    _validate_after_invocation_policy(
+        hook_name,
+        failure_policy,
+        hook_index=hook_index,
+        manifest_path=manifest_path,
+        schema_version=schema_version,
+    )
 
     for permission_index, scope in enumerate(raw.get("permissions", ())):
         if scope not in declared_permission_scopes:
@@ -389,6 +517,7 @@ def _build_hook(
 
     _validate_hook_lifecycle_permission(
         raw,
+        declared_required_permission_scopes=declared_required_permission_scopes,
         hook_index=hook_index,
         manifest_path=manifest_path,
         schema_version=schema_version,
@@ -411,29 +540,88 @@ def _build_hook(
 def _validate_hook_lifecycle_permission(
     raw: dict[str, Any],
     *,
+    declared_required_permission_scopes: frozenset[str],
     hook_index: int,
     manifest_path: str | Path,
     schema_version: str,
 ) -> None:
-    """Require v0.3 lifecycle hooks to declare the v1 read permission.
+    """Require v0.3 lifecycle hooks to declare a v1 lifecycle permission.
 
-    Earlier slices introduced ``plugin:lifecycle:read`` as the permission
-    boundary for v1 observability hooks. Enforce it only for the tightened
-    v0.3 hook contract so supported v0.2 manifests keep their compatibility
-    behavior until that schema version is retired deliberately.
+    ``plugin:lifecycle:read`` remains the permission boundary for
+    observability hooks, and it must be a required top-level permission
+    before the firewall can dispatch those hooks. Hooks that can veto
+    command execution through ``fail_closed`` must declare the stronger
+    ``plugin:lifecycle:policy`` scope and that scope must also be a
+    required top-level permission, because the firewall trust gate authorizes
+    required top-level permissions before hook dispatch. Enforce this only
+    for the tightened v0.3 hook contract so supported v0.2 manifests keep
+    their compatibility behavior until that schema version is retired
+    deliberately.
     """
 
     if schema_version != "0.3" or not is_v1_hook_kind(raw["name"]):
         return
     permissions = raw.get("permissions", ())
-    if HOOK_LIFECYCLE_READ_SCOPE in permissions:
+    if raw["name"] in TERMINAL_OBSERVABILITY_HOOK_NAMES:
+        if HOOK_LIFECYCLE_READ_SCOPE not in permissions:
+            raise PluginManifestError(
+                "v0.3 terminal observability hook must declare plugin:lifecycle:read",
+                path=str(manifest_path),
+                json_pointer=f"/hooks/{hook_index}/permissions",
+                expected=f"{HOOK_LIFECYCLE_READ_SCOPE!r} in hooks[].permissions",
+                got=permissions,
+            )
+        if HOOK_LIFECYCLE_READ_SCOPE not in declared_required_permission_scopes:
+            raise PluginManifestError(
+                "v0.3 terminal observability hook read permission must be required",
+                path=str(manifest_path),
+                json_pointer="/permissions",
+                expected=(f"top-level {HOOK_LIFECYCLE_READ_SCOPE!r} permission with required=true"),
+                got=f"required permissions {sorted(declared_required_permission_scopes)!r}",
+            )
+        return
+
+    declared_lifecycle_scopes = HOOK_LIFECYCLE_SCOPES.intersection(permissions)
+    if not declared_lifecycle_scopes:
+        raise PluginManifestError(
+            "v0.3 lifecycle hook must declare a lifecycle permission",
+            path=str(manifest_path),
+            json_pointer=f"/hooks/{hook_index}/permissions",
+            expected=f"one of {sorted(HOOK_LIFECYCLE_SCOPES)!r} in hooks[].permissions",
+            got=permissions,
+        )
+    if not declared_lifecycle_scopes.intersection(declared_required_permission_scopes):
+        raise PluginManifestError(
+            "v0.3 lifecycle hook permission must be required",
+            path=str(manifest_path),
+            json_pointer="/permissions",
+            expected=(
+                "top-level lifecycle permission with required=true for one of "
+                f"{sorted(declared_lifecycle_scopes)!r}"
+            ),
+            got=f"required permissions {sorted(declared_required_permission_scopes)!r}",
+        )
+    if (
+        raw["failure_policy"] != HookFailurePolicy.FAIL_CLOSED.value
+        or HOOK_LIFECYCLE_POLICY_SCOPE not in permissions
+    ):
+        if raw["failure_policy"] != HookFailurePolicy.FAIL_CLOSED.value:
+            return
+        raise PluginManifestError(
+            "v0.3 fail_closed lifecycle hook must declare plugin:lifecycle:policy",
+            path=str(manifest_path),
+            json_pointer=f"/hooks/{hook_index}/permissions",
+            expected=f"{HOOK_LIFECYCLE_POLICY_SCOPE!r} in hooks[].permissions",
+            got=permissions,
+        )
+    if HOOK_LIFECYCLE_POLICY_SCOPE in declared_required_permission_scopes:
         return
     raise PluginManifestError(
-        "v0.3 lifecycle hook must declare plugin:lifecycle:read",
+        "v0.3 fail_closed lifecycle hook policy permission must be required",
         path=str(manifest_path),
-        json_pointer=f"/hooks/{hook_index}/permissions",
-        expected=f"{HOOK_LIFECYCLE_READ_SCOPE!r} in hooks[].permissions",
-        got=permissions,
+        json_pointer="/permissions",
+        expected=f"top-level {HOOK_LIFECYCLE_POLICY_SCOPE!r} permission with required=true",
+        got=f"required permissions {sorted(declared_required_permission_scopes)!r}",
     )
 
 
@@ -506,6 +694,81 @@ def _validate_failure_policy(
         json_pointer=f"/hooks/{hook_index}/failure_policy",
         expected="'fail_open' or 'fail_closed'",
         got=repr(failure_policy),
+    )
+
+
+_OBSERVATION_ONLY_V03_HOOK_NAMES: frozenset[str] = frozenset(
+    {HookKind.AFTER_INVOCATION.value, *TERMINAL_OBSERVABILITY_HOOK_NAMES}
+)
+
+
+def _validate_after_invocation_policy(
+    hook_name: str,
+    failure_policy: str,
+    *,
+    hook_index: int,
+    manifest_path: str | Path,
+    schema_version: str,
+) -> None:
+    """Keep v0.3 observation-only hooks from acquiring veto authority.
+
+    v0.3 lifecycle permissions are read-only, so terminal observability
+    hooks (``after_invocation`` plus the additive ``on_error`` /
+    ``on_cancel`` hooks from PR #1131) may observe the completed outcome
+    but must not be able to veto or rewrite it through a fail-closed
+    policy. v0.2 compatibility is left unchanged; those hooks load but
+    runtime dispatch remains disabled.
+    """
+
+    if (
+        schema_version != "0.3"
+        or hook_name not in _OBSERVATION_ONLY_V03_HOOK_NAMES
+        or failure_policy != HookFailurePolicy.FAIL_CLOSED.value
+    ):
+        return
+    raise PluginManifestError(
+        f"v0.3 {hook_name} hooks must use fail_open",
+        path=str(manifest_path),
+        json_pointer=f"/hooks/{hook_index}/failure_policy",
+        expected=f"'fail_open' for v0.3 {hook_name} hooks",
+        got=failure_policy,
+    )
+
+
+def _validate_hook_audit_events(
+    *,
+    audit: AuditSpec,
+    audit_was_explicit: bool,
+    hooks: tuple[HookSpec, ...],
+    manifest_path: str | Path,
+    schema_version: str,
+) -> None:
+    """Keep explicit v0.3 audit declarations aligned with runtime dispatch.
+
+    The firewall always emits the core command invocation events for a
+    started command, and the v0.3 firewall additionally emits hook events
+    when lifecycle hooks are declared. When a v0.3 manifest narrows
+    ``audit.events`` explicitly, that list becomes the runtime contract;
+    accepting a partial emitted vocabulary would let the dispatcher produce
+    records outside that contract. Omitted audit blocks use
+    :meth:`AuditSpec.standard_events_for_schema`, which already includes the
+    complete v0.3 lifecycle vocabulary.
+    """
+
+    if schema_version != "0.3" or not audit_was_explicit:
+        return
+    required_events = set(AuditSpec.standard_four_events().events)
+    if hooks:
+        required_events.update(HOOK_EVENT_TYPES)
+    missing_events = required_events.difference(audit.events)
+    if not missing_events:
+        return
+    raise PluginManifestError(
+        "v0.3 explicit audit.events must include every runtime-emitted event",
+        path=str(manifest_path),
+        json_pointer="/audit/events",
+        expected=f"events including {sorted(required_events)!r}",
+        got=f"missing {sorted(missing_events)!r} from {list(audit.events)!r}",
     )
 
 
@@ -662,20 +925,31 @@ def load_manifest(path: str | Path) -> PluginManifest:
 
     audit_raw = raw.get("audit")
     if audit_raw is None:
-        audit = AuditSpec.standard_four_events()
+        audit = AuditSpec.standard_events_for_schema(schema_version)
+        audit_was_explicit = False
     else:
         audit = AuditSpec(events=tuple(audit_raw["events"]))
+        audit_was_explicit = True
 
     declared_permission_scopes = frozenset(p.scope for p in permissions)
+    declared_required_permission_scopes = frozenset(p.scope for p in permissions if p.required)
     hooks = tuple(
         _build_hook(
             h,
             declared_permission_scopes=declared_permission_scopes,
+            declared_required_permission_scopes=declared_required_permission_scopes,
             hook_index=index,
             manifest_path=manifest_path,
             schema_version=schema_version,
         )
         for index, h in enumerate(raw.get("hooks", ()))
+    )
+    _validate_hook_audit_events(
+        audit=audit,
+        audit_was_explicit=audit_was_explicit,
+        hooks=hooks,
+        manifest_path=manifest_path,
+        schema_version=schema_version,
     )
 
     return PluginManifest(
@@ -700,10 +974,13 @@ __all__ = [
     "Entrypoint",
     "HookSpec",
     "Permission",
+    "PluginActionDescriptor",
+    "PluginDescriptor",
     "PluginManifest",
     "PluginManifestError",
     "SourceSpec",
     "AuditSpec",
     "load_manifest",
+    "plugin_descriptor_from_manifest",
     "SUPPORTED_SCHEMA_VERSIONS",
 ]

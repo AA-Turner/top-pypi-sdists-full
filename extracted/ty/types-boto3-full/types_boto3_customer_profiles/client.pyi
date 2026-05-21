@@ -361,7 +361,8 @@ class CustomerProfilesClient(BaseClient):
     ) -> CreateEventStreamResponseTypeDef:
         """
         Creates an event stream, which is a subscription to real-time events, such as
-        when profiles are created and updated through Amazon Connect Customer Profiles.
+        when profiles are created and updated through Connect Customer Customer
+        Profiles.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/create_event_stream.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_customer_profiles/client/#create_event_stream)

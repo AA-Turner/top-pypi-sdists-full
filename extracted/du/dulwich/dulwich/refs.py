@@ -56,6 +56,7 @@ __all__ = [
 ]
 
 import os
+import sys
 import types
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import suppress
@@ -67,6 +68,11 @@ from typing import (
     NewType,
     TypeVar,
 )
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from .file import _GitFile
@@ -124,7 +130,7 @@ def check_ref_format(refname: Ref) -> bool:
     """
     # These could be combined into one big expression, but are listed
     # separately to parallel [1].
-    if b"/." in refname or refname.startswith(b"."):  # type: ignore[comparison-overlap]
+    if refname == b"@":
         return False
     if b"/" not in refname:  # type: ignore[comparison-overlap]
         return False
@@ -135,12 +141,17 @@ def check_ref_format(refname: Ref) -> bool:
             return False
     if refname[-1] in b"/.":
         return False
-    if refname.endswith(b".lock"):
-        return False
     if b"@{" in refname:  # type: ignore[comparison-overlap]
         return False
     if b"\\" in refname:  # type: ignore[comparison-overlap]
         return False
+    for component in refname.split(b"/"):
+        if not component:
+            return False
+        if component.startswith(b"."):
+            return False
+        if component.endswith(b".lock"):
+            return False
     return True
 
 
@@ -1683,7 +1694,7 @@ def _import_remote_refs(
         if n.startswith(LOCAL_TAG_PREFIX) and not n.endswith(PEELED_TAG_SUFFIX)
     }
     refs_container.import_refs(
-        Ref(LOCAL_TAG_PREFIX), tags, message=message, prune=prune_tags
+        Ref(b"refs/tags"), tags, message=message, prune=prune_tags
     )
 
 
@@ -1706,7 +1717,7 @@ class locked_ref:
         self._realname: Ref | None = None
         self._deleted = False
 
-    def __enter__(self) -> "locked_ref":
+    def __enter__(self) -> Self:
         """Enter the context manager and acquire the lock.
 
         Returns:

@@ -1199,7 +1199,13 @@ class APRTask(OpenROADTask):
             "clock_placement",
             "clock_trees",
             "optimization_placement",
-            "module_view"
+            "module_view",
+            "floating_nets",
+            "overdriven_nets",
+            "snapshot",
+            "placement_view",
+            "routing_view",
+            "markers_view"
         )
         self.add_parameter("reports", f"{{<{','.join(supported)}>}}",
                            "list of reports and images to generate, auto generated")
@@ -1269,7 +1275,7 @@ class APRTask(OpenROADTask):
         if any("*" in pattern for pattern in patterns):
             enum_type = list(
                 NodeType.parse(BaseSchema.get(self, "var", "skip_reports", field="type")))[0]
-            supported_report_types = NodeType.parse(enum_type).values
+            supported_report_types = sorted(NodeType.parse(enum_type).values)
             expanded: List[str] = []
             for pattern in patterns:
                 matches = fnmatch.filter(supported_report_types, pattern)

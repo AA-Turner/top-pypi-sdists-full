@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 from ._version import __version__
-from ._internal import ProfiledRun as _ProfiledRun
+from ._internal import (
+    ProfiledRun as _ProfiledRun,
+    enable_traceback, disable_traceback, set_traceback,
+)
 
 import pyglet
 import sys
 from typing import Callable
 from numbers import Real
+
+# ======================================== TRACEBACK CONFIGURATION ========================================
+enable_traceback()
 
 # ======================================== PRIMITIVES ========================================
 from . import typing, abc, math, shape, asset
@@ -184,6 +190,10 @@ def profile(
 
 # ======================================== EXPORTS ========================================
 __all__ = [
+    "enable_traceback",
+    "disable_traceback",
+    "set_traceback",
+
     "Window",
     "LogicalScreen",
     "Viewport",

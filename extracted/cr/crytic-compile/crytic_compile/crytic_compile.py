@@ -1,6 +1,7 @@
 """
 CryticCompile main module. Handle the compilation.
 """
+
 import base64
 import glob
 import inspect
@@ -12,21 +13,24 @@ import subprocess
 import tempfile
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING
 
 from solc_select.solc_select import (
+    artifact_path,
     install_artifacts,
     installed_versions,
-    artifact_path,
 )
+
 from crytic_compile.compilation_unit import CompilationUnit
 from crytic_compile.platform import all_platforms
-from crytic_compile.platform.solc_standard_json import SolcStandardJson
-from crytic_compile.platform.vyper import VyperStandardJson
 from crytic_compile.platform.abstract_platform import AbstractPlatform
 from crytic_compile.platform.all_export import PLATFORMS_EXPORT
+from crytic_compile.platform.exceptions import InvalidCompilation
 from crytic_compile.platform.solc import Solc
+from crytic_compile.platform.solc_standard_json import SolcStandardJson
 from crytic_compile.platform.standard import export_to_standard
+from crytic_compile.platform.vyper import VyperStandardJson
+from crytic_compile.utils.libraries import generate_library_addresses, get_deployment_order
 from crytic_compile.utils.naming import Filename
 from crytic_compile.utils.npm import get_package_name
 from crytic_compile.utils.zip import load_from_zip
@@ -39,10 +43,40 @@ LOGGER = logging.getLogger("CryticCompile")
 logging.basicConfig()
 
 
-# pylint: disable=too-many-lines
+_PLATFORM_CLEAN_HINTS: dict[str, str] = {
+    "Brownie": "brownie compile --all",
+    "Buidler": "npx buidler clean",
+    "Dapp": "dapp clean",
+    "Embark": "embark reset",
+    "Etherlime": "etherlime compile --runs 200 --solcVersion 0.5.16 --buildDirectory ./build",
+    "Foundry": "forge clean",
+    "Hardhat": "npx hardhat clean",
+    "Truffle": "npx truffle compile --all",
+    "Waffle": "rm -rf build",
+}
 
 
-def get_platforms() -> List[Type[AbstractPlatform]]:
+def _stale_cache_hint(file: "Filename", platform: AbstractPlatform | None) -> str:
+    """Build a `clean and rebuild` hint for stale build artifacts.
+
+    Args:
+        file (Filename): source file with a mismatched cache.
+        platform (Optional[AbstractPlatform]): underlying build platform, if any.
+
+    Returns:
+        str: human-readable suggestion mentioning the platform-specific command.
+    """
+    base = (
+        f"Source map for '{file.absolute}' falls outside the cached source. "
+        "Build artifacts are likely stale relative to the source on disk."
+    )
+    command = _PLATFORM_CLEAN_HINTS.get(platform.NAME) if platform is not None else None
+    if command:
+        return f"{base} Try `{command}` and recompile."
+    return f"{base} Try removing the build directory and recompiling."
+
+
+def get_platforms() -> list[type[AbstractPlatform]]:
     """Return the available platforms classes in order of preference
 
     Returns:
@@ -66,8 +100,7 @@ def is_supported(target: str) -> bool:
     return any(platform.is_supported(target) for platform in platforms) or target.endswith(".zip")
 
 
-def _extract_libraries(libraries_str: Optional[str]) -> Optional[Dict[str, int]]:
-
+def _extract_libraries(libraries_str: str | None) -> dict[str, int] | None:
     if not libraries_str:
         return None
     # Extract tuple like (libname1, 0x00)
@@ -79,7 +112,7 @@ def _extract_libraries(libraries_str: Optional[str]) -> Optional[Dict[str, int]]
             f"Invalid library linking directive\nGot:\n{libraries_str}\nExpected format:\n(libname1, 0x00),(libname2, 0x02)"
         )
 
-    ret: Dict[str, int] = {}
+    ret: dict[str, int] = {}
     for key, value in matches:
         ret[key] = int(value, 16) if value.startswith("0x") else int(value)
     return ret
@@ -110,14 +143,42 @@ def _configure_solc(solc_requested: str, offline: bool) -> str:
     return solc_path.absolute().as_posix()
 
 
-# pylint: disable=too-many-instance-attributes
+def _locate_framework_root(
+    working_dir: Path, target: str, **kwargs: str
+) -> tuple[AbstractPlatform | None, Path | None]:
+    """Walk up from ``working_dir`` looking for a non-Solc compilation framework.
+
+    Args:
+        working_dir (Path): starting directory for the upward search
+        target (str): original target passed to CryticCompile (used to instantiate the platform)
+        **kwargs: optional arguments forwarded to ``is_supported``
+
+    Returns:
+        Tuple[Optional[AbstractPlatform], Optional[Path]]: the detected platform and
+        the directory where it was detected, or ``(None, None)`` if no framework was found.
+    """
+    platforms = get_platforms()
+    config_root = working_dir.resolve()
+    while True:
+        platform_wd = next(
+            (p(target) for p in platforms if p.is_supported(str(config_root), **kwargs)),
+            None,
+        )
+        if platform_wd and not isinstance(platform_wd, Solc):
+            return platform_wd, config_root
+        parent = config_root.parent
+        if parent == config_root:
+            return None, None
+        config_root = parent
+
+
 class CryticCompile:
     """
     Main class.
     """
 
     # pylint: disable=too-many-branches
-    def __init__(self, target: Union[str, AbstractPlatform], **kwargs: str) -> None:
+    def __init__(self, target: str | AbstractPlatform, **kwargs: str) -> None:
         """See https://github.com/crytic/crytic-compile/wiki/Configuration
         Target is usually a file or a project directory. It can be an AbstractPlatform
         for custom setup
@@ -128,22 +189,22 @@ class CryticCompile:
         """
 
         # dependencies is needed for platform conversion
-        self._dependencies: Set = set()
+        self._dependencies: set = set()
 
-        self._src_content: Dict = {}
+        self._src_content: dict = {}
 
         # Mapping each file to
         #  offset -> line, column
         # This is not memory optimized, but allow an offset lookup in O(1)
         # Because we frequently do this lookup in Slither during the AST parsing
         # We decided to favor the running time versus memory
-        self._cached_offset_to_line: Dict[Filename, Dict[int, Tuple[int, int]]] = {}
+        self._cached_offset_to_line: dict[Filename, dict[int, tuple[int, int]]] = {}
         # Lines are indexed from 1
-        self._cached_line_to_offset: Dict[Filename, Dict[int, int]] = defaultdict(dict)
+        self._cached_line_to_offset: dict[Filename, dict[int, int]] = defaultdict(dict)
 
         # Return the line from the line number
         # Note: line 1 is at index 0
-        self._cached_line_to_code: Dict[Filename, List[bytes]] = {}
+        self._cached_line_to_code: dict[Filename, list[bytes]] = {}
 
         custom_cwd = kwargs.get("cwd")
         if custom_cwd is not None:
@@ -151,25 +212,23 @@ class CryticCompile:
         else:
             self._working_dir = Path.cwd()
 
-        # pylint: disable=too-many-nested-blocks
         if isinstance(target, str):
             platform = self._init_platform(target, **kwargs)
             # If the platform is Solc it means we are trying to compile a single
             # we try to see if we are in a known compilation framework to retrieve
             # information like remappings and solc version
             if isinstance(platform, Solc):
-                # Try to get the platform of the current working directory
-                platform_wd = next(
-                    (
-                        p(target)
-                        for p in get_platforms()
-                        if p.is_supported(str(self._working_dir), **kwargs)
-                    ),
-                    None,
+                # Walk up from the working directory looking for a known
+                # compilation framework (Foundry, Hardhat, ...). This lets
+                # users invoke crytic-compile on a specific file from a
+                # subdirectory of a project and still pick up remappings
+                # and the expected solc version from the project config.
+                platform_wd, config_root = _locate_framework_root(
+                    self._working_dir, target, **kwargs
                 )
                 # If no platform has been found or if it's the Solc platform, we can't automatically compile.
-                if platform_wd and not isinstance(platform_wd, Solc):
-                    platform_config = platform_wd.config(str(self._working_dir))
+                if platform_wd and config_root and not isinstance(platform_wd, Solc):
+                    platform_config = platform_wd.config(str(config_root))
                     if platform_config:
                         kwargs["solc_args"] = ""
                         kwargs["solc_remaps"] = ""
@@ -186,9 +245,9 @@ class CryticCompile:
                         if platform_config.optimizer:
                             kwargs["solc_args"] += "--optimize"
                         if platform_config.optimizer_runs:
-                            kwargs[
-                                "solc_args"
-                            ] += f"--optimize-runs {platform_config.optimizer_runs}"
+                            kwargs["solc_args"] += (
+                                f"--optimize-runs {platform_config.optimizer_runs}"
+                            )
                         if platform_config.via_ir:
                             kwargs["solc_args"] += "--via-ir"
                         if platform_config.allow_paths:
@@ -202,13 +261,22 @@ class CryticCompile:
 
         self._platform: AbstractPlatform = platform
 
-        self._compilation_units: Dict[str, CompilationUnit] = {}
+        self._compilation_units: dict[str, CompilationUnit] = {}
 
         self._bytecode_only = False
 
-        self.libraries: Optional[Dict[str, int]] = _extract_libraries(kwargs.get("compile_libraries", None))  # type: ignore
+        self._autolink: bool = kwargs.get("compile_autolink", False)
 
-        self._compile(**kwargs)
+        self._autolink_deployment_order: list[str] | None = None
+
+        self.libraries: dict[str, int] | None = _extract_libraries(
+            kwargs.get("compile_libraries", None)
+        )
+
+        self._compilation_kwargs = kwargs
+
+        if kwargs.get("crytic_defer_compilation") != "true":
+            self._compile(**kwargs)
 
     @property
     def target(self) -> str:
@@ -220,7 +288,7 @@ class CryticCompile:
         return self._platform.target
 
     @property
-    def compilation_units(self) -> Dict[str, CompilationUnit]:
+    def compilation_units(self) -> dict[str, CompilationUnit]:
         """Return the compilation units
 
         Returns:
@@ -250,14 +318,14 @@ class CryticCompile:
     ###################################################################################
     ###################################################################################
     @property
-    def filenames(self) -> Set[Filename]:
+    def filenames(self) -> set[Filename]:
         """
         Return the set of all the filenames used
 
         Returns:
              Set[Filename]: set of filenames
         """
-        filenames: Set[Filename] = set()
+        filenames: set[Filename] = set()
         for compile_unit in self._compilation_units.values():
             filenames |= set(compile_unit.filenames)
         return filenames
@@ -283,7 +351,7 @@ class CryticCompile:
         raise ValueError(f"{filename} does not exist")
 
     @property
-    def dependencies(self) -> Set[str]:
+    def dependencies(self) -> set[str]:
         """Return the dependencies files
 
         Returns:
@@ -303,7 +371,7 @@ class CryticCompile:
         return filename in self._dependencies or self.platform.is_dependency(filename)
 
     @property
-    def package(self) -> Optional[str]:
+    def package(self) -> str | None:
         """Return the package name
 
         Returns:
@@ -340,7 +408,7 @@ class CryticCompile:
 
         source_code = self._cached_line_to_code[file]
         acc = 0
-        lines_delimiters: Dict[int, Tuple[int, int]] = {}
+        lines_delimiters: dict[int, tuple[int, int]] = {}
         for line_number, x in enumerate(source_code):
             self._cached_line_to_offset[file][line_number + 1] = acc
 
@@ -351,7 +419,7 @@ class CryticCompile:
         lines_delimiters[acc] = (len(source_code) + 1, 0)
         self._cached_offset_to_line[file] = lines_delimiters
 
-    def get_line_from_offset(self, filename: Union[Filename, str], offset: int) -> Tuple[int, int]:
+    def get_line_from_offset(self, filename: Filename | str, offset: int) -> tuple[int, int]:
         """Return the line from a given offset
 
         Args:
@@ -360,6 +428,10 @@ class CryticCompile:
 
         Returns:
             Tuple[int, int]: (line, line offset)
+
+        Raises:
+            InvalidCompilation: if the offset is outside the cached source range,
+                which usually means the build artifacts are stale.
         """
         if isinstance(filename, str):
             file = self.filename_lookup(filename)
@@ -369,9 +441,12 @@ class CryticCompile:
             self._get_cached_offset_to_line(file)
 
         lines_delimiters = self._cached_offset_to_line[file]
-        return lines_delimiters[offset]
+        try:
+            return lines_delimiters[offset]
+        except KeyError as exc:
+            raise InvalidCompilation(_stale_cache_hint(file, self._platform)) from exc
 
-    def get_global_offset_from_line(self, filename: Union[Filename, str], line: int) -> int:
+    def get_global_offset_from_line(self, filename: Filename | str, line: int) -> int:
         """Return the global offset from a given line
 
         Args:
@@ -380,6 +455,10 @@ class CryticCompile:
 
         Returns:
             int: global offset
+
+        Raises:
+            InvalidCompilation: if the line is outside the cached source range,
+                which usually means the build artifacts are stale.
         """
         if isinstance(filename, str):
             file = self.filename_lookup(filename)
@@ -388,7 +467,10 @@ class CryticCompile:
         if file not in self._cached_line_to_offset:
             self._get_cached_offset_to_line(file)
 
-        return self._cached_line_to_offset[file][line]
+        try:
+            return self._cached_line_to_offset[file][line]
+        except KeyError as exc:
+            raise InvalidCompilation(_stale_cache_hint(file, self._platform)) from exc
 
     def _get_cached_line_to_code(self, file: Filename) -> None:
         """Compute the cached lines
@@ -401,7 +483,7 @@ class CryticCompile:
         source_code_list = source_code_encoded.splitlines(True)
         self._cached_line_to_code[file] = source_code_list
 
-    def get_code_from_line(self, filename: Union[Filename, str], line: int) -> Optional[bytes]:
+    def get_code_from_line(self, filename: Filename | str, line: int) -> bytes | None:
         """Return the code from the line. Start at line = 1.
         Return None if the line is not in the file
 
@@ -425,7 +507,7 @@ class CryticCompile:
         return lines[line - 1]
 
     @property
-    def src_content(self) -> Dict[str, str]:
+    def src_content(self) -> dict[str, str]:
         """Return the source content
 
         Returns:
@@ -442,7 +524,7 @@ class CryticCompile:
         return self._src_content
 
     @src_content.setter
-    def src_content(self, src: Dict) -> None:
+    def src_content(self, src: dict) -> None:
         """Set the source content
 
         Args:
@@ -450,7 +532,7 @@ class CryticCompile:
         """
         self._src_content = src
 
-    def src_content_for_file(self, filename_absolute: str) -> Optional[str]:
+    def src_content_for_file(self, filename_absolute: str) -> str | None:
         """Get the source code of the file
 
         Args:
@@ -525,7 +607,7 @@ class CryticCompile:
     # TODO: refactor import_archive_compilations to rely on one CryticCompile object
     # But multiple compilation units
     @staticmethod
-    def import_archive_compilations(compiled_archive: Union[str, Dict]) -> List["CryticCompile"]:
+    def import_archive_compilations(compiled_archive: str | dict) -> list["CryticCompile"]:
         """Import from an archive. compiled_archive is either a json file or the loaded dictionary
         The dictionary myst contain the "compilations" keyword
 
@@ -557,7 +639,7 @@ class CryticCompile:
     ###################################################################################
     ###################################################################################
 
-    def export(self, **kwargs: str) -> List[str]:
+    def export(self, **kwargs: str) -> list[str]:
         """Export to json.
         The json format can be crytic-compile, solc or truffle.
         The type must be specified in the kwargs with "export_format"
@@ -585,7 +667,6 @@ class CryticCompile:
     ###################################################################################
     ###################################################################################
 
-    # pylint: disable=no-self-use
     def _init_platform(self, target: str, **kwargs: str) -> AbstractPlatform:
         """Init the platform
 
@@ -600,17 +681,28 @@ class CryticCompile:
         platforms = get_platforms()
         platform = None
 
-        compile_force_framework: Union[str, None] = kwargs.get("compile_force_framework", None)
+        compile_force_framework: str | None = kwargs.get("compile_force_framework", None)
         if compile_force_framework:
             platform = next(
                 (p(target) for p in platforms if p.NAME.lower() == compile_force_framework.lower()),
                 None,
             )
+            if not platform:
+                raise ValueError(
+                    f"The framework specified {compile_force_framework} does not exist"
+                )
 
         if not platform:
-            platform = next(
-                (p(target) for p in platforms if p.is_supported(target, **kwargs)), None
-            )
+            matching_platforms = [p for p in platforms if p.is_supported(target, **kwargs)]
+            if len(matching_platforms) > 1:
+                names = [p.NAME for p in matching_platforms]
+                LOGGER.warning(
+                    "Multiple frameworks detected: %s. Using %s (highest priority). "
+                    "Use --compile-force-framework to override.",
+                    ", ".join(names),
+                    matching_platforms[0].NAME,
+                )
+            platform = matching_platforms[0](target) if matching_platforms else None
 
         if not platform:
             platform = Solc(target)
@@ -623,7 +715,7 @@ class CryticCompile:
         Args:
             **kwargs: optional arguments. Used: "compile_custom_build", "compile_remove_metadata"
         """
-        custom_build: Union[None, str] = kwargs.get("compile_custom_build", None)
+        custom_build: None | str = kwargs.get("compile_custom_build", None)
         if custom_build:
             self._run_custom_build(custom_build)
 
@@ -632,11 +724,66 @@ class CryticCompile:
                 self._platform.clean(**kwargs)
             self._platform.compile(self, **kwargs)
 
+        # Handle autolink after compilation
+        if self._autolink:
+            self._apply_autolink()
+
         remove_metadata = kwargs.get("compile_remove_metadata", False)
         if remove_metadata:
             for compilation_unit in self._compilation_units.values():
                 for source_unit in compilation_unit.source_units.values():
                     source_unit.remove_metadata()
+
+    def compile(self) -> None:
+        """Compile the project. The kwargs provided during object initialization will be used.
+        This function is useful when paired with the `crytic_defer_compilation` kwargs option.
+        """
+        self._compile(**self._compilation_kwargs)
+
+    def _apply_autolink(self) -> None:
+        """Apply automatic library linking with sequential addresses"""
+
+        # Collect all libraries that need linking and compute deployment info
+        all_libraries_needed: set[str] = set()
+        all_dependencies: dict[str, list[str]] = {}
+        all_target_contracts: list[str] = []
+
+        for compilation_unit in self._compilation_units.values():
+            # Build dependency graph for this compilation unit
+            for source_unit in compilation_unit.source_units.values():
+                all_target_contracts.extend(source_unit.contracts_names_without_libraries)
+
+                for contract_name in source_unit.contracts_names:
+                    deps = source_unit.libraries_names(contract_name)
+                    if deps:
+                        all_dependencies[contract_name] = deps
+                        all_libraries_needed.update(deps)
+
+        all_target_contracts = [c for c in all_target_contracts if c not in all_libraries_needed]
+
+        # Calculate deployment order globally
+        deployment_order, _ = get_deployment_order(all_dependencies, all_target_contracts)
+        self._autolink_deployment_order = deployment_order
+
+        if all_libraries_needed:
+            # Apply the library linking (similar to compile_libraries but auto-generated)
+            library_addresses = generate_library_addresses(all_libraries_needed)
+
+            if self.libraries is None:
+                self.libraries = {}
+
+            # Respect any user-provided addresses through compile_libraries
+            library_addresses.update(self.libraries)
+            self.libraries = library_addresses
+
+    @property
+    def deployment_order(self) -> list[str] | None:
+        """Return the library deployment order.
+
+        Returns:
+            list[str] | None: Library deployment order
+        """
+        return self._autolink_deployment_order
 
     @staticmethod
     def _run_custom_build(custom_build: str) -> None:
@@ -669,7 +816,7 @@ class CryticCompile:
     ###################################################################################
 
     @property
-    def package_name(self) -> Optional[str]:
+    def package_name(self) -> str | None:
         """Return the npm package name
 
         Returns:
@@ -678,7 +825,7 @@ class CryticCompile:
         return self._package
 
     @package_name.setter
-    def package_name(self, name: Optional[str]) -> None:
+    def package_name(self, name: str | None) -> None:
         """Set the package name
 
         Args:
@@ -691,8 +838,9 @@ class CryticCompile:
 ###################################################################################
 ###################################################################################
 
+
 # TODO: refactor me to be integrated within CryticCompile.__init__
-def compile_all(target: str, **kwargs: str) -> List[CryticCompile]:
+def compile_all(target: str, **kwargs: str) -> list[CryticCompile]:
     """Given a direct or glob pattern target, compiles all underlying sources and returns
     all the relevant instances of CryticCompile.
 
@@ -709,7 +857,7 @@ def compile_all(target: str, **kwargs: str) -> List[CryticCompile]:
     use_solc_standard_json = kwargs.get("solc_standard_json", False)
 
     # Check if the target refers to a valid target already.
-    compilations: List[CryticCompile] = []
+    compilations: list[CryticCompile] = []
     if os.path.isfile(target) or is_supported(target):
         if target.endswith(".zip"):
             compilations = load_from_zip(target)

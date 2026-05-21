@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-jupyter-config
-Version: 0.0.12
+Version: 0.0.13
 Summary: Jupyter configuration utilities using gcloud
 Home-page: https://github.com/GoogleCloudPlatform/jupyter-extensions/tree/master/google-cloud-jupyter-config
 Author: Google, Inc.

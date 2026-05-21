@@ -280,9 +280,14 @@ pub mod config;
 // Hybrid classical + ML orchestration
 pub mod hybrid;
 
-// OCR - PaddleOCR via ONNX Runtime (optional)
-#[cfg(feature = "ocr")]
-#[cfg_attr(docsrs, doc(cfg(feature = "ocr")))]
+// OCR - PaddleOCR via a pluggable inference backend (optional).
+// Native ONNX Runtime when `ocr` is on; otherwise the pure-Rust
+// `tract` backend (`ocr-tract`, which `ml` implies and the
+// browser/Deno/edge `wasm-ocr` build uses — issue #524). Exposing OCR
+// wherever the tract backend is available costs only the small OCR
+// module itself and keeps it host-testable without a native dylib.
+#[cfg(any(feature = "ocr", feature = "ocr-tract"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "ocr", feature = "ocr-tract"))))]
 pub mod ocr;
 
 // C FFI for Go, Node.js, C# bindings (not available on wasm32)

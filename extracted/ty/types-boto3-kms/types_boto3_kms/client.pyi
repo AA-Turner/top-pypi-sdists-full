@@ -613,7 +613,8 @@ class KMSClient(BaseClient):
     ) -> ListGrantsResponseTypeDef:
         """
         Returns information about all grants in the Amazon Web Services account and
-        Region that have the specified retiring principal.
+        Region that have the specified retiring principal or retiring service
+        principal.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/list_retirable_grants.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/client/#list_retirable_grants)

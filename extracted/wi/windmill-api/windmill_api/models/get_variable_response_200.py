@@ -33,6 +33,8 @@ class GetVariableResponse200:
         expires_at (Union[Unset, datetime.datetime]):
         labels (Union[Unset, List[str]]):
         ws_specific (Union[Unset, bool]):
+        edited_at (Union[Unset, datetime.datetime]):
+        edited_by (Union[Unset, str]):
     """
 
     workspace_id: str
@@ -50,6 +52,8 @@ class GetVariableResponse200:
     expires_at: Union[Unset, datetime.datetime] = UNSET
     labels: Union[Unset, List[str]] = UNSET
     ws_specific: Union[Unset, bool] = UNSET
+    edited_at: Union[Unset, datetime.datetime] = UNSET
+    edited_by: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -75,6 +79,11 @@ class GetVariableResponse200:
             labels = self.labels
 
         ws_specific = self.ws_specific
+        edited_at: Union[Unset, str] = UNSET
+        if not isinstance(self.edited_at, Unset):
+            edited_at = self.edited_at.isoformat()
+
+        edited_by = self.edited_by
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -108,6 +117,10 @@ class GetVariableResponse200:
             field_dict["labels"] = labels
         if ws_specific is not UNSET:
             field_dict["ws_specific"] = ws_specific
+        if edited_at is not UNSET:
+            field_dict["edited_at"] = edited_at
+        if edited_by is not UNSET:
+            field_dict["edited_by"] = edited_by
 
         return field_dict
 
@@ -151,6 +164,15 @@ class GetVariableResponse200:
 
         ws_specific = d.pop("ws_specific", UNSET)
 
+        _edited_at = d.pop("edited_at", UNSET)
+        edited_at: Union[Unset, datetime.datetime]
+        if isinstance(_edited_at, Unset):
+            edited_at = UNSET
+        else:
+            edited_at = isoparse(_edited_at)
+
+        edited_by = d.pop("edited_by", UNSET)
+
         get_variable_response_200 = cls(
             workspace_id=workspace_id,
             path=path,
@@ -167,6 +189,8 @@ class GetVariableResponse200:
             expires_at=expires_at,
             labels=labels,
             ws_specific=ws_specific,
+            edited_at=edited_at,
+            edited_by=edited_by,
         )
 
         get_variable_response_200.additional_properties = d

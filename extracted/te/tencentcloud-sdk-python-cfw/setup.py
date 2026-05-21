@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-cfw',
-    install_requires=["tencentcloud-sdk-python-common>=3.1.96,<4.0.0"],
+    install_requires=["tencentcloud-sdk-python-common>=3.1.101,<4.0.0"],
     
     version=tencentcloud.__version__,
     description='Tencent Cloud Cfw SDK for Python',

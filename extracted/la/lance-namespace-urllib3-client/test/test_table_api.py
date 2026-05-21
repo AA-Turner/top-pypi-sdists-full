@@ -264,13 +264,6 @@ class TestTableApi(unittest.TestCase):
         """
         pass
 
-    def test_refresh_materialized_view(self) -> None:
-        """Test case for refresh_materialized_view
-
-        Trigger an async materialized view refresh
-        """
-        pass
-
     def test_register_table(self) -> None:
         """Test case for register_table
 
